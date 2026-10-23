@@ -33,8 +33,9 @@ labels, .07em tracking, muted 13px metadata, and stronger authored titles.
 Only the exact section labels “Needs attention” and “Failures and decisions
 needing attention” receive Ledger's deep red. Content is never reclassified.
 IDs use muted monospace on pale gray; unlike Ledger's very light IDs, their
-contrast is at least 4.5:1. All essential styles are inline; a fluid white card
-is bounded to 640px on a pale blue-gray background with an Outlook wrapper.
+contrast is at least 4.5:1. All essential styles are inline; a fluid white layout
+is bounded to 640px with an Outlook wrapper. A single 16px content inset matches
+Ledger's plain layout, without a gray surround or nested card padding.
 
 Scope: the locally authored fleet digest only. Plates's per-project
 `morning.mjs` generates a Markdown GitHub issue; GitHub owns the notification's
