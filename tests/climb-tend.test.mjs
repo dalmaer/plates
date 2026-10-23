@@ -20,7 +20,8 @@ test('tend input: one worksheet of every record measure, reconciliation and loos
   assert.equal(proofs.value, 1, JSON.stringify(proofs));
   assert.deepEqual(proofs.findings.map(f => f.id), ['proofs_hold:1']);
   assert.match(proofs.findings[0].what, /^phase 1 \(docs\/phases\/01-acme-orders\.md\): proof lost: tests\/acme-orders\.test\.mjs missing/);
-  assert.equal(w.count, 1);
+  assert.equal(w.measures.find(m => m.id === 'phases_stuck').value, 0, 'fresh fixture must not add a wall-clock-dependent finding');
+  assert.equal(w.count, 1, JSON.stringify(w.measures));
   assert.deepEqual(w.reconciliation, { state: 'n/a', why: 'the reconciliation practice is off here', findings: [] });
   assert.equal(w.looseEnds.state, 'n/a');
   assert.match(w.looseEnds.why, /^plates is not installed here/);
