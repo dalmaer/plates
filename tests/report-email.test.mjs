@@ -60,6 +60,19 @@ test('email styling remains inline, fluid and readable without head styles', asy
   assert.ok((luminance('#f3f4f6') + .05) / (luminance('#666666') + .05) >= 4.5);
 });
 
+test('report has one white surface and a single 16px inset, including without head CSS', async () => {
+  const html = renderReportEmail(await fixture('digest'));
+  const visible = html.replace(/<!--[\s\S]*?-->/g, '');
+  const styles = [...visible.matchAll(/<(?:body|table|td)\b[^>]*style="([^"]*)"/g)].map(match => match[1]);
+  const backgrounds = styles.flatMap(style => [...style.matchAll(/background-color:([^;]+);/g)].map(match => match[1]));
+  assert.ok(backgrounds.length > 0);
+  assert.ok(backgrounds.every(color => color === '#ffffff'), 'layout must not add a gray surround');
+  const padding = styles.flatMap(style => [...style.matchAll(/(?:^|;)padding:([^;]+);/g)].map(match => match[1]));
+  assert.deepEqual(padding.filter(value => value !== '0'), ['16px'], 'one content inset, no nested card padding');
+  assert.match(html, /<!--\[if mso\]><table role="presentation" width="640"/);
+  assert.match(visible, /width:100%;max-width:640px;table-layout:fixed/);
+});
+
 test('local command writes a new preview and refuses overwrite without touching source', async t => {
   const dir = await mkdtemp(join(tmpdir(), 'acme-email-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
