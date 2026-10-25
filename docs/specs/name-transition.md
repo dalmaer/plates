@@ -151,3 +151,27 @@ adopted but not in `plates.json`, and 129 settles that.
 - A dispatched night is not a scheduled one. The first scheduled night after
   the rollout is the last check, and its morning brief reopens 129 if any
   project still writes a keel name.
+
+## 2026-10-24: standalone runtime packaging
+
+Phase 126 centralizes fence aliases in the phase-124 name table. Reconciliation
+therefore ships its canonical `names.mjs` sibling as part of the installed runtime.
+This explicitly supersedes the prior single-file-copy promise in the decision
+context guide; it does not add a third-party dependency, require the Plates CLI,
+or activate the night practice. Adoption preserves the library's source ownership
+and project-owned local runtime overrides. The standalone proof copies the installed
+runtime pair to a clean directory and executes it there, with the same reconciliation
+assertions. A second embedded alias table would undermine the transition guard, so
+it is not used to retain the former packaging. Historical evidence remains unchanged.
+
+## 2026-10-24: fence ambiguity belongs to a declaration
+
+Phase 126 review reproduced valid historical and current records rejected merely
+because their fence spellings differed within one document. Alias normalization
+therefore operates per record. Existing declaration authority remains unchanged:
+a singleton impact declaration cannot appear twice under different names, and
+duplicate record identities or ambiguous anchors remain errors. Independent
+decision, proof and measurement records may use either spelling in one file.
+Historical bytes are not rewritten. Parser errors retain their source path.
+This narrows the phase's former whole-body refusal; it does not weaken acceptance
+or make one declaration override another.
