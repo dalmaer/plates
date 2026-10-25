@@ -1,10 +1,10 @@
 ---
-status: planned
-since: 2026-10-23
+status: partial
+since: 2026-10-24
 goal: G2
 spec: 2
 depends: [125, 126, 127]
-note: "Specified 2026-10-23 (docs/specs/name-transition.md). The names plates can't change on its own: GitHub labels, repository variables and secrets, Vercel env, and the owner's machine. One command lists them per project, and moves each with the owner's yes."
+note: "Source implementation in progress: exact migration CLI, recovery and scratch-machine proofs exist; actual rollout observation producers and the finite historical environment correction still need integrated proof and review. Owner activation remains separate."
 evidence: []
 issue: 244
 ---
