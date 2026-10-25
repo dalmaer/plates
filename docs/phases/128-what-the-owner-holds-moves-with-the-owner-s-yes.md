@@ -43,7 +43,8 @@ The design is [Name transition](../specs/name-transition.md).
 
 The specification's migration-command section settles exact-row scope, current-first
 environment presence, typed label creation/rename receipts, private recovery, all
-18 local/runtime rows and explicit held canvas/lock states. `--yes --digest` binds
+18 original local/runtime rows, the finite historical environment additions, and
+explicit held canvas/lock states. `--yes --digest` binds
 the reviewed single-project or machine plan; preview is read-only. Source work
 includes `plates names --verify <repo>` before the release; phase 129 owns its
 real dispatched walk. No source test grants activation authority.

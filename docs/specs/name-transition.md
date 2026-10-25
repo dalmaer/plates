@@ -205,7 +205,8 @@ uncertain creation without a returned ID is not proven by finding its name;
 recover the original operation, never issue a replacement POST. Publication of
 the reviewed receipt is a separate rollout step, not an implicit apply side effect.
 
-All 18 phase-128 rows appear with their actual consumer and activation state.
+The 18 original phase-128 rows and the exact finite-environment additions below
+appear with their actual consumer and activation state.
 The four canvas properties are remote metadata, while `keel.project` also has
 a distinct internal-symbol use. Dual readers preserve original pending operations,
 metadata bases and historical receipts; existing cards stay on their recorded
