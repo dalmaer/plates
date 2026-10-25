@@ -4,7 +4,7 @@ since: 2026-10-25
 goal: G2
 spec: 2
 depends: [128]
-note: "Phases 124–128 and the managed setupToken repair are merged; Ledger cleanup dalmaer/ledger#169 is merged. All five consumer candidate rehearsals now pass, including Isocan under its pinned Node 24.22.1; earlier failures are retained. The prior record gate has inconclusive pause-injection coverage, tracked in issue 268; the owner approved the historical PR 220 release exception. The crash-test handshake repair is in PR 269 with passing local gate; review and final integrated rollout-record gate precede release. DTV is included in the managed inventory. No live rollout has begun."
+note: "Phases 124–128 and the managed setupToken repair are merged; Ledger cleanup dalmaer/ledger#169 is merged. All five consumer candidate rehearsals now pass, including Isocan under its pinned Node 24.22.1; earlier failures are retained. The prior record gate has inconclusive pause-injection coverage, tracked in issue 268; the owner approved the historical PR 220 release exception. The crash-test handshake repair in PR 269 is merged; release and the live rollout remain outstanding. DTV is included in the managed inventory. No live rollout has begun."
 evidence: ["evidence/2026-10-25-name-rollout-preparation.md"]
 issue: 245
 ---
@@ -83,7 +83,7 @@ By hand: ⚑ the evening's rollout. Each project's dispatched run links and `pla
 
 ## Next action
 
-Land the independently tested crash-test handshake repair in PR 269, then finish the final integrated gate under Node 24.22.1 with both failed receipts preserved; the earlier inconclusive pause-injection receipt is tracked in issue 268; finish PR 267’s exact-head review and merge. Cut 0.8.34 using the explicitly approved historical PR 220 review exception; all normal release gates remain required. All five consumer candidate rehearsals pass, including Isocan under its pinned Node 24.22.1. Refresh the exact Plates-first barrier, label actions and dispatch inputs, then perform the approved rollout steps in order. The owner approved the two prepared Ledger/Isocan documentation PRs after managed updates; Isocan merge remains the owner’s or Dimitri’s. Hosted and machine verification gaps remain explicit; phase 130 waits for the owner to say retire.
+Finish PR 267’s exact-head checks, review and merge, then release under Node 24.22.1 with both earlier failed receipts preserved. The crash-test repair is merged in PR 269; the earlier inconclusive pause-injection receipt remains tracked in issue 268. Cut 0.8.34 using the explicitly approved historical PR 220 review exception; all normal release gates remain required. All five consumer candidate rehearsals pass, including Isocan under its pinned Node 24.22.1. Refresh the exact Plates-first barrier, label actions and dispatch inputs, then perform the approved rollout steps in order. The owner approved the two prepared Ledger/Isocan documentation PRs after managed updates; Isocan merge remains the owner’s or Dimitri’s. Hosted and machine verification gaps remain explicit; phase 130 waits for the owner to say retire.
 
 ## Reconciliation
 

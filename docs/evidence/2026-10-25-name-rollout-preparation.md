@@ -240,3 +240,15 @@ checks, roadmap/render/inbox guards; typecheck passed on Node 24.22.1. The stand
 prove command is INCONCLUSIVE because the test file is itself the fix; the literal
 mutation is separate evidence, not relabeled as its verdict. Review and merge were
 still pending at this observation; the rollout record’s integrated gate is separate.
+
+
+## 2026-10-25: hygiene repair merged
+
+PR 269 merged as `56bc8b54841849fe5e357e49ba07811755f597db` at
+14:24:46 UTC after exact-head Claude review 5643626760 found no issues and
+GitHub check 40201337524 passed. The integrated rollout-record tree also passed
+its full local gate (3,497 passed, four skipped), typecheck and fresh remote
+reconciliation (zero findings, zero unknown observations). Updating this current
+next action after the merge requires the final gate again before the next push;
+prior checks and failed observations remain separately retained. No release or
+live rollout is implied by these source checks.
