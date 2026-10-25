@@ -161,3 +161,30 @@ A separate hygiene change will address the shared scratch cleanup with bounded
 ENOTEMPTY-only retry and deterministic filesystem fault coverage. The migration
 will incorporate that reviewed change and must pass a new full gate before push.
 This local checkpoint is not a passing integrated verdict, a release, or a merge.
+
+## Cleanup repair and proof refresh — 2026-10-24
+
+The isolated two-file cleanup change is [PR #263](https://github.com/dalmaer/plates/pull/263),
+commit `180c3e36923e9ff471fe7b7605fd2234aaea4ad7`, incorporated locally by
+`932a7c2c`. It retries only ENOTEMPTY, with at most three additional removals
+after 25/50/100 ms. It awaits completion and preserves exhausted and unrelated
+errors. The original late writer remains unknown. The actual registered cleanup
+callback is tested with a real late filesystem entry, bounded persistent failure
+and an unrelated error. `node bin/plates.mjs prove tests/scratch-cleanup.test.mjs
+--fix tests/helpers/improve.mjs --base 7e530b00 --trailer` returned VERIFIED.
+
+On the separate main-based hygiene tree, `npm run check` exited 0: 3,104 tests,
+3,100 passed, four skipped, no failures; all nine seeded stall checks passed,
+as did roadmap/render/inbox and `npm run typecheck`. The ledger reported no
+flaky/slower finding, with four busy runs excluded from its eight observations.
+Those results are not the phase-128 integrated gate. The migration still needs
+its gate and exact-head review before publication. Existing failed observations
+remain intact.
+
+The helper-dependency audit selected ten runtime fallback pairs (twenty runs).
+`python3 /tmp/plates128-hygiene-proof-refresh.py` exited 0: every baseline passed
+and every literal alias-removal mutation failed with its acceptance assertion.
+The new observations record the integrated helper hash and loaded module bytes
+in `.plates/name-transition/phase128-hygiene-proof-refresh-20261024/`. These
+replace ten applicable selections within the prior 180-pair inventory; they
+are not ten additional independent cases. Historical observations are retained.
