@@ -39,6 +39,15 @@ The design is [Name transition](../specs/name-transition.md).
   - git worktrees whose path is named `keel`: listed, never removed. A worktree of another session or provider is named, not touched.
 - **Output:** the preview is the default, and `--yes` acts on one project at a time. `--json` gives agents the list.
 
+### Source and activation contract (settled 2026-10-24)
+
+The specification's migration-command section settles exact-row scope, current-first
+environment presence, typed label creation/rename receipts, private recovery, all
+18 local/runtime rows and explicit held canvas/lock states. `--yes --digest` binds
+the reviewed single-project or machine plan; preview is read-only. Source work
+includes `plates names --verify <repo>` before the release; phase 129 owns its
+real dispatched walk. No source test grants activation authority.
+
 ## Acceptance
 
 - [ ] The preview lists each live keel name per project, with its kind and the action or command. Nothing changes without `--yes`. `tests/names-cli.test.mjs` (stub `gh`): "the preview changes nothing"
@@ -46,6 +55,10 @@ The design is [Name transition](../specs/name-transition.md).
 - [ ] Variables are copied, never deleted. Secrets are listed with a command and no value, and no `gh secret` read is ever made. `tests/names-cli.test.mjs`: "secrets are never read"
 - [ ] `--machine` moves the night-card job and its launchd label in a scratch home, and the job then runs from `~/.plates`. `tests/names-machine.test.mjs`: "the night card moves and still runs"
 - [ ] The owner runs `plates names --yes` on plates and sets the listed secrets. The next listing separates verified retained aliases from active legacy dependencies and unknown coverage; old variables retained for phase 130 are not falsely reported as absent. ⚑ by hand: the owner
+
+- [ ] Read-only `--verify` names each failed or unknown phase-129 check and distinguishes fresh writes from required legacy continuation. `tests/names-verify.test.mjs`
+- [ ] All exact phase-128 rows have source coverage or an explicit held/classification gap, with both-direction mutation proof for each implemented fallback.
+- [ ] Recovery preserves original operations through uncertain writes; public label receipts remain separate from private intents and uncommitted receipts cannot activate CI writers.
 
 ## Your part
 

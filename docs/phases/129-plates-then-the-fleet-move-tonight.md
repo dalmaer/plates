@@ -87,4 +87,4 @@ By hand: ⚑ the evening's rollout. Each project's dispatched run links and `pla
 
 ## Next action
 
-Write `plates names --verify` against a stub of plates's own last night, then list the project files plates doesn't manage that still say keel, per repository.
+Use phase 128's implemented verifier, prepare the reviewed release and refresh the unmanaged-file inventory, then present the exact Plates-first rollout preview for owner approval.

@@ -175,3 +175,64 @@ decision, proof and measurement records may use either spelling in one file.
 Historical bytes are not rewritten. Parser errors retain their source path.
 This narrows the phase's former whole-body refusal; it does not weaken acceptance
 or make one declaration override another.
+
+## 2026-10-24: migration command and activation boundaries
+
+Phase 128 implements `plates names`, its exact single-project approval/apply and
+read-only recovery, `--machine`, and `--verify <repo>`. The verifier is source
+work in 128 so the release contains it before phase 129's real rollout. Preview
+writes nothing; `--yes --digest <preview-digest>` binds one exact repository or
+machine plan. No fleet-wide apply, implicit workflow dispatch, commit, PR, rebase,
+secret retrieval, cancellation or retirement is included. Unknown provider pages,
+missing evidence and held activations remain explicit, never an empty inventory.
+
+Only exact table rows qualify. Ordinary process environment aliases select the
+current variable when present, validate it, and fall back only when absent; an
+invalid current value does not select a valid legacy one. Values are not reported.
+Existing hosted identity/conflict rules remain unchanged. Process overrides are
+not assumed to be GitHub repository variables. Secret inventory reads names only
+and prints exact owner commands, never values. Variable copies retain the old
+name and keep values in memory only; changed source/destination invalidates approval.
+
+Label rename receipts remain repository- and label-ID-bound and must be committed
+at the workflow revision before activation. Version-one rename evidence remains
+readable. Version-two evidence may additionally describe an explicitly approved
+initial current-name creation, with its returned ID and verified readback; it
+must not invent an old label or a rename. Preview enumerates latent labels needed
+by enabled writers. Current-only labels without provenance remain unresolved.
+Private attempted-write journals and public receipt bytes are separate. An
+uncertain creation without a returned ID is not proven by finding its name;
+recover the original operation, never issue a replacement POST. Publication of
+the reviewed receipt is a separate rollout step, not an implicit apply side effect.
+
+All 18 phase-128 rows appear with their actual consumer and activation state.
+The four canvas properties are remote metadata, while `keel.project` also has
+a distinct internal-symbol use. Dual readers preserve original pending operations,
+metadata bases and historical receipts; existing cards stay on their recorded
+key family until an explicitly approved conditional migration is supported. No
+automatic rebase or replacement card. The goodnight seed preserves existing
+subject reservations, intents and original issue identities, including uncertain
+or closed originals, before selecting a current seed for genuinely new work.
+Local claim readers preserve token/provider/session ownership and original
+removal locations; remote claim refs do not change.
+
+The shared proposal lock remains held while legacy participants may run. A
+legacy-first dual-lock bridge would be a retained-compatibility exception to
+write-new, requiring an explicit owner choice; neither alternate-file discovery
+nor a new lock alone establishes exclusion. Temporary index/directory producers
+may use current names for new objects while cleaning up only their exact owned
+paths. The inventory-only canvas-card machine row remains held with its missing
+consumer disclosed rather than inventing a filesystem migration.
+
+Machine apply is separate, exact and recoverable: inspect source/destination,
+refuse collisions/unsafe links, stop and confirm the old launchd job before
+starting the new one, retain original intent and modes/content except approved
+path/label edits. Worktrees are listed only. Tests use scratch homes and an
+injected launchctl adapter; no real machine approval follows from those tests.
+
+Verification reports pass/fail/unknown per phase-129 checklist item, linked to
+run/attempt/source revision and retained records. A green run alone cannot prove
+all names migrated. Required legacy-night continuation is valid and is distinct
+from a fresh legacy write. Missing artifact, queue or board/history provenance
+blocks a complete verdict without fabricating evidence. Source support, remote
+activation, dispatched verification and owner acceptance remain distinct.
