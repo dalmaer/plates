@@ -173,7 +173,7 @@ function zip(files, { method = 0, descriptor = false, overrides = [] } = {}) {
   return Buffer.concat([...locals, centralBytes, end]);
 }
 
-async function positiveObservationFixture({legacy=false,artifactGap=false,setup=false,observerMismatch=false,attemptMismatch=false,missingObserver=false,missingClosure=false,changedManaged=false,withoutDelivery=false}={}){
+async function positiveObservationFixture({legacy=false,artifactGap=false,setup=false,observerMismatch=false,attemptMismatch=false,missingObserver=false,missingClosure=false,changedManaged=false,withoutDelivery=false,skippedHistory=null}={}){
  const {readFile}=await import('node:fs/promises');const {posix}=await import('node:path');
  const {observationFiles}=await import('../lib/names-observation.mjs');
  const {OBSERVATION_PRODUCERS,observationWorkflowBytes}=await import('../lib/names-verify.mjs');
@@ -215,7 +215,7 @@ async function positiveObservationFixture({legacy=false,artifactGap=false,setup=
    for(const family of ['plates','keel']){
     const ref=sourceKind==='plan'?`${family}-night-plan`:`${family}-verify`,path=sourceKind==='plan'?'plan.json':'verify.json',read=sourceKind==='plan'&&family==='plates';
     if(read)set(path,projection);
-    reads.push({consumer,sourceKind,repositoryId:31,ref,path,commitSha:read?revision:null,blobSha:read?blob(projection):null,sha256:read?hash(projection):null,state:read?'read':'absent',absence:read?null:'ref',selected:read,contributed:read,outputSection:sourceKind,outputProjection,recordIds:[]});
+    reads.push({consumer,sourceKind,repositoryId:31,ref,path,commitSha:read?revision:null,blobSha:read?blob(projection):null,sha256:read?hash(projection):null,state:sourceKind==='verify'&&family===skippedHistory?'skipped':read?'read':'absent',absence:read||sourceKind==='verify'&&family===skippedHistory?null:'ref',selected:read,contributed:read,outputSection:sourceKind,outputProjection,recordIds:[]});
    }
   }
   const observation={schema:1,kind,repository:{id:31,fullName:repo},execution:{workflowPath:`.github/workflows/plates-${kind}.yml`,runId:kind==='night'?12:22,runAttempt:1,event:'workflow_dispatch',headSha:revision,codeSha:revision,startedAt:at,finishedAt:at,codeIdentity:null},scope:{workflow:source(`.github/workflows/plates-${kind}.yml`),configuration:source('.plates/plates.json'),runtime:{codeSha:revision,sourceFiles:[...runtime].map(source)},producers:producers.map(p=>({id:p.id,job:p.step.split('/')[0],step:p.step,source:source(p.path),mode:'enabled',reason:null}))},originatingNight:null,association:kind==='night'?{kind,date,branch:nightPr.head.ref,leaseId:null,preexisting:false,preimageHeadSha:null,prId:61,prNumber:3,headSha:revision,planPath:null,planBlobSha:null}:{kind,date,nightBranch:nightPr.head.ref,finalPrId:62,finalPrNumber:4,finalHeadSha:revision,briefIssueId:63,briefIssueNumber:5},producers:producers.map(p=>({id:p.id,job:p.step.split('/')[0],step:p.step,outcome:'completed',observedAt:at,reason:null})),writes,reads,projections,artifacts:[],fragments:[...fragments].map(([path,b])=>({path,bytes:b.length,sha256:hash(b),kind:reads.some(r=>r.outputProjection.fragment===path)||projections.some(p=>p.fragment===path)?'projection':'managed-fragment'})),gaps:[]};
@@ -332,4 +332,13 @@ test('cross-job transfer rejects private scalars and objects under allowed evide
   const value=structuredClone(base),projection=JSON.parse(value.fragments[2].text);projection[collection][0][key]={private:'Private Acme credential payload'};value.fragments[2].text=JSON.stringify(projection);
   const encoded=await transfer(value);assert.ok(!Buffer.from(encoded,'base64').toString().includes('Private Acme'));assert.equal(decodeNamesProducerTransfer(encoded).value.gaps[0].code,'producer-output-unavailable');
  }
+});
+
+
+for(const family of ['plates','keel'])test(`required ${family} verify-history alias cannot be satisfied by skipped reads`,async()=>{
+ const f=await positiveObservationFixture({skippedHistory:family});
+ const github=async request=>request.path.includes('/git/ref/heads/'+family+'-verify')?{status:200,data:{ref:'refs/heads/'+family+'-verify',object:{sha:revision}}}:f.github(request);
+ const out=await verifyNames({repo,run:12},github);
+ assert.equal(check(out,'board-history').state,'unknown');
+ assert.notEqual(out.data.state,'verified');
 });
