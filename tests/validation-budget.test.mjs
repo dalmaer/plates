@@ -37,6 +37,16 @@ async function waitForMarker(path, decode, timeout = 15000) {
   return value;
 }
 const waitForText = (path, expected) => waitForMarker(path, text => text === expected ? text : undefined);
+async function waitForRunningLease(stateDir, owned, timeout = 15000) {
+  // Publishing childPid precedes the mutation's guard removal. Signals in
+  // these tests belong after that mutation, not in its crash window.
+  await until(async () => {
+    const state = await inspectBudget({ stateDir });
+    return state.coordinationBusy === false && state.leases.some(row =>
+      row.state === 'running' && row.pid === owned.wrapper && row.childPid === owned.child);
+  }, timeout);
+}
+
 function git(root, args) { const r = run('git', ['-c', 'core.fsmonitor=false', '-C', root, ...args]); assert.equal(r.status, 0, r.stderr); return r.stdout.trim(); }
 async function fixture(t) {
   const dir = await realpath(await mkdtemp(join(tmpdir(), 'plates-acme-admission-')));
@@ -630,6 +640,27 @@ test('a surviving foreground descendant retains capacity after its direct parent
   const next = run(process.execPath, f.args('run', 1)); assert.equal(next.status, 2); assert.match(next.stderr, /capacity_busy/);
 });
 
+test('running lease handshake waits for coordination guard removal', async t => {
+  const f = await fixture(t);
+  assert.equal(run(process.execPath, f.args('run')).status, 0);
+  const path = join(f.stateDir, 'state.json'), original = JSON.parse(await readFile(path, 'utf8'));
+  const target = await inspectBudgetTarget(f.options(0)), owned = { wrapper: 99999999, child: 99999998 };
+  const lease = { id: 'Acme-running', foregroundContract: 'posix-cooperative-process-group', pid: owned.wrapper,
+    uid: process.getuid(), host: original.host, root: target.root, repo: target.repo, revision: target.revision,
+    weight: 1, childPid: owned.child, state: 'running', commandDigest: 'a'.repeat(64), createdAt: new Date().toISOString() };
+  await writeFile(path, JSON.stringify({ ...original, leases: [lease] }));
+  const guard = join(f.stateDir, 'coordination');
+  await mkdir(guard, { mode: 0o700 });
+  // Hold the exact published-running / still-guarded state indefinitely:
+  // no scheduling race or real process needs to be killed to exercise it.
+  const observed = await inspectBudget({ stateDir: f.stateDir });
+  assert.equal(observed.coordinationBusy, true); assert.deepEqual(observed.leases, [lease]);
+  await assert.rejects(waitForRunningLease(f.stateDir, owned, 100), /Acme condition did not complete within its bound/);
+  await rmdir(guard);
+  await waitForRunningLease(f.stateDir, owned);
+  assert.deepEqual((await inspectBudget({ stateDir: f.stateDir })).leases, [lease]);
+});
+
 test('a confirmed-start command receives forwarded termination and releases its proven exited group', async t => {
   const f = await fixture(t), ready = join(f.dir, 'ready'), release = join(f.dir, 'stop');
   const argv = [process.execPath, '-e', `require('fs').writeFileSync(${JSON.stringify(ready)},JSON.stringify({wrapper:process.ppid,child:process.pid}));const timer=setInterval(()=>{if(require('fs').existsSync(${JSON.stringify(release)}))clearInterval(timer)},10)`];
@@ -638,7 +669,7 @@ test('a confirmed-start command receives forwarded termination and releases its 
   try {
     owned = await waitForMarker(ready, decodeOwner);
     assert.ok(Number.isInteger(owned.child) && owned.child > 1); assert.ok(Number.isInteger(owned.wrapper) && owned.wrapper > 1);
-    await until(async () => (await inspectBudget({ stateDir: f.stateDir })).leases.some(row => row.pid === owned.wrapper && row.childPid === owned.child));
+    await waitForRunningLease(f.stateDir, owned);
     process.kill(owned.wrapper, 'SIGTERM');
     const result = await pending; assert.equal(result.status, 143, result.stderr);
     assert.equal(JSON.parse(result.stdout).released, true);
@@ -658,7 +689,7 @@ test('a killed wrapper leaves its lease reserved even after its owned child is s
   try {
     owned = await waitForMarker(ready, decodeOwner);
     assert.ok(Number.isInteger(owned.child) && owned.child > 1); assert.ok(Number.isInteger(owned.wrapper) && owned.wrapper > 1);
-    await until(async () => (await inspectBudget({ stateDir: f.stateDir })).leases.some(row => row.pid === owned.wrapper && row.childPid === owned.child));
+    await waitForRunningLease(f.stateDir, owned);
     process.kill(owned.wrapper, 'SIGKILL');
     if (Number.isInteger(owned.child) && owned.child > 1) { try { process.kill(-owned.child, 'SIGKILL'); } catch {} }
     await pending;
