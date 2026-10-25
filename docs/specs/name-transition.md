@@ -249,3 +249,88 @@ the new location. A script requiring embedded legacy-path edits is a manual
 preview blocker, not permission for shell-text replacement. No script is run
 during preview; scratch tests may execute their own synthetic portable script.
 This settles an absent installer contract without inventing the owner's job.
+
+### 2026-10-24: observable rollout verification (settled before producer work)
+
+The initial phase-128 verifier could never return verified: existing health,
+canvas and final-plan records do not associate the morning with an exact Actions
+night attempt or establish actual body writes and reader consumption. A green
+night and negative-only verifier tests cannot satisfy phase 129. This is source
+work in phase 128, not an owner walk deferred to phase 129.
+
+Extend the existing producers' JSON results and retain one immutable observation
+artifact **per run attempt**, with a morning artifact referencing its originating
+night artifact by provider ID and digest. Use the new current-only artifact family
+`plates-names-observation-<runId>-<attempt>`. It carries evidence, never task status,
+acceptance, permission, or mutation recovery authority. Existing phase, health,
+plan, verification and operation records remain authoritative in their scopes.
+
+Observation is opt-in through `workflow_dispatch` input `names_evidence` (default
+false). An evidence-enabled morning also takes the exact originating night run ID
+and attempt. A final collection job waits for both finalization and sending; it
+must preserve failed, skipped, unfinished and missing producer coverage. Ordinary
+schedules and write permissions do not change. Enabling observation grants no
+agent budget, dispatch, merge, label, secret, deployment or machine permission.
+Phase 129's exact dispatch preview will name these inputs.
+
+The source contract is:
+
+- Bind the repository ID/name, workflow path, run ID/attempt/event/head SHA and
+  actual executed code identity separately from a later pushed data commit. Pin
+  configuration and expected applicable producers at that source. An installed
+  CLI needs its own verified code identity; a version string alone is insufficient.
+- Capture the night writer's original resolved branch/lease, actual PR object and
+  head, plan and changed health blobs. A manual Actions run's `pull_requests`
+  array is not the association with the PR that run later creates.
+- Extend existing morning final/brief/send results with their actual final PR,
+  sent issue/label identities, original night association and confirmed/no-change/
+  uncertain outcomes. A no-change final must identify and verify the existing
+  same-night result. Already-sent is retained history, not a new delivery.
+- Pin the commits/blobs actually read by morning's plan/verify readers. Preserve
+  selected and contributing inputs, both alias reads, complete known absence,
+  skipped and unavailable states, and a digest of the resulting projection.
+  Board currently consumes verify history but not the night plan: add a small
+  real plan source projection to its existing JSON result, with the same source
+  trace. A diagnostic read unrelated to the board output is not consumption.
+- Retain actual generated managed fragments/name tokens and before/intended/after
+  digests for applicable PR/issue/comment and Git writers, tied to exact object
+  IDs and original operation IDs where they already exist. Read back results;
+  uncertain writes stay uncertain and are never retried by the observer. Old
+  historical regions retained unchanged are distinct from freshly generated
+  legacy text. Preserve required original-prefix night continuations.
+- Retain drain's actual actions and complete current queue observation, and
+  provider-backed artifact identities. A rerun cannot attribute an earlier
+  attempt's artifact to itself. The observation artifact's own final digest is
+  verified from provider metadata after upload, not self-certified inside it.
+
+This boundary covers this invocation's managed writers and readers, not unrelated
+actors' concurrent activity. Derive expected producers from the pinned workflow
+and configuration: unsupported enabled write paths, missing producers or unstable
+readback block complete coverage. Before/after snapshots do not establish that
+an unrelated actor never wrote and reverted between reads; never claim that.
+A generated-payload/readback mismatch is unknown, not permission to overwrite.
+Disabled optional writers need source/step evidence, not an authored `passed` flag.
+
+The verifier recomputes checks from these observations and cross-checks fresh
+provider run/attempt/jobs, artifacts, exact objects and immutable Git blobs. It
+must have a positive end-to-end synthetic test with an empty manual-run PR array,
+plus independently failing cases for each required check. Missing, expired,
+tampered, cross-repository, cross-attempt or incomplete evidence is unknown or
+failed, never successful. Named manual labels are classified from actual source
+use; unclassified writers cannot be waved through to make success reachable.
+
+Use a bounded data-only observation helper and the existing transport conventions;
+no global interceptor, extra scheduler, audit database or second status engine.
+Limits: JSON 1 MiB; 512 writes; 64 reads; 128 allowlisted generated-fragment members;
+256 KiB per member; 8 MiB compressed and expanded archive; 20 pages of 100 provider
+objects per listing. Reject path traversal, links, duplicate archive names and
+unsupported compression before extraction/inflation. Limit exhaustion is a gap.
+Artifacts retain for 14 days under existing repository access policy; expiry is
+unknown coverage. Upload exact allowlisted files only, never a whole temp/state
+directory. Exclude environment/secret values, raw command logs, private feedback,
+unrelated board entries and full private issue bodies. Git bytes are retrieved by
+immutable blob ID; non-Git evidence uses only the generated managed fragments and
+bounded observations. If safe evidence is insufficient, retain the gap.
+
+Source implementation remains separate from activating evidence runs or changing
+fleet state. The real owner-approved run/attempt walkthrough remains phase 129.

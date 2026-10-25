@@ -56,6 +56,7 @@ real dispatched walk. No source test grants activation authority.
 - [ ] `--machine` moves the night-card job and its launchd label in a scratch home, and the job then runs from `~/.plates`. `tests/names-machine.test.mjs`: "the night card moves and still runs"
 - [ ] The owner runs `plates names --yes` on plates and sets the listed secrets. The next listing separates verified retained aliases from active legacy dependencies and unknown coverage; old variables retained for phase 130 are not falsely reported as absent. ⚑ by hand: the owner
 
+- [ ] Run-attempt observation artifacts extend actual producer outputs and prove the positive night → morning → board/history → verifier path, without creating acceptance or mutation authority. `tests/names-observation.test.mjs` and `tests/names-verify.test.mjs`.
 - [ ] Read-only `--verify` names each failed or unknown phase-129 check and distinguishes fresh writes from required legacy continuation. `tests/names-verify.test.mjs`
 - [ ] All exact phase-128 rows have source coverage or an explicit held/classification gap, with both-direction mutation proof for each implemented fallback. `tests/names-cli.test.mjs` and the retained mutation observations.
 - [ ] Recovery preserves original operations through uncertain writes; public label receipts remain separate from private intents and uncommitted receipts cannot activate CI writers. `tests/names-cli.test.mjs` and `tests/names-labels.test.mjs`.
@@ -88,4 +89,4 @@ By hand: ⚑ the owner's run on plates. The listing before and after goes into t
 
 ## Next action
 
-Write `plates names` as a read-only listing first, then run it on plates and check every row against the phase-124 table.
+Finish the source-bound night/morning observation producers and positive verifier path, then integrate the exact-row mutation proofs and review the phase-128 PR. The real activation and dispatched walkthrough remain owner steps.
