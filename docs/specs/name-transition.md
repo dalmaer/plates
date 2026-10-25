@@ -334,3 +334,59 @@ bounded observations. If safe evidence is insufficient, retain the gap.
 
 Source implementation remains separate from activating evidence runs or changing
 fleet state. The real owner-approved run/attempt walkthrough remains phase 129.
+
+### 2026-10-24: finite environment compatibility inventory (settled before expansion)
+
+Removing phase 109's broad environment copier exposed a census gap: current
+literal-source scanning alone does not enumerate the historical bindings that
+copier still supports. Historical source is
+47f3043948260d764b83bc5ff83d8bef6f5e308f, immediately before rename commit
+a9e6600bb222040ac71f55c4873f8de9e3e3d7d3. Preserve phase 124's original
+139-row observation; it is not evidence that every computed alias was covered.
+
+Add exact phase-128 rows for these proven historical environment bindings.
+Each row records its environment policy and scope in the existing canonical
+table; do not create a second alias registry or restore arbitrary prefix copying.
+
+- Ordinary: KEEL_MILESTONES_OFFLINE, KEEL_CANVAS_PERSISTENCE,
+  KEEL_CANVAS_RECOVERY, KEEL_CANVAS_OUTPUT, KEEL_ISOCAN, KEEL_CI_OFFLINE,
+  KEEL_FLEET_PRACTICE, KEEL_NPM, KEEL_GIT, KEEL_CLAUDE_DIR,
+  KEEL_PROVE_MUTANT_MS, KEEL_PROVE_IGNORED_BYTES, KEEL_REVIEW_POLL_MS,
+  KEEL_CACHE, KEEL_PREVIOUS_PRACTICES, KEEL_SELF_UPDATED, KEEL_CLIMB_CLOCK,
+  KEEL_CLI, KEEL_NOW, KEEL_STITCH, KEEL_DRAIN_WAIT_MS, KEEL_QUOTA_FLOOR,
+  KEEL_STALLS_SHAPE.
+- Claim identity: KEEL_PROVIDER, KEEL_SESSION, KEEL_MACHINE.
+- Gate/ledger invocation identity: KEEL_RUN_START, KEEL_GATE_INVOCATION,
+  KEEL_USUAL, KEEL_GATE_ACTIVE, KEEL_SUITE_PLAN.
+- Publisher source identity: KEEL_PUBLISHER.
+
+Their current names are the individually enumerated PLATES counterparts; the
+runtime resolves exact table rows, never constructs an alias by string pattern.
+Ordinary selectors use current presence and preserve existing consumer validation.
+An invalid current value never falls through to legacy. Identity selectors refuse
+conflicting simultaneously supplied values before claiming ownership, attributing
+a run or trusting a source. Equal values still undergo the existing validation.
+Nested gate/ledger forwarding scrubs both exact families where it previously
+scrubbed one; preserve an original invocation rather than inventing another.
+Publisher identity retains its existing source-digest check.
+
+The five already mapped ordinary bindings and phase 127's hosted config/auth
+readers keep their own contracts. Internal ROBOT_FETCH_AUTH transport headers
+are generated and consumed within their existing boundary, not a new external
+configuration alias. Heredoc delimiters and constants are not environment
+bindings. New post-rename controls, including observation controls, receive no
+invented historical aliases. The table addition does not relocate cache contents,
+rewrite recovery intents or change the owner's machine.
+
+Runtime alias support and provider configuration are separate scopes. Adding a
+process-binding row does not automatically enable GitHub variable copies or
+secret-setting suggestions. Provider actions need their separately identified
+configuration scope and exact observed resource/source facts in the approved
+preview; unavailable provider applicability remains explicit. Never expose or
+persist environment values as inventory evidence.
+
+Prove each new fallback in both directions through its real consumer, including
+current-invalid/legacy-present and identity-conflict cases. Unknown aliases must
+remain inert. Retain failed experiments and old proofs; refresh changed-reader
+proofs at final source. The finite source/history inventory is an explicit
+compatibility correction, not a blanket claim about arbitrary dynamic inputs.
