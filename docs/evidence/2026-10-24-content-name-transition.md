@@ -77,3 +77,27 @@ The original PR head's full local gate (3,089 tests, 3,085 passed, four skipped)
 The next review found [a missing source-tree export](https://github.com/dalmaer/plates/pull/262#discussion_r4368134567): climb imports `branchSuffix`, but its names doorway omitted that binding. Installed consumers received the canonical runtime and passed, leaving source imports uncovered. All three source name doorways now re-export the canonical interface. A dedicated test imports the real doorways and verifies exact export parity and canonical binding identity; it exercises climb's required binding under both branch names. No CLI entrypoint or hosted authority is added.
 
 The conductor observed nine focused tests passing and `plates prove tests/names-doorways.test.mjs --fix lib/names.mjs practices/climb/files/scripts/plates/names.mjs practices/reconciliation/files/scripts/plates/names.mjs --base 3ad472f7 --trailer` returning VERIFIED. The conductor also independently matched 53 canonical/consumer/fixture files to their base-commit bytes. Existing fallback implementations and mutation tests are unchanged; the 172 pair observations retain their source applicability. The new doorway regression is additional export-contract coverage, not another fallback pair. The three existing capability fingerprints were refreshed with their classifications unchanged. The previous head's full gate passed (3,092 tests, 3,088 passed, four skipped); the corrected tree's gate follows this record and is reported in its fix commit.
+
+## Review round three: independent records and declaration authority
+
+The next review found the same overly broad fence refusal in reconciliation and
+measurement evidence. Docs-only commit `0b8b684b` first corrected the contract:
+independent historical/current records may coexist; singleton declarations,
+duplicate identities and ambiguous anchors still refuse. Per-record normalization
+now preserves original types and bytes, while each consumer retains its own
+cardinality/identity checks. Measurement errors name the source path.
+
+The conductor independently observed 104 affected tests passing and the new
+public-consumer regression returning VERIFIED with `plates prove` against
+`0b8b684b`. Both spellings work through decision context, reconciliation and
+measurement previews; duplicate declarations and malformed records still fail
+before execution. Thirty-six affected fallback pairs were refreshed and their
+source/test/log hashes and assertion failures checked. The other helper bytes
+are unchanged; current logical coverage remains 172 pairs. Original failed
+fixture observations and superseded proofs are retained, not counted as passes.
+The JSON record links the immutable private archive and actual regression trailer.
+
+The owner explicitly authorized continued migration repair/review beyond the
+numeric round limit. This supersedes the earlier count-only stop for this task;
+it grants no remote activation or retirement authority. The full gate and
+typecheck follow this finalized record and are reported in the fix commit.

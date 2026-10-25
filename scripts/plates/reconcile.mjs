@@ -101,7 +101,9 @@ async function reader(root, out) {
       } catch (e) { if (e.code === 'ENOENT') out.snapshot.blobs[path] = null; throw e; }
     }
     const doc = cache.get(path);
-    const section = anchor ? doc.sections.find(s => s.anchor === anchor) : null;
+    const matches = anchor ? doc.sections.filter(s => s.anchor === anchor) : [];
+    if (matches.length > 1) throw Error(`ambiguous anchor: ${ref}`);
+    const section = matches[0] ?? null;
     if (anchor && !section) throw Error(`missing anchor: ${ref}`);
     return { ...doc, section };
   }

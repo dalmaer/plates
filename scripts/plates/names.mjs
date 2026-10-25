@@ -195,14 +195,11 @@ export function selectArtifacts(artifacts, id, suffix = '', rows = NAMES) {
 export function historicalFence(type, rows = NAMES) {
   return rows.find(row => row.surface === 'fence' && [row.plates, row.keel].includes(type)) ?? null;
 }
+/** Normalize each record independently; consumers own declaration cardinality and identity. */
 export function normalizeFences(fences, rows = NAMES) {
-  const seen = new Map();
   return fences.map(fence => {
     const row = historicalFence(fence.type, rows);
     if (!row) return fence;
-    const previous = seen.get(row.id);
-    if (previous && previous !== fence.type) throw new Error(`Both ${row.plates} and ${row.keel} fences in one body are refused`);
-    seen.set(row.id, fence.type);
     return { ...fence, identity: row.id, sourceType: fence.type, type: row.keel };
   });
 }

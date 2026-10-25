@@ -50,7 +50,7 @@ The design is [Name transition](../specs/name-transition.md).
 
 ## Proof
 
-Automated: `node --import ./tests/helpers/hermetic.mjs --test tests/names.test.mjs tests/names-doorways.test.mjs tests/names-content.test.mjs tests/names-labels.test.mjs tests/names-label-consumers.test.mjs tests/names-review-markers.test.mjs tests/reconciliation.test.mjs tests/robot-runtime.test.mjs tests/robot-issue.test.mjs tests/review.test.mjs tests/gate-reuse.test.mjs tests/climb.test.mjs tests/canvas-snapshot.test.mjs tests/morning.test.mjs`; `npm run check`; `npm run typecheck`. Mutation-check every fallback in both directions: the same acceptance assertion must pass with both names and fail with either name removed. Preserve original and corrected observations separately. The morning suite retains phase 125's #218 outside-byte preservation proof under both wrapper names.
+Automated: `node --import ./tests/helpers/hermetic.mjs --test tests/names.test.mjs tests/names-doorways.test.mjs tests/names-fence-records.test.mjs tests/names-content.test.mjs tests/names-labels.test.mjs tests/names-label-consumers.test.mjs tests/names-review-markers.test.mjs tests/reconciliation.test.mjs tests/robot-runtime.test.mjs tests/robot-issue.test.mjs tests/review.test.mjs tests/gate-reuse.test.mjs tests/climb.test.mjs tests/canvas-snapshot.test.mjs tests/morning.test.mjs`; `npm run check`; `npm run typecheck`. Mutation-check every fallback in both directions: the same acceptance assertion must pass with both names and fail with either name removed. Preserve original and corrected observations separately. The morning suite retains phase 125's #218 outside-byte preservation proof under both wrapper names.
 
 ## Deliberately open
 
@@ -76,3 +76,5 @@ Publish the reviewed source, then complete phases 128–129: owner-approved labe
 - **2026-10-24** — Review exposed a lost implicit local repository target in morning delivery. Resolve it once and pin the same identity for reads, receipts and writes; missing discovery refuses without weakening label evidence. The regression is independently proven and affected fallback observations refreshed.
 
 - **2026-10-24** — Installed-runtime tests missed a source doorway with an incomplete export list. Source doorways now forward the complete canonical interface, and a dedicated parity/binding test prevents the same omission at any of the three entry paths.
+
+- **2026-10-24** — Review found whole-document fence refusal blocked independent historical/current records. Declaration-scoped normalization retains duplicate/singleton/anchor rejection; public-consumer regression is independently VERIFIED. Owner authorizes continued review/fix for this migration beyond the numeric checkpoint.

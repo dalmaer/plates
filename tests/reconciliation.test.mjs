@@ -426,13 +426,13 @@ test('qualified PR links with optional Markdown titles never invent a local PR',
   }
 });
 
-test('PR impact refuses mixed aliases across headings before normalization', async t => {
+test('PR impact refuses mixed singleton declarations across headings', async t => {
   const root = await fixture(t);
   const data = { reconciliation: 'none', reason: 'Acme source-only change' };
   for (const names of [['plates-impact', 'keel-impact'], ['keel-impact', 'plates-impact']]) {
     const body = '# First\n' + fence(names[0], data) + '# Second\n' + fence(names[1], data);
     const result = await checkImpact({ root, body, changedFiles: [] });
-    assert.ok(result.findings.some(f => /Both .* fences in one body are refused/.test(f.message)), JSON.stringify(result));
+    assert.ok(result.findings.some(f => /Exactly one plates-impact or keel-impact declaration/.test(f.message)), JSON.stringify(result));
   }
 });
 

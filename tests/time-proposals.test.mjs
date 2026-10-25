@@ -146,9 +146,9 @@ test('time proposal consumer requires both fence and each marker boundary alias'
    assert.ok(m.parseTimeProposal(body).problems.length);
   }
  }
- for(const bodies of [[current,legacy],[legacy,current]]) {
+ for(const bodies of [[current,legacy],[legacy,current],[current,current],[legacy,legacy]]) {
   const result=parseTimeProposal('# First\n'+bodies[0]+'\n# Second\n'+bodies[1]);
   assert.equal(result.proposal,null);
-  assert.match(result.problems.join(' '),/Both .* fences in one body/);
+  assert.match(result.problems.join(' '),/one bounded generated region and fence/);
  }
 });

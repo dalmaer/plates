@@ -5,15 +5,16 @@ import { NAMES, selectArtifacts, historicalFence, normalizeFences } from '../lib
 import { markdown } from '../practices/reconciliation/files/scripts/plates/reconcile.mjs';
 const fence = name => '```' + name + '\n{}\n```\n';
 for (const row of NAMES.filter(row => row.phase === 126 && row.surface === 'fence')) {
-  test(`historical fence ${row.id} reads both aliases permanently and refuses double declarations`, () => {
+  test(`historical fence ${row.id} reads both aliases permanently and normalizes independent records`, () => {
     for (const name of [row.plates, row.keel]) {
       assert.equal(markdown(fence(name)).fences[0].type, row.keel);
       assert.equal(historicalFence(name, [{ ...row, state: 'retired' }]).id, row.id);
     }
-    assert.throws(() => markdown(fence(row.plates) + fence(row.keel)), /Both .* refused/);
-    assert.throws(() => markdown(fence(row.keel) + fence(row.plates)), /Both .* refused/);
-    assert.throws(() => markdown('# Earlier\n' + fence(row.keel) + '# Later\n' + fence(row.plates)), /Both .* refused/);
-    assert.throws(() => markdown('# Earlier\n' + fence(row.plates) + '# Later\n' + fence(row.keel)), /Both .* refused/);
+    for (const names of [[row.plates, row.keel], [row.keel, row.plates]]) {
+      const parsed = markdown('# Earlier\n' + fence(names[0]) + '# Later\n' + fence(names[1])).fences;
+      assert.deepEqual(parsed.map(f => f.type), [row.keel, row.keel]);
+      assert.deepEqual(parsed.map(f => f.sourceType), names);
+    }
     for (const name of [row.plates, row.keel]) assert.equal(markdown('# Earlier\n' + fence(name) + '# Later\n' + fence(name)).fences.length, 2);
   });
 }

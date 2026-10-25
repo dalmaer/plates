@@ -442,7 +442,7 @@ test('historical Keel measurement fences remain executable evidence without rewr
   assert.equal(await readFile(file, 'utf8'), original);
 });
 
-test('measurement aliases read historical records and refuse mixed declarations across the whole body', async t => {
+test('measurement aliases read independent historical and current records in one body', async t => {
   const root = await fixture(t);
   const path = join(root, 'docs/evidence/acme.md');
   for (const name of ['plates-measurements', 'keel-measurements']) {
@@ -454,11 +454,11 @@ test('measurement aliases read historical records and refuse mixed declarations 
   for (const text of [current + legacy, legacy + current]) {
     await writeFile(path, text);
     const result = cli(root);
-    assert.equal(result.code, 2);
-    assert.match(result.data.error, /Both .* refused/);
+    assert.equal(result.code, 0);
+    assert.deepEqual(result.data.records.map(r=>r.id).sort(), ['current','historical']);
   }
   await writeFile(path, '# Earlier\n' + legacy + '# Later\n' + current);
-  assert.match(cli(root).data.error, /Both .* refused/);
+  assert.deepEqual(cli(root).data.records.map(r=>r.id), ['historical','current']);
 });
 
 
