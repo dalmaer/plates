@@ -31,7 +31,7 @@ The design is [Name transition](../specs/name-transition.md).
 - **Fences:**
   - The impact check workflow and `review` accept `plates-impact` and `keel-impact` and the rest of the family.
   - PR templates, the night, integrate and the fleet's PR bodies write the plates fence.
-  - A body with both is refused, naming both, because they could disagree.
+  - A singleton declaration (such as a PR impact declaration) with both names is refused, naming both, because they could disagree. Independent historical and current decision, proof and measurement records may coexist in one document; their existing cardinality, identity and anchor checks still apply.
 - **Artifacts:** writers upload the plates name. Readers try the plates name first and the keel name second, for as long as the artifact's retention lasts (`retention-days`, 30 by default). For ledger, this includes its own Tests workflow: its upload of `keel-test-runs` is a project file and moves in phase 129.
 
 ## Acceptance
