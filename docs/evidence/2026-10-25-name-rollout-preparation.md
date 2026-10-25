@@ -252,3 +252,19 @@ reconciliation (zero findings, zero unknown observations). Updating this current
 next action after the merge requires the final gate again before the next push;
 prior checks and failed observations remain separately retained. No release or
 live rollout is implied by these source checks.
+
+## Superseding rollout observation — 2026-10-25
+
+Release v0.8.34 was published: tag target `94ae6ac1e033083ef21e78270e1864703f359429`, with the identical tree on main `9942b9ffbe046eba584da9c93731230e613110d8`. The owner approved publication while holding Isocan. The final release rehearsal passed Duo, Cajones, Ledger and DTV; Isocan candidate and unchanged main both failed its watchdog cleanup assertion. Earlier passing observations remain historical, not a clearance of this failure.
+
+Under the owner's request to update every project and clean up Keel names, `plates names --repo dalmaer/plates --yes --digest 59bcd34be8e61cd74d3f0a6ecea171968dc2665d8621fcce0fcb04b423bfba35 --json` renamed the existing agent and morning labels and created plates:review-after. All three IDs were read back. The exact public receipt is `.plates/name-transition/label-renames.json`; no variable or secret was changed. Receipt publication and source-bound night/morning verification are separate from these confirmed provider writes.
+
+Current upstream Isocan `8305668ded7b09157b1646021209c5ed16a518a2` passed [four CI shards and typecheck](https://github.com/dglazkov/isocan/actions/runs/40222150595). The unchanged watchdog test passed once under Node 24.22.1 with normal process inspection (`node --test --test-name-pattern='TERM-resistant group descendants' scripts/install-watchdog.test.mjs`, one pass). This diagnostic neither establishes the original cause nor verifies the updated candidate. Its full fresh rehearsal is still pending. Upstream separately disabled unauthenticated production collection; that is not proof of production health.
+
+The fleet inventory still reports legacy open PRs in Duo, Cajones, Ledger and Isocan and unclassified provider bindings on the installed consumer workflows. Branch existence alone does not authorize deletion or establish active use. No dispatched rollout acceptance is checked here.
+
+### Fresh candidate and branch cleanup
+
+The single fresh Isocan rehearsal of released practice 0.8.34 returned `status: passed` for `npm test && npm run typecheck && node --test tests/loop.test.mjs`. The canonical default ref was observed at `8305668ded7b09157b1646021209c5ed16a518a2` both before and after; the collector does not retain the clone SHA, so this is bracketed source observation rather than a pinned-clone receipt. No repeated-until-green loop was used. The earlier failing release rehearsal remains retained; a passing candidate is not installed or accepted rollout evidence.
+
+Fourteen exact legacy branches were deleted after fresh ancestry, open-PR and active-run checks, using per-repository atomic pushes with expected-SHA leases and confirming absence afterward: three old update branches each in Duo, Cajones and Isocan, and five merged update/adoption/tend branches in Ledger. Their commits remain reachable on main. Open legacy night PRs and durable state refs were retained. The private operation receipt retains every deleted ref/SHA and readback; no historical record was rewritten.

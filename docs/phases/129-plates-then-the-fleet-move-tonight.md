@@ -4,7 +4,7 @@ since: 2026-10-25
 goal: G2
 spec: 2
 depends: [128]
-note: "Phases 124–128 and the managed setupToken repair are merged; Ledger cleanup dalmaer/ledger#169 is merged. All five consumer candidate rehearsals now pass, including Isocan under its pinned Node 24.22.1; earlier failures are retained. The prior record gate has inconclusive pause-injection coverage, tracked in issue 268; the owner approved the historical PR 220 release exception. The crash-test handshake repair in PR 269 is merged; release and the live rollout remain outstanding. DTV is included in the managed inventory. No live rollout has begun."
+note: "Phases 124–128 and the setupToken repair are merged. Release v0.8.34 is published. Plates label changes are read back; their committed receipt and the dispatched rollout remain outstanding. Isocan failed the final release rehearsal on candidate and unchanged main; a fresh complete candidate rehearsal now passes, with the earlier failure retained. No fleet rollout acceptance is claimed."
 evidence: ["evidence/2026-10-25-name-rollout-preparation.md"]
 issue: 245
 ---
@@ -83,7 +83,7 @@ By hand: ⚑ the evening's rollout. Each project's dispatched run links and `pla
 
 ## Next action
 
-Finish PR 267’s exact-head checks, review and merge, then release under Node 24.22.1 with both earlier failed receipts preserved. The crash-test repair is merged in PR 269; the earlier inconclusive pause-injection receipt remains tracked in issue 268. Cut 0.8.34 using the explicitly approved historical PR 220 review exception; all normal release gates remain required. All five consumer candidate rehearsals pass, including Isocan under its pinned Node 24.22.1. Refresh the exact Plates-first barrier, label actions and dispatch inputs, then perform the approved rollout steps in order. The owner approved the two prepared Ledger/Isocan documentation PRs after managed updates; Isocan merge remains the owner’s or Dimitri’s. Hosted and machine verification gaps remain explicit; phase 130 waits for the owner to say retire.
+Review and merge the exact Plates label receipt, then run and verify the source-bound Plates night and morning before installing the released practice in Ledger, Duo, Cajones, Isocan and DTV in order. Release v0.8.34 is published; PRs 267 and 269 are merged. Preserve the final Isocan candidate/main watchdog failure despite the later focused diagnostic pass and current upstream CI success. The fresh current-candidate rehearsal now passes; live night/morning verification remains required. Retain active legacy branches until their work is drained or their state is transferred and checked. Hosted and machine coverage remains incomplete; retirement cannot remove dependencies still in use.
 
 ## Reconciliation
 
