@@ -494,3 +494,38 @@ before any output export. No environment value, raw private body or arbitrary
 producer text becomes permitted by adding an output role. Extend only the
 existing producer/helper/verifier contract and its real positive/negative tests;
 no new scheduler, evidence store, permissions or workflow activation is needed.
+
+### 2026-10-25: managed setup-token lookup classification
+
+The real phase-129 preview at `419756f` refused all shipped setup-token
+lookups as arbitrary dynamic expressions, even though Plates has no configured
+setupToken. Resolve this finite case through the existing renderer and name table,
+not a general Actions expression interpreter.
+
+Only these exact paths qualify: `.github/workflows/plates-night.yml` and
+`plates-morning.yml` from the night practice, and `plates-climb.yml`,
+`plates-tend.yml` and `plates-robot.yml` from the climb practice. Read the target's
+configuration and workflow at the same pinned revision. Validate the configuration
+identity and shape and its setup fields with `setupEnvProblems`. Require full
+workflow byte equality with `fill` of the trusted shipped template and pinned
+configuration. A filename, lock entry, matching expression or selected step alone
+cannot establish this classification.
+
+Within that verified source only, classify the exact executable lookup
+`secrets[steps.config.outputs.setup_token]`. Missing setupToken means no configured
+setup secret; a valid unmapped name stays outside migration. An exact existing
+provider-eligible row may bind secret-name inventory and owner commands, never
+variable mutation or a new row. A process-only row retains its unestablished
+provider-scope gap. No secret values or configuration values are exported.
+
+Bind deterministic workflow, configuration, template and classifier/renderer
+provenance into the preview digest, including absent and unmapped cases. Invalid
+or missing configuration, changed workflow bytes, unsupported paths and other
+dynamic expressions remain gaps. Static binding discovery remains independent of
+this optional classifier. Existing preview/apply approval and recovery barriers
+are unchanged. This classification proves supported source interpretation, not
+execution, secret availability, owner approval or rollout acceptance.
+
+Proof uses the five actual templates with synthetic providers, current and legacy
+mapped names, stale approval, missing/invalid source, private-value non-disclosure
+and literal guard-removal mutations. No live mutation is part of this source fix.
