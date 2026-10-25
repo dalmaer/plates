@@ -4,7 +4,7 @@ since: 2026-10-25
 goal: G2
 spec: 2
 depends: [128]
-note: "Phases 124–128 merged. Release 0.8.34 is blocked by PR 220 historical final-head review, Ledger rehearsal cleanup failure, and a locally repaired managed setupToken preview gap awaiting full gate and review. No live rollout has begun."
+note: "Phases 124–128 and the managed setupToken repair are merged; Ledger cleanup PR 169 is merged. Fresh rehearsal passes Ledger, Duo and Cajones; Isocan main and candidate remain red, and DTV is not yet rehearsed. Release still requires the historical PR 220 review decision. DTV is included in the managed inventory. No live rollout has begun."
 evidence: ["evidence/2026-10-25-name-rollout-preparation.md"]
 issue: 245
 ---
@@ -38,12 +38,8 @@ The design is [Name transition](../specs/name-transition.md), "The rule". The ow
   4. Check its checklist.
 
   A project that fails stops the rollout. It's fixed, or set aside by the owner, before the next one starts.
-- **Project files plates doesn't manage**, named before the rollout so the owner can approve each:
-  - ledger's Tests upload of `keel-test-runs`, its `cli/ci-workflows.test.ts` assertion of that name, and the `keel-*` names its ci-alert.yml watches;
-  - any project workflow that triggers on a `keel-*` workflow name.
-
-  Each gets a project PR, with that project's gate passing.
-- **dtv** is adopted but not in `plates.json`. Add it (`role: managed`), or name it out, before its turn.
+- **Project files plates doesn't manage**, inventoried before rollout for separate owner approval. Fresh inspection on 2026-10-25 supersedes the initial examples: Ledger already uploads `plates-test-runs`, retains both artifact readers, and its 14 CI-alert display-name watchers match actual workflows. No executable project-owned rename was identified in the inspected coverage. Two optional patches update Ledger operating descriptions and Isocan operator instructions; they remain unapplied and require separate project PR approval and gates. Duo, Cajones and DTV need no project-owned patch in that inspected coverage. Historical records and legacy-reader assertions stay unchanged; sensitive, binary and untraversed paths remain gaps.
+- **dtv** is already adopted. Included in `plates.json` as managed on 2026-10-25 under the owner’s request to finish the stated six-project rollout. This inventory change does not install, dispatch or accept its migration; its turn remains after isocan.
 - **The checklist**, scripted as `plates names --verify <repo>`:
   - the dispatched night's run is green;
   - its PR is on `plates-night/<date>`;
@@ -54,7 +50,7 @@ The design is [Name transition](../specs/name-transition.md), "The rule". The ow
 
 ## Acceptance
 
-- [ ] `plates names --verify` checks one project's last dispatched night against the checklist and names each failure. `tests/names-cli.test.mjs` (stub `gh`): "verify names each failed check"
+- [x] `plates names --verify` checks one project's last dispatched night against the checklist and names each failure. `tests/names-verify.test.mjs`: "verify names each failed check without converting historical continuation into fresh-write failure". This is source verification, not the real dispatched walk.
 - [ ] Plates passes the checklist on its dispatched night. ⚑ by hand: the owner
 - [ ] Ledger, duo, cajones, isocan and dtv each pass it, in order, the same evening. The evidence holds each one's run links and `plates names` before and after. ⚑ by hand: the owner
 
@@ -77,7 +73,7 @@ The design is [Name transition](../specs/name-transition.md), "The rule". The ow
 
 ## Proof
 
-Automated: `node --import ./tests/helpers/hermetic.mjs --test tests/names-cli.test.mjs`; `npm run check`.
+Automated: `node --import ./tests/helpers/hermetic.mjs --test tests/names-cli.test.mjs tests/names-verify.test.mjs`; `npm run check`.
 By hand: ⚑ the evening's rollout. Each project's dispatched run links and `plates names --verify` output go in the evidence.
 
 ## Deliberately open
@@ -87,4 +83,4 @@ By hand: ⚑ the evening's rollout. Each project's dispatched run links and `pla
 
 ## Next action
 
-Pass the full gate and review for the finite managed setupToken classifier, and resolve Ledger's candidate cleanup failure; preserve Isocan's failing-main coverage. Obtain the owner's explicit historical PR 220 review exception or another valid review resolution, then cut the tested release and refresh the exact Plates-first approval preview. No live changes or phase 130 retirement are authorized by these local results.
+Resolve the historical PR 220 review decision, diagnose Isocan’s baseline/candidate failure and rehearse newly included DTV; preserve earlier failures. Ledger, Duo and Cajones passed the fresh rehearsal after Ledger PR 169 merged. Release the tested candidate, refresh and approve the exact Plates-first actions/dispatch inputs, then continue through the stated project order. Review each prepared project-owned patch before its PR. Hosted and machine verification gaps remain explicit; phase 130 waits for the owner to say retire.

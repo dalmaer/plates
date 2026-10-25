@@ -58,3 +58,72 @@ remain unobserved. The preview must be refreshed after source/release changes.
 Proof packet and both real previews are retained under
 `.plates/name-transition/phase129-provider-scope-20261025/`. Integrated full gate,
 exact-head review and CI remain required before this correction merges.
+
+## Merge and rollout resumption — 2026-10-25
+
+[PR 265](https://github.com/dalmaer/plates/pull/265) merged as
+`3cf6f378c9d2cf1c4f8e3f489c7f639716ef5248`. Exact reviewed head `a64847ae`
+passed the local full gate (3,500 tests: 3,496 pass, four skipped), typecheck,
+and [CI](https://github.com/dalmaer/plates/actions/runs/40169929841). Claude
+reported no findings; the explicit reviewer gate passed. This settles the earlier
+managed setup-token source blocker, not remote activation.
+
+The owner approved and then requested merging [Ledger PR 169](https://github.com/dalmaer/ledger/pull/169).
+It merged as `459c96cc092736403211ea9cb504ed478d96fd05`: two test-only fixture
+ownership files, full `npm run check:all` on Node 24.22.1 and
+[GitHub checks](https://github.com/dalmaer/ledger/actions/runs/40180985978) passed.
+Claude reviewed exact `218293e9` with no findings. Local data/performance checks
+used an empty synthetic ledger; no live-data or representative performance claim.
+Actual `plates prove` was INCONCLUSIVE because the test itself is the fix; its
+with-fix run passed. The separate original cleanup-order assertion failure remains
+retained. The original rehearsal ENOTEMPTY cause remains unproven.
+
+At Plates main `27ad3828`, the release review audit still reports 20/22 scoped
+commits passing; both failures are the historical PR 220 final-head review gap.
+The requested exception remains an owner decision. No release tag exists yet.
+DTV's current adoption config identifies `dalmaer/dtv`, practice 0.8.33 and
+`npm run check`; it is included in the managed inventory for the owner-requested
+final rollout position. No new schedule or agent allowance is enabled.
+
+The read-only Plates names preview at `27ad3828` proposes two label renames
+(agent and morning) and creation of review-after, with no secret commands or
+provider-scope problems. Nothing applied. One active-run page was empty but is
+not complete barrier proof. Machine preview refused `unsupported_mode`; metadata
+inspection found home mode 0750, `~/.keel` already a symlink to `.plates`, current
+night-card plist present and old plist absent. Preserve that alias: this is not
+permission to rewrite modes or move through the symlink, nor complete launchd
+verification. Private observations are retained under
+`.plates/name-transition/resume-20261025/`.
+
+## Fresh rehearsal and unmanaged-file reconciliation — 2026-10-25
+
+`node bin/plates.mjs fleet update --rehearse --json` from `27ad3828`
+completed in 508,037 ms, exit 0 under the collector's existing policy. Ledger,
+Duo and Cajones passed their configured gates with candidate 0.8.34. Isocan
+was classified `main-red`: candidate and unchanged main both exited 1, with
+retained tails showing `root.unmount` on an undefined root in
+`packages/modules/talk/test/token.test.ts`. The tail does not establish the
+first failure or its cause. The aggregate exit is not a passing Isocan gate.
+DTV was added after this rehearsal's inventory was captured and is not covered.
+No PR, installation or workflow dispatch was produced by rehearsal. Earlier
+failed observations remain intact; Ledger's later pass does not prove causality.
+
+Fresh pinned project-owned review at Ledger `459c96cc`, Duo `d0db01f4`,
+Cajones `c6a40bf4`, canonical Isocan `8ccde941` and DTV `26a6106f` found no
+executable project-owned rename required in the inspected coverage. Ledger
+already uploads `plates-test-runs`, reads both artifact spellings and has 14
+CI-alert watcher names resolving to actual workflow display names. The earlier
+phase examples are superseded by these facts, not blindly replaced in code.
+Optional Ledger description/comment and Isocan operator-guide patches remain
+unapplied, pending separate approval. Other three patches are empty. Historical
+records, compatibility assertions and project-specific artifact suffixes stay
+unchanged. Sensitive paths, binaries, oversized files and untraversed links or
+submodules remain coverage gaps.
+
+The frozen private packet retains exact revisions, name-table provenance, file
+hashes, matching locations and dry-run results. Conductor verification:
+`python3 /tmp/plates129-unmanaged-proposals/check-proposals.py`; patch review
+and applicability checks do not establish project gates or live activation.
+Rehearsal and packet are retained in `.plates/name-transition/resume-20261025/`.
+The final integrated tree requires `npm run check` and `npm run typecheck`
+before publication; their outcomes belong to the resulting commit/CI record.
