@@ -203,14 +203,16 @@ export async function withTimeProposal({root,path,expectedInstance},callback) {
     return callback({proposal:clone(proposal),saveLifecycle});
   });
 }
-export async function writeHealthReport({root,path,generated,recovered=null}) {
+export async function writeHealthReport({root,path,generated,recovered=null,observeBefore}) {
   return locked(root,path,async file=>{
-    let previous=await readFile(file,'utf8').catch(e=>{if(e.code==='ENOENT')return '';throw e;});
+    let previous=await readFile(file,'utf8').catch(e=>{if(e.code==='ENOENT')return null;throw e;});
     if(recovered!==null){
       if(previous && previous!==recovered)throw new Error('local and recovered night reports differ; preserve both and reconcile before publication');
       previous=recovered;
     }
-    const result=mergeHealthPage({previous,generated});if(result.problems.length)throw new Error(result.problems.join('; '));
+    const result=mergeHealthPage({previous:previous??'',generated});if(result.problems.length)throw new Error(result.problems.join('; '));
+    // Observation stays in-process under this lock; no raw preimage is added to the result.
+    if(observeBefore)await observeBefore(previous,result.text);
     if(await safePath(root,path)!==file)throw new Error('health directory changed during report write');
     await atomic(file,result.text);return result;
   });

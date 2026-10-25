@@ -252,6 +252,7 @@ test('night extracted Gather shell recovers real system ZIP via synthetic gh end
   await mkdir(join(root, 'scripts/plates'), { recursive: true }); await writeFile(join(root, 'scripts/plates/test-history.mjs'), await readFile(source));
   await writeFile(join(root, 'scripts/plates/names.mjs'), await readFile(resolve('practices/night/files/scripts/plates/names.mjs')));
   await writeFile(join(root, 'scripts/plates/time-receipts.mjs'), await readFile(resolve('practices/night/files/scripts/plates/time-receipts.mjs')));
+  await writeFile(join(root, 'scripts/plates/names-environment.mjs'), await readFile(resolve('practices/night/files/scripts/plates/names-environment.mjs')));
   await cp(resolve('practices/night/files/scripts/plates'), join(root, 'scripts/plates'), {recursive:true});
   const gh = join(root, 'gh'); await writeFile(gh, `#!${process.execPath}\nconst fs=require('node:fs');const routes=${JSON.stringify(f.routes)};const p=process.argv[3];if(p==='repos/acme/app/actions/artifacts/1/zip')process.stdout.write(fs.readFileSync(${JSON.stringify(zipped)}));else if(routes[p])console.log(JSON.stringify(routes[p]));else process.exit(1);\n`); await chmod(gh, 0o755);
   const script = runBlocks(await readFile(workflow, 'utf8')).find(b => b.step === 'Gather the test ledger').script;

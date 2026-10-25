@@ -31,6 +31,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
+import { runInNewContext } from 'node:vm';
 import { run } from './helpers/run.mjs';
 import { runBlocks } from './helpers/workflows.mjs';
 import { fixture as isocanHome } from './helpers/isocan.mjs';
@@ -45,6 +46,32 @@ const GH = join(PLATES, 'tests/helpers/night-box-gh.mjs');
 const NIGHT_YML = 'practices/night/files/.github/workflows/plates-night.yml';
 const MORNING_YML = 'practices/night/files/.github/workflows/plates-morning.yml';
 const CLIMB_YML = 'practices/climb/files/.github/workflows/plates-climb.yml';
+
+// The box simulates ordinary mornings; manual observation has a separate,
+// explicit already-sent read path. Hold the exact shipped condition and its
+// truth table so adding that path cannot loosen ordinary ready/unsent/assignee gates.
+const SEND_CONDITION = "needs.decide.outputs.ready == 'true' && (needs.decide.outputs.sent != 'true' || (github.event_name == 'workflow_dispatch' && inputs.names_evidence == true)) && needs.decide.outputs.assignee == 'set'";
+function sendCondition(text) {
+  const condition = /^  send:\n    needs: decide\n    if: ([^\n]+)\n/m.exec(text)?.[1];
+  assert.equal(condition, SEND_CONDITION, 'the box models the actual send job condition');
+  return condition;
+}
+
+test('morning send condition preserves ordinary gates and bounds the manual observation exception', async () => {
+  const condition = sendCondition(await readFile(join(PLATES, MORNING_YML), 'utf8'));
+  for (const event of ['schedule', 'workflow_run', 'workflow_dispatch']) {
+    for (const evidence of [undefined, false, true]) for (const ready of [false, true]) {
+      for (const sent of [false, true]) for (const assigned of [false, true]) {
+        const actual = runInNewContext(condition, {
+          needs: { decide: { outputs: { ready: String(ready), sent: String(sent), assignee: assigned ? 'set' : 'unset' } } },
+          github: { event_name: event }, inputs: { names_evidence: evidence },
+        });
+        assert.equal(actual, ready && assigned && (!sent || (event === 'workflow_dispatch' && evidence === true)),
+          JSON.stringify({ event, evidence, ready, sent, assigned }));
+      }
+    }
+  }
+});
 
 // The frozen clock: one night, UTC.
 const NIGHT = '2026-10-05';
@@ -188,6 +215,7 @@ async function box(t, { broken = null } = {}) {
     ...clean, PATH: `${bin}:${dirname(process.execPath)}:${process.env.PATH}`, TZ: 'UTC', CI: 'true',
     PLATES_GH: join(bin, 'gh'), PLATES_BOX_GH_STATE: state, PLATES_BOX_GH_LOG: log, PLATES_BOX_ORIGIN: origin,
     PLATES_BOX_NOW: now, PLATES_BOX_DAY: now.slice(0, 10), NODE_OPTIONS: `--import=${PRELOAD}`,
+    GITHUB_EVENT_NAME: 'schedule', NAMES_EVIDENCE: 'false',
     GITHUB_ACTIONS: 'true', GITHUB_REPOSITORY: REPO, GITHUB_SERVER_URL: 'https://github.com', GITHUB_RUN_ID: '7001', GITHUB_RUN_ATTEMPT: '1',
   });
   let jobs = 0;
@@ -251,7 +279,8 @@ async function morning(b, now, label) {
   const o = decide.outputs;
   const text = b.texts[MORNING_YML];
   // The scheduling this simulates is the workflow's own: each condition is asserted to be what the YAML says.
-  for (const cond of ["if: needs.decide.outputs.ready == 'true'\n", "if: needs.decide.outputs.ready == 'true' && needs.decide.outputs.sent != 'true' && needs.decide.outputs.assignee == 'set'\n", "if: needs.decide.outputs.plan == 'found' && (github.event_name != 'workflow_run' || github.event.workflow_run.head_branch == github.event.repository.default_branch)\n"]) {
+  sendCondition(text);
+  for (const cond of ["if: needs.decide.outputs.ready == 'true'\n", "if: needs.decide.outputs.plan == 'found' && (github.event_name != 'workflow_run' || github.event.workflow_run.head_branch == github.event.repository.default_branch)\n"]) {
     assert.ok(text.includes(cond), `plates-morning.yml still says ${cond.trim()}`);
   }
   const did = { decide: o };

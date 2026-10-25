@@ -444,3 +444,25 @@ test('runtime declarations cannot import workflows, absent files, seeded files o
   await writeFile(join(dir,'source/practice.json'),JSON.stringify(linked));
   await assert.rejects(load(dir),/unconditional managed script/);
 });
+
+for (const consumer of ['loop', 'reconciliation']) for (const ownership of ['local', 'ejected']) {
+  test(`runtime dependency ${consumer}/${ownership} refuses missing helper and preserves supplied owner file`, async t => {
+    const root = await temp('runtime-owner-closure'); t.after(() => rm(root, { recursive: true, force: true }));
+    const practices = await load(), path = 'scripts/plates/names.mjs';
+    const cfg = { ...ACME, practices: [...ACME.practices, consumer],
+      ...(ownership === 'local' ? { local: { night: 'Acme owns its night' } } : { ejected: [path] }) };
+    await assert.rejects(plan(root, cfg, practices), /runtime dependency unavailable.*scripts\/plates\/names\.mjs/);
+    await mkdir(join(root, 'scripts/plates'), { recursive: true });
+    for (const incompatible of ['// Acme owner helper\n', 'export const readNames = id => [id];\n']) {
+      await writeFile(join(root,path), incompatible);
+      await assert.rejects(plan(root,cfg,practices), /runtime dependency incompatible.*scripts\/plates\/names\.mjs/);
+      assert.equal(await readFile(join(root,path),'utf8'),incompatible,'incompatible owner bytes are preserved without execution');
+    }
+    const original = await readFile(join(PLATES, 'practices/night/files/scripts/plates/names.mjs'), 'utf8');
+    await writeFile(join(root, path), original);
+    const entries = await plan(root, cfg, practices);
+    assert.ok(!entries.some(f => f.path === path), 'owner dependency is not managed or overwritten');
+    assert.ok(entries.some(f => f.path === (consumer === 'loop' ? 'scripts/loop.mjs' : 'scripts/plates/reconcile.mjs')));
+    assert.equal(await readFile(join(root, path), 'utf8'), original);
+  });
+}

@@ -42,7 +42,7 @@ import { spawnSync } from 'node:child_process';
 import { readFile, appendFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { readCiGate } from './ci.mjs';
-import { gateWorkflowIn, isMain, main } from './lib.mjs';
+import { environmentValue, gateWorkflowIn, isMain, main } from './lib.mjs';
 import { deliveryOf, DeliveryError } from './delivery.mjs';
 
 /** How many of main's newest first-parent commits a run considers. */
@@ -58,7 +58,7 @@ export class PublishError extends DeliveryError {}
 const SHA = /^[0-9a-f]{40}([0-9a-f]{24})?$/;
 
 function git(root, env, args) {
-  const r = spawnSync(env.PLATES_GIT || 'git', args, { cwd: root, env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  const r = spawnSync(environmentValue('variable:KEEL_GIT', env) ?? 'git', args, { cwd: root, env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   if (r.error) throw new PublishError(`could not run git: ${r.error.message}`);
   return r;
 }

@@ -176,6 +176,7 @@ async function planFile(t, dir, plan, name = 'plan') {
 async function plannedAcme(t, climbConfig = { jobs: ['test-time', 'build-time'], build: 'node -e ""', buildOutput: 'dist' }) {
   const dir = await acme(t, { climb: climbConfig, files: { 'docs/health/2026-10-05.md': page([['slow_tests', 3, '≤ 0', 'outside']]) } });
   await cp(join(NIGHT, 'night-plan.mjs'), join(dir, 'scripts/plates/night-plan.mjs'));
+  await cp(join(NIGHT, 'verification.mjs'), join(dir, 'scripts/plates/verification.mjs'));
   return dir;
 }
 

@@ -49,7 +49,6 @@
     {"token": "KEEL_", "reason": "compatibility: strips legacy owner environment keys at the child-process boundary", "occurrences": [{"path": "lib/web/update-container.mjs"}]},
     {"token": "keel-morning.yml", "reason": "historical: immutable workflow identity for provenance-aware compatibility reads, not a new artifact name", "occurrences": [{"path": "practices/night/files/scripts/plates/canvas-recovery.mjs"}, {"path": "scripts/plates/canvas-recovery.mjs"}]},
     {"token": "keel-", "reason": "historical: reader recognizes old workflow name prefix for eligibility observations", "occurrences": [{"path": "practices/night/files/scripts/plates/improve.mjs"}, {"path": "scripts/plates/improve.mjs"}]},
-    {"token": "KEEL_", "reason": "compatibility: legacy environment alias reads; no writer transition", "occurrences": [{"path": "practices/night/files/scripts/plates/lib.mjs"}, {"path": "bin/plates.mjs"}, {"path": "scripts/plates/lib.mjs"}]},
     {"token": "keel-robot.yml", "reason": "historical: immutable workflow identity for provenance-aware compatibility reads, not a new artifact name", "occurrences": [{"path": "practices/night/files/scripts/plates/robot-budget.mjs"}, {"path": "scripts/plates/robot-budget.mjs"}]}
   ]
 }

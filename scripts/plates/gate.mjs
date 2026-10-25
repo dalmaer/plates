@@ -1,4 +1,4 @@
-import { selectArtifacts } from './names.mjs';
+import { environmentValue, selectArtifacts } from './names.mjs';
 // One gate result per commit, shared by every pass (plates phase 79; plates
 // practice `night`; managed: plates render rewrites it). The design is plates's
 // docs/research/2026-10-16-delivery.md, items 7 and 9 of "What is common".
@@ -176,7 +176,7 @@ export function docsOnlyOf(config, { managed = [] } = {}) {
 // ---- git ---------------------------------------------------------------------------
 
 function git(root, env, args) {
-  const r = spawnSync(env.PLATES_GIT || 'git', args, { cwd: root, env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  const r = spawnSync(environmentValue('variable:KEEL_GIT', env) ?? 'git', args, { cwd: root, env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   if (r.error) throw new GateError(`could not run git: ${r.error.message}`);
   return r;
 }
@@ -242,7 +242,7 @@ export function ledgerEvidence(records, { sha, tree, command }) {
 /** The artifact's bytes through gh (read-only), as the test history downloads them. */
 function ghDownload(repo, env) {
   return id => {
-    const r = spawnSync(env.PLATES_GH || 'gh', ['api', `repos/${repo}/actions/artifacts/${id}/zip`], { env, encoding: 'buffer', timeout: 60_000, maxBuffer: MAX_BYTES });
+    const r = spawnSync((environmentValue('variable:KEEL_GH', env) ?? 'gh'), ['api', `repos/${repo}/actions/artifacts/${id}/zip`], { env, encoding: 'buffer', timeout: 60_000, maxBuffer: MAX_BYTES });
     if (r.error || r.status !== 0) throw new Error('artifact download unavailable');
     return r.stdout;
   };

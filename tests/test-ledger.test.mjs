@@ -33,6 +33,7 @@ async function mutant(t, from, to) {
   const file = join(dir, 'test-ledger.mjs');
   await writeFile(file, text.replace(from, to));
   await writeFile(join(dir,'time-receipts.mjs'), await readFile(join(dirname(SOURCE),'time-receipts.mjs')));
+  await writeFile(join(dir,'names-environment.mjs'), await readFile(join(dirname(SOURCE),'names-environment.mjs')));
   await writeFile(join(dir,'names.mjs'), await readFile(join(dirname(SOURCE),'names.mjs')));
   return import(pathToFileURL(file).href);
 }
@@ -62,6 +63,7 @@ async function acmeRepo(t, source = null) {
   await writeFile(join(dir, 'tests', 'acme.test.mjs'), ACME_TESTS);
   await writeFile(join(dir, 'scripts', 'plates', 'test-ledger.mjs'), (source ?? await readFile(SOURCE, 'utf8')).replace('load = loadavg', 'load = () => [0, 0, 0]').replace("process.env.PLATES_RUN_START ?? 'null'", "'null'"));
   await writeFile(join(dir,'scripts/plates/time-receipts.mjs'),await readFile(join(dirname(SOURCE),'time-receipts.mjs')));
+  await writeFile(join(dir,'scripts/plates/names-environment.mjs'),await readFile(join(dirname(SOURCE),'names-environment.mjs')));
   await writeFile(join(dir,'scripts/plates/names.mjs'),await readFile(join(dirname(SOURCE),'names.mjs')));
   await writeFile(join(dir, '.gitignore'), 'out*.txt\n');
   const git = (...args) => execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
@@ -215,6 +217,7 @@ test('dirty: an untracked file in plates\'s machine directories, or an ignored o
   // The mutant lives outside the repo, so it does not dirty the tree itself.
   const outside = join(await scratch(t, 'plates-ledger-mutant-'), 'test-ledger.mjs');
   await writeFile(join(dirname(outside),'time-receipts.mjs'),await readFile(join(dirname(SOURCE),'time-receipts.mjs')));
+  await writeFile(join(dirname(outside),'names-environment.mjs'),await readFile(join(dirname(SOURCE),'names-environment.mjs')));
   await writeFile(join(dirname(outside),'names.mjs'),await readFile(join(dirname(SOURCE),'names.mjs')));
   await writeFile(outside, text.replace(target, 'export const MACHINE_DIRS = Object.freeze([RUNS]);'));
   nodeTest(dir, ['--test-reporter=spec', '--test-reporter-destination=stdout', `--test-reporter=${outside}`, '--test-reporter-destination=stdout']);
@@ -1579,4 +1582,39 @@ test('diagnostic reader requires each inconclusive alias independently',async()=
   const mutant=await diagnosticMutant(consumer,name);
   assert.equal(mutant.inconclusiveOf(text),null);
  }
+});
+
+for(const alias of ['PLATES','KEEL']) {
+ test(`phase128 RUN_START ${alias} rejects stale report from original invocation`,async t=>{
+  const {dir}=await acmeRepo(t);await junitAt(dir,'junit.xml',passing(await fixture('bun.xml')));
+  const past=new Date(Date.now()-3600000);await utimes(join(dir,'junit.xml'),past,past);
+  const result=await ledger.junitRun({cwd:dir,junit:'junit.xml',env:{[`${alias}_RUN_START`]:JSON.stringify({at:new Date().toISOString()})}});
+  assert.equal(result.code,1);assert.match(result.lines.join('\n'),/last written before this run began/);
+  assert.equal((await readRuns(dir)).runs.length,0);
+ });
+ test(`phase128 GATE_INVOCATION ${alias} retains receipt parent identity`,async t=>{
+  const {dir}=await acmeRepo(t);await junitAt(dir,'junit.xml',passing(await fixture('bun.xml')));
+  const id='11111111-1111-4111-8111-111111111111';
+  const result=await ledger.junitRun({cwd:dir,junit:'junit.xml',env:{[`${alias}_GATE_INVOCATION`]:id}});
+  assert.equal(result.code,0);assert.deepEqual((await readRuns(dir)).runs.map(r=>r.parentInvocationId),[id]);
+ });
+}
+
+test('phase128 original live invocation forwards exact aliases; a new invocation scrubs both families',async t=>{
+ const {dir}=await acmeRepo(t),id='11111111-1111-4111-8111-111111111111';
+ const suffixes=['RUN_START','GATE_INVOCATION','USUAL','GATE_ACTIVE','SUITE_PLAN'];
+ const original=Object.fromEntries(suffixes.flatMap(suffix=>['PLATES','KEEL'].map(alias=>[`${alias}_${suffix}`,suffix==='GATE_INVOCATION'?id:'acme-original-'+suffix])));
+ const child=join(dir,'acme-child.mjs');await writeFile(child,`process.stdout.write(JSON.stringify(Object.fromEntries(Object.entries(process.env).filter(([key])=>${JSON.stringify(suffixes.flatMap(s=>['PLATES_'+s,'KEEL_'+s]))}.includes(key)))));`);
+ const command=`${JSON.stringify(process.execPath)} ${JSON.stringify(child)}`;
+ await mkdir(join(dir,RUNS),{recursive:true});
+ await writeFile(join(dir,RUNS,`active-${id}`),JSON.stringify({id,root:await realpath(dir),pid:process.pid,completed:false}));
+ const nested=await ledger.timedCommand(command,{cwd:dir,env:original});assert.equal(nested.status,0,nested.stderr);
+ assert.deepEqual(JSON.parse(nested.stdout),original);
+ await rm(join(dir,RUNS,`active-${id}`));
+ const fresh=await ledger.timedCommand(command,{cwd:dir,env:original});assert.equal(fresh.status,0,fresh.stderr);
+ const forwarded=JSON.parse(fresh.stdout);
+ for(const suffix of suffixes)assert.equal(forwarded['KEEL_'+suffix],undefined,`new invocation must scrub KEEL_${suffix}`);
+ assert.notEqual(forwarded.PLATES_GATE_INVOCATION,id);
+ assert.notEqual(forwarded.PLATES_RUN_START,original.PLATES_RUN_START);
+ assert.notEqual(forwarded.PLATES_SUITE_PLAN,original.PLATES_SUITE_PLAN);
 });

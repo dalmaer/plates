@@ -71,20 +71,20 @@ export const NAMES = Object.freeze([
   Object.freeze({"id": "fence:keel-reconciliation","surface": "fence","keel": "keel-reconciliation","plates": "plates-reconciliation","phase": 126,"state": "dual","migrationHold": "keel-reconciliation\\b"}),
   Object.freeze({"id": "fence:keel-proof","surface": "fence","keel": "keel-proof","plates": "plates-proof","phase": 126,"state": "dual","migrationHold": "keel-proof\\b"}),
   Object.freeze({"id": "fence:keel-measurements","surface": "fence","keel": "keel-measurements","plates": "plates-measurements","phase": 126,"state": "dual","migrationHold": "keel-measurements\\b"}),
-  Object.freeze({"id": "variable:KEEL_AGENT_GIT","surface": "variable","keel": "KEEL_AGENT_GIT","plates": "PLATES_AGENT_GIT","phase": 128,"state": "held"}),
-  Object.freeze({"id": "variable:KEEL_GH","surface": "variable","keel": "KEEL_GH","plates": "PLATES_GH","phase": 128,"state": "held"}),
-  Object.freeze({"id": "variable:KEEL_CANVAS_ISOCAN_HOME","surface": "variable","keel": "KEEL_CANVAS_ISOCAN_HOME","plates": "PLATES_CANVAS_ISOCAN_HOME","phase": 128,"state": "held"}),
-  Object.freeze({"id": "variable:KEEL_CANVAS_ISOCAN_VERSION","surface": "variable","keel": "KEEL_CANVAS_ISOCAN_VERSION","plates": "PLATES_CANVAS_ISOCAN_VERSION","phase": 128,"state": "held"}),
-  Object.freeze({"id": "variable:KEEL_CANVAS_KEEL_VERSION","surface": "variable","keel": "KEEL_CANVAS_KEEL_VERSION","plates": "PLATES_CANVAS_PLATES_VERSION","phase": 128,"state": "held"}),
+  Object.freeze({"id":"variable:KEEL_AGENT_GIT","surface":"variable","keel":"KEEL_AGENT_GIT","plates":"PLATES_AGENT_GIT","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"binding-required"}),
+  Object.freeze({"id":"variable:KEEL_GH","surface":"variable","keel":"KEEL_GH","plates":"PLATES_GH","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"binding-required"}),
+  Object.freeze({"id":"variable:KEEL_CANVAS_ISOCAN_HOME","surface":"variable","keel":"KEEL_CANVAS_ISOCAN_HOME","plates":"PLATES_CANVAS_ISOCAN_HOME","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"binding-required"}),
+  Object.freeze({"id":"variable:KEEL_CANVAS_ISOCAN_VERSION","surface":"variable","keel":"KEEL_CANVAS_ISOCAN_VERSION","plates":"PLATES_CANVAS_ISOCAN_VERSION","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"binding-required"}),
+  Object.freeze({"id":"variable:KEEL_CANVAS_KEEL_VERSION","surface":"variable","keel":"KEEL_CANVAS_KEEL_VERSION","plates":"PLATES_CANVAS_PLATES_VERSION","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"binding-required"}),
   Object.freeze({"id": "web:__Host-keel-session","surface": "web","keel": "__Host-keel-session","plates": "__Host-plates-session","phase": 127,"state": "held","migrationHold": "__Host\\-keel\\-session\\b"}),
   Object.freeze({"id": "web:__Host-keel-login","surface": "web","keel": "__Host-keel-login","plates": "__Host-plates-login","phase": 127,"state": "held","migrationHold": "__Host\\-keel\\-login\\b"}),
   Object.freeze({"id": "web:__Host-keel-oauth","surface": "web","keel": "__Host-keel-oauth","plates": "__Host-plates-oauth","phase": 127,"state": "held","migrationHold": "__Host\\-keel\\-oauth\\b"}),
-  Object.freeze({"id": "web:KEEL_WEB_ORIGIN","surface": "web","keel": "KEEL_WEB_ORIGIN","plates": "PLATES_WEB_ORIGIN","phase": 127,"state": "dual","migrationHold": "KEEL_WEB_ORIGIN\\b"}),
+  Object.freeze({"id":"web:KEEL_WEB_ORIGIN","surface":"web","keel":"KEEL_WEB_ORIGIN","plates":"PLATES_WEB_ORIGIN","phase":127,"state":"dual","migrationHold":"KEEL_WEB_ORIGIN\\b","providerScope":"binding-required"}),
   Object.freeze({"id": "web:KEEL_WEB_OPERATION","surface": "web","keel": "KEEL_WEB_OPERATION","plates": "PLATES_WEB_OPERATION","phase": 127,"state": "dual","migrationHold": "KEEL_WEB_OPERATION\\b"}),
-  Object.freeze({"id": "web:KEEL_WEB_CONFIG","surface": "web","keel": "KEEL_WEB_CONFIG","plates": "PLATES_WEB_CONFIG","phase": 127,"state": "dual"}),
-  Object.freeze({"id": "web:KEEL_CONNECTION_ENCRYPTION_KEY","surface": "web","keel": "KEEL_CONNECTION_ENCRYPTION_KEY","plates": "PLATES_CONNECTION_ENCRYPTION_KEY","phase": 127,"state": "dual"}),
-  Object.freeze({"id": "web:KEEL_GITHUB_CLIENT_SECRET","surface": "web","keel": "KEEL_GITHUB_CLIENT_SECRET","plates": "PLATES_GITHUB_CLIENT_SECRET","phase": 127,"state": "dual"}),
-  Object.freeze({"id": "web:KEEL_SESSION_ENCRYPTION_KEY","surface": "web","keel": "KEEL_SESSION_ENCRYPTION_KEY","plates": "PLATES_SESSION_ENCRYPTION_KEY","phase": 127,"state": "dual"}),
+  Object.freeze({"id":"web:KEEL_WEB_CONFIG","surface":"web","keel":"KEEL_WEB_CONFIG","plates":"PLATES_WEB_CONFIG","phase":127,"state":"dual","providerScope":"binding-required"}),
+  Object.freeze({"id":"web:KEEL_CONNECTION_ENCRYPTION_KEY","surface":"web","keel":"KEEL_CONNECTION_ENCRYPTION_KEY","plates":"PLATES_CONNECTION_ENCRYPTION_KEY","phase":127,"state":"dual","providerScope":"binding-required"}),
+  Object.freeze({"id":"web:KEEL_GITHUB_CLIENT_SECRET","surface":"web","keel":"KEEL_GITHUB_CLIENT_SECRET","plates":"PLATES_GITHUB_CLIENT_SECRET","phase":127,"state":"dual","providerScope":"binding-required"}),
+  Object.freeze({"id":"web:KEEL_SESSION_ENCRYPTION_KEY","surface":"web","keel":"KEEL_SESSION_ENCRYPTION_KEY","plates":"PLATES_SESSION_ENCRYPTION_KEY","phase":127,"state":"dual","providerScope":"binding-required"}),
   Object.freeze({"id": "web:Keel-Operation","surface": "web","keel": "Keel-Operation","plates": "Plates-Operation","phase": 127,"state": "held","migrationHold": "Keel-Operation\\b"}),
   Object.freeze({"id": "web:Keel-Update-Operation","surface": "web","keel": "Keel-Update-Operation","plates": "Plates-Update-Operation","phase": 127,"state": "held","migrationHold": "Keel-Update-Operation\\b"}),
   Object.freeze({"id": "web:trusted-keel","surface": "web","keel": "trusted-keel","plates": "trusted-plates","phase": 127,"state": "held","migrationHold": "trusted-keel\\b"}),
@@ -114,10 +114,10 @@ export const NAMES = Object.freeze([
   Object.freeze({"id": "machine:keel.operation","surface": "machine","keel": "keel.operation","plates": "plates.operation","phase": 128,"state": "held"}),
   Object.freeze({"id": "machine:keel.hash","surface": "machine","keel": "keel.hash","plates": "plates.hash","phase": 128,"state": "held"}),
   Object.freeze({"id": "machine:keel.key","surface": "machine","keel": "keel.key","plates": "plates.key","phase": 128,"state": "held"}),
-  Object.freeze({"id": "machine:keel-goodnight-loop","surface": "machine","keel": "keel-goodnight-loop","plates": "plates-goodnight-loop","phase": 128,"state": "held","migrationHold": "keel-goodnight-loop\\b"}),
+  Object.freeze({"id": "machine:keel-goodnight-loop","surface": "machine","keel": "keel-goodnight-loop","plates": "plates-goodnight-loop","phase": 128,"state": "dual","migrationHold": "keel-goodnight-loop\\b"}),
   Object.freeze({"id": "machine:.keel-time-proposals.lock","surface": "machine","keel": ".keel-time-proposals.lock","plates": ".plates-time-proposals.lock","phase": 128,"state": "held"}),
-  Object.freeze({"id": "machine:keel-night-plan-","surface": "machine","keel": "keel-night-plan-","plates": "plates-night-plan-","phase": 128,"state": "held"}),
-  Object.freeze({"id": "machine:keel-canvas-night-","surface": "machine","keel": "keel-canvas-night-","plates": "plates-canvas-night-","phase": 128,"state": "held"}),
+  Object.freeze({"id": "machine:keel-night-plan-","surface": "machine","keel": "keel-night-plan-","plates": "plates-night-plan-","phase": 128,"state": "dual"}),
+  Object.freeze({"id": "machine:keel-canvas-night-","surface": "machine","keel": "keel-canvas-night-","plates": "plates-canvas-night-","phase": 128,"state": "dual"}),
   Object.freeze({"id": "machine:keel-canvas-card-","surface": "machine","keel": "keel-canvas-card-","plates": "plates-canvas-card-","phase": 128,"state": "held"}),
   Object.freeze({"id": "machine:~/.keel/night-card/run.sh","surface": "machine","keel": "~/.keel/night-card/run.sh","plates": "~/.plates/night-card/run.sh","phase": 128,"state": "held"}),
   Object.freeze({"id": "machine:~/Library/LaunchAgents/com.keel.night-card.plist","surface": "machine","keel": "~/Library/LaunchAgents/com.keel.night-card.plist","plates": "~/Library/LaunchAgents/com.plates.night-card.plist","phase": 128,"state": "held"}),
@@ -149,6 +149,38 @@ export const NAMES = Object.freeze([
   Object.freeze({"id": "database:keel_private.walk_drafts","surface": "database","keel": "keel_private.walk_drafts","plates": "plates_private.walk_drafts","phase": 127,"state": "held"}),
   Object.freeze({"id": "database:keel_private.web_records","surface": "database","keel": "keel_private.web_records","plates": "plates_private.web_records","phase": 127,"state": "held"}),
   Object.freeze({"id": "web:keel-web-","surface": "web","keel": "keel-web-","plates": "plates-web-","phase": 127,"state": "held","migrationHold": "keel-web-"}),
+  Object.freeze({"id":"variable:KEEL_MILESTONES_OFFLINE","surface":"variable","keel":"KEEL_MILESTONES_OFFLINE","plates":"PLATES_MILESTONES_OFFLINE","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_CANVAS_PERSISTENCE","surface":"variable","keel":"KEEL_CANVAS_PERSISTENCE","plates":"PLATES_CANVAS_PERSISTENCE","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_CANVAS_RECOVERY","surface":"variable","keel":"KEEL_CANVAS_RECOVERY","plates":"PLATES_CANVAS_RECOVERY","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_CANVAS_OUTPUT","surface":"variable","keel":"KEEL_CANVAS_OUTPUT","plates":"PLATES_CANVAS_OUTPUT","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_ISOCAN","surface":"variable","keel":"KEEL_ISOCAN","plates":"PLATES_ISOCAN","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_CI_OFFLINE","surface":"variable","keel":"KEEL_CI_OFFLINE","plates":"PLATES_CI_OFFLINE","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_FLEET_PRACTICE","surface":"variable","keel":"KEEL_FLEET_PRACTICE","plates":"PLATES_FLEET_PRACTICE","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_NPM","surface":"variable","keel":"KEEL_NPM","plates":"PLATES_NPM","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_GIT","surface":"variable","keel":"KEEL_GIT","plates":"PLATES_GIT","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_CLAUDE_DIR","surface":"variable","keel":"KEEL_CLAUDE_DIR","plates":"PLATES_CLAUDE_DIR","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_PROVE_MUTANT_MS","surface":"variable","keel":"KEEL_PROVE_MUTANT_MS","plates":"PLATES_PROVE_MUTANT_MS","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_PROVE_IGNORED_BYTES","surface":"variable","keel":"KEEL_PROVE_IGNORED_BYTES","plates":"PLATES_PROVE_IGNORED_BYTES","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_REVIEW_POLL_MS","surface":"variable","keel":"KEEL_REVIEW_POLL_MS","plates":"PLATES_REVIEW_POLL_MS","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_CACHE","surface":"variable","keel":"KEEL_CACHE","plates":"PLATES_CACHE","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_PREVIOUS_PRACTICES","surface":"variable","keel":"KEEL_PREVIOUS_PRACTICES","plates":"PLATES_PREVIOUS_PRACTICES","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_SELF_UPDATED","surface":"variable","keel":"KEEL_SELF_UPDATED","plates":"PLATES_SELF_UPDATED","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_CLIMB_CLOCK","surface":"variable","keel":"KEEL_CLIMB_CLOCK","plates":"PLATES_CLIMB_CLOCK","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_CLI","surface":"variable","keel":"KEEL_CLI","plates":"PLATES_CLI","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_NOW","surface":"variable","keel":"KEEL_NOW","plates":"PLATES_NOW","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_STITCH","surface":"variable","keel":"KEEL_STITCH","plates":"PLATES_STITCH","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_DRAIN_WAIT_MS","surface":"variable","keel":"KEEL_DRAIN_WAIT_MS","plates":"PLATES_DRAIN_WAIT_MS","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_QUOTA_FLOOR","surface":"variable","keel":"KEEL_QUOTA_FLOOR","plates":"PLATES_QUOTA_FLOOR","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_STALLS_SHAPE","surface":"variable","keel":"KEEL_STALLS_SHAPE","plates":"PLATES_STALLS_SHAPE","phase":128,"state":"dual","environmentPolicy":"current-presence","environmentScope":"process","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_PROVIDER","surface":"variable","keel":"KEEL_PROVIDER","plates":"PLATES_PROVIDER","phase":128,"state":"dual","environmentPolicy":"identity-conflict","environmentScope":"claim-identity","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_SESSION","surface":"variable","keel":"KEEL_SESSION","plates":"PLATES_SESSION","phase":128,"state":"dual","environmentPolicy":"identity-conflict","environmentScope":"claim-identity","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_MACHINE","surface":"variable","keel":"KEEL_MACHINE","plates":"PLATES_MACHINE","phase":128,"state":"dual","environmentPolicy":"identity-conflict","environmentScope":"claim-identity","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_RUN_START","surface":"variable","keel":"KEEL_RUN_START","plates":"PLATES_RUN_START","phase":128,"state":"dual","environmentPolicy":"identity-conflict","environmentScope":"ledger-invocation","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_GATE_INVOCATION","surface":"variable","keel":"KEEL_GATE_INVOCATION","plates":"PLATES_GATE_INVOCATION","phase":128,"state":"dual","environmentPolicy":"identity-conflict","environmentScope":"ledger-invocation","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_USUAL","surface":"variable","keel":"KEEL_USUAL","plates":"PLATES_USUAL","phase":128,"state":"dual","environmentPolicy":"identity-conflict","environmentScope":"ledger-invocation","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_GATE_ACTIVE","surface":"variable","keel":"KEEL_GATE_ACTIVE","plates":"PLATES_GATE_ACTIVE","phase":128,"state":"dual","environmentPolicy":"identity-conflict","environmentScope":"ledger-invocation","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_SUITE_PLAN","surface":"variable","keel":"KEEL_SUITE_PLAN","plates":"PLATES_SUITE_PLAN","phase":128,"state":"dual","environmentPolicy":"identity-conflict","environmentScope":"ledger-invocation","providerScope":"unestablished"}),
+  Object.freeze({"id":"variable:KEEL_PUBLISHER","surface":"variable","keel":"KEEL_PUBLISHER","plates":"PLATES_PUBLISHER","phase":128,"state":"dual","environmentPolicy":"identity-conflict","environmentScope":"publisher-identity","providerScope":"unestablished"}),
 ]);
 
 export function nameRow(id, rows = NAMES) {
@@ -157,6 +189,38 @@ export function nameRow(id, rows = NAMES) {
   if (!['held', 'dual', 'retired'].includes(row.state)) throw new Error(`Invalid name state: ${id}`);
   return row;
 }
+/** Ordinary overrides use presence, not truthiness. Consumers validate the selected
+ * value; invalid current values never fall through to a legacy binding. */
+export function environmentValue(id, env = process.env) {
+  const row = nameRow(id);
+  if (row.environmentPolicy !== 'current-presence') throw new Error(`Not an ordinary environment identity: ${id}`);
+  return env[row.plates] !== undefined ? env[row.plates] : env[row.keel];
+}
+
+/** Identity aliases never silently change ownership, invocation or source attribution.
+ * Return raw values so the existing consumer still validates its own contract. */
+export function identityEnvironmentValue(id, env = process.env) {
+  const row = nameRow(id);
+  if (row.environmentPolicy !== 'identity-conflict') throw new Error(`Not an identity environment binding: ${id}`);
+  const current = env[row.plates], legacy = env[row.keel];
+  if (current !== undefined && legacy !== undefined && current !== legacy) {
+    const error = new Error(`Conflicting environment names: ${row.plates}, ${row.keel}`);
+    error.code = 'conflicting_names';
+    throw error;
+  }
+  return current !== undefined ? current : legacy;
+}
+/** Remove only explicitly selected table bindings from a copied child environment. */
+export function scrubEnvironment(ids, env = process.env) {
+  const clean = { ...env };
+  for (const id of ids) {
+    const row = nameRow(id);
+    if (!row.environmentPolicy) throw new Error(`Not an environment binding: ${id}`);
+    delete clean[row.plates]; delete clean[row.keel];
+  }
+  return clean;
+}
+
 export function writeName(id, rows = NAMES) {
   const row = nameRow(id, rows);
   // Label evidence is repository-bound; generic writers cannot activate it.
@@ -305,12 +369,14 @@ export function labelWriter({id, repo, repositoryId, receipt = null, observation
   }
   let entry;
   if (receipt !== null) {
-    if (!exact(receipt,['version','repositoryId','repo','renames']) || receipt.version !== 1 || receipt.repositoryId !== repositoryId || receipt.repo !== repo || !Array.isArray(receipt.renames) || receipt.renames.length > 100) refuse('invalid repository receipt');
+    const v2 = receipt.version === 2;
+    if (!exact(receipt,v2 ? ['version','repositoryId','repo','renames','creations'] : ['version','repositoryId','repo','renames']) || ![1,2].includes(receipt.version) || receipt.repositoryId !== repositoryId || receipt.repo !== repo || !Array.isArray(receipt.renames) || (v2 && !Array.isArray(receipt.creations)) || receipt.renames.length + (v2 ? receipt.creations.length : 0) > 100) refuse('invalid repository receipt');
     const seenRows = new Set(), seenLabels = new Set(), operations = new Set();
-    for (const candidate of receipt.renames) {
-      if (!exact(candidate,['row','labelId','oldName','newName','operationId','verifiedAt','readback'])) refuse('invalid receipt entry');
+    for (const candidate of [...receipt.renames, ...(v2 ? receipt.creations : [])]) {
+      const created = v2 && receipt.creations.includes(candidate);
+      if (created ? !exact(candidate,['kind','row','labelId','newName','operationId','verifiedAt','readback']) || candidate.kind !== 'created' : !exact(candidate,['row','labelId','oldName','newName','operationId','verifiedAt','readback'])) refuse('invalid receipt entry');
       const target = rows.find(r => r.id === candidate.row && r.surface === 'label');
-      if (!target || seenRows.has(candidate.row) || !positive(candidate.labelId) || seenLabels.has(candidate.labelId) || candidate.oldName !== target.keel || candidate.newName !== target.plates || typeof candidate.operationId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9:._/-]{0,199}$/.test(candidate.operationId) || operations.has(candidate.operationId) || !stamp(candidate.verifiedAt) || Date.parse(candidate.verifiedAt) > Date.parse(observation.observedAt)) refuse('conflicting or uncertain rename evidence');
+      if (!target || seenRows.has(candidate.row) || !positive(candidate.labelId) || seenLabels.has(candidate.labelId) || (!created && candidate.oldName !== target.keel) || candidate.newName !== target.plates || typeof candidate.operationId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9:._/-]{0,199}$/.test(candidate.operationId) || operations.has(candidate.operationId) || !stamp(candidate.verifiedAt) || Date.parse(candidate.verifiedAt) > Date.parse(observation.observedAt)) refuse('conflicting or uncertain rename evidence');
       if (!exact(candidate.readback,['repositoryId','labelId','name']) || candidate.readback.repositoryId !== repositoryId || candidate.readback.labelId !== candidate.labelId || candidate.readback.name !== target.plates) refuse('rename readback mismatch');
       seenRows.add(candidate.row); seenLabels.add(candidate.labelId); operations.add(candidate.operationId);
       if (candidate.row === id) entry = candidate;

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -558,4 +559,23 @@ test('robot label publication uses tracked confirmed evidence and supplied fresh
   assert.equal((await ensureRobotIssue(args)).state,'unqueued','uncertain receipt recovery does not relabel or recreate');
   assert.equal(api.posts().length,1);
  }
+});
+
+for (const namespace of ['plates', 'keel']) for (const state of ['open', 'closed', 'uncertain']) test(`phase128 seed ${namespace} ${state} preserves original instance`, async t => {
+  const stateDir = await temp(t), api = remote();
+  const instanceId = `${namespace}-acme-original`;
+  const original = await ensureRobotIssue({ ...work, instanceId, stateDir, github: api.github, yes: true });
+  assert.equal(original.state, 'created');
+  if (state === 'closed') api.rows[0].state = 'closed';
+  if (state === 'uncertain') {
+    const dirs = (await readdir(stateDir)).filter(name => /^[a-f0-9]{64}$/.test(name));
+    const file = join(stateDir, dirs[0], `${createHash('sha256').update(JSON.stringify(instanceId)).digest('hex')}.json`);
+    const intent = JSON.parse(await readFile(file, 'utf8'));
+    intent.state = 'attempted'; delete intent.issue;
+    await writeFile(file, JSON.stringify(intent));
+  }
+  const recovered = await ensureRobotIssue({ ...work, instanceId: 'plates-acme-new', compatibleInstanceIds: [instanceId], stateDir, github: api.github, yes: true });
+  assert.equal(recovered.state, 'recovered', JSON.stringify(recovered));
+  assert.equal(recovered.issue.number, original.issue.number);
+  assert.equal(api.posts().length, 1);
 });

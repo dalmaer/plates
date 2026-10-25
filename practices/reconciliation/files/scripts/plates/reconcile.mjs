@@ -1,4 +1,4 @@
-import { normalizeFences } from './names.mjs';
+import { environmentValue, normalizeFences } from './names.mjs';
 // Read-only standalone runtime: reconcile.mjs + canonical names.mjs.
 // No third-party dependencies, CLI/night activation or writes.
 // Receipts: keel-proof JSON fences, version 1, in the referenced evidence section.
@@ -134,7 +134,7 @@ async function observe(key, { env = process.env, prFacts }) {
     value = prFacts[key];
   } else {
     const [repo, n] = key.split('#');
-    const { stdout } = await exec(env.PLATES_GH || 'gh', ['api', `repos/${repo}/pulls/${n}`], { env, timeout: 15000, maxBuffer: LIMIT });
+    const { stdout } = await exec((environmentValue('variable:KEEL_GH', env) ?? 'gh'), ['api', `repos/${repo}/pulls/${n}`], { env, timeout: 15000, maxBuffer: LIMIT });
     value = JSON.parse(stdout);
   }
   if (!object(value) || !['open', 'closed'].includes(value.state) || typeof value.draft !== 'boolean' || !Object.hasOwn(value, 'merged_at') || (value.merged_at !== null && (!string(value.merged_at) || !Number.isFinite(Date.parse(value.merged_at)))) || (value.merged_at && !string(value.merge_commit_sha)) || value.cached || value.stale || value.error) throw Error(`invalid or cached PR observation: ${key}`);

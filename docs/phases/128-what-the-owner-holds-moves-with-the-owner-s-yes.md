@@ -1,11 +1,12 @@
 ---
-status: planned
-since: 2026-10-23
+status: partial
+owes: walk
+since: 2026-10-24
 goal: G2
 spec: 2
 depends: [125, 126, 127]
-note: "Specified 2026-10-23 (docs/specs/name-transition.md). The names plates can't change on its own: GitHub labels, repository variables and secrets, Vercel env, and the owner's machine. One command lists them per project, and moves each with the owner's yes."
-evidence: []
+note: "PR 264 source repairs pass focused verification and mutation checks; integrated gate and exact-head review precede merge. Owner activation and the dispatched fleet walk remain."
+evidence: ["evidence/2026-10-24-names-command.md"]
 issue: 244
 ---
 
@@ -39,13 +40,28 @@ The design is [Name transition](../specs/name-transition.md).
   - git worktrees whose path is named `keel`: listed, never removed. A worktree of another session or provider is named, not touched.
 - **Output:** the preview is the default, and `--yes` acts on one project at a time. `--json` gives agents the list.
 
+### Source and activation contract (settled 2026-10-24)
+
+The specification's migration-command section settles exact-row scope, current-first
+environment presence, typed label creation/rename receipts, private recovery, all
+18 original local/runtime rows, the finite historical environment additions, and
+explicit held canvas/lock states. `--yes --digest` binds
+the reviewed single-project or machine plan; preview is read-only. Source work
+includes `plates names --verify <repo>` before the release; phase 129 owns its
+real dispatched walk. No source test grants activation authority.
+
 ## Acceptance
 
-- [ ] The preview lists each live keel name per project, with its kind and the action or command. Nothing changes without `--yes`. `tests/names-cli.test.mjs` (stub `gh`): "the preview changes nothing"
-- [ ] With `--yes`, labels are renamed in place, an issue keeps its label under the new name, and both names existing at once is refused. `tests/names-cli.test.mjs`: "labels are renamed, never recreated"
-- [ ] Variables are copied, never deleted. Secrets are listed with a command and no value, and no `gh secret` read is ever made. `tests/names-cli.test.mjs`: "secrets are never read"
-- [ ] `--machine` moves the night-card job and its launchd label in a scratch home, and the job then runs from `~/.plates`. `tests/names-machine.test.mjs`: "the night card moves and still runs"
-- [ ] The owner runs `plates names --yes` on plates and sets the listed secrets. The next listing separates verified retained aliases from active legacy dependencies and unknown coverage; old variables retained for phase 130 are not falsely reported as absent. ⚑ by hand: the owner
+- [x] The preview lists each live keel name per project, with its kind and the action or command. Nothing changes without `--yes`. `tests/names-cli.test.mjs` (stub `gh`): "the preview changes nothing"
+- [x] With `--yes`, labels are renamed in place, an issue keeps its label under the new name, and both names existing at once is refused. `tests/names-cli.test.mjs`: "labels are renamed, never recreated"
+- [x] Variables are copied, never deleted. Secrets are listed with a command and no value, and no `gh secret` read is ever made. `tests/names-cli.test.mjs`: "secrets are never read"
+- [x] `--machine` moves the night-card job and its launchd label in a scratch home, and the job then runs from `~/.plates`. `tests/names-machine.test.mjs`: "the night card moves and still runs"
+- [ ] The owner approves and runs the exact names plan on plates and sets the listed secrets. The next listing separates verified retained aliases from active legacy dependencies and unknown coverage; old variables retained for phase 130 are not falsely reported as absent. ⚑ by hand: the owner
+
+- [x] Run-attempt observation artifacts extend actual producer outputs and prove the positive night → morning → board/history → verifier path, without creating acceptance or mutation authority. `tests/names-observation.test.mjs` and `tests/names-verify.test.mjs`.
+- [x] Read-only `--verify` names each failed or unknown phase-129 check and distinguishes fresh writes from required legacy continuation. `tests/names-verify.test.mjs`
+- [x] All exact phase-128 rows have source coverage or an explicit held/classification gap, with both-direction mutation proof for each implemented fallback. `tests/names-cli.test.mjs` and the retained mutation observations.
+- [x] Recovery preserves original operations through uncertain writes; public label receipts remain separate from private intents and uncommitted receipts cannot activate CI writers. `tests/names-cli.test.mjs` and `tests/names-labels.test.mjs`.
 
 ## Your part
 
@@ -75,4 +91,4 @@ By hand: ⚑ the owner's run on plates. The listing before and after goes into t
 
 ## Next action
 
-Write `plates names` as a read-only listing first, then run it on plates and check every row against the phase-124 table.
+Pass the integrated full gate and exact-head review for the repaired producer-target and generated-region verifier. After the source PR merges and the release is cut, preview the exact Plates label/variable plan with the owner, publish confirmed receipts through review, and conduct phase 129. Owner-machine changes and phase-130 retirement retain their separate approvals.

@@ -1,4 +1,4 @@
-import { artifactNames } from './names.mjs';
+import { environmentValue, artifactNames } from './names.mjs';
 // Bounded, data-only recovery of the night ledger. No artifact supplies commands.
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -111,8 +111,8 @@ export async function recoverTestHistory({ root, repo, branch, at = new Date(), 
     else if (out.gaps.length === 1023) out.gaps.push({ code: 'gap-limit', detail: 'additional coverage gaps omitted by diagnostic bound', observedAt: at });
   };
   const base = `repos/${repo}`;
-  github ??= async path => JSON.parse((await exec(process.env.PLATES_GH || 'gh', ['api', path], { encoding: 'utf8', timeout: 30000, maxBuffer: 8 * 1024 * 1024 })).stdout);
-  download ??= async artifactId => (await exec(process.env.PLATES_GH || 'gh', ['api', `${base}/actions/artifacts/${artifactId}/zip`], { encoding: 'buffer', timeout: 60000, maxBuffer: MAX.bytes })).stdout;
+  github ??= async path => JSON.parse((await exec((environmentValue('variable:KEEL_GH', process.env) ?? 'gh'), ['api', path], { encoding: 'utf8', timeout: 30000, maxBuffer: 8 * 1024 * 1024 })).stdout);
+  download ??= async artifactId => (await exec((environmentValue('variable:KEEL_GH', process.env) ?? 'gh'), ['api', `${base}/actions/artifacts/${artifactId}/zip`], { encoding: 'buffer', timeout: 60000, maxBuffer: MAX.bytes })).stdout;
   const weeks = Array.from({ length: 8 }, (_, i) => weekOf(new Date(at).getTime() - i * 7 * 86400000));
   try {
     const repository = await github(base);

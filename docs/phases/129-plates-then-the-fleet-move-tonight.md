@@ -15,7 +15,7 @@ issue: 245
 
 In one evening, plates and then ledger, duo, cajones, isocan and dtv each run on the transitioned release. Each passes a checklist on a night run dispatched by hand (`workflow_dispatch`):
 - a full night and morning ran;
-- every branch, marker, fence, label and artifact written was a plates name;
+- fresh names written by the enumerated Plates-managed producers use plates names, while required old-prefix continuations retain their original identity;
 - every old-name PR and plan still in flight was read and drained;
 - `plates names` for that project shows nothing left except what the owner chose to keep.
 
@@ -27,14 +27,14 @@ The design is [Name transition](../specs/name-transition.md), "The rule". The ow
 - **Plates first.**
   1. With explicit owner approval, disable affected workflows and keep them disabled through installation, then re-enable only the installed new definitions. Prove the concurrency preflight: no old-group run is queued, waiting, pending or running, with complete run coverage. The owner drains runs or confirms cancellation before proceeding. Then update plates itself.
   2. Run `plates names --yes`, plus the owner's secret commands.
-  3. Dispatch `plates-night.yml`, then `plates-morning.yml`.
+  3. Preview and approve evidence-enabled dispatches with the released observer `names_source_sha`. Dispatch `plates-night.yml`, then `plates-morning.yml` with that same SHA and the exact originating `night_run_id` and `night_run_attempt`. Provisioning uses the fixed source repository and existing access only, as specified in the phase-128 contract.
   4. Check the plates checklist below.
 
   Only then does the fleet start.
 - **Then each project in order:** ledger, duo, cajones, isocan, dtv.
   1. Establish the same owner-approved disable/install/re-enable barrier and pass the old-run concurrency preflight before installing changed workflows. `plates fleet update` opens the PR, and the owner merges it (isocan's merge is Dimitri's or the owner's).
   2. `plates names --yes` for that project.
-  3. Dispatch its night, then its morning.
+  3. Approve the same exact source-bound evidence inputs for this project; dispatch its night, then its morning linked to that exact night attempt.
   4. Check its checklist.
 
   A project that fails stops the rollout. It's fixed, or set aside by the owner, before the next one starts.
@@ -48,7 +48,7 @@ The design is [Name transition](../specs/name-transition.md), "The rule". The ow
   - the dispatched night's run is green;
   - its PR is on `plates-night/<date>`;
   - the morning's final is on the night's own prefix;
-  - no new marker, fence, label or artifact uses a keel name;
+  - no fresh managed marker, fence, label or artifact uses a keel name; project-owned setup/gate effects remain separately disclosed, not certified by this observation;
   - drain left no keel-prefixed PR that still merges;
   - the board and the morning brief read the verify and plan history.
 
@@ -87,4 +87,4 @@ By hand: ⚑ the evening's rollout. Each project's dispatched run links and `pla
 
 ## Next action
 
-Write `plates names --verify` against a stub of plates's own last night, then list the project files plates doesn't manage that still say keel, per repository.
+Use phase 128's implemented verifier, prepare the reviewed release and refresh the unmanaged-file inventory, then present the exact Plates-first rollout preview for owner approval.

@@ -1,3 +1,4 @@
+import { environmentValue } from './names.mjs';
 import {configuredLabelMatches} from './names.mjs';
 // Read-only GitHub planning source. Shipped with night: no CLI checkout needed.
 import { readFile } from 'node:fs/promises';
@@ -31,7 +32,7 @@ export const MILESTONE_QUERY = `query($owner:String!,$name:String!) {
 }`;
 
 const gh = (args, env) => new Promise((resolve, reject) => {
-  execFile(env.PLATES_GH || 'gh', args, { env, encoding: 'utf8', timeout: 15000, maxBuffer: 16 * 1024 * 1024 },
+  execFile((environmentValue('variable:KEEL_GH', env) ?? 'gh'), args, { env, encoding: 'utf8', timeout: 15000, maxBuffer: 16 * 1024 * 1024 },
     (error, stdout, stderr) => {
       if (!error) return resolve(stdout);
       const message = String(stderr || error.message).trim();
