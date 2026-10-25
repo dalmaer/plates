@@ -9,6 +9,7 @@ import { nameRow } from './names.mjs';
 export const OBSERVATION_LIMITS = Object.freeze({ jsonBytes: 1048576, writes: 512, reads: 64,
   fragments: 128, fragmentBytes: 262144, archiveBytes: 8388608, sourceFiles: 128,
   listingPages: 20, listingPageSize: 100 });
+export const WRITE_ROLES = Object.freeze(['health-report', 'bounds', 'night-record', 'working-plan', 'time-remeasurement', 'plan-publication', 'health-plan-section', 'night-pr', 'final-pr', 'brief-issue', 'closure-comment']);
 export class NamesObservationError extends Error {
   constructor(code, path = '$') { super(`names observation: ${code} at ${path}`); this.name = 'NamesObservationError'; this.code = code; this.path = path; }
 }
@@ -151,12 +152,15 @@ export function validateObservation(v, { expected, fragments } = {}) {
     check(fragments instanceof Map && fragments.size === meta.size, '$.fragments', 'fragment_set_mismatch');
     for (const [name, b] of fragments) {
       const f = meta.get(name); check(f !== undefined, '$.fragments', 'fragment_set_mismatch');
-      utf8(b, OBSERVATION_LIMITS.fragmentBytes, '$.fragments'); check(b.byteLength === f.bytes && hash(b) === f.sha256, '$.fragments', 'fragment_digest_mismatch');
+      const content = utf8(b, OBSERVATION_LIMITS.fragmentBytes, '$.fragments');
+      if (f.kind === 'projection') parseJSON(content);
+      check(b.byteLength === f.bytes && hash(b) === f.sha256, '$.fragments', 'fragment_digest_mismatch');
     }
   }
   function fragment(name, kind, p) { fragmentPath(name, p); const f = meta.get(name); check(f && f.kind === kind, p, 'missing_fragment'); used.add(name); return f; }
   list(v.writes, OBSERVATION_LIMITS.writes, '$.writes', (w, p) => {
-    shape(w, 'producerId sequence operationId target outcome before intended after observedAt', p);
+    shape(w, 'producerId role sequence operationId target outcome before intended after observedAt', p);
+    one(w.role, WRITE_ROLES, `${p}.role`);
     check(declared.has(w.producerId), p, 'identity_mismatch'); id(w.sequence, p); nullable(token, w.operationId, p); target(w.target, p, repo);
     one(w.outcome, ['not-attempted', 'attempted-unknown', 'confirmed', 'no-change'], p);
     nullable(snapshot, w.before, `${p}.before`); nullable(snapshot, w.after, `${p}.after`); timestamp(w.observedAt, p);

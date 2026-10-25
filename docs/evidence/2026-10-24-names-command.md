@@ -217,3 +217,45 @@ These findings prevent merge despite the green suite and external reviews.
 Repair must preserve the real producer-to-verifier positive path, independently
 validate generated regions and producer targets, and retain required history reads
 as unknown when evidence is missing. No release or activation is established.
+
+
+## Verifier review repairs and independent proof audit — 2026-10-25
+
+The four synthetic review findings are repaired locally. Projection transfer
+rejects duplicate JSON keys before exporting original bytes. Required history
+aliases must be consumed or independently confirmed absent. Typed write roles
+bind each producer to its actual path, branch/head and object, and required
+coverage is per role. The verifier reconstructs generated regions from provider
+bytes and immutable preimages; an omitted fragment cannot conceal a fresh
+legacy write. Retained Git outputs require independently retrieved before
+commit/blob evidence, not matching authored hashes. Missing preimages remain
+unknown. Mutable issue/PR readback is not proof of invisible write causality.
+
+Local night records derive the managed date/items/id/kind/status projection
+from provider JSON. Legitimate owner prose mentioning an old name remains
+outside that projection. Health preimages are observed under the existing
+writer lock; missing and empty inputs remain distinct, and recovery binds the
+original commit. Raw preimages are not added to exported records.
+
+The conductor independently ran the final focused suites: 34 verifier/privacy
+tests and 116 runtime/health-lock tests passed, with no failures. Actual
+`plates prove` runs against `ef1a3bbd` returned VERIFIED for omitted-region and
+wrong-producer regressions, retained Git preimages, and managed record projection.
+Nineteen final-core mutation pairs passed baseline and failed assertions under
+mutation. The runtime inventory selects 184 pairs: 119 refreshed observations
+and 65 retained observations. The conductor checked all 368 log hashes and
+14,194 recorded repository source loads against current bytes, with no mismatch.
+Three failed scratch setup attempts remain retained and excluded, not hidden
+as passing trials. These counts overlap prior inventories; they are not additive.
+
+Commands, exact sources, mutation loaders, logs and failures are retained under
+`.plates/name-transition/phase128-region-final-proof-20261025/`. Current runtime
+source pins were refreshed after this audit; historical pin registries are unchanged.
+Two trailing EOF blank lines in verification mirrors were deliberately left
+unchanged so the frozen mutation source hashes remain exact.
+
+The supplemental re-review was refused by a cybersecurity filter; its coverage
+is unavailable, not a passing review. It was not retried through another route.
+The normal exact-head PR review and integrated full gate remain required before
+merge. No release, live label/variable/machine change, dispatch or production
+acceptance is established by these local results.

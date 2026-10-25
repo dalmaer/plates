@@ -1,6 +1,6 @@
 import { environmentValue, labelNames, repositoryLabelSelection, readNames, writeName, nightBranches, finalNightBranch } from './names.mjs';
 import { planLocations } from './night-plan.mjs';
-import { retainedVerificationSummary, namesDigest, namesGeneratedFragment, namesEvidenceContext, namesObservation, namesGap, namesFragment, namesPlanProjection, namesSnapshot, namesLocalSource, namesRead, namesLocalWrite } from './verification.mjs';
+import { retainedVerificationSummary, namesDigest, namesGeneratedFragment, namesEvidenceContext, namesObservation, namesGap, namesFragment, namesPlanProjection, namesSnapshot, namesLocalSource, namesRead, namesLocalWrite, namesPreimage } from './verification.mjs';
 import { rewriteHealthBody } from './time-proposals.mjs';
 import { status as productionStatus, productionLines } from './production.mjs';
 // The morning (plates practice `night`; managed: plates render rewrites it). When
@@ -578,7 +578,7 @@ export async function send({ root, date, env = process.env, now = new Date(), na
       id=object.id; after=namesSnapshot(object.body,{labelIds:object.labels.map(l=>l.id),providerUpdatedAt:object.updated_at??null});
       if(after.sha256!==namesDigest(intended)) {outcome='attempted-unknown';namesGap(observation,'issue-readback-mismatch');}
     } catch {outcome='attempted-unknown';namesGap(observation,'issue-readback-unavailable');}
-    observation.writes.push({producerId:'brief',sequence:observation.writes.length+1,operationId:null,target:{kind:'issue',repositoryId:context.repositoryId,id,number,headSha:null},outcome,before:outcome==='no-change'?after:before,intended:{...fragment,sha256:namesDigest(intended)},after:outcome==='attempted-unknown'?null:after,observedAt:new Date().toISOString()});
+    observation.writes.push({producerId:'brief',role:'brief-issue',sequence:observation.writes.length+1,operationId:null,target:{kind:'issue',repositoryId:context.repositoryId,id,number,headSha:null},outcome,before:outcome==='no-change'?after:before,intended:{...fragment,sha256:namesDigest(intended)},after:outcome==='attempted-unknown'?null:after,observedAt:new Date().toISOString()});
   };
   const title = titleOf(b.data.date);
   const issues = morningIssues(root, config, env);
@@ -613,7 +613,7 @@ export async function send({ root, date, env = process.env, now = new Date(), na
         if(matches.length!==1||!Number.isSafeInteger(matches[0].id)) throw new Error();
         id=matches[0].id;after=namesSnapshot(intended,{providerUpdatedAt:matches[0].updated_at??null});
       }catch{namesGap(observation,'closure-readback-unavailable');}
-      if(fragment) observation.writes.push({producerId:'brief',sequence:observation.writes.length+1,operationId:null,target:{kind:'comment',repositoryId:context.repositoryId,id,number:prev.number,headSha:null},outcome:after?'confirmed':'attempted-unknown',before:commentsBefore?namesSnapshot(null):null,intended:{...fragment,names:[]},after,observedAt:new Date().toISOString()});
+      if(fragment) observation.writes.push({producerId:'brief',role:'closure-comment',sequence:observation.writes.length+1,operationId:null,target:{kind:'comment',repositoryId:context.repositoryId,id,number:prev.number,headSha:null},outcome:after?'confirmed':'attempted-unknown',before:commentsBefore?namesSnapshot(null):null,intended:{...fragment,names:[]},after,observedAt:new Date().toISOString()});
     }
   }
   return { data: { ok: true, sent: true, date: b.data.date, issue: number, url, assignee, closed, readiness: b.data.readiness, ...(observation?{observation}:{}) }, text: `${title}: sent as ${url}, assigned to ${assignee}${closed.length ? `; closed ${closed.map(n => `#${n}`).join(', ')}` : ''}.` };
@@ -699,22 +699,24 @@ export async function finalize({ root, date, prInput, namesEvidence = false }) {
   if (!found.plan) throw new MorningError(`no plan for the night of ${night}: ${found.sources.map(s => `${s.from} ${s.state}`).join('; ')}`);
   const observation=found.observation, context=namesEvidenceContext(namesEvidence);
   const recordPath=recordOf(night), recordBefore=observation?await localFile(root,recordPath):null;
+  const recordPreimage=observation?namesPreimage(root,recordPath,recordBefore):null;
   const written = [];
   try { written.push(await writeRecord(root, found.plan)); } catch (e) { throw e instanceof NightPlanError ? new MorningError(e.message) : e; }
   let dir;
   try { dir = healthDirOf(config); } catch (e) { throw new MorningError(`the health directory: ${e.message}`); }
   const page = `${dir}/${night}.md`;
   const text = await localFile(root, page);
+  const healthPreimage=observation?namesPreimage(root,page,text):null;
   if (text !== null) {
     try { written.push(await safeWrite(root, page, rewriteHealthBody(text, body => withPlanSection(body, planSection(found.plan, { record: recordOf(night) }))))); }
     catch (e) { throw e instanceof NightPlanError ? new MorningError(e.message) : e; }
   }
   if(observation) {
     const recordAfter=await localFile(root,recordPath);
-    namesLocalWrite(observation,context,{root,path:recordPath,before:recordBefore,intended:`${JSON.stringify(found.plan,null,2)}\n`,after:recordAfter,fragmentText:JSON.stringify(namesPlanProjection(found.plan)),id:'record'});
+    namesLocalWrite(observation,context,{root,path:recordPath,role:'night-record',beforeSnapshot:recordPreimage,before:recordBefore,intended:`${JSON.stringify(found.plan,null,2)}\n`,after:recordAfter,fragmentText:JSON.stringify(namesPlanProjection(found.plan)),id:'record'});
     if(text!==null) {
       const intended=rewriteHealthBody(text,body=>withPlanSection(body,planSection(found.plan,{record:recordPath})));
-      namesLocalWrite(observation,context,{root,path:page,before:text,intended,after:await localFile(root,page),fragmentText:planSection(found.plan,{record:recordPath}),id:'health-plan'});
+      namesLocalWrite(observation,context,{root,path:page,role:'health-plan-section',beforeSnapshot:healthPreimage,before:text,intended,after:await localFile(root,page),fragmentText:planSection(found.plan,{record:recordPath}),id:'health-plan'});
     }
   }
   if (prInput) await writeFile(prInput, `${JSON.stringify(finalPr(found.plan, page), null, 2)}\n`);

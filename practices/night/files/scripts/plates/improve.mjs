@@ -67,7 +67,7 @@ import { Saving } from './quota.mjs';
 // ratchet follows isocan's scripts/ratchet.mjs (Apache-2.0): bounds that only
 // report the wrong way.
 import { readCiUsage, ciOptions } from './ci.mjs';
-import { namesEvidenceContext, namesObservation, namesGap, namesLocalWrite, namesPlanProjection, recoverNightVerification, observeVerification, verificationGit, verificationReceipt, verificationSummary, formatVerification } from './verification.mjs';
+import { namesEvidenceContext, namesObservation, namesGap, namesLocalWrite, namesPreimage, namesPlanProjection, recoverNightVerification, observeVerification, verificationGit, verificationReceipt, verificationSummary, formatVerification } from './verification.mjs';
 import { reusableGate } from './gate.mjs';
 import { hygieneOptions, draftsWaiting, longFiles } from './hygiene-measures.mjs';
 import { makeHygieneProposal, formatHygieneProposal, readHygieneProposals, hygieneRobotTargetReason } from './hygiene-proposals.mjs';
@@ -1677,9 +1677,12 @@ export async function improve({ root, report = false, transcripts, prInput, date
   if (report) try { dir = healthDirIn(root, config); } catch (e) { throw new ImproveError(e.message, 2); }
   const namesContext=namesEvidenceContext(namesEvidence,env), names=namesObservation('improve',namesContext);
   const readLocal=path=>readFile(join(root,path),'utf8').catch(e=>{if(e.code==='ENOENT')return null;throw e;});
-  const beforeFiles=new Map();
-  if(names && report) for(const path of [BOUNDS,healthPage(dir,date),PLAN,`docs/night/${date}.json`]) beforeFiles.set(path,await readLocal(path));
+  const beforeFiles=new Map(), beforeSnapshots=new Map();
+  if(names && report) for(const path of [BOUNDS,healthPage(dir,date),PLAN,`docs/night/${date}.json`]) { const text=await readLocal(path); beforeFiles.set(path,text); if(path!==PLAN) beforeSnapshots.set(path,namesPreimage(root,path,text)); }
   const nightRecovery = report && env.PLATES_NIGHT_RECOVERY === '1' ? await recoverNightVerification({root,config,date,env}) : null;
+  // The managed workflow publishes on this exact recovered/resolved branch
+  // after measurement; checkout HEAD is not necessarily that destination.
+  const targetRef=nightRecovery?.branch ? `refs/heads/${nightRecovery.branch}` : undefined;
   const observation = await observeVerification({root,config,env,read:verificationRead,git:verificationSource});
   const stored = await readBounds(root);
   const results = await measure({ root, config, env, transcripts, date, bounds: stored ?? {}, measures, plates });
@@ -1706,11 +1709,12 @@ export async function improve({ root, report = false, transcripts, prInput, date
       // Capture the actual locked preimage and intended replacement before the
       // existing writer acts; readback alone is not proof of intended bytes.
       const before=names ? await readLocal(p.path) : null;
+      const beforeSnapshot=names ? namesPreimage(root,p.path,before) : null;
       const generated=names ? formatTimeProposal({...current,lifecycle:nextLifecycle}) : null;
       const region=names ? markerRegion(before,'marker:keel:time-proposal:begin','marker:keel:time-proposal:end') : null;
       const intended=region ? before.slice(0,region.start)+generated+before.slice(region.end) : null;
       await saveLifecycle(nextLifecycle);
-      if(names && intended!==null) namesLocalWrite(names,namesContext,{root,path:p.path,before,intended,after:await readLocal(p.path),fragmentText:generated,id:`remeasurement-${names.writes.length+1}`});
+      if(names && intended!==null) namesLocalWrite(names,namesContext,{root,targetRef,path:p.path,role:'time-remeasurement',before,beforeSnapshot,intended,after:await readLocal(p.path),fragmentText:generated,id:`remeasurement-${names.writes.length+1}`});
       else if(names) namesGap(names,'remeasurement-preimage-unavailable');
       if(p.path!==healthPage(dir,date)) changedHistoricalHealthPaths.push(p.path);
     });
@@ -1732,14 +1736,19 @@ export async function improve({ root, report = false, transcripts, prInput, date
     night = await nightPlan(root, date, results, written);
     await mkdir(join(root, dir), { recursive: true });
     const generated=page({ config, date, results, proposal, tightened, by, climb, retire, tend, budget, remeasurements, night, production })+'\n\n## Verification\n\n'+verificationSummary(verification)+fleetText+'\n'+formatVerification(verification)+'\n';
-    if(names) beforeFiles.set(written,await readLocal(written));
-    const healthResult=await writeHealthReport({root,path:written,recovered:nightRecovery?.report,generated});
+    let healthIntended;
+    await writeHealthReport({root,path:written,recovered:nightRecovery?.report,generated,observeBefore:names ? (previous,next)=>{
+      beforeFiles.set(written,previous);
+      beforeSnapshots.set(written,namesPreimage(root,written,previous,nightRecovery?.report!==null && nightRecovery?.report!==undefined ? {commitSha:nightRecovery.head} : {}));
+      healthIntended=next;
+    } : undefined});
     if(names) {
-      namesLocalWrite(names,namesContext,{root,path:written,before:beforeFiles.get(written),intended:healthResult.text,after:await readLocal(written),fragmentText:generated,id:'health'});
+      namesLocalWrite(names,namesContext,{root,targetRef,path:written,role:'health-report',beforeSnapshot:beforeSnapshots.get(written),before:beforeFiles.get(written),intended:healthIntended,after:await readLocal(written),fragmentText:generated,id:'health'});
       const boundsText=`${JSON.stringify(t.bounds,null,2)}\n`;
-      namesLocalWrite(names,namesContext,{root,path:BOUNDS,before:beforeFiles.get(BOUNDS),intended:boundsText,after:await readLocal(BOUNDS),fragmentText:boundsText,id:'bounds'});
+      namesLocalWrite(names,namesContext,{root,targetRef,path:BOUNDS,role:'bounds',beforeSnapshot:beforeSnapshots.get(BOUNDS),before:beforeFiles.get(BOUNDS),intended:boundsText,after:await readLocal(BOUNDS),fragmentText:boundsText,id:'bounds'});
+      if(!night?.plan && config.practices?.includes('night')) namesGap(names,'night-plan-output-unavailable');
       if(night?.plan) for(const [id,path] of [['working-plan',PLAN],['record',night.record]]) {
-        namesLocalWrite(names,namesContext,{root,path,before:beforeFiles.get(path),intended:`${JSON.stringify(night.plan,null,2)}\n`,after:await readLocal(path),fragmentText:JSON.stringify(namesPlanProjection(night.plan)),id});
+        namesLocalWrite(names,namesContext,{root,targetRef,path,role:id==='working-plan'?'working-plan':'night-record',beforeSnapshot:beforeSnapshots.get(path),before:beforeFiles.get(path),intended:`${JSON.stringify(night.plan,null,2)}\n`,after:await readLocal(path),fragmentText:JSON.stringify(namesPlanProjection(night.plan)),id});
       }
     }
   }

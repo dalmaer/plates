@@ -883,7 +883,7 @@ export async function publishDefault({ root, date, remote = 'origin', env = proc
         const fragment=namesGeneratedFragment(observation,'retained-plan',JSON.stringify(existing.plan));
         if(source?.commitSha&&source.blobSha&&source.sha256&&fragment) {
           const snapshot={state:'present',commitSha:source.commitSha,blobSha:source.blobSha,sha256:source.sha256,labelIds:[],providerUpdatedAt:null};
-          observation.writes.push({producerId:'plan-publication',sequence:1,operationId:null,target:{kind:'git',repositoryId:context.repositoryId,ref:`refs/heads/${existing.branch}`,path:existing.path},outcome:'no-change',before:snapshot,intended:{...fragment,sha256:source.sha256},after:snapshot,observedAt:new Date().toISOString()});
+          observation.writes.push({producerId:'plan-publication',role:'plan-publication',sequence:1,operationId:null,target:{kind:'git',repositoryId:context.repositoryId,ref:`refs/heads/${existing.branch}`,path:existing.path},outcome:'no-change',before:snapshot,intended:{...fragment,sha256:source.sha256},after:snapshot,observedAt:new Date().toISOString()});
         }else namesGap(observation,'retained-plan-identity-unavailable');
       }
       return finish({ written: false, why: `${existing.branch} holds the plan for ${date}, shaped by ${existing.plan.shapedBy}: never replaced` });
@@ -915,14 +915,14 @@ export async function publishDefault({ root, date, remote = 'origin', env = proc
       else {
         const previous=readPlanBlob(root,tip,REMOTE_PLAN,{env});
         const blob=planGit(root,['rev-parse',`${tip}:${REMOTE_PLAN}`],{env,allowFail:true});
-        before=previous===null?namesSnapshot(null):namesSnapshot(previous,{commitSha:tip,blobSha:blob.status===0?blob.stdout.trim():null});
+        before=previous===null?namesSnapshot(null,{commitSha:tip}):namesSnapshot(previous,{commitSha:tip,blobSha:blob.status===0?blob.stdout.trim():null});
       }
       const check=planGit(root,['ls-remote','--exit-code','--heads',remote,ref],{env,allowFail:true});
       if(check.status===0 && check.stdout.trim()===`${commit}\t${ref}`) {
         const blob=planGit(root,['rev-parse',`${commit}:${REMOTE_PLAN}`],{env});
         after=namesSnapshot(intended,{commitSha:commit,blobSha:blob});
       }else namesGap(observation,'plan-publication-readback-unavailable');
-      if(fragment) observation.writes.push({producerId:'plan-publication',sequence:observation.writes.length+1,operationId:null,target:{kind:'git',repositoryId:context.repositoryId,ref,path:REMOTE_PLAN},outcome:after?'confirmed':'attempted-unknown',before,intended:{...fragment,sha256:namesDigest(intended)},after,observedAt:new Date().toISOString()});
+      if(fragment) observation.writes.push({producerId:'plan-publication',role:'plan-publication',sequence:observation.writes.length+1,operationId:null,target:{kind:'git',repositoryId:context.repositoryId,ref,path:REMOTE_PLAN},outcome:after?'confirmed':'attempted-unknown',before,intended:{...fragment,sha256:namesDigest(intended)},after,observedAt:new Date().toISOString()});
     }
     if (pushed.status === 0) return finish({ written: true, why: `tonight's default plan is on ${PLAN_BRANCH} (${over})`, commit });
   }

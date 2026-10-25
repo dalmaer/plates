@@ -1,11 +1,11 @@
 ---
 status: partial
+owes: walk
 since: 2026-10-24
 goal: G2
 spec: 2
 depends: [125, 126, 127]
-owes: walk
-note: "Source implementation and local proof are recorded; owner-approved activation and the dispatched fleet walk remain. The PR and commit carry the integrated gate and review results."
+note: "PR 264 source repairs pass focused verification and mutation checks; integrated gate and exact-head review precede merge. Owner activation and the dispatched fleet walk remain."
 evidence: ["evidence/2026-10-24-names-command.md"]
 issue: 244
 ---
@@ -91,4 +91,4 @@ By hand: ⚑ the owner's run on plates. The listing before and after goes into t
 
 ## Next action
 
-After the source PR passes its gate/review and the release is cut, preview the exact Plates label/variable plan with the owner, publish confirmed receipts through review, and conduct phase 129. Owner-machine changes and phase-130 retirement retain their separate approvals.
+Pass the integrated full gate and exact-head review for the repaired producer-target and generated-region verifier. After the source PR merges and the release is cut, preview the exact Plates label/variable plan with the owner, publish confirmed receipts through review, and conduct phase 129. Owner-machine changes and phase-130 retirement retain their separate approvals.

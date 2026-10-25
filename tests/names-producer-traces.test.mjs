@@ -56,7 +56,7 @@ test('dirty working plan remains actual input but cannot claim immutable provena
 test('publication retains confirmed pinned blob and subsequent same-night no-change identity',async t=>{
  const root=await fixture(t);await mkdir(join(root,'.plates/night'),{recursive:true});await writeFile(join(root,'.plates/night/plan.json'),JSON.stringify(plan('planned')));
  const first=await publishDefault({root,date:day,namesEvidence:context});assert.equal(first.written,true);
- const write=first.observation.writes[0];assert.equal(write.outcome,'confirmed');assert.equal(write.after.commitSha,first.commit);assert.equal(write.intended.sha256,write.after.sha256);
+ const write=first.observation.writes[0];assert.equal(write.role,'plan-publication');assert.equal(write.outcome,'confirmed');assert.equal(write.after.commitSha,first.commit);assert.equal(write.intended.sha256,write.after.sha256);
  const second=await publishDefault({root,date:day,namesEvidence:context});assert.equal(second.written,false);assert.equal(second.observation.writes[0].outcome,'no-change');assert.equal(second.observation.writes[0].after.blobSha,write.after.blobSha);
 });
 test('decide explicit date preserves originating night instead of current clock',async t=>{
@@ -76,6 +76,7 @@ for(const wrapper of ['none','KEEL','PLATES']) test(`finalization observation pr
  const expectedBody=body.replace(beforeSection,planSection(plan('done'),{record:`docs/night/${day}.json`}).join('\n'));
  assert.equal(after,wrap(expectedBody));
  const write=result.data.observation.writes.find(w=>w.target.path===path);
+ assert.equal(write.role,'health-plan-section');assert.equal(write.before.commitSha,git(root,'rev-parse','HEAD'));assert.equal(write.before.blobSha,git(root,'rev-parse',`HEAD:${path}`));
  assert.equal(write.before.sha256,namesDigest(before));assert.equal(write.intended.sha256,namesDigest(after));assert.equal(write.after.sha256,namesDigest(after));assert.equal(write.outcome,'confirmed');
  assert.ok(!JSON.stringify(result.data.observation.fragments).includes('Private'));
 });

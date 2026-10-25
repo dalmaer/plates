@@ -264,9 +264,10 @@ export function namesGit(root, args) {
   return spawnSync('git', ['--no-optional-locks','-c','core.fsmonitor=false',...args], {cwd:root,encoding:'utf8',timeout:15000,maxBuffer:1024*1024});
 }
 /** Pin only the bytes actually consumed. A different checkout blob is a gap. */
-export function namesLocalSource(root, path, text) {
+export function namesLocalSource(root, path, text, { commitSha = 'HEAD' } = {}) {
   const source={ref:'HEAD',path,commitSha:null,blobSha:null,sha256:null,state:'unavailable',absence:null};
-  const head=namesGit(root,['rev-parse','--verify','HEAD^{commit}']);
+  if(commitSha !== 'HEAD' && !SHA.test(commitSha)) return source;
+  const head=namesGit(root,['rev-parse','--verify',`${commitSha}^{commit}`]);
   if(head.status!==0 || !SHA.test(head.stdout.trim())) return source;
   source.commitSha=head.stdout.trim();
   const tree=namesGit(root,['ls-tree','-z',source.commitSha,'--',path]);
@@ -284,12 +285,25 @@ export function namesRead(observation, context, source, {consumer,sourceKind,sel
   if(source.state==='unavailable') namesGap(observation,'read-unavailable');
   observation.reads.push({consumer,sourceKind,repositoryId:context.repositoryId,...source,selected:source.state==='read'&&selected,contributed:source.state==='read'&&contributed,outputSection,outputProjection:projection,recordIds:source.state==='read'?recordIds:[]});
 }
-export function namesLocalWrite(observation, context, {root,path,before,intended,after,fragmentText,id,names=[]}) {
+/** Capture before mutation; unknown bytes are never attributed to execution HEAD. */
+export function namesPreimage(root, path, text, options = {}) {
+  const source = namesLocalSource(root, path, text, options);
+  if (!['read', 'absent'].includes(source.state)) return null;
+  return namesSnapshot(text, {commitSha:source.commitSha,blobSha:source.blobSha});
+}
+export function namesLocalWrite(observation, context, {root,path,role,targetRef,before,beforeSnapshot,intended,after,fragmentText,id,names=[]}) {
   if(!observation) return;
   const fragment=namesGeneratedFragment(observation,id,fragmentText);
   if(!fragment) return;
   const branch=namesGit(root,['symbolic-ref','--quiet','HEAD']);
-  if(branch.status!==0) namesGap(observation,'local-write-ref-unavailable');
-  observation.writes.push({producerId:observation.producerId,sequence:observation.writes.length+1,operationId:null,target:{kind:'git',repositoryId:context.repositoryId,ref:branch.status===0?branch.stdout.trim():'HEAD',path},outcome:after===intended?(before===after?'no-change':'confirmed'):'attempted-unknown',before:namesSnapshot(before),intended:{...fragment,sha256:namesDigest(intended)},after:after!==intended||after===null?null:namesSnapshot(after),observedAt:new Date().toISOString()});
+  if(!targetRef && branch.status!==0) namesGap(observation,'local-write-ref-unavailable');
+  // Working plans are ignored local bytes paired to the published night record;
+  // they do not claim an independently retrievable before/after Git object.
+  const preimage=role==='working-plan'?null:beforeSnapshot??null;
+  if(role!=='working-plan' && !preimage) namesGap(observation,`preimage-unavailable-${role}`);
+  const actual=after===intended && after!==null ? (role==='working-plan'?namesSnapshot(after):namesPreimage(root,path,after)??namesSnapshot(after)) : null;
+  const unchanged=before===after && preimage && actual && preimage.sha256===actual.sha256;
+  observation.writes.push({producerId:observation.producerId,role,sequence:observation.writes.length+1,operationId:null,target:{kind:'git',repositoryId:context.repositoryId,ref:targetRef??(branch.status===0?branch.stdout.trim():'HEAD'),path},outcome:after===intended?(unchanged?'no-change':'confirmed'):'attempted-unknown',before:preimage,intended:{...fragment,sha256:namesDigest(intended)},after:unchanged?preimage:actual,observedAt:new Date().toISOString()});
   if(after!==intended) namesGap(observation,'write-readback-mismatch');
 }
+

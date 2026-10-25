@@ -21,7 +21,7 @@ function fixture() {
     originatingNight: null,
     association: { kind: 'night', date: '2026-10-24', branch: 'plates-night/2026-10-24', leaseId: null, preexisting: false, preimageHeadSha: null, prId: 30, prNumber: 3, headSha: A, planPath: '.plates/plan.json', planBlobSha: B },
     producers: [{ id: 'improve', job: 'night', step: 'night/improve', outcome: 'completed', observedAt: at, reason: null }],
-    writes: [{ producerId: 'improve', sequence: 1, operationId: null, target: { kind: 'pr', repositoryId: 10, id: 30, number: 3, headSha: A }, outcome: 'confirmed', before: null,
+    writes: [{ producerId: 'improve', role: 'health-report', sequence: 1, operationId: null, target: { kind: 'pr', repositoryId: 10, id: 30, number: 3, headSha: A }, outcome: 'confirmed', before: null,
       intended: { fragment: 'fragments/health.txt', sha256: h(body), names: [{ rowId: 'marker:keel:health-report:begin', value: 'plates:health-report:begin' }] }, after: present(body), observedAt: at }],
     reads: [{ consumer: 'board', sourceKind: 'plan', repositoryId: 10, ref: 'plates-night-plan', path: 'plan.json', commitSha: A, blobSha: B, sha256: h(projection), state: 'read', absence: null, selected: true, contributed: true, outputSection: 'plan', outputProjection: { fragment: 'fragments/plan.txt', sha256: h(projection) }, recordIds: [] }],
     projections: [], artifacts: [], fragments: [...fragments].map(([path, b]) => ({ path, bytes: b.length, sha256: h(b), kind: path.includes('health') ? 'managed-fragment' : 'projection' })), gaps: [],
@@ -280,4 +280,16 @@ test('checkout producer keeps original source contract even when an installed ru
   assert.equal(validateObservation(o), o);
   o.scope.producers[0].source.commitSha = B;
   rejects(() => validateObservation(o), 'identity_mismatch');
+});
+
+test('write roles are required closed metadata; historical missing roles are not inferred', () => {
+  const {observation:o}=fixture();
+  for(const role of rendered.WRITE_ROLES) { o.writes[0].role=role; assert.equal(validateObservation(o),o); }
+  o.writes[0].role='arbitrary-output'; rejects(()=>validateObservation(o));
+  delete o.writes[0].role; rejects(()=>validateObservation(o),'unknown_or_missing_field');
+});
+for(const projection of ['{"date":"2026-10-24","date":"2026-10-25","items":[]}', '{"date":"2026-10-24","items":[{"id":"Acme","id":"Other"}]}', String.raw`{"date":"2026-10-24","items":[{"id":"Acme","\u0069d":"Other"}]}`]) test(`projection decoded duplicate keys refuse before archive export: ${projection}`,()=>{
+  const {observation:o,fragments}=fixture();const bytes=Buffer.from(projection);
+  fragments.set('fragments/plan.txt',bytes);Object.assign(o.fragments.find(f=>f.path==='fragments/plan.txt'),{bytes:bytes.length,sha256:h(bytes)});o.reads[0].outputProjection.sha256=h(bytes);
+  rejects(()=>observationFiles(o,fragments),'duplicate_key');
 });

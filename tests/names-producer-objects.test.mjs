@@ -29,6 +29,7 @@ else if(a[0]==='api'&&a[1]==='repos/acme/anvils/issues/9'){if(${JSON.stringify(m
 else {console.error('unexpected synthetic request '+a.join(' '));process.exit(1);}`);
  const result=await send({root,date,env:{PLATES_GH:bin},now:new Date('2026-10-06T00:00:00Z'),namesEvidence:{repositoryId:7}});
  const actual=JSON.parse(await readFile(state,'utf8')),write=result.data.observation.writes.find(w=>w.target.kind==='issue');
+ assert.equal(write.role,'brief-issue');
  assert.equal(actual.creates,1);assert.equal(write.target.number,9);assert.equal(write.target.repositoryId,7);
  assert.equal(write.intended.sha256,namesDigest(actual.body));
  assert.ok(!JSON.stringify(result.data.observation.fragments).includes('Private Acme title'));

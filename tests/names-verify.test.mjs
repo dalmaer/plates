@@ -173,7 +173,7 @@ function zip(files, { method = 0, descriptor = false, overrides = [] } = {}) {
   return Buffer.concat([...locals, centralBytes, end]);
 }
 
-async function positiveObservationFixture({legacy=false,artifactGap=false,setup=false,observerMismatch=false,attemptMismatch=false,missingObserver=false,missingClosure=false,changedManaged=false,withoutDelivery=false,skippedHistory=null}={}){
+async function positiveObservationFixture({legacy=false,artifactGap=false,setup=false,observerMismatch=false,attemptMismatch=false,missingObserver=false,missingClosure=false,changedManaged=false,withoutDelivery=false,skippedHistory=null,history=false,omitTokens=false,alter=null,retainedPR=false,legacyPlan=false,newProposal=false}={}){
  const {readFile}=await import('node:fs/promises');const {posix}=await import('node:path');
  const {observationFiles}=await import('../lib/names-observation.mjs');
  const {OBSERVATION_PRODUCERS,observationWorkflowBytes}=await import('../lib/names-verify.mjs');
@@ -191,20 +191,49 @@ async function positiveObservationFixture({legacy=false,artifactGap=false,setup=
  const object=(number,id,branch)=>({id,number,base:{repo:repository},head:{ref:branch,sha:revision},body:'Acme generated body',labels:[],created_at:at});
  const nightPr=object(3,61,`plates-night/${date}`),finalPr=object(4,62,`plates-night/${date}-final`),brief={id:63,number:5,body:'Acme brief',labels:[]};
  const present=bytes=>({state:'present',commitSha:revision,blobSha:blob(bytes),sha256:hash(bytes),labelIds:[],providerUpdatedAt:null});
+ const {mergeHealthPage,rewriteHealthBody}=await import('../practices/night/files/scripts/plates/time-proposals.mjs');
+ const {planSection}=await import('../practices/night/files/scripts/plates/night-plan.mjs');
+ const {withPlanSection}=await import('../practices/night/files/scripts/plates/morning.mjs');
+ const {formatVerification}=await import('../practices/night/files/scripts/plates/verification.mjs');
+ const {NAMES}=await import('../practices/night/files/scripts/plates/names.mjs');
+ const preSha='e'.repeat(40),finalSha='f'.repeat(40),healthPath=`docs/health/${date}.md`,recordPath=`docs/night/${date}.json`;
+ finalPr.head.sha=finalSha;
+ if(retainedPR)nightPr.body='Historical keel:health-report:begin';
+ const plan={schema:1,date,shapedBy:'default',readyBy:null,items:[],willNotTouch:[],settledToday:[],leftOpen:[]},planText=JSON.stringify(plan,null,2)+'\n';
+ const old=history?mergeHealthPage({previous:'Historical keel:health-report:begin\n',generated:'Acme older report\n'+formatVerification({attempt:'old',note:'keel:health-report:begin'})+'\n## Proposal\n\nKeep keel-impact as history.\n'}).text:'';
+ const generated='Acme measured report\n```'+(legacy?'keel':'plates')+'-impact\n{}\n```\n'+(newProposal?'## Proposal\n\nNew keel-impact proposal.\n':'');
+ const nightHealth=mergeHealthPage({previous:old,generated}).text;
+ const finalHealth=rewriteHealthBody(nightHealth,body=>withPlanSection(body,planSection(plan,{record:recordPath})));
+ set(healthPath,nightHealth);set(healthPath+'@'+preSha,old);set(healthPath+'@'+revision,nightHealth);set(healthPath+'@'+finalSha,finalHealth);
+ set(recordPath,planText);set('.plates/bounds.json','{}\n');set(legacyPlan?'.keel/night/plan.json':'.plates/night/plan.json',planText);
  const observations={};
  for(const kind of ['night','morning']){
   const producers=OBSERVATION_PRODUCERS[kind],fragments=new Map(),writes=[];
   const fragment=(path,text)=>{fragments.set(path,Buffer.from(text));return {fragment:path,sha256:hash(text)};};
-  for(const producer of producers.filter(p=>!['drain','board'].includes(p.id))){
-   let target,bytes;
-   if(['night-pr','final-pr','brief'].includes(producer.id)){
-    const obj=producer.id==='night-pr'?nightPr:producer.id==='final-pr'?finalPr:brief;
-    bytes=obj.body;target={kind:producer.id==='brief'?'issue':'pr',repositoryId:31,id:obj.id,number:obj.number,headSha:obj.head?.sha??null};
-   }else{bytes=producer.id==='improve'?`<!-- ${legacy?'keel':'plates'}:health-report:begin -->`:'Acme generated plan';const path=`docs/night/${producer.id}.txt`;set(path,bytes);target={kind:'git',repositoryId:31,ref:`plates-night/${date}`,path};}
-   const names=producer.id==='improve'?[{rowId:'marker:keel:health-report:begin',value:`${legacy?'keel':'plates'}:health-report:begin`}]:[];
-   const intended=fragment(`fragments/${producer.id}.txt`,names.map(n=>n.value).join('\n'));
-   writes.push({producerId:producer.id,sequence:1,operationId:null,target,outcome:'confirmed',before:null,intended:{...intended,sha256:hash(bytes),names},after:present(bytes),observedAt:at});
+  const add=(producerId,role,target,bytes,before=null)=>{
+   const names=omitTokens?[]:NAMES.filter(r=>['marker','fence','label'].includes(r.surface)).flatMap(r=>[r.keel,r.plates].filter(v=>bytes.includes(v)).map(value=>({rowId:r.id,value})));
+   const intended=fragment(`fragments/${producerId}-${role}.txt`,names.map(n=>n.value).join('\n'));
+   const after={...present(bytes),commitSha:kind==='night'?revision:finalSha};
+   writes.push({producerId,role,sequence:writes.filter(w=>w.producerId===producerId).length+1,operationId:null,target,outcome:'confirmed',before,intended:{...intended,sha256:hash(bytes),names},after,observedAt:at});
+  };
+  const local=(path)=>({kind:'git',repositoryId:31,ref:'refs/heads/'+(kind==='night'?nightPr:finalPr).head.ref,path});
+  if(kind==='night'){
+   add('improve','health-report',local(healthPath),nightHealth,old?{...present(old),commitSha:preSha}:{state:'absent',commitSha:preSha,blobSha:null,sha256:null,labelIds:[],providerUpdatedAt:null});
+   add('improve','bounds',local('.plates/bounds.json'),'{}\n');
+   add('improve','night-record',local(recordPath),planText);
+   add('improve','working-plan',local('.plates/night/plan.json'),planText);
+   add('plan-publication','plan-publication',{kind:'git',repositoryId:31,ref:legacyPlan?'refs/heads/keel-night-plan':'refs/heads/plates-night-plan',path:legacyPlan?'.keel/night/plan.json':'.plates/night/plan.json'},planText);
+   if(legacyPlan){const w=writes.at(-1);w.outcome='no-change';w.before={...w.after};}
+  }else{
+   add('finalization','night-record',local(recordPath),planText);
+   add('finalization','health-plan-section',local(healthPath),finalHealth,present(nightHealth));
   }
+  for(const producerId of kind==='night'?['night-pr']:['final-pr','brief']){
+   const obj=producerId==='night-pr'?nightPr:producerId==='final-pr'?finalPr:brief,role=producerId==='brief'?'brief-issue':producerId;
+   add(producerId,role,{kind:producerId==='brief'?'issue':'pr',repositoryId:31,id:obj.id,number:obj.number,headSha:obj.head?.sha??null},obj.body);
+   if(retainedPR&&producerId==='night-pr'){const w=writes.at(-1);w.outcome='no-change';w.before={...w.after};}
+  }
+  if(alter){alter({kind,writes,fragments,contents,hash,blob,nightPr,finalPr,brief});for(const path of fragments.keys())if(!writes.some(w=>w.intended.fragment===path))fragments.delete(path);}
   const projections=[];
   if(kind==='night')projections.push({producerId:'drain',kind:'drain-queue',...fragment('fragments/drain-queue.txt',JSON.stringify({before:[],after:[],actions:[]}))});
   const reads=[];
@@ -213,12 +242,12 @@ async function positiveObservationFixture({legacy=false,artifactGap=false,setup=
    const projection=sourceKind==='plan'?JSON.stringify({date,items:[]}):'[]';
    const outputProjection=fragment(`fragments/${consumer}-${sourceKind}.txt`,projection);
    for(const family of ['plates','keel']){
-    const ref=sourceKind==='plan'?`${family}-night-plan`:`${family}-verify`,path=sourceKind==='plan'?'plan.json':'verify.json',read=sourceKind==='plan'&&family==='plates';
+    const ref=sourceKind==='plan'?`${family}-night-plan`:`${family}-verify`,path=sourceKind==='plan'?'plan.json':'verify.json',read=sourceKind==='plan'&&family===(legacyPlan?'keel':'plates');
     if(read)set(path,projection);
     reads.push({consumer,sourceKind,repositoryId:31,ref,path,commitSha:read?revision:null,blobSha:read?blob(projection):null,sha256:read?hash(projection):null,state:sourceKind==='verify'&&family===skippedHistory?'skipped':read?'read':'absent',absence:read||sourceKind==='verify'&&family===skippedHistory?null:'ref',selected:read,contributed:read,outputSection:sourceKind,outputProjection,recordIds:[]});
    }
   }
-  const observation={schema:1,kind,repository:{id:31,fullName:repo},execution:{workflowPath:`.github/workflows/plates-${kind}.yml`,runId:kind==='night'?12:22,runAttempt:1,event:'workflow_dispatch',headSha:revision,codeSha:revision,startedAt:at,finishedAt:at,codeIdentity:null},scope:{workflow:source(`.github/workflows/plates-${kind}.yml`),configuration:source('.plates/plates.json'),runtime:{codeSha:revision,sourceFiles:[...runtime].map(source)},producers:producers.map(p=>({id:p.id,job:p.step.split('/')[0],step:p.step,source:source(p.path),mode:'enabled',reason:null}))},originatingNight:null,association:kind==='night'?{kind,date,branch:nightPr.head.ref,leaseId:null,preexisting:false,preimageHeadSha:null,prId:61,prNumber:3,headSha:revision,planPath:null,planBlobSha:null}:{kind,date,nightBranch:nightPr.head.ref,finalPrId:62,finalPrNumber:4,finalHeadSha:revision,briefIssueId:63,briefIssueNumber:5},producers:producers.map(p=>({id:p.id,job:p.step.split('/')[0],step:p.step,outcome:'completed',observedAt:at,reason:null})),writes,reads,projections,artifacts:[],fragments:[...fragments].map(([path,b])=>({path,bytes:b.length,sha256:hash(b),kind:reads.some(r=>r.outputProjection.fragment===path)||projections.some(p=>p.fragment===path)?'projection':'managed-fragment'})),gaps:[]};
+  const observation={schema:1,kind,repository:{id:31,fullName:repo},execution:{workflowPath:`.github/workflows/plates-${kind}.yml`,runId:kind==='night'?12:22,runAttempt:1,event:'workflow_dispatch',headSha:revision,codeSha:revision,startedAt:at,finishedAt:at,codeIdentity:null},scope:{workflow:source(`.github/workflows/plates-${kind}.yml`),configuration:source('.plates/plates.json'),runtime:{codeSha:revision,sourceFiles:[...runtime].map(source)},producers:producers.map(p=>({id:p.id,job:p.step.split('/')[0],step:p.step,source:source(p.path),mode:'enabled',reason:null}))},originatingNight:null,association:kind==='night'?{kind,date,branch:nightPr.head.ref,leaseId:null,preexisting:false,preimageHeadSha:null,prId:61,prNumber:3,headSha:revision,planPath:null,planBlobSha:null}:{kind,date,nightBranch:nightPr.head.ref,finalPrId:62,finalPrNumber:4,finalHeadSha:finalSha,briefIssueId:63,briefIssueNumber:5},producers:producers.map(p=>({id:p.id,job:p.step.split('/')[0],step:p.step,outcome:'completed',observedAt:at,reason:null})),writes,reads,projections,artifacts:[],fragments:[...fragments].map(([path,b])=>({path,bytes:b.length,sha256:hash(b),kind:reads.some(r=>r.outputProjection.fragment===path)||projections.some(p=>p.fragment===path)?'projection':'managed-fragment'})),gaps:[]};
   const observerSha=observerMismatch&&kind==='morning'?'d'.repeat(40):'c'.repeat(40);
   observation.execution.codeIdentity={repository:{id:32,fullName:'acme/observer'},commitSha:observerSha,entrypoint:kind==='night'?'lib/names-verify.mjs':'bin/plates.mjs',files:[...runtime].map(path=>({...source(path),repositoryId:32,commitSha:observerSha}))};
   if(missingObserver)observation.execution.codeIdentity=null;
@@ -246,8 +275,9 @@ async function positiveObservationFixture({legacy=false,artifactGap=false,setup=
   const jobs=/\/actions\/runs\/(\d+)\/attempts\/1\/jobs\?/.exec(p);
   if(jobs){const id=Number(jobs[1]),kind=id===12?'night':'morning';const grouped=new Map();for(const producer of OBSERVATION_PRODUCERS[kind]){const name=producer.step.split('/')[0];if(!grouped.has(name))grouped.set(name,{name,run_id:id,head_sha:revision,status:'completed',steps:[]});grouped.get(name).steps.push({name:producer.name,status:'completed',conclusion:'success'});}return {status:200,data:{total_count:grouped.size,jobs:[...grouped.values()]}};}
   if(p.endsWith('/pulls/3'))return {status:200,data:nightPr};if(p.endsWith('/pulls/4'))return {status:200,data:finalPr};if(p.endsWith('/issues/5'))return {status:200,data:brief};
+  if(p===`/repos/${repo}/git/ref/heads/${legacyPlan?'keel':'plates'}-night-plan`)return {status:200,data:{ref:`refs/heads/${legacyPlan?'keel':'plates'}-night-plan`,object:{sha:revision}}};
   if(p.includes('/git/ref/heads/'))return {status:404};
-  if(p.includes('/contents/')){const path=new URL(p,'https://api.github.test').pathname.split('/contents/')[1],original=contents.get(path),bytes=changedManaged&&path==='scripts/plates/improve.mjs'?Buffer.from('changed managed bytes'):original;if(bytes)return {status:200,data:{path,type:'file',encoding:'base64',content:bytes.toString('base64'),sha:blob(bytes)}};}
+  if(p.includes('/contents/')){const u=new URL(p,'https://api.github.test'),path=u.pathname.split('/contents/')[1],ref=u.searchParams.get('ref');if(path===healthPath&&ref===preSha&&!old)return {status:404};const original=contents.get(path+'@'+ref)??contents.get(path),bytes=changedManaged&&path==='scripts/plates/improve.mjs'?Buffer.from('changed managed bytes'):original;if(bytes)return {status:200,data:{path,type:'file',encoding:'base64',content:bytes.toString('base64'),sha:blob(bytes)}};}
   return base.github(request);
  };
  return {github,night};
@@ -319,10 +349,10 @@ test('cross-job transfer rejects private scalars and objects under allowed evide
  const hash='b'.repeat(64),at='2026-10-24T10:00:00Z';
  const snapshot={state:'present',commitSha:null,blobSha:null,sha256:hash,labelIds:[],providerUpdatedAt:at};
  const source={repositoryId:31,path:'scripts/plates/drain.mjs',commitSha:revision,blobSha:revision,sha256:hash};
- const base={producerId:'drain',writes:[{producerId:'drain',sequence:1,operationId:null,target:{kind:'pr',repositoryId:31,id:61,number:3,headSha:revision},outcome:'confirmed',before:null,after:snapshot,intended:{fragment:'fragments/write.txt',sha256:hash,names:[]},observedAt:at}],reads:[{consumer:'board',sourceKind:'plan',repositoryId:31,ref:'plates-night-plan',path:'plan.json',commitSha:revision,blobSha:revision,sha256:hash,state:'read',absence:null,selected:true,contributed:true,outputSection:'plan',outputProjection:{fragment:'fragments/plan.txt',sha256:hash},recordIds:['acme']}],fragments:[{path:'fragments/write.txt',kind:'managed-fragment',text:''},{path:'fragments/plan.txt',kind:'projection',text:JSON.stringify({date:'2026-10-24',items:[]})},{path:'fragments/drain.txt',kind:'projection',text:JSON.stringify({before:[{number:3,id:61,head:'plates-night/2026-10-24',headSha:revision,state:'open',mergeable:true}],after:[],actions:[{number:3,head:'plates-night/2026-10-24',action:'leave',done:false}]})}],projections:[{producerId:'drain',kind:'drain-queue',fragment:'fragments/drain.txt',sha256:hash}],gaps:[{code:'read-unavailable',producerId:'drain',source}],association:{date:'2026-10-24',branch:'plates-night/2026-10-24',preexisting:true,preimageHeadSha:revision,prId:61,prNumber:3,headSha:revision}};
- const transfer=value=>namesProducerTransfer({producerId:'drain',value,manifest:{files:[],gaps:[]}});
+ const base={producerId:'night-pr',writes:[{producerId:'night-pr',role:'night-pr',sequence:1,operationId:null,target:{kind:'pr',repositoryId:31,id:61,number:3,headSha:revision},outcome:'confirmed',before:null,after:snapshot,intended:{fragment:'fragments/write.txt',sha256:hash,names:[]},observedAt:at}],reads:[{consumer:'board',sourceKind:'plan',repositoryId:31,ref:'plates-night-plan',path:'plan.json',commitSha:revision,blobSha:revision,sha256:hash,state:'read',absence:null,selected:true,contributed:true,outputSection:'plan',outputProjection:{fragment:'fragments/plan.txt',sha256:hash},recordIds:['acme']}],fragments:[{path:'fragments/write.txt',kind:'managed-fragment',text:''},{path:'fragments/plan.txt',kind:'projection',text:JSON.stringify({date:'2026-10-24',items:[]})},{path:'fragments/drain.txt',kind:'projection',text:JSON.stringify({before:[{number:3,id:61,head:'plates-night/2026-10-24',headSha:revision,state:'open',mergeable:true}],after:[],actions:[{number:3,head:'plates-night/2026-10-24',action:'leave',done:false}]})}],projections:[{producerId:'night-pr',kind:'drain-queue',fragment:'fragments/drain.txt',sha256:hash}],gaps:[{code:'read-unavailable',producerId:'night-pr',source}],association:{date:'2026-10-24',branch:'plates-night/2026-10-24',preexisting:true,preimageHeadSha:revision,prId:61,prNumber:3,headSha:revision}};
+ const transfer=value=>namesProducerTransfer({producerId:'night-pr',value,manifest:{files:[],gaps:[]}});
  assert.equal(decodeNamesProducerTransfer(await transfer(base)).value.writes.length,1);
- const paths=['writes.0.sequence','writes.0.operationId','writes.0.target.number','writes.0.target.id','writes.0.target.repositoryId','writes.0.target.headSha','writes.0.after.sha256','writes.0.after.commitSha','writes.0.after.blobSha','writes.0.after.labelIds','writes.0.after.providerUpdatedAt','writes.0.observedAt','writes.0.intended.sha256','reads.0.repositoryId','reads.0.ref','reads.0.path','reads.0.sha256','reads.0.selected','reads.0.outputSection','reads.0.recordIds','reads.0.outputProjection.sha256','gaps.0.source.path','gaps.0.source.repositoryId','gaps.0.source.sha256','gaps.0.source.commitSha','association.prNumber','association.headSha','association.branch','association.date','association.preexisting','projections.0.sha256'];
+ const paths=['writes.0.role','writes.0.sequence','writes.0.operationId','writes.0.target.number','writes.0.target.id','writes.0.target.repositoryId','writes.0.target.headSha','writes.0.after.sha256','writes.0.after.commitSha','writes.0.after.blobSha','writes.0.after.labelIds','writes.0.after.providerUpdatedAt','writes.0.observedAt','writes.0.intended.sha256','reads.0.repositoryId','reads.0.ref','reads.0.path','reads.0.sha256','reads.0.selected','reads.0.outputSection','reads.0.recordIds','reads.0.outputProjection.sha256','gaps.0.source.path','gaps.0.source.repositoryId','gaps.0.source.sha256','gaps.0.source.commitSha','association.prNumber','association.headSha','association.branch','association.date','association.preexisting','projections.0.sha256'];
  for(const path of paths)for(const payload of ['Private Acme credential payload',{private:'Private Acme credential payload'}]){
   const value=structuredClone(base),keys=path.split('.');let target=value;for(const key of keys.slice(0,-1))target=target[key];target[keys.at(-1)]=payload;
   const encoded=await transfer(value),text=Buffer.from(encoded,'base64').toString('utf8');assert.ok(!text.includes('Private Acme'),path);
@@ -341,4 +371,98 @@ for(const family of ['plates','keel'])test(`required ${family} verify-history al
  const out=await verifyNames({repo,run:12},github);
  assert.equal(check(out,'board-history').state,'unknown');
  assert.notEqual(out.data.state,'verified');
+});
+
+
+test('provider regions reject omitted legacy tokens independently of supplied fragments',async()=>{
+ const f=await positiveObservationFixture({legacy:true,omitTokens:true});
+ const out=await verifyNames({repo,run:12},f.github);
+ assert.equal(check(out,'fresh-markers-fences-labels').state,'fail',JSON.stringify(out.data));
+});
+
+test('producer coverage rejects substituted targets paths heads and roles',async()=>{
+ for(const mode of ['object','path','head','branch','role','missing','duplicate','working-plan']){
+  const f=await positiveObservationFixture({alter:({kind,writes})=>{
+   if(kind!=='night')return;
+   const w=writes.find(w=>w.role==='health-report');
+   if(mode==='object'){const other=writes.find(w=>w.role==='night-pr');Object.assign(w,{target:other.target,intended:other.intended,after:other.after});}
+   if(mode==='path'){const other=writes.find(w=>w.role==='bounds');Object.assign(w,{target:other.target,intended:other.intended,after:other.after});}
+   if(mode==='head')w.after.commitSha='b'.repeat(40);
+   if(mode==='branch')w.target.ref='refs/heads/plates-night/unrelated';
+   if(mode==='role')w.role='bounds';
+   if(mode==='missing')writes.splice(writes.indexOf(w),1);
+   if(mode==='duplicate')writes.push({...w,sequence:99});
+   if(mode==='working-plan'){const local=writes.find(w=>w.role==='working-plan');local.after.sha256=local.intended.sha256='c'.repeat(64);}
+  }});
+  const out=await verifyNames({repo,run:12},f.github);
+  assert.equal(check(out,'fresh-markers-fences-labels').state,'unknown',mode);
+ }
+});
+
+test('real generated regions preserve bounded historical content and retained publication bodies',async()=>{
+ const f=await positiveObservationFixture({history:true,retainedPR:true});
+ const out=await verifyNames({repo,run:12},f.github);
+ assert.equal(out.data.state,'verified',JSON.stringify(out.data,null,2));
+});
+
+for(const legacyPlan of [false,true])test(`plan publication binds exact ${legacyPlan?'legacy':'current'} table ref and path`,async()=>{
+ const good=await positiveObservationFixture({legacyPlan});
+ assert.equal((await verifyNames({repo,run:12},good.github)).data.state,'verified');
+ const bad=await positiveObservationFixture({legacyPlan,alter:({kind,writes})=>{if(kind==='night')writes.find(w=>w.role==='plan-publication').target.path=legacyPlan?'.plates/night/plan.json':'.keel/night/plan.json';}});
+ assert.equal(check(await verifyNames({repo,run:12},bad.github),'fresh-markers-fences-labels').state,'unknown');
+});
+
+
+test('new proposal names and inaccessible partial-edit preimages cannot be hidden',async()=>{
+ const fresh=await positiveObservationFixture({newProposal:true,omitTokens:true});
+ assert.equal(check(await verifyNames({repo,run:12},fresh.github),'fresh-markers-fences-labels').state,'fail');
+ for(const mode of ['missing-before','wrong-before','final-outside-change']){
+  const f=await positiveObservationFixture({alter:({kind,writes,contents,hash,blob})=>{
+   if(mode==='missing-before'&&kind==='night')writes.find(w=>w.role==='health-report').before=null;
+   if(mode==='wrong-before'&&kind==='morning')writes.find(w=>w.role==='health-plan-section').before.commitSha='b'.repeat(40);
+   if(mode==='final-outside-change'&&kind==='morning'){
+    const w=writes.find(w=>w.role==='health-plan-section'),key=w.target.path+'@'+w.after.commitSha;
+    const bytes=Buffer.from(contents.get(key).toString()+'Unrelated outside edit');contents.set(key,bytes);w.after.sha256=w.intended.sha256=hash(bytes);w.after.blobSha=blob(bytes);
+   }
+  }});
+  const github=async req=>mode==='wrong-before'&&req.path.endsWith('?ref='+'b'.repeat(40))?{status:404}:f.github(req);
+  assert.equal(check(await verifyNames({repo,run:12},github),'fresh-markers-fences-labels').state,'unknown',mode);
+ }
+});
+
+
+for(const ownerProse of [true,false])test(`night record derives provider plan projection: ${ownerProse?'owner title retained':'managed ID rejected'}`,async()=>{
+ const {validatePlan}=await import('../practices/night/files/scripts/plates/night-plan.mjs');
+ const f=await positiveObservationFixture({omitTokens:true,alter:({kind,writes,contents,hash,blob})=>{
+  const record=writes.find(w=>w.role==='night-record'),local=writes.find(w=>w.role==='working-plan');
+  const plan=JSON.parse(contents.get(record.target.path));
+  plan.items=[{id:ownerProse?'acme':'keel-impact',kind:'review',status:'planned',source:'owner',title:'Review keel:morning backward compatibility',lane:'night',number:null,budget:null,result:null}];
+  assert.equal(validatePlan(plan).ok,true,JSON.stringify(validatePlan(plan).problems));
+  const bytes=Buffer.from(JSON.stringify(plan,null,2)+'\n');contents.set(record.target.path,bytes);
+  for(const w of [record,local].filter(Boolean)){w.after.sha256=w.intended.sha256=hash(bytes);w.after.blobSha=blob(bytes);}
+  // This fixture isolates the record writer. The optional health edit is covered
+  // separately with the real plan generator and immutable preimage.
+  if(kind==='morning'){const w=writes.find(w=>w.role==='health-plan-section');writes.splice(writes.indexOf(w),1);}
+ }});
+ const out=await verifyNames({repo,run:12},f.github);
+ assert.equal(check(out,'fresh-markers-fences-labels').state,ownerProse?'pass':'fail');
+});
+
+
+for(const mode of ['verified','missing-commit','missing-blob','unavailable-commit'])test(`retained Git health requires provider preimage: ${mode}`,async()=>{
+ const f=await positiveObservationFixture({legacy:true,omitTokens:true,retainedPR:true,alter:({kind,writes,contents})=>{
+  if(kind!=='night')return;
+  const w=writes.find(w=>w.role==='health-report');
+  const commit='d'.repeat(40);
+  contents.set(w.target.path+'@'+commit,contents.get(w.target.path+'@'+revision));
+  const snapshot={...w.after,commitSha:commit};
+  if(mode==='missing-commit')snapshot.commitSha=null;
+  if(mode==='missing-blob')snapshot.blobSha=null;
+  w.outcome='no-change';w.before={...snapshot};w.after={...snapshot};
+ }});
+ const github=async request=>mode==='unavailable-commit'&&request.path.endsWith('?ref='+'d'.repeat(40))?{status:404}:f.github(request);
+ const out=await verifyNames({repo,run:12},github);
+ assert.equal(check(out,'fresh-markers-fences-labels').state,mode==='verified'?'pass':'unknown');
+ if(mode==='verified')assert.equal(out.data.state,'verified',JSON.stringify(out.data));
+ else assert.notEqual(out.data.state,'verified');
 });
