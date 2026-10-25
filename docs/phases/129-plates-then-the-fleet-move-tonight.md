@@ -1,11 +1,11 @@
 ---
-status: planned
-since: 2026-10-23
+status: partial
+since: 2026-10-25
 goal: G2
 spec: 2
 depends: [128]
-note: "Specified 2026-10-23 (docs/specs/name-transition.md). Owner's call the same day: no waiting a week. The whole fleet moves tonight, plates first, each project proven by a night run dispatched by hand. The next project starts only when the one before is clean."
-evidence: []
+note: "Phases124–128 merged. Release0.8.34 is blocked by PR220 historical final-head review, Ledger rehearsal cleanup failure, and a names preview scope gap for managed setupToken bindings. No live rollout has begun."
+evidence: ["evidence/2026-10-25-name-rollout-preparation.md"]
 issue: 245
 ---
 
@@ -87,4 +87,4 @@ By hand: ⚑ the evening's rollout. Each project's dispatched run links and `pla
 
 ## Next action
 
-Use phase 128's implemented verifier, prepare the reviewed release and refresh the unmanaged-file inventory, then present the exact Plates-first rollout preview for owner approval.
+Resolve the managed setupToken preview gap and investigate Ledger's candidate cleanup failure; preserve Isocan's failing-main coverage. Obtain the owner's explicit historical PR220 review exception or another valid review resolution, then cut the tested release and refresh the exact Plates-first approval preview. No live changes or phase130 retirement are authorized by these local results.
