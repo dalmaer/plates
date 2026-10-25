@@ -6,7 +6,7 @@ Historical source `47f3043948260d764b83bc5ff83d8bef6f5e308f`; rename `a9e6600bb2
 |---|---|---|
 | Ordinary additions | `MILESTONES_OFFLINE`, `CANVAS_PERSISTENCE`, `CANVAS_RECOVERY`, `CANVAS_OUTPUT`, `ISOCAN`, `CI_OFFLINE`, `FLEET_PRACTICE`, `NPM`, `GIT`, `CLAUDE_DIR`, `PROVE_MUTANT_MS`, `PROVE_IGNORED_BYTES`, `REVIEW_POLL_MS`, `CACHE`, `PREVIOUS_PRACTICES`, `SELF_UPDATED`, `CLIMB_CLOCK`, `CLI`, `NOW`, `STITCH`, `DRAIN_WAIT_MS`, `QUOTA_FLOOR`, `STALLS_SHAPE` | 23 explicit variable rows; current presence wins, retain consumer validation |
 | Claim identity | `PROVIDER`, `SESSION`, `MACHINE` | 3 explicit identity rows; conflict refusal, preserve owner/token/session semantics |
-| Gate/ledger identity | `RUN_START`, `GATE_INVOCATION`, `USUAL`, `GATE_ACTIVE`, `SUITE_PLAN` | 5 explicit internal rows; validate original invocation, scrub both families before forwarding |
+| Gate/ledger identity | `RUN_START`, `GATE_INVOCATION`, `USUAL`, `GATE_ACTIVE`, `SUITE_PLAN` | 5 explicit internal rows; validate original invocation; scrub both families when starting a fresh invocation; a verified live parent keeps its original environment |
 | Publisher source pin | `PUBLISHER` | 1 explicit identity row; keep source digest validation, no generic alias copying |
 | Already mapped ordinary | `GH`, `AGENT_GIT`, `CANVAS_ISOCAN_HOME`, `CANVAS_ISOCAN_VERSION`, `CANVAS_KEEL_VERSION` | retain five existing rows (CANVAS_KEEL_VERSION maps to CANVAS_PLATES_VERSION) |
 | Hosted config/auth | `WEB_CONFIG`, `GITHUB_CLIENT_SECRET`, `SESSION_ENCRYPTION_KEY` | retain existing phase127 conflict readers; no ordinary helper |
@@ -80,3 +80,7 @@ Process aliases do not establish GitHub repository-variable or secret migration 
 - `variable:KEEL_WEB_ORIGIN` — `lib/web/update-workflow.mjs:47`
 
 Only source-backed provider names may enter a provider-specific preview; process rows never expand it automatically. No values read and no settings changed.
+
+## Same-invocation forwarding clarification — 2026-10-24
+
+A nested ledger invocation with a matching live receipt retains its original environment and identity after checking conflicting aliases. A fresh child invocation scrubs both exact families before setting current fields. This follows the specification’s “where it previously scrubbed one” boundary; the table above does not require rewriting an already-running invocation. Selector coverage is separate from evidence that historical custom children consume these values.

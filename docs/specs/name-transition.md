@@ -391,3 +391,48 @@ current-invalid/legacy-present and identity-conflict cases. Unknown aliases must
 remain inert. Retain failed experiments and old proofs; refresh changed-reader
 proofs at final source. The finite source/history inventory is an explicit
 compatibility correction, not a blanket claim about arbitrary dynamic inputs.
+
+
+### Manual observation runtime provisioning (settled 2026-10-24)
+
+Adopted night/morning workflows execute managed project scripts; they do not
+promise an installed Plates CLI. An npm Git installation without its Git source
+identity is not evidence of a pinned runtime. The manual evidence path therefore
+takes `names_source_sha`, an exact lowercase 40-character source revision reviewed
+in the phase-129 dispatch preview. It is required only with `names_evidence: true`;
+normal dispatches and schedules retain their existing behavior and budgets.
+
+For that explicit path, use the existing checkout action with the repository fixed
+to `dalmaer/plates`, the exact validated SHA, depth one, persisted credentials off,
+and submodules/LFS off. Existing access only: unavailable source access is a
+refusal, never a new grant, secret, or fallback to latest. Checkout into an exact
+fresh staging path under the workspace, then move it to an exact fresh runner-temp
+runtime path before project setup, measurement or gate execution. Refuse collisions
+and verify real Git top-level and HEAD. Do not install packages, run lifecycle
+scripts or build this checkout. It must not pollute the project's status/staging.
+
+Run observers and the real board command from this source; project-managed
+producers continue from the project's checkout. Record and verify both actual
+loaded source closures separately. The input SHA is an approved locator, not a
+self-certifying verdict. Missing manifests, modified code, unavailable immutable
+provider bytes and incomplete imports remain gaps. Morning receives the exact
+`night_run_id` and `night_run_attempt` and must use the same observer repository
+and revision as that night's artifact. A newly provisioned observer does not
+upgrade old project producers or establish their compatibility.
+
+The observation checklist covers the enumerated source-owned managed writers and
+readers. Project-owned setup/gate commands are pinned context outside this
+instrumentation boundary, disclosed in the result; their presence alone does not
+prove failure of the managed-name checks. Their arbitrary shell, lifecycle or
+network effects are **not** certified legacy-free. Changed managed bytes after
+setup, unsupported enabled managed writers, absent required outcomes, uncertain
+writes and incomplete provider coverage still block verification. The separate
+unmanaged-file inventory and approved project PRs remain required; passing the
+managed checklist does not replace them or establish full-fleet acceptance.
+
+This settles the runner prerequisite identified by the actual managed workflows,
+not a new rollout approval. Phase 129 previews the observer source SHA, installed
+managed-source revision, exact dispatch inputs, access limitations and observation
+scope before the owner authorizes each project's run. Tests cover a real adopted
+configuration, exact source/attempt mismatch refusals, collision refusal and no
+behavior/permission/budget change when evidence is off.
