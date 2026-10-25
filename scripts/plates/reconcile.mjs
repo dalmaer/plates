@@ -127,11 +127,13 @@ async function reader(root, out) {
   try { await safePath(root, 'docs/design.md'); files.push('docs/design.md'); } catch (e) { if (e.code !== 'ENOENT') out.unknown.push(issue('record-unreadable', 'docs/design.md', e.message)); }
   return { read, files };
 }
-async function observe(key, { env = process.env, prFacts }) {
+async function observe(key, { env = process.env, prFacts, observePR }) {
   let value;
   if (prFacts !== undefined) {
     if (!object(prFacts) || !Object.hasOwn(prFacts, key)) throw Error(`no fresh observation for ${key}`);
     value = prFacts[key];
+  } else if (observePR) {
+    try { value = await observePR(key); } catch { throw Error(`GitHub PR observation unavailable: ${key}`); }
   } else {
     const [repo, n] = key.split('#');
     const { stdout } = await exec((environmentValue('variable:KEEL_GH', env) ?? 'gh'), ['api', `repos/${repo}/pulls/${n}`], { env, timeout: 15000, maxBuffer: LIMIT });
@@ -176,7 +178,7 @@ function phaseScope(doc, fence) {
 }
 const scopeList = v => typeof v === 'string' ? [v] : v;
 
-export async function reconcile({ root, github = false, env = process.env, prFacts, now = new Date() }) {
+export async function reconcile({ root, github = false, env = process.env, prFacts, observePR, now = new Date() }) {
   const out = result();
   const observedAt = new Date(now).toISOString();
   const { read, files } = await reader(root, out);
@@ -223,7 +225,7 @@ export async function reconcile({ root, github = false, env = process.env, prFac
   }
   if (github) {
     out.snapshot.remote = 'observed';
-    const keys = [...prs].sort(), observations = await observeAll(keys, { env, prFacts });
+    const keys = [...prs].sort(), observations = await observeAll(keys, { env, prFacts, observePR });
     for (const [index, key] of keys.entries()) {
       const { value, error } = observations[index];
       if (error) out.unknown.push(issue('github-unavailable', key, error.message));

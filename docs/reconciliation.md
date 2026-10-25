@@ -92,3 +92,32 @@ Climb imports the managed runtime scripts and their canonical names library
 through its `runtimeFiles` declaration. This preserves their source owner without enabling reconciliation's
 workflows, templates, secrets or checks. Reconciliation remains explicitly opt-in.
 Local practice overrides and ejected files remain project-owned.
+
+## Private pull-request observations in Actions
+
+For references in private repositories, optionally configure:
+
+```json
+{"reconciliation":{"githubAccess":{"enabled":true,"repositories":["acme/app","acme/records"]}}}
+```
+
+Provision `PLATES_RECONCILE_TOKEN` as a fine-grained GitHub token for precisely
+those repositories, with Pull requests read-only and automatic Metadata access.
+The repository stores only configuration, never the token. Render the workflows after
+changing this configuration. No configuration preserves the existing behavior.
+
+Configured CI observes remote records in a separate clean default-branch push
+job. Night uses the same producer on its exact default-branch event SHA. The
+producer runs no project setup, npm, configured gate or builder. Only its fixed
+GitHub GET-pull adapter child receives the credential, only for the allowlist;
+other repositories use the normal repository token. PR and feature-branch jobs
+never receive this credential. Missing access remains unknown.
+
+Night restores the producer's immutable Actions artifact before setup. The
+handoff binds repository identity, workflow, source revision, run and attempt,
+artifact ID and digest, runtime bytes, configuration and complete record hashes
+and inventory. Measure checks those sources again after setup. A consumer-only
+rerun cannot reuse an earlier attempt. Missing, expired, changed or mismatched
+sources are unknown in the report, never successful reconciliation. This is a
+transport of the existing reconciliation result, not a new acceptance record.
+Local doctor and night invocations retain their existing observation path.

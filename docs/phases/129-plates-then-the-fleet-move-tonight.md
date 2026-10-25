@@ -4,7 +4,7 @@ since: 2026-10-25
 goal: G2
 spec: 2
 depends: [128]
-note: "Phases 124–128 and the setupToken repair are merged. Release v0.8.34 is published. Plates label changes are read back; their committed receipt and the dispatched rollout remain outstanding. Isocan failed the final release rehearsal on candidate and unchanged main; a fresh complete candidate rehearsal now passes, with the earlier failure retained. No fleet rollout acceptance is claimed."
+note: "Release v0.8.34 and Plates label receipt are published. Six consumer update PRs are prepared, including newly discovered Papa Tapes. Main tests passed; GitHub reconciliation lacks private Ledger access. The owner provisioned a read-only credential; isolated wiring and live rollout remain outstanding. Current-night and durable legacy refs are retained."
 evidence: ["evidence/2026-10-25-name-rollout-preparation.md"]
 issue: 245
 ---
@@ -27,7 +27,7 @@ The design is [Name transition](../specs/name-transition.md), "The rule". The ow
 - **Plates first.**
   1. With explicit owner approval, disable affected workflows and keep them disabled through installation, then re-enable only the installed new definitions. Prove the concurrency preflight: no old-group run is queued, waiting, pending or running, with complete run coverage. The owner drains runs or confirms cancellation before proceeding. Then update plates itself.
   2. Run `plates names --yes`, plus the owner's secret commands.
-  3. Preview and approve evidence-enabled dispatches with the released observer `names_source_sha`. Dispatch `plates-night.yml`, then `plates-morning.yml` with that same SHA and the exact originating `night_run_id` and `night_run_attempt`. Provisioning uses the fixed source repository and existing access only, as specified in the phase-128 contract.
+  3. Preview and approve evidence-enabled dispatches with the exact reviewed observer `names_source_sha` matching the installed managed-source revision. Dispatch `plates-night.yml`, then `plates-morning.yml` with that same SHA and the exact originating `night_run_id` and `night_run_attempt`. Provisioning uses the fixed source repository and existing access only, as specified in the phase-128 contract.
   4. Check the plates checklist below.
 
   Only then does the fleet start.
@@ -83,12 +83,12 @@ By hand: ⚑ the evening's rollout. Each project's dispatched run links and `pla
 
 ## Next action
 
-Review and merge the exact Plates label receipt, then run and verify the source-bound Plates night and morning before installing the released practice in Ledger, Duo, Cajones, Isocan and DTV in order. Release v0.8.34 is published; PRs 267 and 269 are merged. Preserve the final Isocan candidate/main watchdog failure despite the later focused diagnostic pass and current upstream CI success. The fresh current-candidate rehearsal now passes; live night/morning verification remains required. Retain active legacy branches until their work is drained or their state is transferred and checked. Hosted and machine coverage remains incomplete; retirement cannot remove dependencies still in use.
+Finish and review isolated cross-repository reconciliation access, then verify Plates' exact main and source-bound night/morning before installing each consumer update. The owner approved the 17 original consumer workflow barriers and Papa Tapes' additional two-workflow barrier; these approvals do not establish installation or acceptance. Isocan merge remains the owner's or Dimitri's. Continue Ledger, Duo, Cajones, Isocan and DTV in order, then Papa Tapes. Preserve the earlier Isocan watchdog failure alongside the passing current-candidate checks. Keep current-night and durable legacy refs until their work drains or their state is transferred and verified; hosted and machine retirement remains separately unverified.
 
 ## Reconciliation
 
 ```plates-reconciliation
-{"version":1,"prs":["dalmaer/plates#265","dalmaer/plates#267","dalmaer/ledger#169"],"decisions":[],"implementation":[],"production":[],"use":[],"next":{"kind":"acceptance","ref":"plates-dispatched-rollout"}}
+{"version":1,"prs":["dalmaer/plates#265","dalmaer/plates#267","dalmaer/plates#270","dalmaer/ledger#169"],"decisions":[],"implementation":[],"production":[],"use":[],"next":{"kind":"acceptance","ref":"plates-dispatched-rollout"}}
 ```
 
 The current acceptance blocker is the Plates dispatched rollout. Release and

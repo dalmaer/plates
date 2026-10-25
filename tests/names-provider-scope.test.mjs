@@ -107,3 +107,8 @@ test('config provenance changes public digest even without a setup binding and s
  assert.ok(!JSON.stringify(next).includes('Acme private changed note'));
  await assert.rejects(applyNames({root,repo,digest:first.digest},github),/Preview changed/);assert.ok(state.calls.every(c=>c.method==='GET'));
 });
+
+test('configured reconciliation producer has no unclassified dynamic secret binding',async()=>{
+ const {github}=await fixture({config:{repo,name:'Acme',practices:['night','reconciliation'],reconciliation:{githubAccess:{enabled:true,repositories:[repo,'acme/records']}}}});
+ const scope=await providerBindings(github,repo,revision);assert.deepEqual(scope.gaps,[]);
+});

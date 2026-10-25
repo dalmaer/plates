@@ -74,7 +74,7 @@ export function productionSecretProblems(text) {
     if (/^ {6}- name: Collect production evidence\n/.test(step)) {
       if (!/\n {8}run: node scripts\/plates\/production-night\.mjs\n(?:\s*#[^\n]*\n)*$/.test(step.trimEnd() + '\n')) out.push('production: only the bounded collector may receive the provider secret');
       if (/VERCEL_TOKEN|VERCEL_API_TOKEN|secrets\./.test(body.replace(binding,''))) out.push('production: provider secret must not be duplicated, printed or exported');
-    } else if (/VERCEL_TOKEN|VERCEL_API_TOKEN|secrets\./.test(body.replace('secrets[steps.config.outputs.setup_token]', ''))) out.push('production: provider secret outside collection step');
+    } else if (/VERCEL_TOKEN|VERCEL_API_TOKEN|secrets\./.test(body.replace('secrets[steps.config.outputs.setup_token]', '').replace('secrets.PLATES_RECONCILE_TOKEN', /^ {6}- name: Observe pull requests\n/.test(step) && /run: node scripts\/plates\/reconcile-actions\.mjs --produce\s*$/.test(step) ? '' : 'secrets.PLATES_RECONCILE_TOKEN'))) out.push('production: provider secret outside collection step');
   }
   return out;
 }
@@ -401,7 +401,7 @@ test('every secret a practice declares is used by the workflow it names', async 
   for (const p of (await load()).values()) for (const s of p.secrets) {
     const f = p.files.find(f => f.path === s.workflow);
     assert.ok(f, `${p.name}: ${s.name} names ${s.workflow}, which the practice does not ship`);
-    assert.match(f.template, new RegExp(`secrets\\.${s.name}\\b`), `${p.name}: ${s.name} is declared for ${s.workflow} but unused there`);
+    assert.match(s.name === 'PLATES_RECONCILE_TOKEN' ? fill(f.template, { name: 'Acme', repo: 'acme/app', practices: ['reconciliation'], reconciliation: { githubAccess: { enabled: true, repositories: ['acme/app'] } } }, f.path) : f.template, new RegExp(`secrets\\.${s.name}\\b`), `${p.name}: ${s.name} is declared for ${s.workflow} but unused there`);
   }
 });
 

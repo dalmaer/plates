@@ -1,3 +1,4 @@
+import { fill } from '../lib/practices.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, chmod, rm, realpath } from 'node:fs/promises';
@@ -89,7 +90,7 @@ function shell(yaml) {
   const block = yaml.split('      - name: Project the night onto its canvas\n')[1].split('\n      - name:')[0];
   return block.split('        run: |\n')[1].split('\n').map(l => l.startsWith('          ') ? l.slice(10) : l).join('\n');
 }
-async function workflow(t, { enabled = true, creds = true, missing = false, mismatch = false, fail = false, runs = [], artifacts = [], bundle, local = true, disabledShas = [], attempt = 1, priorAttempt, event = 'schedule', neverRan = {}, jobs = {}, repositories = {}, omitArtifact = null, provisioning = null } = {}) {
+async function workflow(t, { enabled = true, creds = true, missing = false, mismatch = false, fail = false, runs = [], artifacts = [], bundle, local = true, disabledShas = [], attempt = 1, priorAttempt, event = 'schedule', neverRan = {}, jobs = {}, repositories = {}, omitArtifact = null, provisioning = null, workflowText } = {}) {
   const root = await fixture(t, { ...binding, enabled, cadence: 'nightly' });
   if (local) { await mkdir(join(root, '.plates/canvas')); await writeFile(join(root, '.plates/canvas/manifest.json'), JSON.stringify(initialManifest())); }
   const bin = join(root, 'bin'); await mkdir(bin);
@@ -139,21 +140,29 @@ if(a[0]==='api') {
     REPO: 'Acme/app', BASE: 'main', GITHUB_REPOSITORY: 'Acme/app', GITHUB_REF_NAME: 'main', GITHUB_RUN_ID: '200', GITHUB_RUN_ATTEMPT: String(attempt), GITHUB_EVENT_NAME: event, GITHUB_SHA: 'b'.repeat(40),
     PLATES_CANVAS_PLATES_VERSION: mismatch ? 'wrong-pin' : 'acme-pinned', PLATES_CANVAS_ISOCAN_VERSION: 'acme-pinned', PLATES_CANVAS_ISOCAN_HOME: creds ? home : '' };
   if (provisioning) provisioning(env);
-  const yaml = await readFile(template, 'utf8');
+  const yaml = workflowText ?? await readFile(template, 'utf8');
   const out = run('/bin/bash', ['-e', '-o', 'pipefail', '-c', shell(yaml)], { cwd: root, env });
   let calls = []; try { calls = (await readFile(log, 'utf8')).trim().split('\n').map(JSON.parse); } catch {}
   let ghCalls = []; try { ghCalls = (await readFile(ghlog, 'utf8')).trim().split('\n').map(JSON.parse); } catch {}
   return { ...out, calls, ghCalls, yaml, root };
 }
 test('actual workflow shell: off has no CLI calls; on consumes report exactly once', async t => {
-  const off = await workflow(t, { enabled: false }); assert.equal(off.status, 0); assert.deepEqual(off.calls, []);
-  const on = await workflow(t); assert.equal(on.status, 0, on.stderr);
-  assert.deepEqual(on.calls.map(a => a.slice(0, 3)), [['plates', '--version'], ['isocan', '--version'], ['plates', 'canvas', 'night']]);
-  assert.ok(on.calls[2].includes('--yes'));
-  assert.ok(on.yaml.indexOf("- name: Open the night's pull request") < on.yaml.indexOf('- name: Project the night'));
-  assert.match(on.yaml, /CANVAS_OUTCOME.*steps.canvas.outcome/);
-  assert.match(on.yaml, /retention-days: 90/);
-  assert.equal(on.yaml, await readFile(resolve('.github/workflows/plates-night.yml'), 'utf8'));
+  const source = await readFile(template, 'utf8'), path = '.github/workflows/plates-night.yml';
+  const selfConfig = JSON.parse(await readFile(resolve('.plates/plates.json'), 'utf8'));
+  assert.equal(fill(source, selfConfig, path), await readFile(resolve(path), 'utf8'), 'self matches its configured render');
+  for (const reconciliation of [false, true]) await t.test(`reconciliation ${reconciliation}`, async t => {
+    const config = { name: 'Acme', repo: 'acme/app', practices: ['night', 'reconciliation'], ...(reconciliation ? { reconciliation: { githubAccess: { enabled: true, repositories: ['acme/app'] } } } : {}) };
+    const workflowText = fill(source, config, path);
+    assert.equal(workflowText.includes('  reconciliation:\n'), reconciliation);
+    const off = await workflow(t, { enabled: false, workflowText }); assert.equal(off.status, 0); assert.deepEqual(off.calls, []);
+    const on = await workflow(t, { workflowText }); assert.equal(on.status, 0, on.stderr);
+    assert.deepEqual(on.calls.map(a => a.slice(0, 3)), [['plates', '--version'], ['isocan', '--version'], ['plates', 'canvas', 'night']]);
+    assert.ok(on.calls[2].includes('--yes'));
+    assert.ok(on.yaml.indexOf("- name: Open the night's pull request") < on.yaml.indexOf('- name: Project the night'));
+    assert.match(on.yaml, /CANVAS_OUTCOME.*steps.canvas.outcome/);
+    assert.match(on.yaml, /retention-days: 90/);
+    assert.equal(on.yaml, workflowText, 'the shell ran the full rendered variant');
+  });
 });
 test('actual workflow shell fails visibly for missing tools, pins, credentials and sync failure', async t => {
   for (const options of [{ missing: true }, { mismatch: true }, { creds: false }, { fail: true }]) {
@@ -191,12 +200,16 @@ test('real collector: original measured report publishes after data commit, arbi
 });
 
 test('actual verdict shell makes a continued canvas failure visible after healthy measurements', async () => {
-  const yaml = await readFile(template, 'utf8');
-  const verdict = yaml.split('      - name: Verdict\n')[1].split('        run: |\n')[1]
-    .split('\n').map(l => l.startsWith('          ') ? l.slice(10) : l).join('\n');
-  const out = run('/bin/bash', ['-e', '-c', verdict], { env: { ...process.env, CANVAS_OUTCOME: 'failure', CODE: '0', GATE: 'ok' } });
-  assert.equal(out.status, 1);
-  assert.match(out.stdout, /::error::Canvas projection failed/);
+  const source = await readFile(template, 'utf8');
+  for (const reconciliation of [false, true]) {
+    const config = { name: 'Acme', repo: 'acme/app', practices: ['night', 'reconciliation'], ...(reconciliation ? { reconciliation: { githubAccess: { enabled: true, repositories: ['acme/app'] } } } : {}) };
+    const yaml = fill(source, config, '.github/workflows/plates-night.yml');
+    const verdict = yaml.split('      - name: Verdict\n')[1].split('        run: |\n')[1]
+      .split('\n').map(l => l.startsWith('          ') ? l.slice(10) : l).join('\n');
+    const out = run('/bin/bash', ['-e', '-c', verdict], { env: { ...process.env, CANVAS_OUTCOME: 'failure', CODE: '0', GATE: 'ok' } });
+    assert.equal(out.status, 1, `reconciliation ${reconciliation}`);
+    assert.match(out.stdout, /::error::Canvas projection failed/);
+  }
 });
 
 const trustedRun = (extra = {}) => ({ id: 100, run_attempt: 1, head_sha: 'a'.repeat(40), head_repository: { full_name: 'Acme/app' }, repository: { full_name: 'Acme/app' }, head_branch: 'main', path: '.github/workflows/plates-night.yml', event: 'schedule', pull_requests: [], status: 'completed', conclusion: 'success', ...extra });

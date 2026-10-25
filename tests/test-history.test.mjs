@@ -1,3 +1,4 @@
+import { fill } from '../lib/practices.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm, symlink, link, readdir, chmod, cp } from 'node:fs/promises';
@@ -263,7 +264,7 @@ test('night extracted Gather shell recovers real system ZIP via synthetic gh end
   assert.equal(JSON.parse(await readFile(join(root, '.plates/test-runs/acme.json'))).acme, 'real zip');
 });
 
-async function stagingFixture(t, production = false) {
+async function stagingFixture(t, production = false, workflowText) {
   const root = await project(t), remote = await project(t), health = 'docs/Acme-health', day = '2026-10-10';
   const git = (...args) => { const r = run('git', args, { cwd: root }); assert.equal(r.status, 0, r.stdout + r.stderr); return r.stdout.trim(); };
   assert.equal(run('git', ['init', '--bare', '-q', remote]).status, 0);
@@ -306,24 +307,31 @@ async function stagingFixture(t, production = false) {
   assert.deepEqual(nightRecovery, { branch: `plates-night/${day}`, head: '', attempts: 0 });
   const report = produced?.data ?? { date: day, report: today, changedHistoricalHealthPaths: [earlier], nightRecovery };
   await writeFile(join(temp, 'improve.json'), JSON.stringify(report)); await writeFile(join(temp, 'pr.json'), '{}');
-  const script = runBlocks(await readFile(workflow, 'utf8')).find(b => b.step === "Open the night's pull request").script;
+  const script = runBlocks(workflowText ?? await readFile(workflow, 'utf8')).find(b => b.step === "Open the night's pull request").script;
   // GITHUB_OUTPUT as Actions provides it: the step records its default-plan write there (phase 78).
   const execute = () => run('bash', ['-e', '-o', 'pipefail', '-c', script], { cwd: root, env: { ...process.env, DAY: day, BASE: 'main', HEALTH: health, RUNNER_TEMP: temp, GITHUB_OUTPUT: join(temp, 'outputs'), PATH: `${commands}:${process.env.PATH}` } });
   return { root, temp, report, git, before, earlier, unrelated, today, execute };
 }
 test('night historical health staging commits the earlier remeasurement and today only, preserving unrelated staged and untracked files', async t => {
-  assert.equal(await readFile(resolve('.github/workflows/plates-night.yml'), 'utf8'), await readFile(workflow, 'utf8'), 'managed night matches source');
-  const f = await stagingFixture(t, true);
-  assert.deepEqual(f.report.changedHistoricalHealthPaths, [f.earlier]);
-  assert.equal(f.report.report, f.today);
-  const result = f.execute();
-  assert.equal(result.status, 0, result.stdout + result.stderr);
-  assert.deepEqual(f.git('diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD').split('\n').sort(), [f.earlier, f.today].sort());
-  assert.equal(parseTimeProposal(f.git('show', `HEAD:${f.earlier}`)).proposal.lifecycle.remeasurement.state, 'unavailable');
-  assert.equal(f.git('show', `HEAD:${f.unrelated}`), 'Acme owner notes.');
-  assert.equal(f.git('diff', '--cached', '--name-only'), f.unrelated);
-  assert.match(f.git('status', '--porcelain'), /human-draft\.md/);
-  assert.equal(f.git('rev-parse', 'refs/remotes/origin/plates-night/2026-10-10'), f.git('rev-parse', 'HEAD'));
+  const source = await readFile(workflow, 'utf8'), path = '.github/workflows/plates-night.yml';
+  const selfConfig = JSON.parse(await readFile(resolve('.plates/plates.json'), 'utf8'));
+  assert.equal(await readFile(resolve(path), 'utf8'), fill(source, selfConfig, path), 'managed night matches its configured source');
+  for (const reconciliation of [false, true]) await t.test(`reconciliation ${reconciliation}`, async t => {
+    const config = { name: 'Acme', repo: 'acme/app', practices: ['night', 'reconciliation'], ...(reconciliation ? { reconciliation: { githubAccess: { enabled: true, repositories: ['acme/app'] } } } : {}) };
+    const rendered = fill(source, config, path);
+    assert.equal(rendered.includes('  reconciliation:\n'), reconciliation);
+    const f = await stagingFixture(t, true, rendered);
+    assert.deepEqual(f.report.changedHistoricalHealthPaths, [f.earlier]);
+    assert.equal(f.report.report, f.today);
+    const result = f.execute();
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.deepEqual(f.git('diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD').split('\n').sort(), [f.earlier, f.today].sort());
+    assert.equal(parseTimeProposal(f.git('show', `HEAD:${f.earlier}`)).proposal.lifecycle.remeasurement.state, 'unavailable');
+    assert.equal(f.git('show', `HEAD:${f.unrelated}`), 'Acme owner notes.');
+    assert.equal(f.git('diff', '--cached', '--name-only'), f.unrelated);
+    assert.match(f.git('status', '--porcelain'), /human-draft\.md/);
+    assert.equal(f.git('rev-parse', 'refs/remotes/origin/plates-night/2026-10-10'), f.git('rev-parse', 'HEAD'));
+  });
 });
 test('night historical health staging rejects unvalidated metadata and paths before any staging or commit', async t => {
   const cases = ['missing', 'object', 'outside', 'absolute', 'traversal', 'glob', 'newline', 'duplicate', 'today', 'directory', 'symlink', 'ignored', 'wrong-date', 'wrong-report', 'too-many', 'missing-file'];
