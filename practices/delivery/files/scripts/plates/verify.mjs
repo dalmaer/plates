@@ -45,7 +45,7 @@ import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { isMain, main } from './lib.mjs';
+import { environmentValue, isMain, main } from './lib.mjs';
 import { deliveryOf, siteProblem, DeliveryError } from './delivery.mjs';
 import { VERIFY_BRANCH, VERIFY_FILE, keptResults, verifyResults } from './morning.mjs';
 
@@ -118,7 +118,7 @@ export async function readServing(url, opts = {}) {
 }
 
 function git(root, env, args) {
-  const r = spawnSync(env.PLATES_GIT || 'git', args, { cwd: root, env, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 120_000 });
+  const r = spawnSync(environmentValue('variable:KEEL_GIT', env) ?? 'git', args, { cwd: root, env, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 120_000 });
   if (r.error) throw new VerifyError(`could not run git: ${r.error.message}`, 1);
   return r;
 }
@@ -226,7 +226,7 @@ export function record({ root, result, remote = 'origin', env = process.env, att
   const entry = { sha: result.sha, ok: result.ok, at: result.at, site: result.site, serving: result.serving, failures: result.failures, ...(result.run ? { run: result.run } : {}) };
   const ref = `refs/heads/${VERIFY_BRANCH}`, local = 'refs/plates/verify/tip';
   const ok = (args, what, input) => {
-    const r = spawnSync(env.PLATES_GIT || 'git', args, { cwd: root, env, input, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 120_000 });
+    const r = spawnSync(environmentValue('variable:KEEL_GIT', env) ?? 'git', args, { cwd: root, env, input, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 120_000 });
     if (r.error || r.status !== 0) throw new VerifyError(`${what}: git ${args[0]} failed: ${(r.stderr || r.error?.message || '').trim().split('\n')[0]}`, 1);
     return r.stdout.trim();
   };

@@ -421,6 +421,7 @@ Every verb takes `--json`. Exit codes are the same everywhere:
 | `plates phase new\|list\|claim` | Scaffold the next free phase under a goal; claim a phase before building it |
 | `plates ready`, `plates integrate` | Hand a committed change off with only its fast checks; one integrator (lock `claims/integrate`) runs the full gate once for every ready change and pushes once, sending a failing change back blocked |
 | `plates init`, `plates adopt` | Start a project, or bring one under plates |
+| `plates names` | Preview exact external names; approved single-repository apply, original-operation recovery, machine migration and read-only rollout verification |
 | `plates migrate` | Preview the Keel-to-Plates checkout migration; apply the reviewed digest with `--yes --digest` |
 | `plates render` | Write the practices onto the project; `--check` only compares |
 | `plates doctor` | What the project changed of plates's files, and practice rules broken. Changes nothing without `--fix` |

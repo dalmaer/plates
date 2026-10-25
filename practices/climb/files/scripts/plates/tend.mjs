@@ -1,4 +1,4 @@
-import { writeName, artifactNames, inBranchQueue } from './names.mjs';
+import { environmentValue, writeName, artifactNames, inBranchQueue } from './names.mjs';
 // plates tend (plates practice `climb`; managed: plates render rewrites it). The
 // third pass beside measure and climb: once a week an agent resolves the
 // night's record findings (lost proofs, reconciliation's proposals, stale
@@ -309,7 +309,7 @@ export function tendRetiring(prs) {
 }
 
 function ghList(root, env, state, fields) {
-  const gh = env.PLATES_GH || 'gh';
+  const gh = (environmentValue('variable:KEEL_GH', env) ?? 'gh');
   const r = spawnSync(gh, ['pr', 'list', '--state', state, '--json', fields, '--limit', '200'], { cwd: root, env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   if (r.error) throw new TendError(`cannot read ${state} PRs (${gh}): ${r.error.message}; tend-pick never guesses`);
   if (r.status !== 0) throw new TendError(`gh pr list --state ${state} exited ${r.status}: ${(r.stderr || r.stdout).trim().split('\n')[0]}; tend-pick never guesses`);
@@ -411,7 +411,7 @@ export function reconciliationOf(root, config, env = process.env) {
 
 /** The plates CLI to ask for loose ends: PLATES_CLI (a command line), plates's own bin where plates is home, else `plates`. */
 function platesCli(root, config, env) {
-  if (env.PLATES_CLI !== undefined) return env.PLATES_CLI.trim().split(/\s+/).filter(Boolean);
+  if (environmentValue('variable:KEEL_CLI', env) !== undefined) return environmentValue('variable:KEEL_CLI', env).trim().split(/\s+/).filter(Boolean);
   if (config.plates === 'self' && existsSync(join(root, 'bin/plates.mjs'))) return [process.execPath, join(root, 'bin/plates.mjs')];
   return ['plates'];
 }

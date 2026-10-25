@@ -73,7 +73,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
-import { remoteLabelReceipt, repositoryLabelSelection, markerComment, markerComments, isMain, main, rootOf, lessonsPathOf, AGENTS, agentOf, passAgentProblems, codexVerdict, reviewerOf, listedAgents, pushReviewerOf, commitAuthorOf, secretText, PUSH_LABEL, pushTitle, recordText, recordOf, byWorkflow, fallbackFindingsMark } from './lib.mjs';
+import { environmentValue, remoteLabelReceipt, repositoryLabelSelection, markerComment, markerComments, isMain, main, rootOf, lessonsPathOf, AGENTS, agentOf, passAgentProblems, codexVerdict, reviewerOf, listedAgents, pushReviewerOf, commitAuthorOf, secretText, PUSH_LABEL, pushTitle, recordText, recordOf, byWorkflow, fallbackFindingsMark } from './lib.mjs';
 
 export const KEY = 'crossReview';
 export const LIMITS = Object.freeze({ minutes: [5, 60] });
@@ -706,7 +706,7 @@ export function pushIssueBody(review, links = {}, { final = true } = {}) {
 /** gh, as the publish job's step runs it (PLATES_GH stands in for it): the JSON it prints. A failure throws its last error line. */
 export function ghCall(args, { input, env = process.env } = {}) {
   try {
-    const out = execFileSync(env.PLATES_GH || 'gh', args, { env, encoding: 'utf8', input: input === undefined ? undefined : JSON.stringify(input), stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 64 * 1024 * 1024 });
+    const out = execFileSync((environmentValue('variable:KEEL_GH', env) ?? 'gh'), args, { env, encoding: 'utf8', input: input === undefined ? undefined : JSON.stringify(input), stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 64 * 1024 * 1024 });
     try { return JSON.parse(out); } catch { return {}; }
   } catch (e) {
     throw new CrossReviewError(String(e.stderr || e.message).trim().split('\n').filter(Boolean).pop() ?? 'gh failed', 1);
@@ -797,7 +797,7 @@ export async function cli(args, { root = rootOf(import.meta), env = process.env 
         try { issues = JSON.parse(await readFile(resolve(o.issues), 'utf8')); } catch (e) { throw new CrossReviewError(`--issues ${o.issues}: ${e.message}`); }
       }
       const git = gitOf(root);
-      const now = env.PLATES_NOW ? Date.parse(env.PLATES_NOW) : Date.now();
+      const now = environmentValue('variable:KEEL_NOW', env) ? Date.parse(environmentValue('variable:KEEL_NOW', env)) : Date.now();
       const r = shouldReviewPush({ config, event: o.event, head: git.head(), before: o.before ?? null, history: pushHistory(issues, { now }), git, has: hasOf(env) });
       return { data: r, text: r.review ? `${r.self ? '::notice::' : ''}review: ${r.why}` : r.notice ? `::notice::${r.why}` : `no review: ${r.why}` };
     }

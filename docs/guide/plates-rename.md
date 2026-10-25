@@ -125,7 +125,7 @@ Verification is read-only. A green night is only one check. The rollout needs
 source-bound observations linking the night attempt, its actual PR, the morning's
 final result, fresh managed writes, queue state, and actual plan/verification
 history consumption. Evidence-enabled manual night and morning runs retain
-immutable attempt artifacts; missing or expired evidence stays unknown. The manual inputs include `names_evidence: true` and an exact reviewed `names_source_sha`; morning also names the originating `night_run_id` and `night_run_attempt`. The workflows use a separate source checkout at that SHA with existing access, without an npm install or latest-version fallback. Project-owned setup/gate effects remain outside the enumerated managed-writer observation and are disclosed separately. A legacy
+immutable attempt artifacts; missing or expired evidence stays unknown. The manual inputs include `names_evidence: true` and an exact reviewed `names_source_sha: <commit>`; morning also names the originating `night_run_id: <id>` and `night_run_attempt: <attempt>`. The workflows use a separate source checkout at that SHA with existing access, without an npm install or latest-version fallback. Project-owned setup/gate effects remain outside the enumerated managed-writer observation and are disclosed separately. A legacy
 night already in flight retains its original prefix. Neither a merge nor a
 successful verifier establishes production acceptance or retires retained aliases.
 See the [name-transition contract](../specs/name-transition.md) and phase 129's

@@ -1,4 +1,5 @@
 import {test} from 'node:test';
+import {createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
 import {mkdtemp,mkdir,writeFile,readFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
@@ -86,9 +87,15 @@ test('cross-date remeasurement reports only actually changed historical health p
  const reading={state:'unavailable',observedAt:'2026-10-10T12:00:00Z',value:null,coverage:null,delivery:null,reasons:['Acme awaits observations']};
  const opts={env:{CI:'true'},measures:selected,remeasure:async()=>reading};
  const readonly=await improve({root,date:'2026-10-10',prInput},opts);assert.deepEqual(readonly.data.changedHistoricalHealthPaths,[]);assert.equal(await readFile(join(root,path),'utf8'),before);
- const changed=await improve({root,report:true,date:'2026-10-10',prInput},opts);
+ const changed=await improve({root,report:true,date:'2026-10-10',prInput,namesEvidence:{repositoryId:7}},opts);
  assert.deepEqual(changed.data.changedHistoricalHealthPaths,[path]);assert.deepEqual(JSON.parse(await readFile(prInput,'utf8')).changedHistoricalHealthPaths,[path]);assert.notEqual(changed.data.report,path);
  const after=await readFile(join(root,path),'utf8');assert.notEqual(after,before);assert.match(after,/Acme owner notes stay/);assert.deepEqual(parseTimeProposal(after).proposal.baseline,initial.baseline);
+ const hash=text=>createHash('sha256').update(text).digest('hex');
+ const observed=changed.data.observation.writes.filter(w=>w.target.path===path);
+ assert.equal(observed.length,1);assert.equal(observed[0].before.sha256,hash(before));
+ assert.equal(observed[0].intended.sha256,hash(after));assert.equal(observed[0].after.sha256,hash(after));assert.equal(observed[0].outcome,'confirmed');
+ assert.ok(!JSON.stringify(changed.data.observation.fragments).includes('Acme owner notes'));
+ assert.ok(!changed.data.observation.gaps.some(g=>g.code==='historical-remeasurement-fragment-unavailable'));
  const unchanged=await improve({root,report:true,date:'2026-10-10',prInput},opts);assert.deepEqual(unchanged.data.changedHistoricalHealthPaths,[]);assert.deepEqual(JSON.parse(await readFile(prInput,'utf8')).changedHistoricalHealthPaths,[]);assert.equal(await readFile(join(root,path),'utf8'),after);assert.equal(await readFile(join(root,'docs/health/owner.md'),'utf8'),'Acme private working notes\n');
 });
 

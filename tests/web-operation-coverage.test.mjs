@@ -196,3 +196,18 @@ test('harness evaluation forms describe only local records and never enable host
   const paths = reviewedOperationSources().files.map(file => file.path);
   for (const path of ['lib/evaluation-ledger.mjs', 'lib/evaluation-records.mjs', 'lib/session-ledger-io.mjs']) assert.ok(paths.includes(path));
 });
+
+test('names transition stays CLI-only even when hosted mutations are enabled', async () => {
+  const { parseNamesArgs } = await import('../lib/names-cli.mjs');
+  const row = catalogue(enabled).rows.find(entry => entry.id === 'cli.names');
+  assert.equal(row.readiness.state, 'unsupported');
+  assert.equal(row.adapter, null);
+  assert.equal(row.route, null);
+  const flags = row.cli[0].forms.flatMap(form => form.arguments.map(arg => arg.token));
+  assert.deepEqual(flags, ['--repo', '--only', '--yes', '--digest', '--recover', '--machine', '--verify', '--run', '--morning-run', '--json']);
+  assert.throws(() => parseNamesArgs(['--yes']), /Apply requires/);
+  assert.throws(() => parseNamesArgs(['--repo', 'acme/studio', '--machine']), /separate scope/);
+  assert.throws(() => parseNamesArgs(['--verify', 'acme/studio', '--yes', '--digest', 'a'.repeat(64)]));
+  assert.equal(parseNamesArgs(['--verify', 'acme/studio', '--run', '7']).run, '7');
+  assert.equal(parseNamesArgs(['--verify', 'acme/studio', '--run', '7', '--morning-run', '8'])['morning-run'], '8');
+});

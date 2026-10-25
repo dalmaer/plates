@@ -1,3 +1,4 @@
+import { record } from '../practices/night/files/scripts/plates/night-plan.mjs';
 // The night's plan (phase 73): one plan per night, written before it runs,
 // ticked as it goes. The validator holds the design's schema and rules; plates
 // night plan makes the same default plan from the same inputs and writes
@@ -830,4 +831,16 @@ test('climb plan distinguishes a judged no-improvement from blocked and no-candi
     assert.equal(item.status, expected);
     assert.ok(item.result.note.startsWith(prefix), item.result.note);
   }
+});
+
+test('phase128 plan temp index leaves pre-existing current and legacy paths untouched', async t => {
+  const f = await planRemote(t, plannedTonight());
+  const gitdir = f.git(['rev-parse', '--absolute-git-dir']);
+  for (const prefix of ['keel', 'plates']) await writeFile(join(gitdir, `${prefix}-night-plan-${process.pid}.index`), 'Acme unrelated index');
+  const before = (await readdir(gitdir)).filter(name => /^(keel|plates)-night-plan-/.test(name)).sort();
+  const result = await record({ root: f.dir, date: NIGHT, ticks: [{ id: 'climb-tests', status: 'running' }] });
+  assert.equal(result.recorded, true);
+  assert.deepEqual((await readdir(gitdir)).filter(name => /^(keel|plates)-night-plan-/.test(name)).sort(), before);
+  for (const name of before) assert.equal(await readFile(join(gitdir, name), 'utf8'), 'Acme unrelated index');
+  assert.equal(f.show().items.find(item => item.id === 'climb-tests').status, 'running');
 });

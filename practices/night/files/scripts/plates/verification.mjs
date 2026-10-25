@@ -1,7 +1,7 @@
-import { nightBranches } from './names.mjs';
+import { environmentValue, nightBranches, NAMES } from './names.mjs';
 // Revision-bound observations, embedded in the existing health report. No gate execution.
-import { execFile } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { execFile, spawnSync } from 'node:child_process';
+import { randomUUID, createHash } from 'node:crypto';
 import { frontMatter } from './lib.mjs';
 
 export const VERIFICATION_MARK = '<!-- plates:verification:v1 ';
@@ -15,7 +15,7 @@ const clean = s => String(s ?? '').replace(/[\x00-\x1f<>]/g, ' ').slice(0, 500);
 const exec = (bin, args, options) => new Promise((resolve, reject) => execFile(bin, args, { ...options, encoding: 'utf8', timeout: 15000, maxBuffer: 1024 * 1024 }, (e, out) => e ? reject(new Error('bounded source read failed')) : resolve(out)));
 export async function verificationGit({root, env = process.env}) {
   try {
-    const run = args => exec(env.PLATES_GIT || 'git', args, {cwd:root,env});
+    const run = args => exec(environmentValue('variable:KEEL_GIT', env) ?? 'git', args, {cwd:root,env});
     const [sha, status] = await Promise.all([run(['rev-parse','HEAD']), run(['status','--porcelain','--untracked-files=normal'])]);
     if (!SHA.test(sha.trim())) throw new Error();
     return {sha:sha.trim(),dirty:status.trim().length > 0};
@@ -27,7 +27,7 @@ export async function observeVerification({root, config, env = process.env, now 
   const gaps = [], repo = REPO.test(config.repo ?? '') ? config.repo : null;
   const source = await git({root,env});
   if (!source.sha) gaps.push('checked revision unavailable');
-  const get = read ?? (async endpoint => JSON.parse(await exec(env.PLATES_GH || 'gh', ['api',endpoint], {cwd:root,env})));
+  const get = read ?? (async endpoint => JSON.parse(await exec((environmentValue('variable:KEEL_GH', env) ?? 'gh'), ['api',endpoint], {cwd:root,env})));
   const fetch = async (name, endpoint) => { try { return await get(endpoint); } catch { gaps.push(`${name} unavailable`); return null; } };
   let remote = null, claims = [];
   if (!repo) gaps.push('repository identity unavailable');
@@ -188,7 +188,7 @@ export function retainedVerificationSummary(text) {
 export async function recoverNightVerification({root,config,date,env=process.env}) {
   const repo=config.repo ?? env.GITHUB_REPOSITORY;
   if (!REPO.test(repo ?? '') || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('night recovery requires repository identity and date');
-  const git=args=>exec(env.PLATES_GIT || 'git',args,{cwd:root,env:{...env,GIT_TERMINAL_PROMPT:'0'}});
+  const git=args=>exec(environmentValue('variable:KEEL_GIT', env) ?? 'git',args,{cwd:root,env:{...env,GIT_TERMINAL_PROMPT:'0'}});
   const {branch,head}=await resolveNightBranch({root,date,env});
   if (!head) return {branch,head:'',attempts:0,report:null};
   await git(['fetch','--no-tags','--depth=1','origin',head]);
@@ -209,7 +209,7 @@ export async function resolveNightBranch({root,date,env=process.env,includeFinal
     let head='', present=false;
     for (const name of [branch,...(includeFinal?[`${branch}-final`]:[])]) {
       const ref=`refs/heads/${name}`;
-      const lines=(await exec(env.PLATES_GIT || 'git',['ls-remote','--refs','origin',ref],{cwd:root,env:{...env,GIT_TERMINAL_PROMPT:'0'}})).trim().split('\n').filter(Boolean);
+      const lines=(await exec(environmentValue('variable:KEEL_GIT', env) ?? 'git',['ls-remote','--refs','origin',ref],{cwd:root,env:{...env,GIT_TERMINAL_PROMPT:'0'}})).trim().split('\n').filter(Boolean);
       if (!lines.length) continue;
       if (lines.length!==1) throw new Error('night recovery ref read is ambiguous');
       const [sha,readRef]=lines[0].split('\t');
@@ -220,4 +220,76 @@ export async function resolveNightBranch({root,date,env=process.env,includeFinal
   }
   if (found.length>1) throw new Error('night recovery has two origin branches; preserve both and resolve ownership');
   return found[0] ?? {branch:branches[0],head:''};
+}
+
+
+// Optional rollout evidence: these values describe this invocation only. They
+// never grant write authority or turn a local write into a published Git object.
+export const namesDigest = text => createHash('sha256').update(text).digest('hex');
+export function namesEvidenceContext(value, env = process.env) {
+  if (!value) return false;
+  const repositoryId = value === true ? Number(env.PLATES_NAMES_EVIDENCE_REPOSITORY_ID) : value.repositoryId;
+  if (!Number.isSafeInteger(repositoryId) || repositoryId <= 0) throw new Error('names evidence requires a positive repository ID');
+  return { repositoryId };
+}
+export function namesObservation(producerId, context) {
+  return context ? { producerId, reads: [], writes: [], fragments: [], gaps: [] } : null;
+}
+export function namesGap(observation, code) {
+  if (observation && !observation.gaps.some(g => g.code === code)) observation.gaps.push({ code, producerId: observation.producerId, source: null });
+}
+export function namesFragment(observation, id, text, kind = 'projection') {
+  const path = `fragments/${observation.producerId}-${id}.txt`;
+  if (Buffer.byteLength(text) > 256 * 1024 || observation.fragments.length >= 128) { namesGap(observation, 'fragment-limit'); return null; }
+  const old = observation.fragments.find(f => f.path === path);
+  if (old && old.text !== text) throw new Error('names evidence fragment identity conflict');
+  if (!old) observation.fragments.push({ path, kind, text });
+  return { fragment: path, sha256: namesDigest(text) };
+}
+/** Retain only exact table-owned tokens from generated bytes, never prose. */
+export function namesGeneratedFragment(observation, id, generated) {
+  const text=Array.isArray(generated)?generated.join('\n'):generated;
+  const names=[];
+  for(const row of NAMES.filter(r=>['marker','fence','label'].includes(r.surface))) {
+    for(const value of [row.plates,row.keel]) if(text.includes(value)) names.push({rowId:row.id,value});
+  }
+  const fragment=namesFragment(observation,id,[...new Set(names.map(n=>n.value))].join('\n'),'managed-fragment');
+  return fragment?{...fragment,names}:null;
+}
+export const namesPlanProjection = plan => plan ? {date:plan.date,items:plan.items.map(({id,kind,status})=>({id,kind,status}))} : null;
+export function namesSnapshot(text, {commitSha=null,blobSha=null,labelIds=[],providerUpdatedAt=null}={}) {
+  return {state:text===null?'absent':'present',commitSha,blobSha,sha256:text===null?null:namesDigest(text),labelIds,providerUpdatedAt};
+}
+export function namesGit(root, args) {
+  return spawnSync('git', ['--no-optional-locks','-c','core.fsmonitor=false',...args], {cwd:root,encoding:'utf8',timeout:15000,maxBuffer:1024*1024});
+}
+/** Pin only the bytes actually consumed. A different checkout blob is a gap. */
+export function namesLocalSource(root, path, text) {
+  const source={ref:'HEAD',path,commitSha:null,blobSha:null,sha256:null,state:'unavailable',absence:null};
+  const head=namesGit(root,['rev-parse','--verify','HEAD^{commit}']);
+  if(head.status!==0 || !SHA.test(head.stdout.trim())) return source;
+  source.commitSha=head.stdout.trim();
+  const tree=namesGit(root,['ls-tree','-z',source.commitSha,'--',path]);
+  if(tree.status!==0) return source;
+  if(!tree.stdout) return text===null ? {...source,state:'absent',absence:'path'} : source;
+  const match=/^100(?:644|755) blob ([a-f0-9]{40})	/.exec(tree.stdout);
+  if(!match || text===null) return source;
+  const blob=namesGit(root,['cat-file','blob',match[1]]);
+  if(blob.status!==0 || blob.stdout!==text) return source;
+  return {...source,state:'read',blobSha:match[1],sha256:namesDigest(text)};
+}
+export function namesRead(observation, context, source, {consumer,sourceKind,selected=false,contributed=false,outputSection,projection,recordIds=[]}) {
+  if(!observation || !projection) return;
+  if(observation.reads.length>=64) {namesGap(observation,'read-limit');return;}
+  if(source.state==='unavailable') namesGap(observation,'read-unavailable');
+  observation.reads.push({consumer,sourceKind,repositoryId:context.repositoryId,...source,selected:source.state==='read'&&selected,contributed:source.state==='read'&&contributed,outputSection,outputProjection:projection,recordIds:source.state==='read'?recordIds:[]});
+}
+export function namesLocalWrite(observation, context, {root,path,before,intended,after,fragmentText,id,names=[]}) {
+  if(!observation) return;
+  const fragment=namesGeneratedFragment(observation,id,fragmentText);
+  if(!fragment) return;
+  const branch=namesGit(root,['symbolic-ref','--quiet','HEAD']);
+  if(branch.status!==0) namesGap(observation,'local-write-ref-unavailable');
+  observation.writes.push({producerId:observation.producerId,sequence:observation.writes.length+1,operationId:null,target:{kind:'git',repositoryId:context.repositoryId,ref:branch.status===0?branch.stdout.trim():'HEAD',path},outcome:after===intended?(before===after?'no-change':'confirmed'):'attempted-unknown',before:namesSnapshot(before),intended:{...fragment,sha256:namesDigest(intended)},after:after!==intended||after===null?null:namesSnapshot(after),observedAt:new Date().toISOString()});
+  if(after!==intended) namesGap(observation,'write-readback-mismatch');
 }

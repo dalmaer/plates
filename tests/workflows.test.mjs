@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { load, fill, plan, PUSH_TRIGGERS, CROSS_REVIEW_WORKFLOW, PUBLISH_WORKFLOW, PROJECT, shapePublish, gateNameIn } from '../lib/practices.mjs';
 import { concurrencyOf, concurrencyProblems, workflowKind } from '../practices/delivery/files/scripts/plates/delivery.mjs';
 import { run } from './helpers/run.mjs';
+import {nameRow} from '../lib/names.mjs';
 import { AGENTS } from '../practices/night/files/scripts/plates/lib.mjs';
 import { runBlocks, inlineNode, shellProblems } from './helpers/workflows.mjs';
 
@@ -271,14 +272,27 @@ export function reachesBack(text) {
     steps.at(-1)?.lines.push(line);
   });
   const stepOf = i => steps.filter(s => s.start <= i).at(-1);
+  const observerLine = (line,i) => {
+    const step=stepOf(i),body=step?.lines.join('\n')??'',jobId=[...lines.slice(0,i).join('\n').matchAll(/^ {2}([\w-]+):$/gm)].at(-1)?.[1],job=jobsOf(text).find(j=>j.id===jobId);
+    const opt="github.event_name == 'workflow_dispatch' && inputs.names_evidence == true";
+    const guarded=body.includes('        if: '+opt+'\n')||body.includes('        if: always() && '+opt+'\n')||(job?.id==='names-origin'&&job.text.includes('    if: '+opt+'\n'))||(job?.id==='names-observation'&&job.text.includes("    if: always() && "+opt+" && needs.names-origin.result == 'success'\n"));
+    if(line.trim()==='description: Exact reviewed dalmaer/plates observer source SHA (required for evidence)')return true;
+    if(!guarded)return false;
+    if(body.startsWith('      - name: Check out the exact observation source\n'))return line.trim()==='repository: dalmaer/plates'&&body.includes('ref: ${{ inputs.names_source_sha }}\n')&&body.includes('persist-credentials: false\n          submodules: false\n          lfs: false');
+    if(body.startsWith('      - name: Resolve the exact originating night\n'))return line.trim()==='if(identity?.repository.fullName!=="dalmaer/plates"||identity.commitSha!==process.env.NAMES_SOURCE_SHA)throw Error("Night observer source mismatch");';
+    if(body.startsWith('      - name: Observe the actual board\n'))return line.trim()==='node --import "$RUNNER_TEMP/names-loader.mjs" "$PLATES_NAMES_RUNTIME_ROOT/bin/plates.mjs" board --names-evidence --fresh --json > "$RUNNER_TEMP/names-board.json"';
+    if(body.startsWith('      - name: Collect managed-name observations\n'))return /^const result=await collectNamesRun\(\{root:process.cwd\(\),kind:"(?:night|morning)",directory,inputs,originatingNight,installedRuntime:\{root:runtime,repo:"dalmaer\/plates",entrypoint:"(?:lib\/names-verify|bin\/plates)\.mjs"\}\},namesGithub\(process.env\)\);$/.test(line.trim());
+    return false;
+  };
+
   const selfStep = steps.find(s => s.lines.some(l => /^\s+id: self\s*$/.test(l)) && s.lines.some(l => /\.plates === 'self'/.test(l)));
   lines.forEach((line, i) => {
     const n = i + 1;
-    if (/dalmaer\/(?:plates|keel)\b/.test(line)) out.push(`line ${n}: names plates's repo`);
+    if (/dalmaer\/(?:plates|keel)\b/.test(line) && !observerLine(line,i)) out.push(`line ${n}: names plates's repo`);
     if (/\b(?:PLATES|KEEL)_TOKEN\b/.test(line)) out.push(`line ${n}: a plates token`);
     if (/\bgh repo clone\b/.test(line)) out.push(`line ${n}: gh repo clone`);
     if (/\bgit clone\b/.test(line)) out.push(`line ${n}: git clone`);
-    if (/\b(?:plates|keel)\.mjs\b/.test(line)) {
+    if (/\b(?:plates|keel)\.mjs\b/.test(line) && !observerLine(line,i)) {
       const step = stepOf(i);
       const guarded = selfStep && step && step !== selfStep && step.lines.some(l => /^\s+if: steps\.self\.outputs\.self == 'true'\s*$/.test(l));
       if (!guarded || !/\bnode bin\/plates\.mjs learn\b/.test(line)) out.push(`line ${n}: plates's CLI outside plates's own learn step`);
@@ -1981,7 +1995,9 @@ test('phase 60: a push to main triggers a review only with "after": "push" (the 
   assert.deepEqual(on(t), ['pull_request', 'issue_comment'], 'the template');
   for (const crossReview of [{ for: ['codex/'] }, { for: ['codex/', 'claude/'], budget: { minutes: 20 } }]) {
     const without = fill(t, { ...base, crossReview }, CROSS_REVIEW_WORKFLOW);
-    assert.equal(without, t, 'no "after": the template\'s bytes, no push trigger');
+    const binding=nameRow('variable:KEEL_PUBLISHER');
+    const expected=t.replace('const binding = /* plates:publisher-binding */ null;', `const binding = /* plates:publisher-binding */ ${JSON.stringify({current:binding.plates,legacy:binding.keel})};`);
+    assert.equal(without, expected, 'no after: only the exact table-owned publisher pair is filled; no push trigger');
   }
   // plates's own rendered copy: plates reviews its PRs, not its pushes.
   assert.deepEqual(on(await readFile(join(PLATES, CROSS_REVIEW_WORKFLOW), 'utf8')), ['pull_request', 'issue_comment']);
@@ -2619,7 +2635,7 @@ export function productionMorningProblems(text) {
 
 export function morningProblems(text) {
   const out = [];
-  if (!/^on:\n {2}workflow_run:\n {4}workflows: \[plates-night(?:, plates-climb, plates-robot)?\]\n {4}types: \[completed\]\n {2}schedule:\n(?: {4}#.*\n)* {4}- cron: "[^"]+"\n {2}workflow_dispatch: \{\}\n/m.test(text)) out.push('not started by plates-night, plates-climb and plates-robot finishing, by a schedule and by hand');
+  if (!/^on:\n {2}workflow_run:\n {4}workflows: \[plates-night(?:, plates-climb, plates-robot)?\]\n {4}types: \[completed\]\n {2}schedule:\n(?: {4}#.*\n)* {4}- cron: "[^"]+"\n {2}workflow_dispatch:\n {4}inputs:\n/m.test(text)) out.push('not started by plates-night, plates-climb and plates-robot finishing, by a schedule and by hand');
   // Once a day, just after the default readyBy (17:00 UTC): the passes finishing cover the rest.
   const crons = [...text.matchAll(/^\s*-\s*cron:\s*"([^"]+)"/gm)].map(m => m[1]);
   if (crons.length !== 1 || !/^\d+ 17 \* \* \*$/.test(crons[0]) || Number(crons[0].split(' ')[0]) > 30) out.push(`one daily cron shortly after 17:00 UTC, the default readyBy (got ${JSON.stringify(crons)})`);
@@ -2627,13 +2643,15 @@ export function morningProblems(text) {
   if (!/^permissions: \{\}$/m.test(text)) out.push('the top level must grant nothing (permissions: {})');
   if (/secrets\./.test(text)) out.push('no secret beyond the job\'s own token');
   const jobs = Object.fromEntries(jobsOf(text).map(j => [j.id, j.text]));
-  if (Object.keys(jobs).join(',') !== 'decide,finalize,send,card') out.push(`jobs are decide, finalize, send, card (got ${Object.keys(jobs).join(', ')})`);
+  if (Object.keys(jobs).join(',') !== 'names-origin,decide,finalize,send,card,names-observation') out.push(`jobs are decide, finalize, send, card (got ${Object.keys(jobs).join(', ')})`);
   const perms = job => /\n {4}permissions:\n((?: {6}[a-z-]+: (?:read|write)\n)+)/.exec(jobs[job] ?? '')?.[1].trim().split('\n').map(l => l.trim()).sort() ?? [];
   for (const [id, body] of Object.entries(jobs)) {
     if (!/\n {4}timeout-minutes: \d+\n/.test(body)) out.push(`${id}: no timeout`);
     if (/issues: write/.test(body) && id !== 'send') out.push(`${id}: only the send job may write issues`);
     if (/continue-on-error/.test(body)) out.push(`${id}: continue-on-error hides a failure`);
   }
+  if (JSON.stringify(perms('names-origin')) !== JSON.stringify(['actions: read', 'contents: read'])) out.push('names-origin reads only contents and exact attempt artifacts');
+  if (JSON.stringify(perms('names-observation')) !== JSON.stringify(['actions: read', 'contents: read', 'issues: read', 'pull-requests: read'])) out.push('names-observation reads only the managed observation sources');
   if (JSON.stringify(perms('decide')) !== JSON.stringify(['contents: read', 'issues: read'])) out.push('decide reads contents and issues, and writes nothing');
   if (JSON.stringify(perms('finalize')) !== JSON.stringify(['contents: write', 'pull-requests: write'])) out.push('finalize writes contents and one PR, nothing else');
   if (JSON.stringify(perms('send')) !== JSON.stringify(['actions: read', 'contents: read', 'issues: write'])) out.push('send reads contents and production artifacts, and writes issues only');
@@ -2641,17 +2659,18 @@ export function morningProblems(text) {
   if (JSON.stringify(perms('card')) !== JSON.stringify(['actions: read', 'contents: read'])) out.push('card reads contents and actions, and writes nothing on GitHub');
   if (!(jobs.card ?? '').includes("    needs: decide\n    if: needs.decide.outputs.plan == 'found' && (github.event_name != 'workflow_run' || github.event.workflow_run.head_branch == github.event.repository.default_branch)\n")) out.push('card: runs only for a night with a plan, from a default-branch pass');
   if (!/plates morning --card --yes --date "\$DAY" --json/.test(jobs.card ?? '')) out.push('card: publishes tonight\'s plan card with plates morning --card');
-  const over = "needs.decide.outputs.ready == 'true' && needs.decide.outputs.sent != 'true'";
+  const over = "needs.decide.outputs.ready == 'true' && (needs.decide.outputs.sent != 'true' || (github.event_name == 'workflow_dispatch' && inputs.names_evidence == true))";
   if (!(jobs.send ?? '').includes(`    needs: decide\n    if: ${over}`)) out.push('send: runs only when decide says the night is over and unsent');
   // Finalize runs on every run after the night is over, sent or not: a finalization that failed
   // after a send, or a build that finished after a brief sent at readyBy, still reaches the
   // archive. Its own no-change check (git status --porcelain) makes repeats harmless.
   if (!(jobs.finalize ?? '').includes("    needs: decide\n    if: needs.decide.outputs.ready == 'true'\n")) out.push('finalize: runs whenever the night is over, never gated on the brief being unsent');
-  if (!/if \[ -z "\$\(git status --porcelain -- "\$\{PATHS\[@\]\}"\)" \]; then\n(?:\s+#[^\n]*\n)*\s+if [^\n]*; then\n\s+echo "Nothing changed[^\n]*\n\s+exit 0/.test(jobs.finalize ?? '')) out.push('finalize: a run with nothing new changes nothing (git status --porcelain)');
+  if (!/if \[ -z "\$\(git status --porcelain -- "\$\{PATHS\[@\]\}"\)" \]; then\n(?:\s+#[^\n]*\n)*\s+if [^\n]*; then\n\s+echo "Nothing changed[^\n]*\n[\s\S]*?\s+exit 0/.test(jobs.finalize ?? '')) out.push('finalize: a run with nothing new changes nothing (git status --porcelain)');
   if (!(jobs.send ?? '').includes("&& needs.decide.outputs.assignee == 'set'")) out.push('send: runs only with an assignee');
-  if (!/\n {8}run: node scripts\/plates\/morning\.mjs send --date "\$DAY"\n(?:\n| *#[^\n]*\n)*$/.test((jobs.send ?? '').split(/\n(?= {6}- )/).find(s=>/^ {6}- name: Send the brief\n/.test(s)) + '\n')) out.push('send: the send is its step\'s whole command, so its failure fails the run');
+  const sendScript = runBlocks(jobs.send ?? '').find(s=>s.step==='Send the brief')?.script ?? '';
+  if (!/\n  node scripts\/plates\/morning\.mjs send --date "\$DAY"\nfi$/.test(sendScript.trimEnd()) || !/\n  node --import "\$RUNNER_TEMP\/names-loader.mjs" scripts\/plates\/morning\.mjs send --date "\$DAY" --names-evidence --json > "\$RUNNER_TEMP\/names-brief.json"\nelse/.test(sendScript)) out.push('send: the send is its step\'s whole command, so its failure fails the run');
   out.push(...productionMorningProblems(text));
-  if (!/node scripts\/plates\/morning\.mjs decide --github-output "\$GITHUB_OUTPUT"/.test(jobs.decide ?? '')) out.push('decide: runs morning.mjs decide into the job\'s outputs');
+  if (!/node scripts\/plates\/morning\.mjs decide "\$\{DATE_ARGS\[@\]\}" --github-output "\$GITHUB_OUTPUT"/.test(jobs.decide ?? '')) out.push('decide: runs morning.mjs decide into the job\'s outputs');
   if (!/node scripts\/plates\/morning\.mjs finalize --date "\$DAY"/.test(jobs.finalize ?? '')) out.push('finalize: runs morning.mjs finalize');
   return out;
 }
@@ -2803,24 +2822,24 @@ test('phase 77: plates-morning.yml starts when a pass finishes and on a schedule
     ['no workflow_run trigger', t.replace(/ {2}workflow_run:\n {4}workflows: \[[^\]]*\]\n {4}types: \[completed\]\n/, ''), /not started by/],
     ['climb left out', t.replace('[plates-night, plates-climb, plates-robot]', '[plates-night, plates-robot]'), /not started by/],
     ['no schedule', t.replace(/ {2}schedule:\n(?: {4}#.*\n)* {4}- cron: "[^"]+"\n/, ''), /not started by/],
-    ['no dispatch', t.replace('  workflow_dispatch: {}\n', ''), /not started by/],
+    ['no dispatch', t.replace('  workflow_dispatch:\n', ''), /not started by/],
     ['hourly', t.replace('cron: "7 17 * * *"', 'cron: "7 * * * *"'), /one daily cron shortly after 17:00 UTC/],
     ['before readyBy', t.replace('cron: "7 17 * * *"', 'cron: "7 16 * * *"'), /one daily cron shortly after 17:00 UTC/],
     ['a second cron', t.replace('    - cron: "7 17 * * *"\n', '    - cron: "7 17 * * *"\n    - cron: "7 21 * * *"\n'), /one daily cron shortly after 17:00 UTC/],
     ['decide writes issues', t.replace('      contents: read\n      issues: read\n', '      contents: read\n      issues: write\n'), /decide: only the send job may write issues/],
     ['finalize writes issues', t.replace('      contents: write\n      pull-requests: write\n', '      contents: write\n      pull-requests: write\n      issues: write\n'), /finalize: only the send job may write issues/],
     ['a write at the top', t.replace('permissions: {}', 'permissions:\n  issues: write'), /top level must grant nothing/],
-    ['a swallowed send', t.replace('run: node scripts/plates/morning.mjs send --date "$DAY"', 'run: node scripts/plates/morning.mjs send --date "$DAY" || true'), /send: the send is its step's whole command/],
+    ['a swallowed send', t.replace('node scripts/plates/morning.mjs send --date "$DAY"', 'node scripts/plates/morning.mjs send --date "$DAY" || true'), /send: the send is its step's whole command/],
     ['send allowed to fail', t.replace('      - name: Send the brief\n', '      - name: Send the brief\n        continue-on-error: true\n'), /send: continue-on-error/],
     ['send before the night is over', t.replace("  send:\n    needs: decide\n    if: needs.decide.outputs.ready == 'true' && ", '  send:\n    needs: decide\n    if: '), /send: runs only when decide says the night is over/],
-    ['send twice', t.replace(" && needs.decide.outputs.sent != 'true' && needs.decide.outputs.assignee", ' && needs.decide.outputs.assignee'), /send: runs only when decide says the night is over and unsent/],
+    ['send twice', t.replace(" && (needs.decide.outputs.sent != 'true' || (github.event_name == 'workflow_dispatch' && inputs.names_evidence == true)) && needs.decide.outputs.assignee", ' && needs.decide.outputs.assignee'), /send: runs only when decide says the night is over and unsent/],
     ['finalize gated on the brief', t.replace("  finalize:\n    needs: decide\n    if: needs.decide.outputs.ready == 'true'\n", "  finalize:\n    needs: decide\n    if: needs.decide.outputs.ready == 'true' && needs.decide.outputs.sent != 'true'\n"), /finalize: runs whenever the night is over, never gated/],
     ['finalize before the night is over', t.replace("  finalize:\n    needs: decide\n    if: needs.decide.outputs.ready == 'true'\n", '  finalize:\n    needs: decide\n'), /finalize: runs whenever the night is over/],
-    ['finalize with no no-change check', t.replace(/\n\s+echo "Nothing changed: [^\n]*\n\s+exit 0/, ''),/finalize: a run with nothing new changes nothing/],
-    ['a secret', t.replace('GH_TOKEN: ${{ github.token }}\n      DAY: ${{ needs.decide.outputs.day }}\n    steps', 'GH_TOKEN: ${{ secrets.MAIL_TOKEN }}\n      DAY: ${{ needs.decide.outputs.day }}\n    steps'), /no secret/],
+    ['finalize with no no-change check', t.replace(/\n\s+echo "Nothing changed: [^\n]*\n/, ''),/finalize: a run with nothing new changes nothing/],
+    ['a secret', t.replace('GH_TOKEN: ${{ github.token }}', 'GH_TOKEN: ${{ secrets.MAIL_TOKEN }}'), /no secret/],
     ['no timeout', t.replace(/(  send:\n(?:.*\n)*?) {4}timeout-minutes: \d+\n/, '$1'), /send: no timeout/],
-    ['the card writes issues', t.replace('      contents: read\n      actions: read\n', '      contents: read\n      actions: read\n      issues: write\n'), /card: only the send job may write issues/],
-    ['the card writes contents', t.replace('      contents: read\n      actions: read\n', '      contents: write\n      actions: read\n'), /card reads contents and actions/],
+    ['the card writes issues', t.replace(/(  card:[\s\S]*?      contents: read\n      actions: read\n)/, '$1      issues: write\n'), /card: only the send job may write issues/],
+    ['the card writes contents', t.replace(/(  card:[\s\S]*?)      contents: read\n      actions: read\n/, '$1      contents: write\n      actions: read\n'), /card reads contents and actions/],
     ['the card for a night with no plan', t.replace("    if: needs.decide.outputs.plan == 'found' && ", '    if: '), /card: runs only for a night with a plan/],
   ]) {
     assert.notEqual(changed, t, `${why}: the mutation must apply`);

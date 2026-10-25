@@ -52,6 +52,8 @@ async function project(t, state = BASE_STATE) {
   await mkdir(join(dir, 'scripts'), { recursive: true });
   await mkdir(join(dir, 'tests'), { recursive: true });
   await cp(join(PRACTICE, 'scripts', 'loop.mjs'), join(dir, 'scripts', 'loop.mjs'));
+  await mkdir(join(dir, 'scripts/plates'), { recursive: true });
+  await cp(join(PLATES, 'practices/night/files/scripts/plates/names.mjs'), join(dir, 'scripts/plates/names.mjs'));
   await cp(join(PRACTICE, 'tests', 'loop.test.mjs'), join(dir, 'tests', 'loop.test.mjs'));
   const stateFile = join(dirname(dir), 'state.json'), log = join(dirname(dir), 'calls.jsonl');
   await writeFile(stateFile, JSON.stringify(state));

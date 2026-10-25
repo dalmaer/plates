@@ -147,14 +147,18 @@ test('a later legacy owner plan is preserved rather than shadowed by a default',
   assert.equal(run('git', ['rev-parse', '--verify', '-q', 'plates-night-plan'], { cwd: f.origin }).status, 1);
 });
 
-test('morning reports a failed original-record Git read instead of using the plan branch', async t => {
+for (const namespace of ['plates', 'keel']) test(`morning reports a failed original-record Git read instead of using the plan branch (${namespace})`, async t => {
   const f = await fixture(t);
   await f.publish('plates-night-plan', '.plates/night/plan.json', JSON.stringify(plan()));
-  await f.publish(`keel-night/${date}`, `docs/night/${date}.json`, JSON.stringify(plan()));
-  const env = await gitShim(f, "if(args.includes('show')&&args.at(-1).includes(':docs/night/'))process.exit(128);");
+  // Distinct bytes identify the original record, not the valid plan fallback.
+  await f.publish(`${namespace}-night/${date}`, `docs/night/${date}.json`, JSON.stringify(plan(), null, 2));
+  const blob = git(f.origin, 'rev-parse', `${namespace}-night/${date}:docs/night/${date}.json`);
+  const mark = join(f.dir, 'original-read-refused');
+  const env = await gitShim(f, `if(args[0]==='cat-file'&&args[1]==='blob'&&args[2]===${JSON.stringify(blob)}) {writeFileSync(${JSON.stringify(mark)},args[2]);process.exit(128);}`);
   const module = new URL('../practices/night/files/scripts/plates/morning.mjs', import.meta.url).href;
-  const result = run(process.execPath, ['--input-type=module', '-e', `import assert from 'node:assert/strict';import {finalPlan} from ${JSON.stringify(module)};await assert.rejects(finalPlan({root:process.argv[1],date:process.argv[2]}),/cannot read keel-night.*git show exited 128/);`, f.root, date], { cwd: f.root, env });
+  const result = run(process.execPath, ['--input-type=module', '-e', `import assert from 'node:assert/strict';import {finalPlan} from ${JSON.stringify(module)};await assert.rejects(finalPlan({root:process.argv[1],date:process.argv[2]}),/cannot read ${namespace}-night.*git cat-file exited 128/);`, f.root, date], { cwd: f.root, env });
   assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.equal(await readFile(mark, 'utf8'), blob, 'the actual pinned original blob read was refused');
 });
 test('default publisher second read cannot reinterpret a failed blob read as no plan file', async t => {
   const f = await fixture(t);

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 // plates goodnight (phase 74): the owner shapes tonight's plan. The opening shows
 // what was settled today, what was left open, the default plan and up to three
 // things to try, and changes nothing; the shaping verbs change a draft and
@@ -8,14 +9,14 @@
 // reads the live world.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, rm, cp, realpath, symlink } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, rm, cp, realpath, symlink, readdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { run } from './helpers/run.mjs';
 import { goodnight, suggestionsFor, namesSettled, parseArgs, loopRubric, loopDraft, DRAFT, SUGGESTIONS } from '../lib/goodnight.mjs';
-import { previewRobotIssue } from '../lib/robot-issue.mjs';
+import { previewRobotIssue, robotIssueInstance } from '../lib/robot-issue.mjs';
 import { robotPolicy } from '../practices/climb/files/scripts/plates/robot-policy.mjs';
 import { robotRubricRefusal } from '../practices/climb/files/scripts/plates/robot-rubric.mjs';
 import { validatePlan, tonight, nightOf, PLAN, PLAN_BRANCH } from '../lib/night-plan.mjs';
@@ -540,4 +541,39 @@ test('a long Loop slug makes a suggestion id within the plan\'s 64, bounded like
   const d = JSON.parse(await readFile(join(f.root, DRAFT), 'utf8'));
   assert.deepEqual(validatePlan(d, { draft: true }).problems, []);
   assert.ok(!(await say()).suggestions.some(s => long.some(l => s.source === `loop:${l}`)), 'added, it is no longer a thing to try');
+});
+
+for (const namespace of ['plates', 'keel']) test(`phase128 goodnight ${namespace} seed recovers closed original without reservation`, async t => {
+  const f = await acme(t);
+  const configPath = join(f.root, '.plates/plates.json');
+  const config = JSON.parse(await readFile(configPath, 'utf8'));
+  await writeFile(configPath, JSON.stringify({ ...config, robot: { on: true, budgetMinutes: 60 } }));
+  await writeFile(join(f.root, 'docs/loop/lighter-anvils.md'), finding('Lighter anvils', 'decision: accepted\nrank: next\nphase: 1\nsince: 2026-10-01\nnote: Brings `slow_tests` back within its bound.\n')
+    .replace("Acme's Lighter anvils.", '# Lighter anvils\n\n> **Loop says** (P2): The tests sleep.\n\n- `lib/anvil.mjs`\n'));
+  const api = issuesApi();
+  const say = async (...args) => (await goodnight({ root: f.root, args, env: f.env }, { board, github: api.github })).data;
+  await say(); await say('add', 'loop-lighter-anvils'); await say('--yes');
+  const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  const directory = join(f.root, '.plates/robot-issues', hash('acme/anvils'));
+  const files = (await readdir(directory)).filter(name => /^[a-f0-9]{64}\.json$/.test(name));
+  assert.equal(files.length, 1);
+  const originalFile = join(directory, files[0]);
+  const original = JSON.parse(await readFile(originalFile, 'utf8'));
+  // Model the exact retained historical intent and provider record independently
+  // of the new producer; loss of the subject index must not lose its identity.
+  original.instanceId = robotIssueInstance(`${namespace}-goodnight-loop`, 'acme/anvils', 'lighter-anvils');
+  const preview = previewRobotIssue(original);
+  original.preview = { title: preview.title, body: preview.body, labels: preview.labels, marker: preview.marker };
+  await rm(originalFile);
+  const historicalFile = join(directory, `${hash(original.instanceId)}.json`);
+  await writeFile(historicalFile, JSON.stringify(original));
+  await rm(join(directory, `subject-${hash(original.subjectKey)}.json`));
+  api.rows[0].body = preview.body; api.rows[0].state = 'closed';
+  const retained = await readFile(historicalFile, 'utf8');
+  await rm(join(f.root, DRAFT)); await say('add', 'loop-lighter-anvils');
+  let result;
+  await assert.doesNotReject(async () => { result = await say('--yes'); }, 'original seed subject must recover through goodnight');
+  assert.deepEqual(result.issues.map(i => [i.number, i.state]), [[7, 'recovered']]);
+  assert.equal(api.posts().length, 1);
+  assert.equal(JSON.parse(await readFile(historicalFile, 'utf8')).instanceId, JSON.parse(retained).instanceId);
 });

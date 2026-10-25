@@ -139,6 +139,7 @@ test('robot judge executes real full gates and refuses dropped tests or sandbox 
  const root=await project(t);await mkdir(join(root,'scripts/plates'),{recursive:true});await mkdir(join(root,'.plates'));
  await cp(resolve('practices/night/files/scripts/plates/test-ledger.mjs'),join(root,'scripts/plates/test-ledger.mjs'));
  await cp(resolve('practices/night/files/scripts/plates/time-receipts.mjs'),join(root,'scripts/plates/time-receipts.mjs'));
+ await cp(resolve('practices/night/files/scripts/plates/names-environment.mjs'),join(root,'scripts/plates/names-environment.mjs'));
  await cp(resolve('practices/night/files/scripts/plates/names.mjs'),join(root,'scripts/plates/names.mjs'));
  const check='node --test --test-reporter=./scripts/plates/test-ledger.mjs acme.test.mjs';
  await writeFile(join(root,'.plates/plates.json'),JSON.stringify({check}));
@@ -959,6 +960,7 @@ test('robot judge refuses a candidate gate that plants an extra test-ledger reco
  const root=await project(t);await mkdir(join(root,'scripts/plates'),{recursive:true});await mkdir(join(root,'.plates'));
  await cp(resolve('practices/night/files/scripts/plates/test-ledger.mjs'),join(root,'scripts/plates/test-ledger.mjs'));
  await cp(resolve('practices/night/files/scripts/plates/time-receipts.mjs'),join(root,'scripts/plates/time-receipts.mjs'));
+ await cp(resolve('practices/night/files/scripts/plates/names-environment.mjs'),join(root,'scripts/plates/names-environment.mjs'));
  await cp(resolve('practices/night/files/scripts/plates/names.mjs'),join(root,'scripts/plates/names.mjs'));
  const check='node --test --test-reporter=./scripts/plates/test-ledger.mjs acme.test.mjs';
  await writeFile(join(root,'.plates/plates.json'),JSON.stringify({check}));

@@ -89,7 +89,7 @@ function shell(yaml) {
   const block = yaml.split('      - name: Project the night onto its canvas\n')[1].split('\n      - name:')[0];
   return block.split('        run: |\n')[1].split('\n').map(l => l.startsWith('          ') ? l.slice(10) : l).join('\n');
 }
-async function workflow(t, { enabled = true, creds = true, missing = false, mismatch = false, fail = false, runs = [], artifacts = [], bundle, local = true, disabledShas = [], attempt = 1, priorAttempt, event = 'schedule', neverRan = {}, jobs = {}, repositories = {}, omitArtifact = null } = {}) {
+async function workflow(t, { enabled = true, creds = true, missing = false, mismatch = false, fail = false, runs = [], artifacts = [], bundle, local = true, disabledShas = [], attempt = 1, priorAttempt, event = 'schedule', neverRan = {}, jobs = {}, repositories = {}, omitArtifact = null, provisioning = null } = {}) {
   const root = await fixture(t, { ...binding, enabled, cadence: 'nightly' });
   if (local) { await mkdir(join(root, '.plates/canvas')); await writeFile(join(root, '.plates/canvas/manifest.json'), JSON.stringify(initialManifest())); }
   const bin = join(root, 'bin'); await mkdir(bin);
@@ -138,6 +138,7 @@ if(a[0]==='api') {
   const env = { ...process.env, PATH: bin, RUNNER_TEMP: root, GITHUB_OUTPUT: join(root, 'outputs'),
     REPO: 'Acme/app', BASE: 'main', GITHUB_REPOSITORY: 'Acme/app', GITHUB_REF_NAME: 'main', GITHUB_RUN_ID: '200', GITHUB_RUN_ATTEMPT: String(attempt), GITHUB_EVENT_NAME: event, GITHUB_SHA: 'b'.repeat(40),
     PLATES_CANVAS_PLATES_VERSION: mismatch ? 'wrong-pin' : 'acme-pinned', PLATES_CANVAS_ISOCAN_VERSION: 'acme-pinned', PLATES_CANVAS_ISOCAN_HOME: creds ? home : '' };
+  if (provisioning) provisioning(env);
   const yaml = await readFile(template, 'utf8');
   const out = run('/bin/bash', ['-e', '-o', 'pipefail', '-c', shell(yaml)], { cwd: root, env });
   let calls = []; try { calls = (await readFile(log, 'utf8')).trim().split('\n').map(JSON.parse); } catch {}
@@ -647,3 +648,52 @@ test('canvas recovery retains either morning workflow identity and its held arti
   assert.equal(out.ghCalls.filter(a=>a[0]==='run'&&a[1]==='download').length,1);
  }
 });
+
+for (const [legacy, current] of [
+  ['KEEL_CANVAS_KEEL_VERSION', 'PLATES_CANVAS_PLATES_VERSION'],
+  ['KEEL_CANVAS_ISOCAN_VERSION', 'PLATES_CANVAS_ISOCAN_VERSION'],
+  ['KEEL_CANVAS_ISOCAN_HOME', 'PLATES_CANVAS_ISOCAN_HOME'],
+]) {
+  for (const selected of [legacy, current]) test(`phase128 canvas provisioning ${selected} executes the actual workflow`, async t => {
+    const result = await workflow(t, { provisioning(env) {
+      const value = env[current]; delete env[current]; delete env[legacy]; env[selected] = value;
+    } });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.calls.filter(args => args[1] === 'canvas' && args[2] === 'night').length, 1);
+  });
+  test(`phase128 canvas provisioning invalid ${current} never falls back`, async t => {
+    const result = await workflow(t, { provisioning(env) { env[legacy] = env[current]; env[current] = ''; } });
+    assert.notEqual(result.status, 0);
+    assert.equal(result.calls.filter(args => args[1] === 'canvas').length, 0);
+  });
+}
+
+test('phase128 canvas temp producer uses a fresh current directory and retains its own evidence', async t => {
+  const root = await fixture(t), deps = pipeline();
+  const result = await night({ root, report, ...deps });
+  assert.equal(result.exitCode, 0);
+  assert.match(result.data.output, /\/plates-canvas-night-[^/]+$/);
+  t.after(() => rm(result.data.output, { recursive: true, force: true }));
+  assert.ok(await readFile(join(result.data.output, 'snapshot.json')));
+});
+
+for(const alias of ['PLATES','KEEL']) {
+ test(`phase128 CANVAS_OUTPUT ${alias} uses original output destination`,async t=>{
+  const root=await fixture(t),deps=pipeline(),output=join(root,'alias-artifacts');
+  const result=await night({root,report,env:{[`${alias}_CANVAS_OUTPUT`]:output},...deps});
+  assert.equal(result.data.output,join(await realpath(root),'alias-artifacts'));
+  t.after(()=>rm(result.data.output,{recursive:true,force:true}));
+ });
+ test(`phase128 CANVAS_PERSISTENCE ${alias} requires original journal`,async t=>{
+  const setup=await recoveryFixture(t,{seed:false}),deps=pipeline();
+  const result=await night({...setup,report,env:{[`${alias}_CANVAS_PERSISTENCE`]:'artifact-v1'},...deps});
+  assert.equal(result.exitCode,1);assert.deepEqual(deps.calls,[]);
+ });
+ test(`phase128 CANVAS_RECOVERY ${alias} validates supplied original bundle`,async t=>{
+  const setup=await recoveryFixture(t),path=join(setup.output,'invalid.json');await writeFile(path,'invalid-json');
+  const {restoreJournal}=await import('../lib/canvas-night.mjs');
+  const config=JSON.parse(await readFile(join(setup.root,'.plates/plates.json'),'utf8'));
+  await assert.doesNotReject(restoreJournal({root:setup.root,config,env:{}}));
+  await assert.rejects(restoreJournal({root:setup.root,config,env:{[`${alias}_CANVAS_RECOVERY`]:path}}));
+ });
+}

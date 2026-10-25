@@ -1119,3 +1119,14 @@ test('review reader verifies repository rename before counting legacy robot find
  // A JSON property cannot spoof the non-serialized verifier state.
  assert.deepEqual(reviewComments({...JSON.parse(original),repositoryAliases:[old]}),[]);
 });
+
+for (const alias of ['PLATES','KEEL']) test(`phase128 REVIEW_POLL_MS ${alias} drives actual wait interval`, async t => {
+  const {review} = await import('../lib/review.mjs');
+  const root = await project(t), gh = await stubGh(t, {}), waits = [];
+  let clock = 0;
+  const result = await review({root,target:'acme/app#3',wait:true}, {
+    env:{PLATES_GH:gh.path,PLATES_CACHE:join(root,'cache'),[`${alias}_REVIEW_POLL_MS`]:'23'},
+    now:()=>clock, sleep:async ms=>{waits.push(ms);clock=2000;},
+  });
+  assert.deepEqual(waits,[23]); assert.equal(result.data.waited.timedOut,true);
+});

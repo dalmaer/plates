@@ -48,7 +48,7 @@ const NIGHT = join(PLATES, 'practices/night/files/scripts/plates');
 async function load(t, { climb = false } = {}) {
   const dir = await acme(t);
   if (climb) {
-    for (const f of ['test-ledger.mjs', 'time-receipts.mjs', 'pr-body.mjs']) await cp(join(NIGHT, f), join(dir, 'scripts/plates', f));
+    for (const f of ['test-ledger.mjs', 'time-receipts.mjs', 'names-environment.mjs', 'pr-body.mjs']) await cp(join(NIGHT, f), join(dir, 'scripts/plates', f));
     for (const f of ['climb.mjs', 'climb-execution.mjs', 'tend.mjs']) await cp(join(dirname(CLIMB), f), join(dir, 'scripts/plates', f));
   }
   const at = f => import(pathToFileURL(join(dir, 'scripts/plates', f)).href);
@@ -89,9 +89,12 @@ process.exit(1);
 }
 
 /** Run one named step of plates-cross-review.yml in `dir`, as the workflow has it: { status, out, outputs }. */
-async function step(t, dir, name, env = {}) {
+async function step(t, dir, name, env = {}, { rendered = true } = {}) {
   if (name === 'Post after the push') env={SHA:'a'.repeat(40),...env};
-  const block = runBlocks(await readFile(WORKFLOW, 'utf8')).find(b => b.step === name);
+  const template = await readFile(WORKFLOW, 'utf8');
+  const { shapeCrossReview } = await import('../lib/practices.mjs');
+  const workflow = rendered ? shapeCrossReview(template, { crossReview: { after: 'push' } }) : template;
+  const block = runBlocks(workflow).find(b => b.step === name);
   assert.ok(block, `plates-cross-review.yml has a step "${name}"`);
   const out = join(dir, '..', `${dir.split('/').pop()}-${name.replace(/\W/g, '')}-out`);
   t.after(() => rm(out, { force: true }));
@@ -1011,7 +1014,7 @@ test('phase 60 publisher: after a push the publish job checks out nothing and ru
     assert.equal(r.outputs.dir, undefined);
     assert.match(r.out, /^::error::scripts\/plates\/cross-review\.mjs, lib\.mjs and names\.mjs at the run commit are not the ones plates rendered this workflow with/m);
   }
-  // An unrendered workflow (no "after", so no push trigger; or hand-copied) runs nothing either.
+  // A missing/invalid publisher digest still refuses, even with rendered bindings.
   assert.equal((await fetches(a, 'unrendered')).status, 1);
   // The post runs the checked publisher from its folder: nothing of a checkout (the empty folder has none).
   const w = await whichPush(t, dir, { before: m, issues: [trackingIssue(8, root, '2026-10-09T07:00:00Z')] });
@@ -1456,3 +1459,23 @@ test('workflow start existing-record query detects both single-name mutations',a
   result=execute();assert.equal(result.status,0,result.stderr);assert.equal(result.stdout.trim(),'0');
  }
 });
+
+for(const alias of ['PLATES','KEEL']) test(`phase128 NOW ${alias} retains push review daily budget`,async t=>{
+ const {cli}=await import('../scripts/plates/cross-review.mjs');
+ const dir=await shipsToMain(t),root=gitIn(dir,['rev-parse','HEAD']);
+ const a=await commitOn(dir,'src/lid.js','export const lid = 1;\n',{author:CODEX});
+ const b=await commitOn(dir,'src/hinge.js','export const hinge = 2;\n',{author:CODEX});
+ const path=join(dir,'acme-issues.json');await writeFile(path,JSON.stringify([trackingIssue(21,a,'2026-10-09T15:00:00Z'),trackingIssue(20,root,'2026-10-09T09:00:00Z')]));
+ const result=await cli(['which-push','--event','push','--before',a,'--issues',path],{root:dir,env:{HAS_CLAUDE:'true',HAS_CODEX:'true',[`${alias}_NOW`]:'2026-10-09T18:00:00Z'}});
+ assert.equal(result.data.review,false);assert.match(result.text,/budget of 2 push reviews is spent/);
+});
+
+ test('publisher explicitly refuses an unrendered binding even when supplied the exact publisher digests',async t=>{
+  const dir=await shipsToMain(t),revision=gitIn(dir,['rev-parse','HEAD']);
+  const {publisherSha256}=await import('../lib/practices.mjs');
+  const empty=await mkdtemp(join(tmpdir(),'acme-unrendered-publisher-'));t.after(()=>rm(empty,{recursive:true,force:true}));
+  const gh=await pushGh(t,{repo:dir});
+  const result=await step(t,empty,"Is the publisher plates's?",{PATH:`${gh.path}:${process.env.PATH}`,RUNNER_TEMP:empty,REPO:'acme/anvils',GH_TOKEN:'acme-write',SHA:revision,PLATES_PUBLISHER:publisherSha256().join(' ')},{rendered:false});
+  assert.equal(result.status,1,result.out);assert.equal(result.outputs.dir,undefined);assert.match(result.out,/Publisher identity has not been rendered/);
+  assert.equal((await gh.calls()).length,3);assert.ok(!(await readdir(empty)).includes('.git'),'publisher must not create a checkout');
+ });

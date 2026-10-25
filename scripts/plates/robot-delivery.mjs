@@ -1,4 +1,4 @@
-import { writeName, markerComment, markerComments, markerLines, markerHeader, readNames, robotIssueOf } from './names.mjs';
+import { environmentValue, writeName, markerComment, markerComments, markerLines, markerHeader, readNames, robotIssueOf } from './names.mjs';
 // Read-only delivery facts and a bounded GitHub REST transport; no runtime import.
 import { spawnSync } from 'node:child_process';
 export const robotRepo = value => typeof value === 'string' && /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value) && !value.split('/').some(x => x === '.' || x === '..');
@@ -8,7 +8,7 @@ export async function robotGithub({ method = 'GET', path, body }) {
   if (!['GET', 'POST', 'PATCH'].includes(method) || !/^\/repos\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:$|[/?])/.test(path) || /[\r\n#]/.test(path)) throw new Error('invalid robot API request');
   const args = ['api', '--include', '--method', method, path];
   if (body !== undefined) args.push('--input', '-');
-  const r = spawnSync(process.env.PLATES_GH || 'gh', args, { input: body === undefined ? undefined : JSON.stringify(body), encoding: 'utf8', timeout: 30_000, maxBuffer: 16 * 1024 * 1024 });
+  const r = spawnSync((environmentValue('variable:KEEL_GH', process.env) ?? 'gh'), args, { input: body === undefined ? undefined : JSON.stringify(body), encoding: 'utf8', timeout: 30_000, maxBuffer: 16 * 1024 * 1024 });
   // Never propagate gh stderr, which may contain credentials or untrusted issue text.
   if (r.error) throw new Error('robot GitHub transport unavailable');
   const match = /^HTTP\/[\d.]+ (\d+)[^\n]*\r?\n([\s\S]*?)\r?\n\r?\n([\s\S]*)$/.exec(r.stdout ?? '');

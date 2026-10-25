@@ -1,13 +1,5 @@
-export { markerHeader, markerLines, remoteLabelReceipt, repositoryLabelSelection, repositoryLabelWriter, labelNames, matchesLabel, markerComment, markerComments, markerAtStart, leadingMarkers } from './names.mjs';
-import { markerHeader, markerLines, remoteLabelReceipt, repositoryLabelSelection, repositoryLabelWriter, labelNames, matchesLabel, markerComment, markerComments, markerAtStart, leadingMarkers, writeName, branchSuffix, robotIssueOf } from './names.mjs';
-// The tool pin includes the old product name twice.
-if (process.env.KEEL_CANVAS_KEEL_VERSION !== undefined) process.env.PLATES_CANVAS_PLATES_VERSION ??= process.env.KEEL_CANVAS_KEEL_VERSION;
-
-// Accept established environment bindings during the product rename. Canonical names win.
-for (const [name, value] of Object.entries(process.env)) {
-  if (name.startsWith('KEEL_') && process.env[`PLATES_${name.slice(5)}`] === undefined) process.env[`PLATES_${name.slice(5)}`] = value;
-}
-
+export { environmentValue, markerHeader, markerLines, remoteLabelReceipt, repositoryLabelSelection, repositoryLabelWriter, labelNames, matchesLabel, markerComment, markerComments, markerAtStart, leadingMarkers } from './names.mjs';
+import { environmentValue, markerHeader, markerLines, remoteLabelReceipt, repositoryLabelSelection, repositoryLabelWriter, labelNames, matchesLabel, markerComment, markerComments, markerAtStart, leadingMarkers, writeName, branchSuffix, robotIssueOf } from './names.mjs';
 // What the night shift's scripts share (plates practice `night`; managed: plates
 // render rewrites it). Node built-ins only: this runs in the project's own
 // checkout, with no plates anywhere (plates docs/design.md §6, "Projects run on
@@ -2001,7 +1993,7 @@ export const AGENT_GIT_DIR = '.plates/agent-git';
  * home) never resolves it, and a gate's child git never sees it in GIT_DIR.
  */
 export function agentGitArgs(cwd, env = process.env) {
-  const d = env?.PLATES_AGENT_GIT;
+  const d = environmentValue('variable:KEEL_AGENT_GIT', env ?? {});
   if (typeof d !== 'string' || !d || isAbsolute(d) || d.split(/[\\/]/).includes('..')) return [];
   const dir = resolve(cwd, d);
   return existsSync(join(dir, 'HEAD')) ? [`--git-dir=${dir}`, `--work-tree=${resolve(cwd)}`] : [];

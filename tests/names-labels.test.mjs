@@ -63,3 +63,21 @@ test('fresh checkout reads committed receipt; local edits and untracked receipts
  git(dir,['clone','-q',source,clone]);assert.deepEqual(await readLabelReceipt(clone),receipt);
  await writeFile(join(clone,relative),text+' ');await assert.rejects(readLabelReceipt(clone),/committed evidence/);
 });
+
+test('v2 created receipts retain v1 semantics without fictional rename fields',()=>{
+ const row=NAMES.find(r=>r.surface==='label'),options=context(row);
+ options.observation.labels[0].name=row.plates;
+ const prior=evidence(row),{oldName,...entry}=prior.renames[0];
+ options.receipt={version:2,repo:prior.repo,repositoryId:prior.repositoryId,renames:[],creations:[{kind:'created',...entry}]};
+ assert.equal(labelWriter(options),row.plates);
+ for(const mutate of [
+  o=>o.receipt.creations[0].oldName=row.keel,
+  o=>o.receipt.creations[0].kind='renamed',
+  o=>o.receipt.creations[0].labelId=999,
+  o=>o.receipt.renames.push(prior.renames[0]),
+  o=>o.receipt.creations[0].privateValue='not-public',
+  o=>o.receipt.creations[0].readback.privateValue='not-public',
+  o=>o.observation.labels=[],
+ ]){const bad=structuredClone(options);mutate(bad);assert.throws(()=>labelWriter(bad),/refused/);}
+ assert.equal(labelWriter({...options,receipt:prior}),row.plates,'v1 confirmed original remains valid');
+});

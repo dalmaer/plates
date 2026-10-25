@@ -7,6 +7,8 @@
   ],
   "files": [
     { "path": "scripts/plates/names.mjs", "from": "scripts/plates/names.mjs", "kind": "managed" },
+    { "path": "scripts/plates/names-environment.mjs", "from": "scripts/plates/names-environment.mjs", "kind": "managed" },
+    { "path": "scripts/plates/names-environment.d.mts", "from": "scripts/plates/names-environment.d.mts", "kind": "managed" },
     { "path": "scripts/plates/verification.mjs", "from": "scripts/plates/verification.mjs", "kind": "managed" },
     { "path": "scripts/plates/planning-config.mjs", "from": "scripts/plates/planning-config.mjs", "kind": "managed" },
     { "path": ".github/workflows/plates-night.yml", "from": ".github/workflows/plates-night.yml", "kind": "managed" },

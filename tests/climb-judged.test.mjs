@@ -276,6 +276,7 @@ test('climb\'s publish checks the plan\'s willNotTouch on the head it pushes: a 
     run('git', ['update-ref', '-d', target], { cwd: bare });
     const pub = await checkout(t, bare, 'publish');
     await cp(join(NIGHT, 'night-plan.mjs'), join(pub, 'scripts/plates/night-plan.mjs'));
+    await cp(join(NIGHT, 'verification.mjs'), join(pub, 'scripts/plates/verification.mjs'));
     const pubTemp = await temp(t, 'publish-temp');
     await mkdir(join(pubTemp, 'night/record'), { recursive: true });
     await mkdir(join(pubTemp, 'plan'), { recursive: true });
@@ -302,6 +303,7 @@ test('climb\'s publish checks the plan\'s willNotTouch on the head it pushes: a 
   run('git', ['update-ref', '-d', target], { cwd: bare });
   const pub = await checkout(t, bare, 'unread');
   await cp(join(NIGHT, 'night-plan.mjs'), join(pub, 'scripts/plates/night-plan.mjs'));
+  await cp(join(NIGHT, 'verification.mjs'), join(pub, 'scripts/plates/verification.mjs'));
   const pubTemp = await temp(t, 'unread-temp');
   await mkdir(join(pubTemp, 'night/record'), { recursive: true });
   await mkdir(join(pubTemp, 'plan'), { recursive: true });
