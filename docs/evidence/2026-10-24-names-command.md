@@ -188,3 +188,32 @@ The new observations record the integrated helper hash and loaded module bytes
 in `.plates/name-transition/phase128-hygiene-proof-refresh-20261024/`. These
 replace ten applicable selections within the prior 180-pair inventory; they
 are not ten additional independent cases. Historical observations are retained.
+
+## Passing integrated gate and subsequent review findings — 2026-10-24
+
+At `a1d0af51e2a2e42a74d1e9e1c1f465c0c1007ba5`, the integrated
+`npm run check` exited 0: 3,431 tests, 3,427 passed, four skipped, zero failures.
+Nine seeded stall checks, roadmap/render/inbox checks and `npm run typecheck`
+passed. Main was incorporated without changing the tested source bytes.
+The final ledger reported no flaky/slower finding across 22 observations, with
+four busy observations omitted. Logs and source hashes are retained in
+`.plates/name-transition/phase128-passing-gate-20261024/`.
+
+[PR #264](https://github.com/dalmaer/plates/pull/264) passed CI, and two Claude
+reviews reported no findings while explicitly disclosing partial coverage.
+A supplemental same-provider review then found four concrete verifier/transfer
+defects, independently reproduced by the conductor against synthetic fixtures:
+embedded duplicate projection keys retain a rejected private sentinel in transfer;
+omitted name tokens hide a legacy generated marker; a different producer's target
+satisfies required output coverage; and skipped verify-history reads count as
+consumed history. The latter three returned verified with internally consistent
+digests, while their controls failed or remained unknown. This is not evidence of
+a compromised GitHub artifact or a production incident.
+
+The review, runnable reproductions and conductor results are retained in
+`.plates/name-transition/phase128-supplemental-review-20261024/` and summarized
+in the [PR follow-up](https://github.com/dalmaer/plates/pull/264#issuecomment-6393747590).
+These findings prevent merge despite the green suite and external reviews.
+Repair must preserve the real producer-to-verifier positive path, independently
+validate generated regions and producer targets, and retain required history reads
+as unknown when evidence is missing. No release or activation is established.

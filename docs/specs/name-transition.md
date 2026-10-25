@@ -436,3 +436,61 @@ managed-source revision, exact dispatch inputs, access limitations and observati
 scope before the owner authorizes each project's run. Tests cover a real adopted
 configuration, exact source/attempt mismatch refusals, collision refusal and no
 behavior/permission/budget change when evidence is off.
+
+### 2026-10-24: producer targets and generated-region verification (review correction)
+
+Supplemental review of phase 128 demonstrated that digest-consistent observations
+could hide a generated name, substitute another producer's target, or treat a
+skipped history read as consumption. This settles the evidence boundary before
+extending the existing producers; it grants no rollout or remote authority.
+
+Each write carries a closed output-role discriminator. The verifier independently
+binds that role to its producer, pinned configuration, original date/branch and
+actual provider object or immutable Git output. A caller-supplied producer ID,
+fragment, token list, arbitrary byte range or generic target cannot establish
+coverage. Duplicate/conflicting outcomes refuse verification. Missing role data
+in older observations remains unknown; historical observations are not rewritten.
+
+| Producer / role | Required target and evidence |
+| --- | --- |
+| Improve / health-report | Pinned configuration's health directory and date page, at the associated night branch/head; independently checked health-report region and fresh proposal regions. |
+| Improve / bounds | Exact `.plates/bounds.json` at that night head; full generated JSON. |
+| Improve / night-record | Exact `docs/night/<date>.json` at that head when the actual pinned producer creates a plan. |
+| Improve / working-plan | Exact local `.plates/night/plan.json`, paired by complete byte digest with the published night record. It cannot substitute for the published record; no provider read is invented for an ignored local file. |
+| Improve / time-remeasurement | A date page within the pinned health directory, with a bounded source-defined time-proposal region and immutable before/after bytes. It cannot satisfy health-report or bounds coverage. |
+| Plan publication | An exact table-owned plan ref/path, pinned commit/blob and matching original night date. A continuation retains its original alias. |
+| Finalization / night-record | Exact `docs/night/<date>.json` at the associated final branch/head. |
+| Finalization / health-plan-section | Optional pinned health-directory date page at the same head; reconstruct only Tonight's plan using the existing plan generator and immutable preimage. |
+| Night PR / final PR | Exact associated repository, PR ID/number/head. Check the complete fresh generated body; retained no-change requires identical before/after body digest and object identity. |
+| Brief issue | Exact associated issue ID/number and complete fresh generated body. |
+| Closure comment | Exact comment and parent issue identities, with the source-defined supersession text pointing to the associated brief. Comments cannot substitute for brief-issue coverage. |
+
+Required roles come from the pinned producer path and applicable configuration,
+not an observation's assertion of applicability. An unavailable role cannot
+satisfy required coverage. Required history aliases need a pinned successful
+read or independently confirmed absence; skipped/unavailable rows remain unknown.
+
+Use existing snapshot commit/blob/hash fields for immutable preimages. Capture
+the actual preimage before mutation and match its bytes to a retrievable commit;
+execution source SHA is not automatically publication or preimage SHA. An
+intermediate uncommitted preimage that cannot be independently recovered is a
+named gap. No fabricated HEAD attribution or extra raw-body artifact is allowed.
+
+For partial health edits, only source-defined, structurally identified retained
+verification/proposal regions whose bytes match the verified preimage count as
+history. Extract names independently from the remaining actual generated region,
+including its wrappers. Do not waive arbitrary unchanged substrings or trust a
+fragment's omitted tokens. Reconstruct the final health-plan section with the
+existing generator against that preimage. Ambiguous structure or reconstruction
+remains unknown. Identical retained-region bytes cannot prove whether code
+regenerated identical text: the claim is observed output/change consistency
+under the pinned producer contract, not invisible generation causality. Offered
+content discarded before publication and unrelated actors' activity are outside
+that provider-visible claim.
+
+Keep existing privacy and archive bounds. Duplicate decoded JSON member names,
+including escaped and nested aliases inside projection text, refuse transfer
+before any output export. No environment value, raw private body or arbitrary
+producer text becomes permitted by adding an output role. Extend only the
+existing producer/helper/verifier contract and its real positive/negative tests;
+no new scheduler, evidence store, permissions or workflow activation is needed.
