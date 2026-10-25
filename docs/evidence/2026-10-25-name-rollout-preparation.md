@@ -58,3 +58,197 @@ remain unobserved. The preview must be refreshed after source/release changes.
 Proof packet and both real previews are retained under
 `.plates/name-transition/phase129-provider-scope-20261025/`. Integrated full gate,
 exact-head review and CI remain required before this correction merges.
+
+## Merge and rollout resumption — 2026-10-25
+
+[PR 265](https://github.com/dalmaer/plates/pull/265) merged as
+`3cf6f378c9d2cf1c4f8e3f489c7f639716ef5248`. Exact reviewed head `a64847ae`
+passed the local full gate (3,500 tests: 3,496 pass, four skipped), typecheck,
+and [CI](https://github.com/dalmaer/plates/actions/runs/40169929841). Claude
+reported no findings; the explicit reviewer gate passed. This settles the earlier
+managed setup-token source blocker, not remote activation.
+
+The owner approved and then requested merging [Ledger PR 169](https://github.com/dalmaer/ledger/pull/169).
+It merged as `459c96cc092736403211ea9cb504ed478d96fd05`: two test-only fixture
+ownership files, full `npm run check:all` on Node 24.22.1 and
+[GitHub checks](https://github.com/dalmaer/ledger/actions/runs/40180985978) passed.
+Claude reviewed exact `218293e9` with no findings. Local data/performance checks
+used an empty synthetic ledger; no live-data or representative performance claim.
+Actual `plates prove` was INCONCLUSIVE because the test itself is the fix; its
+with-fix run passed. The separate original cleanup-order assertion failure remains
+retained. The original rehearsal ENOTEMPTY cause remains unproven.
+
+At Plates main `27ad3828`, the release review audit still reports 20/22 scoped
+commits passing; both failures are the historical PR 220 final-head review gap.
+The requested exception remains an owner decision. No release tag exists yet.
+DTV's current adoption config identifies `dalmaer/dtv`, practice 0.8.33 and
+`npm run check`; it is included in the managed inventory for the owner-requested
+final rollout position. No new schedule or agent allowance is enabled.
+
+The read-only Plates names preview at `27ad3828` proposes two label renames
+(agent and morning) and creation of review-after, with no secret commands or
+provider-scope problems. Nothing applied. One active-run page was empty but is
+not complete barrier proof. Machine preview refused `unsupported_mode`; metadata
+inspection found home mode 0750, `~/.keel` already a symlink to `.plates`, current
+night-card plist present and old plist absent. Preserve that alias: this is not
+permission to rewrite modes or move through the symlink, nor complete launchd
+verification. Private observations are retained under
+`.plates/name-transition/resume-20261025/`.
+
+## Fresh rehearsal and unmanaged-file reconciliation — 2026-10-25
+
+`node bin/plates.mjs fleet update --rehearse --json` from `27ad3828`
+completed in 508,037 ms, exit 0 under the collector's existing policy. Ledger,
+Duo and Cajones passed their configured gates with candidate 0.8.34. Isocan
+was classified `main-red`: candidate and unchanged main both exited 1, with
+retained tails showing `root.unmount` on an undefined root in
+`packages/modules/talk/test/token.test.ts`. The tail does not establish the
+first failure or its cause. The aggregate exit is not a passing Isocan gate.
+DTV was added after this rehearsal's inventory was captured and is not covered.
+No PR, installation or workflow dispatch was produced by rehearsal. Earlier
+failed observations remain intact; Ledger's later pass does not prove causality.
+
+Fresh pinned project-owned review at Ledger `459c96cc`, Duo `d0db01f4`,
+Cajones `c6a40bf4`, canonical Isocan `8ccde941` and DTV `26a6106f` found no
+executable project-owned rename required in the inspected coverage. Ledger
+already uploads `plates-test-runs`, reads both artifact spellings and has 14
+CI-alert watcher names resolving to actual workflow display names. The earlier
+phase examples are superseded by these facts, not blindly replaced in code.
+Optional Ledger description/comment and Isocan operator-guide patches remain
+unapplied, pending separate approval. Other three patches are empty. Historical
+records, compatibility assertions and project-specific artifact suffixes stay
+unchanged. Sensitive paths, binaries, oversized files and untraversed links or
+submodules remain coverage gaps.
+
+The frozen private packet retains exact revisions, name-table provenance, file
+hashes, matching locations and dry-run results. Conductor verification:
+`python3 /tmp/plates129-unmanaged-proposals/check-proposals.py`; patch review
+and applicability checks do not establish project gates or live activation.
+Rehearsal and packet are retained in `.plates/name-transition/resume-20261025/`.
+The final integrated tree requires `npm run check` and `npm run typecheck`
+before publication; their outcomes belong to the resulting commit/CI record.
+
+## Targeted rehearsal follow-through — 2026-10-25
+
+Using the existing exported `fleet`, `updatePlan` and `rehearseOne` interfaces
+from source `06d23af8`, the conductor selected one observed project at a time;
+no substitute update implementation or runtime source edit was introduced.
+DTV's configured `npm run check` passed with candidate 0.8.34 in 48,842 ms,
+exit 0. Its observed pending migration was `0004-test-ledger`. This supplies
+the missing DTV coverage from the earlier four-project batch.
+
+A bounded synthetic Vitest/jsdom probe ran once per runtime: Node 26.12.1
+failed because `localStorage.clear` was unavailable; Node 24.22.1 passed.
+It accessed no storage entries and used isolated home/cache/config with no
+project setup hooks. This reproduced a runtime compatibility difference, not
+the original suite's first error. Isocan's `.nvmrc` pins Node 24.22.1.
+
+The subsequent disposable Isocan rehearsal under that pinned runtime passed
+its complete configured command, `npm test && npm run typecheck && node --test
+tests/loop.test.mjs`, with candidate 0.8.34 in 297,161 ms, exit 0. This was a
+changed-environment diagnostic, not an unchanged retry until green. The previous
+baseline/candidate failures remain retained; neither their missing first errors
+nor all possible environment differences were reconstructed, so sole causality
+is not claimed. Use the pinned Node runtime for the release's own rehearsal.
+
+All five consumer projects now have passing candidate rehearsal observations.
+This proves neither release installation nor the real dispatched night/morning
+walk. The PR 220 release-review exception remains an explicit owner decision.
+Commands, JSON outcomes, full synthetic probe logs and runtime paths are retained
+in `.plates/name-transition/resume-20261025/`; the prior observations are not
+rewritten. This section supersedes the earlier current-coverage gaps, while
+preserving what those earlier invocations actually observed.
+
+## Final record gate limitation — 2026-10-25
+
+The first record commit `06d23af8` passed local check/typecheck and exact-head
+Claude review, and its CI passed. The later reconciliation above changes the
+recorded current coverage. Its local `npm run check` exited 1: 3,496 functional
+tests passed, four skipped, but the pinned phase-63 timing check injected zero
+pauses with seed 374407218, including the runner's one bounded fallback. This
+is missing timing evidence, not a passing final gate. Typecheck exited 0.
+
+One focused diagnostic replay of that exact seed passed ten plain and ten
+stalled tests with six pauses. A read-only observer logged/rethrew signal
+errors; only final SIGCONT/ESRCH after process exits appeared in this replay.
+The original run did not retain signal errors, so its cause remains unknown.
+No full-gate retry, unpinning, sleeps, assertion weakening or suppression was
+used to turn that failed receipt green. The new issue's exact body and full
+logs/receipts are retained privately; automatic approval review rejected its
+publication because the owner's earlier hygiene approval covered a different
+failure. No new issue was created. The latest record correction remains local
+until this gate is resolved; its predecessor's green CI is not current proof.
+
+
+## 2026-10-25: owner decisions reconciled before resuming
+
+The owner explicitly approved filing the timing-harness issue, the documented
+historical PR 220 release exception, and both prepared Ledger/Isocan documentation
+PRs after managed updates. [Issue 268](https://github.com/dalmaer/plates/issues/268)
+now retains the timing failure. Earlier approval-pending statements above describe
+the observation at that time, not current blockers. Isocan merge remains the
+owner’s or Dimitri’s. The exception does not waive the full gate or rehearsal.
+
+The next integrated check runs under Node 24.22.1, the runtime that passed the
+Isocan rehearsal, rather than the prior Node 26 host environment. This is an
+explicit environment change, not a claim that a subsequent pass explains the
+original missing signal injection. The original failed receipt remains intact.
+Command: `PATH=<Node 24.22.1 bin>:$PATH npm run check`; typecheck runs on the same
+final tree. Results belong in the commit and retained logs after completion.
+
+At each merge, release and project-rollout boundary, refresh GitHub facts and
+reconcile current phase status, next action, approvals and evidence before moving
+on. Existing `plates doctor --github --json` provides remote-reference checks;
+manual comparison still owns approval and acceptance facts that tool cannot infer.
+No merge is promoted to acceptance or production verification automatically.
+
+
+## 2026-10-25: pinned-runtime gate and reconciliation observation
+
+The integrated Node 24.22.1 gate exited 1: 3,500 tests, 3,495 passed, one failed,
+four skipped. The killed-wrapper test in `tests/validation-budget.test.mjs`
+expected `capacity_busy` but observed `coordination_busy_inspect_do_not_steal`.
+The running lease can be published before its mutation releases coordination;
+observing the lease alone does not establish the intended post-mutation crash
+point. A focused test-handshake repair is being verified separately; no production
+lock weakening or permissive replacement assertion is proposed.
+
+All nine pinned stall files injected pauses and passed on this run, including
+phase 63. That does not establish the cause of the earlier zero-pause result.
+Typecheck passed. Logs are retained in the private `node24-final-gate` directory
+under the existing phase-129 recovery packet.
+
+Fresh `doctor --github --json` returned incomplete coverage because unqualified
+“Ledger cleanup PR 169” was interpreted as `dalmaer/plates#169`, which is absent.
+The current phase now names `dalmaer/ledger#169` explicitly. It also uses the
+existing structured reconciliation contract for its PR links and next acceptance
+obligation. Historical prose remains preserved. No acceptance box was checked.
+
+
+## 2026-10-25: separate crash-test repair prepared
+
+[PR 269](https://github.com/dalmaer/plates/pull/269), head `fea4dc1f`, changes only
+`tests/validation-budget.test.mjs`. Both signal tests wait for a matching running
+lease and released coordination guard. The regression retains the guarded state
+until the handshake refuses it, then removes the guard and verifies completion.
+Removing the actual guard wait makes the regression fail. Production code and
+original capacity assertions are unchanged.
+
+The conductor independently ran the file: 30 tests passed. The isolated repair’s
+full gate passed 3,501 tests (3,497 passed, four skipped), all nine seeded stall
+checks, roadmap/render/inbox guards; typecheck passed on Node 24.22.1. The standard
+prove command is INCONCLUSIVE because the test file is itself the fix; the literal
+mutation is separate evidence, not relabeled as its verdict. Review and merge were
+still pending at this observation; the rollout record’s integrated gate is separate.
+
+
+## 2026-10-25: hygiene repair merged
+
+PR 269 merged as `56bc8b54841849fe5e357e49ba07811755f597db` at
+14:24:46 UTC after exact-head Claude review 5643626760 found no issues and
+GitHub check 40201337524 passed. The integrated rollout-record tree also passed
+its full local gate (3,497 passed, four skipped), typecheck and fresh remote
+reconciliation (zero findings, zero unknown observations). Updating this current
+next action after the merge requires the final gate again before the next push;
+prior checks and failed observations remain separately retained. No release or
+live rollout is implied by these source checks.
