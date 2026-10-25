@@ -4,7 +4,7 @@ since: 2026-10-25
 goal: G2
 spec: 2
 depends: [128]
-note: "Phases 124–128 and the managed setupToken repair are merged; Ledger cleanup PR 169 is merged. Fresh rehearsal passes Ledger, Duo and Cajones; Isocan main and candidate remain red, and DTV is not yet rehearsed. Release still requires the historical PR 220 review decision. DTV is included in the managed inventory. No live rollout has begun."
+note: "Phases 124–128 and the managed setupToken repair are merged; Ledger cleanup PR 169 is merged. All five consumer candidate rehearsals now pass, including Isocan under its pinned Node 24.22.1; earlier failures are retained. Final record gate has inconclusive pause-injection coverage; the hygiene issue and historical PR 220 release exception need owner approval. DTV is included in the managed inventory. No live rollout has begun."
 evidence: ["evidence/2026-10-25-name-rollout-preparation.md"]
 issue: 245
 ---
@@ -83,4 +83,4 @@ By hand: ⚑ the evening's rollout. Each project's dispatched run links and `pla
 
 ## Next action
 
-Resolve the historical PR 220 review decision, diagnose Isocan’s baseline/candidate failure and rehearse newly included DTV; preserve earlier failures. Ledger, Duo and Cajones passed the fresh rehearsal after Ledger PR 169 merged. Release the tested candidate, refresh and approve the exact Plates-first actions/dispatch inputs, then continue through the stated project order. Review each prepared project-owned patch before its PR. Hosted and machine verification gaps remain explicit; phase 130 waits for the owner to say retire.
+Resolve the new pause-injection hygiene failure without erasing its failed receipt, and the historical PR 220 release decision. The new hygiene issue was prepared but automatic approval review refused publication without explicit owner approval. All five consumer candidate rehearsals pass; run the release under Node 24.22.1, matching Isocan’s pinned runtime, and preserve earlier failed observations. A later pass does not prove the earlier failure’s sole cause. Release the tested candidate, refresh and approve the exact Plates-first actions/dispatch inputs, then continue through the stated project order. Review each prepared project-owned patch before its PR. Hosted and machine verification gaps remain explicit; phase 130 waits for the owner to say retire.

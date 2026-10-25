@@ -127,3 +127,54 @@ and applicability checks do not establish project gates or live activation.
 Rehearsal and packet are retained in `.plates/name-transition/resume-20261025/`.
 The final integrated tree requires `npm run check` and `npm run typecheck`
 before publication; their outcomes belong to the resulting commit/CI record.
+
+## Targeted rehearsal follow-through — 2026-10-25
+
+Using the existing exported `fleet`, `updatePlan` and `rehearseOne` interfaces
+from source `06d23af8`, the conductor selected one observed project at a time;
+no substitute update implementation or runtime source edit was introduced.
+DTV's configured `npm run check` passed with candidate 0.8.34 in 48,842 ms,
+exit 0. Its observed pending migration was `0004-test-ledger`. This supplies
+the missing DTV coverage from the earlier four-project batch.
+
+A bounded synthetic Vitest/jsdom probe ran once per runtime: Node 26.12.1
+failed because `localStorage.clear` was unavailable; Node 24.22.1 passed.
+It accessed no storage entries and used isolated home/cache/config with no
+project setup hooks. This reproduced a runtime compatibility difference, not
+the original suite's first error. Isocan's `.nvmrc` pins Node 24.22.1.
+
+The subsequent disposable Isocan rehearsal under that pinned runtime passed
+its complete configured command, `npm test && npm run typecheck && node --test
+tests/loop.test.mjs`, with candidate 0.8.34 in 297,161 ms, exit 0. This was a
+changed-environment diagnostic, not an unchanged retry until green. The previous
+baseline/candidate failures remain retained; neither their missing first errors
+nor all possible environment differences were reconstructed, so sole causality
+is not claimed. Use the pinned Node runtime for the release's own rehearsal.
+
+All five consumer projects now have passing candidate rehearsal observations.
+This proves neither release installation nor the real dispatched night/morning
+walk. The PR 220 release-review exception remains an explicit owner decision.
+Commands, JSON outcomes, full synthetic probe logs and runtime paths are retained
+in `.plates/name-transition/resume-20261025/`; the prior observations are not
+rewritten. This section supersedes the earlier current-coverage gaps, while
+preserving what those earlier invocations actually observed.
+
+## Final record gate limitation — 2026-10-25
+
+The first record commit `06d23af8` passed local check/typecheck and exact-head
+Claude review, and its CI passed. The later reconciliation above changes the
+recorded current coverage. Its local `npm run check` exited 1: 3,496 functional
+tests passed, four skipped, but the pinned phase-63 timing check injected zero
+pauses with seed 374407218, including the runner's one bounded fallback. This
+is missing timing evidence, not a passing final gate. Typecheck exited 0.
+
+One focused diagnostic replay of that exact seed passed ten plain and ten
+stalled tests with six pauses. A read-only observer logged/rethrew signal
+errors; only final SIGCONT/ESRCH after process exits appeared in this replay.
+The original run did not retain signal errors, so its cause remains unknown.
+No full-gate retry, unpinning, sleeps, assertion weakening or suppression was
+used to turn that failed receipt green. The new issue's exact body and full
+logs/receipts are retained privately; automatic approval review rejected its
+publication because the owner's earlier hygiene approval covered a different
+failure. No new issue was created. The latest record correction remains local
+until this gate is resolved; its predecessor's green CI is not current proof.
