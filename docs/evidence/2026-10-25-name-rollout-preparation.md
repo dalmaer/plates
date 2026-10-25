@@ -178,3 +178,65 @@ logs/receipts are retained privately; automatic approval review rejected its
 publication because the owner's earlier hygiene approval covered a different
 failure. No new issue was created. The latest record correction remains local
 until this gate is resolved; its predecessor's green CI is not current proof.
+
+
+## 2026-10-25: owner decisions reconciled before resuming
+
+The owner explicitly approved filing the timing-harness issue, the documented
+historical PR 220 release exception, and both prepared Ledger/Isocan documentation
+PRs after managed updates. [Issue 268](https://github.com/dalmaer/plates/issues/268)
+now retains the timing failure. Earlier approval-pending statements above describe
+the observation at that time, not current blockers. Isocan merge remains the
+owner’s or Dimitri’s. The exception does not waive the full gate or rehearsal.
+
+The next integrated check runs under Node 24.22.1, the runtime that passed the
+Isocan rehearsal, rather than the prior Node 26 host environment. This is an
+explicit environment change, not a claim that a subsequent pass explains the
+original missing signal injection. The original failed receipt remains intact.
+Command: `PATH=<Node 24.22.1 bin>:$PATH npm run check`; typecheck runs on the same
+final tree. Results belong in the commit and retained logs after completion.
+
+At each merge, release and project-rollout boundary, refresh GitHub facts and
+reconcile current phase status, next action, approvals and evidence before moving
+on. Existing `plates doctor --github --json` provides remote-reference checks;
+manual comparison still owns approval and acceptance facts that tool cannot infer.
+No merge is promoted to acceptance or production verification automatically.
+
+
+## 2026-10-25: pinned-runtime gate and reconciliation observation
+
+The integrated Node 24.22.1 gate exited 1: 3,500 tests, 3,495 passed, one failed,
+four skipped. The killed-wrapper test in `tests/validation-budget.test.mjs`
+expected `capacity_busy` but observed `coordination_busy_inspect_do_not_steal`.
+The running lease can be published before its mutation releases coordination;
+observing the lease alone does not establish the intended post-mutation crash
+point. A focused test-handshake repair is being verified separately; no production
+lock weakening or permissive replacement assertion is proposed.
+
+All nine pinned stall files injected pauses and passed on this run, including
+phase 63. That does not establish the cause of the earlier zero-pause result.
+Typecheck passed. Logs are retained in the private `node24-final-gate` directory
+under the existing phase-129 recovery packet.
+
+Fresh `doctor --github --json` returned incomplete coverage because unqualified
+“Ledger cleanup PR 169” was interpreted as `dalmaer/plates#169`, which is absent.
+The current phase now names `dalmaer/ledger#169` explicitly. It also uses the
+existing structured reconciliation contract for its PR links and next acceptance
+obligation. Historical prose remains preserved. No acceptance box was checked.
+
+
+## 2026-10-25: separate crash-test repair prepared
+
+[PR 269](https://github.com/dalmaer/plates/pull/269), head `fea4dc1f`, changes only
+`tests/validation-budget.test.mjs`. Both signal tests wait for a matching running
+lease and released coordination guard. The regression retains the guarded state
+until the handshake refuses it, then removes the guard and verifies completion.
+Removing the actual guard wait makes the regression fail. Production code and
+original capacity assertions are unchanged.
+
+The conductor independently ran the file: 30 tests passed. The isolated repair’s
+full gate passed 3,501 tests (3,497 passed, four skipped), all nine seeded stall
+checks, roadmap/render/inbox guards; typecheck passed on Node 24.22.1. The standard
+prove command is INCONCLUSIVE because the test file is itself the fix; the literal
+mutation is separate evidence, not relabeled as its verdict. Review and merge were
+still pending at this observation; the rollout record’s integrated gate is separate.
