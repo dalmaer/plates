@@ -57,8 +57,8 @@ real dispatched walk. No source test grants activation authority.
 - [ ] The owner runs `plates names --yes` on plates and sets the listed secrets. The next listing separates verified retained aliases from active legacy dependencies and unknown coverage; old variables retained for phase 130 are not falsely reported as absent. ⚑ by hand: the owner
 
 - [ ] Read-only `--verify` names each failed or unknown phase-129 check and distinguishes fresh writes from required legacy continuation. `tests/names-verify.test.mjs`
-- [ ] All exact phase-128 rows have source coverage or an explicit held/classification gap, with both-direction mutation proof for each implemented fallback.
-- [ ] Recovery preserves original operations through uncertain writes; public label receipts remain separate from private intents and uncommitted receipts cannot activate CI writers.
+- [ ] All exact phase-128 rows have source coverage or an explicit held/classification gap, with both-direction mutation proof for each implemented fallback. `tests/names-cli.test.mjs` and the retained mutation observations.
+- [ ] Recovery preserves original operations through uncertain writes; public label receipts remain separate from private intents and uncommitted receipts cannot activate CI writers. `tests/names-cli.test.mjs` and `tests/names-labels.test.mjs`.
 
 ## Your part
 

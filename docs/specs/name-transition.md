@@ -236,3 +236,16 @@ all names migrated. Required legacy-night continuation is valid and is distinct
 from a fresh legacy write. Missing artifact, queue or board/history provenance
 blocks a complete verdict without fabricating evidence. Source support, remote
 activation, dispatched verification and owner acceptance remain distinct.
+
+### Supported machine job shape (2026-10-24)
+
+The initial machine adapter supports only the current user's `gui/<uid>` domain
+and a bounded XML plist with the exact old Label and ProgramArguments naming
+the table's night-card script, either directly or through `/bin/sh`, `/bin/bash`
+or `/bin/zsh` without `-c`. Refuse unsupported/ambiguous launch shapes. Change
+only the structured Label and exact script-path argument; preserve unrelated
+plist fields. The script is moved byte-for-byte: portable scripts continue from
+the new location. A script requiring embedded legacy-path edits is a manual
+preview blocker, not permission for shell-text replacement. No script is run
+during preview; scratch tests may execute their own synthetic portable script.
+This settles an absent installer contract without inventing the owner's job.
