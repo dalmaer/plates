@@ -4,7 +4,7 @@ since: 2026-10-25
 goal: G2
 spec: 2
 depends: [128]
-note: "Phases124–128 merged. Release0.8.34 is blocked by PR220 historical final-head review, Ledger rehearsal cleanup failure, and a names preview scope gap for managed setupToken bindings. No live rollout has begun."
+note: "Phases 124–128 merged. Release 0.8.34 is blocked by PR 220 historical final-head review, Ledger rehearsal cleanup failure, and a locally repaired managed setupToken preview gap awaiting full gate and review. No live rollout has begun."
 evidence: ["evidence/2026-10-25-name-rollout-preparation.md"]
 issue: 245
 ---
@@ -87,4 +87,4 @@ By hand: ⚑ the evening's rollout. Each project's dispatched run links and `pla
 
 ## Next action
 
-Resolve the managed setupToken preview gap and investigate Ledger's candidate cleanup failure; preserve Isocan's failing-main coverage. Obtain the owner's explicit historical PR220 review exception or another valid review resolution, then cut the tested release and refresh the exact Plates-first approval preview. No live changes or phase130 retirement are authorized by these local results.
+Pass the full gate and review for the finite managed setupToken classifier, and resolve Ledger's candidate cleanup failure; preserve Isocan's failing-main coverage. Obtain the owner's explicit historical PR 220 review exception or another valid review resolution, then cut the tested release and refresh the exact Plates-first approval preview. No live changes or phase 130 retirement are authorized by these local results.

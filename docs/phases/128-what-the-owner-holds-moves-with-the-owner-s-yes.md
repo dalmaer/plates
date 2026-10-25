@@ -5,7 +5,7 @@ since: 2026-10-24
 goal: G2
 spec: 2
 depends: [125, 126, 127]
-note: "Source merged in PR264 at419756f after full local and CI checks and exact-head review. Owner activation remains; phase129 records the real preview/rehearsal blockers discovered before rollout."
+note: "Source merged in PR 264 at 419756f after full local and CI checks and exact-head review. Owner activation remains; phase 129 records the real preview/rehearsal blockers discovered before rollout."
 evidence: ["evidence/2026-10-24-names-command.md"]
 issue: 244
 ---
@@ -91,4 +91,4 @@ By hand: ⚑ the owner's run on plates. The listing before and after goes into t
 
 ## Next action
 
-Resolve phase129's recorded release and real-preview blockers. After the release is cut, preview the exact Plates label/variable plan with the owner, publish confirmed receipts through review, and conduct phase 129. Owner-machine changes and phase-130 retirement retain their separate approvals.
+Resolve phase 129's recorded release and real-preview blockers. After the release is cut, preview the exact Plates label/variable plan with the owner, publish confirmed receipts through review, and conduct phase 129. Owner-machine changes and phase-130 retirement retain their separate approvals.
