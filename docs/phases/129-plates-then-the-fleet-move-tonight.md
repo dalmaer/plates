@@ -4,7 +4,7 @@ since: 2026-10-25
 goal: G2
 spec: 2
 depends: [128]
-note: "Release v0.8.34 and Plates label receipt are published. PR #271 merged; private Ledger reads and real artifact restore passed. The first dispatched night failed its local gate with inherited observation context in test fixtures. Six consumer PRs remain prepared, not installed; current-night and durable legacy refs are retained."
+note: "Release v0.8.34 and Plates label receipt are published. PRs #271 and #273 merged; private Ledger reads and corrected night 40256668332 passed, with exact-main CI reused. Migration verification still lacks the improve observation packet. Six consumer PRs remain prepared, not installed; current-night and durable legacy refs are retained."
 evidence: ["evidence/2026-10-25-name-rollout-preparation.md"]
 issue: 245
 ---
@@ -32,7 +32,7 @@ The design is [Name transition](../specs/name-transition.md), "The rule". The ow
 
   Only then does the fleet start.
 - **Then each project in order:** ledger, duo, cajones, isocan, dtv.
-  1. Establish the same owner-approved disable/install/re-enable barrier and pass the old-run concurrency preflight before installing changed workflows. `plates fleet update` opens the PR, and the owner merges it (isocan's merge is Dimitri's or the owner's).
+  1. Establish the same owner-approved disable/install/re-enable barrier and pass the old-run concurrency preflight before installing changed workflows. `plates fleet update` opens the PR. The owner has authorized this session's prepared rollout merges under the recorded barriers; Isocan #526's exact-head authorization is recorded below.
   2. `plates names --yes` for that project.
   3. Approve the same exact source-bound evidence inputs for this project; dispatch its night, then its morning linked to that exact night attempt.
   4. Check its checklist.
@@ -79,11 +79,11 @@ By hand: ⚑ the evening's rollout. Each project's dispatched run links and `pla
 ## Deliberately open
 
 - **A dispatched night isn't a scheduled one.** It runs from the default branch with `workflow_dispatch`, not the cron, so the first scheduled night after the rollout is the last check. The morning after, the brief should show every project on plates names; if one isn't, it reopens this phase.
-- **isocan** is Dimitri's. Its update is a PR, and plates never merges it on its own.
+- **isocan merge authority, settled 2026-10-25:** the owner explicitly authorized this session to merge PR #526 at reviewed head `ddce3355b74726fbceb5b21fc2eae6881d9a1399` after Plates, Ledger, Duo and Cajones verify successfully and Isocan's approved pause/drain barrier is satisfied. This changes who performs that merge, not its checks or the rollout order. Other Isocan changes retain their separately assigned authority.
 
 ## Next action
 
-Correct the dispatched night's test-context isolation failure, preserving run 40251515967 and its health PR #272, then verify Plates' source-bound night/morning before installing each consumer update. PR #271's isolated credential read is live-verified; that does not accept the rollout. The owner approved the 17 original consumer workflow barriers and Papa Tapes' additional two-workflow barrier; these approvals do not establish installation or acceptance. Isocan merge remains the owner's or Dimitri's. Continue Ledger, Duo, Cajones, Isocan and DTV in order, then Papa Tapes. Preserve the earlier Isocan watchdog failure alongside the passing current-candidate checks. Keep current-night and durable legacy refs until their work drains or their state is transferred and verified; hosted and machine retirement remains separately unverified.
+Diagnose and correct the missing improve producer observation from successful night 40256668332, then verify Plates' source-bound night/morning before installing each consumer update. Preserve failed night 40251515967 and the distinct passing correction; PR #273 fixed context isolation and recovered-ledger CI eligibility, not the remaining observation gap. The owner approved the 17 original consumer workflow barriers, Papa Tapes' additional two-workflow barrier and the conditional exact-head Isocan #526 merge above; these approvals do not establish installation or acceptance. Continue Ledger, Duo, Cajones, Isocan and DTV in order, then Papa Tapes. Preserve the earlier Isocan watchdog failure alongside the passing current-candidate checks. Keep current-night and durable legacy refs until their work drains or their state is transferred and verified; hosted and machine retirement remains separately unverified.
 
 ## Reconciliation
 

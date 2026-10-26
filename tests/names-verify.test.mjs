@@ -90,6 +90,68 @@ test('observation workflow identity reproduces legitimate adopted project render
 });
 
 
+test('actual improve output reaches collector; failed inputs retain only bounded stage diagnostics',async t=>{
+ const {mkdtemp,mkdir,writeFile,readFile,cp,rm}=await import('node:fs/promises');
+ const {join}=await import('node:path');const {tmpdir}=await import('node:os');
+ const {run}=await import('./helpers/run.mjs');
+ const {improve}=await import('../practices/night/files/scripts/plates/improve.mjs');
+ const {collectNamesRun,OBSERVATION_PRODUCERS}=await import('../lib/names-verify.mjs');
+ const base=await mkdtemp(join(tmpdir(),'acme-observation-boundary-'));t.after(()=>rm(base,{recursive:true,force:true}));
+ const root=join(base,'project'),date='2026-10-24';
+ for(const path of ['.plates/night','.github/workflows','scripts/plates'])await mkdir(join(root,path),{recursive:true});
+ await writeFile(join(root,'.plates/plates.json'),JSON.stringify({name:'Acme',repo,practices:['night']}));
+ await writeFile(join(root,'.gitignore'),'.plates/night/\n');
+ await writeFile(join(root,'.plates/night/plan.json'),JSON.stringify({schema:1,date,shapedBy:'default',readyBy:null,willNotTouch:[],settledToday:[],leftOpen:[],items:[]}));
+ await writeFile(join(root,'.github/workflows/plates-night.yml'),'name: Acme\n');
+ for(const name of ['names-observation','improve','night-plan','drain'])await cp(new URL(`../scripts/plates/${name}.mjs`,import.meta.url),join(root,`scripts/plates/${name}.mjs`));
+ const git=args=>{const r=run('git',args,{cwd:root});assert.equal(r.status,0,r.stderr);return r.stdout.trim();};
+ git(['init','-q','-b','main']);git(['add','.']);git(['commit','-qm','Acme fixture']);const head=git(['rev-parse','HEAD']);
+ const result=await improve({root,report:true,date,namesEvidence:{repositoryId:31}},{env:{CI:'true',PLATES_GH:'/usr/bin/false'},measures:[],verificationRead:async()=>{throw Error('Private Acme provider error');}});
+ assert.deepEqual(result.data.observation.writes.map(w=>w.role),['health-report','bounds','working-plan','night-record']);
+ assert.deepEqual(result.data.observation.gaps,[]);
+ const raw=JSON.stringify(result.data),path=join(base,'Private-Acme-report.json'),imports=join(base,'Private-Acme-imports.json');
+ const env={GITHUB_REPOSITORY:repo,GITHUB_REPOSITORY_ID:'31',GITHUB_RUN_ID:'12',GITHUB_RUN_ATTEMPT:'1',GITHUB_SHA:head,GITHUB_EVENT_NAME:'workflow_dispatch'};
+ const github=async request=>{
+  assert.equal(request.method,'GET');
+  if(request.path===`/repos/${repo}/actions/runs/12/attempts/1`)return {status:200,data:{id:12,run_attempt:1,head_sha:head,repository,run_started_at:'2026-10-24T10:00:00Z'}};
+  if(request.path.startsWith(`/repos/${repo}/actions/runs/12/artifacts?`))return {status:200,data:{total_count:0,artifacts:[]}};
+  throw Error('Unexpected Acme request');
+ };
+ const padded=bytes=>{const data={...result.data,privatePadding:''};data.privatePadding='x'.repeat(bytes-Buffer.byteLength(JSON.stringify(data)));return JSON.stringify(data);};
+ const cases=[
+  {name:'valid',text:raw},
+  {name:'at-limit',text:padded(1024*1024)},
+  {name:'missing',stage:'input-stat'},
+  {name:'oversize',text:padded(1024*1024+1),stage:'input-size'},
+  {name:'invalid-json',text:'Private Acme invalid JSON',stage:'input-json'},
+  {name:'invalid-producer',text:JSON.stringify({...result.data,observation:{...result.data.observation,privateBody:'Private Acme content'}}),stage:'evidence-validation'},
+  {name:'missing-manifest',text:raw,manifest:null,stage:'manifest-stat'},
+  {name:'invalid-manifest-json',text:raw,manifest:'Private Acme manifest',stage:'manifest-json'},
+  {name:'invalid-manifest',text:raw,manifest:JSON.stringify({files:{privateBody:'Private Acme content'},gaps:[]}),stage:'manifest-coverage'},
+  {name:'too-many-loads',text:raw,manifest:JSON.stringify({files:Array(129).fill({}),gaps:[]}),stage:'manifest-coverage'},
+ ];
+ for(const c of cases)await t.test(c.name,async()=>{
+  await rm(path,{force:true});await rm(imports,{force:true});
+  if(c.text!==undefined)await writeFile(path,c.text);
+  if(typeof c.manifest==='string')await writeFile(imports,c.manifest);
+  const diagnostics=[],inputs=OBSERVATION_PRODUCERS.night.map(p=>p.id==='improve'?{producerId:p.id,path,...('manifest' in c?{imports}:{})}:{producerId:p.id,value:{producerId:p.id,writes:[],reads:[],fragments:[],gaps:[]}});
+  const directory=join(base,c.name);await collectNamesRun({root,kind:'night',directory,inputs,env,diagnostic:value=>diagnostics.push(value)},github);
+  const observation=JSON.parse(await readFile(join(directory,'observation.json'),'utf8')),producer=observation.producers.find(p=>p.id==='improve');
+  if(!c.stage){
+   assert.equal(producer.outcome,'completed');assert.deepEqual(diagnostics,[]);
+   assert.deepEqual(observation.writes,result.data.observation.writes);
+   assert.equal(observation.fragments.length,4);
+  }else{
+   const code=`producer-${c.stage}-unavailable`;
+   assert.equal(producer.outcome,'unavailable');assert.equal(producer.reason,code);
+   assert.deepEqual(observation.gaps.filter(g=>g.producerId==='improve').map(g=>g.code),['producer-output-unavailable',code]);
+   assert.deepEqual(observation.writes,[],'failed producer cannot retain partial write claims');assert.deepEqual(observation.fragments,[]);
+   assert.deepEqual(diagnostics,[{producerId:'improve',code,stage:c.stage,inputBytes:c.text===undefined?null:Buffer.byteLength(c.text),manifestBytes:typeof c.manifest==='string'?Buffer.byteLength(c.manifest):null}]);
+   assert.doesNotMatch(JSON.stringify(diagnostics),/Private|Acme|project|Error|ENOENT/);
+  }
+ });
+});
+
 test('real publication capture encodes through the collector with a separately executed installed CLI closure',async t=>{
  const {mkdtemp,mkdir,writeFile,readFile,cp,rm}=await import('node:fs/promises');
  const {join,resolve}=await import('node:path');const {tmpdir}=await import('node:os');
