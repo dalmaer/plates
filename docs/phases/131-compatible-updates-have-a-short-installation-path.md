@@ -1,11 +1,12 @@
 ---
 status: partial
+owes: walk
 since: 2026-10-25
 goal: G2
 spec: 2
 depends: [111, 116, 128]
 review: wait
-note: "Implementation in progress: installer, source record policy and read-only morning reporting; integrated proof, review and real installation walk remain."
+note: "Implementation merged in PR 276; full gate, typecheck and exact-head review passed. Only a real compatible installation walk remains."
 evidence: ["evidence/2026-10-25-compatible-update-path.md"]
 ---
 
@@ -213,7 +214,7 @@ legacy-name retirement, or completing unrelated web/database/machine activation.
 - [x] A handoff and unrelated record edit retain unchanged scoped authority; head, destination, policy, budget or relevant input changes invalidate exactly the affected proof/approval; fabricated summaries grant no authority: `tests/update-installation.test.mjs` (new), `tests/review.test.mjs`.
 - [x] Morning/fleet views show installed, pending/failed optimization, incomplete verification and retirement separately; reporting cannot tick work complete, retry it or invoke a consumer gate: `tests/morning.test.mjs`, `tests/night-plan.test.mjs`, `tests/fleet-verification.test.mjs`.
 - [x] Recurring-review guidance and source-pin/convention preflight are consistent across shipped skill/help/selected guides; failure-first tests prove the changed behavior: `tests/check-focused.test.mjs`, `tests/practices.test.mjs`; `npm run render:check`.
-- [ ] Integrated implementation and type contracts pass, with all review findings answered: `npm run check`; `npm run typecheck`; `node bin/plates.mjs review dalmaer/plates#<implementation-PR> --gate --json` using its actual PR number.
+- [x] Integrated implementation and type contracts pass, with all review findings answered: `npm run check`; `npm run typecheck`; `node bin/plates.mjs review dalmaer/plates#<implementation-PR> --gate --json` using its actual PR number.
 - [ ] A real compatible update records exact source, applicable checks/review, any required barrier, installation readback and restored prior states, with independent verification gaps preserved: ⚑ by hand: conductor under an existing owner-authorized project update.
 
 
@@ -280,4 +281,4 @@ not activate an exemption. No paid evaluation or new scheduled execution is need
 
 ## Next action
 
-Finish integrated proof and exact-head review, then identify a concrete compatible authorized update for the real installation walk. Keep operational verification and retirement gaps separate from installation.
+Identify a concrete compatible authorized update for the real installation walk. Implementation and exact-head review are complete in https://github.com/dalmaer/plates/pull/276. Keep operational verification and retirement gaps separate from installation.
