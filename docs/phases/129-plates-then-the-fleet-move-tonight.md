@@ -32,7 +32,7 @@ The design is [Name transition](../specs/name-transition.md), "The rule". The ow
 
   Only then does the fleet start.
 - **Then each project in order:** ledger, duo, cajones, isocan, dtv.
-  1. Establish the same owner-approved disable/install/re-enable barrier and pass the old-run concurrency preflight before installing changed workflows. `plates fleet update` opens the PR. The owner has authorized this session's prepared rollout merges under the recorded barriers; Isocan #526's exact-head authorization is recorded below.
+  1. Establish the same owner-approved disable/install/re-enable barrier and pass the old-run concurrency preflight before installing changed workflows. `plates fleet update` opens the PR. The owner has authorized this session's prepared rollout merges under the recorded barriers; dglazkov/isocan#526's exact-head authorization is recorded below.
   2. `plates names --yes` for that project.
   3. Approve the same exact source-bound evidence inputs for this project; dispatch its night, then its morning linked to that exact night attempt.
   4. Check its checklist.
@@ -79,11 +79,11 @@ By hand: ⚑ the evening's rollout. Each project's dispatched run links and `pla
 ## Deliberately open
 
 - **A dispatched night isn't a scheduled one.** It runs from the default branch with `workflow_dispatch`, not the cron, so the first scheduled night after the rollout is the last check. The morning after, the brief should show every project on plates names; if one isn't, it reopens this phase.
-- **isocan merge authority, settled 2026-10-25:** the owner explicitly authorized this session to merge PR #526 at reviewed head `ddce3355b74726fbceb5b21fc2eae6881d9a1399` after Plates, Ledger, Duo and Cajones verify successfully and Isocan's approved pause/drain barrier is satisfied. This changes who performs that merge, not its checks or the rollout order. Other Isocan changes retain their separately assigned authority.
+- **isocan merge authority, settled 2026-10-25:** the owner explicitly authorized this session to merge dglazkov/isocan#526 at reviewed head `ddce3355b74726fbceb5b21fc2eae6881d9a1399` after Plates, Ledger, Duo and Cajones verify successfully and Isocan's approved pause/drain barrier is satisfied. This changes who performs that merge, not its checks or the rollout order. Other Isocan changes retain their separately assigned authority.
 
 ## Next action
 
-Diagnose and correct the missing improve producer observation from successful night 40256668332, then verify Plates' source-bound night/morning before installing each consumer update. Preserve failed night 40251515967 and the distinct passing correction; PR #273 fixed context isolation and recovered-ledger CI eligibility, not the remaining observation gap. The owner approved the 17 original consumer workflow barriers, Papa Tapes' additional two-workflow barrier and the conditional exact-head Isocan #526 merge above; these approvals do not establish installation or acceptance. Continue Ledger, Duo, Cajones, Isocan and DTV in order, then Papa Tapes. Preserve the earlier Isocan watchdog failure alongside the passing current-candidate checks. Keep current-night and durable legacy refs until their work drains or their state is transferred and verified; hosted and machine retirement remains separately unverified.
+Diagnose and correct the missing improve producer observation from successful night 40256668332, then verify Plates' source-bound night/morning before installing each consumer update. Preserve failed night 40251515967 and the distinct passing correction; PR #273 fixed context isolation and recovered-ledger CI eligibility, not the remaining observation gap. The owner approved the 17 original consumer workflow barriers, Papa Tapes' additional two-workflow barrier and the conditional exact-head dglazkov/isocan#526 merge above; these approvals do not establish installation or acceptance. Continue Ledger, Duo, Cajones, Isocan and DTV in order, then Papa Tapes. Preserve the earlier Isocan watchdog failure alongside the passing current-candidate checks. Keep current-night and durable legacy refs until their work drains or their state is transferred and verified; hosted and machine retirement remains separately unverified.
 
 ## Reconciliation
 
