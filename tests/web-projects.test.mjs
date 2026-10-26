@@ -57,7 +57,10 @@ test('milestones preserve external authority and unavailable issue permission wi
 });
 
 test('cache-only HTML is loading; independent JSON readers share cache, leases and unchanged cursors', async () => {
-  const h = projectHarness(), read = home(h);
+  const h = projectHarness();
+  // This tests same-day reuse; UTC rollover has its own reclassification test.
+  h.state.now = Date.parse('2026-10-21T12:00:00Z');
+  const read = home(h);
   const loading = await read(h.access, token, { cacheOnly: true });
   assert.equal(loading.projects[0].state, 'loading'); assert.equal(h.source.requests.length, 0);
   const first = await read(h.access, token), calls = h.source.requests.length;
@@ -191,23 +194,31 @@ test('reader version namespaces old caches and malformed cached models are rerea
 
 test('four 109-phase projects converge under the shared 200-request bound', async () => {
   const h = projectHarness();
+  // Keep all four request-budget passes on one UTC day; rollover must reclassify.
+  h.state.now = Date.parse('2026-10-21T12:00:00Z');
   for (const path of Object.keys(h.source.files)) if (path.startsWith('docs/phases/')) delete h.source.files[path];
   for (let i = 0; i < 109; i++) h.source.files[`docs/phases/${String(i).padStart(3,'0')}-acme.md`] = phaseFile(i, { status: 'built' });
   const projects = Array.from({ length: 4 }, (_, i) => ({ id: `app${i}`, repoId: 200 + i, repo: `acme/app${i}` }));
-  let calls = 0;
+  let calls = 0; const projectCalls = [0, 0, 0, 0];
   const fetcher = async (url, options) => {
     const u = new URL(url), id = /^\/repositories\/(2\d\d)$/.exec(u.pathname), repo = /^\/repos\/acme\/app(\d+)\//.exec(u.pathname);
     if (!id && !repo) return h.fetcher(url, options);
-    calls++; const index = id ? Number(id[1]) - 200 : Number(repo[1]);
+    calls++; const index = id ? Number(id[1]) - 200 : Number(repo[1]); projectCalls[index]++;
     if (id) return Response.json({ id: 200 + index, full_name: `acme/app${index}`, default_branch: 'main' });
     u.pathname = u.pathname.replace(`/acme/app${index}/`, '/acme/studio/'); return h.fetcher(u.href, options);
   };
   let result;
   for (let attempt = 0; attempt < 4; attempt++) {
-    calls = 0;
+    calls = 0; projectCalls.fill(0);
     result = await createHomeReader(h.config, { fetcher, now: () => h.state.now })({ ...h.access, projects }, token);
-    assert.ok(calls <= 200, `attempt ${attempt} stayed inside its source budget`);
-    assert.ok(result.projects.filter(p => p.sourceComplete).length >= attempt + 1, 'at least one whole project advances each pass');
+    const diagnostic = JSON.stringify({ attempt, time: new Date(h.state.now).toISOString(), calls,
+      quota: { state: result.quota.state, remaining: result.quota.remaining, blockedUntil: result.quota.blockedUntil },
+      projects: result.projects.slice(0, 4).map((p, index) => ({ id: p.id, calls: projectCalls[index],
+        complete: p.sourceComplete === true, state: p.state, phases: p.planning.total, classifiedOn: p.classifiedOn ?? null,
+        gapCount: p.gaps.length, gaps: p.gaps.slice(0, 4).map(g => ({ source: g.source.slice(0, 60), reason: g.reason.slice(0, 160) })) })),
+    });
+    assert.ok(calls <= 200, `attempt ${attempt} stayed inside its source budget: ${diagnostic}`);
+    assert.ok(result.projects.filter(p => p.sourceComplete).length >= attempt + 1, `at least one whole project advances each pass: ${diagnostic}`);
     h.state.now += 61000;
   }
   assert.ok(result.projects.every(p => p.sourceComplete && p.planning.total === 109));

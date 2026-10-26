@@ -312,3 +312,13 @@ The fleet fixture used a separate one-shot cleanup helper and missed the ENOTEMP
 ### Configured-workflow regression corrections
 
 The workflow fixtures now exercise configured and unconfigured renders while retaining exact installed-source parity and real shell assertions. Template wording remains portable. Hosted retry keeps its existing reviewed 0.8.34 closure: two changed historical files are retained with release provenance, all 32 original hashes are checked, and repinning the new secret-dependent workflow/runtime is explicitly refused. This does not grant hosted retry access to the new credential. Eleven targeted regression checks and 138 convention/hosted-retry checks passed, with roadmap, render, inbox and whitespace checks. A temporary fixture ReferenceError discovered by focused testing was corrected before this validation; its failed preflight log is preserved. The next integrated gate covers these corrections together with the test-only fleet cleanup reuse.
+
+
+### Hosted gate failure retained
+
+PR #271 at `f4a3a7273505a07eb7c8ff694a46c7cd3ff862b5` received a Claude cross-review with no findings (review 5646025569), and impact/typecheck passed. CI run 40246609739 failed only `four 109-phase projects converge under the shared 200-request bound`; all nine stall checks passed. Its failed log is retained privately as `/tmp/plates129-pr271-ci-failed.log`. No unchanged rerun was requested.
+
+A diagnostic reproduced this assertion when the test's synthetic minute advances crossed UTC midnight: reclassifying a previously complete project used 114 requests, leaving 86 for the next project and no progress for the rest. Quota remained available and no abort was observed. A noon-start diagnostic advanced completion 1→2→3→4 with the same request and timeout bounds. This establishes a test-clock defect but does not conclusively attribute the original CI failure, which omitted clock/gap diagnostics. The repair pins the request-budget scenario's date; the separate midnight-reclassification behavior remains tested.
+
+
+The test-only repair covers both same-day cache reuse and request-budget convergence, retaining the separate explicit midnight behavior. A near-midnight seeded before-fix copy failed both same-day assertions; the repaired scenarios passed, and the entire seeded file passed 17 tests. The focused/convention check passed 127 tests plus roadmap, render, inbox and whitespace guards. No production timeout, request ceiling, runtime code or acceptance threshold changed. The parent gate and exact-head re-review remain separate checks.
