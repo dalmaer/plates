@@ -151,3 +151,34 @@ It requires a concrete compatible update with current source, checks, review and
 applicable owner authority. Source tests, a merged implementation or an older
 rollout receipt cannot establish that walk, production verification or lived-in
 success. The implementation must retain this gap until that evidence exists.
+
+## Implementation delivery — 2026-10-25 America/Denver
+
+[PR 276](https://github.com/dalmaer/plates/pull/276) merged as
+fe3d9262853747f0e324644c6333a1e94cb83f09 on 2026-10-26 at 05:22:28 UTC
+(2026-10-25 at 23:22:28 America/Denver). The reviewed implementation is
+d9c5df8d377d3af1fa75c724c2daaa69bbe328c7.
+
+The conductor's final npm run check exited 0: 3,679 tests, 3,675 passed,
+four skipped, zero failed; total command duration 286.281 seconds. Timing
+checks passed with seed 2134395777; the ledger reported no flaky/slower tests.
+Typecheck exited 0. The packed artifact's CLI fleet help and imports of the
+installer, Git transport and restoration module passed. Its initial pack attempt
+was denied writing the default npm cache; an isolated temporary cache worked,
+without changing the developer's cache or ownership.
+
+[CI](https://github.com/dalmaer/plates/actions/runs/40272995837) passed the full
+gate; the separate typecheck and impact checks passed. Claude's
+[exact-head review](https://github.com/dalmaer/plates/pull/276#pullrequestreview-5647670779)
+reported no findings in installation/recovery and the record-only gate. It
+explicitly did not review morning/reporting, documentation or tests; those have
+conductor test evidence, not a claim of full independent review coverage.
+The review command with --gate exited 0 with zero unanswered findings.
+The reviewer could not run its shallow-Git probe; the conductor's existing
+real-bare-Git transport tests exercised depth-one fetch and conditional push.
+GitHub installation remains unverified until the real walk.
+
+The implementation is merged, not accepted as lived-in. No consumer rollout,
+release, model execution or schedule change was performed by this phase.
+A concrete authorized compatible update is still required for the installation
+walk; earlier migration receipts are not substituted for it.

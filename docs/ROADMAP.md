@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**55 of 132 phases built; 56 owe a walk.** Built means implemented and checked; planned is not available.
+**55 of 132 phases built; 57 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -87,7 +87,7 @@ From an empty directory, plates init produces a repo whose check passes, whose r
 
 Existing projects come under plates without losing what is theirs, and a practice change reaches every one of them as a reviewed pull request.
 
-13/31 built; 12 owe a walk.
+13/31 built; 13 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -121,7 +121,7 @@ Existing projects come under plates without losing what is theirs, and a practic
 | [128. What the owner holds moves with the owner's yes](phases/128-what-the-owner-holds-moves-with-the-owner-s-yes.md) | partial, walk owed | 2026-10-24 | [125](phases/125-plates-s-own-branches-are-written-as-plates-and.md), [126](phases/126-markers-fences-labels-and-artifacts-are-written.md), [127](phases/127-the-web-home-and-its-database-move-to-plates.md) | Source merged in PR 264 at 419756f after full local and CI checks and exact-head review. Owner activation remains; phase 129 records the real preview/rehearsal blockers discovered before rollout. · [#244](https://github.com/dalmaer/plates/issues/244) |
 | [129. Plates, then the fleet, move tonight, each proven by a night run dispatched by hand](phases/129-plates-then-the-fleet-move-tonight.md) | partial | 2026-10-25 | [128](phases/128-what-the-owner-holds-moves-with-the-owner-s-yes.md) | Release v0.8.34 and Plates label receipt are published. PRs #271 and #273 merged; private Ledger reads and corrected night 40256668332 passed, with exact-main CI reused. Migration verification still lacks the improve observation packet. Six consumer PRs remain prepared, not installed; current-night and durable legacy refs are retained. · [#245](https://github.com/dalmaer/plates/issues/245) |
 | [130. Plates stops reading keel's names](phases/130-plates-stops-reading-keel-s-names.md) | planned | 2026-10-23 | [129](phases/129-plates-then-the-fleet-move-tonight.md) | Specified 2026-10-23 (docs/specs/name-transition.md). Retirement: once plates names shows nothing live under a keel name across the fleet, the fallback reads go in one release, and the name table forbids every keel name except the compatibility entry points. · [#246](https://github.com/dalmaer/plates/issues/246) |
-| [131. Compatible updates have a short installation path](phases/131-compatible-updates-have-a-short-installation-path.md) | partial | 2026-10-25 | [111](phases/111-focused-feedback-starts-with-capability-and-resource-checks.md), [116](phases/116-each-plate-verifies-itself-and-the-fleet-checks-coverage.md), [128](phases/128-what-the-owner-holds-moves-with-the-owner-s-yes.md) | Implementation in progress: installer, source record policy and read-only morning reporting; integrated proof, review and real installation walk remain. |
+| [131. Compatible updates have a short installation path](phases/131-compatible-updates-have-a-short-installation-path.md) | partial, walk owed | 2026-10-25 | [111](phases/111-focused-feedback-starts-with-capability-and-resource-checks.md), [116](phases/116-each-plate-verifies-itself-and-the-fleet-checks-coverage.md), [128](phases/128-what-the-owner-holds-moves-with-the-owner-s-yes.md) | Implementation merged in PR 276; full gate, typecheck and exact-head review passed. Only a real compatible installation walk remains. |
 
 - **4 done when:** `plates adopt` on duo and on cajones produces a pull request a person merges, after which each project's own check passes and its `.plates/plates.json` names the practice version.
 - **5 done when:** `plates doctor` reports every managed file and block whose bytes differ from what plates wrote, and for each offers eject, restore, or send-as-lesson — never reverting on its own.
