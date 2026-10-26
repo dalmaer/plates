@@ -2,7 +2,9 @@
   "name": "ci",
   "summary": "CI runs the project's one check on every push and pull request, so a red guard fails where someone is told.",
   "requires": ["base"],
-  "secrets": [],
+  "secrets": [
+    {"name": "PLATES_RECONCILE_TOKEN", "optional": true, "why": "OPTIONAL: isolated trusted-main reconciliation, Pull requests read-only for the configured exact repository allowlist", "workflow": ".github/workflows/check.yml"}
+  ],
   "files": [
     { "path": ".github/workflows/check.yml", "from": ".github/workflows/check.yml", "kind": "managed" },
     { "path": "scripts/plates/workflows.mjs", "from": "scripts/plates/workflows.mjs", "kind": "managed" },

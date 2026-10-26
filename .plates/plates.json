@@ -98,5 +98,14 @@
     "version": 1,
     "enabled": false,
     "applicability": "not-applicable"
+  },
+  "reconciliation": {
+    "githubAccess": {
+      "repositories": [
+        "dalmaer/plates",
+        "dalmaer/ledger"
+      ],
+      "enabled": true
+    }
   }
 }

@@ -10,6 +10,11 @@
       "kind": "managed"
     },
     {
+      "path": "scripts/plates/reconcile-actions.mjs",
+      "from": "scripts/plates/reconcile-actions.mjs",
+      "kind": "managed"
+    },
+    {
       "path": "scripts/plates/decision-context.mjs",
       "from": "scripts/plates/decision-context.mjs",
       "kind": "managed"

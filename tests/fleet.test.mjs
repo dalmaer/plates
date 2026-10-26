@@ -10,8 +10,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { run as runCmd, cleanEnv } from './helpers/run.mjs';
-import { mkdtemp, mkdir, readFile, rm, writeFile, realpath, chmod } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { scratch as sharedScratch } from './helpers/improve.mjs';
+import operations, { mkdir, readFile, rm, writeFile, realpath, chmod } from 'node:fs/promises';
+import { syncBuiltinESMExports } from 'node:module';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fleet, fleetUpdate, healthOf, gateName, gateOf, runCommands, onPush, parseFleet, rehearse, rehearseOne, pool, REHEARSE_AT_ONCE } from '../lib/fleet.mjs';
@@ -34,10 +35,32 @@ const MIGRATIONS = [
 ];
 
 async function scratch(t, prefix) {
-  const dir = await realpath(await mkdtemp(join(tmpdir(), prefix)));
-  t.after(() => rm(dir, { recursive: true, force: true }));
-  return dir;
+  return realpath(await sharedScratch(t, prefix));
 }
+
+test('fleet scratch awaits shared cleanup after transient ENOTEMPTY', async () => {
+  let cleanup;
+  const dir = await scratch({ after(callback) { assert.equal(cleanup, undefined); cleanup = callback; } }, 'plates-fleet-cleanup-');
+  const realRm = operations.rm;
+  let attempts = 0;
+  try {
+    assert.equal(dir, await realpath(dir), 'fleet keeps canonical fixture paths');
+    await writeFile(join(dir, 'acme-entry'), 'Acme');
+    operations.rm = async (path, options) => {
+      assert.equal(await realpath(path), dir);
+      if (++attempts === 1) throw Object.assign(new Error('Acme transient cleanup failure'), { code: 'ENOTEMPTY' });
+      return realRm(path, options);
+    };
+    syncBuiltinESMExports();
+    await cleanup();
+    assert.equal(attempts, 2);
+    await assert.rejects(realpath(dir), { code: 'ENOENT' });
+  } finally {
+    operations.rm = realRm;
+    syncBuiltinESMExports();
+    await realRm(dir, { recursive: true, force: true });
+  }
+});
 
 /** A synthetic plates home with a plates.json and one practice pinned to acme/upstream. */
 async function home(t, fleetList) {

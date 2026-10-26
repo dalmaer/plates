@@ -1,3 +1,5 @@
+import { posix } from 'node:path';
+import platesReleaseSource from './helpers/web-night-plates-release.mjs';
 import { readFile } from 'node:fs/promises';
 import { PLATES_NIGHT_CANONICAL } from '../lib/web/night-retry-current.mjs';
 import test from "node:test";
@@ -504,11 +506,31 @@ test("renamed Plates night source refuses legacy retry authority even after inve
   assert.equal(h.nightDb.rows.size, 0);
 });
 
-test('current Plates night retry has a separate exact closure and requires its own reviewed profile', async () => {
+async function reviewedPlatesFiles() {
+  assert.equal(platesReleaseSource.sourceRepo,'dalmaer/plates');
+  assert.equal(platesReleaseSource.revision,'94ae6ac1e033083ef21e78270e1864703f359429');
+  assert.equal(platesReleaseSource.license,'Apache-2.0');
+  assert.deepEqual(Object.keys(platesReleaseSource.files).sort(),['.github/workflows/plates-night.yml','scripts/plates/improve.mjs']);
+  const files={};
+  for(const [path,blob] of Object.entries(PLATES_NIGHT_CANONICAL)) {
+    const text=platesReleaseSource.files[path] ?? await readFile(new URL('../'+path,import.meta.url),'utf8');
+    assert.equal(createHash('sha1').update(`blob ${Buffer.byteLength(text)}\0`).update(text).digest('hex'),blob,`${path}: changed sources need explicitly retained reviewed bytes`);
+    files[path]=text;
+  }
+  return files;
+}
+
+test('reviewed 0.8.34 Plates night retry retains its full exact closure and requires its own reviewed profile', async () => {
   const h=await nightRetryHarness();
   for(const path of Object.keys(NIGHT_CANONICAL))delete h.source.files[path];
+  const files=await reviewedPlatesFiles();
+  assert.deepEqual(Object.keys(files).sort(),Object.keys(PLATES_NIGHT_CANONICAL).sort());
   for(const [path,blob] of Object.entries(PLATES_NIGHT_CANONICAL)) {
-    const text=await readFile(new URL('../'+path,import.meta.url),'utf8');
+    const text=files[path];
+    if(path.endsWith('.mjs')) for(const match of text.matchAll(/(?:from\s*|import\s*\(?)['"](\.[^'"]+)['"]/g)) {
+      const dependency=posix.normalize(posix.join(posix.dirname(path),match[1]));
+      assert.ok(Object.hasOwn(files,dependency),`${path}: retained dependency ${dependency}`);
+    }
     assert.equal(createHash('sha1').update(`blob ${Buffer.byteLength(text)}\0`).update(text).digest('hex'),blob,path);
     h.source.files[path]=text;
   }
@@ -519,4 +541,26 @@ test('current Plates night retry has a separate exact closure and requires its o
   const p=await preview(h);assert.ok(p);assert.equal(h.nightState.posts.length,0);
   h.source.files['scripts/plates/names.mjs']+='\n// Acme unreviewed edit\n';await repin(h);
   await assert.rejects(preview(h),{code:'night_canonical_source_required'});
+});
+
+
+test('secret-dependent reconciliation workflow and its runtime cannot acquire hosted retry authority by repinning', async () => {
+  for (const changedPaths of [
+    ['.github/workflows/plates-night.yml'],
+    ['scripts/plates/improve.mjs', 'scripts/plates/reconcile-actions.mjs', 'scripts/plates/reconcile.mjs'],
+  ]) {
+    const h=await nightRetryHarness();
+    for(const path of Object.keys(NIGHT_CANONICAL))delete h.source.files[path];
+    Object.assign(h.source.files,await reviewedPlatesFiles());
+    h.source.files['.plates/plates.json']=h.source.files['.keel/keel.json'];delete h.source.files['.keel/keel.json'];
+    h.profile.workflow.path='.github/workflows/plates-night.yml';await repin(h);
+    assert.ok(await preview(h), 'the retained reviewed closure is eligible before the change');
+    for(const path of changedPaths)h.source.files[path]=await readFile(new URL('../'+path,import.meta.url),'utf8');
+    const config=JSON.parse(h.source.files['.plates/plates.json']);
+    config.reconciliation={githubAccess:{enabled:true,repositories:['acme/studio']}};
+    h.source.files['.plates/plates.json']=JSON.stringify(config);
+    await repin(h);
+    await assert.rejects(preview(h),{code:'night_canonical_source_required'});
+    assert.equal(h.nightState.posts.length,0);assert.equal(h.nightDb.rows.size,0);
+  }
 });

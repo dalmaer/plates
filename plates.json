@@ -1,8 +1,9 @@
 [
   { "repo": "dalmaer/plates", "kind": "node", "role": "managed", "note": "plates itself: it is in its own fleet." },
-  { "repo": "dalmaer/duo", "kind": "web", "role": "managed", "note": "To be adopted (phase 4)." },
-  { "repo": "dalmaer/cajones", "kind": "static", "role": "managed", "note": "To be adopted (phase 4). The project is the repo root, which is ritmo." },
-  { "repo": "dalmaer/ledger", "kind": "web", "role": "managed", "note": "To be adopted (phase 4)." },
+  { "repo": "dalmaer/duo", "kind": "web", "role": "managed", "note": "Adopted; current installation and verification are read from the project." },
+  { "repo": "dalmaer/cajones", "kind": "static", "role": "managed", "note": "Adopted; the project is the repo root, which is ritmo. Current installation and verification are read from the project." },
+  { "repo": "dalmaer/ledger", "kind": "web", "role": "managed", "note": "Adopted; current installation and verification are read from the project." },
   { "repo": "dglazkov/isocan", "kind": "node", "role": "managed", "note": "plates's source, and adopted (isocan#392, 5 Oct 2026): it keeps its own phases, conduct, CI, night, renovate and loop as local variants; plates still pins its conduct skill as a source." },
-  { "repo": "dalmaer/dtv", "kind": "node", "role": "managed", "note": "Already adopted on 0.8.33; included in the owner-requested name-transition rollout after isocan (phase 129)." }
+  { "repo": "dalmaer/dtv", "kind": "node", "role": "managed", "note": "Already adopted on 0.8.33; included in the owner-requested name-transition rollout after isocan (phase 129)." },
+  { "repo": "dalmaer/papa-tapes", "kind": "static", "role": "managed", "note": "Existing 0.8.32 adoption discovered in the owner-requested all-project audit; prepared migration follows the original six-project rollout (phase 129)." }
 ]

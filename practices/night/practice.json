@@ -3,6 +3,7 @@
   "summary": "The night shift: a nightly health page as one PR, its queue drained by machinery, all from scripts in the project's own repo; a red night is a failed workflow.",
   "requires": ["base", "agents-md"],
   "secrets": [
+    {"name": "PLATES_RECONCILE_TOKEN", "optional": true, "why": "OPTIONAL: isolated trusted-main reconciliation, Pull requests read-only for the configured exact repository allowlist", "workflow": ".github/workflows/plates-night.yml"},
     { "name": "VERCEL_API_TOKEN", "optional": true, "when": "production-vercel", "why": "OPTIONAL: only configured Vercel production collection uses it, as step-scoped VERCEL_TOKEN; off and other-provider projects need none", "workflow": ".github/workflows/plates-night.yml" }
   ],
   "files": [

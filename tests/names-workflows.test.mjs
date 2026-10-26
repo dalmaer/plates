@@ -1,3 +1,4 @@
+import {fill} from '../lib/practices.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,writeFile,readFile,mkdir,rm,chmod} from 'node:fs/promises';
@@ -113,7 +114,18 @@ test('both templates parse every actual shell block and keep observation opt-in 
   assert.match(text,/repository: dalmaer\/plates\n          ref: \$\{\{ inputs.names_source_sha \}\}/);
   assert.match(text,/persist-credentials: false\n          submodules: false\n          lfs: false/);
   assert.match(text,/path: \$\{\{ steps.names_collect.outputs.paths \}\}/);
-  assert.equal(await readFile(join(ROOT,'.github/workflows',`plates-${name}.yml`),'utf8'),text);
+  const path=`.github/workflows/plates-${name}.yml`,selfConfig=JSON.parse(await readFile(join(ROOT,'.plates/plates.json'),'utf8'));
+  assert.equal(await readFile(join(ROOT,path),'utf8'),fill(text,selfConfig,path));
+  for(const enabled of [false,true]) {
+   const config={name:'Acme',repo:'acme/app',practices:['night','reconciliation'],...(enabled?{reconciliation:{githubAccess:{enabled:true,repositories:['acme/app']}}}:{})};
+   const rendered=fill(text,config,path);assert.deepEqual(await shellProblems(name,rendered),[]);
+   assert.equal(rendered.includes('  reconciliation:\n'),name==='night'&&enabled);
+   assert.match(rendered,/names_evidence:\n[^\n]*\n        type: boolean\n        default: false/);
+   assert.ok(!rendered.includes('NODE_OPTIONS'));
+   assert.match(rendered,/repository: dalmaer\/plates\n          ref: \$\{\{ inputs.names_source_sha \}\}/);
+   assert.match(rendered,/persist-credentials: false\n          submodules: false\n          lfs: false/);
+   assert.match(rendered,/path: \$\{\{ steps.names_collect.outputs.paths \}\}/);
+  }
  }
  const text=await readFile(canonical('morning'),'utf8');
  assert.match(text,/needs: \[names-origin, decide, finalize, send\]/);
