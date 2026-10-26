@@ -20,6 +20,14 @@ npm run roadmap   # after editing any docs/phases/*.md or docs/goals.json
 
 This machine's shell is zsh: quote globs and `==` in commands (an unmatched glob or a bare `==` is an error, not a literal).
 
+For Plates source record changes only, the integrator and source CI may select
+`plates-source-records-v1` through `scripts/check-records.mjs`. It checks complete
+inputs and falls back to the full gate for code, policy, mixed or unknown changes.
+Record-check success is not a full-gate pass. Changes to that policy itself still
+require `npm run check` and typecheck. See the
+[validation guide](docs/development/validation-preflight.md); consumers keep their
+own configured gates.
+
 ## The map
 
 | Path | What |
@@ -91,6 +99,21 @@ commit), tracked (the issue or version) or not valid (why), with
 `plates review <repo>#<n> --close <id> …`; never leave one unanswered. Not a
 gate: an open thread never blocks a merge.
 (why: An unanswered finding leaves the next reader unable to tell whether it was fixed or rejected.)
+
+**Install separately from ongoing care.** A compatible reviewed update is installed
+when its exact source, managed bytes and required workflow restoration are read
+back. Pending optimization and incomplete nightly observations remain visible;
+they do not accept work or block that installation. Pause/drain/restore only the
+affected workflows when concurrency identity actually changes.
+(why: The name-transition rollout waited on unrelated optimization after its installation checks had passed.)
+
+**Reuse unchanged authority and proof.** A handoff retains the original operation,
+scoped owner approval and evidence. Reinspect changed facts; ask again when the
+permitted action, destination, budget or risk changes. An approval for an exact
+head never transfers to an edited candidate. Repeated review findings require a
+fix to their shared cause and focused negative controls before another integrated
+checkpoint; preserve the existing review limit and original failures.
+(why: Plates lesson 59: fixing only the reported instance allowed the same failure shape to return in later review rounds.)
 <!-- plates:end conduct -->
 
 <!-- plates:begin night -->

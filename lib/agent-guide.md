@@ -1191,6 +1191,11 @@ PRs (never merges one: they are not data).
 
 <!-- topic: night | tonight's plan: written before the night runs, ticked as it goes -->
 
+`plates morning --observation --json` renders an early read-only observation.
+It does not send an issue, publish a card, finalize a plan or complete pending work;
+`--send` and `--card` are incompatible. Ordinary final readiness is unchanged.
+
+
 Every night has one plan, `.plates/night/plan.json` (schema 1; a working file
 that ignores itself), written before anything runs. The night commits it as it
 ended as `docs/night/<date>.json` in its data-only PR, and the health page shows
@@ -1463,6 +1468,27 @@ one PR when something was kept, and never merge. ⚑ Turning it on spends model 
 owner's yes, with `CLAUDE_CODE_OAUTH_TOKEN` (or `ANTHROPIC_API_KEY`) set.
 
 <!-- topic: fleet | every project at once: behind, red, silent, or teaching something -->
+
+`plates fleet update --install owner/repo#PR --json` previews a compatible
+reviewed installation. `--yes --digest <preview-digest>` applies that exact
+operation. `--recover <operation-id> --json` retains the original operation after
+uncertainty. These modes do not prepare a replacement PR or start a night/climb.
+Checks and review precede any pause. Only an actual concurrency identity change
+needs an exact affected-workflow pause/drain/restore barrier; ordinary updates do
+not. Installation readback, operational verification and retirement are separate;
+missing observations and unfinished restoration stay explicit. An unrelated record
+edit or handoff does not erase unchanged scoped owner authority, but an exact-head
+approval never transfers to edited code. See the project-update guide.
+
+Before a merge attempt, `plates fleet update --recover <operation-id>
+--restore-only --json` previews terminating installation and restoring only the
+old workflow IDs this operation paused. Apply with `--yes --digest <preview-digest>`
+after current permission, disabled state and original workflow bytes are checked.
+An attempted/uncertain merge or changed preimage refuses this path. It retains the
+original receipt, never marks installation successful, and never repeats an
+uncertain enable. Ordinary recovery can refresh successful check/review evidence
+within unchanged approved scope; it retains the original proof and new observations.
+
 
 Fleet verification pins configuration and report reads to the observed default SHA, validates bounded versioned receipts, and reports current, behind, stale, missing, malformed or unavailable. Current observations with failures or gaps are not healthy; a later report commit is still a source mismatch. Needs you links the source and asks for project-side refresh. Fleet reads never execute consumer installs, gates or agents.
 

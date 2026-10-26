@@ -105,6 +105,25 @@ Keep the conductor's own context lean, because it outlives every builder:
   get a yes for each. Before stopping to ask, do every part that doesn't need
   the answer, so the ask is the only thing left.
 
+### Installation and ongoing care
+
+A compatible reviewed update has a short path: prepare, check/review, install,
+then read back its actual source and managed bytes. Broader night verification,
+optimization and legacy retirement are separate observations; never turn a pending
+climb into a requirement to start paid work before acknowledging installation.
+Keep real compatibility failures and unknown source coverage blocking.
+
+Keep normal review available during preparation. Pause only affected workflows
+whose concurrency identity changes, retain their prior states, drain completely,
+install under that barrier and verify restoration. Ordinary updates need no such
+barrier. Recover the original operation after uncertainty instead of recreating
+PRs or repeating mutations. Unfinished restoration stays an explicit obligation.
+
+A handoff retains existing scoped owner approvals. Reinspect changed source facts;
+ask again for changed authority, scope, destination, budget or risk. Never transfer
+an exact-head approval to new bytes. Keep the receipt's operation ID and evidence
+links in the next brief, rather than reconstructing the approval conversation.
+
 ## 1. Brief
 
 Write the brief to a scratchpad file, so it can be reread, reused if the
@@ -385,6 +404,12 @@ you have not read (and anything that arrived since the read), so never build
 the id list from a query. A valid finding is fixed in its own commit before the reply names it.
 Not a gate: an open thread never refuses a merge, and the night counts what
 is left (`reviews_unanswered`).
+
+Before a repeated finding goes through another round, fix its shared boundary,
+inspect known sibling callers, and name the negative control. Inventory rendered
+copies, source pins, locks and intentionally historical fixtures before the final
+checkpoint. Batch related corrections; do not repeat an unchanged full gate to
+compensate for missing evidence. This does not enlarge the review-round limit.
 
 **A review that keeps going is the owner's.** (why: One PR went ten review rounds of fix-and-push before anyone decided.) A round is one push a reviewer answered with a finding. When `plates review <repo>#<n>` exits 3 the PR
 is at its round limit (three unless `.plates/plates.json` `"review": {"rounds": N}`
