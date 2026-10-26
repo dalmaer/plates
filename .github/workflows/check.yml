@@ -92,8 +92,13 @@ jobs:
       - name: Run the configured gate
         env:
           GH_TOKEN: ${{ github.token }}
+          RECORD_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          RECORD_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          if [ -f scripts/plates/gate.mjs ]; then
+          SELF=$(node -e 'const c=JSON.parse(require("fs").readFileSync(".plates/plates.json","utf8"));console.log(c.plates === "self" ? "true" : "false")')
+          if [ "$SELF" = true ]; then
+            node scripts/check-records.mjs --policy plates-source-records-v1 --base "$RECORD_BASE" --head "$RECORD_HEAD" --json
+          elif [ -f scripts/plates/gate.mjs ]; then
             node scripts/plates/gate.mjs --ci
           elif [ -f scripts/plates/test-ledger.mjs ]; then
             node scripts/plates/test-ledger.mjs --gate

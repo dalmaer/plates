@@ -40,13 +40,13 @@ test('newest failure stays visible beside historical success',()=>{
   assert.equal(out.receipt.attempt,b.attempt);assert.equal(out.healthy,false);
 });
 
-async function fixture(t) {
+async function fixture(t, { dataOverrides = {}, recordChange = () => {} } = {}) {
   const root=await mkdtemp(join(tmpdir(),'acme-fleet-verification-'));t.after(()=>rm(root,{recursive:true,force:true}));
   await mkdir(join(root,'.plates'));await mkdir(join(root,'practices'));
   await writeFile(join(root,'.plates/plates.json'),JSON.stringify({plates:'self'}));
   await writeFile(join(root,'plates.json'),JSON.stringify([{repo:'acme/plate',role:'managed',kind:'node'},{repo:'acme/unavailable',role:'managed',kind:'node'}]));
   const log=join(root,'reads.jsonl'),gh=join(root,'gh');
-  const record=receipt();record.observedAt=new Date().toISOString();
+  const record=receipt();record.observedAt=new Date().toISOString();recordChange(record);
   const data={
     'repos/acme/plate':{full_name:'acme/plate',default_branch:'trunk'},
     'repos/acme/plate/commits/trunk':{sha:SHA},
@@ -54,6 +54,8 @@ async function fixture(t) {
     [`repos/acme/plate/contents/reports?ref=${SHA}`]:[{type:'file',name:'2026-10-23.md'}],
     [`repos/acme/plate/contents/reports/2026-10-23.md?ref=${SHA}`]:{type:'file',encoding:'base64',content:Buffer.from(formatVerification(record)).toString('base64')},
   };
+  data[`repos/acme/plate/contents/.plates/lock.json?ref=${SHA}`] = {type:'file',encoding:'base64',content:Buffer.from(JSON.stringify({practice:'0.0.0',files:{'scripts/acme.mjs':{practice:'night',sha256:'b'.repeat(64)}}})).toString('base64')};
+  Object.assign(data, dataOverrides);
   await writeFile(gh,`#!${process.execPath}\nconst fs=require('node:fs');const a=process.argv.slice(2);fs.appendFileSync(${JSON.stringify(log)},JSON.stringify(a)+'\\n');const data=${JSON.stringify(data)};if(a[0]==='api'&&a[1] in data)console.log(JSON.stringify(data[a[1]]));else if(a[0]==='run'||a[0]==='pr')console.log('[]');else{console.error('HTTP 404 Not Found');process.exit(1);}`);
   await chmod(gh,0o755);return {root,log,env:{...process.env,PLATES_GH:gh}};
 }
@@ -75,4 +77,64 @@ test('existing fleet pins config and receipt reads, continues after unavailable 
   assert.equal(summary.rows.length,2,'actual managed role returned by fleet is retained');
   assert.equal(summary.rows[0].verification.state,'current');
   assert.equal(summary.rows[1].verification.state,'unavailable');
+});
+
+
+test('fleet separates lock declaration from installed-byte proof, verification and retirement', async t => {
+  for (const failed of [false, true]) {
+    const {root,log,env}=await fixture(t,{recordChange:r=>{if(failed){r.gate.state='outside';r.gate.status=1;}}});
+    const out=await fleet({dir:root},{env,cli:'0.0.0',migrations:[],now:new Date().toISOString()});
+    const row=out.data.rows[0];
+    assert.ok(row.installation, 'fleet exposes installation observation');
+    assert.equal(row.installation.state,'unknown','a lock does not verify installed managed bytes');
+    assert.equal(row.installation.declaredVersion,'0.0.0');
+    assert.equal(row.installation.lock,'observed');
+    assert.equal(row.installation.managedBytes,'unverified');
+    assert.deepEqual(row.installation.source,{repo:'acme/plate',branch:'trunk',sha:SHA,path:'.plates/lock.json'});
+    assert.equal(row.verification.healthy,!failed,'verification remains independent of lock declaration');
+    assert.equal(row.retirement.state,'unavailable');
+    assert.equal(out.data.rows[1].installation.state,'unknown');
+    assert.equal(out.data.rows[1].retirement.state,'unavailable');
+    assert.match(out.text,/installation unknown.*lock declares 0.0.0.*managed bytes unverified/);
+    assert.match(out.text,/retirement unavailable/);
+    const calls=(await readFile(log,'utf8')).trim().split('\n').map(JSON.parse);
+    const locks=calls.filter(a=>a[0]==='api'&&a[1].includes('/lock.json'));
+    assert.deepEqual(locks,[['api',`repos/acme/plate/contents/.plates/lock.json?ref=${SHA}`]]);
+    assert.ok(calls.every(a=>a[0]==='api' ? (a.length===2 || JSON.stringify(a)===JSON.stringify(['api','graphql','-f','query=query { rateLimit { remaining resetAt } }'])) : ['run','pr'].includes(a[0])&&a[1]==='list'));
+    await assert.rejects(readFile(join(root,'MUST_NOT_RUN')));
+  }
+});
+
+test('fleet missing and malformed locks cannot claim installation or retirement success', async t => {
+  const key=`repos/acme/plate/contents/.plates/lock.json?ref=${SHA}`;
+  for (const response of [undefined, {type:'symlink'}, {type:'file',encoding:'none'}, ...['{', JSON.stringify({practice:'0.0.0',files:[]}), JSON.stringify({practice:'bad',files:{}})].map(text=>({type:'file',encoding:'base64',content:Buffer.from(text).toString('base64')}))]) {
+    const {root,env}=await fixture(t,{dataOverrides:{[key]:response}});
+    const out=await fleet({dir:root},{env,cli:'0.0.0',migrations:[],now:new Date().toISOString()});
+    const row=out.data.rows[0];
+    assert.ok(row.installation, 'missing proof remains an explicit installation gap');
+    assert.equal(row.installation.state,'unknown');
+    assert.equal(row.installation.declaredVersion,null);
+    assert.equal(row.installation.lock,response===undefined?'missing':'unavailable');
+    assert.equal(row.retirement.state,'unavailable');
+    assert.equal(row.verification.healthy,true,'an unavailable lock does not erase valid verification');
+  }
+});
+
+test('fleet observes the selected legacy lock, never substitutes another layout or trusts mismatched repository identity', async t => {
+  const encoded=value=>({type:'file',encoding:'base64',content:Buffer.from(JSON.stringify(value)).toString('base64')});
+  const {root,log,env}=await fixture(t,{dataOverrides:{
+    [`repos/acme/plate/contents/.plates/plates.json?ref=${SHA}`]:undefined,
+    [`repos/acme/plate/contents/.keel/keel.json?ref=${SHA}`]:encoded({practice:'0.0.0',health:'reports'}),
+    [`repos/acme/plate/contents/.keel/lock.json?ref=${SHA}`]:encoded({practice:'0.0.1',files:{}}),
+  }});
+  const out=await fleet({dir:root},{env,cli:'0.0.0',migrations:[],now:new Date().toISOString()});
+  assert.equal(out.data.rows[0].installation?.declaredVersion,'0.0.1');
+  assert.equal(out.data.rows[0].installation.source.path,'.keel/lock.json');
+  assert.equal(out.data.rows[0].retirement.state,'unavailable','legacy selection is not retirement evidence');
+  const calls=(await readFile(log,'utf8')).trim().split('\n').map(JSON.parse);
+  assert.equal(calls.some(a=>a[1]?.includes('/.plates/lock.json')),false);
+  const other=await fixture(t,{dataOverrides:{'repos/acme/plate':{full_name:'acme/other',default_branch:'trunk'}}});
+  const denied=await fleet({dir:other.root},{env:other.env,cli:'0.0.0',migrations:[],now:new Date().toISOString()});
+  assert.equal(denied.data.rows[0].installation.declaredVersion,null);
+  assert.equal(denied.data.rows[0].installation.state,'unknown');
 });

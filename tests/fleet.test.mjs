@@ -660,11 +660,14 @@ test('fleet update plans only real work: applies() is asked over the default bra
   const reads = (await gh.calls()).filter(c => String(c[1]).includes('?ref=main'));
   assert.ok(reads.some(c => c[1] === 'repos/acme/goals/contents/docs/phases/1-start.md?ref=main'), 'the phase file is read at the default branch');
   assert.equal(new Set(reads.map(c => c[1])).size, reads.length, 'each path is asked once per run (cached)');
-  // Plain fleet stays fast: it lists what is unrecorded and asks nothing at the migrations' paths.
+  // Plain fleet lists unrecorded migrations without inspecting their source.
+  // Installation adds exactly one lock observation per pinned default revision.
   const before = (await gh.calls()).length;
   const f = await fleet({ dir }, { env: gh.env, now: NOW, cli: live });
   const plain = (await gh.calls()).slice(before);
-  assert.deepEqual(plain.filter(c => /contents\/(docs\/milestones\.json|docs\/goals\.json|docs\/phases|\.plates\/lock\.json)/.test(String(c[1]))), []);
+  assert.deepEqual(plain.filter(c => /contents\/(docs\/milestones\.json|docs\/goals\.json|docs\/phases)/.test(String(c[1]))), []);
+  assert.deepEqual(plain.filter(c => /contents\/\.plates\/lock\.json/.test(String(c[1]))).map(c => c[1]).sort(),
+    ['broken', 'goals', 'still'].map(name => `repos/acme/${name}/contents/.plates/lock.json?ref=${'a'.repeat(40)}`));
   assert.ok(f.data.needs.some(n => n.repo === 'acme/goals' && n.why === '7 unrecorded (0001-milestone-to-goal, 0002-projects-run-on-their-own, 0003-phases-gain-goals, 0004-test-ledger, 0005-test-ledger-reach, 0006-lived-in-kept, 0007-phase-guard-reach); plates fleet update checks them'));
 });
 

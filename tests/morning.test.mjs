@@ -675,3 +675,143 @@ test('discovered morning identity still refuses current labels without rename ev
   assert.ok((await p.calls()).every(c=>!['create','close'].includes(c.a[1])));
   assert.deepEqual(await p.issuesNow(),[]);
 });
+
+
+test('observation reports delivery separately before readiness without changing required work', () => {
+  const plan = finished(), before = JSON.stringify(plan);
+  const delivery = {
+    installation: { state: 'installed', operationId: 'acme-update-1', revision: 'a'.repeat(40) },
+    verification: { state: 'pending', gaps: ['night observation missing'] },
+    retirement: { state: 'pending', aliases: ['keel-night'] },
+  };
+  const b = renderBrief({ plan, now: BEFORE, reportMode: 'observation', delivery });
+  assert.ok(b.report, 'explicit observation report exists');
+  assert.equal(b.report.mode, 'observation');
+  assert.equal(b.report.partial, true);
+  assert.equal(b.report.finalTitle, titleOf(NIGHT));
+  assert.equal(b.readiness.ready, false, 'required build still blocks ordinary completeness');
+  assert.deepEqual(b.delivery.installation, delivery.installation);
+  assert.deepEqual(b.delivery.verification, delivery.verification);
+  assert.deepEqual(b.delivery.retirement, delivery.retirement);
+  assert.deepEqual(b.sections.unfinished, ['climb-docs']);
+  assert.deepEqual(b.sections.failed, ['robot-12']);
+  assert.match(b.markdown, /Partial observation/);
+  assert.match(b.markdown, /Installation: installed/);
+  assert.match(b.markdown, /Verification: pending/);
+  assert.match(b.markdown, /Retirement: pending/);
+  assert.match(b.markdown, /not independently verified/);
+  assert.equal(JSON.stringify(plan), before);
+  b.delivery.retirement.aliases.push('acme-extra');
+  assert.deepEqual(delivery.retirement.aliases, ['keel-night'], 'output cannot mutate the supplied receipt');
+  const failed = renderBrief({ plan, now: BEFORE, reportMode: 'observation', delivery: { installation: { state: 'failed' }, verification: { state: 'failed' }, retirement: { state: 'complete' } } });
+  assert.match(failed.markdown, /Installation: failed/);
+  assert.match(failed.markdown, /Verification: failed/);
+  assert.equal(failed.readiness.ready, false);
+  const absent = renderBrief({ plan, now: BEFORE, reportMode: 'observation' });
+  assert.equal(absent.delivery.installation.state, 'unknown');
+  assert.equal(absent.delivery.verification.state, 'unavailable');
+  assert.equal(absent.delivery.retirement.state, 'unavailable');
+  assert.throws(() => renderBrief({ plan, reportMode: 'observation', delivery: { verification: { state: 'healthy' } } }), /verification.state/);
+  assert.throws(() => renderBrief({ plan, reportMode: 'optional' }), /reportMode/);
+});
+
+test('observation leaves plan and issue identities intact; later final outcomes remain recoverable and deduplicated', async t => {
+  const p = await project(t);
+  const paths = [`.plates/plates.json`, `docs/night/${NIGHT}.json`, `docs/health/${NIGHT}.md`];
+  const before = await Promise.all(paths.map(path => readFile(join(p.root, path), 'utf8')));
+  const options = { root: p.root, date: NIGHT, now: BEFORE, env: { ...ENV, PLATES_GH: p.gh }, reportMode: 'observation' };
+  const planRef = git(p.root, 'ls-remote', 'origin', 'refs/heads/plates-night-plan');
+  const b = await morningModule.brief(options);
+  assert.equal(git(p.root, 'ls-remote', 'origin', 'refs/heads/plates-night-plan'), planRef);
+  assert.equal(existsSync(join(p.root, PLAN)), false, 'report creates no working plan');
+  assert.ok(b.data.report, 'brief exposes observation report');
+  assert.equal(b.data.report.partial, true);
+  assert.equal(b.data.readiness.ready, false);
+  assert.equal(b.data.delivery.verification.state, 'unavailable');
+  assert.deepEqual(await p.calls(), [], 'no GitHub effects or dispatch');
+  assert.deepEqual(await Promise.all(paths.map(path => readFile(join(p.root, path), 'utf8'))), before);
+  await assert.rejects(morningModule.send(options), /observation.*read-only/);
+  await assert.rejects(morningModule.finalize(options), /observation.*read-only/);
+  assert.deepEqual(await p.calls(), [], 'reject before send discovery or mutation');
+  // A real later tick remains owned by the plan, not the observation.
+  git(p.root, 'checkout', '-q', 'plates-night-plan');
+  const later = finished();
+  later.items.find(i => i.id === 'climb-docs').status = 'done';
+  await writeFile(join(p.root, REMOTE_PLAN), JSON.stringify(later));
+  git(p.root, 'add', REMOTE_PLAN); git(p.root, 'commit', '-q', '-m', 'Acme: later outcome');
+  git(p.root, 'push', '-q', 'origin', 'plates-night-plan');
+  git(p.root, 'checkout', '-q', 'main');
+  const recovered = await finalPlan({ root: p.root, date: NIGHT });
+  assert.equal(recovered.plan.items.find(i => i.id === 'climb-docs').status, 'done');
+  const finalOptions = { ...options, reportMode: 'final', now: AFTER };
+  await morningModule.finalize(finalOptions);
+  assert.equal(JSON.parse(await readFile(join(p.root, `docs/night/${NIGHT}.json`))).items.find(i => i.id === 'climb-docs').status, 'done');
+  assert.equal((await morningModule.send(finalOptions)).data.sent, true);
+  assert.equal((await morningModule.send(finalOptions)).data.sent, false);
+  assert.equal((await p.issuesNow()).length, 1);
+  assert.equal((await p.issuesNow())[0].title, titleOf(NIGHT));
+});
+
+test('shipped observation mode is read-only and unavailable on effectful subcommands', async t => {
+  const p = await project(t);
+  const script = join(p.root, 'scripts/plates/morning.mjs');
+  const r = run(process.execPath, [script, 'brief', '--date', NIGHT, '--observation', '--json'], { cwd: p.root, env: { ...ENV, PLATES_GH: p.gh } });
+  assert.equal(r.status, 0, r.stderr || r.stdout);
+  assert.equal(JSON.parse(r.stdout).report.mode, 'observation');
+  for (const sub of ['send', 'finalize', 'decide']) {
+    assert.throws(() => morningModule.parseArgs([sub, '--date', NIGHT, '--observation']), /unexpected argument/);
+  }
+  assert.deepEqual(await p.calls(), []);
+});
+
+
+test('morning wrapper forwards observation flag and explicit reportMode with delivery without changing readiness', async t => {
+  const p = await project(t);
+  const options = { root: p.root, date: NIGHT, now: BEFORE, env: { ...ENV, PLATES_GH: p.gh } };
+  const delivery = { installation: { state: 'installed', operationId: 'acme-update-1' }, verification: { state: 'pending' } };
+  for (const mode of [{ observation: true }, { reportMode: 'observation' }]) {
+    const b = await morningModule.morning({ ...options, ...mode, delivery });
+    assert.ok(b.data.report, 'wrapper forwards the requested observation mode');
+    assert.equal(b.data.report.mode, 'observation');
+    assert.equal(b.data.report.finalTitle, titleOf(NIGHT));
+    assert.equal(b.data.readiness.ready, false);
+    assert.deepEqual(b.data.delivery.installation, delivery.installation);
+    assert.deepEqual(b.data.delivery.verification, delivery.verification);
+    assert.equal(b.data.delivery.retirement.state, 'unavailable');
+  }
+  const ordinary = await morningModule.morning(options);
+  assert.equal(ordinary.data.report, undefined, 'default remains the ordinary brief');
+  assert.equal(ordinary.data.readiness.ready, false);
+  assert.equal(ordinary.data.title, titleOf(NIGHT));
+  assert.deepEqual(await p.calls(), []);
+});
+
+test('morning wrapper refuses observation sends and cards before reading config or invoking effectful paths', async () => {
+  // No root: reaching either old path fails before the expected mode refusal.
+  for (const mode of [{ observation: true }, { reportMode: 'observation' }]) {
+    for (const effect of [{ send: true }, { card: true }, { send: true, card: true }, { yes: true }, { dryRun: true }]) {
+      await assert.rejects(morningModule.morning({ ...mode, ...effect }), /observation.*read-only/);
+    }
+  }
+  await assert.rejects(morningModule.morning({ observation: true, reportMode: 'final', send: true }), /conflicts/);
+  await assert.rejects(morningModule.morning({ reportMode: 'unknown', card: true, yes: true }), /reportMode/);
+});
+
+
+test('public morning observation reaches the read-only wrapper and refuses publishing flags', async t => {
+  const p = await project(t);
+  const args = ['morning', '--observation', '--date', NIGHT, '--json'];
+  const r = plates(args, p.root, { PLATES_GH: p.gh });
+  assert.equal(r.code, 0, r.err || r.out);
+  assert.equal(r.json().report.mode, 'observation');
+  assert.equal(r.json().report.finalTitle, titleOf(NIGHT));
+  assert.equal(r.json().delivery.installation.state, 'unknown');
+  assert.deepEqual(r.json().sections.unfinished, ['climb-docs']);
+  for (const flag of ['--send', '--card', '--yes', '--dry-run']) {
+    const denied = plates([...args, flag], p.root, { PLATES_GH: p.gh });
+    assert.equal(denied.code, 2, flag);
+    assert.match(denied.out + denied.err, /observation.*cannot publish/);
+  }
+  assert.deepEqual(await p.calls(), [], 'public observation cannot call issue or model dispatch APIs');
+  assert.deepEqual(await p.issuesNow(), []);
+});
