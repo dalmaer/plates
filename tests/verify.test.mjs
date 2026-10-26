@@ -352,3 +352,24 @@ test('recording keeps every other file on keel-verify, and refuses a keel-verify
   assert.deepEqual(files().sort(), ['README.md', 'notes/anvils.md', VERIFY_FILE]);
   assert.equal(verifyResults(execFileSync('git', ['--git-dir', repo.origin, 'show', `refs/heads/${VERIFY_BRANCH}:${VERIFY_FILE}`], { env: ENV, encoding: 'utf8' })).length, 1);
 });
+
+// ledger, 17 and 26 Oct 2026: the verify branch holds verify.json and nothing to build, yet Vercel, which deploys every
+// pushed branch, tried, and mailed the owner a failed build ("Root Directory "web" does not exist") on every record.
+test('the verify branch is not the app: where the project has a vercel.json, the branch gets one that turns deployments off, once', async t => {
+  const { prod, repo, v } = await setup(t);
+  await mkdir(join(repo.root, 'web'), { recursive: true });
+  await writeFile(join(repo.root, 'vercel.json'), '{"framework":"nextjs"}\n');
+  await writeFile(join(repo.root, 'web/vercel.json'), '{"framework":"nextjs"}\n');
+  repo.git('add', '-A');
+  repo.git('commit', '-qm', 'Acme: on Vercel');
+  const result = { sha: repo.C, ok: true, at: '2026-10-26T08:00:00.000Z', site: prod.site, serving: repo.C, failures: [] };
+  const files = () => execFileSync('git', ['--git-dir', repo.origin, 'ls-tree', '-r', '--name-only', `refs/heads/${VERIFY_BRANCH}`], { env: ENV, encoding: 'utf8' }).trim().split('\n').sort();
+  const off = p => JSON.parse(execFileSync('git', ['--git-dir', repo.origin, 'show', `refs/heads/${VERIFY_BRANCH}:${p}`], { env: ENV, encoding: 'utf8' }));
+  v.record({ root: repo.root, result, env: ENV });
+  assert.deepEqual(files(), ['vercel.json', 'verify.json', 'web/vercel.json']);
+  for (const p of ['vercel.json', 'web/vercel.json']) assert.deepEqual(off(p), { git: { deploymentEnabled: false } }, p);
+  // The next record keeps them and adds nothing.
+  v.record({ root: repo.root, result: { ...result, at: '2026-10-26T09:00:00.000Z' }, env: ENV });
+  assert.deepEqual(files(), ['vercel.json', 'verify.json', 'web/vercel.json']);
+  assert.equal(verifyResults(execFileSync('git', ['--git-dir', repo.origin, 'show', `refs/heads/${VERIFY_BRANCH}:${VERIFY_FILE}`], { env: ENV, encoding: 'utf8' })).length, 2);
+});

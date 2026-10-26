@@ -222,6 +222,31 @@ export async function live({ root, config, sha, site, env = process.env, fetch, 
  * branch with none, is never replaced (exit 1); every other file on the branch
  * is kept. { recorded: true, commit, branch }.
  */
+/**
+ * The verify branch is not the app. It holds verify.json and nothing to build,
+ * yet a host that deploys every pushed branch tries, and mails the owner a
+ * failed build each time (ledger, 17 and 26 Oct 2026: "Root Directory "web"
+ * does not exist"). Vercel reads `vercel.json` from the commit it builds, so
+ * the opt-out is on the branch itself: wherever the project's tree has a
+ * `vercel.json` (its root, or one folder down where the app lives), the branch
+ * gets one that turns deployments off, unless that name is already there.
+ * Tree entries for mktree; none for a project without Vercel. The night
+ * practice's plan branch does the same (night-plan.mjs, hostingOptOutPaths).
+ */
+function hostingOptOut(root, env, ok, present) {
+  const listed = git(root, env, ['ls-tree', '-r', '--name-only', 'HEAD']);
+  if (listed.status !== 0) return [];
+  const paths = String(listed.stdout).split('\n').map(p => p.trim()).filter(p => /^(?:[^/]+\/)?vercel\.json$/.test(p));
+  if (!paths.length) return [];
+  const blob = ok(['hash-object', '-w', '--stdin'], 'cannot write the hosting opt-out', `${JSON.stringify({ git: { deploymentEnabled: false } }, null, 2)}\n`);
+  return paths.flatMap(p => {
+    const [dir, file] = p.includes('/') ? p.split('/') : [null, p];
+    if (present.has(dir ?? file)) return [];
+    if (!dir) return [`100644 blob ${blob}\t${file}`];
+    return [`040000 tree ${ok(['mktree'], 'cannot write the hosting opt-out', `100644 blob ${blob}\t${file}\n`)}\t${dir}`];
+  });
+}
+
 export function record({ root, result, remote = 'origin', env = process.env, attempts = 3, now = Date.now(), production = null }) {
   const entry = { sha: result.sha, ok: result.ok, at: result.at, site: result.site, serving: result.serving, failures: result.failures, ...(result.run ? { run: result.run } : {}) };
   const ref = `refs/heads/${VERIFY_BRANCH}`, local = 'refs/plates/verify/tip';
@@ -246,7 +271,8 @@ export function record({ root, result, remote = 'origin', env = process.env, att
     const blob = ok(['hash-object', '-w', '--stdin'], 'cannot write the record', text);
     // The tip's own tree with verify.json replaced: every other entry stays as it was.
     const others = tip ? ok(['ls-tree', '-z', tip], `cannot read ${VERIFY_BRANCH}'s tree`).split('\0').filter(e => e && e.split('\t').slice(1).join('\t') !== VERIFY_FILE) : [];
-    const tree = ok(['mktree', '-z'], 'cannot write the record', [...others, `100644 blob ${blob}\t${VERIFY_FILE}`].map(e => `${e}\0`).join(''));
+    const optOut = hostingOptOut(root, env, ok, new Set(others.map(e => e.split('\t').slice(1).join('\t'))));
+    const tree = ok(['mktree', '-z'], 'cannot write the record', [...others, ...optOut, `100644 blob ${blob}\t${VERIFY_FILE}`].map(e => `${e}\0`).join(''));
     const commit = ok(['-c', 'user.name=keel-verify', '-c', 'user.email=41898282+github-actions[bot]@users.noreply.github.com', 'commit-tree', tree, ...(tip ? ['-p', tip] : []), '-m', `plates verify: ${entry.ok ? 'passed' : 'failed'} for ${short(entry.sha)} (${entry.at})`], 'cannot write the record');
     const pushed = git(root, env, ['push', '--quiet', '--no-verify', `--force-with-lease=${ref}:${tip ?? ''}`, remote, `${commit}:${ref}`]);
     if (pushed.status === 0) return { recorded: true, commit, branch: VERIFY_BRANCH };

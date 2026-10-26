@@ -139,7 +139,7 @@
     },
     "docs/plates-lessons.md": {
       "practice": "lessons",
-      "sha256": "a97971fb380fd9817674a60d53be7e3f6b99eb79f14f43148a2525753029f3c0"
+      "sha256": "07584f49a8e772900fecf092c11ac387c4e1f9eed6b79f8f73918f639b4b8f05"
     },
     "docs/reconciliation.md": {
       "practice": "reconciliation",
@@ -235,7 +235,7 @@
     },
     "scripts/plates/night-plan.mjs": {
       "practice": "night",
-      "sha256": "6e2ebcab928ee9fea363a729473816442d9a1efdaf6cdefc5d1291a5c0d91f07"
+      "sha256": "9611ed5e7ed273263c6b75e1c17888745eab0b6072662818c5f8602057b8a926"
     },
     "scripts/plates/persona.mjs": {
       "practice": "personas",

@@ -844,3 +844,29 @@ test('phase128 plan temp index leaves pre-existing current and legacy paths unto
   for (const name of before) assert.equal(await readFile(join(gitdir, name), 'utf8'), 'Acme unrelated index');
   assert.equal(f.show().items.find(item => item.id === 'climb-tests').status, 'running');
 });
+
+// ledger, 17 and 26 Oct 2026: the plan branch holds a JSON file and nothing to build, yet Vercel, which deploys every
+// pushed branch, tried, and mailed the owner a failed build ("Root Directory "web" does not exist") each night.
+test('the plan branch is not the app: where the project has a vercel.json, the branch gets one that turns deployments off, from either writer', async t => {
+  const { publishDefault, writePlan } = await import('../lib/night-plan.mjs');
+  const { pushPlan } = await import('../lib/goodnight.mjs');
+  const fresh = await planRemote(t, null);
+  await mkdir(join(fresh.dir, 'web'), { recursive: true });
+  await writeFile(join(fresh.dir, 'vercel.json'), '{"framework":"nextjs"}\n');
+  await writeFile(join(fresh.dir, 'web/vercel.json'), '{"framework":"nextjs"}\n');
+  fresh.git(['add', '-A']);
+  fresh.git(['commit', '-q', '-m', 'acme: on Vercel']);
+  const files = () => fresh.git(['ls-tree', '-r', '--name-only', 'refs/heads/plates-night-plan'], fresh.origin).split('\n').sort();
+  const off = p => JSON.parse(fresh.git(['show', `refs/heads/plates-night-plan:${p}`], fresh.origin));
+  // The default plan creates the branch.
+  await writePlan(fresh.dir, defaultTonight());
+  const made = await publishDefault({ root: fresh.dir, date: NIGHT });
+  assert.equal(made.written, true, made.why);
+  assert.deepEqual(files(), ['.plates/night/plan.json', 'vercel.json', 'web/vercel.json']);
+  for (const p of ['vercel.json', 'web/vercel.json']) assert.deepEqual(off(p), { git: { deploymentEnabled: false } }, p);
+  // The owner's plan replaces the branch whole: it carries the opt-out too.
+  await pushPlan(fresh.dir, plannedTonight(), process.env, 'origin');
+  assert.deepEqual(files(), ['.plates/night/plan.json', 'vercel.json', 'web/vercel.json']);
+  assert.deepEqual(off('web/vercel.json'), { git: { deploymentEnabled: false } });
+  assert.equal(fresh.show().shapedBy, 'owner');
+});
