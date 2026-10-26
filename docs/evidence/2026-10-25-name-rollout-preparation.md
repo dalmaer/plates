@@ -353,3 +353,17 @@ The first local correction gate ran inside a sandbox that refuses loopback socke
 
 
 The explicit replacement table now pins the new reader while retaining both prior accepted hashes byte-for-byte. The legacy-to-current conversion still validates the canonical replacement and rejects unknown/local variants. Two before-fix failures became four targeted passes; 369 focused/convention checks passed, including all guards. Hosted retry pins remain unchanged. The complete host gate and exact-head review are the remaining integration checks.
+
+### Corrected night passed; observation coverage remains incomplete
+
+PR #273 merged as `0ebe205825b8b82b7ee15d629ec384de3da824da` after exact-head Claude review 5646486600 with no findings and passing local/hosted gates. The final local check exercised enclosing-night variables: 3,545 tests, 3,541 passed, four skipped, zero failures; nine stall checks and all guards passed. Main CI 40255779852 passed.
+
+Dispatched night 40256668332 attempt 1 succeeded and explicitly reused that exact-main CI evidence; it did not rerun the gate locally. Its four-file observation artifact records completed plan-publication, night-PR and drain producers, but `improve` is unavailable. The migration verifier therefore remains incomplete. The original failed night 40251515967 is retained separately. Green execution is not rollout acceptance.
+
+The original improve JSON and imports manifest were not retained. Read-only probes accepted a real synthetic four-write improve observation and found 78 imports in an import-only self-runtime probe. A 1,048,576-byte input passed the collector's size boundary; 1,048,577 bytes produced the generic failure. That proves the boundary, not the live cause. No size bound is increased on this evidence.
+
+The next collector change preserves the existing generic failure and adds fixed validation-stage categories plus numeric input/manifest sizes in diagnostic output, excluding paths, report text and error messages. Incomplete producer transfer cannot become a completed observation. Existing artifact schemas, source checks and bounds remain authoritative. Focused regression checks and the integrated `npm run check` verify the correction; a fresh source-bound run is still needed to identify the original live failure.
+
+### Isocan merge authorization
+
+On 2026-10-25 America/Denver the owner authorized this session to merge Isocan PR #526 at reviewed head `ddce3355b74726fbceb5b21fc2eae6881d9a1399` once Plates, Ledger, Duo and Cajones verify and Isocan's approved pause/drain barrier is satisfied. No check, order, budget or barrier is waived. The exact approval is retained privately; no consumer installation is asserted here.
