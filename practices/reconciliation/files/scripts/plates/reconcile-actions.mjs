@@ -1,5 +1,5 @@
 // Trusted Actions boundary for the existing reconciliation engine. No project commands.
-import { readFile, writeFile, realpath, lstat } from 'node:fs/promises';
+import { readFile, writeFile, realpath, lstat, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
@@ -56,6 +56,19 @@ export function identity(env) {
   insist(path === `${value.repository}/.github/workflows/check.yml` ? value.event === 'push' : path === `${value.repository}/.github/workflows/plates-night.yml` && ['schedule', 'workflow_dispatch'].includes(value.event));
   return value;
 }
+export function producerIdentity(env, consumer = identity(env)) {
+  const attempt = env.PLATES_RECONCILE_PRODUCER_ATTEMPT;
+  insist(/^[1-9]\d*$/.test(attempt ?? '') && Number.isSafeInteger(Number(attempt)) && Number(attempt) <= Number(consumer.attempt));
+  return { ...consumer, attempt };
+}
+function attemptMatches(run, id) {
+  const path = id.workflow.split('@')[0].slice(id.repository.length + 1);
+  // GitHub returns the workflow path, sometimes suffixed by its exact source ref.
+  return String(run.id) === id.run && String(run.run_attempt) === id.attempt
+    && String(run.repository?.id) === id.repositoryId && run.repository?.full_name === id.repository
+    && run.head_sha === id.sha && run.head_branch === id.defaultBranch && run.event === id.event
+    && [path, `${path}@${id.defaultBranch}`, `${path}@${id.ref}`].includes(run.path);
+}
 async function bounded(path) {
   const st = await lstat(path); insist(st.isFile() && !st.isSymbolicLink() && st.size <= LIMIT);
   const bytes = await readFile(path); insist(bytes.length <= LIMIT); return bytes;
@@ -92,11 +105,14 @@ export function unavailable() {
 }
 export async function consume({ root, env = process.env }) {
   try {
-    const id = identity(env), bytes = await bounded(env.PLATES_RECONCILE_SNAPSHOT);
+    const id = identity(env), producer = producerIdentity(env, id), bytes = await bounded(env.PLATES_RECONCILE_SNAPSHOT);
     const value = JSON.parse(bytes);
+    insist(same(value.consumer, id));
     insist(value.artifact && value.artifact.id === env.PLATES_RECONCILE_ARTIFACT_ID && value.artifact.digest === env.PLATES_RECONCILE_ARTIFACT_DIGEST);
     const raw = Buffer.from(value.bytes, 'base64'); insist(raw.length <= LIMIT);
-    return await validateEnvelope(JSON.parse(raw), { bytes: raw, expectedDigest: env.PLATES_RECONCILE_RESULT_DIGEST, id, runtime: await source(root, id), local: await reconcile({ root }) });
+    const envelope = JSON.parse(raw);
+    const facts = await validateEnvelope(envelope, { bytes: raw, expectedDigest: env.PLATES_RECONCILE_RESULT_DIGEST, id: producer, runtime: await source(root, id), local: await reconcile({ root }) });
+    return freeze({ ...facts, snapshot: { ...facts.snapshot, actions: { producer, consumer: id, artifact: value.artifact, observedAt: envelope.observedAt } } });
   } catch { return unavailable(); }
 }
 async function github(path, env, binary = false) {
@@ -110,12 +126,16 @@ async function github(path, env, binary = false) {
   } catch { throw Error('Reconciliation artifact unavailable'); }
 }
 export async function restore(root, env, readGithub = github) {
-  const id = identity(env), artifactId = env.PLATES_RECONCILE_ARTIFACT_ID;
+  // A failed revalidation must not leave an earlier wrapper usable.
+  await unlink(env.PLATES_RECONCILE_SNAPSHOT).catch(error => { if (error.code !== 'ENOENT') throw error; });
+  const id = identity(env), producer = producerIdentity(env, id), artifactId = env.PLATES_RECONCILE_ARTIFACT_ID;
   insist(/^[1-9]\d*$/.test(artifactId ?? '') && /^sha256:[a-f0-9]{64}$/.test(env.PLATES_RECONCILE_ARTIFACT_DIGEST ?? ''));
-  const run = await readGithub(`repos/${id.repository}/actions/runs/${id.run}`, env);
-  insist(String(run.id) === id.run && String(run.run_attempt) === id.attempt && String(run.repository?.id) === id.repositoryId && run.head_sha === id.sha && run.head_branch === id.defaultBranch && run.event === id.event && run.path === id.workflow.split('@')[0].slice(id.repository.length + 1));
+  const attemptPath = attempt => `repos/${id.repository}/actions/runs/${id.run}/attempts/${attempt}`;
+  const run = await readGithub(attemptPath(id.attempt), env);
+  insist(attemptMatches(run, id));
+  if (producer.attempt !== id.attempt) insist(attemptMatches(await readGithub(attemptPath(producer.attempt), env), producer));
   const artifact = await readGithub(`repos/${id.repository}/actions/artifacts/${artifactId}`, env);
-  insist(String(artifact.id) === artifactId && artifact.name === `plates-reconciliation-${id.run}-${id.attempt}` && artifact.expired === false && artifact.size_in_bytes > 0 && artifact.size_in_bytes <= LIMIT && artifact.digest === env.PLATES_RECONCILE_ARTIFACT_DIGEST && String(artifact.workflow_run?.id) === id.run && artifact.workflow_run?.head_sha === id.sha);
+  insist(String(artifact.id) === artifactId && artifact.name === `plates-reconciliation-${producer.run}-${producer.attempt}` && artifact.expired === false && artifact.size_in_bytes > 0 && artifact.size_in_bytes <= LIMIT && artifact.digest === env.PLATES_RECONCILE_ARTIFACT_DIGEST && String(artifact.workflow_run?.id) === id.run && artifact.workflow_run?.head_sha === id.sha);
   const zip = await readGithub(`repos/${id.repository}/actions/artifacts/${artifactId}/zip`, env, true);
   insist(`sha256:${digest(zip)}` === artifact.digest);
   const archive = join(env.RUNNER_TEMP, 'plates-reconciliation.zip');
@@ -123,8 +143,8 @@ export async function restore(root, env, readGithub = github) {
   const listing = await exec('/usr/bin/unzip', ['-Z1', archive], { timeout: 10000, maxBuffer: LIMIT });
   insist(listing.stdout === 'result.json\n');
   const { stdout: bytes } = await exec('/usr/bin/unzip', ['-p', archive, 'result.json'], { encoding: 'buffer', timeout: 10000, maxBuffer: LIMIT });
-  await validateEnvelope(JSON.parse(bytes), { bytes, expectedDigest: env.PLATES_RECONCILE_RESULT_DIGEST, id, runtime: await source(root, id), local: await reconcile({ root }) });
-  await writeFile(env.PLATES_RECONCILE_SNAPSHOT, JSON.stringify({ artifact: { id: artifactId, digest: artifact.digest }, bytes: bytes.toString('base64') }), { mode: 0o600 });
+  await validateEnvelope(JSON.parse(bytes), { bytes, expectedDigest: env.PLATES_RECONCILE_RESULT_DIGEST, id: producer, runtime: await source(root, id), local: await reconcile({ root }) });
+  await writeFile(env.PLATES_RECONCILE_SNAPSHOT, JSON.stringify({ consumer: id, artifact: { id: artifactId, digest: artifact.digest }, bytes: bytes.toString('base64') }), { mode: 0o600 });
 }
 async function main() {
   if (process.argv[2] === '--pull') {
@@ -148,7 +168,7 @@ async function main() {
   if (!token) { facts.unknown.push({ rule: 'github-unavailable', path: '', message: 'Reconciliation credential unavailable' }); facts.snapshot.remote = 'incomplete'; }
   const bytes = JSON.stringify(envelope(facts, id, runtime));
   await writeFile(join(env.RUNNER_TEMP, 'result.json'), bytes, { mode: 0o600 });
-  await writeFile(env.GITHUB_OUTPUT, `digest=${digest(bytes)}\nstatus=${facts.unknown.length ? 2 : facts.findings.length ? 1 : 0}\n`, { flag: 'a' });
+  await writeFile(env.GITHUB_OUTPUT, `producer_attempt=${id.attempt}\ndigest=${digest(bytes)}\nstatus=${facts.unknown.length ? 2 : facts.findings.length ? 1 : 0}\n`, { flag: 'a' });
 }
 if (process.argv[1] && await realpath(process.argv[1]).catch(() => '') === SELF) {
   main().catch(() => { process.stderr.write('Reconciliation Actions evidence unavailable\n'); process.exitCode = 2; });

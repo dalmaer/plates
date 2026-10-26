@@ -79,6 +79,7 @@ jobs:
       pull-requests: read
       actions: read
     outputs:
+      producer_attempt: ${{ steps.observe.outputs.producer_attempt }}
       artifact_id: ${{ steps.archive.outputs.artifact-id }}
       artifact_digest: ${{ steps.archive.outputs.artifact-digest }}
       result_digest: ${{ steps.observe.outputs.digest }}
@@ -182,6 +183,7 @@ jobs:
         env:
           PLATES_RECONCILE_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           PLATES_RECONCILE_SNAPSHOT: ${{ runner.temp }}/plates-reconciliation.json
+          PLATES_RECONCILE_PRODUCER_ATTEMPT: ${{ needs.reconciliation.outputs.producer_attempt }}
           PLATES_RECONCILE_ARTIFACT_ID: ${{ needs.reconciliation.outputs.artifact_id }}
           PLATES_RECONCILE_ARTIFACT_DIGEST: sha256:${{ needs.reconciliation.outputs.artifact_digest }}
           PLATES_RECONCILE_RESULT_DIGEST: ${{ needs.reconciliation.outputs.result_digest }}
@@ -386,6 +388,7 @@ jobs:
           PLATES_RECONCILE_REQUIRED: "1"
           PLATES_RECONCILE_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           PLATES_RECONCILE_SNAPSHOT: ${{ runner.temp }}/plates-reconciliation.json
+          PLATES_RECONCILE_PRODUCER_ATTEMPT: ${{ needs.reconciliation.outputs.producer_attempt }}
           PLATES_RECONCILE_ARTIFACT_ID: ${{ needs.reconciliation.outputs.artifact_id }}
           PLATES_RECONCILE_ARTIFACT_DIGEST: sha256:${{ needs.reconciliation.outputs.artifact_digest }}
           PLATES_RECONCILE_RESULT_DIGEST: ${{ needs.reconciliation.outputs.result_digest }}

@@ -322,3 +322,10 @@ A diagnostic reproduced this assertion when the test's synthetic minute advances
 
 
 The test-only repair covers both same-day cache reuse and request-budget convergence, retaining the separate explicit midnight behavior. A near-midnight seeded before-fix copy failed both same-day assertions; the repaired scenarios passed, and the entire seeded file passed 17 tests. The focused/convention check passed 127 tests plus roadmap, render, inbox and whitespace guards. No production timeout, request ceiling, runtime code or acceptance threshold changed. The parent gate and exact-head re-review remain separate checks.
+
+
+### Partial-rerun reconciliation recovery
+
+Claude review 5646129221 on `0b771733` identified that GitHub's failed-jobs-only rerun can carry a successful producer's earlier outputs into the current night attempt. The prior current-attempt-only binding correctly refused that evidence but made this recovery unavailable. The correction explicitly carries the producing attempt, validates both attempts through exact-attempt GitHub reads, binds the restored wrapper to the consumer, and retains producer/consumer identities and original observation time in the result. Same run/repository/source/workflow, artifact ID/digests, inventory and freshness remain mandatory; future, foreign, stale and altered evidence is refused. No credential reaches the night job.
+
+The real-ZIP regression failed against the previous restore helper and passed with the correction. Thirty-one focused tests and 193 focused/convention checks passed, with roadmap/render/inbox/whitespace guards. The actual GitHub attempt API was read to confirm its identity fields. This synthetic recovery proof does not claim a live partial rerun or token read. Commit `0b771733` subsequently passed hosted CI; the new correction still requires its own gate and exact-head review.

@@ -93,12 +93,14 @@ test('render isolates secret in trusted producer; consumer runs on producer fail
     assert.equal(shapeReconciliation(template, {} , night), template);
     const rendered = shapeReconciliation(template, config, night), producer = rendered.split('  reconciliation:\n')[1].split(night ? '  night:\n' : '  check:\n')[0];
     assert.equal((rendered.match(/secrets\.PLATES_RECONCILE_TOKEN/g) ?? []).length, 1);
+    assert.match(producer, /producer_attempt: \$\{\{ steps.observe.outputs.producer_attempt \}\}/);
     assert.match(producer, /github\.ref == format/); assert.match(producer, /persist-credentials: false/);
     assert.match(producer, /ref: \$\{\{ github.sha \}\}/); assert.doesNotMatch(producer, /npm|gate\.mjs|setupToken|node-version-file/);
     if (night) {
       assert.match(rendered, /needs: \[reconciliation\]\n    if: \$\{\{ !cancelled\(\) \}\}/);
       assert.ok(rendered.indexOf('Restore trusted reconciliation') < rendered.indexOf('Read the config'));
       assert.match(rendered, /PLATES_RECONCILE_REQUIRED: "1"/);
+      assert.equal((rendered.match(/PLATES_RECONCILE_PRODUCER_ATTEMPT: \$\{\{ needs.reconciliation.outputs.producer_attempt \}\}/g) ?? []).length, 2);
     } else { assert.doesNotMatch(rendered.split('  check:\n')[1], /reconcile\.mjs --github/); }
   }
 });
@@ -111,7 +113,7 @@ test('upload action bare digest is explicitly adapted to REST sha256 representat
   assert.equal(`sha256:${actionOutput}`, 'sha256:' + '0'.repeat(64));
 });
 
-test('real ZIP transport binds provider IDs/digests and rejects reruns and post-setup source edits', async t => {
+for (const producerAttempt of ['1', '2']) test(`real ZIP transport binds producer ${producerAttempt} to consumer 2 and rejects forged reruns`, async t => {
   const { restore } = await import('../practices/reconciliation/files/scripts/plates/reconcile-actions.mjs');
   const { run } = await import('./helpers/run.mjs');
   const { cp } = await import('node:fs/promises');
@@ -119,37 +121,77 @@ test('real ZIP transport binds provider IDs/digests and rejects reruns and post-
   t.after(() => rm(root, { recursive: true, force: true }));
   for (const path of ['.plates', '.github/workflows', 'scripts/plates', 'docs/phases', 'transport']) await mkdir(join(root, path), { recursive: true });
   const paths = ['scripts/plates/reconcile-actions.mjs', 'scripts/plates/reconcile.mjs', 'scripts/plates/names.mjs'];
-  for (const path of paths) await cp(new URL('../practices/reconciliation/files/' + path, import.meta.url), join(root, path));
+  for (const path of paths) await cp(new URL(`../practices/${path.endsWith('/names.mjs') ? 'night' : 'reconciliation'}/files/${path}`, import.meta.url), join(root, path));
   const workflow = '.github/workflows/plates-night.yml'; paths.push(workflow);
   await writeFile(join(root, workflow), 'name: Acme\n');
-  await writeFile(join(root, '.plates/plates.json'), JSON.stringify({ repo: 'acme/app' }));
+  await writeFile(join(root, '.plates/plates.json'), JSON.stringify({ repo: 'acme/app', reconciliation: config.reconciliation }));
   await writeFile(join(root, 'docs/phases/01.md'), '# Acme\n');
   for (const args of [['init'], ['add', '.'], ['commit', '-m', 'Acme source']]) assert.equal(run('git', ['-c', 'core.fsmonitor=false', ...args], { cwd: root }).status, 0);
   const revision = run('git', ['-c', 'core.fsmonitor=false', 'rev-parse', 'HEAD'], { cwd: root }).stdout.trim();
-  const transportEnv = { ...env, GITHUB_SHA: revision, GITHUB_WORKFLOW_SHA: revision, RUNNER_TEMP: join(root, 'transport'), PLATES_RECONCILE_ARTIFACT_ID: '56', PLATES_RECONCILE_SNAPSHOT: join(root, 'transport/snapshot.json') };
-  const id = identity(transportEnv), runtime = {};
-  for (const path of paths) runtime[path] = digest(await readFile(join(root, path)));
-  const facts = await reconcile({ root, github: true, prFacts: {} });
-  const bytes = JSON.stringify(envelope(facts, id, runtime));
-  await writeFile(join(root, 'transport/result.json'), bytes);
+  const transportEnv = { ...env, PLATES_RECONCILE_PRODUCER_ATTEMPT: producerAttempt, GITHUB_SHA: revision, GITHUB_WORKFLOW_SHA: revision, RUNNER_TEMP: join(root, 'transport'), PLATES_RECONCILE_ARTIFACT_ID: '56', PLATES_RECONCILE_SNAPSHOT: join(root, 'transport/snapshot.json') };
+  const output = join(root, 'transport/outputs');
+  const produced = run(process.execPath, ['scripts/plates/reconcile-actions.mjs', '--produce'], { cwd: root,
+    env: { ...process.env, ...transportEnv, GITHUB_RUN_ATTEMPT: producerAttempt, GITHUB_OUTPUT: output, GH_TOKEN: 'Acme-default-token', PLATES_RECONCILE_TOKEN: 'Acme-private-token' } });
+  assert.equal(produced.status, 0, produced.stderr);
+  const outputs = Object.fromEntries((await readFile(output, 'utf8')).trim().split('\n').map(line => line.split('=')));
+  assert.equal(outputs.producer_attempt, producerAttempt, 'job output comes from the actual producer invocation');
+  const bytes = await readFile(join(root, 'transport/result.json'), 'utf8');
+  assert.equal(outputs.digest, digest(bytes));
+  assert.equal(JSON.parse(bytes).identity.attempt, outputs.producer_attempt);
   assert.equal(run('/usr/bin/zip', ['-q', 'source.zip', 'result.json'], { cwd: join(root, 'transport') }).status, 0);
   const zip = await readFile(join(root, 'transport/source.zip'));
   const bareActionDigest = digest(zip);
   transportEnv.PLATES_RECONCILE_ARTIFACT_DIGEST = `sha256:${bareActionDigest}`;
   transportEnv.PLATES_RECONCILE_RESULT_DIGEST = digest(bytes);
-  const runMetadata = { id: 34, run_attempt: 2, repository: { id: 12 }, head_sha: revision, head_branch: 'main', event: 'schedule', path: workflow };
-  const artifact = { id: 56, name: 'plates-reconciliation-34-2', digest: `sha256:${bareActionDigest}`, expired: false, size_in_bytes: zip.length, workflow_run: { id: 34, head_sha: revision } };
-  let mutation;
+  const runMetadata = { id: 34, run_attempt: 2, repository: { id: 12, full_name: 'acme/app' }, head_sha: revision, head_branch: 'main', event: 'schedule', path: workflow };
+  const artifact = { id: 56, name: `plates-reconciliation-34-${producerAttempt}`, digest: `sha256:${bareActionDigest}`, expired: false, size_in_bytes: zip.length, workflow_run: { id: 34, head_sha: revision } };
+  let mutation; const calls = [];
   const api = async path => {
+    calls.push(path);
     if (path.endsWith('/zip')) return mutation === 'zip' ? Buffer.from('Acme damaged archive') : zip;
-    if (path.endsWith('/runs/34')) return { ...runMetadata, ...(mutation === 'attempt' ? { run_attempt: 3 } : {}) };
+    const requestedAttempt = /^repos\/acme\/app\/actions\/runs\/34\/attempts\/([12])$/.exec(path)?.[1];
+    if (requestedAttempt || path.endsWith('/runs/34')) return { ...runMetadata, run_attempt: Number(requestedAttempt ?? 2),
+      ...(mutation === 'attempt' ? { run_attempt: 3 } : mutation === 'run' ? { id: 35 } : mutation === 'repo' ? { repository: { id: 99, full_name: 'acme/other' } } : mutation === 'source' ? { head_sha: 'f'.repeat(40) } : mutation === 'workflow' ? { path: '.github/workflows/other.yml' } : mutation === 'ref' ? { path: `${workflow}@other` } : mutation === 'qualified-path' ? { path: `${workflow}@main` } : {}) };
     assert.ok(path.endsWith('/artifacts/56'));
     return { ...artifact, ...(mutation === 'expired' ? { expired: true } : mutation === 'artifact' ? { id: 99 } : mutation === 'digest' ? { digest: 'sha256:' + 'f'.repeat(64) } : {}) };
   };
   await restore(root, transportEnv, api);
-  assert.deepEqual((await consume({ root, env: transportEnv })).unknown, []);
-  for (mutation of ['attempt', 'expired', 'artifact', 'digest', 'zip']) await assert.rejects(restore(root, transportEnv, api), undefined, mutation);
-  assert.equal((await consume({ root, env: { ...transportEnv, GITHUB_RUN_ATTEMPT: '3' } })).unknown.length, 1);
+  const consumed = await consume({ root, env: transportEnv });
+  assert.deepEqual(consumed.unknown, []);
+  assert.equal(consumed.snapshot.actions.producer.attempt, producerAttempt);
+  assert.equal(consumed.snapshot.actions.consumer.attempt, '2');
+  assert.ok(Object.isFrozen(consumed.snapshot.actions.producer));
+  assert.deepEqual(calls.filter(path => path.includes('/runs/')), [
+    'repos/acme/app/actions/runs/34/attempts/2', ...(producerAttempt === '1' ? ['repos/acme/app/actions/runs/34/attempts/1'] : []),
+  ]);
+  const restored = await readFile(transportEnv.PLATES_RECONCILE_SNAPSHOT, 'utf8');
+  const wrapper = JSON.parse(restored);
+  assert.equal(wrapper.consumer.attempt, '2');
+  assert.equal(JSON.parse(Buffer.from(wrapper.bytes, 'base64')).identity.attempt, producerAttempt);
+  for (mutation of ['attempt', 'run', 'repo', 'source', 'workflow', 'ref', 'expired', 'artifact', 'digest', 'zip']) {
+    await writeFile(transportEnv.PLATES_RECONCILE_SNAPSHOT, restored);
+    await assert.rejects(restore(root, transportEnv, api), undefined, mutation);
+    assert.equal((await consume({ root, env: transportEnv })).unknown.length, 1, `${mutation}: failed restore cannot reuse a previous wrapper`);
+  }
+  mutation = 'qualified-path'; await restore(root, transportEnv, api); mutation = undefined;
+  for (const attempt of [undefined, '0', '3', '9007199254740992', producerAttempt === '1' ? '2' : '1']) {
+    const forged = { ...transportEnv, PLATES_RECONCILE_PRODUCER_ATTEMPT: attempt };
+    await assert.rejects(restore(root, forged, api));
+    assert.equal((await consume({ root, env: forged })).unknown.length, 1);
+  }
+  await writeFile(transportEnv.PLATES_RECONCILE_SNAPSHOT, restored);
+  for (const patch of [{ GITHUB_RUN_ATTEMPT: '3' }, { GITHUB_RUN_ID: '35' }, { GITHUB_REPOSITORY_ID: '13' }, { GITHUB_SHA: 'f'.repeat(40) }])
+    assert.equal((await consume({ root, env: { ...transportEnv, ...patch } })).unknown.length, 1);
+  for (const age of [-10000, 24 * 3600000 + 10000]) {
+    const old = JSON.parse(bytes); old.observedAt = new Date(Date.now() - age).toISOString();
+    const raw = JSON.stringify(old);
+    await writeFile(transportEnv.PLATES_RECONCILE_SNAPSHOT, JSON.stringify({ ...wrapper, bytes: Buffer.from(raw).toString('base64') }));
+    assert.equal((await consume({ root, env: { ...transportEnv, PLATES_RECONCILE_RESULT_DIGEST: digest(raw) } })).unknown.length, 1, 'original observation freshness is never reset at restore');
+  }
+  await writeFile(transportEnv.PLATES_RECONCILE_SNAPSHOT, restored);
+  await writeFile(transportEnv.PLATES_RECONCILE_SNAPSHOT, JSON.stringify({ ...wrapper, consumer: { ...wrapper.consumer, attempt: '1' } }));
+  assert.equal((await consume({ root, env: transportEnv })).unknown.length, 1, 'wrapper from another consumer attempt cannot be transplanted');
+  await writeFile(transportEnv.PLATES_RECONCILE_SNAPSHOT, restored);
   await writeFile(join(root, 'docs/phases/02.md'), '# Added by setup\n');
   assert.equal((await consume({ root, env: transportEnv })).unknown.length, 1);
 });

@@ -23,6 +23,7 @@ jobs:
       pull-requests: read
       actions: read
     outputs:
+      producer_attempt: ${{ steps.observe.outputs.producer_attempt }}
       artifact_id: ${{ steps.archive.outputs.artifact-id }}
       artifact_digest: ${{ steps.archive.outputs.artifact-digest }}
       result_digest: ${{ steps.observe.outputs.digest }}

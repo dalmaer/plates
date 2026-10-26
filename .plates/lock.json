@@ -67,7 +67,7 @@
     },
     ".github/workflows/check.yml": {
       "practice": "ci",
-      "sha256": "bf374cdd3d1cbc220aeba1189dcc9756d33dfa8722d7b364141b4fc6e823f330"
+      "sha256": "70ba516f058bf65ec8716901adb28e9aa525edfb53c9779429343f69c2a9569f"
     },
     ".github/workflows/claude.yml": {
       "practice": "claude",
@@ -91,7 +91,7 @@
     },
     ".github/workflows/plates-night.yml": {
       "practice": "night",
-      "sha256": "4f3d00c2490fc062206fffa596f051726e498390ed558134af1ce95abc6cec9c"
+      "sha256": "6f561cfa7c9035525f02952366d1dc275e8e8bb17c156950bad53e3b578629de"
     },
     ".github/workflows/plates-robot-route.yml": {
       "practice": "climb",
@@ -143,7 +143,7 @@
     },
     "docs/reconciliation.md": {
       "practice": "reconciliation",
-      "sha256": "813a8d04992caa5fe4c6063d7849804a10c358f12940b72a26523f8eab73b43e"
+      "sha256": "e9eb119013c03921bea56bac40c0b6e2bfe1bafb5fdc08a3ff7dcc709ad2014c"
     },
     "docs/templates/evidence.md": {
       "practice": "evidence",
@@ -263,7 +263,7 @@
     },
     "scripts/plates/reconcile-actions.mjs": {
       "practice": "reconciliation",
-      "sha256": "e966f9046123a3b52a0bfeabc55ca41edae01d98693627088555139324453b33"
+      "sha256": "dbaf31f84c3a268f5fd5a602cd44bc4419ee725ef4f02b88915099727b75df95"
     },
     "scripts/plates/reconcile.mjs": {
       "practice": "reconciliation",

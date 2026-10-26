@@ -116,8 +116,14 @@ never receive this credential. Missing access remains unknown.
 Night restores the producer's immutable Actions artifact before setup. The
 handoff binds repository identity, workflow, source revision, run and attempt,
 artifact ID and digest, runtime bytes, configuration and complete record hashes
-and inventory. Measure checks those sources again after setup. A consumer-only
-rerun cannot reuse an earlier attempt. Missing, expired, changed or mismatched
+and inventory. Measure checks those sources again after setup. A failed-job rerun
+may reuse a successful producer's result only when its explicit job output and
+immutable envelope agree on the producer attempt, no later than the consumer.
+Both exact attempts must belong to the same run, repository, workflow and source;
+the original observation must remain within 24 hours. The restored wrapper binds
+to the current consumer attempt, and the report retains both attempt identities.
+A later consumer must restore and validate again; no credential or live PR-read
+fallback reaches night. Missing, expired, changed or mismatched
 sources are unknown in the report, never successful reconciliation. This is a
 transport of the existing reconciliation result, not a new acceptance record.
 Local doctor and night invocations retain their existing observation path.
