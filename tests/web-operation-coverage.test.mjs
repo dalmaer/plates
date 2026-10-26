@@ -211,3 +211,15 @@ test('names transition stays CLI-only even when hosted mutations are enabled', a
   assert.equal(parseNamesArgs(['--verify', 'acme/studio', '--run', '7']).run, '7');
   assert.equal(parseNamesArgs(['--verify', 'acme/studio', '--run', '7', '--morning-run', '8'])['morning-run'], '8');
 });
+
+test('the reviewed adoption handoff stays source-bound without enabling a capability', async t => {
+  const directory = await copyBoundary(t);
+  const path = join(directory, 'lib/adopt.mjs');
+  const before = await readFile(path, 'utf8');
+  const after = before.replace("status: 'not-checked'", "status: 'registered'");
+  assert.notEqual(after, before, 'the mutation must falsely claim enrollment');
+  await writeFile(path, after);
+  const result = await auditOperationCoverage({ root: directory, registeredKeys: keys });
+  assert.equal(result.ok, false);
+  assert.ok(result.findings.some(item => item.code === 'parser_source_changed' && item.path === 'lib/adopt.mjs'));
+});
