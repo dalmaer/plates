@@ -1,4 +1,5 @@
 import './helpers/hermetic.mjs';
+import platesReleaseSource from './helpers/web-night-plates-release.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, readlink, symlink, link, rm, stat, readdir, chmod, realpath } from 'node:fs/promises';
@@ -2024,7 +2025,9 @@ const PREVIOUS_TEST_HISTORY = {"sha256": "56e37b25b37235c91e16b390eb05bcc5522ce6
  test('history replacement accepts exact current bytes while preserving the previously pinned reader',async t=>{
   const previous=inflateSync(Buffer.from(PREVIOUS_TEST_HISTORY.deflate,'base64')).toString('utf8');assert.equal(sha(previous),PREVIOUS_TEST_HISTORY.sha256);
   const current=await readFile(new URL('../practices/night/files/scripts/plates/test-history.mjs',import.meta.url),'utf8');
-  for(const source of [previous,current]){
+  const phase128=platesReleaseSource.files['scripts/plates/test-history.mjs'];
+  assert.equal(sha(phase128),'45cb3b9aeed8f21bcb02720849bb07c3ddfffed9b09c21c580fd9bef8bc9c162');
+  for(const source of [previous,phase128,current]){
    const root=await fixture(t),path='scripts/keel/test-history.mjs';await put(root,path,source);await lockManagedFiles(root,path);git(root,'add',path);
    await assert.doesNotReject(()=>applyRename(root),'each exact accepted reader remains supported');assert.equal(await get(root,'scripts/plates/test-history.mjs'),source);
   }
