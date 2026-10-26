@@ -5,6 +5,16 @@ practice version: what changes in your repo, and anything you need to do.
 Newest first. `plates release` writes them; `plates update` puts the entries
 between your version and the new one into its pull request.
 
+## v0.8.35 — practice 0.8.35 (2026-10-26)
+
+Compatible reviewed updates now have an explicit installation and recovery path. Installation is separate from optimization, complete nightly verification and legacy-name retirement. Only a changed workflow concurrency identity requires a scoped pause/drain/restore barrier; ordinary updates do not.
+
+The shipped conductor guidance preserves existing scoped approvals, asks only when authority or relevant inputs change, and batches fixes before the integrated checkpoint. Morning reports gain a read-only observation mode that preserves unfinished work. Plates source gains conservative record-only validation; consumer gates keep their own policy.
+
+The installer checks managed ownership and exact source/check/review evidence, uses conditional publication, retains uncertain operations, and offers pre-merge restoration-only recovery. Unsupported update shapes refuse rather than bypass protection. Installation is not production acceptance.
+
+This release also carries the already-reviewed reconciliation fixes since 0.8.34: private GitHub observations stay bound to their producer run and attempt across partial reruns, and nightly test-history reads preserve recovered state without inheriting the test runner's context. Missing evidence remains unknown. No new credentials, budgets or schedules are enabled by these changes.
+
 ## v0.8.34 — practice 0.8.34 (2026-10-25)
 
 The name transition now writes the reviewed Plates names while retaining explicit readers for existing Keel records. A night already started under a Keel branch keeps that identity through its morning. Historical evidence is preserved.

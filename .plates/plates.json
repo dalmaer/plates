@@ -11,7 +11,7 @@
     "github-actions",
     "vercel"
   ],
-  "practice": "0.8.34",
+  "practice": "0.8.35",
   "practices": [
     "base",
     "agents-md",
