@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "date": "2026-10-25",
+  "date": "2026-10-26",
   "shapedBy": "default",
   "readyBy": null,
   "willNotTouch": [],
@@ -9,25 +9,25 @@
   "items": [
     {
       "id": "measures",
-      "title": "Measure the practice: 39 measures; outside or broken on 2026-10-23: long_files, phases_without_issue, lessons_without_guard, inbox_waiting, issues_unnamed, reviews_unanswered, dependency_age",
+      "title": "Measure the practice: 39 measures; outside or broken on 2026-10-24: long_files, record_contradictions, gate, phases_without_issue, lessons_without_guard, inbox_waiting, ci_red_streak, issues_unnamed, reviews_unanswered, dependency_age",
       "kind": "measure",
       "source": "default",
       "number": null,
       "lane": "night",
       "budget": null,
-      "status": "failed",
+      "status": "done",
       "result": {
-        "note": "10 ok, 11 outside, 17 n/a, 1 broken (record_contradictions)",
-        "link": "docs/health/2026-10-25.md"
+        "note": "13 ok, 9 outside, 17 n/a, 0 broken",
+        "link": "docs/health/2026-10-26.md"
       }
     },
     {
-      "id": "health-phases-without-issue",
-      "title": "Proposal from 2026-10-23: Open issues on dalmaer/plates for phases 50, 88, 94, 97, 98, 99, 100, 101, 102, 103 and 10 more and set `issue:` in each one's front matter.",
+      "id": "health-record-contradictions",
+      "title": "Proposal from 2026-10-24: Fix the record_contradictions instrument: reconciliation incomplete: Command failed: gh api repos/dalmaer/ledger/pulls/130. A measure that cannot run is not a zero (lesson 6).",
       "kind": "review",
-      "source": "health:phases_without_issue",
+      "source": "health:record_contradictions",
       "number": {
-        "measure": "phases_without_issue",
+        "measure": "record_contradictions",
         "bound": 0,
         "better": "lower"
       },
@@ -50,11 +50,8 @@
       "budget": {
         "minutes": 45
       },
-      "status": "failed",
-      "result": {
-        "note": "blocked: runner preflight or execution evidence refused the climb; inspect the retained sanitized receipt",
-        "link": "https://github.com/dalmaer/plates/actions/runs/40184884643"
-      }
+      "status": "planned",
+      "result": null
     },
     {
       "id": "robot-60",
@@ -71,7 +68,7 @@
     },
     {
       "id": "persona-performance--published-package",
-      "title": "published package: back to at most 1000kB (measured 1886kB)",
+      "title": "published package: back to at most 1000kB (measured 1893kB)",
       "kind": "triage",
       "source": "persona:performance",
       "number": {
