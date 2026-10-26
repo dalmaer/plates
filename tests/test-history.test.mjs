@@ -8,6 +8,7 @@ import { deflateRawSync, crc32 } from 'node:zlib';
 import { recoverTestHistory, readTestHistory } from '../practices/night/files/scripts/plates/test-history.mjs';
 import { stallsEvidence } from '../practices/night/files/scripts/plates/time-receipts.mjs';
 import { readRuns, readStalls } from '../practices/night/files/scripts/plates/test-ledger.mjs';
+import { revision, reusableGate } from '../practices/night/files/scripts/plates/gate.mjs';
 import { run } from './helpers/run.mjs';
 import { runBlocks } from './helpers/workflows.mjs';
 import { improve, MEASURES } from '../practices/night/files/scripts/plates/improve.mjs';
@@ -59,6 +60,49 @@ function fixture(items = [{ id: 1, kind: 'night' }, { id: 2, kind: 'ci' }]) {
     download: async id => { downloads.push(id); return archives[id]; } };
 }
 const recover = (root, f, extra = {}) => recoverTestHistory({ root, repo, branch, at, github: f.github, download: f.download, ...extra });
+test('history recovery preserves clean-source CI eligibility without hiding project changes', async t => {
+  const root = await project(t), f = fixture();
+  const git = args => {
+    const result = run('git', args, { cwd: root });
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout.trim();
+  };
+  await writeFile(join(root, 'acme.txt'), 'Acme\n');
+  git(['init']); git(['add', '.']); git(['commit', '-m', 'Acme source']);
+  assert.equal(revision(root).clean, true);
+  assert.equal((await recover(root, f)).imported, 2);
+  let requests = 0;
+  const reuse = () => reusableGate({ root, config: { repo, ci: { gateWorkflow: 'check.yml' } },
+    request: async () => { requests++; throw new Error('Acme API unavailable'); } });
+  const recovered = await reuse();
+  assert.notEqual(recovered.reason, 'revision is dirty or unavailable', git(['status', '--porcelain', '--untracked-files=all']));
+  assert.ok(requests > 0, 'clean recovered checkout reaches CI validation');
+  assert.equal(revision(root).clean, true);
+  assert.equal(await readFile(join(root, '.plates/test-runs/.gitignore'), 'utf8'), '*\n');
+  for (const path of ['acme.txt', '.plates/acme-untracked.json']) {
+    await writeFile(join(root, path), 'Acme change\n');
+    const before = requests;
+    assert.equal((await reuse()).reason, 'revision is dirty or unavailable');
+    assert.equal(requests, before, 'real changes reject reuse before API access');
+    if (path === 'acme.txt') git(['checkout', '--', path]);
+  }
+});
+
+test('history refuses unsafe ignore-policy destinations without changing outside bytes', async t => {
+  for (const kind of ['symlink', 'hardlink', 'directory']) await t.test(kind, async t => {
+    const root = await project(t), outside = await project(t), f = fixture();
+    const sentinel = join(outside, 'acme.txt'), destination = join(root, '.plates/test-runs/.gitignore');
+    await writeFile(sentinel, 'Acme preserved\n');
+    await mkdir(join(root, '.plates/test-runs'));
+    if (kind === 'symlink') await symlink(sentinel, destination);
+    else if (kind === 'hardlink') await link(sentinel, destination);
+    else await mkdir(destination);
+    await assert.rejects(recover(root, f), /unsafe ledger ignore/);
+    assert.equal(await readFile(sentinel, 'utf8'), 'Acme preserved\n');
+    assert.equal(f.calls.length, 0);
+  });
+});
+
 test('history recovers one newest night plus two distinct CI runs per UTC week, preserving sampling gaps', async t => {
   const items = [{ id: 1, kind: 'night' }, { id: 2, kind: 'night', date: '2026-10-08T01:00:00Z' }];
   for (let week = 0; week < 8; week++) for (let n = 0; n < 3; n++) items.push({ id: 10 + week * 3 + n, kind: 'ci', date: new Date(Date.parse('2026-10-09T01:00:00Z') - week * 7 * 86400000 + n * 1000).toISOString() });

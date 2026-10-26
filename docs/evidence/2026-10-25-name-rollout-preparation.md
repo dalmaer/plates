@@ -329,3 +329,27 @@ The test-only repair covers both same-day cache reuse and request-budget converg
 Claude review 5646129221 on `0b771733` identified that GitHub's failed-jobs-only rerun can carry a successful producer's earlier outputs into the current night attempt. The prior current-attempt-only binding correctly refused that evidence but made this recovery unavailable. The correction explicitly carries the producing attempt, validates both attempts through exact-attempt GitHub reads, binds the restored wrapper to the consumer, and retains producer/consumer identities and original observation time in the result. Same run/repository/source/workflow, artifact ID/digests, inventory and freshness remain mandatory; future, foreign, stale and altered evidence is refused. No credential reaches the night job.
 
 The real-ZIP regression failed against the previous restore helper and passed with the correction. Thirty-one focused tests and 193 focused/convention checks passed, with roadmap/render/inbox/whitespace guards. The actual GitHub attempt API was read to confirm its identity fields. This synthetic recovery proof does not claim a live partial rerun or token read. Commit `0b771733` subsequently passed hosted CI; the new correction still requires its own gate and exact-head review.
+
+
+### Live reconciliation succeeded; first dispatched night failed its gate
+
+PR #271 merged as `1a510224c35bf6e627ddb418403b4b7afab39bd9` after exact-head Claude review 5646194293 with no new findings, the prior finding answered, and green CI. Main run 40250719559 passed, including the isolated reconciliation job. Its retained result explicitly read Ledger #130 and #169: zero unknown facts, zero contradictions, remote coverage observed. No secret value was read or printed.
+
+Authorized night 40251515967 attempt 1 used reviewed observer `1c72600941da47bdf0499678300e7e6fa5ccbbc3`, whose tree equals merged main. Its producer and real artifact restore passed. Measurement and health publication succeeded, producing PR #272, but the final verdict failed because the local project gate exited 1. The retained ledger reports 3,539 tests and 37 failures; many fixture invocations inherited live observation context and sought a runner names-loader in their synthetic directories or failed bounded source reads. The gate receipt marks the tree dirty; the exact CI-reuse refusal remains under investigation. This is failed rollout evidence, not acceptance. No consumer barrier or installation has occurred, and no unchanged rerun was requested.
+
+
+### Night-context and recovered-ledger corrections
+
+Synthetic test projects now clear twelve exact enclosing-night observation and recovery variables at bootstrap. Explicit child environments remain supported; production observation and acceptance are unchanged. The new isolation regression fails without the repair. Three representative tests failed under injected night context before the repair and passed after it; the focused context preflight passed 157 checks.
+
+Recovery now uses the existing test-ledger ignore initializer after validating destination directories and rejecting unsafe ignore files. A real Git fixture proves recovered records no longer make clean source ineligible for CI reuse, while tracked source edits and unrelated untracked files still reject reuse. The regression fails without the correction; 75 history tests pass. This establishes one sufficient dirty-checkout blocker, not the complete cause of the live run's dirty flag: that run did not retain its porcelain paths or exact reuse refusal.
+
+The hosted retry fixture retains the original released history module alongside the two previously retained files, with all 32 original canonical hashes checked. Production hosted retry authority is unchanged. Combined focused and convention verification passed 286 tests with roadmap, render, inbox and whitespace checks. These synthetic checks do not erase failed night 40251515967 or establish fleet acceptance; the integrated gate, review and corrected live night remain required.
+
+
+### Correction integration failures retained
+
+The first local correction gate ran inside a sandbox that refuses loopback sockets (a standalone listen probe returned EPERM); it was interrupted with incomplete coverage and its log retained. The subsequent host gate completed the functional suite: 3,545 tests, 3,539 passed, four skipped, two failed. Both failures are explicit history-reader migration pin checks: the safely changed reader no longer matches the previously approved replacement hash. The correction must extend that exact compatibility table and preserve previously accepted reader bytes; unknown variants remain refused. This is a real integration failure, not discarded infrastructure noise. Its log is retained privately as `/tmp/plates129-night-context-host-gate.log`.
+
+
+The explicit replacement table now pins the new reader while retaining both prior accepted hashes byte-for-byte. The legacy-to-current conversion still validates the canonical replacement and rejects unknown/local variants. Two before-fix failures became four targeted passes; 369 focused/convention checks passed, including all guards. Hosted retry pins remain unchanged. The complete host gate and exact-head review are the remaining integration checks.

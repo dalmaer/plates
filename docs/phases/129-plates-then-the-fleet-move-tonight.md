@@ -4,7 +4,7 @@ since: 2026-10-25
 goal: G2
 spec: 2
 depends: [128]
-note: "Release v0.8.34 and Plates label receipt are published. Six consumer update PRs are prepared, including newly discovered Papa Tapes. Main tests passed; GitHub reconciliation lacks private Ledger access. The owner provisioned a read-only credential; isolated wiring and live rollout remain outstanding. Current-night and durable legacy refs are retained."
+note: "Release v0.8.34 and Plates label receipt are published. PR #271 merged; private Ledger reads and real artifact restore passed. The first dispatched night failed its local gate with inherited observation context in test fixtures. Six consumer PRs remain prepared, not installed; current-night and durable legacy refs are retained."
 evidence: ["evidence/2026-10-25-name-rollout-preparation.md"]
 issue: 245
 ---
@@ -83,7 +83,7 @@ By hand: ⚑ the evening's rollout. Each project's dispatched run links and `pla
 
 ## Next action
 
-Finish and review isolated cross-repository reconciliation access, then verify Plates' exact main and source-bound night/morning before installing each consumer update. The owner approved the 17 original consumer workflow barriers and Papa Tapes' additional two-workflow barrier; these approvals do not establish installation or acceptance. Isocan merge remains the owner's or Dimitri's. Continue Ledger, Duo, Cajones, Isocan and DTV in order, then Papa Tapes. Preserve the earlier Isocan watchdog failure alongside the passing current-candidate checks. Keep current-night and durable legacy refs until their work drains or their state is transferred and verified; hosted and machine retirement remains separately unverified.
+Correct the dispatched night's test-context isolation failure, preserving run 40251515967 and its health PR #272, then verify Plates' source-bound night/morning before installing each consumer update. PR #271's isolated credential read is live-verified; that does not accept the rollout. The owner approved the 17 original consumer workflow barriers and Papa Tapes' additional two-workflow barrier; these approvals do not establish installation or acceptance. Isocan merge remains the owner's or Dimitri's. Continue Ledger, Duo, Cajones, Isocan and DTV in order, then Papa Tapes. Preserve the earlier Isocan watchdog failure alongside the passing current-candidate checks. Keep current-night and durable legacy refs until their work drains or their state is transferred and verified; hosted and machine retirement remains separately unverified.
 
 ## Reconciliation
 
