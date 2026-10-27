@@ -189,3 +189,41 @@ test('directory symlinks and oversized inputs cannot redirect or expand the sele
   assert.notEqual(cli(['--mode', 'local']).status, 0);
   assert.deepEqual(await readdir(join(redirected.root, '.plates')), ['plates.json']);
 });
+
+
+test('generic agent startup consults selected scope without authenticating repository declarations', async t => {
+  const { root, cli, file } = await fixture(t);
+  const help = (args = [], json = true) => run(process.execPath, [BIN, '--agent-help', ...args, ...(json ? ['--json'] : [])], { cwd: root });
+  const initial = help();
+  assert.equal(initial.status, 0);
+  assert.equal(Object.hasOwn(JSON.parse(initial.stdout), 'autonomy'), false);
+  const preview = cli(['--mode', 'local']).data;
+  assert.equal(cli(['--mode', 'local', '--yes', '--digest', preview.digest]).status, 0);
+  for (const args of [[], ['all'], ['autonomy']]) {
+    const result = help(args);
+    assert.equal(result.status, 0);
+    const current = JSON.parse(result.stdout).autonomy;
+    assert.equal(current.policy.mode, 'local');
+    assert.equal(current.source, 'repository-declaration');
+    assert.equal(current.selectionVerification, 'unverified');
+    assert.equal(current.effectiveAuthority, 'requires-current-context');
+    assert.equal(current.policyDigest, cli([]).data.policyDigest);
+  }
+  const text = help([], false).stdout;
+  assert.match(text, /selection provenance is unverified/);
+  assert.match(text, /without repeating the conversational approval question/);
+  assert.match(text, /grants no platform permission/);
+  assert.equal(Object.hasOwn(JSON.parse(help(['render']).stdout), 'autonomy'), false);
+  // An attacker can author a valid setting but cannot make startup authenticate it.
+  await writeFile(file, JSON.stringify(policy('delivery', ['main'], ['main'])));
+  const forged = JSON.parse(help().stdout).autonomy;
+  assert.equal(forged.selectionVerification, 'unverified');
+  assert.equal(evaluateAutonomy({ policy: forged.policy, repository, action: action('push', 'main'), context: { ...context(forged.policy), selectionVerified: forged.selectionVerification } }).decision, 'ask');
+  await writeFile(file, '{invalid');
+  const invalid = help();
+  assert.equal(invalid.status, 0);
+  assert.equal(JSON.parse(invalid.stdout).autonomy.status, 'unavailable');
+  assert.match(JSON.parse(invalid.stdout).coldStart, /plates/);
+  await rm(file);
+  assert.equal(help().stdout, initial.stdout);
+});

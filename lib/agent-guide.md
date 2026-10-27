@@ -2657,8 +2657,8 @@ object with no variable values, secret contents or private journal contents.
 
 Run `plates autonomy --json` before work to inspect the selected mode and its
 boundaries. Missing settings use `default`, preserving existing behavior.
-`local` avoids redundant conversational approvals for routine local edits and
-tests within the authorized task. `delivery` adds only separately selected exact
+`local` requests fewer repeated conversational approvals for routine local edits
+and tests after current task authority and selection provenance are verified. `delivery` adds only separately selected exact
 push and merge branches in this repository. Deployment, destructive actions,
 credentials, CI permissions, policy and assistant-rule changes need specific
 approval; script effects matter even when the command is called a test.
@@ -2685,3 +2685,11 @@ The inspect report is configured scope, not a verified execution grant.
 seam; it performs no action and requires independent current-context evidence.
 `suggestAutonomy` only returns an optional local-mode suggestion from explicitly
 supplied counts; it never reads session logs, persists settings or confirms one.
+
+
+The generic Plates skill's cold start, `--agent-help all` and this topic include
+current project autonomy context when a setting exists. JSON adds `autonomy`;
+plain text appends the scoped declaration, digest and remaining conditions.
+Selection provenance remains unverified. Missing settings leave help unchanged;
+invalid settings report unavailable without granting authority. Standalone spin,
+scheduled climb, robot and hosted workers do not automatically consume it.

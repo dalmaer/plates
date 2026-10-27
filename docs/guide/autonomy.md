@@ -112,3 +112,27 @@ refuse the lock; inspect the original writer before removing a stale lock. These
 checks are not a security boundary against another process that can rewrite the
 checkout. Settings are not synchronized globally or to hosted execution, and this
 slice does not supply a permission broker or provider-specific action classifier.
+
+
+## Where the setting is consulted
+
+The installed generic Plates skill starts with `plates --agent-help`. The cold
+start, `plates --agent-help all` and `plates --agent-help autonomy` now read the
+nearest project's setting. With a setting present, text output appends its scopes,
+policy digest and boundaries; JSON adds an `autonomy` member marked
+`source: repository-declaration` and `selectionVerification: unverified`. The
+agent is told to avoid repeating conversational approval only after it verifies
+explicit selection, task authority and all existing gates. No file bytes or
+CLI flag alone establish that verification.
+
+Without a setting, help output is unchanged. Malformed or unreadable settings
+produce an unavailable context while leaving the guide accessible. Other help
+topics remain static. Inspection and startup write nothing.
+
+The standalone spin/conduct skill, scheduled climb prompts, robot build/review
+prompts and hosted workers do not automatically consume this setting. Their
+existing authority rules and gates remain unchanged. This implementation makes
+configured scope visible at the generic agent startup and through the CLI; it
+does not enforce model behavior or prove that a particular agent will ask fewer
+questions. Those other entry points need a separately reviewed integration that
+preserves their own budgets, exact-operation permissions and platform evidence.
