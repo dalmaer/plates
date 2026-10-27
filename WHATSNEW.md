@@ -5,6 +5,28 @@ practice version: what changes in your repo, and anything you need to do.
 Newest first. `plates release` writes them; `plates update` puts the entries
 between your version and the new one into its pull request.
 
+## v0.8.35 — practice 0.8.35 (2026-10-26)
+
+Compatible reviewed updates now have an explicit installation and recovery path. Installation is separate from optimization, complete nightly verification and legacy-name retirement. Only a changed workflow concurrency identity requires a scoped pause/drain/restore barrier; ordinary updates do not.
+
+The shipped conductor guidance preserves existing scoped approvals, asks only when authority or relevant inputs change, and batches fixes before the integrated checkpoint. Morning reports gain a read-only observation mode that preserves unfinished work. Plates source gains conservative record-only validation; consumer gates keep their own policy.
+
+The installer checks managed ownership and exact source/check/review evidence, uses conditional publication, retains uncertain operations, and offers pre-merge restoration-only recovery. Unsupported update shapes refuse rather than bypass protection. Installation is not production acceptance.
+
+This release also carries the already-reviewed reconciliation fixes since 0.8.34: private GitHub observations stay bound to their producer run and attempt across partial reruns, and nightly test-history reads preserve recovered state without inheriting the test runner's context. Missing evidence remains unknown. No new credentials, budgets or schedules are enabled by these changes.
+
+## v0.8.34 — practice 0.8.34 (2026-10-25)
+
+The name transition now writes the reviewed Plates names while retaining explicit readers for existing Keel records. A night already started under a Keel branch keeps that identity through its morning. Historical evidence is preserved.
+
+`plates names --json` previews the exact external names that still need attention. Applying a repository or machine plan requires its reviewed digest; uncertain operations retain their original identities for read-only recovery. Secret values are never read: the preview supplies the owner commands. Label evidence must be published at the workflow revision before writers activate.
+
+`plates names --verify` checks the source-bound night and morning observations separately from activation or acceptance. Manual evidence runs pin an exact observer revision and originating night attempt. Missing history, unsupported managed writers and incomplete provider facts remain unknown. Project-owned setup and gate effects remain outside this managed-writer verification scope.
+
+This release does not migrate your labels, variables, hosted settings or machine by itself. Update and verify Plates first, then each approved fleet project. Retiring retained aliases is a separate owner decision. Existing held canvas metadata and coordination state remain held.
+
+Released without the review gate (22 practice commits unchecked): Owner explicitly approved the historical PR 220 exception on 2026-10-25: final merge-main commit 04dca79 lacked exact-head review. This exception covers only that historical PR; normal gates, fleet rehearsal and current PR reviews remain required.
+
 ## v0.8.33 — practice 0.8.33 (2026-10-22)
 
 Keel is now Plates. Each project is a plate, the overview is All plates, and /spin runs the existing guided phase workflow. The plates executable, .plates configuration, managed scripts, workflows, skills and active documentation use the new name; legacy keel and /conduct entry points remain available for compatibility.

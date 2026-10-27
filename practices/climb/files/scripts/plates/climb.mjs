@@ -1,3 +1,4 @@
+import { environmentValue, writeName, branchSuffix } from './names.mjs';
 // plates climb (plates practice `climb`; managed: plates render rewrites it). A
 // climb night sends an agent to improve one number while the project sleeps;
 // this script is every number it reports and every keep-or-revert it makes,
@@ -110,7 +111,7 @@ export const LESSONS_DIR = `${NIGHT_DIR}/lessons`;
 export const FINDINGS_DIR = 'docs/loop';
 /** A finding a person decided: no climb night writes one (lesson 53). */
 export const DECIDED = Object.freeze(['accepted', 'declined', 'stale', 'done']);
-export const PREFIX = 'keel-climb/';
+export const PREFIX = writeName('git ref:keel-climb/');
 export const CHECK = 'npm run check';
 /** A weekly climb runs on this UTC weekday (1, Monday). */
 export const WEEKLY_DAY = 1;
@@ -349,7 +350,7 @@ export function healthRows(text) {
 const distance = r => r.state === 'broken' ? Infinity : ((r.op === '≤' ? r.value - r.bound : r.bound - r.value) / Math.max(Math.abs(r.bound), 1));
 
 /** The open keel-climb/<job>/ PRs' jobs, from gh's headRefName list. */
-export const waitingJobs = heads => new Set(heads.map(h => (h.startsWith(PREFIX) ? h.slice(PREFIX.length).split('/')[0] : null)).filter(Boolean));
+export const waitingJobs = heads => new Set(heads.map(h => (branchSuffix(h, 'git ref:keel-climb/')?.split('/')[0] ?? null)).filter(Boolean));
 
 /**
  * Tonight's job, pure: the job tied to the health page's worst measure
@@ -380,7 +381,7 @@ export function choose({ jobs, rows = [], waiting = new Set(), last = null, tabl
 }
 
 function ghPrs(root, env, state, fields) {
-  const gh = env.PLATES_GH || 'gh';
+  const gh = (environmentValue('variable:KEEL_GH', env) ?? 'gh');
   const r = spawnSync(gh, ['pr', 'list', '--state', state, '--json', fields, '--limit', '200'], { cwd: root, env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   if (r.error) throw new ClimbError(`cannot read ${state} PRs (${gh}): ${r.error.message}; pick never guesses`);
   if (r.status !== 0) throw new ClimbError(`gh pr list --state ${state} exited ${r.status}: ${(r.stderr || r.stdout).trim().split('\n')[0]}; pick never guesses that none are ${state}`);
@@ -600,7 +601,7 @@ export function measureIn(cwd, { config, job, runs, env = process.env }) {
   const times = [];
   // PLATES_CLIMB_CLOCK, a test seam like PLATES_GH: a file the suite writes its own time to (ms), read
   // in place of the wall clock, so plates's tests judge compare's decisions and never the machine (phase 55).
-  const clock = env.PLATES_CLIMB_CLOCK && JOBS[job].reads !== 'output' ? resolve(env.PLATES_CLIMB_CLOCK) : null;
+  const clock = environmentValue('variable:KEEL_CLIMB_CLOCK', env) && JOBS[job].reads !== 'output' ? resolve(environmentValue('variable:KEEL_CLIMB_CLOCK', env)) : null;
   for (let i = 0; i < runs; i++) {
     if (clock) rmSync(clock, { force: true });
     const t0 = performance.now();

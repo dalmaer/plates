@@ -11,7 +11,7 @@
     "github-actions",
     "vercel"
   ],
-  "practice": "0.8.33",
+  "practice": "0.8.35",
   "practices": [
     "base",
     "agents-md",
@@ -98,5 +98,14 @@
     "version": 1,
     "enabled": false,
     "applicability": "not-applicable"
+  },
+  "reconciliation": {
+    "githubAccess": {
+      "repositories": [
+        "dalmaer/plates",
+        "dalmaer/ledger"
+      ],
+      "enabled": true
+    }
   }
 }

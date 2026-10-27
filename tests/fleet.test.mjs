@@ -10,8 +10,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { run as runCmd, cleanEnv } from './helpers/run.mjs';
-import { mkdtemp, mkdir, readFile, rm, writeFile, realpath, chmod } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { scratch as sharedScratch } from './helpers/improve.mjs';
+import operations, { mkdir, readFile, rm, writeFile, realpath, chmod } from 'node:fs/promises';
+import { syncBuiltinESMExports } from 'node:module';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fleet, fleetUpdate, healthOf, gateName, gateOf, runCommands, onPush, parseFleet, rehearse, rehearseOne, pool, REHEARSE_AT_ONCE } from '../lib/fleet.mjs';
@@ -34,10 +35,32 @@ const MIGRATIONS = [
 ];
 
 async function scratch(t, prefix) {
-  const dir = await realpath(await mkdtemp(join(tmpdir(), prefix)));
-  t.after(() => rm(dir, { recursive: true, force: true }));
-  return dir;
+  return realpath(await sharedScratch(t, prefix));
 }
+
+test('fleet scratch awaits shared cleanup after transient ENOTEMPTY', async () => {
+  let cleanup;
+  const dir = await scratch({ after(callback) { assert.equal(cleanup, undefined); cleanup = callback; } }, 'plates-fleet-cleanup-');
+  const realRm = operations.rm;
+  let attempts = 0;
+  try {
+    assert.equal(dir, await realpath(dir), 'fleet keeps canonical fixture paths');
+    await writeFile(join(dir, 'acme-entry'), 'Acme');
+    operations.rm = async (path, options) => {
+      assert.equal(await realpath(path), dir);
+      if (++attempts === 1) throw Object.assign(new Error('Acme transient cleanup failure'), { code: 'ENOTEMPTY' });
+      return realRm(path, options);
+    };
+    syncBuiltinESMExports();
+    await cleanup();
+    assert.equal(attempts, 2);
+    await assert.rejects(realpath(dir), { code: 'ENOENT' });
+  } finally {
+    operations.rm = realRm;
+    syncBuiltinESMExports();
+    await realRm(dir, { recursive: true, force: true });
+  }
+});
 
 /** A synthetic plates home with a plates.json and one practice pinned to acme/upstream. */
 async function home(t, fleetList) {
@@ -153,7 +176,7 @@ function state() {
         files: { '.plates/plates.json': cfg(), 'docs/health/2026-09-25.md': '#', 'docs/health/2026-09-28.md': '#', 'docs/lessons.md': LESSONS, '.plates/sent.json': sentOne, 'acme-two.todo': 'x' },
         runs: [run('check', '', '2026-10-02T03:00:00Z', { status: 'in_progress' }), run('check', 'failure', '2026-10-01T03:00:00Z'),
           run('deploy', 'success', '2026-10-01T04:00:00Z'), run('check', 'success', '2026-10-01T05:00:00Z', { headBranch: 'feature' })],
-        prs: [{ number: 1, headRefName: 'keel-night/2026-10-01' }, { number: 2, headRefName: 'keel-night/2026-10-02' }, { number: 3, headRefName: 'person/fix', isDraft: true },
+        prs: [{ number: 1, headRefName: 'keel-night/2026-10-01' }, { number: 2, headRefName: 'plates-night/2026-10-02' }, { number: 3, headRefName: 'person/fix', isDraft: true },
           { number: 4, headRefName: 'keel/update-v0.2.0', isDraft: true }],
       },
       'acme/fresh': {
@@ -193,7 +216,7 @@ test('a project behind: how far, which migrations it has not recorded (fleet upd
   assert.deepEqual(row.machinePrs.drafts, [{ number: 4, head: 'keel/update-v0.2.0' }], 'a draft machine PR is named (the board lists a draft update as broken); a person\'s draft is not a machine PR');
   assert.ok(needsOf(r, 'acme/behind').includes('behind: 0.1.0 → 0.2.0; 1 unrecorded (0002-acme-two); plates fleet update checks them (plates update)'));
   assert.ok(needsOf(r, 'acme/behind').some(w => w.startsWith('red: check failure')));
-  assert.ok(needsOf(r, 'acme/behind').includes('2 open keel-night/ PRs (plates drain keel-night/)'));
+  assert.ok(needsOf(r, 'acme/behind').includes('2 open plates-night/ PRs (plates drain plates-night/)'));
   assert.match(r.text, /acme\/behind\s+yes\s+0\.1\.0 → 0\.2\.0/);
 });
 
@@ -464,7 +487,7 @@ const git = (dir, ...args) => execFileSync('git', ['-C', dir, ...args], { encodi
 // so plates's live package version never enters a count.
 const CLI = '0.3.0';
 const BEHIND = (([major, minor]) => `${major}.${minor - 1}.0`)(CLI.split('.').map(Number));
-const UPDATE_BRANCH = `keel/update-v${CLI}`;
+const UPDATE_BRANCH = `plates/update-v${CLI}`;
 const re = s => new RegExp(s.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&'));
 
 /** A plates init project on practice BEHIND, its origin a local bare repo, and a checkout the stub's clone copies. */
@@ -631,17 +654,20 @@ test('fleet update plans only real work: applies() is asked over the default bra
     ['acme/broken', false, [], ['0002-projects-run-on-their-own']],
   ]);
   assert.match(r.data.plans[1].possiblyPending[0].why, /\.plates\/lock\.json: HTTP 502/);
-  assert.match(r.text, /acme\/goals: "plates update: practice [^"]+, pending migrations" from keel\/update-v[^ ]+ \(pending: 0001-milestone-to-goal\)/);
+  assert.match(r.text, /acme\/goals: "plates update: practice [^"]+, pending migrations" from plates\/update-v[^ ]+ \(pending: 0001-milestone-to-goal\)/);
   assert.match(r.text, /acme\/broken: .*\(possibly pending: 0002-projects-run-on-their-own \(\.plates\/lock\.json: HTTP 502/);
   assert.match(r.text, /Not planned:\n {2}acme\/still: current; nothing applies \(asked 0001-milestone-to-goal, 0002-projects-run-on-their-own, 0003-phases-gain-goals, 0004-test-ledger, 0005-test-ledger-reach, 0006-lived-in-kept, 0007-phase-guard-reach\)/);
   const reads = (await gh.calls()).filter(c => String(c[1]).includes('?ref=main'));
   assert.ok(reads.some(c => c[1] === 'repos/acme/goals/contents/docs/phases/1-start.md?ref=main'), 'the phase file is read at the default branch');
   assert.equal(new Set(reads.map(c => c[1])).size, reads.length, 'each path is asked once per run (cached)');
-  // Plain fleet stays fast: it lists what is unrecorded and asks nothing at the migrations' paths.
+  // Plain fleet lists unrecorded migrations without inspecting their source.
+  // Installation adds exactly one lock observation per pinned default revision.
   const before = (await gh.calls()).length;
   const f = await fleet({ dir }, { env: gh.env, now: NOW, cli: live });
   const plain = (await gh.calls()).slice(before);
-  assert.deepEqual(plain.filter(c => /contents\/(docs\/milestones\.json|docs\/goals\.json|docs\/phases|\.plates\/lock\.json)/.test(String(c[1]))), []);
+  assert.deepEqual(plain.filter(c => /contents\/(docs\/milestones\.json|docs\/goals\.json|docs\/phases)/.test(String(c[1]))), []);
+  assert.deepEqual(plain.filter(c => /contents\/\.plates\/lock\.json/.test(String(c[1]))).map(c => c[1]).sort(),
+    ['broken', 'goals', 'still'].map(name => `repos/acme/${name}/contents/.plates/lock.json?ref=${'a'.repeat(40)}`));
   assert.ok(f.data.needs.some(n => n.repo === 'acme/goals' && n.why === '7 unrecorded (0001-milestone-to-goal, 0002-projects-run-on-their-own, 0003-phases-gain-goals, 0004-test-ledger, 0005-test-ledger-reach, 0006-lived-in-kept, 0007-phase-guard-reach); plates fleet update checks them'));
 });
 

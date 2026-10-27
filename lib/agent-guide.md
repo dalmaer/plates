@@ -7,10 +7,11 @@ Verbs (`--json` for data):
 - `plates status` — goals and next phase
 - `plates next` — next free phase; `--project <p>`
 - `plates goal list|show|add|retire` — goals
-- `plates phase new|list|claim` — phases
-- `plates ready|integrate` — hand off; one gate
+- `plates phase new|list|claim`
+- `plates ready|integrate` — hand off
 - `plates render` — render practices; `--check` reads only (exit 1)
 - `plates init [dir] --description "<p>"` — new project
+- `plates names` — preview, apply, recover, verify
 - `plates migrate [root]` — rename preview; `--yes --digest <sha>` applies
 - `plates adopt [dir]` — adopt a repo; `--dry-run` writes nothing
 - `plates doctor` — drift; `--fix <path> restore|eject`
@@ -58,7 +59,7 @@ Rules:
 
 Exits: 0 ok; 1 failure; 2 usage; 3 needs owner's yes. JSON errors: `{"error": "..."}` on stdout.
 
-Topics: `json` `goals` `render` `init` `adopt` `doctor` `update` `lessons` `learn` `improve` `persona` `time` `test` `drain` `night` `loop` `climb` `fleet` `loose-ends` `issue` `review` `board` `retro` `canvas` `install` `coming` `reconciliation` `prove` `evidence` `production` `decision` `shape` `workspace` `feedback`.
+Topics: `names` `json` `goals` `render` `init` `adopt` `doctor` `update` `lessons` `learn` `improve` `persona` `time` `test` `drain` `night` `loop` `climb` `fleet` `loose-ends` `issue` `review` `board` `retro` `canvas` `install` `coming` `reconciliation` `prove` `evidence` `production` `decision` `shape` `workspace` `feedback`.
 
 <!-- topic: json | the output contract every verb keeps -->
 
@@ -1190,6 +1191,11 @@ PRs (never merges one: they are not data).
 
 <!-- topic: night | tonight's plan: written before the night runs, ticked as it goes -->
 
+`plates morning --observation --json` renders an early read-only observation.
+It does not send an issue, publish a card, finalize a plan or complete pending work;
+`--send` and `--card` are incompatible. Ordinary final readiness is unchanged.
+
+
 Every night has one plan, `.plates/night/plan.json` (schema 1; a working file
 that ignores itself), written before anything runs. The night commits it as it
 ended as `docs/night/<date>.json` in its data-only PR, and the health page shows
@@ -1462,6 +1468,27 @@ one PR when something was kept, and never merge. ⚑ Turning it on spends model 
 owner's yes, with `CLAUDE_CODE_OAUTH_TOKEN` (or `ANTHROPIC_API_KEY`) set.
 
 <!-- topic: fleet | every project at once: behind, red, silent, or teaching something -->
+
+`plates fleet update --install owner/repo#PR --json` previews a compatible
+reviewed installation. `--yes --digest <preview-digest>` applies that exact
+operation. `--recover <operation-id> --json` retains the original operation after
+uncertainty. These modes do not prepare a replacement PR or start a night/climb.
+Checks and review precede any pause. Only an actual concurrency identity change
+needs an exact affected-workflow pause/drain/restore barrier; ordinary updates do
+not. Installation readback, operational verification and retirement are separate;
+missing observations and unfinished restoration stay explicit. An unrelated record
+edit or handoff does not erase unchanged scoped owner authority, but an exact-head
+approval never transfers to edited code. See the project-update guide.
+
+Before a merge attempt, `plates fleet update --recover <operation-id>
+--restore-only --json` previews terminating installation and restoring only the
+old workflow IDs this operation paused. Apply with `--yes --digest <preview-digest>`
+after current permission, disabled state and original workflow bytes are checked.
+An attempted/uncertain merge or changed preimage refuses this path. It retains the
+original receipt, never marks installation successful, and never repeats an
+uncertain enable. Ordinary recovery can refresh successful check/review evidence
+within unchanged approved scope; it retains the original proof and new observations.
+
 
 Fleet verification pins configuration and report reads to the observed default SHA, validates bounded versioned receipts, and reports current, behind, stale, missing, malformed or unavailable. Current observations with failures or gaps are not healthy; a later report commit is still a source mismatch. Needs you links the source and asks for project-side refresh. Fleet reads never execute consumer installs, gates or agents.
 
@@ -2592,3 +2619,42 @@ executes tests or waives the configured gate. `node scripts/validation-budget.mj
 foreground process-group contract and no automatic stale cleanup. See
 `docs/development/validation-preflight.md`. These are development entrypoints,
 not installed CLI verbs or automatic consumer adoption.
+
+<!-- topic: names | exact external-name migration and read-only rollout verification -->
+
+`plates names [--repo owner/name] [--only row]... [--json]` previews bounded
+provider facts without writes. Without --repo, inspect the configured project and
+managed fleet. Ordinary env aliases select a present current value first, even
+when invalid or empty; legacy is used only when current is absent. Values are
+never shown. Held runtime/canvas/lock rows and unavailable coverage stay explicit.
+
+Approve one exact repository plan with `--repo owner/name --yes --digest SHA`.
+Labels rename in place, preserving IDs. Explicit initial creation uses separate
+v2 created evidence, never invented rename history; v1 receipts remain readable.
+Default label scope uses pinned enabled-writer configuration where known; unknown
+rows remain unselected, and `--only row` deliberately selects exact additional
+rows. Current-only labels without evidence and conflicting aliases refuse.
+Repository variables are copied only for direct bindings in pinned workflows;
+process aliases alone grant no provider scope. Originals remain; values stay in memory.
+Secret names produce owner commands only with a pinned workflow binding; values are never read.
+
+Private intents precede remote writes. `plates names --recover OP --json` reads
+back the ORIGINAL operation without resending or publishing. Repeat apply with
+its original digest reconciles attempted actions and may resume only never-attempted
+actions after source and destination revalidation. --recover itself never writes. A lost label
+creation ID is unresolved, even if the expected name exists. Returned public
+receipt bytes require separate reviewed publication at the workflow revision;
+local or staged receipts do not activate CI. Apply never commits, pushes, opens
+PRs, changes Vercel settings, dispatches/cancels workflows or retires aliases.
+
+`--machine [--yes --digest SHA | --recover OP]` is a separate bounded local
+operation; owner approval is required. It never moves other sessions' worktrees.
+`--verify owner/name [--run ID] [--morning-run ID]` checks the selected dispatched night read-only. An explicit morning run resolves multiple matching observations; unrelated manual runs without an observation artifact are skipped.
+It reports pass/fail/unknown for source/run/attempt facts and each rollout check.
+Missing artifact, morning association, body-write or board/history provenance
+stays unknown; a green run alone cannot prove migration. A required legacy-night
+continuation keeps its original identity. No dispatch or activation is implied.
+
+Exits: 0 verified operation/readback; 1 refused, incomplete or failed verification;
+2 invalid arguments; 3 preview/approval or held activation. --json returns one
+object with no variable values, secret contents or private journal contents.
