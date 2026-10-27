@@ -1448,7 +1448,7 @@ export class IncompleteRead extends Error {
  */
 export const reviewFragment = ({ threads = 100, replies = 100, comments = 100, reviews = 100 } = {}) => `fragment PlatesReview on PullRequest {
   number title url state mergedAt updatedAt headRefName headRefOid body repository { nameWithOwner } headRepository { nameWithOwner } author { __typename login }
-  reviewThreads(first: ${threads}) { pageInfo { hasNextPage } nodes { id isResolved path line
+  reviewThreads(first: ${threads}) { pageInfo { hasNextPage } nodes { id isResolved path line originalLine
     comments(first: ${replies}) { pageInfo { hasNextPage } nodes { databaseId author { login } body createdAt url originalCommit { oid } } } } }
   comments(first: ${comments}) { pageInfo { hasNextPage } nodes { id databaseId author { __typename login } body createdAt url } }
   reviews(first: ${reviews}) { pageInfo { hasNextPage endCursor } nodes { id databaseId author { __typename login } commit { oid } body state submittedAt url } }
@@ -1695,6 +1695,78 @@ export function reviewRounds(pr) {
 }
 
 /**
+ * Each finding reviewRounds counted, with the round it came in: [{ round,
+ * path, line, severity }]. round is 1-based in the order reviewRounds first
+ * saw its push; path and line are the thread's (line the one it was made on,
+ * kept after a later push outdated it), null for a review body; severity is
+ * the P0-P3 the finding opens with, else null. Plain data, so a cached
+ * repo-wide read carries it to the board.
+ */
+export function roundFindings(pr) {
+  const author = pr?.author?.login;
+  const { pushes } = reviewRounds(pr), roundOf = new Map(pushes.map((p, i) => [p, i + 1]));
+  const severity = body => { const m = /^\W*P([0-3])\b/.exec(String(body ?? '').replace(/<!--[\s\S]*?-->/g, '').trim()); return m ? Number(m[1]) : null; };
+  const out = [];
+  for (const t of pr?.reviewThreads?.nodes ?? []) {
+    const first = t?.comments?.nodes?.[0], round = roundOf.get(first?.originalCommit?.oid);
+    if (!round || (author && sameLogin(loginOf(first), author))) continue;
+    const line = Number.isSafeInteger(t.originalLine) ? t.originalLine : Number.isSafeInteger(t.line) ? t.line : null;
+    out.push({ round, path: typeof t.path === 'string' ? t.path : null, line, severity: severity(first.body) });
+  }
+  for (const r of pr?.reviews?.nodes ?? []) {
+    const round = roundOf.get(r?.commit?.oid);
+    if (!round || !String(r.body ?? '').trim() || r.state === 'APPROVED') continue;
+    const robot = robotReview(pr, r);
+    if (!robot && author && sameLogin(loginOf(r), author)) continue;
+    if (robot ? robot.status : isStatus(r.body)) continue;
+    out.push({ round, path: null, line: null, severity: severity(r.body) });
+  }
+  return out.sort((a, b) => a.round - b.round);
+}
+
+/** How near (in lines, same file) a later round's finding must be to an earlier one to count as returning to it. */
+export const REVIEW_NEAR = 20;
+
+/**
+ * At the round limit: did the first `limit` rounds make progress, or repeat?
+ * (phase 132; lesson 59.) A review repeats when, in those rounds,
+ *   - a later round's finding returns to an earlier one: same file, within
+ *     REVIEW_NEAR lines (the fix drew the next finding);
+ *   - one file draws a finding in every round; or
+ *   - it did not converge: the last round has as many findings as the first,
+ *     and none less severe (when both say a severity).
+ * Otherwise it made progress, and the limit is extended once, to twice
+ * `limit`: there is no second extension. The rounds past the first `limit`
+ * never change the verdict, so a read gives the same answer every time.
+ * null under the limit. { verdict: 'progress'|'repeating', reasons, counts,
+ * limit } where limit is the one that now applies.
+ */
+export function judgeRounds(findings, limit) {
+  const rounds = findings.reduce((n, f) => Math.max(n, f.round), 0);
+  if (!Number.isSafeInteger(limit) || limit < 1 || rounds < limit) return null;
+  const within = findings.filter(f => f.round <= limit);
+  const counts = Array.from({ length: limit }, (_, i) => within.filter(f => f.round === i + 1).length);
+  const reasons = [];
+  for (const f of within) {
+    if (!f.path || f.line === null) continue;
+    const earlier = within.find(e => e.round < f.round && e.path === f.path && e.line !== null && Math.abs(e.line - f.line) <= REVIEW_NEAR);
+    if (earlier) reasons.push(`round ${f.round} returns to ${f.path}:${f.line}, ${Math.abs(earlier.line - f.line)} line${Math.abs(earlier.line - f.line) === 1 ? '' : 's'} from a round ${earlier.round} finding`);
+  }
+  if (limit > 1) {
+    for (const path of new Set(within.map(f => f.path).filter(Boolean))) {
+      if (new Set(within.filter(f => f.path === path).map(f => f.round)).size === limit) reasons.push(`${path} drew a finding in every round`);
+    }
+    const top = r => { const s = within.filter(f => f.round === r && f.severity !== null).map(f => f.severity); return s.length ? Math.min(...s) : null; };
+    const [first, last] = [top(1), top(limit)];
+    if (counts[limit - 1] >= counts[0] && (first === null || last === null || last <= first)) {
+      reasons.push(`no convergence: round ${limit} had ${counts[limit - 1]} finding${counts[limit - 1] === 1 ? '' : 's'} to round 1's ${counts[0]}${first !== null && last !== null ? `, top severity P${last} to P${first}` : ''}`);
+    }
+  }
+  const verdict = reasons.length ? 'repeating' : 'progress';
+  return { verdict, reasons, counts, limit: verdict === 'progress' ? limit * 2 : limit };
+}
+
+/**
  * The open findings among reviewComments' list, sorted by the merge rule:
  * { fixFirst, track, unsorted }. One with no class is unsorted, never tracked:
  * nobody has said it is safe to leave.
@@ -1730,7 +1802,7 @@ export const SOLO_READS = 6;
 const NODE = 'databaseId author { __typename login } body createdAt url';
 export const windowFragment = () => `fragment PlatesReviewWindow on PullRequest {
   keelWindow: __typename number title url state mergedAt updatedAt headRefName headRefOid body repository { nameWithOwner } headRepository { nameWithOwner } author { __typename login }
-  reviewThreads(first: ${WINDOW_THREADS}) { pageInfo { hasNextPage } nodes { id isResolved path line
+  reviewThreads(first: ${WINDOW_THREADS}) { pageInfo { hasNextPage } nodes { id isResolved path line originalLine
     tail: comments(last: ${WINDOW_TAIL}) { totalCount nodes { ${NODE} originalCommit { oid } } } } }
   comments(last: ${WINDOW_CONVO}) { pageInfo { hasPreviousPage } nodes { id ${NODE} } }
   reviews(last: ${WINDOW_BODIES}) { pageInfo { hasPreviousPage } nodes { id databaseId author { __typename login } commit { oid } body state submittedAt url } }
@@ -1850,7 +1922,8 @@ export async function readRepoReviews(read, date, { readPr, reviewers = [], gith
  * calendar day against `date` (YYYY-MM-DD). Throws on a malformed read, and
  * IncompleteRead on one with pull requests left unread: never a zero.
  * `rounds` (phase 71): each open PR with a review round or more, its count
- * and its open findings of any age by the merge rule, for the board.
+ * and its open findings of any age by the merge rule, for the board; and
+ * roundFindings, so the board can judge a PR at its limit (judgeRounds).
  */
 export function unansweredPrs(repository, reviewers, date) {
   const { open, merged } = windowPrs(repository, date);
@@ -1860,7 +1933,7 @@ export function unansweredPrs(repository, reviewers, date) {
     const round = pr.state === 'MERGED' ? { count: 0 } : reviewRounds(pr);
     if (round.count) {
       const sorted = byMergeRule(comments);
-      rounds.push({ number: pr.number, title: pr.title, url: pr.url, author: pr.author ? `${pr.author.__typename === 'Bot' ? 'app/' : ''}${pr.author.login}` : null, rounds: round.count,
+      rounds.push({ number: pr.number, title: pr.title, url: pr.url, author: pr.author ? `${pr.author.__typename === 'Bot' ? 'app/' : ''}${pr.author.login}` : null, rounds: round.count, findings: roundFindings(pr),
         open: comments.filter(c => !c.answered).length, fixFirst: sorted.fixFirst.length, track: sorted.track.length, unsorted: sorted.unsorted.length });
     }
     const left = comments.filter(c => !c.answered && /^\d{4}-\d{2}-\d{2}/.test(c.at ?? '') && c.at.slice(0, 10) <= addDays(date, -1));

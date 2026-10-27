@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**55 of 132 phases built; 57 owe a walk.** Built means implemented and checked; planned is not available.
+**56 of 133 phases built; 57 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -13,7 +13,7 @@ Goals are outcomes, not dates. Counts are derived; superseded work is retired, n
 
 Every rule plates will ship is already holding on plates: phases own status, the roadmap is checked, lessons are shapes, and the conductor can walk the plan.
 
-11/22 built; 10 owe a walk.
+12/23 built; 10 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -39,6 +39,7 @@ Every rule plates will ship is already holding on plates: phases own status, the
 | [87. Builders restate what done means first, and report in one shape](phases/87-builders-restate-what-done-means-first-and.md) | partial, walk owed | 2026-10-16 | — | Built 2026-10-16: the conduct skill's brief ends with the restatement and fixes the report's sections in order; its verify step reads the restatement first and refuses a report missing an acceptance box or an exit code. Owes the owner one read of a conducted phase's report. · [#172](https://github.com/dalmaer/plates/issues/172) |
 | [90. Builders receive the decisions that still apply](phases/90-builders-receive-current-decisions.md) | built | 2026-10-20 | [26](phases/26-reconciliation.md), [87](phases/87-builders-restate-what-done-means-first-and.md) | Scoped decision context is implemented and checked through packed, adopted and workflow surfaces; live use remains. |
 | [91. An idea becomes work without losing the owner choices](phases/91-ideas-become-plans-with-attributed-choices.md) | built | 2026-10-20 | [90](phases/90-builders-receive-current-decisions.md) | Local and packed proof complete; PR #208 merged on 2026-10-21. Merge is source state, not additional acceptance evidence. |
+| [132. A review that makes progress gets one more set of rounds; one that repeats stops](phases/132-a-review-that-makes-progress-gets-one-more-set.md) | built | 2026-10-27 | [71](phases/71-a-review-that-keeps-going-is-brought-to-the.md) | Owner asked on 2026-10-27: at the round limit, judge the rounds; progress gets one more set, repetition stops. |
 
 - **0 done when:** A fresh clone of plates passes `npm run check` on GitHub Actions, and `/conduct plates` can read the next phase and its next action from the repo alone.
 - **1 done when:** Plates's own practice files are rendered from `practices/<name>/`, and re-rendering them onto plates changes no bytes.
@@ -62,6 +63,7 @@ Every rule plates will ship is already holding on plates: phases own status, the
 - **87 done when:** The conduct skill has every builder restate the phase's success criteria before it builds, and report in one shape (changes, each acceptance box with its test or why not, the focused test commands the builder ran with their exit codes, decisions the spec left open, what remains), and the conductor's checklist refuses a report missing those exit codes or an acceptance box. The full gate stays the conductor's, run once on the integrated tree, as the skill already says.
 - **90 done when:** A builder brief resolves explicitly linked decisions by scope at the source revision, carries their provenance, and refuses contradictory or unavailable required context before dispatch or resume.
 - **91 done when:** A locally reviewed shaping record produces non-overwriting phase drafts or robot rubric previews with attributed decisions, named proof and valid dependencies, while changed inputs invalidate approval.
+- **132 done when:** At its round limit (`"review": {"rounds": N}`, 3 unset), `plates review` and the board judge the first N rounds from the read they already make. A review whose rounds made progress gets its limit extended once, to 2N. A review that repeats stops at N and says why. There is never a second extension.
 
 ## G1 — Start a project in one command
 

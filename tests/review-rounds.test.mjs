@@ -14,7 +14,7 @@ import { run, cleanEnv } from './helpers/run.mjs';
 import { prGate, classText, classOfFlag } from '../lib/review.mjs';
 // plates's own rendered copy: the practice's source sits apart from the lib.mjs it imports (render:check keeps the two the same).
 import { summaryReview, MARKER } from '../scripts/plates/cross-review.mjs';
-import { reviewRounds, reviewComments, reviewConfigOf, reviewRoundLimit, byMergeRule, classMark, classOf, classOnly, reviewFragment, windowFragment, REVIEW_ROUNDS } from '../practices/night/files/scripts/plates/lib.mjs';
+import { reviewRounds, roundFindings, judgeRounds, REVIEW_NEAR, reviewComments, reviewConfigOf, reviewRoundLimit, byMergeRule, classMark, classOf, classOnly, reviewFragment, windowFragment, REVIEW_ROUNDS } from '../practices/night/files/scripts/plates/lib.mjs';
 
 const PLATES = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BIN = join(PLATES, 'bin', 'plates.mjs');
@@ -141,7 +141,7 @@ test('a round is a push a reviewer answered with a finding: a push it passed is 
   const r = plates(dir, gh, ['#3', '--json']);
   assert.equal(r.code, 1, 'findings unanswered: exit 1, as before');
   const d = r.json();
-  assert.deepEqual(d.rounds, { count: 2, limit: 3, reached: false, pushes: [A, C] });
+  assert.deepEqual(d.rounds, { count: 2, limit: 3, base: 3, reached: false, pushes: [A, C], trend: null });
   assert.equal(d.choice, null);
   assert.equal(d.unanswered, 3, 'the two findings on C, and the author\'s own note (listed as it always was)');
   // Counted from the reviews already read: the one GraphQL read and the REST reviews, nothing more.
@@ -542,4 +542,75 @@ test('class markers prefer current spelling and each reader requires both names 
     assert.equal(mutant.classOf(body),null);
     assert.equal(mutant.classOnly(body),false);
   }
+});
+
+// ---- at the limit: progress extends it once, repetition stops it (phase 132) -------
+
+const [E, F, G] = ['e', 'f', '9'].map(x => `${x}1`.repeat(20));
+/** A finding at a place: path and line on the thread, as GitHub reads them. */
+const at = (id, commit, path, line, opts = {}) => ({ ...finding(id, commit, { answered: true, ...opts }), path, line });
+/** Three rounds on new ground each, falling: 2, 1, 1 findings in three files, severities easing. */
+const progressing = () => [
+  at('PRRT_a1', A, 'anvil.js', 10, { body: '**P1** Acme anvil drops early.' }), at('PRRT_a2', A, 'skates.js', 200, { body: '**P2** Acme skates squeak.' }),
+  at('PRRT_b1', B, 'rocket.js', 40, { body: '**P2** Acme rocket veers.' }),
+  at('PRRT_c1', C, 'magnet.js', 5, { body: '**P3** Acme magnet label.' }),
+];
+
+test('judgeRounds: rounds on new ground that converge extend the limit once, to twice it', () => {
+  const f = [{ round: 1, path: 'anvil.js', line: 10, severity: 1 }, { round: 1, path: 'skates.js', line: 200, severity: 2 },
+    { round: 2, path: 'rocket.js', line: 40, severity: 2 }, { round: 3, path: 'magnet.js', line: 5, severity: 3 }];
+  assert.deepEqual(judgeRounds(f, 3), { verdict: 'progress', reasons: [], counts: [2, 1, 1], limit: 6 });
+  assert.equal(judgeRounds(f.slice(0, 3), 3), null, 'under the limit nothing is judged');
+  // Rounds past the first three never change the verdict: one extension, then the owner's.
+  const later = [...f, { round: 4, path: 'anvil.js', line: 11, severity: 1 }, { round: 5, path: 'anvil.js', line: 12, severity: 1 }, { round: 6, path: 'anvil.js', line: 12, severity: 1 }];
+  assert.deepEqual(judgeRounds(later, 3), judgeRounds(f, 3));
+});
+
+test('judgeRounds: a finding that returns to an earlier one, a file in every round, or no convergence each stop it', () => {
+  const returns = [{ round: 1, path: 'anvil.js', line: 10, severity: 1 }, { round: 1, path: 'skates.js', line: 1, severity: 2 },
+    { round: 2, path: 'anvil.js', line: 10 + REVIEW_NEAR, severity: 2 }, { round: 3, path: 'rocket.js', line: 3, severity: 3 }];
+  assert.deepEqual(judgeRounds(returns, 3), { verdict: 'repeating', reasons: [`round 2 returns to anvil.js:${10 + REVIEW_NEAR}, ${REVIEW_NEAR} lines from a round 1 finding`], counts: [2, 1, 1], limit: 3 });
+  // One line further is new ground.
+  assert.equal(judgeRounds(returns.map(x => x.round === 2 ? { ...x, line: x.line + 1 } : x), 3).verdict, 'progress');
+  const everyRound = [{ round: 1, path: 'anvil.js', line: 10, severity: 1 }, { round: 1, path: 'skates.js', line: 1, severity: 1 },
+    { round: 2, path: 'anvil.js', line: 100, severity: 2 }, { round: 3, path: 'anvil.js', line: 300, severity: 3 }];
+  assert.deepEqual(judgeRounds(everyRound, 3).reasons, ['anvil.js drew a finding in every round']);
+  const flat = [{ round: 1, path: 'a.js', line: 1, severity: 2 }, { round: 2, path: 'b.js', line: 1, severity: 2 }, { round: 3, path: 'c.js', line: 1, severity: 1 }];
+  assert.deepEqual(judgeRounds(flat, 3).reasons, ['no convergence: round 3 had 1 finding to round 1\'s 1, top severity P1 to P2']);
+  // As many findings, but less severe: converging. Severity unknown on either: the count alone decides.
+  assert.equal(judgeRounds(flat.map(x => x.round === 3 ? { ...x, severity: 3 } : x), 3).verdict, 'progress');
+  assert.equal(judgeRounds(flat.map(x => ({ ...x, severity: null })), 3).verdict, 'repeating');
+});
+
+test('roundFindings: each counted finding with its round, file, the line it was made on and its severity', () => {
+  const pr = { author: { login: 'acme-owner' }, reviewThreads: { nodes: [
+    { path: 'anvil.js', line: null, originalLine: 12, comments: { nodes: [{ author: { login: 'acme-reviewer' }, body: '<!-- keel:cross-review finding -->\n**P2** Acme anvil.', originalCommit: { oid: A } }] } },
+    { path: 'skates.js', line: 4, comments: { nodes: [{ author: { login: 'acme-reviewer' }, body: 'No severity here.', originalCommit: { oid: B } }] } },
+    { path: 'note.js', line: 1, comments: { nodes: [{ author: { login: 'acme-owner' }, body: 'P1 the author\'s own.', originalCommit: { oid: B } }] } },
+  ] }, reviews: { nodes: [{ author: { login: 'acme-reviewer' }, commit: { oid: B }, body: 'P3 Acme body finding.', state: 'COMMENTED' }] } };
+  assert.deepEqual(roundFindings(pr), [
+    { round: 1, path: 'anvil.js', line: 12, severity: 2 },
+    { round: 2, path: 'skates.js', line: 4, severity: null },
+    { round: 2, path: null, line: null, severity: 3 },
+  ]);
+});
+
+test('plates review: a review that made progress goes on past 3 and stops at 6; one that repeats stops at 3, saying why', async t => {
+  const dir = await project(t);
+  const three = await stubGh(t, { threads: progressing(), reviews: [onHead] });
+  const r = plates(dir, three, ['#3']);
+  assert.equal(r.code, 0, 'extended: every finding answered, so the read passes as under the limit');
+  assert.match(r.out, /Review round 3 of 6: rounds 1-3 made progress \(findings 2, 1, 1; none returned to an earlier finding\), so the limit is extended once, from 3 to 6\./);
+  const d = plates(dir, three, ['#3', '--json']).json();
+  assert.deepEqual([d.rounds.count, d.rounds.limit, d.rounds.base, d.rounds.reached, d.rounds.trend.verdict, d.choice], [3, 6, 3, false, 'progress', null]);
+  // Three more rounds, even on the same spot, use the one extension: the owner's choice at 6.
+  const six = await stubGh(t, { head: G, threads: [...progressing(), at('PRRT_d1', D, 'anvil.js', 10), at('PRRT_e1', E, 'anvil.js', 10), at('PRRT_f1', F, 'anvil.js', 10)], reviews: [{ user: 'acme-reviewer', commit_id: G }] });
+  const s = plates(dir, six, ['#3']);
+  assert.equal(s.code, 3);
+  assert.match(s.out, /Review round 6 of 6: this review has reached its limit \(\.plates\/plates\.json "review": \{"rounds": 3\}, extended once to 6\)\.\nRounds 1-3 made progress \(findings 2, 1, 1\), and the one extension is used\.\nStop pushing fixes\./);
+  // Repeating: round 2 lands back where round 1's fix was.
+  const again = await stubGh(t, { threads: [at('PRRT_a1', A, 'anvil.js', 10), at('PRRT_a2', A, 'skates.js', 200), at('PRRT_b1', B, 'anvil.js', 14), at('PRRT_c1', C, 'magnet.js', 5)], reviews: [onHead] });
+  const x = plates(dir, again, ['#3']);
+  assert.equal(x.code, 3);
+  assert.match(x.out, /Review round 3 of 3: this review has reached its limit \(\.plates\/plates\.json "review": \{"rounds": 3\}\)\.\nRounds 1-3 repeat, so the limit is not extended:\n  - round 2 returns to anvil\.js:14, 4 lines from a round 1 finding\nStop pushing fixes\./);
 });
