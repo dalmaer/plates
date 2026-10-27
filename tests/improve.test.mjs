@@ -146,15 +146,15 @@ test('--report writes that day\'s page and the bounds, nothing else; the one pro
   assert.equal(r1.code, 1, r1.out);
   const d1 = r1.json();
   // machine_prs is keel-night/ 3 against 1 (margin 2); ci 1 against 0 and phase 0 without an issue (margin 1).
-  assert.deepEqual(d1.proposal, { id: 'machine_prs', state: 'outside', text: 'Drain the keel-night/ queue to its newest PR: close the 2 older ones (lesson 9).' });
+  assert.deepEqual(d1.proposal, { id: 'machine_prs', state: 'outside', text: 'Drain the plates-night/ queue to its newest PR: close the 2 older ones (lesson 9).' });
   const after = await snapshot(dir, ours);
   const changed = Object.keys(after).filter(k => after[k] !== before[k]).sort();
   assert.deepEqual(changed, ['.plates/bounds.json', d1.report].sort());
   assert.equal(after['docs/health/2020-01-01.md'], 'an older page\n');
   const pageText = after[d1.report];
-  assert.match(pageText, /^<!-- keel:health-report:begin [a-f0-9]{64} -->\n# Health — \d{4}-\d{2}-\d{2}/);
-  assert.match(pageText, /\| `machine_prs` — .* \| 3 \| ≤ 1 \| outside \| keel\/ 0, keel-night\/ 3, keel-loop\/ 0, renovate\/ 2 \|/);
-  assert.match(pageText, /## Proposal\n\n\*\*`machine_prs`\*\* \(outside\) — Drain the keel-night\/ queue/);
+  assert.match(pageText, /^<!-- plates:health-report:begin [a-f0-9]{64} -->\n# Health — \d{4}-\d{2}-\d{2}/);
+  assert.match(pageText, /\| `machine_prs` — .* \| 3 \| ≤ 1 \| outside \| plates\/ 0, plates-night\/ 3, plates-loop\/ 0, renovate\/ 2 \|/);
+  assert.match(pageText, /## Proposal\n\n\*\*`machine_prs`\*\* \(outside\) — Drain the plates-night\/ queue/);
   assert.equal(pageText.match(/^## Proposal$/gm).length, 1);
   // The same history as the first reading: the gate's run is one more record each time (the test ledger).
   await rm(join(dir, '.plates', 'test-runs'), { recursive: true, force: true });
@@ -195,7 +195,7 @@ test('--report with tonight\'s plan: the measure item is ticked, the plan as it 
   assert.match(pageText, new RegExp(`^\\| measures: Measure the practice \\(no health page yet\\) \\| measure \\| night \\| — \\| done \\| \\d+ ok, .* — ${data.report.replace(/[.]/g, '\\.')} \\|$`, 'm'));
   assert.match(pageText, /^\| acme-review: Read the Acme checkout flow \| review \| night \| — \| planned \| — \|$/m);
   assert.match(pageText, new RegExp(`The record: \`docs/night/${date}\\.json\``));
-  assert.ok(pageText.indexOf("## Tonight's plan") < pageText.indexOf('<!-- keel:health-report:end -->'), 'the section is the generated report\'s, rewritten each night');
+  assert.ok(pageText.indexOf("## Tonight's plan") < pageText.indexOf('<!-- plates:health-report:end -->'), 'the section is the generated report\'s, rewritten each night');
   assert.deepEqual(data.nightPlan.items.map(i => [i.id, i.status]), [['measures', 'done'], ['acme-review', 'planned']]);
   // plates improve --report run by hand has no workflow staging check: a symlinked docs/night, or record, pointing
   // outside the project is refused before any write, the page says so, and the target is byte-identical.

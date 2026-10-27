@@ -337,6 +337,20 @@ test('cancel before first trial retains a valid reservation and closed admission
   assert.equal(cancelled.execution.reservation.kind, 'evaluation-reservation');
 });
 
+test('a cancel interrupted after its intent still closes admission', async t => {
+  const w = await evaluationWorld(t), options = { ...w.options, action: 'cancel', experiment: w.b.comparison.id };
+  const preview = await evaluations(options);
+  await evaluations({ ...options, yes: true, digest: preview.digest });
+  // The crash between the two writes: the intent is stored, cancel.json is not.
+  const control = join(w.options.state, 'session-trials', w.b.comparison.id, 'execution', 'control');
+  await rm(join(control, 'cancel.json'));
+  const resume = { ...w.options, action: 'resume', experiment: w.b.comparison.id, execution: w.execution };
+  await assert.rejects(evaluations(resume), /admission closed/);
+  const retry = await evaluations({ ...options, yes: true, digest: preview.digest });
+  assert.equal(retry.recovered, true);
+  await assert.rejects(evaluations(resume), /admission closed/);
+});
+
 
 test('lock owner IDs require canonical UUID strings without coercion or reclaim', async t => {
   const fixture = await home(t), release = await ledgerLock(fixture, { harness: true });

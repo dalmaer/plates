@@ -292,6 +292,7 @@ email.
 
 ```bash
 plates morning                        # the brief for the night that last started, markdown
+plates morning --observation --json   # early read-only observation; no final send
 plates morning --date 2026-10-15      # for a named night
 plates morning --send                 # the issue "Good morning, <date>", once a night
 plates morning --card --yes           # the plan as the live canvas card night-plan
@@ -306,6 +307,10 @@ plates morning --card --yes           # the plan as the live canvas card night-p
   health page and each PR. The night's health page is read from where its
   record was: while the night's PR is unmerged, from that PR's branch, and
   linked there.
+- **Early observation** is a read-only report, separate from final readiness.
+  It shows pending and failed work without ticking it complete or starting a run.
+  It cannot send an issue or publish a card; the eventual final report keeps its
+  original identity and deduplication. A compatible update does not wait for it.
 - **Sending** needs `"morning": { "assignee": "<your GitHub login>" }` in
   `.plates/plates.json`; without it `--send` refuses, naming the key. It labels
   the issue `keel:morning` and closes yesterday's. A second send for the same

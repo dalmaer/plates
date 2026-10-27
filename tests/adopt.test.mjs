@@ -627,6 +627,8 @@ test('the proposed gate runs: the ledger records the bun run, and the gate fails
   await mkdir(join(dir, 'scripts', 'plates'), { recursive: true });
   await cp(join(PLATES, 'practices', 'night', 'files', 'scripts', 'plates', 'test-ledger.mjs'), join(dir, 'scripts', 'plates', 'test-ledger.mjs'));
   await cp(join(PLATES, 'practices', 'night', 'files', 'scripts', 'plates', 'time-receipts.mjs'), join(dir, 'scripts', 'plates', 'time-receipts.mjs'));
+  await cp(join(PLATES, 'practices', 'night', 'files', 'scripts', 'plates', 'names-environment.mjs'), join(dir, 'scripts', 'plates', 'names-environment.mjs'));
+  await cp(join(PLATES, 'practices', 'night', 'files', 'scripts', 'plates', 'names.mjs'), join(dir, 'scripts', 'plates', 'names.mjs'));
   const git = (...args) => run('git', ['-C', dir, ...args], { env: ENV });
   git('init', '-q', '-b', 'main');
   git('add', '-A');
@@ -782,6 +784,8 @@ test('no proposal where the night practice is not on and the ledger is not there
   await mkdir(join(dir, 'scripts', 'plates'), { recursive: true });
   await cp(join(PLATES, 'practices', 'night', 'files', 'scripts', 'plates', 'test-ledger.mjs'), join(dir, 'scripts', 'plates', 'test-ledger.mjs'));
   await cp(join(PLATES, 'practices', 'night', 'files', 'scripts', 'plates', 'time-receipts.mjs'), join(dir, 'scripts', 'plates', 'time-receipts.mjs'));
+  await cp(join(PLATES, 'practices', 'night', 'files', 'scripts', 'plates', 'names-environment.mjs'), join(dir, 'scripts', 'plates', 'names-environment.mjs'));
+  await cp(join(PLATES, 'practices', 'night', 'files', 'scripts', 'plates', 'names.mjs'), join(dir, 'scripts', 'plates', 'names.mjs'));
   assert.equal((await adopt({ dir, dryRun: true }, { version: VERSION })).data.tests.proposal.to, BUN_STEP);
 });
 
@@ -790,6 +794,8 @@ test('adopted JUnit shell samples after lint immediately before the runner and t
   await mkdir(bin);
   await mkdir(join(dir, 'scripts', 'plates'), { recursive: true });
   await cp(join(PLATES, 'practices', 'night', 'files', 'scripts', 'plates', 'time-receipts.mjs'), join(dir, 'scripts', 'plates', 'time-receipts.mjs'));
+  await cp(join(PLATES, 'practices', 'night', 'files', 'scripts', 'plates', 'names-environment.mjs'), join(dir, 'scripts', 'plates', 'names-environment.mjs'));
+  await cp(join(PLATES, 'practices', 'night', 'files', 'scripts', 'plates', 'names.mjs'), join(dir, 'scripts', 'plates', 'names.mjs'));
   const source = await readFile(join(PLATES, 'practices/night/files/scripts/plates/test-ledger.mjs'), 'utf8');
   // Instrument only the sample entrypoint to observe shell ordering, without
   // inventing load or depending on clocks or machine quietness.
@@ -899,4 +905,30 @@ test('milestone adoption proposes read-only source, preserves local plans and di
   assert.match(unavailable.practices.find(p => p.name === 'phases').why, /Acme offline/);
   const local = await copyFixture(t, 'acme-groove');
   await survey(local, { ...opts, milestoneRead: async () => { assert.fail('local plans must never trigger discovery'); } });
+});
+
+test('successful consumer adoption explicitly leaves central fleet registration unverified', async t => {
+  const dir = await copyFixture(t, 'acme-fold');
+  const { data, text } = await adopt({ dir }, { version: VERSION });
+  assert.equal(data.dryRun, false);
+  assert.ok(data.written.includes(REPORT));
+  assert.equal(data.fleetRegistration.status, 'not-checked');
+  assert.equal(data.fleetRegistration.scope, 'cli-fleet');
+  assert.match(text, /Fleet registration: not checked/);
+  const report = await readFile(join(dir, REPORT), 'utf8');
+  assert.match(report, /Fleet registration — separate completion check/);
+  assert.match(report, /A missing entry fails the check/);
+  assert.match(report, /check-fleet-registration\.mjs/);
+  assert.equal(data.written.includes('plates.json'), false, 'consumer adoption must not write a central manifest');
+});
+
+test('the registration handoff emits a command only for a validated repository identity', () => {
+  const input = { config: { name: 'Acme', practice: '0.0.0', check: 'npm test', repo: 'acme/project' }, practices: [], files: [] };
+  assert.match(adoptionReport(input), /--repo acme\/project --json/);
+  for (const repo of [undefined, 42, { toString: 'not callable' }, ['acme/project'], 'acme/project; echo acme-untrusted', 'acme/a b', 'acme/a\nacme/b', '$(echo acme-untrusted)/repo']) {
+    const report = adoptionReport({ ...input, config: { ...input.config, repo } });
+    assert.match(report, /No verified owner\/repo identity is available/);
+    assert.ok(!report.includes('node scripts/check-fleet-registration.mjs --manifest'), 'no copyable command from malformed repository input');
+    assert.ok(!report.includes('acme-untrusted'));
+  }
 });

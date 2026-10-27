@@ -7,6 +7,7 @@ import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { load, claims, fill, plan, config, wanted, targets } from '../lib/practices.mjs';
 import { optionalPractices } from './helpers/practices.mjs';
+import { NAMES } from '../lib/names.mjs';
 import { copyProject } from './helpers/copy-project.mjs';
 
 const PLATES = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -125,14 +126,51 @@ test('ejected legacy conductor ownership prevents installing a different default
   }
 });
 
-test('templates name the project only through {{name}}', async () => {
+function withoutCanonicalNameValue(practice, file, line) {
+  if (practice !== 'night' || file !== 'scripts/plates/names.mjs') return line;
+  // Admit only the plates field of an explicit registered inventory row. The
+  // rest of that row, adjacent prose and every other file still face the guard.
+  const match = /^\s*Object\.freeze\((\{.*\})\),?\s*$/.exec(line);
+  if (!match) return line;
+  let row;
+  try { row = JSON.parse(match[1]); } catch { return line; }
+  const canonical = NAMES.find(value => value.id === row.id);
+  if (!canonical || row.plates !== canonical.plates) return line;
+  return line.replace(/("plates"\s*:\s*)("(?:\\.|[^"\\])*")/g,
+    (field, key, value) => JSON.parse(value) === canonical.plates ? `${key}""` : field);
+}
+
+function assertTemplateProjectNames(practices) {
   // Deliberate mentions: provenance and the plates tool itself, never the project.
   const allowed = [/Plates manages this file/, /Lineage: isocan → ledger .* → cajones/, /Adapted from ritmo's/, /Plates lessons?\b/, /Plates catalogue/];
-  for (const p of (await load()).values()) for (const f of p.files.filter(f => f.template)) {
+  for (const p of practices) for (const f of p.files.filter(f => f.template)) {
     for (const line of f.template.split('\n')) {
-      if (/\bPlates\b|\bCajones\b/.test(line)) assert.ok(allowed.some(r => r.test(line)), `${p.name} ${f.from}: ${line}`);
+      const checked = withoutCanonicalNameValue(p.name, f.from, line);
+      if (/\bPlates\b|\bCajones\b/.test(checked)) assert.ok(allowed.some(r => r.test(checked)), `${p.name} ${f.from}: ${line}`);
     }
   }
+}
+
+test('templates name the project only through {{name}}', async () => {
+  assertTemplateProjectNames((await load()).values());
+});
+
+test('canonical inventory values do not exempt arbitrary project names from the template guard', () => {
+  const row = NAMES.find(value => value.id === 'web:Keel-Operation');
+  assert.equal(row.plates, 'Plates-Operation');
+  const line = value => `  Object.freeze(${JSON.stringify(value)}),`;
+  const practice = (template, from = 'scripts/plates/names.mjs', name = 'night') => [{ name, files: [{ from, template }] }];
+  assert.doesNotThrow(() => assertTemplateProjectNames(practice(line(row))));
+  for (const template of [
+    `${line(row)}\n// Plates is this project's name`,
+    `// Cajones is this project's name\n${line(row)}`,
+    `${line(row)} // Plates is this project's name`,
+    line({ ...row, note: 'Plates is this project' }),
+    line({ ...row, plates: 'Plates is this project' }),
+    line({ ...row, id: 'acme:unknown' }),
+  ]) assert.throws(() => assertTemplateProjectNames(practice(template)), /night scripts\/plates\/names\.mjs:/);
+  assert.throws(() => assertTemplateProjectNames(practice(line(row), 'scripts/plates/acme.mjs')), /night scripts\/plates\/acme\.mjs:/);
+  assert.throws(() => assertTemplateProjectNames(practice(line(row), 'scripts/plates/names.mjs', 'acme')), /acme scripts\/plates\/names\.mjs:/);
 });
 
 test('an unknown placeholder is an error; GitHub expressions are not placeholders', () => {
@@ -406,3 +444,25 @@ test('runtime declarations cannot import workflows, absent files, seeded files o
   await writeFile(join(dir,'source/practice.json'),JSON.stringify(linked));
   await assert.rejects(load(dir),/unconditional managed script/);
 });
+
+for (const consumer of ['loop', 'reconciliation']) for (const ownership of ['local', 'ejected']) {
+  test(`runtime dependency ${consumer}/${ownership} refuses missing helper and preserves supplied owner file`, async t => {
+    const root = await temp('runtime-owner-closure'); t.after(() => rm(root, { recursive: true, force: true }));
+    const practices = await load(), path = 'scripts/plates/names.mjs';
+    const cfg = { ...ACME, practices: [...ACME.practices, consumer],
+      ...(ownership === 'local' ? { local: { night: 'Acme owns its night' } } : { ejected: [path] }) };
+    await assert.rejects(plan(root, cfg, practices), /runtime dependency unavailable.*scripts\/plates\/names\.mjs/);
+    await mkdir(join(root, 'scripts/plates'), { recursive: true });
+    for (const incompatible of ['// Acme owner helper\n', 'export const readNames = id => [id];\n']) {
+      await writeFile(join(root,path), incompatible);
+      await assert.rejects(plan(root,cfg,practices), /runtime dependency incompatible.*scripts\/plates\/names\.mjs/);
+      assert.equal(await readFile(join(root,path),'utf8'),incompatible,'incompatible owner bytes are preserved without execution');
+    }
+    const original = await readFile(join(PLATES, 'practices/night/files/scripts/plates/names.mjs'), 'utf8');
+    await writeFile(join(root, path), original);
+    const entries = await plan(root, cfg, practices);
+    assert.ok(!entries.some(f => f.path === path), 'owner dependency is not managed or overwritten');
+    assert.ok(entries.some(f => f.path === (consumer === 'loop' ? 'scripts/loop.mjs' : 'scripts/plates/reconcile.mjs')));
+    assert.equal(await readFile(join(root, path), 'utf8'), original);
+  });
+}
