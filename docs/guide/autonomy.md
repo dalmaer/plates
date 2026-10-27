@@ -140,6 +140,46 @@ rules, new budgets or unrelated communications. A merge with deployment side
 effects still requires separate deployment authority. Historical yeses and the
 setting file alone never establish consent.
 
+## High favors reversible delivery
+
+High favors shipping a bounded, reversible change with verification and a reliable
+rollback over trying to eliminate every hypothetical regression first. Document
+non-blocking uncertainty in the change record and continue when the selected task
+scope, required evidence and mandatory checks permit it. An unknown required
+permission, missing required check or failed gate is not non-blocking uncertainty
+and must never be called a pass. High neither removes those gates nor authorizes
+unrelated external work.
+
+Before using this path, retain a small rollout record:
+
+| Field | Required meaning |
+| --- | --- |
+| Scope and effects | Exact project, destinations and affected components; identify data writes, external actions, consumers and compatibility assumptions. |
+| Known-good revision | Exact source/artifact identifier with retained passing checks and relevant health observations. A branch name or merely older commit is not proof that it is good. |
+| Reversibility | The previous artifact/configuration is still available, rollback permissions and tools are available, compatibility is preserved, and restoring it has bounded cost without losing data or duplicating effects. |
+| Rollback procedure | Concrete steps to restore the affected source/artifact and verify it. Name who executes them and retain the original change and any uncertain operation state. |
+| Health signals | Before/after checks for the affected behavior, error reports and source/version readback; state which surfaces are unavailable. |
+| Stop criteria | Failed mandatory checks, identity/protection mismatch, unsafe side effects, evidence of data loss or secret exposure, unreliable rollback, or an uncertain mutation outcome. Stop dependent work and resolve/escalate the specific gap. |
+| Non-blocking uncertainty | The remaining bounded risk, why rollback contains it, what signal will reveal it, and what observation remains outstanding. |
+
+For a source-only Plates change, rollback normally means a new task branch and a
+reviewed revert commit through the ordinary checks and merge path, followed by
+source/configuration readback. It does not mean force-resetting a shared branch,
+bypassing checks or assuming a revert restores every external system. When a
+normal deployment is separately authorized, retain its artifact identity and
+restoration procedure as well; the risk setting itself grants no deployment
+permission. Any reversal must stay inside the same verified project and action
+scope, and uncertain writes must be inspected before another mutation.
+
+A Git revert cannot undo a data migration, restore deleted external data, unsend
+a message, refund a charge, unexpose a credential, or reverse another external
+side effect. Such changes need their own safeguards and explicit authority;
+they are outside this reversible fast path unless their actual effects have a
+separately verified recovery procedure. If a shipped change breaks a named
+health signal, stop further rollout and use the reliable bounded rollback.
+Escalate when recovery requires different authority, new data decisions or a
+security response. Do not keep shipping into an unexplained failure.
+
 ## Approval patterns and limits
 
 The pure `suggestAutonomy` helper accepts explicit aggregate approved/declined

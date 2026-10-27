@@ -2699,6 +2699,18 @@ Return to existing behavior with `plates autonomy --level low --json` and
 confirm that preview. Selection writes only `.plates/autonomy.json` and does not
 push it. No setting is selected on installation or from approval history.
 
+High favors reversible shipping with required verification and prompt rollback,
+not elimination of every hypothetical regression. Record the exact known-good
+revision and its checks/health evidence, affected effects, available rollback
+procedure, health signals, stop criteria and any bounded non-blocking uncertainty.
+Continue only while the verified task scope and mandatory gates permit it.
+Missing required evidence is not a pass. Stop further rollout when a health
+signal fails; inspect uncertain writes before retrying and escalate if rollback
+needs new authority or recovery is unreliable. A Git revert does not undo data
+migrations, external side effects, destructive deletion or credential exposure;
+those need separate safeguards and authority. See the autonomy guide for the
+rollout record and source-only revert example.
+
 Never interpret this preference as platform permission, bypass a command's own
 approval/digest/proof gate, expand a budget, or change live rules. A current
 explicit user restriction wins. Before acting, verify the selection's human

@@ -30,3 +30,12 @@ No global policy, credentials, security settings, budgets, unrelated managed
 projects or assistant rules were changed by selection. No reusable timing claim
 is supported: retained busy observations are not comparable performance evidence.
 The distinct evaluation outcomes in phases 119–121 remain designed and untouched.
+
+
+## Reversible delivery clarification
+
+The owner clarified High on 2026-10-27: shipping a reversible change with verification and rollback is preferable to trying to eliminate every possible regression. The guide and agent topic now define the required known-good revision, actual effect boundaries, available restoration procedure, health signals, stop criteria and explicit non-blocking uncertainty. No policy schema, host configuration or required check changed.
+
+On clean publication code head `3f60c7736257bdcab5a731ebae7cb20beccb149f`, the required local `npm run check` exited 0: 3,728 passed, zero failed, four opt-in real-Docker trials skipped; roadmap/render/inbox guards passed. Typecheck and the 229-test focused/convention preflight passed. This later documentation increment receives scoped review and documentation checks; final exact-head hosted CI remains required before merge. Earlier results are not relabelled as proof of edited bytes.
+
+For this authorized Plates publication, `900b488342a3c7b6ba928456001462c1d8899f79` is the inspected prior-main rollback candidate. Treat it as known-good only after its relevant check and health evidence is retained; merely naming that prior SHA is not a health claim. The source rollback procedure is a new bounded task branch, a reviewed revert through mandatory gates and normal merge, then source and setting readback. No force push, data migration or credential change is part of this change. Relevant signals are required CI, CLI inspection/startup output, selected repository/destinations/digest, and the Home panel's honest unavailable-host state. Live hosted appearance and actual reduction in approval prompts remain observation gaps, not passes. If these signals fail, stop further rollout; revert only within established authority, escalating unreliable recovery or new effects.
