@@ -58,7 +58,13 @@ test('local allows only routine authorized edits/tests with verified independent
 test('delivery binds independent exact push and merge destinations and never supplies missing gates', () => {
   const p = policy('delivery', ['feature/acme'], ['main']);
   assert.equal(evaluate(p, action('push', 'feature/acme')).decision, 'proceed');
-  assert.equal(evaluate(p, action('merge', 'main')).decision, 'proceed');
+  const branchProtection = { repository, branch: 'main', defaultBranch: 'main', state: 'protected' };
+  assert.equal(evaluate(p, action('merge', 'main')).decision, 'unavailable');
+  assert.equal(evaluate(p, action('merge', 'main'), { branchProtection }).decision, 'proceed');
+  for (const change of [{repository:'acme/other'}, {branch:'release'}, {state:'unknown'}, {defaultBranch:null}]) {
+    assert.equal(evaluate(p, action('merge', 'main'), { branchProtection: {...branchProtection,...change} }).decision, 'unavailable');
+  }
+  assert.equal(evaluate(p, action('merge', 'main'), { branchProtection, commandGates:'denied' }).decision, 'blocked');
   for (const [scope, target] of [['push', 'main'], ['merge', 'feature/acme'], ['push', 'feature/other'], ['merge', undefined]]) {
     assert.equal(evaluate(p, action(scope, target)).decision, 'ask');
   }
@@ -270,4 +276,28 @@ test('namespace selection is explicit, digest-bound, resettable and carried into
   assert.equal(cli(['--mode', 'default', '--yes', '--digest', reset.data.digest]).status, 0);
   assert.equal(cli([]).data.policy.pushPrefixes, undefined);
   assert.equal(cli(['--push-prefix', 'work/']).status, 2);
+});
+
+
+test('risk levels are one-to-one aliases with unchanged policy digests and explicit selection', async t => {
+  const { cli, file } = await fixture(t);
+  assert.equal(cli([]).data.level, 'low');
+  for (const [level, mode] of [['low','default'], ['medium','local'], ['high','delivery']]) {
+    const args = level === 'high' ? ['--push-prefix', 'work/', '--merge', 'main'] : [];
+    const preview = cli(['--level', level, ...args]);
+    const legacy = cli(['--mode', mode, ...args]);
+    assert.equal(preview.status, 3);
+    assert.equal(preview.data.level, level);
+    assert.equal(preview.data.digest, legacy.data.digest);
+    assert.equal(preview.data.policyDigest, legacy.data.policyDigest);
+    assert.equal(cli(['--level', level, ...args, '--yes', '--digest', preview.data.digest]).status, 0);
+    assert.equal(cli([]).data.level, level);
+    const saved = JSON.parse(await readFile(file, 'utf8'));
+    assert.equal(saved.mode, mode);
+    assert.equal(Object.hasOwn(saved, 'level'), false);
+  }
+  for (const args of [['--level','extreme'], ['--level','high','--mode','delivery'], ['--level','high','--level','low'], ['--level'], ['--level','low','--merge','main']]) {
+    assert.equal(cli(args).status, 2);
+  }
+  assert.equal(cli([]).data.level, 'high');
 });

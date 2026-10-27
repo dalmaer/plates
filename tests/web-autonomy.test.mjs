@@ -21,7 +21,7 @@ test('project Home projects the pinned autonomy declaration without claiming per
   assert.match(project.autonomy.sourceUrl, new RegExp(`/blob/${h.source.revision}/.plates/autonomy.json$`));
   const html = renderHomeSnapshot(snapshot, { projectId: project.id });
   assert.match(html, /Autonomy and approvals/);
-  assert.match(html, /Source setting: Project delivery/);
+  assert.match(html, /Source risk tolerance: High/);
   assert.match(html, /namespaces work\//);
   assert.match(html, /Host approval controls unavailable/);
   assert.match(html, /disabled aria-disabled="true"/);

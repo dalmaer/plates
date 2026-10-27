@@ -1,12 +1,16 @@
-# Autonomy and risk tolerance
+# Risk tolerance: Low, Medium and High
 
-Use `plates autonomy --json` to see the project's selected collaboration mode,
+Use `plates autonomy --json` to see the project's selected risk level,
 all six action scopes, and the conditions still needed before action. No setting
 means the existing behavior. Nothing is enabled by an update or by saying yes to
-previous requests. This first version is a CLI setting and a preflight API;
+previous requests. Low, Medium and High are the user-facing names for the existing stored modes
+`default`, `local` and `delivery`, respectively. They are one setting, not two
+independent controls. `--level` is the primary CLI; `--mode` remains a compatible
+alias and cannot be combined with `--level`. Existing files and policy digests
+keep their meaning. The feature is a CLI setting, Project Home display and preflight API;
 it does not alter hosted workers or the harness's permission configuration.
 
-| Scope | default | local | delivery |
+| Scope | Low (`default`) | Medium (`local`) | High (`delivery`) |
 | --- | --- | --- | --- |
 | Routine local edits | Existing rules | Within authorized task | Within authorized task |
 | Routine tests | Existing rules | Within authorized task | Within authorized task |
@@ -22,34 +26,34 @@ policy (including this setting), custom assistant rules, credentials, and new or
 recurring spend are outside the modes' routine authority. A push or merge that
 would trigger deployment needs the separate deployment approval. Existing project
 rules, budgets, review/proof requirements and exact-command confirmations still
-apply. More autonomy never removes a platform denial.
+apply. A higher level never removes a platform denial. No level authorizes unrelated external communications, new tasks or new spend.
 
-## Select a mode explicitly
+## Select a level explicitly
 
 Preview the complete scope first. This command exits 3 and writes nothing:
 
 ```sh
-plates autonomy --mode local --json
+plates autonomy --level medium --json
 ```
 
 After the user explicitly selects that scope, apply its returned digest:
 
 ```sh
-plates autonomy --mode local --yes --digest <reviewed-digest> --json
+plates autonomy --level medium --yes --digest <reviewed-digest> --json
 ```
 
-Delivery destinations are independent exact branch names. This preview allows
+High has no implicit remote destinations: push and merge destinations are independent selections. This preview allows
 pushing to feature/acme and merging into main only in this project:
 
 ```sh
-plates autonomy --mode delivery --push feature/acme --merge main --json
+plates autonomy --level high --push feature/acme --merge main --json
 ```
 
 For an ongoing project workflow, explicitly select a literal namespace instead
 of approving every future branch name:
 
 ```sh
-plates autonomy --mode delivery --push-prefix work/ --json
+plates autonomy --level high --push-prefix work/ --json
 ```
 
 This can cover work/one and work/next-task under the same approved selection.
@@ -69,10 +73,10 @@ it never edits the project config, assistant rules, CI, credentials or remote
 policy. Keep this user-owned file through updates; installing Plates does not
 create it. Copying it to another repository is refused.
 
-To remove the additional preference, preview and explicitly confirm default:
+To remove the additional preference, preview and explicitly confirm Low:
 
 ```sh
-plates autonomy --mode default --json
+plates autonomy --level low --json
 ```
 
 The file is a declaration, not authentication or a signed consent receipt.
@@ -100,6 +104,10 @@ scope/repository and (for push/merge) exact target branch, plus current context:
   and `branch` to this action, supply a valid `defaultBranch` and report the
   current effective `state: unprotected`. A protected/default branch asks for
   separate authority; missing, unknown or mismatched evidence is unavailable.
+- For every merge, `branchProtection` must bind the exact selected repository
+  and base branch, name a valid current default branch, and report `protected`
+  or `unprotected`. Protection is not bypassed: `commandGates` must independently
+  verify all branch rules, required checks, reviews and exact-head approvals.
 - `platform`, `project` and `commandGates` each independently `allowed`, `denied`
   or `unknown`. Command gates include all required proofs, command-specific
   approval/digests and current restrictions. Never synthesize `allowed` from
@@ -117,12 +125,27 @@ Existing CLI mutation commands retain all their approval gates in this slice.
 Agents can use the report to avoid duplicate conversational questions once the
 same authority has already been established.
 
+## What the levels mean in practice
+
+- **Low:** preserve existing rules and approvals. This is the default for an absent setting; it does not add new approval requirements to already-authorized work.
+- **Medium:** after verifying the user's selection and current task, continue routine reversible repository edits and tests without asking the same conversational question again. Ask separately for publication, merge, deployment or sensitive effects.
+- **High:** Medium plus ordinary task-branch pushes under explicitly selected namespaces or exact branches, and gated merges to separately selected exact bases. Reuse the established approval while scope and evidence are unchanged. Recheck changed head/destination/risk and all required gates; do not treat a new branch under an approved namespace as a new grant when it still meets that namespace's conditions.
+
+For Plates, a bounded High selection is `--level high --push-prefix codex/
+--push-prefix claude/ --push-prefix work/ --merge main`. It applies only to
+`dalmaer/plates`. It does not cover automated nightly branches, other managed
+projects, direct pushes to main, force pushes, destructive deletion, branch-rule
+bypasses, deployment, credentials, security, CI permission changes, assistant
+rules, new budgets or unrelated communications. A merge with deployment side
+effects still requires separate deployment authority. Historical yeses and the
+setting file alone never establish consent.
+
 ## Approval patterns and limits
 
 The pure `suggestAutonomy` helper accepts explicit aggregate approved/declined
-counts. Five or more approvals with no declines can suggest local mode. Its result
+counts. Five or more approvals with no declines can suggest Medium (`local`). Its result
 is always suggestion-only and requires explicit selection. It never reads logs,
-stores counts, writes a setting or enables delivery. No automatic suggestion UI
+stores counts, writes a setting or enables High. No automatic suggestion UI
 or historical approval collection is included.
 
 Selection uses an exclusive local writer lock, bounded regular-file reads, a

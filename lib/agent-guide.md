@@ -2678,22 +2678,24 @@ object with no variable values, secret contents or private journal contents.
 
 <!-- topic: autonomy | explicit risk tolerance within existing permissions -->
 
-Run `plates autonomy --json` before work to inspect the selected mode and its
-boundaries. Missing settings use `default`, preserving existing behavior.
-`local` requests fewer repeated conversational approvals for routine local edits
-and tests after current task authority and selection provenance are verified. `delivery` adds only separately selected exact
+Run `plates autonomy --json` before work to inspect the selected risk level and its
+boundaries. Missing settings use Low (`default`), preserving existing behavior.
+Medium (`local`) requests fewer repeated conversational approvals for routine local edits
+and tests after current task authority and selection provenance are verified. High (`delivery`) adds only separately selected exact
 push/merge branches or explicit push namespaces in this repository. Deployment, destructive actions,
 credentials, CI permissions, policy and assistant-rule changes need specific
 approval; script effects matter even when the command is called a test.
 
-Preview with `plates autonomy --mode local --json`; selecting it requires the
+Preview with `plates autonomy --level medium --json`; selecting it requires the
 owner's explicit confirmation and the preview's exact `--yes --digest <sha256>`.
-Delivery example: `plates autonomy --mode delivery --push feature/acme --merge main --json`.
-For future task branches, preview `plates autonomy --mode delivery --push-prefix work/ --json`.
+High example: `plates autonomy --level high --push feature/acme --merge main --json`.
+For future task branches, preview `plates autonomy --level high --push-prefix work/ --json`.
 Namespaces never cover merging, protected or default branches. Each action needs
 current target-bound protection/ruleset evidence; unavailable evidence grants nothing.
+Every merge requires exact base-bound current protection evidence and all checks/reviews; protected status never bypasses rules.
+`--mode default|local|delivery` remains an alias for Low/Medium/High; do not combine it with `--level`.
 Each selection replaces all branch/namespace lists; omitted destinations grant nothing.
-Return to existing behavior with `plates autonomy --mode default --json` and
+Return to existing behavior with `plates autonomy --level low --json` and
 confirm that preview. Selection writes only `.plates/autonomy.json` and does not
 push it. No setting is selected on installation or from approval history.
 
