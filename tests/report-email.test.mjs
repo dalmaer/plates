@@ -90,3 +90,9 @@ test('local command writes a new preview and refuses overwrite without touching 
   assert.equal(await readFile(input, 'utf8'), source);
   assert.equal(await readFile(output, 'utf8'), renderReportEmail(source));
 });
+
+test('a code span inside emphasis keeps its own stars: a quoted glob survives unchanged', () => {
+  const html = renderReportEmail('**Proof: `tests/**/*.test.mjs`** and *see `a*b`* done');
+  assert.match(html, /<strong style="font-weight:600;">Proof: <code [^>]*>tests\/\*\*\/\*\.test\.mjs<\/code><\/strong>/);
+  assert.match(html, /<em>see <code [^>]*>a\*b<\/code><\/em> done/);
+});
