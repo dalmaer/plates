@@ -5,6 +5,18 @@ practice version: what changes in your repo, and anything you need to do.
 Newest first. `plates release` writes them; `plates update` puts the entries
 between your version and the new one into its pull request.
 
+## v0.8.36 — practice 0.8.36 (2026-10-27)
+
+The morning workflow sends its brief again. Since 0.8.34, the morning's decide job has depended on the dispatch-only names-origin job. On every scheduled run names-origin was skipped, and GitHub skipped finalize, send and card with it. So the night's final PR never opened, no brief was sent and the canvas card stayed stale. The three jobs now run past a skipped ancestor, while still requiring decide to succeed and keeping their existing conditions. A new test flags any workflow job that would be skipped this way.
+
+Storage branches now carry the host's opt-out, the same as the app.
+
+Nothing to do after updating. The next scheduled morning sends as usual. No new credentials, budgets or schedules.
+
+Released without the review gate (2 practice commits unchecked): Owner approved on 2026-10-27: 461092e was pushed directly to main on 2026-10-26; read by Claude before release; the release ships the morning-brief outage fix
+
+Released despite the fleet rehearsal: dalmaer/ledger (Owner approved on 2026-10-27: ledger's perf-budget ms ceilings are load-sensitive under parallel rehearsal; main itself failed in the first rehearsal and passed in the second; ledger CI on main is green; the release touches no ledger code)
+
 ## v0.8.35 — practice 0.8.35 (2026-10-26)
 
 Compatible reviewed updates now have an explicit installation and recovery path. Installation is separate from optimization, complete nightly verification and legacy-name retirement. Only a changed workflow concurrency identity requires a scoped pause/drain/restore barrier; ordinary updates do not.
