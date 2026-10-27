@@ -2659,14 +2659,17 @@ Run `plates autonomy --json` before work to inspect the selected mode and its
 boundaries. Missing settings use `default`, preserving existing behavior.
 `local` requests fewer repeated conversational approvals for routine local edits
 and tests after current task authority and selection provenance are verified. `delivery` adds only separately selected exact
-push and merge branches in this repository. Deployment, destructive actions,
+push/merge branches or explicit push namespaces in this repository. Deployment, destructive actions,
 credentials, CI permissions, policy and assistant-rule changes need specific
 approval; script effects matter even when the command is called a test.
 
 Preview with `plates autonomy --mode local --json`; selecting it requires the
 owner's explicit confirmation and the preview's exact `--yes --digest <sha256>`.
 Delivery example: `plates autonomy --mode delivery --push feature/acme --merge main --json`.
-Each selection replaces the branch lists; omitted destinations grant nothing.
+For future task branches, preview `plates autonomy --mode delivery --push-prefix work/ --json`.
+Namespaces never cover merging, protected or default branches. Each action needs
+current target-bound protection/ruleset evidence; unavailable evidence grants nothing.
+Each selection replaces all branch/namespace lists; omitted destinations grant nothing.
 Return to existing behavior with `plates autonomy --mode default --json` and
 confirm that preview. Selection writes only `.plates/autonomy.json` and does not
 push it. No setting is selected on installation or from approval history.
@@ -2691,5 +2694,9 @@ The generic Plates skill's cold start, `--agent-help all` and this topic include
 current project autonomy context when a setting exists. JSON adds `autonomy`;
 plain text appends the scoped declaration, digest and remaining conditions.
 Selection provenance remains unverified. Missing settings leave help unchanged;
-invalid settings report unavailable without granting authority. Standalone spin,
-scheduled climb, robot and hosted workers do not automatically consume it.
+invalid settings report unavailable without granting authority. The spin/conduct
+`plates decision context` brief also includes the separately unverified context;
+its original decision digest and gate result remain unchanged. Scheduled climb,
+robot and hosted workers do not automatically consume it. Project Home displays
+the pinned source preference and unavailable host controls. No inspected provider
+supplies the trusted effective-permission/consent API needed to suppress host prompts.

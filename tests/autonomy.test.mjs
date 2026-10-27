@@ -227,3 +227,47 @@ test('generic agent startup consults selected scope without authenticating repos
   await rm(file);
   assert.equal(help().stdout, initial.stdout);
 });
+
+test('explicit push namespaces cover future branches only with target-bound protection evidence', () => {
+  const p = { ...policy('delivery'), pushPrefixes: ['work/'] };
+  const protection = branch => ({ repository, branch, defaultBranch: 'main', state: 'unprotected' });
+  for (const target of ['work/one', 'work/new-task']) {
+    assert.equal(evaluate(p, action('push', target), { branchProtection: protection(target) }).decision, 'proceed');
+    assert.equal(evaluate(p, action('push', target)).decision, 'unavailable');
+    for (const change of [{ state: 'unknown' }, { repository: 'acme/other' }, { branch: 'work/other' }, { defaultBranch: undefined }]) {
+      assert.equal(evaluate(p, action('push', target), { branchProtection: { ...protection(target), ...change } }).decision, 'unavailable');
+    }
+    for (const change of [{ state: 'protected' }, { defaultBranch: target }]) {
+      assert.equal(evaluate(p, action('push', target), { branchProtection: { ...protection(target), ...change } }).decision, 'ask');
+    }
+    assert.equal(evaluate(p, action('push', target), { branchProtection: protection(target), platform: 'denied' }).decision, 'blocked');
+    assert.equal(evaluate(p, action('push', target), { branchProtection: protection(target), commandGates: 'unknown' }).decision, 'unavailable');
+    assert.equal(evaluate(p, action('merge', target), { branchProtection: protection(target) }).decision, 'ask');
+  }
+  for (const target of ['main', 'work-other', 'work/a..b', 'work/', 'other/task']) assert.equal(evaluate(p, action('push', target)).decision, 'ask');
+  for (const prefix of ['', '/', '*', 'work*', 'work', 'refs/', 'work/../', '.hidden/', 'work.lock/']) assert.throws(() => validateAutonomy({ ...p, pushPrefixes: [prefix] }, repository));
+  assert.throws(() => validateAutonomy({ ...p, mode: 'local' }, repository));
+  assert.throws(() => validateAutonomy({ ...p, pushPrefixes: ['work/', 'work/'] }, repository));
+});
+
+test('namespace selection is explicit, digest-bound, resettable and carried into decision briefs', async t => {
+  const { root, cli } = await fixture(t);
+  const decision = () => run(process.execPath, [BIN, 'decision', 'context', '--phase', '1', '--json'], { cwd: root });
+  const before = decision();
+  assert.equal(Object.hasOwn(JSON.parse(before.stdout), 'autonomy'), false);
+  const args = ['--mode', 'delivery', '--push-prefix', 'work/'];
+  const preview = cli(args);
+  assert.equal(preview.status, 3);
+  assert.equal(cli(['--mode', 'delivery', '--push-prefix', 'other/', '--yes', '--digest', preview.data.digest]).status, 2);
+  assert.equal(cli([...args, '--yes', '--digest', preview.data.digest]).status, 0);
+  const after = decision(), data = JSON.parse(after.stdout);
+  assert.equal(after.status, before.status, 'decision gate result is retained');
+  assert.deepEqual(data.autonomy.policy.pushPrefixes, ['work/']);
+  assert.equal(data.autonomy.selectionVerification, 'unverified');
+  const { autonomy, ...unchanged } = data;
+  assert.deepEqual(unchanged, JSON.parse(before.stdout), 'decision bundle and its digest are unchanged');
+  const reset = cli(['--mode', 'default']);
+  assert.equal(cli(['--mode', 'default', '--yes', '--digest', reset.data.digest]).status, 0);
+  assert.equal(cli([]).data.policy.pushPrefixes, undefined);
+  assert.equal(cli(['--push-prefix', 'work/']).status, 2);
+});
