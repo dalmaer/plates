@@ -82,6 +82,29 @@ improve` is its reference. By family:
   climb `build` command, `dependency_age` with a lockfile,
   `record_contradictions` with reconciliation on.
 
+### Failed gate diagnostics
+
+When the nightly gate fails, its existing `.plates/test-runs/*.json` receipt
+retains at most 80 lines and 8 KiB from the tail of each captured output stream.
+The complete captured streams are redacted before truncation using the ledger's
+credential patterns, sensitive environment values and `tests.configEnv` values.
+Successful gates retain no output. Invalid `tests` or `tests.configEnv` settings
+make diagnostic text unavailable, preserving the command outcome and active-receipt
+cleanup; malformed redaction settings never fall back to retaining raw text.
+Uncaptured streams remain unavailable;
+truncation and observed/retained byte counts are explicit. This is bounded
+failure context, not a complete log or proof of missing stages.
+
+The receipt binds the diagnostics to its invocation ID, command hash, commit,
+start/end identity and actual exit status or signal. `improve --json` carries the
+same diagnostics and invocation link in the gate's facts without mixing command
+output into JSON stdout. Spawn failures and signals remain broken instruments;
+nonzero gate exits remain failures. A Vitest or typecheck failure without a Node
+summary still has unknown test coverage, not zero or an invented count.
+Compound shell commands remain one invocation; no stage completion is inferred
+by splitting a command string. The normal test-ledger artifact already retains
+these receipt files on failure. No raw-output upload or extra profile is added.
+
 ### The test ledger, and why a hygiene note is work
 
 On a node project, `npm test` runs a second reporter,

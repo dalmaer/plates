@@ -234,6 +234,14 @@ Worktree cleanup and draft decisions are owner actions; accepted file splits use
 the existing robot issue flow only under an approved project budget. Refresh a
 proposal when its source changes; preserve recovery intents after uncertain writes.
 
+## Climb readiness
+
+`runner-ready` describes runner checks only; agent permissions remain unverified.
+The pre-baseline agent-readiness mechanism is incomplete and must not be activated
+as a universal denial or a caller-asserted grant. Do not probe denied operations
+or expand permissions. Preserve the existing execution-denial check and inspect
+the sanitized receipt. See [climb and tend](docs/guide/climb-and-tend.md).
+
 ## Robot issues
 
 `plates issue new --agent` previews a rubric-shaped issue before `--yes` creates
