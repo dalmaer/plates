@@ -175,3 +175,35 @@ test('nested diagnostics identify the revision that started the command even if 
   assert.notEqual(run('git', ['rev-parse', 'HEAD'], { cwd: f.root }).stdout.trim(), f.commit);
   assert.match(r.diagnostics.stderr.text, /Acme nested failure/);
 });
+
+
+test('malformed redaction config preserves gate outcomes and active receipt ownership without retaining output', async t => {
+  for (const [label, tests] of [['null-tests', null], ['number-names', { configEnv: 42 }], ['null-names', { configEnv: null }], ['string-names', { configEnv: 'ACME_CUSTOM' }], ['invalid-name', { configEnv: [42] }]]) {
+    for (const nested of [false, true]) for (const status of [0, 7]) {
+      await t.test(`${label} ${nested ? 'nested' : 'outer'} exit ${status}`, async t => {
+        const f = await fixture(t, `console.log(process.env.ACME_CUSTOM); process.exit(${status});`, 'node acme-runner.mjs', { tests });
+        const id = randomUUID(), env = { ...ENV, ACME_CUSTOM: 'acme-configured-private-value' };
+        if (nested) {
+          await mkdir(join(f.root, '.plates/test-runs'));
+          await writeFile(join(f.root, '.plates/test-runs', `active-${id}`), JSON.stringify({ id, root: await realpath(f.root), pid: process.pid, completed: false }));
+          env.PLATES_GATE_INVOCATION = id;
+        }
+        const r = await timedCommand(f.config.check, { cwd: f.root, env });
+        assert.equal(r.status, status);
+        assert.equal(r.execution.nested, nested);
+        if (status === 0) assert.equal(r.diagnostics, null);
+        else for (const stream of ['stdout', 'stderr']) {
+          assert.equal(r.diagnostics[stream].available, false);
+          assert.equal(r.diagnostics[stream].reason, 'invalid-redaction-config');
+          assert.equal(r.diagnostics[stream].text, null);
+        }
+        assert.doesNotMatch(JSON.stringify(r.diagnostics), /acme-configured-private-value/);
+        const files = await readdir(join(f.root, '.plates/test-runs'));
+        assert.deepEqual(files.filter(name => name.startsWith('active-')), nested ? [`active-${id}`] : []);
+        for (const name of files.filter(name => name.endsWith('.json'))) {
+          assert.doesNotMatch(await readFile(join(f.root, '.plates/test-runs', name), 'utf8'), /acme-configured-private-value/);
+        }
+      });
+    }
+  }
+});

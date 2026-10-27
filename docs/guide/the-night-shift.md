@@ -88,7 +88,10 @@ When the nightly gate fails, its existing `.plates/test-runs/*.json` receipt
 retains at most 80 lines and 8 KiB from the tail of each captured output stream.
 The complete captured streams are redacted before truncation using the ledger's
 credential patterns, sensitive environment values and `tests.configEnv` values.
-Successful gates retain no output. Uncaptured streams remain unavailable;
+Successful gates retain no output. Invalid `tests` or `tests.configEnv` settings
+make diagnostic text unavailable, preserving the command outcome and active-receipt
+cleanup; malformed redaction settings never fall back to retaining raw text.
+Uncaptured streams remain unavailable;
 truncation and observed/retained byte counts are explicit. This is bounded
 failure context, not a complete log or proof of missing stages.
 

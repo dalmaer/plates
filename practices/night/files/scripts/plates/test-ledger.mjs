@@ -298,12 +298,19 @@ export function redactedText(value, env = process.env, { configEnv = [] } = {}) 
   return redacted + text.slice(copied);
 }
 
+const validRedactionConfig = tests => tests === undefined || (tests !== null && typeof tests === 'object' && !Array.isArray(tests)
+  && (tests.configEnv === undefined || (Array.isArray(tests.configEnv) && tests.configEnv.every(v => typeof v === 'string' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(v)))));
+
 /** Bounded failure evidence for any gate runner, without guessing compound stages.
  * Redact the complete captured stream before retaining its tail: slicing first
  * can separate an assignment key from its secret or expose a split credential. */
-export function gateDiagnostics(result, env = process.env, { configEnv = [] } = {}) {
+export function gateDiagnostics(result, env = process.env, tests) {
   if (!result.error && result.status === 0 && !result.signal) return null;
+  // Optional evidence must never replace the gate outcome or retain text when
+  // configured secret names cannot be determined. Match the reporter's boundary.
+  const valid = validRedactionConfig(tests), configEnv = valid ? tests?.configEnv ?? [] : [];
   const stream = value => {
+    if (!valid) return { available: false, reason: 'invalid-redaction-config', text: null, observedBytes: null, retainedBytes: 0, truncated: false };
     if (typeof value !== 'string') return { available: false, text: null, observedBytes: null, retainedBytes: 0, truncated: false };
     const redacted = redactedText(value, env, { configEnv }).replace(/\r\n?/g, '\n').replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, ' ');
     let text = redacted.split('\n').slice(-80).join('\n').slice(-8192);
@@ -804,7 +811,7 @@ export async function readStalls(root) {
 async function projectConfig(root, { strict = false, redaction = false } = {}) {
   try {
     const config = JSON.parse(await readFile(join(root, '.plates', 'plates.json'), 'utf8'));
-    if (redaction && (!config || typeof config !== 'object' || Array.isArray(config) || (config.tests !== undefined && (!config.tests || typeof config.tests !== 'object' || Array.isArray(config.tests))) || (config.tests?.configEnv !== undefined && !(Array.isArray(config.tests.configEnv) && config.tests.configEnv.every(v => typeof v === 'string' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(v)))))) return null;
+    if (redaction && (!config || typeof config !== 'object' || Array.isArray(config) || !validRedactionConfig(config.tests))) return null;
     if (strict && (!config || typeof config !== 'object' || Array.isArray(config) || (config.check !== undefined && (typeof config.check !== 'string' || !config.check.trim())))) throw new Error('invalid gate configuration');
     return config;
   } catch (error) {
