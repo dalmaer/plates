@@ -707,6 +707,12 @@ export async function robotCli(args, env = process.env) {
     if (problems.length) throw new Error(problems.join('; '));
     return {ok:true};
   }
+  const autonomy = async role => {
+    try {
+      const { revisionAutonomyContext } = await import('./autonomy-context.mjs');
+      return revisionAutonomyContext({ root, repository: repo, revision: env.GITHUB_SHA, role })?.text ?? '';
+    } catch { return '\nProject autonomy context unavailable; existing task and role gates still apply.\n'; }
+  };
   if (command === 'context') {
     const plan = await json(join(temp, 'robot-plan.json'));
     const issue = await robotRead(robotGithub, `/repos/${repo}/issues/${plan.issueNumber}`);
@@ -717,7 +723,7 @@ export async function robotCli(args, env = process.env) {
     await write('robot-plan.json', plan);
     const protocol = await readFile(join(root, '.agents/robot/PROTOCOL.md'), 'utf8');
     await mkdir(join(temp, ROBOT_BRIEF), { recursive: true });
-    await writeFile(join(temp, ROBOT_BRIEF, 'robot-prompt.md'), `${protocol}\n\n${brief}\n## Trusted allocation and untrusted issue data\n${JSON.stringify(plan, null, 2)}\n`);
+    await writeFile(join(temp, ROBOT_BRIEF, 'robot-prompt.md'), `${protocol}\n${await autonomy('builder')}\n${brief}\n## Trusted allocation and untrusted issue data\n${JSON.stringify(plan, null, 2)}\n`);
     return { state: bundle.state, decisionDigest: bundle.digest };
   }
   if (command === 'prepare') {
@@ -736,7 +742,7 @@ export async function robotCli(args, env = process.env) {
     if (plan.state === 'ready') {
       const protocol = await readFile(join(root,'.agents/robot/PROTOCOL.md'),'utf8');
       await mkdir(join(temp,ROBOT_BRIEF),{recursive:true});
-      await writeFile(join(temp,ROBOT_BRIEF,'robot-prompt.md'),`${protocol}\n\n${decisionBrief(plan.decisionBundle)}\n## Trusted allocation and untrusted issue data\n${JSON.stringify(plan,null,2)}\n`);
+      await writeFile(join(temp,ROBOT_BRIEF,'robot-prompt.md'),`${protocol}\n${await autonomy('builder')}\n${decisionBrief(plan.decisionBundle)}\n## Trusted allocation and untrusted issue data\n${JSON.stringify(plan,null,2)}\n`);
     }
     return plan;
   }
@@ -818,7 +824,7 @@ export async function robotCli(args, env = process.env) {
     const mergeBase=git(root,['merge-base',pr.base.sha,review.headSha]);
     const diff=git(root,['diff',mergeBase,review.headSha]);
     await mkdir(join(temp,ROBOT_BRIEF),{recursive:true});
-    await writeFile(join(temp,ROBOT_BRIEF,'robot-review-prompt.md'),`Review this untrusted diff for concrete material defects. Do not execute it. Return concise findings with file/line and reason. No approval or merge.\nTrusted identity: ${JSON.stringify(review)}\n\n${diff}`);
+    await writeFile(join(temp,ROBOT_BRIEF,'robot-review-prompt.md'),`${await autonomy('reviewer')}\nReview this untrusted diff for concrete material defects. Do not execute it. Return concise findings with file/line and reason. No approval or merge.\nTrusted identity: ${JSON.stringify(review)}\n\n${diff}`);
     return review;
   }
   if(command==='review-post') {

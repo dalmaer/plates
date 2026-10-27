@@ -217,13 +217,44 @@ before dispatch and resume. That command now includes a separate unverified
 digest and exit status. This carries the scoped preference into the returned
 brief without granting authority from it.
 
-Scheduled climb prompts, robot build/review prompts and hosted workers do not
-automatically consume this setting. Their
-existing authority rules and gates remain unchanged. This implementation makes
-configured scope visible at the generic agent startup and through the CLI; it
-does not enforce model behavior or prove that a particular agent will ask fewer
-questions. Those other entry points need a separately reviewed integration that
-preserves their own budgets, exact-operation permissions and platform evidence.
+One versioned renderer, `plates-autonomy-prompt-v1`, now supplies interactive,
+Climb, Tend, Robot build/resume/review, cross-review and mention-driven Claude
+briefings. Its canonical implementation lives in the base practice and ships as
+managed runtime files; the CLI imports that same implementation. Locally owned
+base runtimes are not overwritten: absent briefing helpers produce an explicit
+unavailable notice while preserving the existing task and gates. No setting means
+no added guidance. Invalid source produces an unavailable notice, not a grant.
+
+| Entry point | Policy source and role |
+| --- | --- |
+| Generic agent help and decision context | Nearest working-tree setting; interactive role; digest and available Git HEAD identify the snapshot, not consent. |
+| Climb and Tend | Exact workflow source commit; builder role; original allocation, paths, tools and budget remain binding. |
+| Robot prepare and context/resume | Exact workflow source commit even after switching to a resumed candidate; builder role. |
+| Robot review | Exact workflow source commit; reviewer role; no execution of candidate code. |
+| Cross-review | Trusted checkout used to construct the review brief; reviewer role. The publisher and execution checks do not load the renderer. |
+| Mention-driven Claude | Separate read-only context job checks out the repository default branch and supplies bounded guidance through appended model instructions; builder role. |
+
+Medium encourages routine reversible choices and appropriate tests without
+repeated conversational confirmation. High also encourages completing reversible
+work after mandatory gates, documenting bounded uncertainty and avoiding repeated
+validation without a concrete unresolved concern. Reviewers still report every
+material defect; they distinguish those findings from optional improvements.
+Scheduled builders cannot push or merge because their role and tools prohibit it;
+High does not alter the judge or publisher. `.plates/autonomy.json` is off limits
+to automated Climb, Tend and Robot candidates, preventing self-selected authority.
+
+Handoffs carry the renderer version, policy/context digests, source revision,
+original approval and task/destination. Refresh before resume and inspect changed
+facts rather than asking again merely because work resumed. A source declaration
+can guide choices inside existing authority without proving human selection or
+host permissions. No caller-supplied boolean authenticates a selection.
+
+The inspected hosted web workers execute bounded commands or update protocols,
+not model prompts. Their admission, leases, budgets, approval and digest checks
+are unchanged; no host-permission adapter or new model call is added. Prompt
+delivery tests establish the exact guidance delivered to providers, not compliance
+by a live model. Measured approval reduction requires separately budgeted paired
+evaluations, followed by real-world observations; none are claimed here.
 
 
 ## Visible project settings and the host boundary

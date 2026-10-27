@@ -2727,13 +2727,19 @@ seam; it performs no action and requires independent current-context evidence.
 supplied counts; it never reads session logs, persists settings or confirms one.
 
 
-The generic Plates skill's cold start, `--agent-help all` and this topic include
-current project autonomy context when a setting exists. JSON adds `autonomy`;
-plain text appends the scoped declaration, digest and remaining conditions.
-Selection provenance remains unverified. Missing settings leave help unchanged;
-invalid settings report unavailable without granting authority. The spin/conduct
-`plates decision context` brief also includes the separately unverified context;
-its original decision digest and gate result remain unchanged. Scheduled climb,
-robot and hosted workers do not automatically consume it. Project Home displays
-the pinned source preference and unavailable host controls. No inspected provider
-supplies the trusted effective-permission/consent API needed to suppress host prompts.
+The generic Plates skill's cold start, `--agent-help all`, this topic and
+`plates decision context` carry the shared versioned guidance and unverified
+selection identity. Include it in dispatch/resume handoffs alongside the original
+task approval; refresh changed facts without re-asking for unchanged authority.
+Climb, Tend, Robot build/resume/review and cross-review consume that same renderer
+from the trusted source revision. Mention-driven Claude receives default-branch
+guidance from a separate read-only context job. Scheduled builders cannot publish;
+reviewers remain read-only and report every material defect. Candidate policy
+changes cannot authorize the candidate; automated build guards protect the setting.
+
+These are model nudges, not proof that a model follows them or a tool-gate bypass.
+The hosted web workers run bounded commands rather than model contexts; their
+authority checks are unchanged. Project Home shows declared scope with unavailable
+host controls. No inspected provider supplies the trusted effective-permission/
+consent API needed to suppress host prompts. No live model or reduced-approval
+claim follows from deterministic prompt-delivery tests.

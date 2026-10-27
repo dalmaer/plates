@@ -31,6 +31,8 @@ this slice. The bounded diagnostics integration preserves existing climb admissi
 - [x] The explicitly authorized Plates-only High selection is written through normal preview/digest confirmation and read back; no global or managed-project preference is selected: `node bin/plates.mjs autonomy --json`.
 - [x] Failed gate diagnostics are bounded and redacted, malformed redaction configuration withholds text without losing exit status, and new code cannot acquire hosted retry authority by repinning: `tests/gate-diagnostics.test.mjs`, `tests/web-night-retry.test.mjs`.
 
+- [x] One versioned renderer supplies interactive, Climb/Tend, Robot resume/review, cross-review and mention contexts with role limits and source identity: `tests/autonomy-context.test.mjs`, `tests/robot-runtime.test.mjs`, `tests/cross-review.test.mjs`.
+
 ## Real surfaces
 
 - owner's machine: preview, apply and inspect the actual Plates setting; confirm repository, namespace and exact merge scope. Inspect Project Home through an approved localhost browser with synthetic source records; labels and unavailable host controls are visible. Run the required full gate and typecheck on the final integrated candidate.
@@ -38,7 +40,7 @@ this slice. The bounded diagnostics integration preserves existing climb admissi
 
 ## Proof
 
-`npm run check:focused -- tests/autonomy.test.mjs tests/web-autonomy.test.mjs tests/web-projects.test.mjs tests/gate-diagnostics.test.mjs tests/web-night-retry.test.mjs tests/decision-context.test.mjs`
+`npm run check:focused -- tests/autonomy.test.mjs tests/autonomy-context.test.mjs tests/robot-runtime.test.mjs tests/cross-review.test.mjs tests/web-autonomy.test.mjs tests/web-projects.test.mjs tests/gate-diagnostics.test.mjs tests/web-night-retry.test.mjs tests/decision-context.test.mjs`
 
 `npm run check`; `npm run typecheck`; `node bin/plates.mjs autonomy --json`.
 
@@ -50,7 +52,7 @@ invented result here.
 
 No connected provider API supplies trusted current action permissions and scoped
 host consent. This implementation cannot promise fewer Codex/Claude host dialogs.
-Scheduled climb/robot/hosted worker prompts are unchanged. No measured approval
+Shared guidance reaches interactive and scheduled model briefs; deterministic hosted web workers retain their existing gates. No measured approval
 reduction, cost reduction, reusable timing result or lived-in claim is made.
 Phases 117–118 remain built and 119–121 remain designed; this feature does not
 implement or relabel their evaluation work.

@@ -217,7 +217,7 @@ test('generic agent startup consults selected scope without authenticating repos
   }
   const text = help([], false).stdout;
   assert.match(text, /selection provenance is unverified/);
-  assert.match(text, /without repeating the conversational approval question/);
+  assert.match(text, /without repeating conversational approval/);
   assert.match(text, /grants no platform permission/);
   assert.equal(Object.hasOwn(JSON.parse(help(['render']).stdout), 'autonomy'), false);
   // An attacker can author a valid setting but cannot make startup authenticate it.

@@ -14,7 +14,7 @@ import { formatRobotRubric } from '../practices/climb/files/scripts/plates/robot
 // Load exactly the shipped sibling layout, as adopted projects do.
 const runtime = await mkdtemp(join(tmpdir(), 'acme-robot-runtime-'));
 after(() => rm(runtime, {recursive:true, force:true}));
-for (const dir of ['practices/night/files/scripts/plates', 'practices/climb/files/scripts/plates', 'practices/reconciliation/files/scripts/plates']) {
+for (const dir of ['practices/base/files/scripts/plates', 'practices/night/files/scripts/plates', 'practices/climb/files/scripts/plates', 'practices/reconciliation/files/scripts/plates']) {
   for (const name of await readdir(dir)) if (name.endsWith('.mjs') && (name !== 'names.mjs' || dir.includes('/night/'))) await cp(join(dir,name),join(runtime,name));
 }
 const { prepareRobot,publishRobotTriage,robotProviders,robotWriter,robotComment,robotRedact,judgeRobot,publishRobot,postRobotReview,prepareRobotReview,robotSandbox,robotFetch,robotClosingProblems } = await import(pathToFileURL(join(runtime, 'robot.mjs')));
@@ -305,7 +305,7 @@ test('robot sandbox rejects root and nested repository instruction files',async 
 
 test('robot review prompt uses merge base when the default branch advances',async t=>{
  const root=await project(t),temp=await mkdtemp(join(tmpdir(),'acme-review-base-'));t.after(()=>rm(temp,{recursive:true,force:true}));
- await mkdir(join(root,'.plates'));await writeFile(join(root,'.plates/plates.json'),JSON.stringify(config));git(root,'add','.');git(root,'commit','-qm','policy');
+ await mkdir(join(root,'.plates'));await writeFile(join(root,'.plates/plates.json'),JSON.stringify({...config,repo}));await writeFile(join(root,'.plates/autonomy.json'),JSON.stringify({schema:1,repository:repo,mode:'delivery',push:[],merge:['main']}));git(root,'add','.');git(root,'commit','-qm','policy');
  git(root,'switch','-qc','plates/robot-1');await writeFile(join(root,'acme.txt'),'candidate correction');git(root,'add','.');git(root,'commit','-qm','candidate');const headSha=git(root,'rev-parse','HEAD');
  git(root,'update-ref','refs/pull/2/head',headSha);git(root,'switch','-q','main');await writeFile(join(root,'unrelated.txt'),'new default branch work');git(root,'add','.');git(root,'commit','-qm','default advances');const baseSha=git(root,'rev-parse','HEAD');
  git(root,'remote','add','origin',root);
@@ -322,9 +322,10 @@ test('robot review prompt uses merge base when the default branch advances',asyn
  };
  const gh=join(temp,'gh');await writeFile(gh,`#!${process.execPath}\nconst responses=${JSON.stringify(responses)};const path=process.argv[process.argv.indexOf('--method')+2].split('?')[0];const data=responses[path];process.stdout.write('HTTP/2.0 '+(data?200:404)+' OK\\r\\nContent-Type: application/json\\r\\n\\r\\n'+JSON.stringify(data??{}));`);await addGhAuthorization(gh);await chmod(gh,0o755);
  const {run}=await import('./helpers/run.mjs');
- const r=run(process.execPath,[join(runtime,'robot.mjs'),'review-prepare','--json'],{cwd:root,env:{...process.env,GITHUB_WORKSPACE:root,GITHUB_REPOSITORY:repo,GITHUB_RUN_ID:'11',GITHUB_RUN_ATTEMPT:'1',GITHUB_JOB:'review-agent',GITHUB_OUTPUT:join(temp,'outputs'),RUNNER_TEMP:temp,GH_TOKEN:'acme-synthetic-token',GITHUB_SERVER_URL:server.url,ROBOT_PR:'2',ROBOT_HEAD:headSha,ROBOT_HAS_CLAUDE:'true',ROBOT_HAS_CODEX:'true',PLATES_GH:gh}});
+ const r=run(process.execPath,[join(runtime,'robot.mjs'),'review-prepare','--json'],{cwd:root,env:{...process.env,GITHUB_SHA:baseSha,GITHUB_WORKSPACE:root,GITHUB_REPOSITORY:repo,GITHUB_RUN_ID:'11',GITHUB_RUN_ATTEMPT:'1',GITHUB_JOB:'review-agent',GITHUB_OUTPUT:join(temp,'outputs'),RUNNER_TEMP:temp,GH_TOKEN:'acme-synthetic-token',GITHUB_SERVER_URL:server.url,ROBOT_PR:'2',ROBOT_HEAD:headSha,ROBOT_HAS_CLAUDE:'true',ROBOT_HAS_CODEX:'true',PLATES_GH:gh}});
  assert.equal(r.status,0,r.stdout+r.stderr);
  const prompt=await readFile(join(temp,'robot-brief','robot-review-prompt.md'),'utf8');assert.match(prompt,/candidate correction/);assert.doesNotMatch(prompt,/unrelated.txt|new default branch work/);
+ assert.match(prompt,/Risk tolerance: high/);assert.match(prompt,/role: reviewer/);assert.ok(prompt.includes(`source revision: ${baseSha}`));
 });
 
 
@@ -782,7 +783,7 @@ test('robot scan triage CLI publishes blocked-only and mixed ready plans through
  };
  const gh=join(temp,'gh');
  await writeFile(gh,`#!${process.execPath}\nconst fs=require('node:fs'),map=${JSON.stringify(responses)},file=${JSON.stringify(store)};const method=process.argv[process.argv.indexOf('--method')+1],path=process.argv[process.argv.indexOf('--method')+2];let status=200,data=map[path];if(path.includes('/pulls?'))data=[];const n=path.split('/issues/')[1]?.split('/')[0];if(path.includes('/comments?'))data=JSON.parse(fs.readFileSync(file))[n];if(method==='POST'&&['/repos/acme/anvils/issues/1/comments','/repos/acme/anvils/issues/2/comments'].includes(path)){const rows=JSON.parse(fs.readFileSync(file));data={id:100+rows[n].length,user:{type:'Bot',login:'github-actions[bot]'},body:JSON.parse(fs.readFileSync(0,'utf8')).body};rows[n].push(data);fs.writeFileSync(file,JSON.stringify(rows));status=201;}if(data===undefined){status=404;data={};}process.stdout.write('HTTP/2.0 '+status+' OK\\r\\nContent-Type: application/json\\r\\n\\r\\n'+JSON.stringify(data));`);await chmod(gh,0o755);
- const out=join(temp,'outputs'),env={...process.env,GITHUB_WORKSPACE:root,GITHUB_REPOSITORY:repo,RUNNER_TEMP:temp,GITHUB_EVENT_PATH:join(temp,'event.json'),GITHUB_EVENT_NAME:'schedule',GITHUB_OUTPUT:out,GITHUB_RUN_ID:'7',GITHUB_RUN_ATTEMPT:'1',GITHUB_JOB:'agent',ROBOT_JUDGE_OK:'false',ROBOT_MODEL_RAN:'true',ROBOT_HAS_CLAUDE:'true',ROBOT_HAS_CODEX:'true',PLATES_GH:gh};
+ const out=join(temp,'outputs'),env={...process.env,GITHUB_SHA:headSha,GITHUB_WORKSPACE:root,GITHUB_REPOSITORY:repo,RUNNER_TEMP:temp,GITHUB_EVENT_PATH:join(temp,'event.json'),GITHUB_EVENT_NAME:'schedule',GITHUB_OUTPUT:out,GITHUB_RUN_ID:'7',GITHUB_RUN_ATTEMPT:'1',GITHUB_JOB:'agent',ROBOT_JUDGE_OK:'false',ROBOT_MODEL_RAN:'true',ROBOT_HAS_CLAUDE:'true',ROBOT_HAS_CODEX:'true',PLATES_GH:gh};
  const {run}=await import('./helpers/run.mjs'),invoke=command=>run(process.execPath,[join(runtime,'robot.mjs'),command,'--json'],{cwd:root,env});
  const prepared=invoke('prepare');assert.equal(prepared.status,0,prepared.stderr);
  // plates#93: a ready plan's brief is alone in the folder the workflow grants Claude.
@@ -1013,10 +1014,15 @@ test('robot follow-up without a new commit records the reply and leaves the issu
 
 // One scheduled-scan issue driven through the shipped CLI's prepare and publish,
 // with a stub gh holding the issue's comments in a file.
-async function scanHarness(t) {
+async function scanHarness(t, mode) {
  const root=await project(t),temp=await mkdtemp(join(tmpdir(),'acme-infra-'));t.after(()=>rm(temp,{recursive:true,force:true}));
  await mkdir(join(root,'.plates'));await writeFile(join(root,'.plates/plates.json'),JSON.stringify(config));
  await mkdir(join(root,'.agents/robot'),{recursive:true});await writeFile(join(root,'.agents/robot/PROTOCOL.md'),'Acme synthetic protocol.');
+ if (mode) {
+   await writeFile(join(root,'.plates/plates.json'),JSON.stringify({...config,repo}));
+   await writeFile(join(root,'.plates/autonomy.json'),JSON.stringify({schema:1,repository:repo,mode,push:[],merge:mode==='delivery'?['main']:[]}));
+   git(root,'add','.');git(root,'commit','-qm','Acme selected risk');
+ }
  await mkdir(join(temp,'plan'));await writeFile(join(temp,'event.json'),JSON.stringify({repository:{full_name:repo}}));
  const store=join(temp,'comments.json'),headSha=git(root,'rev-parse','HEAD');
  const responses={...policyResponses(),
@@ -1031,11 +1037,11 @@ async function scanHarness(t) {
  };
  const gh=join(temp,'gh');
  await writeFile(gh,`#!${process.execPath}\nconst fs=require('node:fs'),map=${JSON.stringify(responses)},file=${JSON.stringify(store)};const method=process.argv[process.argv.indexOf('--method')+1],path=process.argv[process.argv.indexOf('--method')+2];let status=200,data=map[path];if(path.includes('/pulls?'))data=[];if(path.includes('/issues/1/comments?'))data=JSON.parse(fs.readFileSync(file))[1];if(method==='POST'&&path==='/repos/acme/anvils/issues/1/comments'){const rows=JSON.parse(fs.readFileSync(file));data={id:100+rows[1].length,user:{type:'Bot',login:'github-actions[bot]'},body:JSON.parse(fs.readFileSync(0,'utf8')).body};rows[1].push(data);fs.writeFileSync(file,JSON.stringify(rows));status=201;}if(data===undefined){status=404;data={};}process.stdout.write('HTTP/2.0 '+status+' OK\\r\\nContent-Type: application/json\\r\\n\\r\\n'+JSON.stringify(data));`);await chmod(gh,0o755);
- const out=join(temp,'outputs'),env={...process.env,GITHUB_WORKSPACE:root,GITHUB_REPOSITORY:repo,RUNNER_TEMP:temp,GITHUB_EVENT_PATH:join(temp,'event.json'),GITHUB_EVENT_NAME:'schedule',GITHUB_OUTPUT:out,GITHUB_RUN_ID:'7',GITHUB_RUN_ATTEMPT:'1',GITHUB_JOB:'agent',ROBOT_JUDGE_OK:'false',ROBOT_MODEL_RAN:'false',ROBOT_JUDGE_RAN:'false',ROBOT_PREPARED:'skipped',ROBOT_HAS_CLAUDE:'true',ROBOT_HAS_CODEX:'true',PLATES_GH:gh};
+ const out=join(temp,'outputs'),env={...process.env,GITHUB_SHA:headSha,GITHUB_WORKSPACE:root,GITHUB_REPOSITORY:repo,RUNNER_TEMP:temp,GITHUB_EVENT_PATH:join(temp,'event.json'),GITHUB_EVENT_NAME:'schedule',GITHUB_OUTPUT:out,GITHUB_RUN_ID:'7',GITHUB_RUN_ATTEMPT:'1',GITHUB_JOB:'agent',ROBOT_JUDGE_OK:'false',ROBOT_MODEL_RAN:'false',ROBOT_JUDGE_RAN:'false',ROBOT_PREPARED:'skipped',ROBOT_HAS_CLAUDE:'true',ROBOT_HAS_CODEX:'true',PLATES_GH:gh};
  const {run}=await import('./helpers/run.mjs'),invoke=(command,extra={})=>run(process.execPath,[join(runtime,'robot.mjs'),command,'--json'],{cwd:root,env:{...env,...extra}});
  const ready=async()=>{await rm(out,{force:true});const r=invoke('prepare');assert.equal(r.status,0,r.stderr);await cp(join(temp,'robot-plan.json'),join(temp,'plan/robot-plan.json'));return /^ready=true$/m.test(await readFile(out,'utf8'));};
  const notes=async()=>JSON.parse(await readFile(store,'utf8'))[1].slice(1);
- return {store,invoke,ready,notes};
+ return {root,temp,store,env,invoke,ready,notes};
 }
 
 test('robot infrastructure failure before model or judge time posts no state so the next scan retries',async t=>{
@@ -1326,4 +1332,44 @@ test('scheduled robot queue keeps current duplicate ordering before legacy obser
  const result=await prepareRobot({root,repo,config,event:{repository:{full_name:repo}},eventName:'schedule',has,now,github});
  assert.equal(result.state,'ready',JSON.stringify(result));assert.equal(result.issueNumber,1);
  assert.deepEqual(queries,['plates:agent','keel:agent']);assert.equal(reads[0],1,'current creation date owns queue position');
+});
+
+
+test('robot prepare and resume keep the workflow policy even when candidate HEAD selects High', async t => {
+ for (const mode of [undefined,'default','local','delivery']) {
+  const {root,temp,store,invoke,ready}=await scanHarness(t,mode);
+  await writeFile(store,JSON.stringify({1:[receipt()]}));
+  assert.equal(await ready(),true);
+  const file=join(temp,'robot-brief/robot-prompt.md');
+  const before=await readFile(file,'utf8');
+  if (mode) assert.match(before,new RegExp(`Risk tolerance: ${{default:'low',local:'medium',delivery:'high'}[mode]}`));
+  else assert.doesNotMatch(before,/plates-autonomy-prompt-v1/);
+  const base=git(root,'rev-parse','HEAD');
+  await writeFile(join(root,'.plates/autonomy.json'),JSON.stringify({schema:1,repository:repo,mode:'delivery',push:[],merge:['main']}));
+  await writeFile(join(root,'acme.txt'),'Acme resumed edit');
+  git(root,'add','.');git(root,'commit','-qm','Acme candidate preference');
+  const resumed=invoke('context');assert.equal(resumed.status,0,resumed.stdout+resumed.stderr);
+  const after=await readFile(file,'utf8');
+  if(mode) {
+   assert.match(after,new RegExp(`Risk tolerance: ${{default:'low',local:'medium',delivery:'high'}[mode]}`));
+   assert.ok(after.includes(`source revision: ${base}`));
+   assert.equal(after.split('plates-autonomy-prompt-v1').length-1,1);
+  } else assert.doesNotMatch(after,/plates-autonomy-prompt-v1/);
+  if(mode!=='delivery') assert.match(robotSandbox(root,base,git(root,'rev-parse','HEAD')).join(' '),/autonomy.json/);
+ }
+});
+
+
+test('missing locally owned autonomy runtime preserves robot sandbox and marks resume guidance unavailable', async t => {
+ const {root,temp,store,env,ready}=await scanHarness(t,'delivery');
+ await writeFile(store,JSON.stringify({1:[receipt()]}));assert.equal(await ready(),true);
+ const isolated=join(temp,'local-runtime');await cp(runtime,isolated,{recursive:true});
+ for(const name of ['autonomy-context.mjs','autonomy-policy.mjs']) await rm(join(isolated,name));
+ const {run}=await import('./helpers/run.mjs');
+ for(const command of ['sandbox','context']) {
+  const result=run(process.execPath,[join(isolated,'robot.mjs'),command,'--json'],{cwd:root,env});
+  assert.equal(result.status,0,result.stdout+result.stderr);
+ }
+ const prompt=await readFile(join(temp,'robot-brief/robot-prompt.md'),'utf8');
+ assert.match(prompt,/autonomy context unavailable/);assert.doesNotMatch(prompt,/Risk tolerance: high/);
 });

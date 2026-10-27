@@ -71,11 +71,11 @@
     },
     ".github/workflows/claude.yml": {
       "practice": "claude",
-      "sha256": "67a4eb39e6b30807bd1a469b77272e73d34659bbdf7217b6ad4f722ae510bbc6"
+      "sha256": "6c6f9cbb9d78279676db5b7fd648959f50c04a4053a0b6614d783b5ace2c0cf0"
     },
     ".github/workflows/plates-climb.yml": {
       "practice": "climb",
-      "sha256": "bddabac6be866487a785867540320feeffd9a76b8ce238d8639443e81278c08e"
+      "sha256": "9c9cb3b06e5b8b4335f6ebb0ec32bf39b595741089b720c137be595c312695b0"
     },
     ".github/workflows/plates-cross-review.yml": {
       "practice": "cross-review",
@@ -103,7 +103,7 @@
     },
     ".github/workflows/plates-tend.yml": {
       "practice": "climb",
-      "sha256": "ae3e4ad10d33574e92d213df31594b6d85dd660b83b0ec0842a3175579e3f19f"
+      "sha256": "1953df7b0e4e6ca2cc21601aba70a35012e85afac7705039d6ac018373ad8d60"
     },
     "AGENTS.md#agents-md": {
       "practice": "agents-md",
@@ -157,6 +157,14 @@
       "practice": "renovate",
       "sha256": "fd83325f1ef12226434ecfa9668efaafc166ada353184071a418d145507231c2"
     },
+    "scripts/plates/autonomy-context.mjs": {
+      "practice": "base",
+      "sha256": "46c84fc689a4854c34efeb7b5c3d809d032dd2c40420d0f27d22e143810b4c83"
+    },
+    "scripts/plates/autonomy-policy.mjs": {
+      "practice": "base",
+      "sha256": "9e73164b35ec87132076456df873f9bc0e3b85600472a56086b75856717c4c70"
+    },
     "scripts/plates/canvas-recovery.mjs": {
       "practice": "night",
       "sha256": "f210f789c7fb79659eda6dabad9ab8f840a6fd83a4a28b468ecfc989fe11df58"
@@ -175,7 +183,7 @@
     },
     "scripts/plates/cross-review.mjs": {
       "practice": "cross-review",
-      "sha256": "4946610045da05b1ca324158298d536a9648919e49bd0c708f349e8a7d6ed40f"
+      "sha256": "bc6399b4c87c1a4fd96ca1e4f099d2dade5a2587f21960e8718751255ede5bc1"
     },
     "scripts/plates/decision-context.mjs": {
       "practice": "reconciliation",
@@ -295,7 +303,7 @@
     },
     "scripts/plates/robot.mjs": {
       "practice": "climb",
-      "sha256": "980d2937494a2a1bad253c232a6f4bedb7d2aab8bd947f7cfbf263ae084db1f0"
+      "sha256": "e8f02c2237f40a7c26bc272c576b7d6c3be6871875aaa2220c15dbd72a499654"
     },
     "scripts/plates/stalls.mjs": {
       "practice": "night",
@@ -303,7 +311,7 @@
     },
     "scripts/plates/tend.mjs": {
       "practice": "climb",
-      "sha256": "600866fd5a0c3bb3a9805c775e467939ef80d30aab7fb9ff1c8cdbd536e59452"
+      "sha256": "7b326e288df4bccbacdd35e45c24cb1ac52f924c8408d5dc6e622be65e02aa95"
     },
     "scripts/plates/test-history.mjs": {
       "practice": "night",

@@ -5,6 +5,8 @@
   "files": [
     { "path": "package.json", "from": "package.json", "kind": "seeded" },
     { "path": ".nvmrc", "from": ".nvmrc", "kind": "seeded" },
-    { "path": ".gitignore", "from": "gitignore", "kind": "seeded" }
+    { "path": ".gitignore", "from": "gitignore", "kind": "seeded" },
+    { "path": "scripts/plates/autonomy-policy.mjs", "from": "scripts/plates/autonomy-policy.mjs", "kind": "managed" },
+    { "path": "scripts/plates/autonomy-context.mjs", "from": "scripts/plates/autonomy-context.mjs", "kind": "managed" }
   ]
 }

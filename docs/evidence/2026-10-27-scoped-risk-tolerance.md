@@ -39,3 +39,33 @@ The owner clarified High on 2026-10-27: shipping a reversible change with verifi
 On clean publication code head `3f60c7736257bdcab5a731ebae7cb20beccb149f`, the required local `npm run check` exited 0: 3,728 passed, zero failed, four opt-in real-Docker trials skipped; roadmap/render/inbox guards passed. Typecheck and the 229-test focused/convention preflight passed. This later documentation increment receives scoped review and documentation checks; final exact-head hosted CI remains required before merge. Earlier results are not relabelled as proof of edited bytes.
 
 For this authorized Plates publication, `900b488342a3c7b6ba928456001462c1d8899f79` is the inspected prior-main rollback candidate. Treat it as known-good only after its relevant check and health evidence is retained; merely naming that prior SHA is not a health claim. The source rollback procedure is a new bounded task branch, a reviewed revert through mandatory gates and normal merge, then source and setting readback. No force push, data migration or credential change is part of this change. Relevant signals are required CI, CLI inspection/startup output, selected repository/destinations/digest, and the Home panel's honest unavailable-host state. Live hosted appearance and actual reduction in approval prompts remain observation gaps, not passes. If these signals fail, stop further rollout; revert only within established authority, escalating unreliable recovery or new effects.
+
+
+## Shared model guidance extension
+
+The owner authorized implementation across the applicable model entry points on
+2026-10-27. One versioned renderer now supplies role-specific Low/Medium/High
+instructions, source and policy/context digests, and bounded recovery guidance.
+Interactive context remains a working-tree declaration; scheduled briefs read
+fixed paths from exact source commits. Robot resume uses the workflow revision,
+not the resumed candidate. The automated sandbox protects the selection file.
+
+Early independent review found two integration defects before publication: a
+static renderer import enlarged cross-review's isolated execution/publisher
+closure, and robot resume initially read candidate HEAD. The renderer is now
+loaded only during cross-review briefing, and robot guidance binds GITHUB_SHA.
+Review also corrected ambiguous working-tree provenance labels and missing-runtime
+behavior for projects that own their base practice. Regression coverage exercises
+actual workflow prompt files/outputs and robot
+prepare/resume source selection. Initial local-server tests hit sandbox EPERM;
+the normal approved loopback route is required for their synthetic Git server.
+Initial test fixture dependency and CLI realpath issues were fixed, with original
+outputs retained. Final focused/full check outcomes belong to the exact final
+candidate validation report; preceding test counts are not proof of these bytes.
+
+No live model was called, API credits spent, host permissions expanded or
+publication gates removed. Model behavior and actual reduction in confirmations
+remain unmeasured. Read-only GitHub inspection still found no PR and its
+collaborator-permission endpoint returned 403 Resource not accessible by
+integration. This does not establish the underlying cause of the earlier PR
+creation denial or justify retrying it via another identity or channel.

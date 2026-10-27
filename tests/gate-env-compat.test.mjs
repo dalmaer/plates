@@ -97,7 +97,7 @@ for (const name of ['source', 'shipped']) {
     if (name === 'source') {
       const runtime = await mkdtemp(join(tmpdir(), 'plates-source-robot-env-'));
       t.after(() => rm(runtime, { recursive: true, force: true }));
-      for (const dir of ['practices/night/files/scripts/plates', 'practices/climb/files/scripts/plates', 'practices/reconciliation/files/scripts/plates']) {
+      for (const dir of ['practices/base/files/scripts/plates', 'practices/night/files/scripts/plates', 'practices/climb/files/scripts/plates', 'practices/reconciliation/files/scripts/plates']) {
         for (const file of await readdir(dir)) if (file.endsWith('.mjs') && (file !== 'names.mjs' || dir.includes('/night/'))) await cp(join(dir, file), join(runtime, file));
       }
       judge = (await import(pathToFileURL(join(runtime, 'robot.mjs')))).judgeRobot;
