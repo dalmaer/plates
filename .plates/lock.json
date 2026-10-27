@@ -87,7 +87,7 @@
     },
     ".github/workflows/plates-morning.yml": {
       "practice": "night",
-      "sha256": "2077fcbedb12818a1c122e95933a975491c237c307a476f18ad0cb8dfe8e32fe"
+      "sha256": "13206b908b5527120d4fc978977095addf5b1f24ef2cfa89c7fb9f92db53029e"
     },
     ".github/workflows/plates-night.yml": {
       "practice": "night",

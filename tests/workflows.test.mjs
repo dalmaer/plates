@@ -2657,14 +2657,14 @@ export function morningProblems(text) {
   if (JSON.stringify(perms('send')) !== JSON.stringify(['actions: read', 'contents: read', 'issues: write'])) out.push('send reads contents and production artifacts, and writes issues only');
   // Phase 78: the card job reads (contents, and the artifacts its canvas journal lives in); it writes only the canvas.
   if (JSON.stringify(perms('card')) !== JSON.stringify(['actions: read', 'contents: read'])) out.push('card reads contents and actions, and writes nothing on GitHub');
-  if (!(jobs.card ?? '').includes("    needs: decide\n    if: needs.decide.outputs.plan == 'found' && (github.event_name != 'workflow_run' || github.event.workflow_run.head_branch == github.event.repository.default_branch)\n")) out.push('card: runs only for a night with a plan, from a default-branch pass');
+  if (!(jobs.card ?? '').includes("    needs: decide\n    if: ${{ !cancelled() && needs.decide.result == 'success' && (needs.decide.outputs.plan == 'found' && (github.event_name != 'workflow_run' || github.event.workflow_run.head_branch == github.event.repository.default_branch)) }}\n")) out.push('card: runs only for a night with a plan, from a default-branch pass');
   if (!/plates morning --card --yes --date "\$DAY" --json/.test(jobs.card ?? '')) out.push('card: publishes tonight\'s plan card with plates morning --card');
   const over = "needs.decide.outputs.ready == 'true' && (needs.decide.outputs.sent != 'true' || (github.event_name == 'workflow_dispatch' && inputs.names_evidence == true))";
-  if (!(jobs.send ?? '').includes(`    needs: decide\n    if: ${over}`)) out.push('send: runs only when decide says the night is over and unsent');
+  if (!(jobs.send ?? '').includes(`    needs: decide\n    if: \${{ !cancelled() && needs.decide.result == 'success' && (${over}`)) out.push('send: runs only when decide says the night is over and unsent');
   // Finalize runs on every run after the night is over, sent or not: a finalization that failed
   // after a send, or a build that finished after a brief sent at readyBy, still reaches the
   // archive. Its own no-change check (git status --porcelain) makes repeats harmless.
-  if (!(jobs.finalize ?? '').includes("    needs: decide\n    if: needs.decide.outputs.ready == 'true'\n")) out.push('finalize: runs whenever the night is over, never gated on the brief being unsent');
+  if (!(jobs.finalize ?? '').includes("    needs: decide\n    if: ${{ !cancelled() && needs.decide.result == 'success' && (needs.decide.outputs.ready == 'true') }}\n")) out.push('finalize: runs whenever the night is over, never gated on the brief being unsent');
   if (!/if \[ -z "\$\(git status --porcelain -- "\$\{PATHS\[@\]\}"\)" \]; then\n(?:\s+#[^\n]*\n)*\s+if [^\n]*; then\n\s+echo "Nothing changed[^\n]*\n[\s\S]*?\s+exit 0/.test(jobs.finalize ?? '')) out.push('finalize: a run with nothing new changes nothing (git status --porcelain)');
   if (!(jobs.send ?? '').includes("&& needs.decide.outputs.assignee == 'set'")) out.push('send: runs only with an assignee');
   const sendScript = runBlocks(jobs.send ?? '').find(s=>s.step==='Send the brief')?.script ?? '';
@@ -2831,16 +2831,16 @@ test('phase 77: plates-morning.yml starts when a pass finishes and on a schedule
     ['a write at the top', t.replace('permissions: {}', 'permissions:\n  issues: write'), /top level must grant nothing/],
     ['a swallowed send', t.replace('node scripts/plates/morning.mjs send --date "$DAY"', 'node scripts/plates/morning.mjs send --date "$DAY" || true'), /send: the send is its step's whole command/],
     ['send allowed to fail', t.replace('      - name: Send the brief\n', '      - name: Send the brief\n        continue-on-error: true\n'), /send: continue-on-error/],
-    ['send before the night is over', t.replace("  send:\n    needs: decide\n    if: needs.decide.outputs.ready == 'true' && ", '  send:\n    needs: decide\n    if: '), /send: runs only when decide says the night is over/],
+    ['send before the night is over', t.replace("  send:\n    needs: decide\n    if: ${{ !cancelled() && needs.decide.result == 'success' && (needs.decide.outputs.ready == 'true' && ", "  send:\n    needs: decide\n    if: ${{ !cancelled() && needs.decide.result == 'success' && ("), /send: runs only when decide says the night is over/],
     ['send twice', t.replace(" && (needs.decide.outputs.sent != 'true' || (github.event_name == 'workflow_dispatch' && inputs.names_evidence == true)) && needs.decide.outputs.assignee", ' && needs.decide.outputs.assignee'), /send: runs only when decide says the night is over and unsent/],
-    ['finalize gated on the brief', t.replace("  finalize:\n    needs: decide\n    if: needs.decide.outputs.ready == 'true'\n", "  finalize:\n    needs: decide\n    if: needs.decide.outputs.ready == 'true' && needs.decide.outputs.sent != 'true'\n"), /finalize: runs whenever the night is over, never gated/],
-    ['finalize before the night is over', t.replace("  finalize:\n    needs: decide\n    if: needs.decide.outputs.ready == 'true'\n", '  finalize:\n    needs: decide\n'), /finalize: runs whenever the night is over/],
+    ['finalize gated on the brief', t.replace("  finalize:\n    needs: decide\n    if: ${{ !cancelled() && needs.decide.result == 'success' && (needs.decide.outputs.ready == 'true') }}\n", "  finalize:\n    needs: decide\n    if: ${{ !cancelled() && needs.decide.result == 'success' && (needs.decide.outputs.ready == 'true' && needs.decide.outputs.sent != 'true') }}\n"), /finalize: runs whenever the night is over, never gated/],
+    ['finalize before the night is over', t.replace("  finalize:\n    needs: decide\n    if: ${{ !cancelled() && needs.decide.result == 'success' && (needs.decide.outputs.ready == 'true') }}\n", '  finalize:\n    needs: decide\n'), /finalize: runs whenever the night is over/],
     ['finalize with no no-change check', t.replace(/\n\s+echo "Nothing changed: [^\n]*\n/, ''),/finalize: a run with nothing new changes nothing/],
     ['a secret', t.replace('GH_TOKEN: ${{ github.token }}', 'GH_TOKEN: ${{ secrets.MAIL_TOKEN }}'), /no secret/],
     ['no timeout', t.replace(/(  send:\n(?:.*\n)*?) {4}timeout-minutes: \d+\n/, '$1'), /send: no timeout/],
     ['the card writes issues', t.replace(/(  card:[\s\S]*?      contents: read\n      actions: read\n)/, '$1      issues: write\n'), /card: only the send job may write issues/],
     ['the card writes contents', t.replace(/(  card:[\s\S]*?)      contents: read\n      actions: read\n/, '$1      contents: write\n      actions: read\n'), /card reads contents and actions/],
-    ['the card for a night with no plan', t.replace("    if: needs.decide.outputs.plan == 'found' && ", '    if: '), /card: runs only for a night with a plan/],
+    ['the card for a night with no plan', t.replace("    if: ${{ !cancelled() && needs.decide.result == 'success' && (needs.decide.outputs.plan == 'found' && ", "    if: ${{ !cancelled() && needs.decide.result == 'success' && ("), /card: runs only for a night with a plan/],
   ]) {
     assert.notEqual(changed, t, `${why}: the mutation must apply`);
     const found = morningProblems(changed);
@@ -3210,4 +3210,44 @@ test('no workflow groups under a keel name', async () => {
     const groups=text.split('\n').filter(line=>/^\s*group:/.test(line));
     for(const group of groups)assert.doesNotMatch(group,/group:\s*keel-|format\(['"]keel-/,name);
   }
+});
+
+/**
+ * A job that runs past a skipped job (its `if:` has a status function) does not
+ * carry its dependents with it: GitHub skips a job whenever an ancestor was
+ * skipped, unless the job's own `if:` has a status function too. Every job that
+ * needs one that runs past a skip must say so itself, or it never runs on the
+ * events where its need's ancestor is skipped.
+ */
+export function skipChainProblems(text) {
+  const jobs = jobsOf(text), out = [];
+  const condition = job => /^ {4}if: (.*)$/m.exec(job.text)?.[1] ?? '';
+  const needsOf = job => {
+    const m = /^ {4}needs: (.*)$/m.exec(job.text);
+    if (!m) return [];
+    return m[1].trim().startsWith('[') ? m[1].replace(/[[\]\s]/g, '').split(',').filter(Boolean) : [m[1].trim()];
+  };
+  const status = /\b(?:always|cancelled|success|failure)\(\)/;
+  for (const job of jobs) for (const need of needsOf(job)) {
+    const parent = jobs.find(j => j.id === need);
+    if (parent && status.test(condition(parent)) && !status.test(condition(job))) out.push(`${job.id} needs ${need}, which runs past a skipped job, but ${job.id}'s if has no status function: it is skipped whenever ${need}'s ancestor is`);
+  }
+  return out;
+}
+
+test('a job that needs one running past a skipped job says so itself, or it never runs (plates-morning send, 24 Oct)', async () => {
+  const files = [];
+  for (const practice of await readdir(join(PLATES, 'practices'))) {
+    const dir = join(PLATES, 'practices', practice, 'files', '.github', 'workflows');
+    for (const name of await readdir(dir).catch(() => [])) if (/\.ya?ml$/.test(name)) files.push(join(dir, name));
+  }
+  for (const name of await readdir(join(PLATES, '.github', 'workflows'))) if (/\.ya?ml$/.test(name)) files.push(join(PLATES, '.github', 'workflows', name));
+  for (const file of files) assert.deepEqual(skipChainProblems(await readFile(file, 'utf8')), [], file);
+  assert.ok(files.length >= 10, `checked ${files.length} workflows`);
+  // The shape it catches: a dispatch-only job skipped on a schedule, a decide that runs past it, a send that does not.
+  const broken = "jobs:\n  origin:\n    if: github.event_name == 'workflow_dispatch'\n    runs-on: x\n  decide:\n    needs: origin\n    if: ${{ !cancelled() }}\n    runs-on: x\n  send:\n    needs: decide\n    if: needs.decide.outputs.ready == 'true'\n    runs-on: x\n";
+  assert.equal(skipChainProblems(broken).length, 1);
+  assert.match(skipChainProblems(broken)[0], /^send needs decide/);
+  assert.deepEqual(skipChainProblems(broken.replace("if: needs.decide.outputs.ready == 'true'", "if: ${{ !cancelled() && needs.decide.result == 'success' && needs.decide.outputs.ready == 'true' }}")), []);
+  assert.equal(skipChainProblems(broken.replace('    needs: decide\n', '    needs: [origin, decide]\n')).length, 1, 'a list of needs is read too');
 });
