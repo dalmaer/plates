@@ -54,8 +54,8 @@ No connected provider API supplies trusted current action permissions and scoped
 host consent. This implementation cannot promise fewer Codex/Claude host dialogs.
 Shared guidance reaches interactive and scheduled model briefs; deterministic hosted web workers retain their existing gates. No measured approval
 reduction, cost reduction, reusable timing result or lived-in claim is made.
-Phases 117–118 remain built and 119–121 remain designed; this feature does not
-implement or relabel their evaluation work.
+Evaluation outcomes remain governed by their own phase records; this feature
+does not implement or relabel that separate work.
 
 ## Next action
 
