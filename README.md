@@ -383,6 +383,7 @@ then gives the commands and every flag by the reason you'd pass it.
 | [Keep the fleet current](docs/guide/keep-the-fleet-current.md) | the practice changed and every project should have it |
 | [Production errors](docs/guide/production-errors.md) | repeated runtime errors should become evidence-backed repair work |
 | [The robot](docs/guide/the-robot.md) | Preview agent issues and opt in to bounded build/review work |
+| [Autonomy and risk tolerance](docs/guide/autonomy.md) | you want fewer repeated approval questions within explicitly selected task authority |
 | [Reviews and PRs](docs/guide/reviews-and-prs.md) | a PR from plates arrived, or a reviewer commented on one |
 | [Delivery](docs/guide/delivery.md) | two changes in a row should publish once, and deploys should follow tested commits, not `main` |
 | [When something is red](docs/guide/when-something-is-red.md) | a night, an update, a doctor or a climb did not go green |
@@ -424,6 +425,7 @@ Every verb takes `--json`. Exit codes are the same everywhere:
 
 | Verb | What it does |
 | --- | --- |
+| `plates autonomy` | Inspect or explicitly select bounded local or delivery autonomy; platform and command approval gates remain in force |
 | `plates status`, `plates next` | Where the project stands; the next free phase, and which ready ones are claimed |
 | `plates goal list\|show\|add\|retire` | Goals as outcomes. Progress is derived from phases, never stored |
 | `plates phase new\|list\|claim` | Scaffold the next free phase under a goal; claim a phase before building it |

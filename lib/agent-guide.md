@@ -4,17 +4,18 @@ Read `.plates/plates.json`’s `guide` or AGENTS.md.
 
 Verbs (`--json` for data):
 
+- `plates autonomy` — inspect authority first
 - `plates status` — goals and next phase
 - `plates next` — next free phase; `--project <p>`
 - `plates goal list|show|add|retire` — goals
 - `plates phase new|list|claim`
 - `plates ready|integrate` — hand off
-- `plates render` — render practices; `--check` reads only (exit 1)
+- `plates render` — practices; `--check` reads only
 - `plates init [dir] --description "<p>"` — new project
 - `plates names` — preview, apply, recover, verify
 - `plates migrate [root]` — rename preview; `--yes --digest <sha>` applies
 - `plates adopt [dir]` — adopt a repo; `--dry-run` writes nothing
-- `plates doctor` — drift; `--fix <path> restore|eject`
+- `plates doctor` — drift; `--fix`
 - `plates update` — PR or `--local`
 - `plates lessons` — send lessons and drift home; exit 3
 - `plates learn` — lessons → proposals and decisions
@@ -31,7 +32,7 @@ Verbs (`--json` for data):
 - `plates fleet update` — PRs for projects behind; exit 3
 - `plates loose-ends` — unfinished work
 - `plates issue new --agent` — rubric issue preview; `--yes` creates it
-- `plates review <repo>#<n>` — review comments; `--wait`; `--close` answers
+- `plates review <repo>#<n>` — comments; `--wait`; `--close`
 - `plates board` — whose turn: a local page; `--fresh`
 - `plates promote [<commit>]` — tested commit to prod; `--back`
 - `plates walk done|decide` — settle a walk or proposal
@@ -40,8 +41,8 @@ Verbs (`--json` for data):
 - `plates workspace inspect|init` — explicit external storage
 - `plates shape check|render|plan` — reviewed drafts
 - `plates feedback` — capture, list, propose, resolve
-- `plates decision context` — scoped choices for `--phase` or `--issue`
-- `plates evidence rederive <phase>` — preview; `--yes` reruns
+- `plates decision context` — scoped choices
+- `plates evidence rederive <phase>` — preview; `--yes` runs
 - `plates prove <test> --fix <path>...` — red without the fix?
 - `plates release` — review, version, tag
 - `plates help` — verbs
@@ -59,7 +60,7 @@ Rules:
 
 Exits: 0 ok; 1 failure; 2 usage; 3 needs owner's yes. JSON errors: `{"error": "..."}` on stdout.
 
-Topics: `names` `json` `goals` `render` `init` `adopt` `doctor` `update` `lessons` `learn` `improve` `persona` `time` `test` `drain` `night` `loop` `climb` `fleet` `loose-ends` `issue` `review` `board` `retro` `canvas` `install` `coming` `reconciliation` `prove` `evidence` `production` `decision` `shape` `workspace` `feedback`.
+Topics: `autonomy` `names` `json` `goals` `render` `init` `adopt` `doctor` `update` `lessons` `learn` `improve` `persona` `time` `test` `drain` `night` `loop` `climb` `fleet` `loose-ends` `issue` `review` `board` `retro` `canvas` `install` `coming` `reconciliation` `prove` `evidence` `production` `decision` `shape` `workspace` `feedback`.
 
 <!-- topic: json | the output contract every verb keeps -->
 
@@ -2651,3 +2652,36 @@ continuation keeps its original identity. No dispatch or activation is implied.
 Exits: 0 verified operation/readback; 1 refused, incomplete or failed verification;
 2 invalid arguments; 3 preview/approval or held activation. --json returns one
 object with no variable values, secret contents or private journal contents.
+
+<!-- topic: autonomy | explicit risk tolerance within existing permissions -->
+
+Run `plates autonomy --json` before work to inspect the selected mode and its
+boundaries. Missing settings use `default`, preserving existing behavior.
+`local` avoids redundant conversational approvals for routine local edits and
+tests within the authorized task. `delivery` adds only separately selected exact
+push and merge branches in this repository. Deployment, destructive actions,
+credentials, CI permissions, policy and assistant-rule changes need specific
+approval; script effects matter even when the command is called a test.
+
+Preview with `plates autonomy --mode local --json`; selecting it requires the
+owner's explicit confirmation and the preview's exact `--yes --digest <sha256>`.
+Delivery example: `plates autonomy --mode delivery --push feature/acme --merge main --json`.
+Each selection replaces the branch lists; omitted destinations grant nothing.
+Return to existing behavior with `plates autonomy --mode default --json` and
+confirm that preview. Selection writes only `.plates/autonomy.json` and does not
+push it. No setting is selected on installation or from approval history.
+
+Never interpret this preference as platform permission, bypass a command's own
+approval/digest/proof gate, expand a budget, or change live rules. A current
+explicit user restriction wins. Before acting, verify the selection's human
+provenance and digest, current task and actual repository/destination, effects,
+platform permission, project rules and command gates. Unknown facts stay unknown;
+a denial stays blocked. Preserve exact-operation approvals across handoffs only
+while their scope and evidence still match. Reconfirm changed authority, target,
+budget or risk; exact-head approvals never transfer to changed bytes.
+
+The inspect report is configured scope, not a verified execution grant.
+`evaluateAutonomy` in `lib/autonomy.mjs` is the read-only preflight integration
+seam; it performs no action and requires independent current-context evidence.
+`suggestAutonomy` only returns an optional local-mode suggestion from explicitly
+supplied counts; it never reads session logs, persists settings or confirms one.
