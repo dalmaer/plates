@@ -1696,32 +1696,40 @@ export function reviewRounds(pr) {
 
 /**
  * Each finding reviewRounds counted, with the round it came in: [{ round,
- * path, line, severity }]. round is 1-based in the order reviewRounds first
- * saw its push; path and line are the thread's (line the one it was made on,
+ * path, line, severity }]. round is 1-based in the order the pushes' first
+ * findings arrived (createdAt, submittedAt); path and line are the thread's (line the one it was made on,
  * kept after a later push outdated it), null for a review body; severity is
  * the P0-P3 the finding opens with, else null. Plain data, so a cached
  * repo-wide read carries it to the board.
  */
 export function roundFindings(pr) {
   const author = pr?.author?.login;
-  const { pushes } = reviewRounds(pr), roundOf = new Map(pushes.map((p, i) => [p, i + 1]));
+  const { pushes } = reviewRounds(pr), counted = new Set(pushes);
   const severity = body => { const m = /^\W*P([0-3])\b/.exec(String(body ?? '').replace(/<!--[\s\S]*?-->/g, '').trim()); return m ? Number(m[1]) : null; };
-  const out = [];
+  const time = at => { const t = Date.parse(at ?? ''); return Number.isFinite(t) ? t : Infinity; };
+  const found = [];
   for (const t of pr?.reviewThreads?.nodes ?? []) {
-    const first = t?.comments?.nodes?.[0], round = roundOf.get(first?.originalCommit?.oid);
-    if (!round || (author && sameLogin(loginOf(first), author))) continue;
+    const first = t?.comments?.nodes?.[0], push = first?.originalCommit?.oid;
+    if (!counted.has(push) || (author && sameLogin(loginOf(first), author))) continue;
     const line = Number.isSafeInteger(t.originalLine) ? t.originalLine : Number.isSafeInteger(t.line) ? t.line : null;
-    out.push({ round, path: typeof t.path === 'string' ? t.path : null, line, severity: severity(first.body) });
+    found.push({ push, at: time(first.createdAt), path: typeof t.path === 'string' ? t.path : null, line, severity: severity(first.body) });
   }
   for (const r of pr?.reviews?.nodes ?? []) {
-    const round = roundOf.get(r?.commit?.oid);
-    if (!round || !String(r.body ?? '').trim() || r.state === 'APPROVED') continue;
+    const push = r?.commit?.oid;
+    if (!counted.has(push) || !String(r.body ?? '').trim() || r.state === 'APPROVED') continue;
     const robot = robotReview(pr, r);
     if (!robot && author && sameLogin(loginOf(r), author)) continue;
     if (robot ? robot.status : isStatus(r.body)) continue;
-    out.push({ round, path: null, line: null, severity: severity(r.body) });
+    found.push({ push, at: time(r.submittedAt), path: null, line: null, severity: severity(r.body) });
   }
-  return out.sort((a, b) => a.round - b.round);
+  // Rounds in the order they arrived: each push by its earliest finding, so a
+  // later round of any kind (thread or body) never renumbers the first ones.
+  // A push with no time keeps reviewRounds' order, after the timed ones.
+  const first = new Map();
+  for (const f of found) first.set(f.push, Math.min(first.get(f.push) ?? Infinity, f.at));
+  const order = [...pushes].sort((a, b) => (first.get(a) - first.get(b)) || (pushes.indexOf(a) - pushes.indexOf(b)));
+  const roundOf = new Map(order.map((p, i) => [p, i + 1]));
+  return found.map(({ push, at, ...f }) => ({ round: roundOf.get(push), ...f })).sort((a, b) => a.round - b.round);
 }
 
 /** How near (in lines, same file) a later round's finding must be to an earlier one to count as returning to it. */
@@ -1729,7 +1737,7 @@ export const REVIEW_NEAR = 20;
 
 /**
  * At the round limit: did the first `limit` rounds make progress, or repeat?
- * (phase 132; lesson 59.) A review repeats when, in those rounds,
+ * (phase 133; lesson 59.) A review repeats when, in those rounds,
  *   - a later round's finding returns to an earlier one: same file, within
  *     REVIEW_NEAR lines (the fix drew the next finding);
  *   - one file draws a finding in every round; or

@@ -1,6 +1,6 @@
 # Review round extension: judged on real PRs (2026-10-27)
 
-Phase 132's `judgeRounds` was run on open and recent dalmaer/plates PRs, through
+Phase 133's `judgeRounds` was run on open and recent dalmaer/plates PRs, through
 `plates review <pr> --json` from the phase branch. The read is the one plates
 review already makes; nothing was posted.
 

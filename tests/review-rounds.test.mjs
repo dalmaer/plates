@@ -544,7 +544,7 @@ test('class markers prefer current spelling and each reader requires both names 
   }
 });
 
-// ---- at the limit: progress extends it once, repetition stops it (phase 132) -------
+// ---- at the limit: progress extends it once, repetition stops it (phase 133) -------
 
 const [E, F, G] = ['e', 'f', '9'].map(x => `${x}1`.repeat(20));
 /** A finding at a place: path and line on the thread, as GitHub reads them. */
@@ -613,4 +613,15 @@ test('plates review: a review that made progress goes on past 3 and stops at 6; 
   const x = plates(dir, again, ['#3']);
   assert.equal(x.code, 3);
   assert.match(x.out, /Review round 3 of 3: this review has reached its limit \(\.plates\/plates\.json "review": \{"rounds": 3\}\)\.\nRounds 1-3 repeat, so the limit is not extended:\n  - round 2 returns to anvil\.js:14, 4 lines from a round 1 finding\nStop pushing fixes\./);
+});
+
+test('rounds are numbered as they arrived: a later inline finding never renumbers body-only rounds, so it never revokes an extension', () => {
+  const body = (commit, sev, day) => ({ author: { login: 'acme-reviewer' }, commit: { oid: commit }, body: `P${sev} Acme body finding.`, state: 'COMMENTED', submittedAt: `2026-10-1${day}T09:00:00Z` });
+  const pr = { author: { login: 'acme-owner' }, reviewThreads: { nodes: [] }, reviews: { nodes: [body(A, 1, 1), body(B, 2, 2), body(C, 3, 3)] } };
+  const before = judgeRounds(roundFindings(pr), 3);
+  assert.deepEqual([before.verdict, before.limit], ['progress', 6]);
+  // A fourth round, inline: reviewRounds visits threads first, but it arrived last.
+  pr.reviewThreads.nodes.push({ path: 'anvil.js', line: 1, comments: { nodes: [{ author: { login: 'acme-reviewer' }, body: 'P3 Acme inline.', createdAt: '2026-10-14T09:00:00Z', originalCommit: { oid: D } }] } });
+  assert.deepEqual(roundFindings(pr).map(f => f.round), [1, 2, 3, 4]);
+  assert.deepEqual(judgeRounds(roundFindings(pr), 3), before);
 });

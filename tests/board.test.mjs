@@ -194,7 +194,7 @@ test('a PR past its review-round limit is the owner\'s item, with the round coun
   assert.deepEqual([item.kind, item.source, item.read, item.link, item.rounds, item.limit, item.open], ['review', 'reviews', 'plates review acme/app#7', 'u7', 3, 3, 3]);
   assert.match(item.why, /^Acme anvils\. The review reached its limit, so no more fixes are pushed\. Choose: merge with the rest tracked \(1 to fix first, 1 to track, 1 unsorted\), split it, or close it\.$/);
   assert.match(by['acme/app#10: review round 5 of 3, 0 open findings'].why, /^Someone else's PR \(pkinlan\)/);
-  // Phase 132: with the findings read, a PR whose first three rounds made progress is extended once; one that repeats is marked.
+  // Phase 133: with the findings read, a PR whose first three rounds made progress is extended once; one that repeats is marked.
   const judged = { prs: [], rounds: [
     { number: 11, title: 'Acme magnets', url: 'u11', author: 'acme-owner', rounds: 3, open: 0, fixFirst: 0, track: 0, unsorted: 0,
       findings: [{ round: 1, path: 'a.js', line: 1, severity: 1 }, { round: 1, path: 'b.js', line: 1, severity: 2 }, { round: 2, path: 'c.js', line: 1, severity: 2 }, { round: 3, path: 'd.js', line: 1, severity: 3 }] },
@@ -301,7 +301,7 @@ test('the repo-wide read counts each open PR\'s rounds and sorts its open findin
   const got = unansweredPrs(repository, [], TODAY);
   // Found today, so the day-old count has none of them; the rounds do. A merged PR has no loop left to stop.
   assert.deepEqual(got.prs, []);
-  // The findings travel with it (phase 132), so the board can judge the limit from the same read. These threads name no path.
+  // The findings travel with it (phase 133), so the board can judge the limit from the same read. These threads name no path.
   const findings = [1, 2, 3, 3].map(round => ({ round, path: null, line: null, severity: null }));
   assert.deepEqual(got.rounds, [{ number: 7, title: 'Acme 7', url: 'u7', author: 'acme-owner', rounds: 3, findings, open: 3, fixFirst: 1, track: 1, unsorted: 1 }]);
 });
