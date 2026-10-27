@@ -14,7 +14,7 @@ import { formatRobotRubric } from '../practices/climb/files/scripts/plates/robot
 // Load exactly the shipped sibling layout, as adopted projects do.
 const runtime = await mkdtemp(join(tmpdir(), 'acme-robot-runtime-'));
 after(() => rm(runtime, {recursive:true, force:true}));
-for (const dir of ['practices/base/files/scripts/plates', 'practices/night/files/scripts/plates', 'practices/climb/files/scripts/plates', 'practices/reconciliation/files/scripts/plates']) {
+for (const dir of ['practices/night/files/scripts/plates', 'practices/climb/files/scripts/plates', 'practices/reconciliation/files/scripts/plates']) {
   for (const name of await readdir(dir)) if (name.endsWith('.mjs') && (name !== 'names.mjs' || dir.includes('/night/'))) await cp(join(dir,name),join(runtime,name));
 }
 const { prepareRobot,publishRobotTriage,robotProviders,robotWriter,robotComment,robotRedact,judgeRobot,publishRobot,postRobotReview,prepareRobotReview,robotSandbox,robotFetch,robotClosingProblems } = await import(pathToFileURL(join(runtime, 'robot.mjs')));

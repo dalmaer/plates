@@ -55,7 +55,7 @@ static renderer import enlarged cross-review's isolated execution/publisher
 closure, and robot resume initially read candidate HEAD. The renderer is now
 loaded only during cross-review briefing, and robot guidance binds GITHUB_SHA.
 Review also corrected ambiguous working-tree provenance labels and missing-runtime
-behavior for projects that own their base practice. Regression coverage exercises
+behavior for projects that own their runtime practice. Regression coverage exercises
 actual workflow prompt files/outputs and robot
 prepare/resume source selection. Initial local-server tests hit sandbox EPERM;
 the normal approved loopback route is required for their synthetic Git server.
@@ -69,3 +69,25 @@ remain unmeasured. Read-only GitHub inspection still found no PR and its
 collaborator-permission endpoint returned 403 Resource not accessible by
 integration. This does not establish the underlying cause of the earlier PR
 creation denial or justify retrying it via another identity or channel.
+
+
+The first full gate for `f726aee5` found a reproducible legacy-consumer rehearsal
+failure and was stopped after preserving its output; it is not a passing gate.
+Adding managed helpers to the formerly seeded-only base practice made a legacy
+consumer without a lock appear edited. The shared runtime now belongs to the
+existing night practice, with file-only imports for model consumers. Base-only
+consumers and drift refusal remain unchanged. A separate negative control proves
+that a failed advisory mention-context job does not suppress the original task
+or forward partial guidance; cancellation, credentials and original event gates
+remain binding. The final corrected head requires a fresh full gate.
+
+
+Both follow-up regressions were proven red without their fix and green with it
+using `plates prove --base f726aee5 --trailer`: the mention advisory-failure test
+restores the workflow template; the legacy rehearsal test restores the complete
+Base/Night ownership and consumer manifest set. A first partial ownership rollback
+reported a duplicate-owner failure, so it was not used as proof of the original
+drift bug; the complete rollback reproduced the actual update refusal. Eight
+renderer, prompt-delivery, role, provenance and runtime-ownership tests pass.
+Typecheck passes. The final full gate and independent complete-head review remain
+separate requirements; none of these observations claim live model behavior.

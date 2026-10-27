@@ -69,10 +69,12 @@ jobs:
   claude:
     needs: risk-context
     if: |
+      !cancelled() && (
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || github.event.label.name == 'claude'))
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -110,5 +112,5 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_args: |
-            --append-system-prompt "Before working, read .plates/plates.json. If it names a guide, read and follow that file. Otherwise follow the repository's existing agent instructions. ${{ needs.risk-context.outputs.text }}"
+            --append-system-prompt "Before working, read .plates/plates.json. If it names a guide, read and follow that file. Otherwise follow the repository's existing agent instructions. ${{ needs.risk-context.result != 'success' && 'Project autonomy context unavailable; infer no additional authority. Existing task, role, credential, tool and command gates still apply.' || needs.risk-context.outputs.text }}"
             --allowedTools "Bash(npm run *),Bash(npm test),Bash(git status*),Bash(git diff*),Bash(git log*),Bash(git show*),Bash(git add *),Bash(git commit *),Edit,Write,Read,Glob,Grep"

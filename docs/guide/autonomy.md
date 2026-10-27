@@ -219,9 +219,9 @@ brief without granting authority from it.
 
 One versioned renderer, `plates-autonomy-prompt-v1`, now supplies interactive,
 Climb, Tend, Robot build/resume/review, cross-review and mention-driven Claude
-briefings. Its canonical implementation lives in the base practice and ships as
+briefings. Its canonical implementation lives in the night practice and ships as
 managed runtime files; the CLI imports that same implementation. Locally owned
-base runtimes are not overwritten: absent briefing helpers produce an explicit
+shared runtimes are not overwritten: absent briefing helpers produce an explicit
 unavailable notice while preserving the existing task and gates. No setting means
 no added guidance. Invalid source produces an unavailable notice, not a grant.
 
@@ -239,6 +239,9 @@ repeated conversational confirmation. High also encourages completing reversible
 work after mandatory gates, documenting bounded uncertainty and avoiding repeated
 validation without a concrete unresolved concern. Reviewers still report every
 material defect; they distinguish those findings from optional improvements.
+An advisory mention-context job failure yields a fixed unavailable notice and
+discards partial output; it does not suppress an otherwise eligible task.
+Cancellation and the original credential, event and action checks still apply.
 Scheduled builders cannot push or merge because their role and tools prohibit it;
 High does not alter the judge or publisher. `.plates/autonomy.json` is off limits
 to automated Climb, Tend and Robot candidates, preventing self-selected authority.

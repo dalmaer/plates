@@ -4,8 +4,8 @@
   "optional": true,
   "requires": [],
   "runtimeFiles": [
-    { "practice": "base", "path": "scripts/plates/autonomy-policy.mjs" },
-    { "practice": "base", "path": "scripts/plates/autonomy-context.mjs" }
+    { "practice": "night", "path": "scripts/plates/autonomy-policy.mjs" },
+    { "practice": "night", "path": "scripts/plates/autonomy-context.mjs" }
   ],
   "secrets": [
     { "name": "CLAUDE_CODE_OAUTH_TOKEN", "why": "Claude's credential (`claude setup-token`); each @claude spends model tokens. Either this or ANTHROPIC_API_KEY; until one is set the run ends green with a notice", "workflow": ".github/workflows/claude.yml" },

@@ -4,11 +4,11 @@ import { mkdtemp, mkdir, writeFile, readFile, cp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { renderAutonomyContext, revisionAutonomyContext, AUTONOMY_PROMPT_VERSION } from '../practices/base/files/scripts/plates/autonomy-context.mjs';
+import { renderAutonomyContext, revisionAutonomyContext, AUTONOMY_PROMPT_VERSION } from '../practices/night/files/scripts/plates/autonomy-context.mjs';
 import { runBlocks } from './helpers/workflows.mjs';
 import { run } from './helpers/run.mjs';
 const repository = 'acme/anvils';
-const runtime = resolve('practices/base/files/scripts/plates');
+const runtime = resolve('practices/night/files/scripts/plates');
 const git = (root, ...args) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8' }).trim();
 const policy = mode => ({ schema: 1, repository, mode, push: [], merge: mode === 'delivery' ? ['main'] : [], ...(mode === 'delivery' ? { pushPrefixes: ['work/'] } : {}) });
 async function project(t, mode) {
@@ -119,7 +119,7 @@ test('mention context shell uses default-branch source and reaches appended mode
   const job = text.split('  risk-context:')[1].split('  claude:')[0];
   assert.match(job, /ref: \$\{\{ github.event.repository.default_branch \}\}/);
   assert.match(job, /persist-credentials: false/); assert.doesNotMatch(job, /npm ci|contents: write|secrets\./);
-  assert.match(text, /--append-system-prompt ".*\$\{\{ needs.risk-context.outputs.text \}\}"/);
+  assert.match(text, /--append-system-prompt ".*\$\{\{ .*needs.risk-context.outputs.text \}\}"/);
 });
 
 
@@ -140,4 +140,61 @@ test('missing locally owned runtime does not block the existing workflow brief',
   const prompt=await readFile(join(temp,name==='claude'?'autonomy-context.txt':'prompt.md'),'utf8');
   assert.match(prompt,/autonomy context unavailable/);assert.doesNotMatch(prompt,/Risk tolerance: high/);
  }
+});
+
+test('mention advisory failure preserves original eligibility and discards partial guidance', async () => {
+  const workflow = await readFile('practices/claude/files/.github/workflows/claude.yml', 'utf8');
+  const job = workflow.split('\n  claude:\n')[1];
+  const condition = job.split('    if: |\n')[1].split('    runs-on:')[0].trim();
+  const prompt = job.match(/--append-system-prompt "(.*)"/)[1];
+  const expression = prompt.match(/\$\{\{ (.*?) \}\}/)[1].replaceAll('needs.risk-context', "needs['risk-context']");
+  // Evaluate the exact workflow expressions with synthetic event/job data.
+  // GitHub adds success() only in the absence of an explicit status function.
+  const permits = (github, cancelled, result) => {
+    const explicitStatus = /\b(?:cancelled|always|success|failure)\(/.test(condition);
+    const evaluate = Function('github', 'cancelled', 'contains', `return (${condition});`);
+    return (explicitStatus || result === 'success') && evaluate(github, () => cancelled, (text, part) => String(text ?? '').includes(part));
+  };
+  const render = (result, text) => Function('needs', `return (${expression});`)({ 'risk-context': { result, outputs: { text } } });
+  const github = { event_name: 'issue_comment', event: { comment: { body: '@claude fix Acme' }, review: { body: '' }, issue: { body: '' }, label: { name: '' } } };
+  for (const result of ['failure', 'skipped']) {
+    assert.equal(permits(github, false, result), true, result);
+    const context = render(result, 'Acme unverified partial High output');
+    assert.match(context, /context unavailable/);
+    assert.match(context, /infer no additional authority/);
+    assert.doesNotMatch(context, /partial High/);
+  }
+  assert.equal(permits(github, true, 'failure'), false);
+  assert.equal(permits({ ...github, event: { ...github.event, comment: { body: 'Acme unrelated comment' } } }, false, 'failure'), false);
+  assert.equal(render('success', ''), '');
+  assert.equal(render('success', 'Acme verified renderer output'), 'Acme verified renderer output');
+  for (const [event_name, event] of [
+    ['pull_request_review_comment', { comment: { body: '@claude Acme' } }],
+    ['pull_request_review', { review: { body: '@claude Acme' } }],
+    ['issues', { issue: { body: '' }, label: { name: 'claude' } }],
+  ]) assert.equal(permits({ event_name, event }, false, 'failure'), true);
+  assert.match(job, /echo "enabled=false"/);
+  assert.match(job, /- if: steps.configured.outputs.enabled == 'true'\n        uses: anthropics\/claude-code-action@v1/);
+});
+
+test('guidance runtime is file-only for Claude, absent from Base, and respects local ownership and drift', async t => {
+  const { load, targets, render } = await import('../lib/practices.mjs');
+  const { diagnoseDrift } = await import('../lib/doctor.mjs');
+  const practices = await load();
+  const config = { name: 'Acme', tagline: 'Acme work.', repo: repository, practices: ['claude'] };
+  const names = cfg => targets(cfg, practices).map(f => f.path);
+  assert.ok(!names({ ...config, practices: ['base'] }).some(p => p.includes('autonomy-')));
+  const selected = names(config);
+  assert.ok(selected.includes('scripts/plates/autonomy-context.mjs'));
+  assert.ok(selected.includes('scripts/plates/autonomy-policy.mjs'));
+  assert.ok(!selected.includes('.github/workflows/plates-night.yml'));
+  assert.ok(!names({ ...config, local: { night: 'Acme owned runtime' } }).some(p => p.includes('autonomy-')));
+  const { root } = await project(t);
+  await writeFile(join(root, '.plates/plates.json'), JSON.stringify(config));
+  await render(root);
+  const file = join(root, 'scripts/plates/autonomy-context.mjs');
+  assert.equal(await readFile(file, 'utf8'), await readFile(join(runtime, 'autonomy-context.mjs'), 'utf8'));
+  await writeFile(file, '// Acme owner edit\n');
+  const drift = await diagnoseDrift(root);
+  assert.equal(drift.drift.find(row => row.path === 'scripts/plates/autonomy-context.mjs').state, 'edited');
 });

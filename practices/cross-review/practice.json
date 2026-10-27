@@ -4,8 +4,8 @@
   "optional": true,
   "requires": ["night"],
   "runtimeFiles": [
-    { "practice": "base", "path": "scripts/plates/autonomy-policy.mjs" },
-    { "practice": "base", "path": "scripts/plates/autonomy-context.mjs" }
+    { "practice": "night", "path": "scripts/plates/autonomy-policy.mjs" },
+    { "practice": "night", "path": "scripts/plates/autonomy-context.mjs" }
   ],
   "secrets": [
     { "name": "CLAUDE_CODE_OAUTH_TOKEN", "why": "Claude's credential (`claude setup-token`), as the claude practice's; each reviewed PR spends model tokens up to .plates/plates.json crossReview.budget.minutes. Either this or ANTHROPIC_API_KEY; until one is set the run ends green with a notice", "workflow": ".github/workflows/plates-cross-review.yml" },

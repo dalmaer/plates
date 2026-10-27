@@ -71,7 +71,7 @@
     },
     ".github/workflows/claude.yml": {
       "practice": "claude",
-      "sha256": "6c6f9cbb9d78279676db5b7fd648959f50c04a4053a0b6614d783b5ace2c0cf0"
+      "sha256": "5a89cb3491232a774ce81d79b623af66487eec9874876d7db163550edab997ba"
     },
     ".github/workflows/plates-climb.yml": {
       "practice": "climb",
@@ -158,11 +158,11 @@
       "sha256": "fd83325f1ef12226434ecfa9668efaafc166ada353184071a418d145507231c2"
     },
     "scripts/plates/autonomy-context.mjs": {
-      "practice": "base",
+      "practice": "night",
       "sha256": "46c84fc689a4854c34efeb7b5c3d809d032dd2c40420d0f27d22e143810b4c83"
     },
     "scripts/plates/autonomy-policy.mjs": {
-      "practice": "base",
+      "practice": "night",
       "sha256": "9e73164b35ec87132076456df873f9bc0e3b85600472a56086b75856717c4c70"
     },
     "scripts/plates/canvas-recovery.mjs": {

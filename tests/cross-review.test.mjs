@@ -29,7 +29,7 @@ async function acme(t, { crossReview = ON, files = {} } = {}) {
   await mkdir(join(dir, '.agents/cross-review'), { recursive: true });
   await mkdir(join(dir, '.plates'), { recursive: true });
   await cp(SCRIPT, join(dir, 'scripts/plates/cross-review.mjs'));
-  for (const name of ['autonomy-context.mjs', 'autonomy-policy.mjs']) await cp(join(PLATES, 'practices/base/files/scripts/plates', name), join(dir, 'scripts/plates', name));
+  for (const name of ['autonomy-context.mjs', 'autonomy-policy.mjs']) await cp(join(PLATES, 'practices/night/files/scripts/plates', name), join(dir, 'scripts/plates', name));
   await cp(LIB, join(dir, 'scripts/plates/lib.mjs'));
   await cp(join(PLATES, 'practices/night/files/scripts/plates/names.mjs'), join(dir, 'scripts/plates/names.mjs'));
   await cp(join(PRACTICE, '.agents/cross-review/REVIEW.md'), join(dir, '.agents/cross-review/REVIEW.md'));
