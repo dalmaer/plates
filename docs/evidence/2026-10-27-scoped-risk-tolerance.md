@@ -29,7 +29,7 @@ candidate validation and remote/installed readback precede publication completio
 No global policy, credentials, security settings, budgets, unrelated managed
 projects or assistant rules were changed by selection. No reusable timing claim
 is supported: retained busy observations are not comparable performance evidence.
-The distinct evaluation outcomes in phases 119–121 remain designed and untouched.
+At the initial risk-setting checkpoint, phases 119–121 remained designed and were untouched by this work.
 
 
 ## Reversible delivery clarification
@@ -91,3 +91,16 @@ drift bug; the complete rollback reproduced the actual update refusal. Eight
 renderer, prompt-delivery, role, provenance and runtime-ownership tests pass.
 Typecheck passes. The final full gate and independent complete-head review remain
 separate requirements; none of these observations claim live model behavior.
+
+
+The complete gate at `74c24dbed8a59a4152d0fb7ed7f9833cb0ef6510` finished with
+3,738 passing tests, one failure and four optional skips. The release dry-run
+requested v0.8.36 from this branch’s v0.8.35 package, but that release tag had
+arrived concurrently. The original refusal is retained; no release gate, tag or
+version was bypassed. Integrating current main
+`d4fd36d82b68321b7c5ae9fd7939fe6482a76a64` brings its published v0.8.36 metadata
+and independently merged phase-119 work. The unchanged release regression then
+passes. This feature does not implement or claim acceptance of that separate
+phase. Capability records retain both sets of CLI forms and reviewed sources;
+the combined audit covers 173 sources, 49 commands and 24 installed entrypoints.
+Final integrated validation and complete-head review remain required.
