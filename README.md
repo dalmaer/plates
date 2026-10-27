@@ -378,7 +378,7 @@ then gives the commands and every flag by the reason you'd pass it.
 | [Validation evidence audit](docs/development/validation-audit.md) | you want read-only findings from retained validation evidence without running suites |
 | [Validation planning and admission](docs/development/validation-preflight.md) | you want source-only capability checks, conservative focused suggestions and opt-in shared host admission |
 | [Shadow evidence validation](docs/development/validation-evidence.md) | you want bounded exact-input coverage checks without authorizing gate reuse |
-| [Climb and tend](docs/guide/climb-and-tend.md) | you want an agent to improve a number, or keep the records true, while you sleep |
+| [Climb and tend](docs/guide/climb-and-tend.md) | bounded agent work and sanitized failure diagnostics; runner readiness does not verify agent permissions |
 | [Lessons and learning](docs/guide/lessons-and-learning.md) | a bug turned out to have a shape, or lessons are waiting at home |
 | [Keep the fleet current](docs/guide/keep-the-fleet-current.md) | the practice changed and every project should have it |
 | [Production errors](docs/guide/production-errors.md) | repeated runtime errors should become evidence-backed repair work |

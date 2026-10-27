@@ -687,6 +687,13 @@ plates learn distill propose --kind standardise --family "<name>" --check "<what
 
 <!-- topic: improve | is the practice working here: measures, bounds, a ratchet, one proposal -->
 
+Failed local gates retain bounded, redacted stdout/stderr tails in their existing
+ledger receipt and the gate's JSON facts, linked by invocation, commit and command
+hash. Successful gates retain no output. Missing Node summaries remain unknown
+coverage; signal/spawn failures remain broken. These are whole-command diagnostics,
+not inferred compound-stage results. See [the night guide](../docs/guide/the-night-shift.md#failed-gate-diagnostics).
+
+
 The existing report retains bounded `plates:verification:v1` receipt comments: checked revision and dirty state, remote default branch/SHA, gate attribution, reconciliation coverage and claim findings. Same-day attempts survive refresh and morning finalization. Workflow retries recover the exact prior night branch report before measuring and publish with that SHA lease; unreadable recovery or conflicting local report content refuses publication. Missing coverage stays a gap; old claim observations never prove session inactivity. Home adds a fleet verification summary through its existing instruments; adopter nights only verify themselves. No second gate or acceptance decision is introduced.
 
 `plates improve` runs each measure and compares it with its bound. Measures
@@ -1387,6 +1394,22 @@ workspace is `.stitch.json`'s, or `STITCH_WORKSPACE`. The nightly
 `plates-loop.yml` pulls and drains `keel-loop/`; it decides nothing.
 
 <!-- topic: climb | climb nights: an agent climbs one number, a script judges it, a person merges -->
+
+The existing preflight verifies runner scratch capabilities only. Its success
+state is `runner-ready`, with `runnerReady: true` and `agentPermissions:
+"unverified"`; this is not agent readiness or permission to retry a denial.
+Agent readiness before baseline remains incomplete: the workflow still has its
+existing runner gate. Do not activate a universal denial or relabel declared
+settings as effective permission evidence to fill that gap. No permissions,
+allowlists or provider settings are changed by these diagnostics.
+
+Retained denial receipts contain at most eight fixed-vocabulary command-prefix
+and target-path classifications. They omit raw commands, arguments, paths,
+messages and session text. `detailsAvailable` means a command or target
+classification was retained; tool names alone do not satisfy it. Missing,
+withheld and omitted details remain explicit. A prefix classification is not
+a reconstruction of a compound shell command and grants no retry authority.
+
 
 The optional `climb` practice (needs `night`) runs `plates-climb.yml` on a
 schedule: an agent climbs one number under `.agents/climb/PROTOCOL.md`, and
