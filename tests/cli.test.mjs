@@ -203,9 +203,10 @@ Measure the count.
       // phase claim, ready and integrate need a remote to push to, and this copy has none: exit 2, as JSON
       // (tests/claim.test.mjs and tests/integrate.test.mjs cover the verbs). promote needs the delivery practice,
       // which plates's copy has not taken: exit 2, as JSON (tests/promote.test.mjs covers the verb).
-      assert.equal(r.code, name === 'issue' ? 3 : ['migrate', 'phase claim', 'ready', 'integrate', 'promote', 'decision', 'shape', 'workspace', 'feedback'].includes(name) ? 2 : 0, `${name}: ${r.err}${r.out}`);
+      assert.equal(r.code, name === 'names' ? 1 : name === 'issue' ? 3 : ['migrate', 'phase claim', 'ready', 'integrate', 'promote', 'decision', 'shape', 'workspace', 'feedback'].includes(name) ? 2 : 0, `${name}: ${r.err}${r.out}`);
       assert.doesNotThrow(() => JSON.parse(r.out), `${name} --json did not parse: ${r.out}`);
       assert.equal(r.err, '', `${name} wrote to stderr`);
+      if (name === 'names') { const data = JSON.parse(r.out); assert.equal(data.mode, 'preview'); assert.ok(data.projects.some(project => project.state === 'unavailable')); assert.equal(data.readOnly, true); }
       if (name === 'feedback') { const data = JSON.parse(r.out); assert.equal(data.error, 'git_unavailable'); assert.equal(data.coverage[0].state, 'unavailable'); }
       if (name === 'evidence rederive') {
         const receipt = JSON.parse(r.out);

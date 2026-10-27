@@ -1,5 +1,8 @@
 # Measured validation efficiency and nightly guardrails
 
+
+Successor policy, approved direction 2026-10-25: [phase 131](../phases/131-compatible-updates-have-a-short-installation-path.md) implements a narrowly bounded Plates source record-only path. This does not retroactively turn the advisory evidence below into gate authority or activate unfinished consumer attestations. Broad consumer selection remains in phases 114–115.
+
 Implementation contract, 22 October 2026. Goal G5; design §6 and “Measured
 cost and checked contracts.” Requested after the completed migration audit.
 This is a staged implementation, not a revision of the required gate policy.

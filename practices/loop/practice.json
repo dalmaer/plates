@@ -3,6 +3,7 @@
   "summary": "Stitch Loop's insights triaged in the repo: one finding file each, our rank and decision in its front matter, docs/LOOP.md generated and checked; an agent proposes, a person decides.",
   "optional": true,
   "requires": ["base", "agents-md"],
+  "runtimeFiles": [{ "practice": "night", "path": "scripts/plates/names.mjs" }],
   "secrets": [
     { "name": "STITCH_API_KEY", "why": "the Loop key the official stitch CLI (@google/stitch, from npm) reads; until it is set the nightly pull ends green with a notice", "workflow": ".github/workflows/plates-loop.yml" }
   ],

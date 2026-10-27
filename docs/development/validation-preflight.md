@@ -1,9 +1,39 @@
 # Plan validation and opt in to shared host admission
 
-These source-only tools give early feedback and coordinate cooperative work.
+The advisory planner and host admission tools give early feedback and coordinate cooperative work.
 They do not change the configured gate, enable reuse, install into consumers,
 change default worker counts or create a schedule. The [phase contract](../specs/validation-efficiency.md)
 keeps selection, capability evidence, admission and completed validation separate.
+
+## Explicit source record checks
+
+Phase 131 adds a separate, conservative source policy, `plates-source-records-v1`.
+The source check workflow and local integrator use the same classifier and check
+bundle. This policy does not change the advisory planner's authority or any
+consumer's configured gate.
+
+```sh
+node scripts/check-records.mjs --policy plates-source-records-v1 --base <full-base-sha> --head <full-head-sha> --json
+```
+
+The command examines the complete committed, staged, working and untracked
+inputs. Qualifying changes are phase attribution fields and acceptance ticks
+(not requirement wording), reference-only changes in progress/evidence/history/
+next-action sections, appended plain observations, and the exactly regenerated
+roadmap. Changed prose in next actions, machine-readable evidence, code, policy,
+instructions, configuration, unsafe file types and unknown changes fall back to
+the full gate. Historical evidence is never rewritten to qualify.
+
+Record checks validate local references and anchors, newly introduced PR facts,
+reconciliation, roadmap, rendered files, inbox and whitespace, then recheck the
+input identity. Unavailable required references fail; unchanged remote history
+is explicitly not refreshed. A result named `record-checks` is not a full test
+pass. Prior full-gate evidence retains its original revision. `--records-only`
+refuses a broad selection instead of executing it; eligible selections still run
+their checks. It is not a way to approve broad changes.
+
+Changes to this policy or its executable checks require the full gate and review.
+Type contracts and other independently required delivery checks remain required.
 
 ## Inspect the current inputs first
 

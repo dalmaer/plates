@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { load, fill, plan, PUSH_TRIGGERS, CROSS_REVIEW_WORKFLOW, PUBLISH_WORKFLOW, PROJECT, shapePublish, gateNameIn } from '../lib/practices.mjs';
 import { concurrencyOf, concurrencyProblems, workflowKind } from '../practices/delivery/files/scripts/plates/delivery.mjs';
 import { run } from './helpers/run.mjs';
+import {nameRow} from '../lib/names.mjs';
 import { AGENTS } from '../practices/night/files/scripts/plates/lib.mjs';
 import { runBlocks, inlineNode, shellProblems } from './helpers/workflows.mjs';
 
@@ -22,13 +23,13 @@ const PLATES = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 /** Each plates workflow's own branch prefix: the only refs it may push or drain. */
 export const PREFIX = {
-  'plates-night.yml': 'keel-night/',
-  'plates-morning.yml': 'keel-night/',
-  'plates-loop.yml': 'keel-loop/',
-  'plates-climb.yml': 'keel-climb/',
+  'plates-night.yml': 'plates-night/',
+  'plates-morning.yml': 'plates-night/',
+  'plates-loop.yml': 'plates-loop/',
+  'plates-climb.yml': 'plates-climb/',
   'plates-robot.yml': 'keel/robot-',
   'plates-robot-route.yml': null,
-  'plates-tend.yml': 'keel-tend/',
+  'plates-tend.yml': 'plates-tend/',
   'claude.yml': 'claude/',
   'plates-cross-review.yml': null,
   'check.yml': null,
@@ -73,7 +74,7 @@ export function productionSecretProblems(text) {
     if (/^ {6}- name: Collect production evidence\n/.test(step)) {
       if (!/\n {8}run: node scripts\/plates\/production-night\.mjs\n(?:\s*#[^\n]*\n)*$/.test(step.trimEnd() + '\n')) out.push('production: only the bounded collector may receive the provider secret');
       if (/VERCEL_TOKEN|VERCEL_API_TOKEN|secrets\./.test(body.replace(binding,''))) out.push('production: provider secret must not be duplicated, printed or exported');
-    } else if (/VERCEL_TOKEN|VERCEL_API_TOKEN|secrets\./.test(body.replace('secrets[steps.config.outputs.setup_token]', ''))) out.push('production: provider secret outside collection step');
+    } else if (/VERCEL_TOKEN|VERCEL_API_TOKEN|secrets\./.test(body.replace('secrets[steps.config.outputs.setup_token]', '').replace('secrets.PLATES_RECONCILE_TOKEN', /^ {6}- name: Observe pull requests\n/.test(step) && /run: node scripts\/plates\/reconcile-actions\.mjs --produce\s*$/.test(step) ? '' : 'secrets.PLATES_RECONCILE_TOKEN'))) out.push('production: provider secret outside collection step');
   }
   return out;
 }
@@ -91,7 +92,10 @@ export function problems(name, text, declared = []) {
     if (/\bgit push\b/.test(line)) {
       const ref = /(?:HEAD:)?refs\/heads\/(\S+?)["'\s]*$/.exec(line)?.[1] ?? /\bHEAD:(\S+?)["'\s]*$/.exec(line)?.[1];
       if (!ref) out.push(`line ${n}: git push names no explicit refs/heads/<branch>`);
-      else if (!prefix || !ref.startsWith(prefix)) out.push(`line ${n}: git push to ${ref}, outside this workflow's prefix ${prefix}`);
+      else if (ref === '$BRANCH' && ['plates-night.yml', 'plates-morning.yml'].includes(name)) {
+        const validated = name === 'plates-night.yml' ? text.includes('includes(r.branch)') && text.includes('nightRecovery.branch') : text.includes('resolveNightBranch') && text.includes('BRANCH="$NIGHT-final"');
+        if (!validated) out.push(`line ${n}: unresolved night branch ownership`);
+      } else if (!prefix || !ref.startsWith(prefix)) out.push(`line ${n}: git push to ${ref}, outside this workflow's prefix ${prefix}`);
       if (/\b(main|master)\b/.test(line)) out.push(`line ${n}: git push names main`);
     }
     if (/\bgit diff\b.*--(quiet|exit-code)/.test(line)) out.push(`line ${n}: git diff --quiet misses new files; test git status --porcelain`);
@@ -215,9 +219,9 @@ test('local typecheck workflow installs contributor dependencies and obeys the s
 test('the night workflow measures before it drains, pushes only its dated branch, and goes red on a broken instrument or gate', async () => {
   const night = (await shipped()).find(w => w.name === 'plates-night.yml').template;
   const at = s => { const i = night.indexOf(s); assert.ok(i >= 0, `missing: ${s}`); return i; };
-  assert.ok(at('node scripts/plates/improve.mjs --report --json') < at('node scripts/plates/drain.mjs keel-night/'), 'improve runs before the drain, so machine_prs counts last night\'s PR');
+  assert.ok(at('node scripts/plates/improve.mjs --report --json') < at('node scripts/plates/drain.mjs plates-night/'), 'improve runs before the drain, so machine_prs counts last night\'s PR');
   assert.ok(at('git status --porcelain') < at('git commit'));
-  assert.match(night, /git push --force origin "HEAD:refs\/heads\/keel-night\/\$DAY"/);
+  assert.match(night, /git push --force-with-lease="refs\/heads\/\$BRANCH:\$EXPECTED" origin "HEAD:refs\/heads\/\$BRANCH"/);
   assert.match(night, /cancel-in-progress: false/);
   assert.match(night, /- name: Verdict\n\s+if: always\(\)\n/, 'the verdict runs even after a failed step');
   assert.match(night, /if \[ "\$CODE" = 2 \] \|\| \[ -z "\$CODE" \]; then[\s\S]*?exit 1/, 'a broken instrument (or no reading) is red');
@@ -235,19 +239,19 @@ test('mutations: a workflow that breaks a rule fails', async () => {
     const found = problems('plates-night.yml', text, w.declared);
     assert.ok(found.some(p => pattern.test(p)), `${why}: expected a problem matching ${pattern}, got ${JSON.stringify(found)}`);
   };
-  const push = 'git push --force origin "HEAD:refs/heads/keel-night/$DAY"';
+  const push = 'git push --force-with-lease="refs/heads/$BRANCH:$EXPECTED" origin "HEAD:refs/heads/$BRANCH"';
   assert.ok(night.includes(push));
   fails(night.replace(push, 'git push origin main'), /names main|no explicit/, 'git push origin main');
   fails(night.replace(push, 'git push'), /no explicit/, 'a bare git push');
   fails(night.replace(push, 'git push origin HEAD:refs/heads/main'), /outside this workflow's prefix|names main/, 'a push to refs/heads/main');
   fails(night.replace(push, 'git push origin "HEAD:refs/heads/renovate/x"'), /outside this workflow's prefix/, 'another queue\'s branch');
   fails(night.replace('if [ "${#PATHS[@]}" = 0 ] || [ -z "$(git status --porcelain -- "${PATHS[@]}")" ]; then', 'if git diff --quiet; then'), /porcelain/, 'git diff --quiet');
-  fails(night.replace(/concurrency:\n\s+group: keel-night\n/, ''), /no concurrency group/, 'no concurrency');
+  fails(night.replace(/concurrency:\n\s+group: plates-night\n/, ''), /no concurrency group/, 'no concurrency');
   fails(night.replace('cron: "23 7 * * *"', 'cron: "23 7 * *"'), /invalid cron/, 'four fields');
   fails(night.replace('cron: "23 7 * * *"', 'cron: "61 7 * * *"'), /invalid cron/, 'minute 61');
   fails(night.replace('    env:\n      GH_TOKEN: ${{ github.token }}\n', '    env:\n      GH_TOKEN: ${{ github.token }}\n      ACME: ${{ secrets.ACME_SECRET }}\n'), /ACME_SECRET is not declared/, 'an undeclared secret');
-  fails(night.replace(/if \[ "\$GATE" = ok \]; then\n(\s+)(.*drain\.mjs keel-night\/ --yes --gate-passed)/, '$1$2\n$1true'), /outside an if on the gate/, 'an unconditional --gate-passed');
-  fails(night.replace('drain.mjs keel-night/ --yes --gate-passed', 'drain.mjs plates/ --yes --gate-passed'), /not this workflow's prefix/, 'draining another prefix');
+  fails(night.replace(/if \[ "\$GATE" = ok \]; then\n(\s+)(.*drain\.mjs plates-night\/ --yes --gate-passed)/, '$1$2\n$1true'), /outside an if on the gate/, 'an unconditional --gate-passed');
+  fails(night.replace('drain.mjs plates-night/ --yes --gate-passed', 'drain.mjs plates/ --yes --gate-passed'), /not this workflow's prefix/, 'draining another prefix');
   fails(`${night}\n      - run: gh pr merge 1 --squash\n`, /merges directly/, 'a direct merge');
   assert.deepEqual(problems('plates-night.yml', night, w.declared), [], 'the unmutated template is clean');
 });
@@ -268,14 +272,27 @@ export function reachesBack(text) {
     steps.at(-1)?.lines.push(line);
   });
   const stepOf = i => steps.filter(s => s.start <= i).at(-1);
+  const observerLine = (line,i) => {
+    const step=stepOf(i),body=step?.lines.join('\n')??'',jobId=[...lines.slice(0,i).join('\n').matchAll(/^ {2}([\w-]+):$/gm)].at(-1)?.[1],job=jobsOf(text).find(j=>j.id===jobId);
+    const opt="github.event_name == 'workflow_dispatch' && inputs.names_evidence == true";
+    const guarded=body.includes('        if: '+opt+'\n')||body.includes('        if: always() && '+opt+'\n')||(job?.id==='names-origin'&&job.text.includes('    if: '+opt+'\n'))||(job?.id==='names-observation'&&job.text.includes("    if: always() && "+opt+" && needs.names-origin.result == 'success'\n"));
+    if(line.trim()==='description: Exact reviewed dalmaer/plates observer source SHA (required for evidence)')return true;
+    if(!guarded)return false;
+    if(body.startsWith('      - name: Check out the exact observation source\n'))return line.trim()==='repository: dalmaer/plates'&&body.includes('ref: ${{ inputs.names_source_sha }}\n')&&body.includes('persist-credentials: false\n          submodules: false\n          lfs: false');
+    if(body.startsWith('      - name: Resolve the exact originating night\n'))return line.trim()==='if(identity?.repository.fullName!=="dalmaer/plates"||identity.commitSha!==process.env.NAMES_SOURCE_SHA)throw Error("Night observer source mismatch");';
+    if(body.startsWith('      - name: Observe the actual board\n'))return line.trim()==='node --import "$RUNNER_TEMP/names-loader.mjs" "$PLATES_NAMES_RUNTIME_ROOT/bin/plates.mjs" board --names-evidence --fresh --json > "$RUNNER_TEMP/names-board.json"';
+    if(body.startsWith('      - name: Collect managed-name observations\n'))return /^const result=await collectNamesRun\(\{root:process.cwd\(\),kind:"(?:night|morning)",directory,inputs,originatingNight,installedRuntime:\{root:runtime,repo:"dalmaer\/plates",entrypoint:"(?:lib\/names-verify|bin\/plates)\.mjs"\}\},namesGithub\(process.env\)\);$/.test(line.trim());
+    return false;
+  };
+
   const selfStep = steps.find(s => s.lines.some(l => /^\s+id: self\s*$/.test(l)) && s.lines.some(l => /\.plates === 'self'/.test(l)));
   lines.forEach((line, i) => {
     const n = i + 1;
-    if (/dalmaer\/(?:plates|keel)\b/.test(line)) out.push(`line ${n}: names plates's repo`);
+    if (/dalmaer\/(?:plates|keel)\b/.test(line) && !observerLine(line,i)) out.push(`line ${n}: names plates's repo`);
     if (/\b(?:PLATES|KEEL)_TOKEN\b/.test(line)) out.push(`line ${n}: a plates token`);
     if (/\bgh repo clone\b/.test(line)) out.push(`line ${n}: gh repo clone`);
     if (/\bgit clone\b/.test(line)) out.push(`line ${n}: git clone`);
-    if (/\b(?:plates|keel)\.mjs\b/.test(line)) {
+    if (/\b(?:plates|keel)\.mjs\b/.test(line) && !observerLine(line,i)) {
       const step = stepOf(i);
       const guarded = selfStep && step && step !== selfStep && step.lines.some(l => /^\s+if: steps\.self\.outputs\.self == 'true'\s*$/.test(l));
       if (!guarded || !/\bnode bin\/plates\.mjs learn\b/.test(line)) out.push(`line ${n}: plates's CLI outside plates's own learn step`);
@@ -308,7 +325,7 @@ test('no shipped workflow reaches back to plates: no plates repo, no plates toke
     ['plates\'s CLI for the measure', night.replace('node scripts/plates/improve.mjs --report --json', 'node $RUNNER_TEMP/plates/bin/plates.mjs improve --report --json')],
     ['learn without its guard', night.replace("        if: steps.self.outputs.self == 'true'\n", '')],
     ['the guard without its self check', night.replace(".plates === 'self'", ".plates === 'acme'")],
-    ['plates\'s CLI in the loop drain', loop.replace('node scripts/plates/drain.mjs keel-loop/ --yes --gate-passed', 'node bin/plates.mjs drain keel-loop/ --yes --gate-passed')],
+    ['plates\'s CLI in the loop drain', loop.replace('node scripts/plates/drain.mjs plates-loop/ --yes --gate-passed', 'node bin/plates.mjs drain plates-loop/ --yes --gate-passed')],
   ]) assert.ok(reachesBack(text).length, `${why}: expected a problem`);
 });
 
@@ -384,7 +401,7 @@ test('every secret a practice declares is used by the workflow it names', async 
   for (const p of (await load()).values()) for (const s of p.secrets) {
     const f = p.files.find(f => f.path === s.workflow);
     assert.ok(f, `${p.name}: ${s.name} names ${s.workflow}, which the practice does not ship`);
-    assert.match(f.template, new RegExp(`secrets\\.${s.name}\\b`), `${p.name}: ${s.name} is declared for ${s.workflow} but unused there`);
+    assert.match(s.name === 'PLATES_RECONCILE_TOKEN' ? fill(f.template, { name: 'Acme', repo: 'acme/app', practices: ['reconciliation'], reconciliation: { githubAccess: { enabled: true, repositories: ['acme/app'] } } }, f.path) : f.template, new RegExp(`secrets\\.${s.name}\\b`), `${p.name}: ${s.name} is declared for ${s.workflow} but unused there`);
   }
 });
 
@@ -606,7 +623,7 @@ async function nightCommit(t, night, { health, ignore = '', tracked = {}, existi
   for (const d of [dir, bin, temp, join(dir, 'scripts/plates'), join(dir, '.plates')]) await mkdir(d, { recursive: true });
   git(['init', '-q', '--bare', origin], base);
   git(['init', '-q', '-b', 'main']);
-  for (const f of ['lib.mjs', 'pr-body.mjs']) await writeFile(join(dir, 'scripts/plates', f), await readFile(join(PLATES, 'practices/night/files/scripts/plates', f), 'utf8'));
+  for (const f of ['lib.mjs', 'pr-body.mjs', 'names.mjs']) await writeFile(join(dir, 'scripts/plates', f), await readFile(join(PLATES, 'practices/night/files/scripts/plates', f), 'utf8'));
   await writeFile(join(dir, '.plates/plates.json'), `${JSON.stringify({ name: 'Acme', ...(health ? { health } : {}) })}\n`);
   await writeFile(join(dir, '.gitignore'), ignore);
   for (const [f, text] of Object.entries(tracked)) { await mkdir(dirname(join(dir, f)), { recursive: true }); await writeFile(join(dir, f), text); }
@@ -644,17 +661,17 @@ if (args[0] === 'pr' && args[1] === 'list') {
   await after(dir);
   // improve's --pr-input, as improve writes it (nightPr), for a night with a measure outside.
   const { nightPr } = await import('../practices/night/files/scripts/plates/improve.mjs');
-  await writeFile(join(temp, 'improve.json'), JSON.stringify({ date: '2026-10-05', report: `${page}/2026-10-05.md`, changedHistoricalHealthPaths: [] }));
+  await writeFile(join(temp, 'improve.json'), JSON.stringify({ date: '2026-10-05', report: `${page}/2026-10-05.md`, nightRecovery:{branch:'plates-night/2026-10-05',head:'',attempts:0}, changedHistoricalHealthPaths: [] }));
   await writeFile(join(temp, 'pr.json'), JSON.stringify(nightPr({ date: '2026-10-05', report: `${page}/2026-10-05.md`, proposal: { id: 'prs_stale', state: 'outside', text: 'Close or merge the Acme PRs.' },
     results: [{ id: 'gate', state: 'ok', detail: 'npm test passed, 12 tests', bound: 0, better: 'lower', value: 0 }, { id: 'prs_stale', state: 'outside', detail: '2 stale', bound: 0, better: 'lower', value: 2 }] })));
   const o = run('bash', ['-e', '-c', open.script], { cwd: dir, env: { ...env, DAY: '2026-10-05', PLAN_DAY: planDay, BASE: 'main', HEALTH: page ?? '' } });
   const outputs = Object.fromEntries((await readFile(out, 'utf8')).trim().split('\n').filter(Boolean).map(l => l.split('=')));
-  const branch = run('git', ['--git-dir', origin, 'show', 'refs/heads/keel-night-plan:.keel/night/plan.json']);
-  const pushed = run('git', ['--git-dir', origin, 'show', '--name-only', '--format=', 'refs/heads/keel-night/2026-10-05']);
+  const branch = run('git', ['--git-dir', origin, 'show', 'refs/heads/plates-night-plan:.plates/night/plan.json']);
+  const pushed = run('git', ['--git-dir', origin, 'show', '--name-only', '--format=', 'refs/heads/plates-night/2026-10-05']);
   const body = await readFile(join(base, 'body.md'), 'utf8').catch(() => null);
   const calls = (await readFile(join(base, 'gh.jsonl'), 'utf8').catch(() => '')).trim().split('\n').filter(Boolean).map(line => JSON.parse(line));
   const generatedBody = await readFile(join(temp, 'body.md'), 'utf8').catch(() => null);
-  const show = run('git', ['--git-dir', origin, 'show', '--name-status', '--format=', 'refs/heads/keel-night/2026-10-05']);
+  const show = run('git', ['--git-dir', origin, 'show', '--name-status', '--format=', 'refs/heads/plates-night/2026-10-05']);
   return { page, where: 0, status: o.status, out: o.stdout + o.stderr, body, calls, generatedBody, outputs, planBranch: branch.status === 0 ? branch.stdout : null, files: pushed.status === 0 ? pushed.stdout.trim().split('\n').filter(Boolean).sort() : null,
     changes: show.status === 0 ? show.stdout.trim().split('\n').filter(Boolean).sort() : null };
 }
@@ -665,7 +682,7 @@ test('the night refreshes an existing PR body by exact number, or creates a new 
     const r = await nightCommit(t, night, { existingPr });
     assert.equal(r.status, 0, r.out);
     assert.deepEqual(r.calls.map(args => args.slice(0, 2)), [['pr', 'list'], ['pr', existingPr ? 'edit' : 'create']]);
-    assert.deepEqual(r.calls[0], ['pr', 'list', '--state', 'open', '--head', 'keel-night/2026-10-05', '--json', 'number', '--jq', '.[0].number']);
+    assert.deepEqual(r.calls[0], ['pr', 'list', '--state', 'open', '--head', 'plates-night/2026-10-05', '--json', 'number', '--jq', '.[0].number']);
     const publish = r.calls[1], bodyAt = publish.indexOf('--body-file');
     assert.ok(bodyAt >= 0, 'publish receives a body file');
     assert.equal(r.body, r.generatedBody, 'publish receives the complete freshly generated body');
@@ -673,7 +690,7 @@ test('the night refreshes an existing PR body by exact number, or creates a new 
     if (existingPr) {
       assert.deepEqual(publish, ['pr', 'edit', existingPr, '--body-file', publish[bodyAt + 1]], 'edit preserves the human title');
     } else {
-      assert.deepEqual(publish, ['pr', 'create', '--base', 'main', '--head', 'keel-night/2026-10-05', '--title', 'plates night: 2026-10-05', '--body-file', publish[bodyAt + 1]]);
+      assert.deepEqual(publish, ['pr', 'create', '--base', 'main', '--head', 'plates-night/2026-10-05', '--title', 'plates night: 2026-10-05', '--body-file', publish[bodyAt + 1]]);
       assert.equal(r.page, 'docs/health');
       assert.deepEqual(r.files, ['.plates/bounds.json', 'docs/health/2026-10-05.md'], 'the default health page and bounds, never scratch files');
     }
@@ -709,7 +726,7 @@ test('the night commits its page from the configured health dir (read at run tim
   assert.match(own.body, /^Two-way door: data only/m);
   assert.match(own.body, /^Blast radius: this repo's data files only\.$/m);
   assert.match(own.body, /\*\*Proposal \(`prs_stale`, outside\):\*\* Close or merge the Acme PRs\./);
-  assert.ok(own.body.trimEnd().endsWith('```') && own.body.indexOf('```keel-impact') > at[2], 'the keel-impact block is last');
+  assert.ok(own.body.trimEnd().endsWith('```') && own.body.indexOf('```plates-impact') > at[2], 'the plates-impact block is last');
   // No body is built in inline JS: the open step calls pr-body.mjs, and no node -e writes body.md.
   const blocks = runBlocks(night);
   assert.match(blocks.find(b => b.step === "Open the night's pull request").script, /node scripts\/plates\/pr-body\.mjs --input "\$RUNNER_TEMP\/pr\.json" --files [^\n]*> "\$RUNNER_TEMP\/body\.md"/);
@@ -785,7 +802,7 @@ test('the night stages only tonight\'s page and its own data (deletions kept), p
 /**
  * Run the night's "Plan the night" step, as the workflow has it, in a
  * synthetic Acme repo whose origin is a bare repo that may hold the plan
- * branch keel-night-plan; `date` is a stub, so tonight is 2026-10-15 (UTC).
+ * branch plates-night-plan; `date` is a stub, so tonight is 2026-10-15 (UTC).
  * Returns { status, out, outputs, plan }.
  */
 async function nightPlanStep(t, night, { branchPlan = null, origin: brokenOrigin = false, emptyBranch = false, failFetch = false } = {}) {
@@ -805,23 +822,23 @@ async function nightPlanStep(t, night, { branchPlan = null, origin: brokenOrigin
   git(['push', '-q', origin, 'HEAD:refs/heads/main']);
   if (branchPlan) {
     // The plan branch, as /goodnight would push it: one file, on its own history.
-    git(['checkout', '-q', '--orphan', 'keel-night-plan']);
+    git(['checkout', '-q', '--orphan', 'plates-night-plan']);
     git(['rm', '-rq', '--cached', '.']);
-    await mkdir(join(dir, '.keel/night'), { recursive: true });
-    await writeFile(join(dir, '.keel/night/plan.json'), JSON.stringify(branchPlan));
-    git(['add', '-f', '.keel/night/plan.json']);
+    await mkdir(join(dir, '.plates/night'), { recursive: true });
+    await writeFile(join(dir, '.plates/night/plan.json'), JSON.stringify(branchPlan));
+    git(['add', '-f', '.plates/night/plan.json']);
     git(['commit', '-q', '-m', 'acme plan']);
-    git(['push', '-q', origin, 'HEAD:refs/heads/keel-night-plan']);
+    git(['push', '-q', origin, 'HEAD:refs/heads/plates-night-plan']);
     git(['checkout', '-q', '-f', 'main']);
-    await rm(join(dir, '.keel/night'), { recursive: true, force: true });
+    await rm(join(dir, '.plates/night'), { recursive: true, force: true });
   }
   // The branch, holding no plan file.
-  if (emptyBranch) git(['push', '-q', origin, 'HEAD:refs/heads/keel-night-plan']);
+  if (emptyBranch) git(['push', '-q', origin, 'HEAD:refs/heads/plates-night-plan']);
   git(['remote', 'add', 'origin', brokenOrigin ? join(base, 'no-such-origin.git') : origin]);
   // A git whose fetch fails (the network drops between ls-remote and fetch); every other command is the real git.
   if (failFetch) {
     const real = run('sh', ['-c', 'command -v git']).stdout.trim();
-    await writeFile(join(bin, 'git'), `#!/bin/sh\n[ "$1" = fetch ] && { echo "fatal: Acme network down" >&2; exit 128; }\nexec ${JSON.stringify(real)} "$@"\n`, { mode: 0o755 });
+    await writeFile(join(bin, 'git'), `#!/bin/sh\ncase " $* " in *" fetch "*) echo "fatal: Acme network down" >&2; exit 128;; esac\nexec ${JSON.stringify(real)} "$@"\n`, { mode: 0o755 });
   }
   await writeFile(join(bin, 'date'), '#!/bin/sh\n[ "$1" = "-u" ] && [ "$2" = "+%F" ] && { echo 2026-10-15; exit 0; }\nexit 9\n', { mode: 0o755 });
   await writeFile(join(bin, 'gh'), '#!/bin/sh\necho "[]"\n', { mode: 0o755 });
@@ -833,7 +850,7 @@ async function nightPlanStep(t, night, { branchPlan = null, origin: brokenOrigin
   return { status: r.status, out: r.stdout + r.stderr, outputs, plan };
 }
 
-test('the night plans before anything runs: tonight\'s plan from keel-night-plan, else the default plan, saying which; a plan it cannot make is red at the verdict', async t => {
+test('the night plans before anything runs: tonight\'s plan from plates-night-plan, else the default plan, saying which; a plan it cannot make is red at the verdict', async t => {
   const night = await readFile(join(PLATES, 'practices/night/files/.github/workflows/plates-night.yml'), 'utf8');
   const steps = runBlocks(night).map(b => b.step);
   const at = name => steps.indexOf(name);
@@ -844,35 +861,35 @@ test('the night plans before anything runs: tonight\'s plan from keel-night-plan
   const used = await nightPlanStep(t, night, { branchPlan: owner });
   assert.equal(used.status, 0, used.out);
   assert.deepEqual(used.outputs, { code: '0', day: '2026-10-15' });
-  assert.match(used.out, /Tonight's plan \(2026-10-15\) is the one on keel-night-plan, shaped by owner\./);
+  assert.match(used.out, /Tonight's plan \(2026-10-15\) is the selected branch plan, shaped by owner\./);
   assert.deepEqual(used.plan, owner);
   // No branch: the default plan.
   const none = await nightPlanStep(t, night);
   assert.equal(none.status, 0, none.out);
-  assert.match(none.out, /Tonight's plan \(2026-10-15\) is plates's default plan: no plan on keel-night-plan\./);
+  assert.match(none.out, /Tonight's plan \(2026-10-15\) is plates's default plan: no plan on plates-night-plan\./);
   assert.deepEqual([none.plan.shapedBy, none.plan.date, none.plan.items[0].id], ['default', '2026-10-15', 'measures']);
   // Dated for another night: the default plan, saying why.
   const old = await nightPlanStep(t, night, { branchPlan: { ...owner, date: '2026-10-14' } });
-  assert.match(old.out, /plates's default plan: the plan on keel-night-plan is dated 2026-10-14, not 2026-10-15\./);
+  assert.match(old.out, /"state":"another night"/);
   assert.equal(old.plan.shapedBy, 'default');
   // The branch is there and holds no plan file: the default plan, and not red.
   const empty = await nightPlanStep(t, night, { emptyBranch: true });
   assert.equal(empty.outputs.code, '0', empty.out);
-  assert.match(empty.out, /plan: keel-night-plan holds no \.keel\/night\/plan\.json/);
+  assert.match(empty.out, /"branch":"plates-night-plan","path":".plates\/night\/plan.json","state":"absent"/);
   assert.equal(empty.plan.shapedBy, 'default');
   // plates#142: the branch is there but the fetch fails: a plan the night could not read (red), never "no plan file".
   const unfetched = await nightPlanStep(t, night, { branchPlan: owner, failFetch: true });
   assert.equal(unfetched.status, 0, 'the step goes on: the measure still runs');
   assert.equal(unfetched.outputs.code, '2', unfetched.out);
-  assert.match(unfetched.out, /::error::git fetch could not read the plan branch keel-night-plan \(exit 128\)/);
-  assert.match(unfetched.out, /plates's default plan: the plan branch keel-night-plan could not be read \(git fetch exit 128\)/);
+  assert.match(unfetched.out, /git fetch.*128|cannot.*fetch/i);
+  assert.match(unfetched.out, /could not be read \(plates-night-plan:.*unavailable:.*git fetch exited 128/);
   assert.doesNotMatch(unfetched.out, /holds no \.keel\/night\/plan\.json/);
   assert.equal(unfetched.plan.shapedBy, 'default');
   // The branch cannot be read: red at the verdict, and the night still has its default plan.
   const broken = await nightPlanStep(t, night, { origin: true });
   assert.equal(broken.status, 0, 'the step goes on: the measure still runs');
   assert.equal(broken.outputs.code, '2');
-  assert.match(broken.out, /::error::git ls-remote could not read the plan branch keel-night-plan/);
+  assert.match(broken.out, /cannot read plan branch plates-night-plan/);
   assert.equal(broken.plan.shapedBy, 'default');
   // Mutation: a step that never reads the branch runs the default plan when the owner shaped one.
   const blind = await nightPlanStep(t, night.replace('ARGS=(--branch-plan "$RUNNER_TEMP/branch-plan.json")', 'ARGS=()'), { branchPlan: owner });
@@ -910,7 +927,7 @@ test('the night\'s PR carries the plan as it ended, docs/night/<date>.json, and 
 });
 
 // Phase 78: a default night records its plan on the plan branch, from the PR step alone.
-test('a default night writes its plan to keel-night-plan from its PR step, the one step that writes; the plan step only reads; a failed write is red at the verdict', async t => {
+test('a default night writes its plan to plates-night-plan from its PR step, the one step that writes; the plan step only reads; a failed write is red at the verdict', async t => {
   const night = await readFile(join(PLATES, 'practices/night/files/.github/workflows/plates-night.yml'), 'utf8');
   const blocks = runBlocks(night);
   const publishing = blocks.filter(b => /node scripts\/plates\/night-plan\.mjs publish\b/.test(b.script)).map(b => b.step);
@@ -922,7 +939,7 @@ test('a default night writes its plan to keel-night-plan from its PR step, the o
   const withPlan = async dir => { await cp(join(PLATES, 'practices/night/files/scripts/plates'), join(dir, 'scripts/plates'), { recursive: true }); await writePlan(dir, plan); };
   const r = await nightCommit(t, night, { before: withPlan, planDay: '2026-10-05' });
   assert.equal(r.status, 0, r.out);
-  assert.match(r.out, /tonight's default plan is on keel-night-plan \(the branch keel-night-plan is new\)/);
+  assert.match(r.out, /tonight's default plan is on plates-night-plan \(the branch plates-night-plan is new\)/);
   assert.equal(r.outputs.publish, '0');
   assert.deepEqual(JSON.parse(r.planBranch), plan, 'the plan branch holds tonight\'s default plan');
   assert.deepEqual(r.files, ['.plates/bounds.json', 'docs/health/2026-10-05.md'], 'the PR is as it was');
@@ -936,7 +953,7 @@ test('a default night writes its plan to keel-night-plan from its PR step, the o
   assert.equal(v({ PUBLISH: '' }).status, 0);
   const red = v({ PUBLISH: '2' });
   assert.equal(red.status, 1);
-  assert.match(red.stdout, /Tonight's default plan could not be written to keel-night-plan/);
+  assert.match(red.stdout, /Tonight's default plan could not be written to plates-night-plan/);
 });
 
 test('the PR description is re-checked on edit by plates-impact.yml alone; check.yml never runs it', async () => {
@@ -1091,7 +1108,7 @@ test('plates-climb.yml: the agent cannot push or merge, is time-boxed by the bud
   const w = (await shipped()).find(x => x.name === 'plates-climb.yml');
   const t = w.template;
   assert.deepEqual(climbWorkflowProblems(t), []);
-  assert.match(t, /git push --force origin "\$head:refs\/heads\/keel-climb\/\$JOB\/\$DAY"/);
+  assert.match(t, /git push --force origin "\$head:refs\/heads\/plates-climb\/\$JOB\/\$DAY"/);
   // STITCH_API_KEY: a loop night's pull (phase 37), in its own step only.
   // OPENAI_API_KEY: a Codex night's (phase 47).
   assert.deepEqual(w.declared.sort(), ['ANTHROPIC_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN', 'OPENAI_API_KEY', 'STITCH_API_KEY']);
@@ -1386,15 +1403,15 @@ test('plates-tend.yml has the climb workflow\'s rights only: its prefix, no merg
   assert.equal(w.practice, 'climb');
   assert.deepEqual(tendWorkflowProblems(t), []);
   assert.deepEqual(tendWorkflowProblems(await readFile(join(PLATES, w.path), 'utf8')), [], "plates's rendered plates-tend.yml");
-  assert.match(t, /git push --force origin "\$head:refs\/heads\/keel-tend\/\$DAY"/);
+  assert.match(t, /git push --force origin "\$head:refs\/heads\/plates-tend\/\$DAY"/);
   assert.deepEqual(w.declared.sort(), ['ANTHROPIC_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN', 'OPENAI_API_KEY']);
   const climbCron = /cron: "(\d+) (\d+) /.exec((await shipped()).find(x => x.name === 'plates-climb.yml').template);
   const tendCron = /cron: "(\d+) (\d+) /.exec(t);
   assert.deepEqual([Number(tendCron[1]) - Number(climbCron[1]), tendCron[2]], [1, climbCron[2]], 'a minute after the climb\'s');
   const tools = /--allowedTools "([^"]*)"/.exec(t)[1];
-  const push = 'git push --force origin "$head:refs/heads/keel-tend/$DAY"';
+  const push = 'git push --force origin "$head:refs/heads/plates-tend/$DAY"';
   for (const [why, text, rule] of [
-    ['a push outside keel-tend/', t.replace(push, 'git push --force origin "$head:refs/heads/keel-climb/$DAY"'), 'problems'],
+    ['a push outside plates-tend/', t.replace(push, 'git push --force origin "$head:refs/heads/plates-climb/$DAY"'), 'problems'],
     ['a push to main', t.replace(push, 'git push origin main'), 'problems'],
     ['a merge', `${t}\n      - run: gh pr merge 1 --squash\n`, 'problems'],
     ['git push allowed', t.replace(tools, `${tools},Bash(git push*)`)],
@@ -1405,7 +1422,7 @@ test('plates-tend.yml has the climb workflow\'s rights only: its prefix, no merg
     ['no time box', t.replace(/\n\s+timeout-minutes: \$\{\{ fromJSON\(steps\.pick\.outputs\.minutes\) \}\}/, '')],
     ['no tend guard', t.replace('          node scripts/plates/climb.mjs guard --job tend --base "$GITHUB_SHA"\n', '')],
     ['a push whatever was committed', t.replace('if [ "$COMMITS" = 0 ] || [ -z "$COMMITS" ]; then', 'if false; then')],
-    ['a branch deleted', t.replace(push, `${push}\n          git push origin --delete refs/heads/keel-tend/old`)],
+    ['a branch deleted', t.replace(push, `${push}\n          git push origin --delete refs/heads/plates-tend/old`)],
     ['a PR closed', t.replace(push, `${push}\n          gh pr close 3`)],
     ['tend off said late', t.replace('      - name: Is tend on?\n', '      - name: Acme first\n        run: true\n      - name: Is tend on?\n')],
     ['daily', t.replace('cron: "18 10 * * 1"', 'cron: "18 10 * * *"')],
@@ -1893,7 +1910,7 @@ export function crossReviewProblems(text) {
     if (/\bgit push\b|\bgh pr (merge|review|close|edit)\b|\bAPPROVE\b|REQUEST_CHANGES|--approve|--request-changes/.test(line)) out.push(`line ${n}: pushes, merges, approves or requests changes: ${line.trim()}`);
     // Phase 60 (plates#65): the publish job's own reads of GitHub's compare, and a start's label, issue and close; each exactly.
     const PUSH_API = [
-      /^\s*gh api -H "Accept: application\/vnd\.github\.raw" "repos\/\$REPO\/contents\/scripts\/plates\/(?:cross-review|lib)\.mjs\?ref=\$SHA" > "\$out\/(?:cross-review|lib)\.mjs"$/,
+      /^\s*gh api -H "Accept: application\/vnd\.github\.raw" "repos\/\$REPO\/contents\/scripts\/plates\/(?:cross-review|lib|names)\.mjs\?ref=\$SHA" > "\$out\/(?:cross-review|lib|names)\.mjs"$/,
       /^\s*gh api "repos\/\$REPO\/compare\/\$STARTAT\.\.\.\$SHA" > "\$RUNNER_TEMP\/start-below\.json"$/,
       /^\s*had=\$\(gh api "repos\/\$REPO\/issues\?labels=keel:review-after&state=all&per_page=1" --jq 'length'\)$/,
       /^\s*gh api --method POST "repos\/\$REPO\/labels" -f name=keel:review-after -f color=5319e7 > \/dev\/null 2>&1 \|\| true$/,
@@ -1962,7 +1979,7 @@ test('plates-cross-review.yml runs only for a same-repo PR opened or made ready,
 
 /**
  * The cross-review concurrency group for one event: the group string, as
- * GitHub evaluates `keel-cross-review-${{ … }}`.
+ * GitHub evaluates `plates-cross-review-${{ … }}`.
  */
 export function crossReviewGroup(text, ctx) {
   const m = /^concurrency:\n {2}group: (.*)\n {2}cancel-in-progress: false$/m.exec(text);
@@ -1978,7 +1995,9 @@ test('phase 60: a push to main triggers a review only with "after": "push" (the 
   assert.deepEqual(on(t), ['pull_request', 'issue_comment'], 'the template');
   for (const crossReview of [{ for: ['codex/'] }, { for: ['codex/', 'claude/'], budget: { minutes: 20 } }]) {
     const without = fill(t, { ...base, crossReview }, CROSS_REVIEW_WORKFLOW);
-    assert.equal(without, t, 'no "after": the template\'s bytes, no push trigger');
+    const binding=nameRow('variable:KEEL_PUBLISHER');
+    const expected=t.replace('const binding = /* plates:publisher-binding */ null;', `const binding = /* plates:publisher-binding */ ${JSON.stringify({current:binding.plates,legacy:binding.keel})};`);
+    assert.equal(without, expected, 'no after: only the exact table-owned publisher pair is filled; no push trigger');
   }
   // plates's own rendered copy: plates reviews its PRs, not its pushes.
   assert.deepEqual(on(await readFile(join(PLATES, CROSS_REVIEW_WORKFLOW), 'utf8')), ['pull_request', 'issue_comment']);
@@ -1998,10 +2017,10 @@ test('phase 60: a push to main triggers a review only with "after": "push" (the 
   assert.equal(evalExpression(cond.replace("github.ref == format('refs/heads/{0}', github.event.repository.default_branch)", 'true'), push('refs/heads/acme-feature')), true, 'the branch check is load-bearing');
   // One group for every push and the daily run: GitHub keeps one pending run, so pushes during a review coalesce into it.
   const group = (ctx, id) => crossReviewGroup(t, { ...ctx, github: { ...ctx.github, run_id: id } });
-  assert.equal(group(push(), 301), 'keel-cross-review-after-push');
+  assert.equal(group(push(), 301), 'plates-cross-review-after-push');
   assert.equal(group(push(), 302), group(ghEvent('schedule', {}), 303));
-  assert.equal(group(prEvent(), 304), 'keel-cross-review-7', 'a PR keeps its own queue');
-  assert.equal(group(commentEvent({ body: 'LGTM' }), 305), 'keel-cross-review-run-305');
+  assert.equal(group(prEvent(), 304), 'plates-cross-review-7', 'a PR keeps its own queue');
+  assert.equal(group(commentEvent({ body: 'LGTM' }), 305), 'plates-cross-review-run-305');
   // Mutations: the shaped triggers widened are refused.
   for (const [why, text] of [
     ['any branch', shaped.replace('    branches: [main]\n', "    branches: ['**']\n")],
@@ -2019,20 +2038,20 @@ test('plates-cross-review.yml: reviews of one PR queue behind each other; a run 
   const t = (await shipped()).find(w => w.name === 'plates-cross-review.yml').template;
   const withRun = (ctx, id) => ({ ...ctx, github: { ...ctx.github, run_id: id } });
   const group = (ctx, id = 101) => crossReviewGroup(t, withRun(ctx, id));
-  assert.equal(group(prEvent()), 'keel-cross-review-7', 'an opened PR');
-  assert.equal(group(prEvent({ action: 'ready_for_review' }), 102), 'keel-cross-review-7');
-  assert.equal(group(commentEvent(), 103), 'keel-cross-review-7', 'a person\'s /review queues with them');
-  assert.equal(group(commentEvent({ body: '/review\nthe lid, please' }), 104), 'keel-cross-review-7');
+  assert.equal(group(prEvent()), 'plates-cross-review-7', 'an opened PR');
+  assert.equal(group(prEvent({ action: 'ready_for_review' }), 102), 'plates-cross-review-7');
+  assert.equal(group(commentEvent(), 103), 'plates-cross-review-7', 'a person\'s /review queues with them');
+  assert.equal(group(commentEvent({ body: '/review\nthe lid, please' }), 104), 'plates-cross-review-7');
   // ledger#92: a later comment replaced a queued /review, then skipped. Each of these is alone.
-  assert.equal(group(commentEvent({ body: 'Deployment ready (acme-preview)', type: 'Bot', login: 'acme-deploy[bot]' }), 105), 'keel-cross-review-run-105', 'a bot\'s comment');
-  assert.equal(group(commentEvent({ body: 'LGTM' }), 106), 'keel-cross-review-run-106', 'a person\'s other comment');
-  assert.equal(group(commentEvent({ body: '/review', type: 'Bot', login: 'codex[bot]', association: 'MEMBER' }), 107), 'keel-cross-review-run-107', 'a bot\'s /review never runs, so never queues');
+  assert.equal(group(commentEvent({ body: 'Deployment ready (acme-preview)', type: 'Bot', login: 'acme-deploy[bot]' }), 105), 'plates-cross-review-run-105', 'a bot\'s comment');
+  assert.equal(group(commentEvent({ body: 'LGTM' }), 106), 'plates-cross-review-run-106', 'a person\'s other comment');
+  assert.equal(group(commentEvent({ body: '/review', type: 'Bot', login: 'codex[bot]', association: 'MEMBER' }), 107), 'plates-cross-review-run-107', 'a bot\'s /review never runs, so never queues');
   assert.notEqual(group(commentEvent({ body: 'LGTM' }), 108), group(commentEvent({ body: 'LGTM' }), 109), 'two other comments never share a group');
   // Every event the job's if: lets through queues on the PR's group: the group never splits real reviews.
   const cond = jobIf(t);
   for (const ctx of [prEvent(), prEvent({ action: 'ready_for_review' }), commentEvent(), commentEvent({ association: 'MEMBER' })]) {
     assert.equal(evalExpression(cond, ctx), true);
-    assert.equal(group(ctx, 110), 'keel-cross-review-7');
+    assert.equal(group(ctx, 110), 'plates-cross-review-7');
   }
   // Codex on ledger#93: a /review the job will skip (no write access, a fork, a draft) never joins the PR's group.
   // The rule: the PR's group exactly when the job's if: lets the event through.
@@ -2040,12 +2059,12 @@ test('plates-cross-review.yml: reviews of one PR queue behind each other; a run 
     commentEvent({ association: 'CONTRIBUTOR' }), commentEvent({ association: 'NONE' }), commentEvent({ association: 'FIRST_TIME_CONTRIBUTOR' }),
     commentEvent({ body: 'LGTM' }), commentEvent({ body: '/review', type: 'Bot', login: 'codex[bot]', association: 'MEMBER' }), commentEvent({ body: '/review', login: 'acme-helper[bot]' }),
     prEvent({ repo: 'someone/acme-fork' }), prEvent({ draft: true })];
-  for (const [i, ctx] of events.entries()) assert.equal(group(ctx, 200 + i) === 'keel-cross-review-7', evalExpression(cond, ctx) === true, JSON.stringify(ctx.github.event?.comment ?? ctx.github.event?.action));
-  assert.equal(group(commentEvent({ association: 'NONE' }), 220), 'keel-cross-review-run-220', 'an outsider\'s /review is alone');
+  for (const [i, ctx] of events.entries()) assert.equal(group(ctx, 200 + i) === 'plates-cross-review-7', evalExpression(cond, ctx) === true, JSON.stringify(ctx.github.event?.comment ?? ctx.github.event?.action));
+  assert.equal(group(commentEvent({ association: 'NONE' }), 220), 'plates-cross-review-run-220', 'an outsider\'s /review is alone');
   // Mutation: the old group (the PR's number for every event) lets any comment displace a /review.
-  const old = t.replace(/^( {2}group: ).*$/m, '$1keel-cross-review-${{ github.event.pull_request.number || github.event.issue.number }}');
+  const old = t.replace(/^( {2}group: ).*$/m, '$1plates-cross-review-${{ github.event.pull_request.number || github.event.issue.number }}');
   assert.notEqual(old, t, 'the mutation did not apply');
-  assert.equal(crossReviewGroup(old, withRun(commentEvent({ body: 'LGTM' }), 111)), 'keel-cross-review-7', 'the old group puts any comment in the queue');
+  assert.equal(crossReviewGroup(old, withRun(commentEvent({ body: 'LGTM' }), 111)), 'plates-cross-review-7', 'the old group puts any comment in the queue');
   assert.match(t, /^concurrency:\n {2}group: [^\n]*\n {2}cancel-in-progress: false$/m, 'queued, never cancelled');
 });
 
@@ -2186,12 +2205,12 @@ export function crossReviewSandboxProblems(text) {
     if (!pub) out.push(`the writing job ${w.id} has no step that checks the publisher after a push (id: publisher)`);
     else {
       const env = stepMap(pub, 'env');
-      if (!pub.includes("\n        if: (github.event_name == 'push' || github.event_name == 'schedule') && needs.review.outputs.mode == 'push'\n")) out.push('the publisher step does not run for a push event alone');
-      if (!/^(?:unrendered|[0-9a-f]{64} [0-9a-f]{64})$/.test(env.PLATES_PUBLISHER ?? '')) out.push(`the publisher's sha256 is not plates's, written here (PLATES_PUBLISHER: ${env.PLATES_PUBLISHER ?? 'none'})`);
+      if (!pub.includes("\n        if: (github.event_name == 'push' || github.event_name == 'schedule') && (needs.review.outputs.mode == 'push' || needs.review.outputs.mode == 'start')\n")) out.push('the publisher step does not run for a push event alone');
+      if (!/^(?:unrendered|[0-9a-f]{64} [0-9a-f]{64} [0-9a-f]{64})$/.test(env.PLATES_PUBLISHER ?? '')) out.push(`the publisher's sha256 is not plates's, written here (PLATES_PUBLISHER: ${env.PLATES_PUBLISHER ?? 'none'})`);
       if (env.SHA !== '${{ github.sha }}') out.push('the publisher step does not fetch at the run\'s commit');
       const fetched = [...pub.matchAll(/gh api -H "Accept: application\/vnd\.github\.raw" "repos\/\$REPO\/contents\/scripts\/plates\/([\w.-]+)\?ref=\$SHA" > "\$out\/([\w.-]+)"/g)].map(m => `${m[1]}>${m[2]}`);
-      if (JSON.stringify(fetched) !== JSON.stringify(['cross-review.mjs>cross-review.mjs', 'lib.mjs>lib.mjs'])) out.push(`the publisher step fetches ${fetched.join(', ') || 'nothing'}: cross-review.mjs and lib.mjs alone`);
-      if (!/cross !== want\[0\] \|\| lib !== want\[1\]/.test(pub) || !/createHash\("sha256"\)\.update\(fs\.readFileSync\(f\)\)/.test(pub)) out.push('the publisher step does not check the scripts\' sha256 against PLATES_PUBLISHER');
+      if (JSON.stringify(fetched) !== JSON.stringify(['cross-review.mjs>cross-review.mjs', 'lib.mjs>lib.mjs', 'names.mjs>names.mjs'])) out.push(`the publisher step fetches ${fetched.join(', ') || 'nothing'}: the three canonical publisher modules alone`);
+      if (!/cross !== want\[0\] \|\| lib !== want\[1\] \|\| names !== want\[2\]/.test(pub) || !/createHash\("sha256"\)\.update\(fs\.readFileSync\(f\)\)/.test(pub)) out.push('the publisher step does not check the scripts\' sha256 against PLATES_PUBLISHER');
       if (!/\n {10}echo "dir=\$out" >> "\$GITHUB_OUTPUT"(?:\n\s*(?:#.*)?)*$/.test(pub)) out.push('the publisher step hands on its folder before the check passes');
     }
     // The push's post runs the checked publisher, and nothing of a checkout.
@@ -2218,7 +2237,7 @@ export function crossReviewSandboxProblems(text) {
     const summary = steps.find(st => /- name: Post the summary\n/.test(st));
     if (summary && !summary.includes("\n        if: github.event_name == 'pull_request' || github.event_name == 'issue_comment'\n")) out.push('the PR\'s summary step runs on an event other than a PR\'s, or on the review job\'s word');
     if (post && !post.includes("\n        if: (github.event_name == 'push' || github.event_name == 'schedule') && needs.review.outputs.mode == 'push'\n")) out.push('the push\'s post runs on an event other than a push or the daily run');
-    if (start && /scripts\/plates|cross-review\.mjs/.test(start)) out.push('the start step runs the repository\'s code');
+    if (start && (/scripts\/plates/.test(start) || stepMap(start,'env').PUBLISHER !== '${{ steps.publisher.outputs.dir }}' || !start.includes('import(process.env.PUBLISHER+"/names.mjs")') || !start.includes('import(process.env.PUBLISHER+"/cross-review.mjs")') || at(/id: publisher/) > steps.indexOf(start))) out.push('the start step does not use only the byte-verified publisher');
     if (start) {
       const env = stepMap(start, 'env');
       if (env.SHA !== '${{ github.sha }}' || env.BEFORE !== '${{ github.event.before }}' || env.STARTAT !== `\${{ needs.${agent.id}.outputs.start }}`) out.push('the start step does not take its facts from the event and the suggestion from the review job');
@@ -2305,14 +2324,14 @@ test('phase 46: cross-review\'s agent, Claude or Codex, runs in a job whose toke
     ['the PR summary on the review job\'s word', t.replace(publish, publish.replace("      - name: Post the summary\n        if: github.event_name == 'pull_request' || github.event_name == 'issue_comment'\n", "      - name: Post the summary\n        if: needs.review.outputs.mode == 'pr'\n"))],
     ['a push event reaching the PR summary', t.replace(publish, publish.replace("      - name: Post the summary\n        if: github.event_name == 'pull_request' || github.event_name == 'issue_comment'\n", "      - name: Post the summary\n        if: github.event_name == 'pull_request' || github.event_name == 'issue_comment' || github.event_name == 'push'\n"))],
     ['a push event reaching the PR checkout', t.replace(publish, publish.replace("      - uses: actions/checkout@v7\n        if: github.event_name == 'pull_request' || github.event_name == 'issue_comment'\n", "      - uses: actions/checkout@v7\n        if: github.event_name == 'pull_request' || github.event_name == 'issue_comment' || github.event_name == 'push'\n"))],
-    ['the publisher on the review job\'s word alone', t.replace(publish, publish.replace("        id: publisher\n        if: (github.event_name == 'push' || github.event_name == 'schedule') && needs.review.outputs.mode == 'push'\n", "        id: publisher\n        if: needs.review.outputs.mode == 'push'\n"))],
+    ['the publisher on the review job\'s word alone', t.replace(publish, publish.replace("        id: publisher\n        if: (github.event_name == 'push' || github.event_name == 'schedule') && (needs.review.outputs.mode == 'push' || needs.review.outputs.mode == 'start')\n", "        id: publisher\n        if: needs.review.outputs.mode == 'push'\n"))],
     ['the push post on the review job\'s word alone', t.replace(publish, publish.replace("      - name: Post after the push\n        if: (github.event_name == 'push' || github.event_name == 'schedule') && needs.review.outputs.mode == 'push'\n", "      - name: Post after the push\n        if: needs.review.outputs.mode == 'push'\n"))],
     ['a start on any event', t.replace(publish, publish.replace("      - name: Start the record\n        if: (github.event_name == 'push' || github.event_name == 'schedule') && needs.review.outputs.mode == 'start'\n", "      - name: Start the record\n        if: needs.review.outputs.mode == 'start'\n"))],
     ['the publish job checks out the pushed head', t.replace(publish, publish.replace(trustedRef, 'ref: ${{ github.sha }}'))],
     ['the publish job checks out the last record', t.replace(publish, publish.replace(trustedRef, 'ref: ${{ needs.review.outputs.trusted || github.event.repository.default_branch }}'))],
     ['the publish job reads the pushed head', t.replace(publish, publish.replace('          REPO: ${{ github.repository }}\n          PUBLISHER:', '          REPO: ${{ github.repository }}\n          HEAD: ${{ github.event.head_commit.id }}\n          PUBLISHER:'))],
     ['no publisher step', t.replace(trustStep, '      - run: true')],
-    ['the publisher unchecked', t.replace(trustStep, trustStep.replace(' || cross !== want[0] || lib !== want[1]', ''))],
+    ['the publisher unchecked', t.replace(trustStep, trustStep.replace(' || cross !== want[0] || lib !== want[1] || names !== want[2]', ''))],
     ['the publisher\'s sha256 from the review job', t.replace(trustStep, trustStep.replace('          PLATES_PUBLISHER: unrendered\n', '          PLATES_PUBLISHER: ${{ needs.review.outputs.publisher }}\n'))],
     ['the publisher fetched whole', t.replace(trustStep, trustStep.replace('"repos/$REPO/contents/scripts/plates/lib.mjs?ref=$SHA" > "$out/lib.mjs"', '"repos/$REPO/contents/scripts/plates/lib.mjs?ref=$SHA" > "$out/lib.mjs"\n          gh api -H "Accept: application/vnd.github.raw" "repos/$REPO/contents/scripts/plates/improve.mjs?ref=$SHA" > "$out/improve.mjs"'))],
     ['the publisher handed on first', t.replace(trustStep, trustStep.replace('        run: |\n          out=', '        run: |\n          echo "dir=$RUNNER_TEMP/publisher/scripts/plates" >> "$GITHUB_OUTPUT"\n          out=').replace(/\n {10}echo "dir=\$out" >> "\$GITHUB_OUTPUT"$/, ''))],
@@ -2529,8 +2548,8 @@ test('climb and the robot read tonight\'s plan before they choose, keep it befor
     assert.ok(publish.includes('Tick tonight\'s plan'), `${name}: the publisher ticks`);
     assert.match(jobs.publish, /- name: Tick tonight's plan\n {8}if: always\(\) && needs\.agent\.outputs\.plan_ticks == 'true'\n/);
     assert.match(jobs.publish, /node scripts\/plates\/night-plan\.mjs record --date "\$DAY" --ticks "\$RUNNER_TEMP\/plan-ticks\.json"/);
-    // The plan never goes to main: the only push of it is record's, onto keel-night-plan.
-    assert.doesNotMatch(text, /keel-night-plan:refs\/heads\/main|push[^\n]*keel-night-plan/);
+    // The plan never goes to main: the only push of it is record's, onto plates-night-plan.
+    assert.doesNotMatch(text, /plates-night-plan:refs\/heads\/main|push[^\n]*plates-night-plan/);
   }
   // Climb keeps the plan and the pick as an artifact before its agent runs, the judge and the publisher refuse its
   // willNotTouch from that copy (sandbox --plan), and the agent's time box is the pick's minutes, never the config's alone.
@@ -2548,14 +2567,16 @@ test('climb and the robot read tonight\'s plan before they choose, keep it befor
   t.after(() => rm(base, { recursive: true, force: true }));
   for (const [name, text] of [['plates-climb', climb], ['plates-robot', robot]]) {
     const block = runBlocks(text).find(b => b.step === 'Read tonight\'s plan');
+    const sample = JSON.stringify({schema:1,date:new Date().toISOString().slice(0,10),shapedBy:'owner',readyBy:null,willNotTouch:[],settledToday:[],leftOpen:[],items:[]});
     for (const [answer, status, kept, said] of [
-      ['echo \'{"schema":1}\'; exit 0', 0, true, /tonight's plan: read from keel-night-plan/],
-      ['echo "gh: Not Found (HTTP 404)" >&2; exit 1', 0, false, /no plan on keel-night-plan: (climb picks|the robot admits) as it always has/],
-      ['echo "gh: Server Error (HTTP 502)" >&2; exit 1', 1, false, /::error::The plan branch keel-night-plan could not be read \(gh api exit 1: gh: Server Error \(HTTP 502\)\); (climb|the robot) never guesses there is no plan\./],
+      [`echo '${sample}'; exit 0`, 0, true, /"branch":"plates-night-plan"/],
+      ['echo "gh: Not Found (HTTP 404)" >&2; exit 1', 0, false, /"branch":null/],
+      ['echo "gh: Server Error (HTTP 502)" >&2; exit 1', 1, false, /cannot read plan branch plates-night-plan/],
     ]) {
       const temp = await mkdtemp(join(base, 'run-')), bin = join(temp, 'bin');
       await mkdir(bin);
-      await writeFile(join(bin, 'gh'), `#!/bin/sh\n[ "$1 $2 $3" = "api -H Accept: application/vnd.github.raw+json" ] || exit 9\ncase "$4" in "repos/acme/anvils/contents/.keel/night/plan.json?ref=keel-night-plan") ;; *) exit 9 ;; esac\n${answer}\n`, { mode: 0o755 });
+      await cp(join(PLATES, 'practices/night/files/scripts/plates'), join(temp, 'scripts/plates'), {recursive:true});
+      await writeFile(join(bin, 'gh'), `#!/bin/sh\n[ "$1 $2 $3" = "api -H Accept: application/vnd.github.raw+json" ] || exit 9\ncase "$4" in "repos/acme/anvils/contents/.plates/night/plan.json?ref=plates-night-plan") ;; "repos/acme/anvils/contents/.keel/night/plan.json?ref=keel-night-plan") echo "HTTP 404" >&2; exit 1 ;; *) exit 9 ;; esac\n${answer}\n`, { mode: 0o755 });
       const r = run('bash', ['-e', '-c', block.script], { cwd: temp, env: { ...process.env, RUNNER_TEMP: temp, REPO: 'acme/anvils', PATH: `${bin}:${process.env.PATH}` } });
       assert.equal(r.status, status, `${name}: ${r.stdout}${r.stderr}`);
       assert.match(r.stdout + r.stderr, said);
@@ -2592,7 +2613,7 @@ test('a robot PR published on a night whose plan ticks fail still gets its other
   const block = runBlocks(robot).find(b => b.step === 'Tick tonight\'s plan');
   const r = run('bash', ['-e', '-c', block.script], { cwd: dir, env: { ...process.env, RUNNER_TEMP: temp, DAY: '2026-10-15', PUBLISHED: 'success', JUDGED: 'success', PR: '7', REPO: 'acme/anvils', RUN: 'https://github.com/acme/anvils/actions/runs/5' } });
   assert.notEqual(r.status, 0, `a failed record is red: ${r.stdout}${r.stderr}`);
-  assert.match(r.stderr + r.stdout, /cannot read the plan branch keel-night-plan/);
+  assert.match(r.stderr + r.stdout, /cannot read plan branch plates-night-plan/);
 });
 
 /**
@@ -2614,39 +2635,42 @@ export function productionMorningProblems(text) {
 
 export function morningProblems(text) {
   const out = [];
-  if (!/^on:\n {2}workflow_run:\n {4}workflows: \[plates-night(?:, plates-climb, plates-robot)?\]\n {4}types: \[completed\]\n {2}schedule:\n(?: {4}#.*\n)* {4}- cron: "[^"]+"\n {2}workflow_dispatch: \{\}\n/m.test(text)) out.push('not started by plates-night, plates-climb and plates-robot finishing, by a schedule and by hand');
+  if (!/^on:\n {2}workflow_run:\n {4}workflows: \[plates-night(?:, plates-climb, plates-robot)?\]\n {4}types: \[completed\]\n {2}schedule:\n(?: {4}#.*\n)* {4}- cron: "[^"]+"\n {2}workflow_dispatch:\n {4}inputs:\n/m.test(text)) out.push('not started by plates-night, plates-climb and plates-robot finishing, by a schedule and by hand');
   // Once a day, just after the default readyBy (17:00 UTC): the passes finishing cover the rest.
   const crons = [...text.matchAll(/^\s*-\s*cron:\s*"([^"]+)"/gm)].map(m => m[1]);
   if (crons.length !== 1 || !/^\d+ 17 \* \* \*$/.test(crons[0]) || Number(crons[0].split(' ')[0]) > 30) out.push(`one daily cron shortly after 17:00 UTC, the default readyBy (got ${JSON.stringify(crons)})`);
-  if (!/^concurrency:\n {2}group: keel-morning\n {2}cancel-in-progress: false$/m.test(text)) out.push('no keel-morning concurrency group that queues');
+  if (!/^concurrency:\n {2}group: plates-morning\n {2}cancel-in-progress: false$/m.test(text)) out.push('no keel-morning concurrency group that queues');
   if (!/^permissions: \{\}$/m.test(text)) out.push('the top level must grant nothing (permissions: {})');
   if (/secrets\./.test(text)) out.push('no secret beyond the job\'s own token');
   const jobs = Object.fromEntries(jobsOf(text).map(j => [j.id, j.text]));
-  if (Object.keys(jobs).join(',') !== 'decide,finalize,send,card') out.push(`jobs are decide, finalize, send, card (got ${Object.keys(jobs).join(', ')})`);
+  if (Object.keys(jobs).join(',') !== 'names-origin,decide,finalize,send,card,names-observation') out.push(`jobs are decide, finalize, send, card (got ${Object.keys(jobs).join(', ')})`);
   const perms = job => /\n {4}permissions:\n((?: {6}[a-z-]+: (?:read|write)\n)+)/.exec(jobs[job] ?? '')?.[1].trim().split('\n').map(l => l.trim()).sort() ?? [];
   for (const [id, body] of Object.entries(jobs)) {
     if (!/\n {4}timeout-minutes: \d+\n/.test(body)) out.push(`${id}: no timeout`);
     if (/issues: write/.test(body) && id !== 'send') out.push(`${id}: only the send job may write issues`);
     if (/continue-on-error/.test(body)) out.push(`${id}: continue-on-error hides a failure`);
   }
+  if (JSON.stringify(perms('names-origin')) !== JSON.stringify(['actions: read', 'contents: read'])) out.push('names-origin reads only contents and exact attempt artifacts');
+  if (JSON.stringify(perms('names-observation')) !== JSON.stringify(['actions: read', 'contents: read', 'issues: read', 'pull-requests: read'])) out.push('names-observation reads only the managed observation sources');
   if (JSON.stringify(perms('decide')) !== JSON.stringify(['contents: read', 'issues: read'])) out.push('decide reads contents and issues, and writes nothing');
   if (JSON.stringify(perms('finalize')) !== JSON.stringify(['contents: write', 'pull-requests: write'])) out.push('finalize writes contents and one PR, nothing else');
   if (JSON.stringify(perms('send')) !== JSON.stringify(['actions: read', 'contents: read', 'issues: write'])) out.push('send reads contents and production artifacts, and writes issues only');
   // Phase 78: the card job reads (contents, and the artifacts its canvas journal lives in); it writes only the canvas.
   if (JSON.stringify(perms('card')) !== JSON.stringify(['actions: read', 'contents: read'])) out.push('card reads contents and actions, and writes nothing on GitHub');
-  if (!(jobs.card ?? '').includes("    needs: decide\n    if: needs.decide.outputs.plan == 'found' && (github.event_name != 'workflow_run' || github.event.workflow_run.head_branch == github.event.repository.default_branch)\n")) out.push('card: runs only for a night with a plan, from a default-branch pass');
+  if (!(jobs.card ?? '').includes("    needs: decide\n    if: ${{ !cancelled() && needs.decide.result == 'success' && (needs.decide.outputs.plan == 'found' && (github.event_name != 'workflow_run' || github.event.workflow_run.head_branch == github.event.repository.default_branch)) }}\n")) out.push('card: runs only for a night with a plan, from a default-branch pass');
   if (!/plates morning --card --yes --date "\$DAY" --json/.test(jobs.card ?? '')) out.push('card: publishes tonight\'s plan card with plates morning --card');
-  const over = "needs.decide.outputs.ready == 'true' && needs.decide.outputs.sent != 'true'";
-  if (!(jobs.send ?? '').includes(`    needs: decide\n    if: ${over}`)) out.push('send: runs only when decide says the night is over and unsent');
+  const over = "needs.decide.outputs.ready == 'true' && (needs.decide.outputs.sent != 'true' || (github.event_name == 'workflow_dispatch' && inputs.names_evidence == true))";
+  if (!(jobs.send ?? '').includes(`    needs: decide\n    if: \${{ !cancelled() && needs.decide.result == 'success' && (${over}`)) out.push('send: runs only when decide says the night is over and unsent');
   // Finalize runs on every run after the night is over, sent or not: a finalization that failed
   // after a send, or a build that finished after a brief sent at readyBy, still reaches the
   // archive. Its own no-change check (git status --porcelain) makes repeats harmless.
-  if (!(jobs.finalize ?? '').includes("    needs: decide\n    if: needs.decide.outputs.ready == 'true'\n")) out.push('finalize: runs whenever the night is over, never gated on the brief being unsent');
-  if (!/if \[ -z "\$\(git status --porcelain -- "\$\{PATHS\[@\]\}"\)" \]; then\n(?:\s+#[^\n]*\n)*\s+if [^\n]*; then\n\s+echo "Nothing changed[^\n]*\n\s+exit 0/.test(jobs.finalize ?? '')) out.push('finalize: a run with nothing new changes nothing (git status --porcelain)');
+  if (!(jobs.finalize ?? '').includes("    needs: decide\n    if: ${{ !cancelled() && needs.decide.result == 'success' && (needs.decide.outputs.ready == 'true') }}\n")) out.push('finalize: runs whenever the night is over, never gated on the brief being unsent');
+  if (!/if \[ -z "\$\(git status --porcelain -- "\$\{PATHS\[@\]\}"\)" \]; then\n(?:\s+#[^\n]*\n)*\s+if [^\n]*; then\n\s+echo "Nothing changed[^\n]*\n[\s\S]*?\s+exit 0/.test(jobs.finalize ?? '')) out.push('finalize: a run with nothing new changes nothing (git status --porcelain)');
   if (!(jobs.send ?? '').includes("&& needs.decide.outputs.assignee == 'set'")) out.push('send: runs only with an assignee');
-  if (!/\n {8}run: node scripts\/plates\/morning\.mjs send --date "\$DAY"\n(?:\n| *#[^\n]*\n)*$/.test((jobs.send ?? '').split(/\n(?= {6}- )/).find(s=>/^ {6}- name: Send the brief\n/.test(s)) + '\n')) out.push('send: the send is its step\'s whole command, so its failure fails the run');
+  const sendScript = runBlocks(jobs.send ?? '').find(s=>s.step==='Send the brief')?.script ?? '';
+  if (!/\n  node scripts\/plates\/morning\.mjs send --date "\$DAY"\nfi$/.test(sendScript.trimEnd()) || !/\n  node --import "\$RUNNER_TEMP\/names-loader.mjs" scripts\/plates\/morning\.mjs send --date "\$DAY" --names-evidence --json > "\$RUNNER_TEMP\/names-brief.json"\nelse/.test(sendScript)) out.push('send: the send is its step\'s whole command, so its failure fails the run');
   out.push(...productionMorningProblems(text));
-  if (!/node scripts\/plates\/morning\.mjs decide --github-output "\$GITHUB_OUTPUT"/.test(jobs.decide ?? '')) out.push('decide: runs morning.mjs decide into the job\'s outputs');
+  if (!/node scripts\/plates\/morning\.mjs decide "\$\{DATE_ARGS\[@\]\}" --github-output "\$GITHUB_OUTPUT"/.test(jobs.decide ?? '')) out.push('decide: runs morning.mjs decide into the job\'s outputs');
   if (!/node scripts\/plates\/morning\.mjs finalize --date "\$DAY"/.test(jobs.finalize ?? '')) out.push('finalize: runs morning.mjs finalize');
   return out;
 }
@@ -2665,7 +2689,7 @@ async function cardStep(t, morning, { canvas, creds = true, pins = true, day = '
   t.after(() => rm(base, { recursive: true, force: true }));
   const dir = join(base, 'acme'), bin = join(base, 'bin'), temp = join(base, 'tmp'), log = join(base, 'calls.jsonl'), home = join(base, 'isocan-home');
   for (const d of [join(dir, '.plates/canvas'), join(dir, 'scripts/plates'), bin, temp, home]) await mkdir(d, { recursive: true });
-  for (const f of ['canvas-recovery.mjs', 'lib.mjs']) await cp(join(PLATES, 'practices/night/files/scripts/plates', f), join(dir, 'scripts/plates', f));
+  for (const f of ['canvas-recovery.mjs', 'lib.mjs', 'names.mjs']) await cp(join(PLATES, 'practices/night/files/scripts/plates', f), join(dir, 'scripts/plates', f));
   await writeFile(join(dir, '.plates/plates.json'), JSON.stringify({ name: 'Acme', canvas }));
   await writeFile(join(dir, '.plates/canvas/manifest.json'), '{}');
   for (const tool of ['plates', 'isocan']) await writeFile(join(bin, tool), `#!${process.execPath}\nconst a = process.argv.slice(2); require('node:fs').appendFileSync(${JSON.stringify(log)}, JSON.stringify([${JSON.stringify(tool)}, ...a]) + '\\n'); if (a[0] === '--version') console.log('acme-pinned');\n`, { mode: 0o755 });
@@ -2678,7 +2702,7 @@ async function cardStep(t, morning, { canvas, creds = true, pins = true, day = '
   const enabled = /^enabled=true$/m.test(await readFile(out, 'utf8'));
   const p = enabled ? run('bash', ['-e', '-c', publish.script], { cwd: dir, env }) : null;
   const calls = (await readFile(log, 'utf8').catch(() => '')).trim().split('\n').filter(Boolean).map(l => JSON.parse(l));
-  return { gate: g, enabled, status: p?.status ?? null, out: g.stdout + g.stderr + (p ? p.stdout + p.stderr : ''), calls, neverRan: await readFile(join(temp, 'keel-canvas-card/never-ran.json'), 'utf8').then(JSON.parse, () => null) };
+  return { gate: g, enabled, status: p?.status ?? null, out: g.stdout + g.stderr + (p ? p.stdout + p.stderr : ''), calls, neverRan: await readFile(join(temp, 'plates-canvas-card/never-ran.json'), 'utf8').then(JSON.parse, () => null) };
 }
 
 // Phase 78: the card ticks.
@@ -2695,7 +2719,7 @@ test('plates-morning republishes the plan card after each pass when the canvas i
   assert.match(card, /node scripts\/plates\/canvas-recovery\.mjs --workflow plates-morning\.yml/);
   assert.match(guards, /node scripts\/plates\/canvas-recovery\.mjs --workflow plates-night\.yml/);
   // The journal travels as the night's does: kept, red or green, for 90 days, under the name the recovery reads.
-  assert.match(morning, /- name: Keep the canvas journal\n {8}if: always\(\) && steps\.canvas\.outputs\.enabled == 'true'\n {8}uses: actions\/upload-artifact@v\d+\n {8}with:\n {10}name: keel-canvas-card-\$\{\{ github\.run_attempt \}\}\n {10}path: \$\{\{ runner\.temp \}\}\/keel-canvas-card\/\n/);
+  assert.match(morning, /- name: Keep the canvas journal\n {8}if: always\(\) && steps\.canvas\.outputs\.enabled == 'true'\n {8}uses: actions\/upload-artifact@v\d+\n {8}with:\n {10}name: plates-canvas-card-\$\{\{ github\.run_attempt \}\}\n {10}path: \$\{\{ runner\.temp \}\}\/plates-canvas-card\/\n/);
   // The secret the night's Install step may hold reaches only the card job's Install step too.
   assert.deepEqual(setupTokenProblems(morning), [], 'setupToken only in Install');
 
@@ -2791,32 +2815,32 @@ test('phase 77: plates-morning.yml starts when a pass finishes and on a schedule
   assert.deepEqual(permissionPath(w.template), [], 'Actions not allowed to open PRs is a notice; any other failure is red');
   assert.deepEqual(reachesBack(w.template), []);
   // The final PR is in the night's queue, on its own dated branch, and commits only the night's data.
-  assert.match(w.template, /git push --force origin "HEAD:refs\/heads\/keel-night\/\$DAY-final"/);
+  assert.match(w.template, /git push --force origin "HEAD:refs\/heads\/\$BRANCH"/);
   assert.match(w.template, /PATHS=\("docs\/night\/\$DAY\.json"\)\n\s+if \[ -f "\$HEALTH\/\$DAY\.md" \]; then PATHS\+=\("\$HEALTH\/\$DAY\.md"\); fi/);
   const t = w.template;
   for (const [why, changed, expected] of [
     ['no workflow_run trigger', t.replace(/ {2}workflow_run:\n {4}workflows: \[[^\]]*\]\n {4}types: \[completed\]\n/, ''), /not started by/],
     ['climb left out', t.replace('[plates-night, plates-climb, plates-robot]', '[plates-night, plates-robot]'), /not started by/],
     ['no schedule', t.replace(/ {2}schedule:\n(?: {4}#.*\n)* {4}- cron: "[^"]+"\n/, ''), /not started by/],
-    ['no dispatch', t.replace('  workflow_dispatch: {}\n', ''), /not started by/],
+    ['no dispatch', t.replace('  workflow_dispatch:\n', ''), /not started by/],
     ['hourly', t.replace('cron: "7 17 * * *"', 'cron: "7 * * * *"'), /one daily cron shortly after 17:00 UTC/],
     ['before readyBy', t.replace('cron: "7 17 * * *"', 'cron: "7 16 * * *"'), /one daily cron shortly after 17:00 UTC/],
     ['a second cron', t.replace('    - cron: "7 17 * * *"\n', '    - cron: "7 17 * * *"\n    - cron: "7 21 * * *"\n'), /one daily cron shortly after 17:00 UTC/],
     ['decide writes issues', t.replace('      contents: read\n      issues: read\n', '      contents: read\n      issues: write\n'), /decide: only the send job may write issues/],
     ['finalize writes issues', t.replace('      contents: write\n      pull-requests: write\n', '      contents: write\n      pull-requests: write\n      issues: write\n'), /finalize: only the send job may write issues/],
     ['a write at the top', t.replace('permissions: {}', 'permissions:\n  issues: write'), /top level must grant nothing/],
-    ['a swallowed send', t.replace('run: node scripts/plates/morning.mjs send --date "$DAY"', 'run: node scripts/plates/morning.mjs send --date "$DAY" || true'), /send: the send is its step's whole command/],
+    ['a swallowed send', t.replace('node scripts/plates/morning.mjs send --date "$DAY"', 'node scripts/plates/morning.mjs send --date "$DAY" || true'), /send: the send is its step's whole command/],
     ['send allowed to fail', t.replace('      - name: Send the brief\n', '      - name: Send the brief\n        continue-on-error: true\n'), /send: continue-on-error/],
-    ['send before the night is over', t.replace("  send:\n    needs: decide\n    if: needs.decide.outputs.ready == 'true' && ", '  send:\n    needs: decide\n    if: '), /send: runs only when decide says the night is over/],
-    ['send twice', t.replace(" && needs.decide.outputs.sent != 'true' && needs.decide.outputs.assignee", ' && needs.decide.outputs.assignee'), /send: runs only when decide says the night is over and unsent/],
-    ['finalize gated on the brief', t.replace("  finalize:\n    needs: decide\n    if: needs.decide.outputs.ready == 'true'\n", "  finalize:\n    needs: decide\n    if: needs.decide.outputs.ready == 'true' && needs.decide.outputs.sent != 'true'\n"), /finalize: runs whenever the night is over, never gated/],
-    ['finalize before the night is over', t.replace("  finalize:\n    needs: decide\n    if: needs.decide.outputs.ready == 'true'\n", '  finalize:\n    needs: decide\n'), /finalize: runs whenever the night is over/],
-    ['finalize with no no-change check', t.replace(/\n\s+echo "Nothing changed: [^\n]*\n\s+exit 0/, ''),/finalize: a run with nothing new changes nothing/],
-    ['a secret', t.replace('GH_TOKEN: ${{ github.token }}\n      DAY: ${{ needs.decide.outputs.day }}\n    steps', 'GH_TOKEN: ${{ secrets.MAIL_TOKEN }}\n      DAY: ${{ needs.decide.outputs.day }}\n    steps'), /no secret/],
+    ['send before the night is over', t.replace("  send:\n    needs: decide\n    if: ${{ !cancelled() && needs.decide.result == 'success' && (needs.decide.outputs.ready == 'true' && ", "  send:\n    needs: decide\n    if: ${{ !cancelled() && needs.decide.result == 'success' && ("), /send: runs only when decide says the night is over/],
+    ['send twice', t.replace(" && (needs.decide.outputs.sent != 'true' || (github.event_name == 'workflow_dispatch' && inputs.names_evidence == true)) && needs.decide.outputs.assignee", ' && needs.decide.outputs.assignee'), /send: runs only when decide says the night is over and unsent/],
+    ['finalize gated on the brief', t.replace("  finalize:\n    needs: decide\n    if: ${{ !cancelled() && needs.decide.result == 'success' && (needs.decide.outputs.ready == 'true') }}\n", "  finalize:\n    needs: decide\n    if: ${{ !cancelled() && needs.decide.result == 'success' && (needs.decide.outputs.ready == 'true' && needs.decide.outputs.sent != 'true') }}\n"), /finalize: runs whenever the night is over, never gated/],
+    ['finalize before the night is over', t.replace("  finalize:\n    needs: decide\n    if: ${{ !cancelled() && needs.decide.result == 'success' && (needs.decide.outputs.ready == 'true') }}\n", '  finalize:\n    needs: decide\n'), /finalize: runs whenever the night is over/],
+    ['finalize with no no-change check', t.replace(/\n\s+echo "Nothing changed: [^\n]*\n/, ''),/finalize: a run with nothing new changes nothing/],
+    ['a secret', t.replace('GH_TOKEN: ${{ github.token }}', 'GH_TOKEN: ${{ secrets.MAIL_TOKEN }}'), /no secret/],
     ['no timeout', t.replace(/(  send:\n(?:.*\n)*?) {4}timeout-minutes: \d+\n/, '$1'), /send: no timeout/],
-    ['the card writes issues', t.replace('      contents: read\n      actions: read\n', '      contents: read\n      actions: read\n      issues: write\n'), /card: only the send job may write issues/],
-    ['the card writes contents', t.replace('      contents: read\n      actions: read\n', '      contents: write\n      actions: read\n'), /card reads contents and actions/],
-    ['the card for a night with no plan', t.replace("    if: needs.decide.outputs.plan == 'found' && ", '    if: '), /card: runs only for a night with a plan/],
+    ['the card writes issues', t.replace(/(  card:[\s\S]*?      contents: read\n      actions: read\n)/, '$1      issues: write\n'), /card: only the send job may write issues/],
+    ['the card writes contents', t.replace(/(  card:[\s\S]*?)      contents: read\n      actions: read\n/, '$1      contents: write\n      actions: read\n'), /card reads contents and actions/],
+    ['the card for a night with no plan', t.replace("    if: ${{ !cancelled() && needs.decide.result == 'success' && (needs.decide.outputs.plan == 'found' && ", "    if: ${{ !cancelled() && needs.decide.result == 'success' && ("), /card: runs only for a night with a plan/],
   ]) {
     assert.notEqual(changed, t, `${why}: the mutation must apply`);
     const found = morningProblems(changed);
@@ -2829,7 +2853,7 @@ test('phase 77: plates-morning.yml starts when a pass finishes and on a schedule
  * Acme clone of a bare origin: morning.mjs finalize and pr-body.mjs are stubs
  * (finalize writes `final` as the night's record), gh logs its calls and
  * lists no open PR. `main` and `own` are the record on the default branch and
- * on keel-night/<day>-final (null: no such branch). Returns { status, out, gh, ref }.
+ * on plates-night/<day>-final (null: no such branch). Returns { status, out, gh, ref }.
  */
 async function finalizeStep(t, { main, own, final }) {
   const morning = await readFile(join(PLATES, 'practices/night/files/.github/workflows/plates-morning.yml'), 'utf8');
@@ -2844,6 +2868,7 @@ async function finalizeStep(t, { main, own, final }) {
   git(seed, ['init', '-q', '-b', 'main']);
   await writeFile(join(seed, '.plates/plates.json'), JSON.stringify({ name: 'Acme' }));
   await writeFile(join(seed, 'scripts/plates/lib.mjs'), 'export const healthDirIn = () => "docs/health";\n');
+  for (const file of ['verification.mjs','names.mjs','lib.mjs']) await cp(join(PLATES,'practices/night/files/scripts/plates',file),join(seed,'scripts/plates',file));
   await writeFile(join(seed, 'scripts/plates/morning.mjs'), `import { writeFileSync } from 'node:fs';\nwriteFileSync('docs/night/${day}.json', process.env.FINAL);\nwriteFileSync(process.argv.at(-1), '{}');\n`);
   await writeFile(join(seed, 'scripts/plates/pr-body.mjs'), 'console.log("The night as it finished.");\n');
   await writeFile(join(seed, `docs/night/${day}.json`), main);
@@ -2853,7 +2878,7 @@ async function finalizeStep(t, { main, own, final }) {
   if (own !== null) {
     await writeFile(join(seed, `docs/night/${day}.json`), own);
     git(seed, ['commit', '-q', '--allow-empty', '-am', 'plates night: as it finished']);
-    git(seed, ['push', '-q', origin, `HEAD:refs/heads/keel-night/${day}-final`]);
+    git(seed, ['push', '-q', origin, `HEAD:refs/heads/plates-night/${day}-final`]);
   }
   git(base, ['clone', '-q', origin, dir]);
   await writeFile(join(bin, 'gh'), `#!${process.execPath}\nrequire('node:fs').appendFileSync(${JSON.stringify(log)}, JSON.stringify(process.argv.slice(2)) + '\\n');\n`, { mode: 0o755 });
@@ -2865,10 +2890,10 @@ async function finalizeStep(t, { main, own, final }) {
 // plates#149: a PR create that failed after the push is retried by the next run, though nothing changed since.
 test('plates-morning\'s finalize opens the PR for its own pushed branch when nothing changed since; with nothing new anywhere it asks nothing of GitHub', async t => {
   const created = gh => gh.filter(a => a[0] === 'pr' && a[1] === 'create').map(a => a[a.indexOf('--head') + 1]);
-  // An earlier run pushed keel-night/<d>-final and its PR create failed: this run, unchanged, opens it.
+  // An earlier run pushed plates-night/<d>-final and its PR create failed: this run, unchanged, opens it.
   const retry = await finalizeStep(t, { main: '{"old":true}\n', own: '{"final":true}\n', final: '{"final":true}\n' });
   assert.equal(retry.status, 0, retry.out);
-  assert.deepEqual(created(retry.gh), ['keel-night/2026-10-15-final'], retry.out);
+  assert.deepEqual(created(retry.gh), ['plates-night/2026-10-15-final'], retry.out);
   assert.match(retry.out, /making sure its PR is open/);
   // Its branch already holds what main holds (merged): nothing to open.
   const merged = await finalizeStep(t, { main: '{"final":true}\n', own: '{"final":true}\n', final: '{"final":true}\n' });
@@ -2882,8 +2907,8 @@ test('plates-morning\'s finalize opens the PR for its own pushed branch when not
   // Something new: committed, pushed and its PR opened, as before.
   const fresh = await finalizeStep(t, { main: '{"old":true}\n', own: null, final: '{"final":true}\n' });
   assert.equal(fresh.status, 0, fresh.out);
-  assert.deepEqual(created(fresh.gh), ['keel-night/2026-10-15-final'], fresh.out);
-  assert.notEqual(fresh.ref('refs/heads/keel-night/2026-10-15-final'), '', 'pushed');
+  assert.deepEqual(created(fresh.gh), ['plates-night/2026-10-15-final'], fresh.out);
+  assert.notEqual(fresh.ref('refs/heads/plates-night/2026-10-15-final'), '', 'pushed');
 });
 
 // ---- phase 80: the publisher, and the concurrency rule --------------------------------------
@@ -3177,4 +3202,52 @@ test('canvas shell preflights honor legacy provisioning with canonical precedenc
     assert.notEqual(execute({ ...legacy, KEEL_CANVAS_KEEL_VERSION: 'wrong-pin' }).status, 0);
     assert.notEqual(execute({ ...legacy, KEEL_CANVAS_ISOCAN_HOME: join(dir, 'absent') }).status, 0);
   }
+});
+
+test('no workflow groups under a keel name', async () => {
+  const all=await shipped(), actual=await renderedWorkflows(all);
+  for(const [name,text] of [...all.map(w=>[w.path,w.template]),...actual,...await Promise.all(Object.keys(LOCAL_WORKFLOWS).map(async name=>[name,await readFile(join(PLATES,'.github/workflows',name),'utf8')]))]) {
+    const groups=text.split('\n').filter(line=>/^\s*group:/.test(line));
+    for(const group of groups)assert.doesNotMatch(group,/group:\s*keel-|format\(['"]keel-/,name);
+  }
+});
+
+/**
+ * A job that runs past a skipped job (its `if:` has a status function) does not
+ * carry its dependents with it: GitHub skips a job whenever an ancestor was
+ * skipped, unless the job's own `if:` has a status function too. Every job that
+ * needs one that runs past a skip must say so itself, or it never runs on the
+ * events where its need's ancestor is skipped.
+ */
+export function skipChainProblems(text) {
+  const jobs = jobsOf(text), out = [];
+  const condition = job => /^ {4}if: (.*)$/m.exec(job.text)?.[1] ?? '';
+  const needsOf = job => {
+    const m = /^ {4}needs: (.*)$/m.exec(job.text);
+    if (!m) return [];
+    return m[1].trim().startsWith('[') ? m[1].replace(/[[\]\s]/g, '').split(',').filter(Boolean) : [m[1].trim()];
+  };
+  const status = /\b(?:always|cancelled|success|failure)\(\)/;
+  for (const job of jobs) for (const need of needsOf(job)) {
+    const parent = jobs.find(j => j.id === need);
+    if (parent && status.test(condition(parent)) && !status.test(condition(job))) out.push(`${job.id} needs ${need}, which runs past a skipped job, but ${job.id}'s if has no status function: it is skipped whenever ${need}'s ancestor is`);
+  }
+  return out;
+}
+
+test('a job that needs one running past a skipped job says so itself, or it never runs (plates-morning send, 24 Oct)', async () => {
+  const files = [];
+  for (const practice of await readdir(join(PLATES, 'practices'))) {
+    const dir = join(PLATES, 'practices', practice, 'files', '.github', 'workflows');
+    for (const name of await readdir(dir).catch(() => [])) if (/\.ya?ml$/.test(name)) files.push(join(dir, name));
+  }
+  for (const name of await readdir(join(PLATES, '.github', 'workflows'))) if (/\.ya?ml$/.test(name)) files.push(join(PLATES, '.github', 'workflows', name));
+  for (const file of files) assert.deepEqual(skipChainProblems(await readFile(file, 'utf8')), [], file);
+  assert.ok(files.length >= 10, `checked ${files.length} workflows`);
+  // The shape it catches: a dispatch-only job skipped on a schedule, a decide that runs past it, a send that does not.
+  const broken = "jobs:\n  origin:\n    if: github.event_name == 'workflow_dispatch'\n    runs-on: x\n  decide:\n    needs: origin\n    if: ${{ !cancelled() }}\n    runs-on: x\n  send:\n    needs: decide\n    if: needs.decide.outputs.ready == 'true'\n    runs-on: x\n";
+  assert.equal(skipChainProblems(broken).length, 1);
+  assert.match(skipChainProblems(broken)[0], /^send needs decide/);
+  assert.deepEqual(skipChainProblems(broken.replace("if: needs.decide.outputs.ready == 'true'", "if: ${{ !cancelled() && needs.decide.result == 'success' && needs.decide.outputs.ready == 'true' }}")), []);
+  assert.equal(skipChainProblems(broken.replace('    needs: decide\n', '    needs: [origin, decide]\n')).length, 1, 'a list of needs is read too');
 });

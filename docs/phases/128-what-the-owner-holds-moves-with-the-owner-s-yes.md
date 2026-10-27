@@ -1,0 +1,94 @@
+---
+status: partial
+owes: walk
+since: 2026-10-24
+goal: G2
+spec: 2
+depends: [125, 126, 127]
+note: "Source merged in PR 264 at 419756f after full local and CI checks and exact-head review. Owner activation remains; phase 129 records the real preview/rehearsal blockers discovered before rollout."
+evidence: ["evidence/2026-10-24-names-command.md"]
+issue: 244
+---
+
+# What the owner holds moves with the owner's yes
+
+## Done when
+
+`plates names` lists, for plates and each fleet project, every keel name still live outside the repository:
+- labels;
+- repository variables and secrets;
+- Vercel env;
+- open PRs and branches on keel prefixes;
+- plan and verify branches;
+- the owner's machine paths.
+
+`plates names --yes` renames the labels and copies the variables that the owner approves. It never reads or prints a secret; it prints the exact command for the owner to run instead.
+
+## Scope
+
+The design is [Name transition](../specs/name-transition.md).
+
+- **Labels:** rename each `keel:*` label on a repository to `plates:*` through the GitHub API (`PATCH /repos/{repo}/labels/{name}`). GitHub keeps a renamed label on its issues and PRs. Then record the rename, so phase 126's writers apply the plates name there. A repository that already has both names is refused, naming both.
+- **Variables:** `vars.KEEL_X` is copied to `vars.PLATES_X` with the same value, and the old one is kept until phase 130. Workflows read `vars.PLATES_X || vars.KEEL_X`.
+- **Secrets:** list each `KEEL_*` secret a workflow reads, with the command `gh secret set PLATES_X -R <repo>` for the owner to run. Plates can't read secrets, and never asks for a value. Workflows read the plates secret first.
+- **Vercel env:** list `KEEL_WEB_*` per project, with the command to add `PLATES_WEB_*`.
+- **Concurrency preflight:** before installing changed workflows, verify the owner-approved workflow disable barrier is active and list all relevant run states with complete pagination. Any queued, waiting, pending or running old-group run blocks the switch; missing access or incomplete coverage also blocks. Cancellation requested is not cancellation confirmed. No command here cancels a run without separate owner approval.
+- **Live state:** open PRs and branches still on keel prefixes, and plan or verify branches. These are informational; phase 125 already reads them.
+- **The owner's machine** (`plates names --machine`):
+  - `~/.keel/night-card` → `~/.plates/night-card`, with `run.sh`'s paths and the launchd label `com.keel.night-card` → `com.plates.night-card`, unloaded and reloaded;
+  - `~/.keel/tools` → `~/.plates/tools`;
+  - git worktrees whose path is named `keel`: listed, never removed. A worktree of another session or provider is named, not touched.
+- **Output:** the preview is the default, and `--yes` acts on one project at a time. `--json` gives agents the list.
+
+### Source and activation contract (settled 2026-10-24)
+
+The specification's migration-command section settles exact-row scope, current-first
+environment presence, typed label creation/rename receipts, private recovery, all
+18 original local/runtime rows, the finite historical environment additions, and
+explicit held canvas/lock states. `--yes --digest` binds
+the reviewed single-project or machine plan; preview is read-only. Source work
+includes `plates names --verify <repo>` before the release; phase 129 owns its
+real dispatched walk. No source test grants activation authority.
+
+## Acceptance
+
+- [x] The preview lists each live keel name per project, with its kind and the action or command. Nothing changes without `--yes`. `tests/names-cli.test.mjs` (stub `gh`): "the preview changes nothing"
+- [x] With `--yes`, labels are renamed in place, an issue keeps its label under the new name, and both names existing at once is refused. `tests/names-cli.test.mjs`: "labels are renamed, never recreated"
+- [x] Variables are copied, never deleted. Secrets are listed with a command and no value, and no `gh secret` read is ever made. `tests/names-cli.test.mjs`: "secrets are never read"
+- [x] `--machine` moves the night-card job and its launchd label in a scratch home, and the job then runs from `~/.plates`. `tests/names-machine.test.mjs`: "the night card moves and still runs"
+- [ ] The owner approves and runs the exact names plan on plates and sets the listed secrets. The next listing separates verified retained aliases from active legacy dependencies and unknown coverage; old variables retained for phase 130 are not falsely reported as absent. ⚑ by hand: the owner
+
+- [x] Run-attempt observation artifacts extend actual producer outputs and prove the positive night → morning → board/history → verifier path, without creating acceptance or mutation authority. `tests/names-observation.test.mjs` and `tests/names-verify.test.mjs`.
+- [x] Read-only `--verify` names each failed or unknown phase-129 check and distinguishes fresh writes from required legacy continuation. `tests/names-verify.test.mjs`
+- [x] All exact phase-128 rows have source coverage or an explicit held/classification gap, with both-direction mutation proof for each implemented fallback. `tests/names-cli.test.mjs` and the retained mutation observations.
+- [x] Recovery preserves original operations through uncertain writes; public label receipts remain separate from private intents and uncommitted receipts cannot activate CI writers. `tests/names-cli.test.mjs` and `tests/names-labels.test.mjs`.
+
+## Your part
+
+- **Ask:** Run `plates names` for plates, approve the label and variable moves, and set the listed secrets with the commands it prints.
+- **Why:** Labels, secrets and settings live on GitHub and Vercel, and only you can change them.
+- **Look at:** `plates names` for plates.
+- **Choices:** All moved | Some can't move yet
+- **Takes:** 15 minutes for plates, then about 5 per project in phase 129.
+- **Then:** If some can't move yet, name which ones and why. Phase 130 waits for them.
+- **Ready when:** phases 125–127 have shipped.
+
+## Real surfaces
+
+- GitHub API: label renames, variable copies and the secret listing, per repository.
+- owner's machine: `~/.keel` to `~/.plates`, and the launchd job.
+
+## Proof
+
+Automated: `node --import ./tests/helpers/hermetic.mjs --test tests/names-cli.test.mjs tests/names-machine.test.mjs`; `npm run check`.
+By hand: ⚑ the owner's run on plates. The listing before and after goes into the evidence.
+
+## Deliberately open
+
+- **2026-10-24 — Private claim token paths included.** The stable table identity `git ref:keel-claims/phase-` names local Git-directory ownership state, not a branch. Its writer remains held until the owner-machine transition; implement dual reads with unchanged provider/session ownership checks, and preserve existing tokens rather than rewriting historical claims. The shared remote ref `claims/phase-<n>` does not change.
+
+- **Saved searches and notification filters** under `label:keel:…` are the owner's, and plates can't see them. The listing reminds the owner of them, once.
+
+## Next action
+
+Resolve phase 129's recorded release and real-preview blockers. After the release is cut, preview the exact Plates label/variable plan with the owner, publish confirmed receipts through review, and conduct phase 129. Owner-machine changes and phase-130 retirement retain their separate approvals.

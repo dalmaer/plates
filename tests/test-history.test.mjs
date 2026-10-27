@@ -1,16 +1,19 @@
+import { fill } from '../lib/practices.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, rm, symlink, link, readdir, chmod } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, rm, symlink, link, readdir, chmod, cp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { deflateRawSync, crc32 } from 'node:zlib';
 import { recoverTestHistory, readTestHistory } from '../practices/night/files/scripts/plates/test-history.mjs';
 import { stallsEvidence } from '../practices/night/files/scripts/plates/time-receipts.mjs';
 import { readRuns, readStalls } from '../practices/night/files/scripts/plates/test-ledger.mjs';
+import { revision, reusableGate } from '../practices/night/files/scripts/plates/gate.mjs';
 import { run } from './helpers/run.mjs';
 import { runBlocks } from './helpers/workflows.mjs';
 import { improve, MEASURES } from '../practices/night/files/scripts/plates/improve.mjs';
 import { parseTimeProposal, withTimeProposal } from '../practices/night/files/scripts/plates/time-proposals.mjs';
+import { recoverNightVerification } from '../practices/night/files/scripts/plates/verification.mjs';
 import { timeEvidence } from './fixtures/improve/time-evidence.mjs';
 const source = resolve('practices/night/files/scripts/plates/test-history.mjs');
 const workflow = resolve('practices/night/files/.github/workflows/plates-night.yml');
@@ -57,6 +60,49 @@ function fixture(items = [{ id: 1, kind: 'night' }, { id: 2, kind: 'ci' }]) {
     download: async id => { downloads.push(id); return archives[id]; } };
 }
 const recover = (root, f, extra = {}) => recoverTestHistory({ root, repo, branch, at, github: f.github, download: f.download, ...extra });
+test('history recovery preserves clean-source CI eligibility without hiding project changes', async t => {
+  const root = await project(t), f = fixture();
+  const git = args => {
+    const result = run('git', args, { cwd: root });
+    assert.equal(result.status, 0, result.stderr);
+    return result.stdout.trim();
+  };
+  await writeFile(join(root, 'acme.txt'), 'Acme\n');
+  git(['init']); git(['add', '.']); git(['commit', '-m', 'Acme source']);
+  assert.equal(revision(root).clean, true);
+  assert.equal((await recover(root, f)).imported, 2);
+  let requests = 0;
+  const reuse = () => reusableGate({ root, config: { repo, ci: { gateWorkflow: 'check.yml' } },
+    request: async () => { requests++; throw new Error('Acme API unavailable'); } });
+  const recovered = await reuse();
+  assert.notEqual(recovered.reason, 'revision is dirty or unavailable', git(['status', '--porcelain', '--untracked-files=all']));
+  assert.ok(requests > 0, 'clean recovered checkout reaches CI validation');
+  assert.equal(revision(root).clean, true);
+  assert.equal(await readFile(join(root, '.plates/test-runs/.gitignore'), 'utf8'), '*\n');
+  for (const path of ['acme.txt', '.plates/acme-untracked.json']) {
+    await writeFile(join(root, path), 'Acme change\n');
+    const before = requests;
+    assert.equal((await reuse()).reason, 'revision is dirty or unavailable');
+    assert.equal(requests, before, 'real changes reject reuse before API access');
+    if (path === 'acme.txt') git(['checkout', '--', path]);
+  }
+});
+
+test('history refuses unsafe ignore-policy destinations without changing outside bytes', async t => {
+  for (const kind of ['symlink', 'hardlink', 'directory']) await t.test(kind, async t => {
+    const root = await project(t), outside = await project(t), f = fixture();
+    const sentinel = join(outside, 'acme.txt'), destination = join(root, '.plates/test-runs/.gitignore');
+    await writeFile(sentinel, 'Acme preserved\n');
+    await mkdir(join(root, '.plates/test-runs'));
+    if (kind === 'symlink') await symlink(sentinel, destination);
+    else if (kind === 'hardlink') await link(sentinel, destination);
+    else await mkdir(destination);
+    await assert.rejects(recover(root, f), /unsafe ledger ignore/);
+    assert.equal(await readFile(sentinel, 'utf8'), 'Acme preserved\n');
+    assert.equal(f.calls.length, 0);
+  });
+});
+
 test('history recovers one newest night plus two distinct CI runs per UTC week, preserving sampling gaps', async t => {
   const items = [{ id: 1, kind: 'night' }, { id: 2, kind: 'night', date: '2026-10-08T01:00:00Z' }];
   for (let week = 0; week < 8; week++) for (let n = 0; n < 3; n++) items.push({ id: 10 + week * 3 + n, kind: 'ci', date: new Date(Date.parse('2026-10-09T01:00:00Z') - week * 7 * 86400000 + n * 1000).toISOString() });
@@ -249,8 +295,10 @@ test('night extracted Gather shell recovers real system ZIP via synthetic gh end
   const inputs = join(root, 'inputs'); await mkdir(inputs); await writeFile(join(inputs, 'acme.json'), '{"acme":"real zip"}');
   const zipped = join(root, 'history.zip'); const z = run('zip', ['-q', zipped, 'acme.json'], { cwd: inputs }); assert.equal(z.status, 0, z.stderr);
   await mkdir(join(root, 'scripts/plates'), { recursive: true }); await writeFile(join(root, 'scripts/plates/test-history.mjs'), await readFile(source));
+  await writeFile(join(root, 'scripts/plates/names.mjs'), await readFile(resolve('practices/night/files/scripts/plates/names.mjs')));
   await writeFile(join(root, 'scripts/plates/time-receipts.mjs'), await readFile(resolve('practices/night/files/scripts/plates/time-receipts.mjs')));
-  await writeFile(join(root, 'scripts/plates/lib.mjs'), await readFile(resolve('practices/night/files/scripts/plates/lib.mjs')));
+  await writeFile(join(root, 'scripts/plates/names-environment.mjs'), await readFile(resolve('practices/night/files/scripts/plates/names-environment.mjs')));
+  await cp(resolve('practices/night/files/scripts/plates'), join(root, 'scripts/plates'), {recursive:true});
   const gh = join(root, 'gh'); await writeFile(gh, `#!${process.execPath}\nconst fs=require('node:fs');const routes=${JSON.stringify(f.routes)};const p=process.argv[3];if(p==='repos/acme/app/actions/artifacts/1/zip')process.stdout.write(fs.readFileSync(${JSON.stringify(zipped)}));else if(routes[p])console.log(JSON.stringify(routes[p]));else process.exit(1);\n`); await chmod(gh, 0o755);
   const script = runBlocks(await readFile(workflow, 'utf8')).find(b => b.step === 'Gather the test ledger').script;
   assert.doesNotMatch(script, /unzip|gh api/);
@@ -260,31 +308,33 @@ test('night extracted Gather shell recovers real system ZIP via synthetic gh end
   assert.equal(JSON.parse(await readFile(join(root, '.plates/test-runs/acme.json'))).acme, 'real zip');
 });
 
-async function stagingFixture(t, production = false) {
+async function stagingFixture(t, production = false, workflowText) {
   const root = await project(t), remote = await project(t), health = 'docs/Acme-health', day = '2026-10-10';
   const git = (...args) => { const r = run('git', args, { cwd: root }); assert.equal(r.status, 0, r.stdout + r.stderr); return r.stdout.trim(); };
   assert.equal(run('git', ['init', '--bare', '-q', remote]).status, 0);
   git('init', '-q', '-b', 'main'); git('remote', 'add', 'origin', remote);
   await writeFile(join(root, '.plates/plates.json'), JSON.stringify({ health, name: 'Acme', repo: 'acme/app' }));
   await mkdir(join(root, health), { recursive: true }); await mkdir(join(root, 'scripts/plates'), { recursive: true });
-  await writeFile(join(root, 'scripts/plates/lib.mjs'), await readFile(resolve('practices/night/files/scripts/plates/lib.mjs')));
+  await cp(resolve('practices/night/files/scripts/plates'), join(root, 'scripts/plates'), {recursive:true});
   await writeFile(join(root, 'scripts/plates/pr-body.mjs'), 'console.log("Acme synthetic PR body");\n');
   const earlier = `${health}/2026-10-08.md`, unrelated = `${health}/2026-10-07.md`, today = `${health}/${day}.md`;
   await writeFile(join(root, earlier), 'Acme accepted proposal; awaiting remeasurement.\n');
   await writeFile(join(root, unrelated), 'Acme owner notes.\n');
   const measures = MEASURES.filter(m => m.id === 'time_creep');
+  const env = { ...process.env, CI: 'true', PLATES_GH: join(root, 'unavailable-acme-gh') };
   if (production) {
     await mkdir(join(root, '.plates/test-runs'), { recursive: true });
     await writeFile(join(root, '.gitignore'), '.plates/test-runs/\n');
     for (const r of timeEvidence(Date.now()).runs) await writeFile(join(root, '.plates/test-runs', r.id + '.json'), JSON.stringify(r));
-    await improve({ root, report: true, date: '2026-10-08' }, { env: { CI: 'true' }, measures });
+    await improve({ root, report: true, date: '2026-10-08' }, { env, measures });
     const initial = parseTimeProposal(await readFile(join(root, earlier), 'utf8')).proposal;
     assert.ok(initial);
     await withTimeProposal({ root, path: earlier, expectedInstance: initial.instanceId }, ({ proposal, saveLifecycle }) => saveLifecycle({ ...proposal.lifecycle, state: 'accepted', decidedAt: '2026-10-08T12:00:00Z', issue: { repo: 'acme/app', number: 7, url: 'https://github.com/acme/app/issues/7' } }));
   }
   git('add', '.'); git('commit', '-qm', 'Acme initial'); const before = git('rev-parse', 'HEAD');
+  git('push', '-q', 'origin', 'main');
   let produced;
-  if (production) produced = await improve({ root, report: true, date: day }, { env: { CI: 'true' }, measures, remeasure: async () => ({ state: 'unavailable', observedAt: '2026-10-10T12:00:00Z', value: null, coverage: null, delivery: null, reasons: ['Acme awaits observations'] }) });
+  if (production) produced = await improve({ root, report: true, date: day }, { env: { ...env, PLATES_NIGHT_RECOVERY: '1' }, measures, remeasure: async () => ({ state: 'unavailable', observedAt: '2026-10-10T12:00:00Z', value: null, coverage: null, delivery: null, reasons: ['Acme awaits observations'] }) });
   else {
     await writeFile(join(root, earlier), 'Acme accepted proposal; remeasured inside.\n');
     await writeFile(join(root, today), 'Acme current report.\n');
@@ -294,26 +344,38 @@ async function stagingFixture(t, production = false) {
   await writeFile(join(root, health, 'human-draft.md'), 'Acme untracked human draft.\n');
   const temp = await project(t), commands = join(temp, 'commands'); await mkdir(commands);
   await writeFile(join(commands, 'gh'), '#!/bin/sh\nprintf "3\\n"\n'); await chmod(join(commands, 'gh'), 0o755);
-  const report = produced?.data ?? { date: day, report: today, changedHistoricalHealthPaths: [earlier] };
+  // Even malformed staging fixtures start with a real read of the local bare
+  // origin, so a missing lease cannot mask the metadata/path refusal under test.
+  const recovered = produced ? produced.data.nightRecovery : await recoverNightVerification({ root, config: { repo: 'acme/app', health }, date: day, env });
+  const nightRecovery = { branch: recovered.branch, head: recovered.head, attempts: recovered.attempts };
+  assert.deepEqual(nightRecovery, { branch: `plates-night/${day}`, head: '', attempts: 0 });
+  const report = produced?.data ?? { date: day, report: today, changedHistoricalHealthPaths: [earlier], nightRecovery };
   await writeFile(join(temp, 'improve.json'), JSON.stringify(report)); await writeFile(join(temp, 'pr.json'), '{}');
-  const script = runBlocks(await readFile(workflow, 'utf8')).find(b => b.step === "Open the night's pull request").script;
+  const script = runBlocks(workflowText ?? await readFile(workflow, 'utf8')).find(b => b.step === "Open the night's pull request").script;
   // GITHUB_OUTPUT as Actions provides it: the step records its default-plan write there (phase 78).
   const execute = () => run('bash', ['-e', '-o', 'pipefail', '-c', script], { cwd: root, env: { ...process.env, DAY: day, BASE: 'main', HEALTH: health, RUNNER_TEMP: temp, GITHUB_OUTPUT: join(temp, 'outputs'), PATH: `${commands}:${process.env.PATH}` } });
   return { root, temp, report, git, before, earlier, unrelated, today, execute };
 }
 test('night historical health staging commits the earlier remeasurement and today only, preserving unrelated staged and untracked files', async t => {
-  assert.equal(await readFile(resolve('.github/workflows/plates-night.yml'), 'utf8'), await readFile(workflow, 'utf8'), 'managed night matches source');
-  const f = await stagingFixture(t, true);
-  assert.deepEqual(f.report.changedHistoricalHealthPaths, [f.earlier]);
-  assert.equal(f.report.report, f.today);
-  const result = f.execute();
-  assert.equal(result.status, 0, result.stdout + result.stderr);
-  assert.deepEqual(f.git('diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD').split('\n').sort(), [f.earlier, f.today].sort());
-  assert.equal(parseTimeProposal(f.git('show', `HEAD:${f.earlier}`)).proposal.lifecycle.remeasurement.state, 'unavailable');
-  assert.equal(f.git('show', `HEAD:${f.unrelated}`), 'Acme owner notes.');
-  assert.equal(f.git('diff', '--cached', '--name-only'), f.unrelated);
-  assert.match(f.git('status', '--porcelain'), /human-draft\.md/);
-  assert.equal(f.git('rev-parse', 'refs/remotes/origin/keel-night/2026-10-10'), f.git('rev-parse', 'HEAD'));
+  const source = await readFile(workflow, 'utf8'), path = '.github/workflows/plates-night.yml';
+  const selfConfig = JSON.parse(await readFile(resolve('.plates/plates.json'), 'utf8'));
+  assert.equal(await readFile(resolve(path), 'utf8'), fill(source, selfConfig, path), 'managed night matches its configured source');
+  for (const reconciliation of [false, true]) await t.test(`reconciliation ${reconciliation}`, async t => {
+    const config = { name: 'Acme', repo: 'acme/app', practices: ['night', 'reconciliation'], ...(reconciliation ? { reconciliation: { githubAccess: { enabled: true, repositories: ['acme/app'] } } } : {}) };
+    const rendered = fill(source, config, path);
+    assert.equal(rendered.includes('  reconciliation:\n'), reconciliation);
+    const f = await stagingFixture(t, true, rendered);
+    assert.deepEqual(f.report.changedHistoricalHealthPaths, [f.earlier]);
+    assert.equal(f.report.report, f.today);
+    const result = f.execute();
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.deepEqual(f.git('diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD').split('\n').sort(), [f.earlier, f.today].sort());
+    assert.equal(parseTimeProposal(f.git('show', `HEAD:${f.earlier}`)).proposal.lifecycle.remeasurement.state, 'unavailable');
+    assert.equal(f.git('show', `HEAD:${f.unrelated}`), 'Acme owner notes.');
+    assert.equal(f.git('diff', '--cached', '--name-only'), f.unrelated);
+    assert.match(f.git('status', '--porcelain'), /human-draft\.md/);
+    assert.equal(f.git('rev-parse', 'refs/remotes/origin/plates-night/2026-10-10'), f.git('rev-parse', 'HEAD'));
+  });
 });
 test('night historical health staging rejects unvalidated metadata and paths before any staging or commit', async t => {
   const cases = ['missing', 'object', 'outside', 'absolute', 'traversal', 'glob', 'newline', 'duplicate', 'today', 'directory', 'symlink', 'ignored', 'wrong-date', 'wrong-report', 'too-many', 'missing-file'];
@@ -337,6 +399,7 @@ test('night historical health staging rejects unvalidated metadata and paths bef
     if (kind === 'missing-file') f.report.changedHistoricalHealthPaths = ['docs/Acme-health/2026-10-06.md'];
     await writeFile(join(f.temp, 'improve.json'), JSON.stringify(f.report));
     const result = f.execute(); assert.notEqual(result.status, 0, `${kind}: ${result.stdout}${result.stderr}`);
+    assert.doesNotMatch(result.stderr + result.stdout, /missing night recovery lease/, `${kind}: must reach the intended staging validation`);
     assert.equal(f.git('rev-parse', 'HEAD'), f.before); assert.equal(f.git('diff', '--cached', '--name-only'), f.unrelated);
   });
 });
@@ -386,4 +449,36 @@ test('history verifies old repository names by numeric ID and preserves original
   const result=await recover(root,f);assert.equal(result.imported,1);assert.ok(result.gaps.some(g=>g.code==='inherited-gap'&&g.observedAt==='2026-10-07T00:00:00Z'));assert.equal(await readFile(join(root,'.plates/test-runs/acme-old.json'),'utf8'),receipt);
   f.routes[`repos/${old}`]={id:8,full_name:old};
   const wrong=await recover(root,f);assert.equal(wrong.selected.length,0);assert.ok(wrong.gaps.some(g=>g.code==='artifact-rejected'));
+});
+
+test('test-history artifact fallback requires each name independently', async t => {
+  const { artifactMutant } = await import('./helpers/names.mjs');
+  for (const namespace of ['plates', 'keel']) {
+    const root = await project(t), f = fixture([{id:1,kind:'ci',legacy:namespace === 'keel'}]);
+    assert.equal((await recover(root,f)).selected.length, 1);
+    const mutantRoot = await project(t), mutantFixture = fixture([{id:1,kind:'ci',legacy:namespace === 'keel'}]);
+    const mutant = await artifactMutant(t, new URL('../practices/night/files/scripts/plates/test-history.mjs', import.meta.url), 'artifact:keel-test-runs', `${namespace}-test-runs`);
+    const result = await mutant.recoverTestHistory({root:mutantRoot,repo,branch,at,github:mutantFixture.github,download:mutantFixture.download});
+    assert.equal(result.selected.length, 0, namespace);
+  }
+});
+
+
+test('history chooses current artifact for the same run and does not conceal expired current evidence', async t => {
+  const items = [{id:1,runId:101,kind:'ci',legacy:true},{id:2,runId:101,kind:'ci'}];
+  const f = fixture(items), root = await project(t);
+  assert.deepEqual((await recover(root,f)).selected.map(row=>row.artifactId),[2]);
+  assert.deepEqual(f.downloads,[2]);
+  const bad = fixture(items), other = await project(t);
+  bad.artifacts.find(a=>a.id===2).expired = true;
+  assert.equal((await recover(other,bad)).selected.length,0);
+  assert.deepEqual(bad.downloads,[]);
+});
+
+test('history recognizes each night workflow independently',async t=>{
+ for(const legacy of [false,true]) {
+  const root=await project(t),f=fixture([{id:1,kind:'night',legacy}]);
+  const result=await recover(root,f);assert.equal(result.imported,1,JSON.stringify(result));
+  assert.equal(result.selected.length,1);assert.equal(result.selected[0].workflowId,legacy?12:10);
+ }
 });

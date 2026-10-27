@@ -1,3 +1,4 @@
+import { environmentValue, writeName, branchSuffix } from './names.mjs';
 // plates climb (plates practice `climb`; managed: plates render rewrites it). A
 // climb night sends an agent to improve one number while the project sleeps;
 // this script is every number it reports and every keep-or-revert it makes,
@@ -110,7 +111,7 @@ export const LESSONS_DIR = `${NIGHT_DIR}/lessons`;
 export const FINDINGS_DIR = 'docs/loop';
 /** A finding a person decided: no climb night writes one (lesson 53). */
 export const DECIDED = Object.freeze(['accepted', 'declined', 'stale', 'done']);
-export const PREFIX = 'keel-climb/';
+export const PREFIX = writeName('git ref:keel-climb/');
 export const CHECK = 'npm run check';
 /** A weekly climb runs on this UTC weekday (1, Monday). */
 export const WEEKLY_DAY = 1;
@@ -349,7 +350,7 @@ export function healthRows(text) {
 const distance = r => r.state === 'broken' ? Infinity : ((r.op === '≤' ? r.value - r.bound : r.bound - r.value) / Math.max(Math.abs(r.bound), 1));
 
 /** The open keel-climb/<job>/ PRs' jobs, from gh's headRefName list. */
-export const waitingJobs = heads => new Set(heads.map(h => (h.startsWith(PREFIX) ? h.slice(PREFIX.length).split('/')[0] : null)).filter(Boolean));
+export const waitingJobs = heads => new Set(heads.map(h => (branchSuffix(h, 'git ref:keel-climb/')?.split('/')[0] ?? null)).filter(Boolean));
 
 /**
  * Tonight's job, pure: the job tied to the health page's worst measure
@@ -380,7 +381,7 @@ export function choose({ jobs, rows = [], waiting = new Set(), last = null, tabl
 }
 
 function ghPrs(root, env, state, fields) {
-  const gh = env.PLATES_GH || 'gh';
+  const gh = (environmentValue('variable:KEEL_GH', env) ?? 'gh');
   const r = spawnSync(gh, ['pr', 'list', '--state', state, '--json', fields, '--limit', '200'], { cwd: root, env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   if (r.error) throw new ClimbError(`cannot read ${state} PRs (${gh}): ${r.error.message}; pick never guesses`);
   if (r.status !== 0) throw new ClimbError(`gh pr list --state ${state} exited ${r.status}: ${(r.stderr || r.stdout).trim().split('\n')[0]}; pick never guesses that none are ${state}`);
@@ -600,7 +601,7 @@ export function measureIn(cwd, { config, job, runs, env = process.env }) {
   const times = [];
   // PLATES_CLIMB_CLOCK, a test seam like PLATES_GH: a file the suite writes its own time to (ms), read
   // in place of the wall clock, so plates's tests judge compare's decisions and never the machine (phase 55).
-  const clock = env.PLATES_CLIMB_CLOCK && JOBS[job].reads !== 'output' ? resolve(env.PLATES_CLIMB_CLOCK) : null;
+  const clock = environmentValue('variable:KEEL_CLIMB_CLOCK', env) && JOBS[job].reads !== 'output' ? resolve(environmentValue('variable:KEEL_CLIMB_CLOCK', env)) : null;
   for (let i = 0; i < runs; i++) {
     if (clock) rmSync(clock, { force: true });
     const t0 = performance.now();
@@ -892,6 +893,11 @@ export async function settle({ root, config, base }) {
   const target = night.tried.filter(a => a.verdict === 'keep').at(-1)?.candidate ?? night.base;
   if (head === target && !dirty) return { head, dropped: false };
   if (!isAncestor(root, target, head)) throw new ClimbError(`HEAD ${head.slice(0, 7)} is not on top of the last decision ${target.slice(0, 7)}: the branch moved outside climb.mjs`);
+  // Retain the observed undecided work before resetting it. A retry on the
+  // settled HEAD must not erase this evidence or turn it into no-candidate.
+  night.settlements ??= [];
+  night.settlements.push({ from: head, to: target, uncommitted: Boolean(dirty), at: new Date().toISOString() });
+  await writeNight(root, night);
   git(root, ['reset', '--quiet', '--hard', target]);
   git(root, ['clean', '--quiet', '-fd']); // never -x: ignored files (.plates/climb, the ledger) stay
   return { head: target, dropped: true, from: head };
@@ -1591,8 +1597,9 @@ export function reportOf(night, { files = [], pkg = null, now = new Date(), prop
   const pctMargin = `${Math.round(night.margin * 100)}%`;
   if (!kept.length) {
     const none = night.job === 'hygiene' ? 'none proven steady' : `none beat the noise (margin ${pctMargin})`;
-    const tried = night.tried.length ? `${night.tried.length} tried, ${none}` : 'nothing was tried';
-    return { kept: 0, tried: night.tried.length, minutes, line: `climb ${night.job} ${night.date}: kept nothing; ${tried}; ${minutes} min`, input: null };
+    const tried = night.tried.length ? `${night.tried.length} tried, ${none}` : 'no measured attempts recorded';
+    const unsettled = night.settlements?.length ? '; incomplete: unmeasured work recorded at settlement' : '';
+    return { kept: 0, tried: night.tried.length, minutes, line: `climb ${night.job} ${night.date}: kept nothing; ${tried}${unsettled}; ${minutes} min`, input: null };
   }
   if (night.job === 'hygiene') return hygieneReport(night, { kept, reverted, minutes, files, pkg });
   const before = night.final ? mean(night.final.rounds.map(r => r.base)) : night.baseline.median;
@@ -1761,7 +1768,7 @@ export function issueOf(night, { minutes = 0 } = {}) {
     'Run it alone:', '', '```sh', t.alone ?? aloneCommand(t), '```', '',
     `Prove a fix: \`node scripts/plates/climb.mjs prove-steady --test "${t.file}: ${t.name}" --runs ${STEADY_RUNS}\` (every run must pass, on one clean tree).`, '',
     '## Tried', '',
-    ...(night.tried.length ? night.tried.map(a => `- ${a.what}: ${a.why}`) : ['Nothing was tried.']), '',
+    ...(night.tried.length ? night.tried.map(a => `- ${a.what}: ${a.why}`) : ['No measured attempts recorded.']), '',
     'Never rerun until green: a rerun hides the flake.', '',
   ].join('\n');
   return { title, body };

@@ -20,6 +20,14 @@ npm run roadmap   # after editing any docs/phases/*.md or docs/goals.json
 
 This machine's shell is zsh: quote globs and `==` in commands (an unmatched glob or a bare `==` is an error, not a literal).
 
+For Plates source record changes only, the integrator and source CI may select
+`plates-source-records-v1` through `scripts/check-records.mjs`. It checks complete
+inputs and falls back to the full gate for code, policy, mixed or unknown changes.
+Record-check success is not a full-gate pass. Changes to that policy itself still
+require `npm run check` and typecheck. See the
+[validation guide](docs/development/validation-preflight.md); consumers keep their
+own configured gates.
+
 ## The map
 
 | Path | What |
@@ -91,6 +99,21 @@ commit), tracked (the issue or version) or not valid (why), with
 `plates review <repo>#<n> --close <id> …`; never leave one unanswered. Not a
 gate: an open thread never blocks a merge.
 (why: An unanswered finding leaves the next reader unable to tell whether it was fixed or rejected.)
+
+**Install separately from ongoing care.** A compatible reviewed update is installed
+when its exact source, managed bytes and required workflow restoration are read
+back. Pending optimization and incomplete nightly observations remain visible;
+they do not accept work or block that installation. Pause/drain/restore only the
+affected workflows when concurrency identity actually changes.
+(why: The name-transition rollout waited on unrelated optimization after its installation checks had passed.)
+
+**Reuse unchanged authority and proof.** A handoff retains the original operation,
+scoped owner approval and evidence. Reinspect changed facts; ask again when the
+permitted action, destination, budget or risk changes. An approval for an exact
+head never transfers to an edited candidate. Repeated review findings require a
+fix to their shared cause and focused negative controls before another integrated
+checkpoint; preserve the existing review limit and original failures.
+(why: Plates lesson 59: fixing only the reported instance allowed the same failure shape to return in later review rounds.)
 <!-- plates:end conduct -->
 
 <!-- plates:begin night -->
@@ -156,6 +179,15 @@ against a versioned coverage profile. Retain its gaps and separate cache/harness
 bindings; its child telemetry never establishes a complete configured gate.
 It changes neither nightly manifest scope nor reuse policy.
 
+## Distributed project verification
+
+Each plate owns its gate and record verification. Retain the report's source
+revision and local-versus-reused attribution; fleet inspection checks freshness
+and coverage without executing consumer gates. A missing report or unreadable
+source is a gap, and unknown session activity is never inactivity. Claim cleanup
+and acceptance are separate reviewed actions. See the
+[contract](docs/specs/plate-verification.md).
+
 ## Reconcile before calling work done
 
 With the optional reconciliation practice enabled, `plates doctor --json`
@@ -214,6 +246,24 @@ writes; an uncertain POST is never permission to create a duplicate. The robot
 extends `climb` and stays off until the owner approves a project and weekly
 `robot.budgetMinutes` allowance covering both build and other-provider review.
 A person merges its PRs. See [the robot guide](docs/guide/the-robot.md).
+
+## Harness evaluation records
+
+`plates retro evaluations plan|freeze|inspect|run|resume|reconcile|cancel|compare` validates and freezes explicit
+inputs in an initialized private external workspace. Freeze needs the exact
+preview digest; it neither reserves spend nor starts a trial. Keep private
+acceptance material out of builder context and retain original receipts after
+uncertainty. Offline run previews an explicit descriptor, then requires its exact
+approval digest. Use shared host admission, `pinned-image-tools`, no network or
+host mounts, bounded stdout submission and externally controlled acceptance.
+Uncertain container termination retains its lease; never redispatch an original
+slot. Resume follows the frozen pair order and runs missing slots only. Reconcile
+and cancel have their own exact previews and bounded recovery reservations.
+Recover a new harness lock only after verified original-writer death and matching
+ownership; legacy empty or unverifiable locks remain blocked. Preserve partial
+records, original verdicts and settlement history. Comparisons retain failures,
+unknown costs and missing coverage; scripted trials never establish agent efficacy
+or activate a candidate. See [the record guide](docs/guide/harness-evaluations.md).
 
 ## Session handoff trials
 

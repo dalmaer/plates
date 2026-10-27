@@ -136,6 +136,25 @@ release leaves projects current (the phase 22 decision is recorded below).
 5. Open a PR (or leave a working-tree diff with `--local`). A practice change
    lands like any other change: read by a person, checked by CI.
 
+### 3a. Installation is separate from ongoing care (phase 131)
+
+Approved direction, 25 October 2026: a compatible reviewed update can be installed
+without waiting for an optimization run or a complete nightly health report.
+[Phase 131](phases/131-compatible-updates-have-a-short-installation-path.md)
+owns the implementation and its proof. Its source-policy exception is not a
+blanket consumer gate exemption.
+
+Prepare and review first, then install the exact checked change and read back the
+installed version and managed bytes. A concurrency identity change requires a
+scoped pause/drain/restore barrier; an ordinary update does not. Keep the original
+operation after uncertainty, and preserve any outstanding restoration obligation.
+
+Installation, operational verification and retirement are separate observations.
+Missing verification stays visible after installation. An installed version does
+not accept a phase or establish production usefulness, and a pending climb must
+not manufacture a reason to start paid work. Continue existing approved nightly
+care without adding another scheduler or authority store.
+
 ### 4. Lessons flow both ways (phases 7, 8)
 
 **Upstream (`plates lessons`, run in a project).** It gathers three things:
@@ -397,3 +416,35 @@ dependency-free runtime gate. This is not a decision to port Plates.
 - **License.** **Settled 2026-10-03:** Apache-2.0, matching isocan, chosen when
   the owner decided plates goes public (phase 17). Adapted isocan material keeps
   its attribution in each file.
+
+## Distributed verification (23 October 2026)
+
+Each plate owns its validation and verification. Its existing night measures its
+configured gate and record consistency, then retains a revision-bound report.
+Plates reads those reports against fresh default-branch identities to distinguish
+current evidence, stale evidence, missing coverage and actionable findings. A
+fleet read does not execute consumer gates. Unchanged source may reuse eligible
+CI evidence under the existing gate policy, but remote claims and PRs still need
+fresh observations. The [contract](specs/plate-verification.md) and phase 116
+keep session activity unknown where it cannot be observed. Corrections, claim
+cleanup and acceptance remain separate from detection.
+
+## Measured harness improvement (23 October 2026)
+
+Phases 117–123 specify task-level baseline/candidate evaluation and review lessons
+promoted through evidence. These extend the experiment ledger, bounded execution,
+learn inbox and reviewed delivery. Phase 117 implements the local record
+foundation; phase 118 adds offline scripted execution with independent artifact
+verdicts. Phase 119 implements offline paired comparison and original-operation
+recovery, preserving completed attempts and unknown outcomes. Live provider
+execution, enforced provider spending and measured promotion remain pending.
+The offline boundary does not establish model efficacy.
+Builders submit artifacts to independently controlled acceptance, comparisons keep
+all attempts and unknown costs, and no result activates a production rule.
+See [harness evaluation](specs/harness-regression-evaluation.md),
+[measured learning](specs/review-learning-evaluation.md), the
+[capability map](research/2026-10-23-evaluation-capabilities.md) and
+[source decisions](research/2026-10-23-evaluation-patterns.md).
+The first approved screening is a historical package-entry task plus an unrelated
+control, not a full-fleet benchmark. Paid execution and practical tolerances remain
+separate owner decisions.

@@ -292,6 +292,7 @@ email.
 
 ```bash
 plates morning                        # the brief for the night that last started, markdown
+plates morning --observation --json   # early read-only observation; no final send
 plates morning --date 2026-10-15      # for a named night
 plates morning --send                 # the issue "Good morning, <date>", once a night
 plates morning --card --yes           # the plan as the live canvas card night-plan
@@ -306,6 +307,10 @@ plates morning --card --yes           # the plan as the live canvas card night-p
   health page and each PR. The night's health page is read from where its
   record was: while the night's PR is unmerged, from that PR's branch, and
   linked there.
+- **Early observation** is a read-only report, separate from final readiness.
+  It shows pending and failed work without ticking it complete or starting a run.
+  It cannot send an issue or publish a card; the eventual final report keeps its
+  original identity and deduplication. A compatible update does not wait for it.
 - **Sending** needs `"morning": { "assignee": "<your GitHub login>" }` in
   `.plates/plates.json`; without it `--send` refuses, naming the key. It labels
   the issue `keel:morning` and closes yesterday's. A second send for the same
@@ -725,3 +730,25 @@ The optional `production` configuration adds bounded read-only log collection to
 the existing night. Recurring signatures enter triage; unavailable collection is
 reported separately from findings and the gate. See [Production errors](production-errors.md)
 for configuration, retention and the evidence required to verify a deployed fix.
+
+## Each plate verifies itself
+
+The night owns this project's validation. Its verification report binds the
+observed source revision, default branch, gate outcome and reuse attribution to
+record-reconciliation coverage and claim findings. A claim on a completed phase
+is cleanup work, not proof that a session is still building it. No recent push
+means activity is unknown; it does not establish that a session has stopped.
+
+`plates fleet --json` compares each project's report with current remote facts.
+A successful older report cannot verify a newer revision. Missing, malformed or
+unavailable reports remain visible gaps. The fleet never runs a consumer's gate
+as part of this read. Local checkout and session activity require local evidence;
+a hosted workflow cannot attest to them.
+
+Plates home includes the fleet summary in its own nightly report; each adopter
+only collects its own evidence. A workflow token that cannot read another private
+repository produces an unavailable row, not an implied access grant.
+
+These observations extend the existing reports. They do not accept phases,
+merge work, remove claims or launch agents. See the
+[distributed verification contract](../specs/plate-verification.md).

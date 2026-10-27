@@ -7,10 +7,11 @@ Verbs (`--json` for data):
 - `plates status` — goals and next phase
 - `plates next` — next free phase; `--project <p>`
 - `plates goal list|show|add|retire` — goals
-- `plates phase new|list|claim` — phases
-- `plates ready|integrate` — hand off; one gate
+- `plates phase new|list|claim`
+- `plates ready|integrate` — hand off
 - `plates render` — render practices; `--check` reads only (exit 1)
 - `plates init [dir] --description "<p>"` — new project
+- `plates names` — preview, apply, recover, verify
 - `plates migrate [root]` — rename preview; `--yes --digest <sha>` applies
 - `plates adopt [dir]` — adopt a repo; `--dry-run` writes nothing
 - `plates doctor` — drift; `--fix <path> restore|eject`
@@ -58,7 +59,7 @@ Rules:
 
 Exits: 0 ok; 1 failure; 2 usage; 3 needs owner's yes. JSON errors: `{"error": "..."}` on stdout.
 
-Topics: `json` `goals` `render` `init` `adopt` `doctor` `update` `lessons` `learn` `improve` `persona` `time` `test` `drain` `night` `loop` `climb` `fleet` `loose-ends` `issue` `review` `board` `retro` `canvas` `install` `coming` `reconciliation` `prove` `evidence` `production` `decision` `shape` `workspace` `feedback`.
+Topics: `names` `json` `goals` `render` `init` `adopt` `doctor` `update` `lessons` `learn` `improve` `persona` `time` `test` `drain` `night` `loop` `climb` `fleet` `loose-ends` `issue` `review` `board` `retro` `canvas` `install` `coming` `reconciliation` `prove` `evidence` `production` `decision` `shape` `workspace` `feedback`.
 
 <!-- topic: json | the output contract every verb keeps -->
 
@@ -685,6 +686,8 @@ plates learn distill propose --kind standardise --family "<name>" --check "<what
 
 <!-- topic: improve | is the practice working here: measures, bounds, a ratchet, one proposal -->
 
+The existing report retains bounded `plates:verification:v1` receipt comments: checked revision and dirty state, remote default branch/SHA, gate attribution, reconciliation coverage and claim findings. Same-day attempts survive refresh and morning finalization. Workflow retries recover the exact prior night branch report before measuring and publish with that SHA lease; unreadable recovery or conflicting local report content refuses publication. Missing coverage stays a gap; old claim observations never prove session inactivity. Home adds a fleet verification summary through its existing instruments; adopter nights only verify themselves. No second gate or acceptance decision is introduced.
+
 `plates improve` runs each measure and compares it with its bound. Measures
 first, a model's opinion never: every number comes from a command. It exits
 1 when a measure is outside its bound, and 2 when an instrument is broken.
@@ -1188,6 +1191,11 @@ PRs (never merges one: they are not data).
 
 <!-- topic: night | tonight's plan: written before the night runs, ticked as it goes -->
 
+`plates morning --observation --json` renders an early read-only observation.
+It does not send an issue, publish a card, finalize a plan or complete pending work;
+`--send` and `--card` are incompatible. Ordinary final readiness is unchanged.
+
+
 Every night has one plan, `.plates/night/plan.json` (schema 1; a working file
 that ignores itself), written before anything runs. The night commits it as it
 ended as `docs/night/<date>.json` in its data-only PR, and the health page shows
@@ -1460,6 +1468,29 @@ one PR when something was kept, and never merge. ⚑ Turning it on spends model 
 owner's yes, with `CLAUDE_CODE_OAUTH_TOKEN` (or `ANTHROPIC_API_KEY`) set.
 
 <!-- topic: fleet | every project at once: behind, red, silent, or teaching something -->
+
+`plates fleet update --install owner/repo#PR --json` previews a compatible
+reviewed installation. `--yes --digest <preview-digest>` applies that exact
+operation. `--recover <operation-id> --json` retains the original operation after
+uncertainty. These modes do not prepare a replacement PR or start a night/climb.
+Checks and review precede any pause. Only an actual concurrency identity change
+needs an exact affected-workflow pause/drain/restore barrier; ordinary updates do
+not. Installation readback, operational verification and retirement are separate;
+missing observations and unfinished restoration stay explicit. An unrelated record
+edit or handoff does not erase unchanged scoped owner authority, but an exact-head
+approval never transfers to edited code. See the project-update guide.
+
+Before a merge attempt, `plates fleet update --recover <operation-id>
+--restore-only --json` previews terminating installation and restoring only the
+old workflow IDs this operation paused. Apply with `--yes --digest <preview-digest>`
+after current permission, disabled state and original workflow bytes are checked.
+An attempted/uncertain merge or changed preimage refuses this path. It retains the
+original receipt, never marks installation successful, and never repeats an
+uncertain enable. Ordinary recovery can refresh successful check/review evidence
+within unchanged approved scope; it retains the original proof and new observations.
+
+
+Fleet verification pins configuration and report reads to the observed default SHA, validates bounded versioned receipts, and reports current, behind, stale, missing, malformed or unavailable. Current observations with failures or gaps are not healthy; a later report commit is still a source mismatch. Needs you links the source and asks for project-side refresh. Fleet reads never execute consumer installs, gates or agents.
 
 `plates fleet` runs on plates only (elsewhere exit 2) and changes nothing. It
 reads `plates.json` at plates's root, `[{repo, kind, role, note}]`, and asks gh
@@ -1952,6 +1983,33 @@ worksheet above remains read-only. See `plates --agent-help canvas` for publishi
 
 
 ### Bounded session trials (explicit records)
+
+`plates retro evaluations plan|freeze|inspect|run|resume|reconcile|cancel|compare --manifest <absolute-file>
+--state <absolute-dir> [--bundle <file>] [--experiment <id>] [--execution <absolute-json>] [--json]` freezes
+schema-2 harness input records in an already initialized external workspace.
+Plan reads only. Freeze preview exits 3 and exposes `digest`; approve with
+`--yes --digest <digest>`. Inspect takes `--experiment`; plan/freeze take
+`--bundle`. The manifest must authorize the comparison repository. Exact input
+bytes, canonical input path and destination bind approval; retries at the same
+path retain the original receipt. A moved bundle refuses recovery under that ID;
+inspect the original instead. Plan/freeze never execute or reserve. Run takes
+`--experiment` and `--execution`; preview exits 3, approval requires the exact
+`--yes --digest`. The offline scripted-node-v1 adapter reserves host capacity
+through the existing validation coordinator, receives a bounded regular-file
+submission, confirms termination, and checks behavior in fresh Docker containers.
+Only `pinned-image-tools` authority is supported: all binaries in the approved
+image, no network or host mounts. The host owns acceptance. Original operation
+identities survive uncertainty; retries never redispatch. Unknown cost is null.
+No paid model or production activation occurs. Compare reads only; resume/reconcile/cancel preview and require exact approval. Rescore refuses. Run checks local pinned-image availability; it never downloads an image. See the source guide `docs/guide/harness-evaluations.md` for the
+synthetic Acme bundle and exact invocation. Resume's schema-1 execution descriptor
+contains an ordered executions array for every missing slot. Reconcile inspects
+original operations and explicitly recovers a positively verified dead harness
+writer; legacy/partial/foreign locks refuse. Cancel closes admission and requests
+bounded termination. Recovery reserves one reconcile and one cancel attempt,
+20 seconds per planned slot in total; interrupted reservations never refund.
+Identical recovery retries inspect retained receipts without new effects. Trial minutes include measured preparation and admitted execution; captured inputs are reused, subprocess preparation shares a deadline, and cleanup cannot extend the total slot deadline. Prior read-only previews, human waiting and uninterruptible host I/O are not claimed billed work.
+Reports retain invalid/missing trials and null costs; no promotion or live provider
+adapter is implied.
 
 `plates retro sessions <status|start|begin|finish|handoff|audit|apply|rollback>
 [--experiment <id>] [--record <file>] [--yes] [--json]` records local trials.
@@ -2561,3 +2619,42 @@ executes tests or waives the configured gate. `node scripts/validation-budget.mj
 foreground process-group contract and no automatic stale cleanup. See
 `docs/development/validation-preflight.md`. These are development entrypoints,
 not installed CLI verbs or automatic consumer adoption.
+
+<!-- topic: names | exact external-name migration and read-only rollout verification -->
+
+`plates names [--repo owner/name] [--only row]... [--json]` previews bounded
+provider facts without writes. Without --repo, inspect the configured project and
+managed fleet. Ordinary env aliases select a present current value first, even
+when invalid or empty; legacy is used only when current is absent. Values are
+never shown. Held runtime/canvas/lock rows and unavailable coverage stay explicit.
+
+Approve one exact repository plan with `--repo owner/name --yes --digest SHA`.
+Labels rename in place, preserving IDs. Explicit initial creation uses separate
+v2 created evidence, never invented rename history; v1 receipts remain readable.
+Default label scope uses pinned enabled-writer configuration where known; unknown
+rows remain unselected, and `--only row` deliberately selects exact additional
+rows. Current-only labels without evidence and conflicting aliases refuse.
+Repository variables are copied only for direct bindings in pinned workflows;
+process aliases alone grant no provider scope. Originals remain; values stay in memory.
+Secret names produce owner commands only with a pinned workflow binding; values are never read.
+
+Private intents precede remote writes. `plates names --recover OP --json` reads
+back the ORIGINAL operation without resending or publishing. Repeat apply with
+its original digest reconciles attempted actions and may resume only never-attempted
+actions after source and destination revalidation. --recover itself never writes. A lost label
+creation ID is unresolved, even if the expected name exists. Returned public
+receipt bytes require separate reviewed publication at the workflow revision;
+local or staged receipts do not activate CI. Apply never commits, pushes, opens
+PRs, changes Vercel settings, dispatches/cancels workflows or retires aliases.
+
+`--machine [--yes --digest SHA | --recover OP]` is a separate bounded local
+operation; owner approval is required. It never moves other sessions' worktrees.
+`--verify owner/name [--run ID] [--morning-run ID]` checks the selected dispatched night read-only. An explicit morning run resolves multiple matching observations; unrelated manual runs without an observation artifact are skipped.
+It reports pass/fail/unknown for source/run/attempt facts and each rollout check.
+Missing artifact, morning association, body-write or board/history provenance
+stays unknown; a green run alone cannot prove migration. A required legacy-night
+continuation keeps its original identity. No dispatch or activation is implied.
+
+Exits: 0 verified operation/readback; 1 refused, incomplete or failed verification;
+2 invalid arguments; 3 preview/approval or held activation. --json returns one
+object with no variable values, secret contents or private journal contents.

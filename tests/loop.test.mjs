@@ -52,6 +52,8 @@ async function project(t, state = BASE_STATE) {
   await mkdir(join(dir, 'scripts'), { recursive: true });
   await mkdir(join(dir, 'tests'), { recursive: true });
   await cp(join(PRACTICE, 'scripts', 'loop.mjs'), join(dir, 'scripts', 'loop.mjs'));
+  await mkdir(join(dir, 'scripts/plates'), { recursive: true });
+  await cp(join(PLATES, 'practices/night/files/scripts/plates/names.mjs'), join(dir, 'scripts/plates/names.mjs'));
   await cp(join(PRACTICE, 'tests', 'loop.test.mjs'), join(dir, 'tests', 'loop.test.mjs'));
   const stateFile = join(dirname(dir), 'state.json'), log = join(dirname(dir), 'calls.jsonl');
   await writeFile(stateFile, JSON.stringify(state));
@@ -327,7 +329,7 @@ test('plates-loop.yml reads Loop and files findings, and nothing else; it skips 
   assert.match(code, /STITCH_API_KEY: \$\{\{ secrets\.STITCH_API_KEY \}\}/);
   assert.doesNotMatch(code, /curl|https?:\/\/\S*install/i, 'never installed from a URL');
   assert.match(code, /check\(\) \{ if \[ -f scripts\/plates\/gate\.mjs \]; then node scripts\/plates\/gate\.mjs; else \{\{check\}\}; fi; \}\n\s+if node scripts\/loop\.mjs render --check && check; then/, 'the gate is render --check, then the project\'s own (through gate.mjs, which reuses CI\'s exact result, when the night is here)');
-  assert.match(code, /node scripts\/plates\/drain\.mjs keel-loop\/ --yes --gate-passed/, 'the project\'s own drain, never plates\'s CLI');
+  assert.match(code, /node scripts\/plates\/drain\.mjs plates-loop\/ --yes --gate-passed/, 'the project\'s own drain, never plates\'s CLI');
   assert.doesNotMatch(code, /anthropic|claude -p/i, 'no model proposes here');
   for (const dir of [PRACTICE, join(PLATES, 'practices', 'loop')]) {
     for (const n of await readdir(dir, { recursive: true })) {

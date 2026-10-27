@@ -1,3 +1,4 @@
+import { environmentValue, writeName, artifactNames, inBranchQueue } from './names.mjs';
 // plates tend (plates practice `climb`; managed: plates render rewrites it). The
 // third pass beside measure and climb: once a week an agent resolves the
 // night's record findings (lost proofs, reconciliation's proposals, stale
@@ -29,7 +30,7 @@ import { pathToFileURL } from 'node:url';
 import { gateEnv, healthDirOf, cells, passAgentProblems, agentGitArgs } from './lib.mjs';
 import { prBody } from './pr-body.mjs';
 
-export const TEND_PREFIX = 'keel-tend/';
+export const TEND_PREFIX = writeName('git ref:keel-tend/');
 export const TEND_DIR = '.plates/tend';
 export const PASS = `${TEND_DIR}/pass.json`;
 export const TEND_DEFAULTS = Object.freeze({ minutes: 30, schedule: 'weekly' });
@@ -302,13 +303,13 @@ const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 
 /** Whether the last TEND_RETIRE_AFTER keel-tend/ PRs (newest by createdAt) were all closed unmerged: their numbers, or null. */
 export function tendRetiring(prs) {
-  const mine = prs.filter(p => typeof p?.headRefName === 'string' && p.headRefName.startsWith(TEND_PREFIX))
+  const mine = prs.filter(p => typeof p?.headRefName === 'string' && inBranchQueue(p.headRefName, TEND_PREFIX))
     .sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? ''))).slice(0, TEND_RETIRE_AFTER);
   return mine.length === TEND_RETIRE_AFTER && mine.every(p => !p.mergedAt) ? mine.map(p => p.number) : null;
 }
 
 function ghList(root, env, state, fields) {
-  const gh = env.PLATES_GH || 'gh';
+  const gh = (environmentValue('variable:KEEL_GH', env) ?? 'gh');
   const r = spawnSync(gh, ['pr', 'list', '--state', state, '--json', fields, '--limit', '200'], { cwd: root, env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   if (r.error) throw new TendError(`cannot read ${state} PRs (${gh}): ${r.error.message}; tend-pick never guesses`);
   if (r.status !== 0) throw new TendError(`gh pr list --state ${state} exited ${r.status}: ${(r.stderr || r.stdout).trim().split('\n')[0]}; tend-pick never guesses`);
@@ -322,7 +323,7 @@ function ghList(root, env, state, fields) {
 export async function tendPick({ root, config, env = process.env, date = today() }) {
   const t = tendConfigOf(config);
   if (!t) return { run: false, date, reason: 'tend is off: .plates/plates.json has no "tend"' };
-  const open = ghList(root, env, 'open', 'headRefName').map(p => p?.headRefName).filter(h => typeof h === 'string' && h.startsWith(TEND_PREFIX));
+  const open = ghList(root, env, 'open', 'headRefName').map(p => p?.headRefName).filter(h => typeof h === 'string' && inBranchQueue(h, TEND_PREFIX));
   if (open.length) return { run: false, date, reason: `the last tend PR (${open[0]}) is still open: a person reads it before the next pass` };
   const retiring = tendRetiring(ghList(root, env, 'closed', 'headRefName,number,createdAt,mergedAt'));
   if (retiring) return { run: false, date, retiring, reason: `tend proposes its own retirement: its last ${TEND_RETIRE_AFTER} ${TEND_PREFIX} PRs (${retiring.map(n => `#${n}`).join(', ')}) were closed unmerged. Remove "tend" from .plates/plates.json, or reopen one` };
@@ -410,7 +411,7 @@ export function reconciliationOf(root, config, env = process.env) {
 
 /** The plates CLI to ask for loose ends: PLATES_CLI (a command line), plates's own bin where plates is home, else `plates`. */
 function platesCli(root, config, env) {
-  if (env.PLATES_CLI !== undefined) return env.PLATES_CLI.trim().split(/\s+/).filter(Boolean);
+  if (environmentValue('variable:KEEL_CLI', env) !== undefined) return environmentValue('variable:KEEL_CLI', env).trim().split(/\s+/).filter(Boolean);
   if (config.plates === 'self' && existsSync(join(root, 'bin/plates.mjs'))) return [process.execPath, join(root, 'bin/plates.mjs')];
   return ['plates'];
 }
@@ -705,7 +706,7 @@ export async function tendGuard({ root, config, env = process.env, base, check =
 // ---- the report -------------------------------------------------------------------
 
 /** The trailer tend-page's commit carries: the judge's page, not a fix. */
-export const PAGE_TRAILER = 'plates-tend-page';
+export const PAGE_TRAILER = writeName('artifact:keel-tend-page');
 const PAGE_SUBJECT = /^(?:plates|keel) tend: (\d{4}-\d{2}-\d{2}), \d+ proposals? for the owner$/;
 
 /**
@@ -722,7 +723,7 @@ export function tendCommits(root, base, head = 'HEAD') {
     const subject = (body ?? '').split('\n')[0];
     const cites = [...(body ?? '').matchAll(CITE)].map(m => m[1]);
     const day = PAGE_SUBJECT.exec(subject)?.[1];
-    if (day && new RegExp(`^(?:${PAGE_TRAILER}|keel-tend-page): ${day}$`, 'm').test(body ?? '')) {
+    if (day && new RegExp(`^(?:${artifactNames('artifact:keel-tend-page').join('|')}): ${day}$`, 'm').test(body ?? '')) {
       const files = pathsOf(root, ['diff-tree', '--no-commit-id', '--name-only', '--no-renames', '-r', id]);
       if (files.length === 1 && files[0] === proposalsPageOf(day)) return { sha: id, subject, cites: [], page: true };
     }

@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseRenameArgs } from '../lib/rename.mjs';
 import { verbs } from '../lib/cli.mjs';
+import cliData from '../lib/web/capability-cli-data.mjs';
 import { capabilityCatalogue } from '../lib/web/capability-registry.mjs';
 import { auditOperationCoverage, reviewedOperationSources } from '../lib/web/capability-source-inventory.mjs';
 import { parseArgs } from '../lib/goodnight.mjs';
@@ -184,4 +185,52 @@ test('migration catalogue matches the shared approval parser without enabling we
   assert.deepEqual(parseRenameArgs(['acme', '--yes', '--digest', digest]), {root: 'acme', yes: true, digest});
   assert.equal(parseRenameArgs(['acme', '--json']).yes, false);
   for (const args of [['--yes'], ['--digest', digest], ['--yes', '--yes', '--digest', digest], ['--yes', '--digest', digest.toUpperCase()], ['acme', 'other']]) assert.throws(() => parseRenameArgs(args));
+});
+
+test('harness evaluation forms describe only local records and never enable hosted execution', () => {
+  const row = catalogue(enabled).rows.find(row => row.id === 'cli.retro');
+  const forms = row.cli[0].forms.filter(form => form.subcommand?.startsWith('evaluations '));
+  assert.deepEqual(forms.map(form => form.subcommand), ['evaluations plan', 'evaluations freeze', 'evaluations inspect', 'evaluations run', 'evaluations resume', 'evaluations reconcile', 'evaluations cancel', 'evaluations compare']);
+  const comparisonActions = ['evaluations resume', 'evaluations reconcile', 'evaluations cancel', 'evaluations compare'];
+  for (const form of cliData.find(entry => entry.command === 'retro').forms.filter(form => form.subcommand?.startsWith('evaluations '))) {
+    assert.equal(form.parserSource, comparisonActions.includes(form.subcommand) ? 'lib/evaluation-comparison.mjs' : 'lib/evaluation-ledger.mjs');
+  }
+  for (const action of comparisonActions) {
+    const form = forms.find(form => form.subcommand === action);
+    const flags = form.arguments.map(arg => arg.token);
+    assert.equal(flags.includes('--yes'), action !== 'evaluations compare');
+    assert.equal(flags.includes('--digest'), action !== 'evaluations compare');
+    assert.equal(flags.includes('--execution'), action === 'evaluations resume');
+    assert.match(form.constraints, /no hosted or live-provider activation/);
+  }
+  assert.ok(forms.every(form => form.arguments.every(arg => ['limited', 'presentation-only'].includes(arg.treatment))));
+  const paths = reviewedOperationSources().files.map(file => file.path);
+  for (const path of ['lib/evaluation-ledger.mjs', 'lib/evaluation-records.mjs', 'lib/evaluation-comparison.mjs', 'lib/evaluation-comparison-report.mjs', 'lib/session-ledger-io.mjs']) assert.ok(paths.includes(path));
+});
+
+test('names transition stays CLI-only even when hosted mutations are enabled', async () => {
+  const { parseNamesArgs } = await import('../lib/names-cli.mjs');
+  const row = catalogue(enabled).rows.find(entry => entry.id === 'cli.names');
+  assert.equal(row.readiness.state, 'unsupported');
+  assert.equal(row.adapter, null);
+  assert.equal(row.route, null);
+  const flags = row.cli[0].forms.flatMap(form => form.arguments.map(arg => arg.token));
+  assert.deepEqual(flags, ['--repo', '--only', '--yes', '--digest', '--recover', '--machine', '--verify', '--run', '--morning-run', '--json']);
+  assert.throws(() => parseNamesArgs(['--yes']), /Apply requires/);
+  assert.throws(() => parseNamesArgs(['--repo', 'acme/studio', '--machine']), /separate scope/);
+  assert.throws(() => parseNamesArgs(['--verify', 'acme/studio', '--yes', '--digest', 'a'.repeat(64)]));
+  assert.equal(parseNamesArgs(['--verify', 'acme/studio', '--run', '7']).run, '7');
+  assert.equal(parseNamesArgs(['--verify', 'acme/studio', '--run', '7', '--morning-run', '8'])['morning-run'], '8');
+});
+
+test('the reviewed adoption handoff stays source-bound without enabling a capability', async t => {
+  const directory = await copyBoundary(t);
+  const path = join(directory, 'lib/adopt.mjs');
+  const before = await readFile(path, 'utf8');
+  const after = before.replace("status: 'not-checked'", "status: 'registered'");
+  assert.notEqual(after, before, 'the mutation must falsely claim enrollment');
+  await writeFile(path, after);
+  const result = await auditOperationCoverage({ root: directory, registeredKeys: keys });
+  assert.equal(result.ok, false);
+  assert.ok(result.findings.some(item => item.code === 'parser_source_changed' && item.path === 'lib/adopt.mjs'));
 });

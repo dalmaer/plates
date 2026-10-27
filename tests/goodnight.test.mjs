@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 // plates goodnight (phase 74): the owner shapes tonight's plan. The opening shows
 // what was settled today, what was left open, the default plan and up to three
 // things to try, and changes nothing; the shaping verbs change a draft and
@@ -8,14 +9,14 @@
 // reads the live world.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, rm, cp, realpath, symlink } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, rm, cp, realpath, symlink, readdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { run } from './helpers/run.mjs';
 import { goodnight, suggestionsFor, namesSettled, parseArgs, loopRubric, loopDraft, DRAFT, SUGGESTIONS } from '../lib/goodnight.mjs';
-import { previewRobotIssue } from '../lib/robot-issue.mjs';
+import { previewRobotIssue, robotIssueInstance } from '../lib/robot-issue.mjs';
 import { robotPolicy } from '../practices/climb/files/scripts/plates/robot-policy.mjs';
 import { robotRubricRefusal } from '../practices/climb/files/scripts/plates/robot-rubric.mjs';
 import { validatePlan, tonight, nightOf, PLAN, PLAN_BRANCH } from '../lib/night-plan.mjs';
@@ -71,6 +72,8 @@ async function acme(t) {
   const git = (args, cwd = root, env = {}) => { const r = run('git', args, { cwd, env: { ...process.env, ...env } }); assert.equal(r.status, 0, `git ${args.join(' ')}: ${r.stderr}`); return r.stdout.trim(); };
   for (const d of ['.plates', 'scripts/plates', 'docs/health', 'docs/loop', 'docs/phases', 'docs/reviews', '.agents/personas']) await mkdir(join(root, d), { recursive: true });
   for (const p of ['night', 'climb']) await cp(join(PLATES, 'practices', p, 'files', 'scripts', 'plates'), join(root, 'scripts', 'plates'), { recursive: true });
+  // Installed runtimes use the canonical module, not a source-tree doorway.
+  await cp(join(PLATES, 'practices/night/files/scripts/plates/names.mjs'), join(root, 'scripts/plates/names.mjs'));
   await cp(join(PLATES, 'practices', 'loop', 'files', 'scripts', 'loop.mjs'), join(root, 'scripts', 'loop.mjs'));
   await writeFile(join(root, '.plates', 'plates.json'), JSON.stringify({ name: 'Acme Anvils', repo: 'acme/anvils', practices: ['base', 'night', 'climb', 'loop', 'personas'], climb: { jobs: ['test-time'], budget: { minutes: 40 } } }));
   await writeFile(join(root, 'docs/health/2026-10-01.md'), PAGE);
@@ -282,18 +285,18 @@ test('--yes writes the plan with shapedBy owner and pushes it to the plan branch
   const tip = f.git(['rev-parse', `refs/heads/${PLAN_BRANCH}`], f.origin);
   assert.equal(tip, r.data.pushed.commit);
   assert.equal(f.git(['rev-list', '--count', tip], f.origin), '1', 'no history: never merged, never based on main');
-  assert.equal(f.git(['ls-tree', '-r', '--name-only', tip], f.origin), '.keel/night/plan.json');
-  assert.equal(`${f.git(['show', `${tip}:.keel/night/plan.json`], f.origin)}\n`, await readFile(join(f.root, PLAN), 'utf8'));
+  assert.equal(f.git(['ls-tree', '-r', '--name-only', tip], f.origin), '.plates/night/plan.json');
+  assert.equal(`${f.git(['show', `${tip}:.plates/night/plan.json`], f.origin)}\n`, await readFile(join(f.root, PLAN), 'utf8'));
   // main is untouched, on the origin and here; the working tree and index too.
   assert.equal(f.git(['rev-parse', 'refs/heads/main'], f.origin), mainBefore);
   assert.equal(f.git(['rev-parse', 'HEAD']), head);
   assert.equal(f.git(['symbolic-ref', '--short', 'HEAD']), 'main');
   assert.equal(f.git(['status', '--porcelain']), status, 'the working tree and index are as they were (the plan ignores itself)');
-  assert.match(r.text, /That's the plan for the night of .*pushed to origin\/keel-night-plan/);
+  assert.match(r.text, /That's the plan for the night of .*pushed to origin\/plates-night-plan/);
 
   // The night reads it: phase 73's step takes the branch's plan, shaped by the owner.
   const branchPlan = join(f.base, 'branch-plan.json');
-  await writeFile(branchPlan, f.git(['show', `${tip}:.keel/night/plan.json`], f.origin));
+  await writeFile(branchPlan, f.git(['show', `${tip}:.plates/night/plan.json`], f.origin));
   const night = await tonight({ root: f.root, date: plan.date, env: f.env, branchPlan });
   assert.equal(night.data.from, 'branch');
   assert.match(night.data.why, /shaped by owner/);
@@ -304,7 +307,7 @@ test('--yes writes the plan with shapedBy owner and pushes it to the plan branch
   const tip2 = f.git(['rev-parse', `refs/heads/${PLAN_BRANCH}`], f.origin);
   assert.equal(tip2, again.data.pushed.commit);
   assert.equal(f.git(['rev-list', '--count', tip2], f.origin), '1');
-  assert.match((await goodnight({ root: f.root, args: [], env: f.env }, { board })).data.since.from, /the last plan \(keel-night-plan\)/);
+  assert.match((await goodnight({ root: f.root, args: [], env: f.env }, { board })).data.since.from, /the last plan \(plates-night-plan\)/);
 
   // A refused plan is never written or pushed: with no remote, nothing is written.
   f.git(['remote', 'remove', 'origin']);
@@ -422,6 +425,8 @@ function issuesApi() {
   const rows = [], calls = [];
   const github = async req => {
     calls.push(req);
+    if(req.method==='GET'&&req.path==='/repos/acme/anvils')return {status:200,data:{id:7,full_name:'acme/anvils'}};
+    if(req.method==='GET'&&req.path==='/repos/acme/anvils/labels?per_page=100&page=1')return {status:200,data:[{id:11,name:'keel:agent'}]};
     if (req.method === 'POST') {
       const n = rows.length + 7;
       const row = { number: n, html_url: `https://github.com/acme/anvils/issues/${n}`, url: `https://api.github.com/repos/acme/anvils/issues/${n}`, state: 'open', body: req.body.body, title: req.body.title, labels: req.body.labels.map(name => ({ name })) };
@@ -480,7 +485,7 @@ test('goodnight add for an accepted Loop finding that names a number drafts a ro
   assert.deepEqual([planned.kind, planned.lane, planned.source], ['build', 'robot:#7', 'loop:lighter-anvils']);
   assert.deepEqual(yes.issues.map(i => [i.id, i.number, i.state]), [['loop-lighter-anvils', 7, 'created']]);
   assert.deepEqual(validatePlan(yes.plan).problems, []);
-  const pushed = JSON.parse(f.git(['show', `refs/heads/${PLAN_BRANCH}:.keel/night/plan.json`], f.origin));
+  const pushed = JSON.parse(f.git(['show', `refs/heads/${PLAN_BRANCH}:.plates/night/plan.json`], f.origin));
   assert.equal(pushed.items.find(i => i.id === 'loop-lighter-anvils').lane, 'robot:#7');
 
   // Said again: the same issue, recovered, never a second (ensureRobotIssue's durable intent).
@@ -536,4 +541,39 @@ test('a long Loop slug makes a suggestion id within the plan\'s 64, bounded like
   const d = JSON.parse(await readFile(join(f.root, DRAFT), 'utf8'));
   assert.deepEqual(validatePlan(d, { draft: true }).problems, []);
   assert.ok(!(await say()).suggestions.some(s => long.some(l => s.source === `loop:${l}`)), 'added, it is no longer a thing to try');
+});
+
+for (const namespace of ['plates', 'keel']) test(`phase128 goodnight ${namespace} seed recovers closed original without reservation`, async t => {
+  const f = await acme(t);
+  const configPath = join(f.root, '.plates/plates.json');
+  const config = JSON.parse(await readFile(configPath, 'utf8'));
+  await writeFile(configPath, JSON.stringify({ ...config, robot: { on: true, budgetMinutes: 60 } }));
+  await writeFile(join(f.root, 'docs/loop/lighter-anvils.md'), finding('Lighter anvils', 'decision: accepted\nrank: next\nphase: 1\nsince: 2026-10-01\nnote: Brings `slow_tests` back within its bound.\n')
+    .replace("Acme's Lighter anvils.", '# Lighter anvils\n\n> **Loop says** (P2): The tests sleep.\n\n- `lib/anvil.mjs`\n'));
+  const api = issuesApi();
+  const say = async (...args) => (await goodnight({ root: f.root, args, env: f.env }, { board, github: api.github })).data;
+  await say(); await say('add', 'loop-lighter-anvils'); await say('--yes');
+  const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  const directory = join(f.root, '.plates/robot-issues', hash('acme/anvils'));
+  const files = (await readdir(directory)).filter(name => /^[a-f0-9]{64}\.json$/.test(name));
+  assert.equal(files.length, 1);
+  const originalFile = join(directory, files[0]);
+  const original = JSON.parse(await readFile(originalFile, 'utf8'));
+  // Model the exact retained historical intent and provider record independently
+  // of the new producer; loss of the subject index must not lose its identity.
+  original.instanceId = robotIssueInstance(`${namespace}-goodnight-loop`, 'acme/anvils', 'lighter-anvils');
+  const preview = previewRobotIssue(original);
+  original.preview = { title: preview.title, body: preview.body, labels: preview.labels, marker: preview.marker };
+  await rm(originalFile);
+  const historicalFile = join(directory, `${hash(original.instanceId)}.json`);
+  await writeFile(historicalFile, JSON.stringify(original));
+  await rm(join(directory, `subject-${hash(original.subjectKey)}.json`));
+  api.rows[0].body = preview.body; api.rows[0].state = 'closed';
+  const retained = await readFile(historicalFile, 'utf8');
+  await rm(join(f.root, DRAFT)); await say('add', 'loop-lighter-anvils');
+  let result;
+  await assert.doesNotReject(async () => { result = await say('--yes'); }, 'original seed subject must recover through goodnight');
+  assert.deepEqual(result.issues.map(i => [i.number, i.state]), [[7, 'recovered']]);
+  assert.equal(api.posts().length, 1);
+  assert.equal(JSON.parse(await readFile(historicalFile, 'utf8')).instanceId, JSON.parse(retained).instanceId);
 });

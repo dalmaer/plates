@@ -1,3 +1,5 @@
+import { formatVerification, parseVerifications, verificationReceipt } from '../scripts/plates/verification.mjs';
+import { observation, results } from './helpers/verification.mjs';
 // The morning (phase 77): when the night is over, one message says what it
 // did. The brief is rendered in isocan's order from the plan as it finished
 // (its record, the plan branch, each item at its furthest tick) and the health
@@ -9,6 +11,7 @@
 // gh is a stub at the boundary and origin is a local bare repo. Nothing here
 // reads the live world.
 import { test } from 'node:test';
+import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm, cp, chmod, realpath } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -55,7 +58,7 @@ const asRecorded = () => {
   const p = finished();
   return { ...p, items: p.items.map(i => (i.kind === 'build' ? { ...i, status: 'planned', result: null } : i)) };
 };
-const page = (date, bundle) => `# Acme Anvils health, ${date}\n\n| Measure | Value | Bound | State | Detail |\n| --- | --- | --- | --- | --- |\n| \`bundle_bytes\` — the entry chunk | ${bundle} | ≤ 747000 | ${bundle > 747000 ? 'outside' : 'ok'} | |\n| \`slow_tests\` — tests over a second | 4 | ≤ 5 | ok | |\n\n## Tonight's plan\n\nWhat the night recorded.\n\n## Proposal\n\nNone.\n`;
+const page = (date, bundle) => `# Acme Anvils health, ${date}\n\n| Measure | Value | Bound | State | Detail |\n| --- | --- | --- | --- | --- |\n| \`bundle_bytes\` — the entry chunk | ${bundle} | ≤ 747000 | ${bundle > 747000 ? 'outside' : 'ok'} | |\n| \`slow_tests\` — tests over a second | 4 | ≤ 5 | ok | |\n\n${planSection(asRecorded(), { record: `docs/night/${date}.json` }).join('\n')}\n## Proposal\n\nNone.\n`;
 const HEALTH = { before: { date: NIGHT, file: `docs/health/${NIGHT}.md`, rows: [{ id: 'bundle_bytes', value: 760000 }, { id: 'slow_tests', value: 4 }] }, after: { date: '2026-10-06', file: 'docs/health/2026-10-06.md', rows: [{ id: 'bundle_bytes', value: 741000 }] } };
 const LINKS = { canvas: 'https://canvas.acme.test/p/prj_acme', health: `https://github.com/acme/anvils/blob/HEAD/docs/health/${NIGHT}.md` };
 const CONFIG = { name: 'Acme Anvils', practices: ['night'], repo: 'acme/anvils', morning: { assignee: 'acme-owner' }, canvas: { provider: 'isocan', home: 'https://canvas.acme.test', canvasId: 'prj_acme', projectKey: 'acme' } };
@@ -63,10 +66,10 @@ const CONFIG = { name: 'Acme Anvils', practices: ['night'], repo: 'acme/anvils',
 /**
  * A project with an origin: its default branch holds the night's record as
  * the night wrote it (builds planned) and the night's health page; the plan
- * branch keel-night-plan holds the builds' ticks; the next night's page is
+ * branch plates-night-plan holds the builds' ticks; the next night's page is
  * the "after". gh is a stub with a state file.
  */
-async function project(t, { config = CONFIG, issues = [], failCreate = false, branch = finished() } = {}) {
+async function project(t, { config = CONFIG, issues = [], labels = [{id:71,name:'keel:morning'}], failCreate = false, repoView = { nameWithOwner: 'acme/anvils' }, failRepoView = false, changeDefaultAfterDiscovery = false, branch = finished() } = {}) {
   const base = await mkdtemp(join(tmpdir(), 'plates-morning-'));
   t.after(() => rm(base, { recursive: true, force: true }));
   const root = join(base, 'acme'), origin = join(base, 'origin.git');
@@ -82,21 +85,21 @@ async function project(t, { config = CONFIG, issues = [], failCreate = false, br
   await writeFile(join(root, 'docs/health/2026-10-06.md'), page('2026-10-06', 741000));
   // The night practice's scripts, as a project carries them.
   await mkdir(join(root, 'scripts/plates'), { recursive: true });
-  for (const f of ['morning.mjs', 'night-plan.mjs', 'lib.mjs', 'production.mjs', 'production-store.mjs', 'production-collectors.mjs']) await cp(join(PLATES, 'practices/night/files/scripts/plates', f), join(root, 'scripts/plates', f));
+  for (const f of ['verification.mjs', 'time-proposals.mjs', 'morning.mjs', 'night-plan.mjs', 'names.mjs', 'lib.mjs', 'production.mjs', 'production-store.mjs', 'production-collectors.mjs']) await cp(join(PLATES, 'practices/night/files/scripts/plates', f), join(root, 'scripts/plates', f));
   git(root, 'add', '-A'); git(root, 'commit', '-q', '-m', 'Acme: the night');
   git(root, 'push', '-q', 'origin', 'main');
   if (branch) {
-    git(root, 'checkout', '-q', '--orphan', 'keel-night-plan');
+    git(root, 'checkout', '-q', '--orphan', 'plates-night-plan');
     git(root, 'rm', '-q', '-rf', '--cached', '.');
-    await mkdir(join(root, '.keel/night'), { recursive: true });
+    await mkdir(join(root, '.plates/night'), { recursive: true });
     await writeFile(join(root, REMOTE_PLAN), `${JSON.stringify(branch, null, 2)}\n`);
     git(root, 'add', '-f', REMOTE_PLAN); git(root, 'commit', '-q', '-m', 'Acme: the plan, ticked');
-    git(root, 'push', '-q', 'origin', 'keel-night-plan');
+    git(root, 'push', '-q', 'origin', 'plates-night-plan');
     git(root, 'checkout', '-q', '-f', 'main');
     await rm(join(root, '.plates/night'), { recursive: true, force: true });
   }
   const state = join(base, 'gh-state.json'), log = join(base, 'gh.log'), gh = join(base, 'gh');
-  await writeFile(state, JSON.stringify({ issues, next: 31 }));
+  await writeFile(state, JSON.stringify({ issues, labels, next: 31, defaultRepo: 'acme/anvils' }));
   await writeFile(gh, `#!${process.execPath}
 const fs = require('node:fs');
 const a = process.argv.slice(2);
@@ -105,11 +108,20 @@ fs.appendFileSync(${JSON.stringify(log)}, JSON.stringify({ a, input }) + '\\n');
 const s = JSON.parse(fs.readFileSync(${JSON.stringify(state)}, 'utf8'));
 const save = () => fs.writeFileSync(${JSON.stringify(state)}, JSON.stringify(s));
 const opt = f => a.includes(f) ? a[a.indexOf(f) + 1] : undefined;
-if (a[0] === 'issue' && a[1] === 'list') {
-  if (opt('--label') !== ${JSON.stringify(LABEL)} || opt('--state') !== 'all') { console.error('stub gh: keel:morning issues, all states'); process.exit(1); }
+if (a[0] === 'repo' && a[1] === 'view') {
+  if (${failRepoView}) { console.error('Acme discovery unavailable'); process.exit(1); }
+  if (${changeDefaultAfterDiscovery}) { s.defaultRepo = 'acme/elsewhere'; save(); }
+  console.log(JSON.stringify(${JSON.stringify(repoView)}));
+} else if (${changeDefaultAfterDiscovery} && ['issue', 'label'].includes(a[0]) && (opt('--repo') ?? s.defaultRepo) !== 'acme/anvils') {
+  console.error('Acme checkout default changed: operation targeted another repository'); process.exit(1);
+} else if (a[0] === 'issue' && a[1] === 'list') {
+  if (!['plates:morning','keel:morning'].includes(opt('--label')) || opt('--state') !== 'all') { console.error('stub gh: keel:morning issues, all states'); process.exit(1); }
   console.log(JSON.stringify(s.issues.map(i => ({ number: i.number, title: i.title, state: i.state }))));
+} else if (a[0] === 'api') {
+  const repo=a[1].split('/').slice(2,4).join('/');
+  console.log(JSON.stringify(a[1].includes('/labels?') ? s.labels : {id:31,full_name:repo}));
 } else if (a[0] === 'label' && a[1] === 'create') {
-  process.exit(0);
+  s.labels.push({id:71,name:a[2]});save();
 } else if (a[0] === 'issue' && a[1] === 'create') {
   if (${failCreate}) { console.error('HTTP 502: Acme gateway'); process.exit(1); }
   const n = s.next++;
@@ -194,7 +206,10 @@ test('the brief reads tonight\'s plan as it finished: the night\'s record from o
   const found = await finalPlan({ root: p.root, date: NIGHT });
   assert.equal(found.from, `docs/night/${NIGHT}.json`);
   assert.deepEqual(found.sources.map(s => [s.from, s.state]), [
-    ['keel-night-plan:.keel/night/plan.json', 'read'],
+    ['plates-night-plan:.plates/night/plan.json', 'read'],
+    ['keel-night-plan:.keel/night/plan.json', 'absent'],
+    [`plates-night/${NIGHT}-final:docs/night/${NIGHT}.json`, 'absent'],
+    [`plates-night/${NIGHT}:docs/night/${NIGHT}.json`, 'absent'],
     [`keel-night/${NIGHT}-final:docs/night/${NIGHT}.json`, 'absent'],
     [`keel-night/${NIGHT}:docs/night/${NIGHT}.json`, 'absent'],
     [`docs/night/${NIGHT}.json`, 'read'],
@@ -229,7 +244,7 @@ test('the brief reads tonight\'s plan as it finished: the night\'s record from o
   // No plan for the night: exit 2, naming where it looked.
   const none = plates(['morning', '--date', '2026-09-01', '--json'], p.root, { PLATES_GH: p.gh });
   assert.equal(none.code, 2);
-  assert.match(none.json().error, /^no plan for the night of 2026-09-01: keel-night-plan:\.keel\/night\/plan\.json another night \(2026-10-05\)/);
+  assert.match(none.json().error, /^no plan for the night of 2026-09-01: plates-night-plan:\.plates\/night\/plan\.json another night \(2026-10-05\)/);
   assert.equal(plates(['morning', '--date', '5/10/2026', '--json'], p.root, { PLATES_GH: p.gh }).code, 2);
   assert.equal(plates(['morning', '--send', '--card', '--json'], p.root, { PLATES_GH: p.gh }).code, 2);
   assert.equal(plates(['morning', '--yes', '--json'], p.root, { PLATES_GH: p.gh }).code, 2);
@@ -248,13 +263,13 @@ test('--send opens one assigned, labelled issue, closes the previous one, and a 
   assert.deepEqual(issues.filter(i => i.state === 'OPEN').map(i => i.number), [31], 'one open at a time');
   assert.equal(issues.find(i => i.number === 30).comment, 'Superseded by #31 (plates morning).');
   const calls = (await p.calls()).map(c => c.a);
-  assert.ok(calls.every(a => a.includes('--repo') && a[a.indexOf('--repo') + 1] === 'acme/anvils'), 'every call names the repo');
-  assert.deepEqual(calls.map(a => a.slice(0, 2).join(' ')), ['issue list', 'label create', 'issue create', 'issue close']);
+  assert.ok(calls.every(a => a[0] === 'api' ? a[1].startsWith('/repos/acme/anvils') : a.includes('--repo') && a[a.indexOf('--repo') + 1] === 'acme/anvils'), 'every call names the repo');
+  assert.deepEqual(calls.map(a => a.slice(0, 2).join(' ')), ['issue list', 'issue list', 'api /repos/acme/anvils', 'api /repos/acme/anvils/labels?per_page=100&page=1', 'issue create', 'issue close']);
   // Again, the same night: nothing.
   const again = plates(['morning', '--send', '--date', NIGHT, '--json'], p.root, { PLATES_GH: p.gh });
   assert.equal(again.code, 0);
   assert.deepEqual(again.json(), { ok: true, sent: false, date: NIGHT, issue: 31, why: 'already sent' });
-  assert.deepEqual((await p.calls()).slice(4).map(c => c.a.slice(0, 2).join(' ')), ['issue list'], 'nothing is created or closed');
+  assert.deepEqual((await p.calls()).slice(6).map(c => c.a.slice(0, 2).join(' ')), ['issue list', 'issue list'], 'nothing is created or closed');
   // Closed since: still this night's brief, never sent again.
   const closed = await project(t, { issues: [{ number: 31, title: titleOf(NIGHT), state: 'CLOSED' }] });
   assert.equal(plates(['morning', '--send', '--date', NIGHT, '--json'], closed.root, { PLATES_GH: closed.gh }).json().sent, false);
@@ -306,6 +321,9 @@ test('the workflow\'s decision: over and unsent, or not yet; already sent; no as
 
 test('plates#137: finalization puts a later build outcome in the night\'s record and its health page, keeping the rest of the page', async t => {
   const p = await project(t);
+  const receipt=verificationReceipt(observation(),results());
+  const hp=join(p.root,`docs/health/${NIGHT}.md`);
+  await writeFile(hp,(await readFile(hp,'utf8'))+'\n## Verification\n'+formatVerification(receipt)+'\n');
   const pageBefore = await readFile(join(p.root, `docs/health/${NIGHT}.md`), 'utf8');
   // The project's own script, as plates-morning.yml's finalize job runs it.
   const r = run(process.execPath, [join(p.root, 'scripts/plates/morning.mjs'), 'finalize', '--date', NIGHT, '--pr-input', join(p.base, 'pr.json'), '--json'], { cwd: p.root, env: { ...ENV, PLATES_GH: p.gh } });
@@ -317,8 +335,9 @@ test('plates#137: finalization puts a later build outcome in the night\'s record
   assert.equal(record.items.find(i => i.id === 'perf-bundle').status, 'done', 'the record holds the later outcome');
   assert.equal(record.items.find(i => i.id === 'perf-bundle').result.link, PR);
   const pageAfter = await readFile(join(p.root, `docs/health/${NIGHT}.md`), 'utf8');
+  assert.equal(parseVerifications(pageAfter)[0].attempt,receipt.attempt,'shipped finalization preserves verification bytes');
   assert.match(pageAfter, new RegExp(`\\| perf-bundle: Entry chunk back under 747 kB \\| build \\| climb:perf \\| \`bundle_bytes\` ≤ 747000 \\| done \\| Split the vendor chunk — ${PR.replaceAll('/', '\\/').replaceAll('.', '\\.')} \\|`), 'the page holds the later outcome');
-  assert.doesNotMatch(pageAfter, /What the night recorded\./, 'the old section is replaced');
+  assert.notEqual(pageAfter, pageBefore, 'the recorded plan outcomes are updated');
   assert.equal(pageAfter.split('## Tonight\'s plan')[0], pageBefore.split('## Tonight\'s plan')[0], 'what came before it is kept');
   assert.equal(pageAfter.split('## Proposal')[1], pageBefore.split('## Proposal')[1], 'and what came after it');
   assert.equal(withPlanSection(pageAfter, planSection(record, { record: `docs/night/${NIGHT}.json` })), pageAfter, 'finalizing again changes nothing');
@@ -476,8 +495,8 @@ test('in a GitHub Actions run, --send lists, labels, opens and closes its issues
   const r = plates(['morning', '--send', '--date', NIGHT, '--json'], p.root, { PLATES_GH: p.gh, GITHUB_ACTIONS: 'true', GITHUB_REPOSITORY: 'acme/anvils-fork' });
   assert.equal(r.code, 0, r.err + r.out);
   const calls = (await p.calls()).map(c => c.a);
-  assert.deepEqual(calls.map(a => a.slice(0, 2).join(' ')), ['issue list', 'label create', 'issue create', 'issue close']);
-  assert.deepEqual(calls.map(a => a[a.indexOf('--repo') + 1]), Array(4).fill('acme/anvils-fork'), 'not the config\'s acme/anvils');
+  assert.deepEqual(calls.map(a => a.slice(0, 2).join(' ')), ['issue list', 'issue list', 'api /repos/acme/anvils-fork', 'api /repos/acme/anvils-fork/labels?per_page=100&page=1', 'issue create', 'issue close']);
+  assert.deepEqual(calls.map(a => a[0] === 'api' ? a[1].split('/').slice(2,4).join('/') : a[a.indexOf('--repo') + 1]), Array(6).fill('acme/anvils-fork'), 'not the config\'s acme/anvils');
   assert.match((await p.issuesNow()).find(i => i.number === 31).body, /https:\/\/github\.com\/acme\/anvils-fork\/blob\//);
 });
 
@@ -522,7 +541,7 @@ test('a failed verify is a line in the next morning brief: each failure of the d
   assert.equal(b.next[0], line, 'production first, under Your next');
   assert.match(b.markdown, new RegExp(`## Your next\\n\\n- ${line.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n`));
   assert.equal(renderBrief({ plan: finished(), now: AFTER, health: HEALTH, links: LINKS, verify: { failed: [], unread: null } }).markdown, renderBrief({ plan: finished(), now: AFTER, health: HEALTH, links: LINKS }).markdown, 'nothing failed: the brief is as before');
-  assert.match(renderBrief({ plan: finished(), now: AFTER, verify: { failed: [], unread: 'git ls-remote exited 128' } }).next[0], /^The verify record \(keel-verify:verify\.json\) could not be read: git ls-remote exited 128\. Whether production passed is unknown\.$/);
+  assert.match(renderBrief({ plan: finished(), now: AFTER, verify: { failed: [], unread: 'git ls-remote exited 128' } }).next[0], /^The verify record \(plates-verify:verify\.json\) could not be read: git ls-remote exited 128\. Whether production passed is unknown\.$/);
 
   // End to end: with delivery on, the brief reads origin's keel-verify branch.
   const p = await project(t, { config: { ...CONFIG, practices: ['night', 'delivery'] } });
@@ -541,7 +560,7 @@ test('a failed verify is a line in the next morning brief: each failure of the d
   const bad = write(['hash-object', '-w', '--stdin'], '{"results": "Acme"}');
   const badTree = write(['mktree'], `100644 blob ${bad}\tverify.json\n`);
   write(['push', '-q', '--force', 'origin', `${write(['commit-tree', badTree, '-m', 'not a record'])}:refs/heads/keel-verify`]);
-  assert.match(plates(['morning', '--date', NIGHT, '--json'], p.root, { PLATES_GH: p.gh }).json().next[0], /^The verify record \(keel-verify:verify\.json\) could not be read: verify\.json holds no "results" list\./);
+  assert.match(plates(['morning', '--date', NIGHT, '--json'], p.root, { PLATES_GH: p.gh }).json().next[0], /^The verify record \(plates-verify:verify\.json\) could not be read: verify\.json holds no "results" list\./);
 });
 
 // PR #182 review: a preview's pass counted as production having passed since.
@@ -557,4 +576,242 @@ test('in the brief, "passed since" is the same site\'s pass only, and a preview\
   assert.equal(f.passedSince, true);
   [f] = verifyFailuresFor([r(preview, false, '2026-10-04T20:00:00Z')], NIGHT, { production: prod });
   assert.equal(verifyLine(f), `The preview ${preview} failed its verify for \`a1b2c3d\` at 2026-10-04T20:00:00Z: GET /: expected 200, got 500.`);
+});
+
+
+test('fresh morning adoption creates the absent legacy label before the approved issue',async t=>{
+ const p=await project(t,{labels:[]});
+ const result=plates(['morning','--send','--date',NIGHT,'--json'],p.root,{PLATES_GH:p.gh});
+ assert.equal(result.code,0,result.err+result.out);
+ const calls=(await p.calls()).map(c=>c.a);
+ const creates=calls.filter(a=>a[0]==='label' && a[1]==='create');
+ assert.deepEqual(creates.map(a=>a[2]),['keel:morning']);
+ assert.equal((await p.issuesNow()).at(-1).label,'keel:morning');
+});
+
+test('finalize keeps the sections it did not write', async t => {
+  const p = await project(t);
+  const { finalize } = await import('../lib/morning.mjs');
+  const path = join(p.root, `docs/health/${NIGHT}.md`);
+  const trimGenerated = lines => lines.join('\n').replace(/\n+$/, '');
+  const prefix = '# Acme health\n\nOwner notes keep trailing spaces.  \n\n';
+  const suffix = '\n\nProduction monitoring: Acme traffic remains observed.  \n### Production detail\nOwner appendix without a level-two heading.\n\n';
+  const oldBody = prefix + trimGenerated(planSection(asRecorded(), { record: `docs/night/${NIGHT}.json` })) + suffix;
+  const digest = body => createHash('sha256').update(body).digest('hex');
+  const wrap = (body, name) => `Owner preface\n<!-- ${name}:health-report:begin ${digest(body)} -->\n${body}\n<!-- ${name}:health-report:end -->\nOwner afterword.  \n\n\n`;
+  for (const wrapped of [false, 'keel', 'plates']) {
+    await writeFile(path, wrapped ? wrap(oldBody, wrapped) : oldBody);
+    await finalize({ root: p.root, date: NIGHT });
+    const record = JSON.parse(await readFile(join(p.root, `docs/night/${NIGHT}.json`), 'utf8'));
+    const expectedBody = prefix + trimGenerated(planSection(record, { record: `docs/night/${NIGHT}.json` })) + suffix;
+    const expected = wrapped ? wrap(expectedBody, wrapped) : expectedBody;
+    assert.equal(await readFile(path, 'utf8'), expected, `exact outside bytes, wrapped=${wrapped}`);
+    assert.equal(record.items.find(item => item.id === 'perf-bundle').status, 'done');
+    await finalize({ root: p.root, date: NIGHT });
+    assert.equal(await readFile(path, 'utf8'), expected, 'repeat finalization is byte-identical');
+  }
+  assert.deepEqual(await p.calls(), [], 'local finalize makes no gh calls');
+});
+
+test('plan replacement preserves unknown suffixes and newline bytes and refuses unknown ownership', () => {
+  const before = planSection(asRecorded());
+  const after = planSection(finished());
+  for (const eol of ['\n', '\r\n']) for (const ending of ['', eol, eol + eol + eol]) {
+    const prefix = `# Acme${eol}${eol}Before.  ${eol}${eol}`;
+    const old = before.join(eol).replace(/[\r\n]+$/, '');
+    const next = after.join(eol).replace(/[\r\n]+$/, '');
+    for (const outside of ['', 'Production monitoring: owner text.  ', '### Owner subsection', '## Owner section', '<!-- keel:health-report:end -->', '| Owner | unrelated | table |']) {
+      const suffix = (outside ? eol + eol + outside : '') + ending;
+      const source = prefix + old + suffix;
+      assert.equal(withPlanSection(source, after), prefix + next + suffix);
+      assert.equal(withPlanSection(prefix + next + suffix, after), prefix + next + suffix);
+    }
+  }
+  const source = '# Acme\n\nPreserve all existing ending bytes.  \n\n\n';
+  assert.ok(withPlanSection(source, after).startsWith(source));
+  assert.throws(() => withPlanSection("## Tonight's plan\n\nOwner-authored prose.\n", after), /plan.*boundar|plan.*structure/i);
+  assert.throws(() => withPlanSection(before.join('\n') + '\n' + before.join('\n'), after), /ambiguous/i);
+});
+
+
+test('local morning send discovers and pins checkout identity across queue labels delivery and closure', async t => {
+  for (const repo of [undefined, 'not a repository']) {
+    const p = await project(t, { config: { ...CONFIG, repo }, labels: [], changeDefaultAfterDiscovery: true,
+      issues: [{ number: 30, title: 'Good morning, 2026-10-04', state: 'OPEN' }] });
+    const r = plates(['morning', '--send', '--date', NIGHT, '--json'], p.root,
+      { PLATES_GH: p.gh, GITHUB_REPOSITORY: 'acme/stray' });
+    assert.equal(r.code, 0, r.err + r.out);
+    const calls = (await p.calls()).map(c => c.a);
+    assert.deepEqual(calls[0], ['repo', 'view', '--json', 'nameWithOwner']);
+    assert.equal(calls.filter(a => a[0] === 'repo').length, 1, 'resolve once before checkout default changes');
+    assert.deepEqual(calls.slice(1).map(a => a.slice(0, 2).join(' ')), ['issue list', 'issue list',
+      'api /repos/acme/anvils', 'api /repos/acme/anvils/labels?per_page=100&page=1', 'label create', 'issue create', 'issue close']);
+    for (const a of calls.slice(1)) assert.equal(a[0] === 'api' ? a[1].split('/').slice(2,4).join('/') : a[a.indexOf('--repo')+1], 'acme/anvils');
+    assert.deepEqual(calls.filter(a => a[0] === 'issue' && a[1] === 'list').map(a => a[a.indexOf('--label')+1]), ['plates:morning', 'keel:morning']);
+    const issues = await p.issuesNow();
+    assert.equal(issues.find(i => i.number === 30).state, 'CLOSED');
+    assert.match(issues.find(i => i.number === 31).body, /https:\/\/github\.com\/acme\/anvils\/blob\//);
+  }
+});
+
+test('local morning refuses malformed or unavailable checkout discovery before any write', async t => {
+  for (const options of [{failRepoView:true}, ...[null, {}, {nameWithOwner:42}, {nameWithOwner:'acme'},
+    {nameWithOwner:'acme/anvils/extra'}, {nameWithOwner:'acme/anvils\n'}, {nameWithOwner:'../anvils'},
+    {nameWithOwner:'acme/..'}, {nameWithOwner:'bad_owner/anvils'}].map(repoView => ({repoView}))]) {
+    const p = await project(t, { config:{...CONFIG,repo:null}, ...options });
+    const r = plates(['morning','--send','--date',NIGHT,'--json'],p.root,{PLATES_GH:p.gh,GITHUB_REPOSITORY:'acme/stray'});
+    assert.notEqual(r.code,0);
+    assert.match(r.err+r.out,/checkout repository|repository identity/i);
+    assert.deepEqual((await p.calls()).map(c=>c.a),[['repo','view','--json','nameWithOwner']], 'no queue, label or issue writes after unknown discovery');
+    assert.deepEqual(await p.issuesNow(),[]);
+  }
+});
+
+test('discovered morning identity still refuses current labels without rename evidence', async t => {
+  const p = await project(t,{config:{...CONFIG,repo:null},labels:[{id:71,name:'plates:morning'}]});
+  const r=plates(['morning','--send','--date',NIGHT,'--json'],p.root,{PLATES_GH:p.gh});
+  assert.notEqual(r.code,0);
+  assert.match(r.err+r.out,/Label mutation refused/);
+  assert.ok((await p.calls()).every(c=>!['create','close'].includes(c.a[1])));
+  assert.deepEqual(await p.issuesNow(),[]);
+});
+
+
+test('observation reports delivery separately before readiness without changing required work', () => {
+  const plan = finished(), before = JSON.stringify(plan);
+  const delivery = {
+    installation: { state: 'installed', operationId: 'acme-update-1', revision: 'a'.repeat(40) },
+    verification: { state: 'pending', gaps: ['night observation missing'] },
+    retirement: { state: 'pending', aliases: ['keel-night'] },
+  };
+  const b = renderBrief({ plan, now: BEFORE, reportMode: 'observation', delivery });
+  assert.ok(b.report, 'explicit observation report exists');
+  assert.equal(b.report.mode, 'observation');
+  assert.equal(b.report.partial, true);
+  assert.equal(b.report.finalTitle, titleOf(NIGHT));
+  assert.equal(b.readiness.ready, false, 'required build still blocks ordinary completeness');
+  assert.deepEqual(b.delivery.installation, delivery.installation);
+  assert.deepEqual(b.delivery.verification, delivery.verification);
+  assert.deepEqual(b.delivery.retirement, delivery.retirement);
+  assert.deepEqual(b.sections.unfinished, ['climb-docs']);
+  assert.deepEqual(b.sections.failed, ['robot-12']);
+  assert.match(b.markdown, /Partial observation/);
+  assert.match(b.markdown, /Installation: installed/);
+  assert.match(b.markdown, /Verification: pending/);
+  assert.match(b.markdown, /Retirement: pending/);
+  assert.match(b.markdown, /not independently verified/);
+  assert.equal(JSON.stringify(plan), before);
+  b.delivery.retirement.aliases.push('acme-extra');
+  assert.deepEqual(delivery.retirement.aliases, ['keel-night'], 'output cannot mutate the supplied receipt');
+  const failed = renderBrief({ plan, now: BEFORE, reportMode: 'observation', delivery: { installation: { state: 'failed' }, verification: { state: 'failed' }, retirement: { state: 'complete' } } });
+  assert.match(failed.markdown, /Installation: failed/);
+  assert.match(failed.markdown, /Verification: failed/);
+  assert.equal(failed.readiness.ready, false);
+  const absent = renderBrief({ plan, now: BEFORE, reportMode: 'observation' });
+  assert.equal(absent.delivery.installation.state, 'unknown');
+  assert.equal(absent.delivery.verification.state, 'unavailable');
+  assert.equal(absent.delivery.retirement.state, 'unavailable');
+  assert.throws(() => renderBrief({ plan, reportMode: 'observation', delivery: { verification: { state: 'healthy' } } }), /verification.state/);
+  assert.throws(() => renderBrief({ plan, reportMode: 'optional' }), /reportMode/);
+});
+
+test('observation leaves plan and issue identities intact; later final outcomes remain recoverable and deduplicated', async t => {
+  const p = await project(t);
+  const paths = [`.plates/plates.json`, `docs/night/${NIGHT}.json`, `docs/health/${NIGHT}.md`];
+  const before = await Promise.all(paths.map(path => readFile(join(p.root, path), 'utf8')));
+  const options = { root: p.root, date: NIGHT, now: BEFORE, env: { ...ENV, PLATES_GH: p.gh }, reportMode: 'observation' };
+  const planRef = git(p.root, 'ls-remote', 'origin', 'refs/heads/plates-night-plan');
+  const b = await morningModule.brief(options);
+  assert.equal(git(p.root, 'ls-remote', 'origin', 'refs/heads/plates-night-plan'), planRef);
+  assert.equal(existsSync(join(p.root, PLAN)), false, 'report creates no working plan');
+  assert.ok(b.data.report, 'brief exposes observation report');
+  assert.equal(b.data.report.partial, true);
+  assert.equal(b.data.readiness.ready, false);
+  assert.equal(b.data.delivery.verification.state, 'unavailable');
+  assert.deepEqual(await p.calls(), [], 'no GitHub effects or dispatch');
+  assert.deepEqual(await Promise.all(paths.map(path => readFile(join(p.root, path), 'utf8'))), before);
+  await assert.rejects(morningModule.send(options), /observation.*read-only/);
+  await assert.rejects(morningModule.finalize(options), /observation.*read-only/);
+  assert.deepEqual(await p.calls(), [], 'reject before send discovery or mutation');
+  // A real later tick remains owned by the plan, not the observation.
+  git(p.root, 'checkout', '-q', 'plates-night-plan');
+  const later = finished();
+  later.items.find(i => i.id === 'climb-docs').status = 'done';
+  await writeFile(join(p.root, REMOTE_PLAN), JSON.stringify(later));
+  git(p.root, 'add', REMOTE_PLAN); git(p.root, 'commit', '-q', '-m', 'Acme: later outcome');
+  git(p.root, 'push', '-q', 'origin', 'plates-night-plan');
+  git(p.root, 'checkout', '-q', 'main');
+  const recovered = await finalPlan({ root: p.root, date: NIGHT });
+  assert.equal(recovered.plan.items.find(i => i.id === 'climb-docs').status, 'done');
+  const finalOptions = { ...options, reportMode: 'final', now: AFTER };
+  await morningModule.finalize(finalOptions);
+  assert.equal(JSON.parse(await readFile(join(p.root, `docs/night/${NIGHT}.json`))).items.find(i => i.id === 'climb-docs').status, 'done');
+  assert.equal((await morningModule.send(finalOptions)).data.sent, true);
+  assert.equal((await morningModule.send(finalOptions)).data.sent, false);
+  assert.equal((await p.issuesNow()).length, 1);
+  assert.equal((await p.issuesNow())[0].title, titleOf(NIGHT));
+});
+
+test('shipped observation mode is read-only and unavailable on effectful subcommands', async t => {
+  const p = await project(t);
+  const script = join(p.root, 'scripts/plates/morning.mjs');
+  const r = run(process.execPath, [script, 'brief', '--date', NIGHT, '--observation', '--json'], { cwd: p.root, env: { ...ENV, PLATES_GH: p.gh } });
+  assert.equal(r.status, 0, r.stderr || r.stdout);
+  assert.equal(JSON.parse(r.stdout).report.mode, 'observation');
+  for (const sub of ['send', 'finalize', 'decide']) {
+    assert.throws(() => morningModule.parseArgs([sub, '--date', NIGHT, '--observation']), /unexpected argument/);
+  }
+  assert.deepEqual(await p.calls(), []);
+});
+
+
+test('morning wrapper forwards observation flag and explicit reportMode with delivery without changing readiness', async t => {
+  const p = await project(t);
+  const options = { root: p.root, date: NIGHT, now: BEFORE, env: { ...ENV, PLATES_GH: p.gh } };
+  const delivery = { installation: { state: 'installed', operationId: 'acme-update-1' }, verification: { state: 'pending' } };
+  for (const mode of [{ observation: true }, { reportMode: 'observation' }]) {
+    const b = await morningModule.morning({ ...options, ...mode, delivery });
+    assert.ok(b.data.report, 'wrapper forwards the requested observation mode');
+    assert.equal(b.data.report.mode, 'observation');
+    assert.equal(b.data.report.finalTitle, titleOf(NIGHT));
+    assert.equal(b.data.readiness.ready, false);
+    assert.deepEqual(b.data.delivery.installation, delivery.installation);
+    assert.deepEqual(b.data.delivery.verification, delivery.verification);
+    assert.equal(b.data.delivery.retirement.state, 'unavailable');
+  }
+  const ordinary = await morningModule.morning(options);
+  assert.equal(ordinary.data.report, undefined, 'default remains the ordinary brief');
+  assert.equal(ordinary.data.readiness.ready, false);
+  assert.equal(ordinary.data.title, titleOf(NIGHT));
+  assert.deepEqual(await p.calls(), []);
+});
+
+test('morning wrapper refuses observation sends and cards before reading config or invoking effectful paths', async () => {
+  // No root: reaching either old path fails before the expected mode refusal.
+  for (const mode of [{ observation: true }, { reportMode: 'observation' }]) {
+    for (const effect of [{ send: true }, { card: true }, { send: true, card: true }, { yes: true }, { dryRun: true }]) {
+      await assert.rejects(morningModule.morning({ ...mode, ...effect }), /observation.*read-only/);
+    }
+  }
+  await assert.rejects(morningModule.morning({ observation: true, reportMode: 'final', send: true }), /conflicts/);
+  await assert.rejects(morningModule.morning({ reportMode: 'unknown', card: true, yes: true }), /reportMode/);
+});
+
+
+test('public morning observation reaches the read-only wrapper and refuses publishing flags', async t => {
+  const p = await project(t);
+  const args = ['morning', '--observation', '--date', NIGHT, '--json'];
+  const r = plates(args, p.root, { PLATES_GH: p.gh });
+  assert.equal(r.code, 0, r.err || r.out);
+  assert.equal(r.json().report.mode, 'observation');
+  assert.equal(r.json().report.finalTitle, titleOf(NIGHT));
+  assert.equal(r.json().delivery.installation.state, 'unknown');
+  assert.deepEqual(r.json().sections.unfinished, ['climb-docs']);
+  for (const flag of ['--send', '--card', '--yes', '--dry-run']) {
+    const denied = plates([...args, flag], p.root, { PLATES_GH: p.gh });
+    assert.equal(denied.code, 2, flag);
+    assert.match(denied.out + denied.err, /observation.*cannot publish/);
+  }
+  assert.deepEqual(await p.calls(), [], 'public observation cannot call issue or model dispatch APIs');
+  assert.deepEqual(await p.issuesNow(), []);
 });

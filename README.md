@@ -77,6 +77,13 @@ A project that uses plates carries `.plates/plates.json`, which records:
 Existing agent guides are preserved: adoption selects `AGENTS.md`, then
 `CLAUDE.md`, or an explicit `--guide <path>`. See the [adoption guide](docs/guide/bring-a-project-under-plates.md).
 
+Consumer adoption and fleet enrollment are separate. `plates adopt` reports
+central membership as **not checked**; it does not edit this source checkout's
+`plates.json` or grant hosted workspace access. When enrollment is requested,
+review a `managed` entry in the actual central manifest, then run the
+[read-only registration completion check](docs/guide/keep-the-fleet-current.md#complete-fleet-registration).
+A local validation/admission manifest is not fleet registration.
+
 Projects can also keep GitHub milestones as their plan with
 `"phases": {"source": "milestones"}`. Plates projects them into `next`, the
 board and the night without editing GitHub or claiming acceptance from closure.
@@ -160,6 +167,11 @@ treated as yours: the next update simply takes plates's file.
 
 `plates fleet` shows every project at once: practice version, health, CI,
 unsent lessons, and open machine PRs.
+
+Each plate owns its nightly validation and revision-bound verification report.
+Fleet inspection compares that evidence with current default-branch facts and
+surfaces gaps without running consumer tests. See the
+[night guide](docs/guide/the-night-shift.md#each-plate-verifies-itself).
 
 ## Private workspace and web UI
 
@@ -376,10 +388,12 @@ then gives the commands and every flag by the reason you'd pass it.
 | [Delivery](docs/guide/delivery.md) | two changes in a row should publish once, and deploys should follow tested commits, not `main` |
 | [When something is red](docs/guide/when-something-is-red.md) | a night, an update, a doctor or a climb did not go green |
 | [Project canvas](docs/guide/project-canvas.md) | you want a source-linked view of the project's lifecycle and improvement |
+| [Harness evaluation records](docs/guide/harness-evaluations.md) | you want to freeze evaluation inputs, compare offline trials and recover interrupted work |
 | [Session handoff trials](docs/guide/session-handoff-trials.md) | you want to measure and tune session handoffs within a bounded experiment |
 | [Loose ends and the retro](docs/guide/loose-ends-and-retro.md) | you are picking work back up, or a phase just finished |
 | [Model choice and project planning](docs/guide/web-model-routing.md) | you want to review a private model policy, approve exact project text and bounded cost, or follow an original attempt and saved-summary continuation |
 | [Scoped connections and capacity](docs/guide/web-connections.md) | you want to review private project grants, manage a verified credential binding or inspect supported capacity and gaps |
+| [Install a reviewed practice update](docs/guide/keeping-projects-current.md) | you want to install a compatible update separately from nightly verification and optimization |
 | [Fleet versions and lesson rollout](docs/guide/web-fleet-updates.md) | you want to compare observed versions, prepare a canary, review exact update PRs or trace a lesson through source, release and adoption |
 | [Run supported routines](docs/guide/web-workers.md) | you want to review an approved worker, reserve bounded runtime, recover an original request or inspect a cancellation and linked retry |
 | [Routine definitions and observed activity](docs/guide/web-routine-history.md) | you want to inspect workflow definitions, retries, stages, evidence, costs and bounded history coverage |
@@ -416,6 +430,7 @@ Every verb takes `--json`. Exit codes are the same everywhere:
 | `plates phase new\|list\|claim` | Scaffold the next free phase under a goal; claim a phase before building it |
 | `plates ready`, `plates integrate` | Hand a committed change off with only its fast checks; one integrator (lock `claims/integrate`) runs the full gate once for every ready change and pushes once, sending a failing change back blocked |
 | `plates init`, `plates adopt` | Start a project, or bring one under plates |
+| `plates names` | Preview exact external names; approved single-repository apply, original-operation recovery, machine migration and read-only rollout verification |
 | `plates migrate` | Preview the Keel-to-Plates checkout migration; apply the reviewed digest with `--yes --digest` |
 | `plates render` | Write the practices onto the project; `--check` only compares |
 | `plates doctor` | What the project changed of plates's files, and practice rules broken. Changes nothing without `--fix` |
@@ -442,7 +457,7 @@ Every verb takes `--json`. Exit codes are the same everywhere:
 | --- | --- |
 | `plates learn` | Lesson issues and moved sources become proposals: `propose` is an agent's, `decide` is a person's |
 | `plates release` | Release the CLI; bump the practice only when project-facing files changed, with a what's-new for the recipient |
-| `plates fleet`, `plates fleet update` | Every project at a glance; open update PRs where they're behind |
+| `plates fleet`, `plates fleet update` | Inspect projects, prepare update PRs, and explicitly install/recover reviewed compatible updates |
 
 **Across projects:**
 
@@ -520,3 +535,18 @@ ported to ledger, then to duo and cajones. Plates adapts isocan's conduct skill
 and its measurement ideas under Apache-2.0, and credits them in
 [NOTICE](NOTICE) and in each adapted file's header. Plates itself is
 Apache-2.0.
+
+### Planned evaluation and learning
+
+The [harness evaluation design](docs/specs/harness-regression-evaluation.md) and
+[measured review-learning design](docs/specs/review-learning-evaluation.md) specify
+paired task trials, independent acceptance and reviewed lesson promotion.
+[Phases 117–123](docs/ROADMAP.md) track implementation. Phase 117 provides local
+plan/freeze/inspect records. Phase 118 adds an explicit offline Docker run with
+shared host admission and independent artifact acceptance. Phase 119 adds frozen
+paired execution, comparison reports and explicit original-operation recovery.
+Live provider execution, enforced spend and measured lesson promotion remain
+unimplemented; offline outcomes do not establish agent improvement. No paid
+evaluations are approved. The
+[capability map](docs/research/2026-10-23-evaluation-capabilities.md) separates
+existing mechanisms from the proposed extensions.
