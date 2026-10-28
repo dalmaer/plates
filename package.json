@@ -1,6 +1,6 @@
 {
   "name": "plates",
-  "version": "0.8.36",
+  "version": "0.8.37",
   "private": true,
   "description": "Keep projects moving with shared practices, bounded automation, and evidence-backed care.",
   "type": "module",
