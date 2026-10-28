@@ -3,6 +3,10 @@
   "summary": "A different provider reviews each pull request than the one that wrote it whenever one is available (Claude reviews Codex's codex/ PRs, Codex reviews Claude's claude/ PRs, chosen per PR from \"agents\"; its own provider only when no other is, said): findings tagged P1/P2/P3, each validated against the code first, ending its summary as JSON that plates's own step checks against the diff and posts as inline comments in one COMMENT review; with \"after\": \"push\", each push to main is reviewed after it lands, as one batch, its findings on the head commit and in one tracking issue; read-only, budgeted, never approves or merges.",
   "optional": true,
   "requires": ["night"],
+  "runtimeFiles": [
+    { "practice": "night", "path": "scripts/plates/autonomy-policy.mjs" },
+    { "practice": "night", "path": "scripts/plates/autonomy-context.mjs" }
+  ],
   "secrets": [
     { "name": "CLAUDE_CODE_OAUTH_TOKEN", "why": "Claude's credential (`claude setup-token`), as the claude practice's; each reviewed PR spends model tokens up to .plates/plates.json crossReview.budget.minutes. Either this or ANTHROPIC_API_KEY; until one is set the run ends green with a notice", "workflow": ".github/workflows/plates-cross-review.yml" },
     { "name": "ANTHROPIC_API_KEY", "why": "the alternative to CLAUDE_CODE_OAUTH_TOKEN, billed per token to the API account; set one of the two, not both", "workflow": ".github/workflows/plates-cross-review.yml" },

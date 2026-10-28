@@ -105,7 +105,11 @@ test(`the cold start stays under ${COLD_START_LIMIT} characters`, async t => {
   assert.ok(coldStart.length < COLD_START_LIMIT, `cold start is ${coldStart.length} characters`);
   const near = coldStartHeadroom(coldStart.length);
   if (near) t.diagnostic(near);
-  const r = plates(['--agent-help']);
+  // A configured source checkout may append its project preference. Check the
+  // unchanged generic cold start in an explicit projectless fixture.
+  const root = await mkdtemp(join(tmpdir(), 'plates-cold-start-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const r = plates(['--agent-help'], root);
   assert.equal(r.code, 0, r.err);
   assert.equal(r.out.trim(), coldStart);
 });

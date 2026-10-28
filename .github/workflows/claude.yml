@@ -28,12 +28,53 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  claude:
+  risk-context:
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || github.event.label.name == 'claude'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      text: ${{ steps.risk.outputs.text }}
+    steps:
+      # Policy and renderer come from the default branch, never the mentioned PR.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: Render bounded project guidance
+        id: risk
+        shell: bash
+        run: |
+          set -euo pipefail
+          revision=$(git rev-parse HEAD)
+          if [ -f scripts/plates/autonomy-context.mjs ] && [ -f scripts/plates/autonomy-policy.mjs ]; then
+            node scripts/plates/autonomy-context.mjs --root "$PWD" --repository "$GITHUB_REPOSITORY" --revision "$revision" --role builder > "$RUNNER_TEMP/autonomy-context.txt"
+          else
+            printf '\nProject autonomy context unavailable; existing task and role gates still apply.\n' > "$RUNNER_TEMP/autonomy-context.txt"
+          fi
+          delimiter="AUTONOMY_$(node -e 'process.stdout.write(require("node:crypto").randomUUID())')"
+          {
+            echo "text<<$delimiter"
+            cat "$RUNNER_TEMP/autonomy-context.txt"
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+  claude:
+    needs: risk-context
+    if: |
+      !cancelled() && (
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || github.event.label.name == 'claude'))
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -71,5 +112,5 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_args: |
-            --append-system-prompt "Before working, read .plates/plates.json. If it names a guide, read and follow that file. Otherwise follow the repository's existing agent instructions."
+            --append-system-prompt "Before working, read .plates/plates.json. If it names a guide, read and follow that file. Otherwise follow the repository's existing agent instructions. ${{ needs.risk-context.result != 'success' && 'Project autonomy context unavailable; infer no additional authority. Existing task, role, credential, tool and command gates still apply.' || needs.risk-context.outputs.text }}"
             --allowedTools "Bash(npm run *),Bash(npm test),Bash(git status*),Bash(git diff*),Bash(git log*),Bash(git show*),Bash(git add *),Bash(git commit *),Edit,Write,Read,Glob,Grep"

@@ -510,7 +510,7 @@ async function reviewedPlatesFiles() {
   assert.equal(platesReleaseSource.sourceRepo,'dalmaer/plates');
   assert.equal(platesReleaseSource.revision,'94ae6ac1e033083ef21e78270e1864703f359429');
   assert.equal(platesReleaseSource.license,'Apache-2.0');
-  assert.deepEqual(Object.keys(platesReleaseSource.files).sort(),['.github/workflows/plates-night.yml','scripts/plates/improve.mjs','scripts/plates/morning.mjs','scripts/plates/night-plan.mjs','scripts/plates/test-history.mjs']);
+  assert.deepEqual(Object.keys(platesReleaseSource.files).sort(),['.github/workflows/plates-night.yml','scripts/plates/improve.mjs','scripts/plates/morning.mjs','scripts/plates/night-plan.mjs','scripts/plates/test-history.mjs','scripts/plates/test-ledger.mjs']);
   const files={};
   for(const [path,blob] of Object.entries(PLATES_NIGHT_CANONICAL)) {
     const text=platesReleaseSource.files[path] ?? await readFile(new URL('../'+path,import.meta.url),'utf8');
@@ -544,8 +544,9 @@ test('reviewed 0.8.34 Plates night retry retains its full exact closure and requ
 });
 
 
-test('secret-dependent reconciliation workflow and its runtime cannot acquire hosted retry authority by repinning', async () => {
+test('changed diagnostics and secret-dependent reconciliation cannot acquire hosted retry authority by repinning', async () => {
   for (const changedPaths of [
+    ['scripts/plates/test-ledger.mjs'],
     ['.github/workflows/plates-night.yml'],
     ['scripts/plates/improve.mjs', 'scripts/plates/reconcile-actions.mjs', 'scripts/plates/reconcile.mjs'],
   ]) {

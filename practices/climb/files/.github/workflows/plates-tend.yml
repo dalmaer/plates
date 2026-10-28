@@ -234,6 +234,11 @@ jobs:
             echo
             cat .plates/tend/pass.json
           } > "$RUNNER_TEMP/prompt.md"
+          if [ -f "$RUNNER_TEMP/plates/scripts/plates/autonomy-context.mjs" ] && [ -f "$RUNNER_TEMP/plates/scripts/plates/autonomy-policy.mjs" ]; then
+            node "$RUNNER_TEMP/plates/scripts/plates/autonomy-context.mjs" --root "$PWD" --repository "$GITHUB_REPOSITORY" --revision "$GITHUB_SHA" --role builder >> "$RUNNER_TEMP/prompt.md"
+          else
+            printf '\nProject autonomy context unavailable; existing task and role gates still apply.\n' >> "$RUNNER_TEMP/prompt.md"
+          fi
           if [ "$AGENT" = codex ]; then
             {
               echo

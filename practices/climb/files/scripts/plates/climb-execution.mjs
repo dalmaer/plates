@@ -3,15 +3,38 @@ import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-/** Keep categories only: commands, paths, arguments, credentials and session text never leave the execution file. */
+// Only fixed vocabulary leaves the private provider file. This is classification,
+// not a shell parser: arguments, paths, messages and identifiers are never copied.
+function denialDetail(d) {
+  const tool = ['Read', 'Edit', 'Write', 'Glob', 'Grep', 'Bash'].includes(d?.tool_name) ? d.tool_name : 'unknown';
+  const input = d?.tool_input;
+  const command = typeof input?.command === 'string' ? input.command : null;
+  const path = typeof input?.file_path === 'string' ? input.file_path : typeof input?.path === 'string' ? input.path : null;
+  let commandFamily = null;
+  if (tool === 'Bash' && command !== null && command.length <= 8192) {
+    const match = /^(git (?:status|diff|log|show|add|commit|switch|worktree)|npm (?:test|run)|node)(?=\s|$)/.exec(command.trimStart());
+    commandFamily = match?.[1] ?? null;
+  }
+  let targetKind = null;
+  if (path !== null && path.length > 0 && path.length <= 4096) {
+    targetKind = /^(?:\.\/)?\.git(?:\/|$)/.test(path) ? 'repository-metadata'
+      : /^(?:\.\/)?\.plates(?:\/|$)/.test(path) ? 'plates-state'
+      : path.startsWith('/') || /^[A-Za-z]:[\\/]/.test(path) ? 'absolute-path'
+      : 'relative-path';
+  }
+  return { tool, reason: 'permission-denied', commandFamily, targetKind,
+    commandDetail: command === null ? 'not-supplied' : commandFamily ? 'classified-prefix-only' : 'withheld',
+    targetDetail: path === null ? 'not-supplied' : targetKind ? 'classified-path-only' : 'withheld' };
+}
+
+/** At most eight sanitized diagnostics; counts do not imply operation details. */
 export function denialEvidence(result) {
   const entries = Array.isArray(result?.permission_denials) ? result.permission_denials : [];
   const reported = Number.isSafeInteger(result?.permission_denials_count) && result.permission_denials_count >= 0 ? result.permission_denials_count : 0;
   const count = Math.max(reported, entries.length);
-  return { count, detailsAvailable: entries.length > 0, omitted: Math.max(0, count - Math.min(entries.length, 8)), entries: entries.slice(0, 8).map(d => ({
-    tool: ['Read', 'Edit', 'Write', 'Glob', 'Grep', 'Bash'].includes(d?.tool_name) ? d.tool_name : 'unknown',
-    reason: 'permission-denied',
-  })) };
+  const retained = entries.slice(0, 8).map(denialDetail);
+  return { count, detailsAvailable: retained.some(d => d.commandFamily !== null || d.targetKind !== null),
+    omitted: Math.max(0, count - retained.length), entries: retained };
 }
 
 /** Runner capability only. The action's later model/tool permissions are explicitly unverified. */
@@ -37,8 +60,12 @@ export async function preflight(root, { execute = spawnSync } = {}) {
     }
   } catch { checks.push({ capability: 'repository-read-write', ok: false }); }
   finally { if (scratch) await rm(scratch, { recursive: true, force: true }); }
-  const ok = checks.length === 6 && checks.every(c => c.ok);
-  return { schema: 1, ok, state: ok ? 'ready' : 'blocked', checks, agentPermissions: 'unverified', line: ok ? 'runner capabilities verified; agent action permissions remain unverified' : 'blocked: runner capability preflight failed; baseline was not started' };
+  const runnerReady = checks.length === 6 && checks.every(c => c.ok);
+  // This receipt establishes runner capability only. Do not turn declared
+  // action settings into effective permission evidence, or disable every climb
+  // until a provider-bound readiness adapter has been implemented and reviewed.
+  return { schema: 1, ok: runnerReady, state: runnerReady ? 'runner-ready' : 'blocked', runnerReady, checks, agentPermissions: 'unverified',
+    line: runnerReady ? 'runner capabilities verified; agent action permissions remain unverified' : 'blocked: runner capability preflight failed; baseline was not started' };
 }
 
 /** Wall seconds, not CPU. Total includes inter-job queue/transfer time; phases must not be summed as total. */
