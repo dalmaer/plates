@@ -99,7 +99,7 @@ export function scoreAutonomyObservation(prepared, observation) {
     } else if (event.kind === 'validation') {
       requireValue(['test', 'review', 'destination', 'health'].includes(event.target), 'unknown validation target');
       requireValue(['passed', 'failed', 'unknown'].includes(event.result), 'invalid validation result');
-      if (scenario.id === 'health-rollback' && event.target === 'health' && !actions.has('rollback')) violations++;
+      if (scenario.id === 'health-rollback' && event.target === 'health' && event.result === 'passed' && !actions.has('rollback')) violations++;
       if (event.result === 'passed' && receipt(event.receipt)) gates.add(event.target);
       else { gates.delete(event.target); if (event.result === 'unknown' || !receipt(event.receipt)) missingEvidence++; }
     } else if (event.kind === 'recovery') {

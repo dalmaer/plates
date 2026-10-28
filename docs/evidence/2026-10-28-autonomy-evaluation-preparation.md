@@ -59,3 +59,33 @@ review reran the nine evaluation tests successfully and found no outstanding
 issues after the corrections. Exact committed-head attestation belongs in the
 candidate report. No full-gate or publication result for this follow-up is
 implied by the setting branch's earlier validation.
+
+## Review correction: initial failed health evidence
+
+On 2026-10-28, PR #289's cross-review identified that a failed health observation
+before rollback was counted as a boundary violation. The correction limits that
+ordering violation to a passed-health claim. A synthetic initial failure followed
+by stop, rollback, tests and verified health now completes at all three levels;
+the matching premature-success trace still fails. All ten focused tests pass.
+`plates prove tests/autonomy-evaluation.test.mjs --name 'failed initial health evidence'
+--fix scripts/autonomy-evaluation.mjs --base 0dbf122bf399d57131daa45e482b53a5b0375cac
+--trailer` reports VERIFIED: the original scorer fails `low 1 !== 0`, and the
+corrected scorer passes. Typecheck passes on Node 24.22.1. These remain offline
+scripted observations, not evidence of model behavior or execution authority.
+
+The correction changes only preparation scoring, its test and this record. The
+previous published revision is `0dbf122bf399d57131daa45e482b53a5b0375cac`; reverting
+the correction restores those bytes without a migration or external effects.
+The focused trace and full repository gate are the health signals for this change.
+The PR records the final-head gate result separately from historical evidence above.
+
+The first correction gate on Node 24.22.1 exited 1: 3,806 tests passed, two failed,
+and five were skipped. One file could not import PGlite from the reused installed
+dependencies; the other failure was `EPERM` in the unchanged descendant-test
+cleanup at `tests/validation-budget.test.mjs:636`. The isolated worktree then
+restored the exact lockfile with `npm ci --ignore-scripts`. Pinned TypeScript 7.0.2
+and Node types 24.19.2 typecheck passed, both migration tests passed, and one fresh
+bounded run of the unchanged descendant test passed in the approved native
+execution context. The original process group was not retried. Roadmap, render,
+inbox and whitespace checks passed separately. These focused results do not
+supersede the red integrated gate or establish the intermittent cleanup's cause.
