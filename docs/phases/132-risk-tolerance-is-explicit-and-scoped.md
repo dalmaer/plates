@@ -59,5 +59,12 @@ does not implement or relabel that separate work.
 
 ## Next action
 
-None for this bounded setting slice. Obtain separate evidence before claiming
-host integration or repeated real-world benefit.
+The bounded setting slice is implemented. [Evaluation preparation](../guide/autonomy-evaluation.md)
+now supplies reproducible development cases and an offline scorer; obtain a separately
+approved capture/runtime adapter and paired evidence before claiming behavioral
+improvement, host integration or repeated real-world benefit.
+
+
+[Evaluation preparation evidence](../evidence/2026-10-28-autonomy-evaluation-preparation.md)
+records offline machinery checks and the remaining live-capture boundary; it does
+not establish behavioral improvement or change this setting’s acceptance.

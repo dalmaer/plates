@@ -284,3 +284,10 @@ points, and the evaluator respects it only with independently verified current
 facts. Update publication, drain/merge, deployment, budgets and hosted mutation
 approval gates remain unchanged. Do not fill `context.platform` from the preference,
 runner probes, provider names, API credentials or historical yeses.
+
+
+## Evaluate the behavior
+
+The [risk-level evaluation preparation](autonomy-evaluation.md) reuses the existing
+frozen-pair harness for identical Low/Medium/High tasks. It supplies synthetic
+scenarios and an offline scorer; live model behavior remains unmeasured.
