@@ -5,6 +5,14 @@ practice version: what changes in your repo, and anything you need to do.
 Newest first. `plates release` writes them; `plates update` puts the entries
 between your version and the new one into its pull request.
 
+## v0.8.37 — practice 0.8.37 (2026-10-28)
+
+Scoped risk guidance now travels with the shared practice into night, climb, tend, robot, cross-review and mention prompts. It follows each project's selected risk level while retaining explicit authorization, validation and rollback boundaries; this update does not enable High risk or increase any provider budget.
+
+Plates also includes paired harness evaluation and recovery tooling, offline Low/Medium/High comparison preparation, and an opt-in Pi context/evidence example. The evaluation scorer accepts a failed health observation before rollback while still rejecting premature success. These source-only evaluation and Pi examples do not activate model trials or consumer integrations. The Pi example retains its documented browser-layout verification gap.
+
+Existing managed-file drift protection, migration checks and project gates still govern upgrades. Review each project's draft update PR before installation; neither publication nor a passing source gate establishes production acceptance.
+
 ## v0.8.36 — practice 0.8.36 (2026-10-27)
 
 The morning workflow sends its brief again. Since 0.8.34, the morning's decide job has depended on the dispatch-only names-origin job. On every scheduled run names-origin was skipped, and GitHub skipped finalize, send and card with it. So the night's final PR never opened, no brief was sent and the canvas card stayed stale. The three jobs now run past a skipped ancestor, while still requiring decide to succeed and keeping their existing conditions. A new test flags any workflow job that would be skipped this way.

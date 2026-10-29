@@ -3,7 +3,7 @@ import fileOperations from 'node:fs/promises';
 import { syncBuiltinESMExports } from 'node:module';
 import { agentRan } from '../scripts/plates/climb.mjs';
 import assert from 'node:assert/strict';
-import { mkdtemp, readdir, rm, readFile, writeFile, cp } from 'node:fs/promises';
+import { mkdtemp, readdir, rm, readFile, writeFile, cp, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { denialEvidence, preflight, durations, completion } from '../scripts/plates/climb-execution.mjs';
@@ -16,7 +16,7 @@ test('denial evidence has bounded categories without command, path or message le
   assert.equal(r.entries.length, 8);
   assert.equal(r.omitted, 92);
   assert.ok(!JSON.stringify(r).includes(secret));
-  assert.deepEqual(denialEvidence({ permission_denials: [{ tool_name: secret }] }).entries, [{ tool: 'unknown', reason: 'permission-denied' }]);
+  assert.equal(denialEvidence({ permission_denials: [{ tool_name: secret }] }).detailsAvailable, false);
 });
 
 test('preflight checks scratch capabilities, cleans up, and stops before later commands on failure', async t => {
@@ -25,6 +25,8 @@ test('preflight checks scratch capabilities, cleans up, and stops before later c
   const seen = [];
   const good = await preflight(root, { execute: (command, args, opts) => { seen.push([command, args, opts]); return { status: 0 }; } });
   assert.equal(good.ok, true);
+  assert.equal(good.runnerReady, true);
+  assert.equal(good.state, 'runner-ready');
   assert.equal(good.agentPermissions, 'unverified');
   assert.equal(seen.length, 5);
   assert.ok(seen.every(x => x[2].timeout === 10000 && x[2].shell === false));
@@ -33,6 +35,69 @@ test('preflight checks scratch capabilities, cleans up, and stops before later c
   assert.equal(bad.checks.length, 2);
   assert.ok(!JSON.stringify(bad).includes('secret'));
   assert.deepEqual(await readdir(root), []);
+});
+
+test('denial diagnostics distinguish absent, withheld and classified details without retaining arguments', () => {
+  const secret = 'acme-private-secret';
+  const r = denialEvidence({ permission_denials: [
+    { tool_name: 'Bash', tool_input: { command: `git status -- ${secret}` } },
+    { tool_name: 'Bash', tool_input: { command: `npm run check --token=${secret}` } },
+    { tool_name: 'Read', tool_input: { file_path: `.git/${secret}` } },
+    { tool_name: 'Edit', tool_input: { file_path: `/private/${secret}` } },
+    { tool_name: 'Write', tool_input: { file_path: `.plates/${secret}` } },
+    { tool_name: 'Bash', tool_input: { command: `${secret} --flag` } },
+    { tool_name: 'Bash' }, null,
+  ] });
+  assert.equal(r.detailsAvailable, true);
+  assert.deepEqual(r.entries.map(d => d.commandFamily), ['git status', 'npm run', null, null, null, null, null, null]);
+  assert.deepEqual(r.entries.map(d => d.targetKind), [null, null, 'repository-metadata', 'absolute-path', 'plates-state', null, null, null]);
+  assert.equal(r.entries[0].commandDetail, 'classified-prefix-only');
+  assert.equal(r.entries[5].commandDetail, 'withheld');
+  assert.equal(r.entries[6].commandDetail, 'not-supplied');
+  assert.ok(!JSON.stringify(r).includes(secret));
+  for (const command of [`git status${secret}`, 'x'.repeat(9000), `TOKEN=${secret} git status`]) {
+    const withheld = denialEvidence({ permission_denials: [{ tool_name: 'Bash', tool_input: { command } }] });
+    assert.equal(withheld.detailsAvailable, false);
+    assert.equal(withheld.entries[0].commandDetail, 'withheld');
+  }
+  const categories = denialEvidence({ permission_denials: [{ tool_name: 'Bash' }, { tool_name: 'Bash' }] });
+  assert.equal(categories.count, 2);
+  assert.equal(categories.detailsAvailable, false, 'tool names alone are not command or target details');
+  assert.equal(denialEvidence({ permission_denials: Array(8).fill(null).concat({ tool_name: 'Bash', tool_input: { command: 'git status' } }) }).detailsAvailable, false, 'omitted details are not claimed as retained');
+});
+
+test('workflow retains failed runner preflight receipts without claiming agent authority', async t => {
+  const dir = await acme(t);
+  const root = await mkdtemp(join(tmpdir(), 'acme-readiness-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const head = git(dir, ['rev-parse', 'HEAD']);
+  await mkdir(join(root, 'bin'));
+  await writeFile(join(root, 'bin/npm'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+  const r = await step(t, dir, 'Check runner capabilities before baseline', { RUNNER_TEMP: root, PATH: `${join(root, 'bin')}:${process.env.PATH}` });
+  assert.equal(r.status, 1, r.out);
+  assert.equal(r.outputs.state, 'blocked');
+  const receipt = JSON.parse(await readFile(join(root, 'climb-preflight.json'), 'utf8'));
+  assert.equal(receipt.runnerReady, false);
+  assert.equal(receipt.agentPermissions, 'unverified');
+  assert.equal(receipt.ok, false);
+  assert.equal(git(dir, ['rev-parse', 'HEAD']), head);
+  assert.ok(!(await readdir(join(dir, '.plates'))).includes('climb'));
+  const workflow = await readFile(new URL('../practices/climb/files/.github/workflows/plates-climb.yml', import.meta.url), 'utf8');
+  assert.ok(workflow.indexOf('id: preflight') < workflow.indexOf('id: baseline'));
+  assert.ok(workflow.indexOf('id: baseline') < workflow.indexOf('uses: anthropics/claude-code-action'));
+  assert.ok(workflow.indexOf('id: baseline') < workflow.indexOf('uses: openai/codex-action'));
+  assert.match(workflow, /for f in climb-preflight.json climb-execution.json climb-durations.json/);
+  const costs = await step(t, dir, 'Record execution costs', { RUNNER_TEMP: root, START: String(Date.now() / 1000), BASELINE_START: '', BASELINE_END: '', AGENT_SECONDS: '', BRIEF_STARTED: '' });
+  assert.equal(costs.status, 0, costs.out);
+  for (const agent of ['claude', 'codex']) {
+    const handoff = await step(t, dir, 'Hand the night on', { RUNNER_TEMP: root, BRANCH: 'climb/acme-unstarted', AGENT: agent, GITHUB_SHA: head });
+    assert.equal(handoff.status, 0, handoff.out);
+    assert.deepEqual(JSON.parse(await readFile(join(root, 'handoff/climb-preflight.json'), 'utf8')), receipt);
+    const cost = JSON.parse(await readFile(join(root, 'handoff/climb-durations.json'), 'utf8'));
+    assert.equal(cost.baseline, null);
+    assert.equal(cost.agent, null);
+    assert.ok(!(await readdir(join(root, 'handoff'))).includes('night.bundle'));
+  }
 });
 
 test('duration includes baseline and queue wall time without summing phases or inventing CPU', () => {
@@ -49,7 +114,7 @@ test('actual execution workflow fails with unchanged HEAD and retains sanitized 
   t.after(() => rm(temp, { recursive: true, force: true }));
   await cp(join(dir, 'scripts/plates'), join(temp, 'plates/scripts/plates'), { recursive: true });
   const file = join(temp, 'execution.json');
-  await writeFile(file, execution({ is_error: false, num_turns: 30, duration_ms: 79452, permission_denials: [{ tool_name: 'Bash', tool_input: { command: 'private-path-and-token' } }] }));
+  await writeFile(file, execution({ is_error: false, num_turns: 30, duration_ms: 79452, permission_denials: [{ tool_name: 'Bash', tool_input: { command: 'git status -- private-path-and-token' } }] }));
   const head = git(dir, ['rev-parse', 'HEAD']);
   const r = await step(t, dir, 'Did the agent run?', { OUTCOME: 'success', EXECUTION: file, MINUTES: '45', STARTED: String(Date.now() / 1000 - 92), RUNNER_TEMP: temp });
   assert.equal(r.status, 1, r.out);
@@ -58,6 +123,8 @@ test('actual execution workflow fails with unchanged HEAD and retains sanitized 
   const receipt = await readFile(join(temp, 'climb-execution.json'), 'utf8');
   assert.ok(!receipt.includes('private-path-and-token'));
   assert.equal(JSON.parse(receipt).denials.count, 1);
+  assert.equal(JSON.parse(receipt).denials.entries[0].commandFamily, 'git status');
+  assert.equal(JSON.parse(receipt).denials.detailsAvailable, true);
 });
 
 test('report requires completed comparison or failing proof evidence for no-improvement', async t => {

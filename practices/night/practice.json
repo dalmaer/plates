@@ -7,6 +7,8 @@
     { "name": "VERCEL_API_TOKEN", "optional": true, "when": "production-vercel", "why": "OPTIONAL: only configured Vercel production collection uses it, as step-scoped VERCEL_TOKEN; off and other-provider projects need none", "workflow": ".github/workflows/plates-night.yml" }
   ],
   "files": [
+    { "path": "scripts/plates/autonomy-policy.mjs", "from": "scripts/plates/autonomy-policy.mjs", "kind": "managed" },
+    { "path": "scripts/plates/autonomy-context.mjs", "from": "scripts/plates/autonomy-context.mjs", "kind": "managed" },
     { "path": "scripts/plates/names.mjs", "from": "scripts/plates/names.mjs", "kind": "managed" },
     { "path": "scripts/plates/names-environment.mjs", "from": "scripts/plates/names-environment.mjs", "kind": "managed" },
     { "path": "scripts/plates/names-environment.d.mts", "from": "scripts/plates/names-environment.d.mts", "kind": "managed" },

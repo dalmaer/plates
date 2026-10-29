@@ -85,7 +85,7 @@ export function tendConfigOf(config) {
  * the Install step is given), and .plates/agent-git/ (Codex's git dir, phase
  * 47: a git dir carried as files is config and hooks). A directory ends in "/".
  */
-export const OFF_LIMITS = Object.freeze(['.github/', 'scripts/plates/', '.plates/plates.json', '.plates/agent-git/']);
+export const OFF_LIMITS = Object.freeze(['.github/', 'scripts/plates/', '.plates/plates.json', '.plates/autonomy.json', '.plates/agent-git/']);
 const offLimit = path => OFF_LIMITS.some(p => (p.endsWith('/') ? path.startsWith(p) : path === p));
 
 /**

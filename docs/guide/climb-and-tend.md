@@ -15,6 +15,76 @@ something about it while you sleep, and leave one PR for you to read:
 
 Both are opt-in, because both spend model tokens.
 
+The existing preflight verifies runner scratch capabilities only. Its success
+state is `runner-ready`, with `runnerReady: true` and `agentPermissions:
+"unverified"`; this is not agent readiness or permission to retry a denial.
+Agent readiness before baseline remains incomplete: the workflow still has its
+existing runner gate. Do not activate a universal denial or relabel declared
+settings as effective permission evidence to fill that gap. No permissions,
+allowlists or provider settings are changed by these diagnostics.
+
+Retained denial receipts contain at most eight fixed-vocabulary command-prefix
+and target-path classifications. They omit raw commands, arguments, paths,
+messages and session text. `detailsAvailable` means a command or target
+classification was retained; tool names alone do not satisfy it. Missing,
+withheld and omitted details remain explicit. A prefix classification is not
+a reconstruction of a compound shell command and grants no retry authority.
+
+
+## Proposed agent-readiness boundary (not activated)
+
+Investigation on 27 October 2026 found no pre-execution effective-policy receipt
+in the current action interfaces. Claude's `--allowedTools` is a declared input;
+managed rules, ask/deny rules and runtime hooks can change a tool decision.
+Codex's action selects its sandbox/profile, prepares configuration and launches
+`codex exec`; its output is the final message, not a pre-baseline effective-policy
+snapshot. Reading local configuration from a developer machine cannot establish
+policy on the future Actions runner. No denied operation was probed and no model
+session was started to infer authority.
+
+Sources inspected: [Claude action inputs and outputs](https://github.com/anthropics/claude-code-action/blob/v1/action.yml)
+(blob `05af91981d60c8909a55842376d5ab57fbcda4aa`),
+[Claude permission precedence](https://code.claude.com/docs/en/permissions#precedence-among-rules-hooks-and-mods),
+[Codex action](https://github.com/openai/codex-action/blob/v1/action.yml)
+(blob `ff7088b97498db5cacab3c72b96c406f03f92fa5`), and its
+[execution adapter](https://github.com/openai/codex-action/blob/v1/src/runCodexExec.ts)
+(blob `1590349248daa5488e4a301e6414db6fdd9479e4`). These are observations of
+mutable provider refs, not new source pins or changes to the action versions.
+
+The proposed shared interface for an autonomy-policy adapter is a versioned
+receipt bound to provider, resolved action/runtime revision, repository source
+head, run ID, attempt, workspace identity, policy digest and a versioned required
+operations digest. Per-operation results are `allow`, `deny`, `ask` or `unknown`,
+with policy-source provenance and coverage. Keep the runner's observation separate.
+The trusted adapter must collect the actual effective sources for that invocation;
+a caller-supplied `verified` boolean, a config checksum or an owner preference is
+not authentication or proof that the action applies that policy. Revalidate the
+binding immediately before the baseline and again before launching the agent.
+
+Readiness requires complete matching evidence that every required operation is
+allowed without interactive approval. Missing sources, unsupported rules, hooks
+whose result depends on execution, stale bindings and conflicting requirements
+remain unknown or denied. Evaluate no shell commands, edits or hooks as probes;
+do not change settings, widen scope, retry a denial or infer authority from a
+successful runner test. The provider's actual enforcement always remains in place.
+
+Coordination with the proposed `evaluateAutonomy` interface (local autonomy
+candidate `d8a6174dd606da10740b04bf10ace121bcc773d3`): readiness evidence would
+supply the independent `context.platform` result only after the adapter validates
+its provenance and scope. User intent and `selectionVerified` remain separate;
+`proceed` from the preference evaluator cannot produce a platform grant. Required
+project and command gates must be checked independently. An `inherit` decision
+means existing behavior, not verified readiness. No evaluator integration is
+activated here because the effective-policy producer is still missing.
+
+Missing signal: a trusted, non-mutating adapter that resolves effective
+permissions and restrictions for the *same future action invocation*, with a
+complete required-operation inventory and freshness binding. Neither a receipt
+schema alone nor synthetic allow cases supply this producer. Coordinate that
+adapter with the autonomy-setting work before implementing or activating the
+baseline gate. Until then the permission-readiness fix is incomplete; the
+existing execution-denial check stays fail-closed after the agent runs.
+
 ## What it does, and why it works that way
 
 **Two kinds of night, kept apart.** The measuring night is free,

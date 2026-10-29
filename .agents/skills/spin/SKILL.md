@@ -411,13 +411,7 @@ copies, source pins, locks and intentionally historical fixtures before the fina
 checkpoint. Batch related corrections; do not repeat an unchanged full gate to
 compensate for missing evidence. This does not enlarge the review-round limit.
 
-**A review that keeps going is the owner's.** (why: One PR went ten review rounds of fix-and-push before anyone decided.) A round is one push a reviewer answered with a finding. When `plates review <repo>#<n>` exits 3 the PR
-is at its round limit (three unless `.plates/plates.json` `"review": {"rounds": N}`
-says otherwise): stop pushing fixes. Sort each open finding you have read
-with `plates review <repo>#<n> --class security|overwrite|approval|other <ids>`
-(it records the kind and answers nothing), then report the choice it prints
-to the owner: merge with the rest tracked, split, or close. Never merge it
-yourself.
+**Judge review progress at the checkpoint.** (why: A flat three-round stop blocks converging work; repeated instance fixes still need an owner's decision.) A round is one push a reviewer answered with a finding. At the base checkpoint (three unless `.plates/plates.json` `"review": {"rounds": N}` says otherwise), `plates review <repo>#<n>` judges the first N rounds. Read its `rounds.trend` reasons: progress extends the limit once, from N to 2N, and fixes may continue within the existing authorization; repetition stops at N. There is no second extension. The executable judgement uses finding locations, counts and severity as proxies, not semantic proof: inspect the actual changes for a repeated boundary failure or material scope expansion before continuing. Report any such conflict with concrete evidence for an owner decision; never enlarge the task's scope or override a stop silently. When `plates review <repo>#<n>` exits 3, stop pushing fixes: it found repetition or the one extension is exhausted. Sort each open finding you have read with `plates review <repo>#<n> --class security|overwrite|approval|other <ids>` (it records the kind and answers nothing), then report the choice it prints to the owner: merge with the rest tracked, split, or close. Never merge it yourself.
 
 **A phase that waits for review** (opt-in, for a change the owner is nervous
 about): its front matter says `review: wait`, or its issue carries the label

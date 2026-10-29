@@ -4,6 +4,10 @@ Plates runs directly from JavaScript source. Performance decisions start with
 measurements, and selected production contracts are checked without emitting
 or compiling runtime files.
 
+The source-only [Pi context and evidence example](examples/pi-context/README.md)
+shows API-attributed instructions and synthetic execution evidence without a
+model call or production activation.
+
 ## Measure a command
 
 From the Plates checkout, profile an ordinary invocation:

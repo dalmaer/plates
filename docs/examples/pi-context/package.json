@@ -1,0 +1,13 @@
+{
+  "name": "plates-pi-context-example",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.22.1"
+  },
+  "scripts": {
+    "test": "node --import ../../../tests/helpers/hermetic.mjs --test ../../../tests/pi-context-example.test.mjs",
+    "demo": "node src/demo.mjs",
+    "verify:pi": "node tests/pi-api-check.mjs"
+  }
+}

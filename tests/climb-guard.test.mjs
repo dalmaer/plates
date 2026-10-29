@@ -69,7 +69,7 @@ test('sandbox: the agent\'s commits may not change a workflow, plates\'s scripts
   const dir = await acme(t, { config: { check: 'node -e "require(\'fs\').writeFileSync(\'gate-ran\', \'\')"' }, files: { 'acme.mjs': 'export const anvil = 1;\n' } });
   const base = git(dir, ['rev-parse', 'HEAD']);
   const at = async (branch, files) => { git(dir, ['checkout', '-q', '-b', branch, base]); return commit(dir, files, `acme: ${branch}`); };
-  for (const [branch, path] of [['workflow', '.github/workflows/acme.yml'], ['script', 'scripts/plates/acme.mjs'], ['config', '.plates/plates.json']]) {
+  for (const [branch, path] of [['workflow', '.github/workflows/acme.yml'], ['script', 'scripts/plates/acme.mjs'], ['config', '.plates/plates.json'], ['autonomy', '.plates/autonomy.json']]) {
     const head = await at(branch, { [path]: path === '.plates/plates.json' ? '{"name":"Acme","climb":{"jobs":["test-time"]},"check":"true"}\n' : '// acme\n' });
     const sb = climb(dir, ['sandbox', '--base', base, '--head', head, '--json']);
     assert.equal(sb.status, 1, `${path}: ${sb.stdout}`);
@@ -87,7 +87,7 @@ test('sandbox: the agent\'s commits may not change a workflow, plates\'s scripts
   const fine = await at('fine', { 'acme.mjs': 'export const anvil = 2;\n', 'docs/acme.md': '# Acme\n' });
   const ok = climb(dir, ['sandbox', '--base', base, '--head', fine, '--json']);
   assert.equal(ok.status, 0, ok.stdout);
-  assert.deepEqual(json(ok), { ok: true, offLimits: ['.github/', 'scripts/plates/', '.plates/plates.json', '.plates/agent-git/'], problems: [] });
+  assert.deepEqual(json(ok), { ok: true, offLimits: ['.github/', 'scripts/plates/', '.plates/plates.json', '.plates/autonomy.json', '.plates/agent-git/'], problems: [] });
   const off = climb(dir, ['sandbox', '--base', fine, '--head', base, '--json']);
   assert.equal(off.status, 1);
   assert.match(json(off).problems[0], /is not on top of the base/);
