@@ -595,6 +595,38 @@ test('roundFindings: each counted finding with its round, file, the line it was 
   ]);
 });
 
+test('roundFindings: verified robot envelopes preserve emitted severity and distinguish easing from repeating findings', () => {
+  const bot = { __typename: 'Bot', login: 'github-actions' };
+  const conn = nodes => ({ nodes, pageInfo: { hasNextPage: false, hasPreviousPage: false } });
+  // postRobotReview emits this attribution envelope and robotText escapes Markdown punctuation.
+  // Keep plain, bracketed and bold severity forms: all have the same displayed P0-P3 meaning.
+  const formats = [n => `P${n}`, n => `&#91;P${n}&#93;`, n => `&#42;&#42;P${n}&#42;&#42;`];
+  for (const namespace of ['plates', 'keel']) for (const format of formats) {
+    const mark = { version: 1, repo: 'acme/app', issueNumber: 7, instanceId: 'acme-7', author: 'claude', headSha: A, cursor: 0 };
+    const continued = (headSha, cursor) => ({ version: 1, repo: 'acme/app', prNumber: 8, issueNumber: 7, instanceId: 'acme-7', author: 'claude', headSha, cursor,
+      authorization: { receiptId: 10, bodyHash: 'd'.repeat(64), writer: 'acme-owner', policyHash: 'e'.repeat(64) } });
+    const reviews = [A, B, C].map((head, i) => ({ author: bot, commit: { oid: head }, state: 'COMMENTED', submittedAt: `2026-10-1${i}T09:00:00Z`,
+      body: `<!-- ${namespace}:robot-review ${head} codex -->\nReviewed by codex; built by claude.\n\n${format(i + 1)} Acme finding.` }));
+    const pr = { number: 8, url: 'https://github.com/acme/app/pull/8', author: bot, headRefName: `${namespace}/robot-7`, headRefOid: C,
+      repository: { nameWithOwner: 'acme/app' }, headRepository: { nameWithOwner: 'acme/app' },
+      body: `<!-- ${namespace}:robot-delivery ${JSON.stringify(mark)} -->`, reviewThreads: conn([]), reviews: conn(reviews),
+      comments: conn([B, C].map((head, i) => ({ databaseId: 20 + i, author: bot, url: `https://github.com/acme/app/pull/8#issuecomment-${20 + i}`,
+        body: `<!-- ${namespace}:robot-continuation ${JSON.stringify(continued(head, i + 1))} -->\nTrusted robot continuation.\n\nAcme bounded change.` }))) };
+    const findings = roundFindings(pr);
+    assert.deepEqual(findings.map(f => f.severity), [1, 2, 3], 'parse the verified message, not its attribution line');
+    assert.deepEqual(judgeRounds(findings, 3), { verdict: 'progress', reasons: [], counts: [1, 1, 1], limit: 6 });
+    const flat = { ...pr, reviews: conn(reviews.map(r => ({ ...r, body: r.body.replace(format(3), format(1)) }))) };
+    assert.equal(judgeRounds(roundFindings(flat), 3).verdict, 'repeating', 'equal counts with no severity improvement still stop');
+    const malformed = { ...pr, reviews: conn(reviews.map(r => ({ ...r, body: r.body.replace('Reviewed by codex', 'Reviewed by claude') }))) };
+    assert.deepEqual(roundFindings(malformed), [], 'an invalid robot envelope cannot manufacture a counted severity');
+    const inline = { author: { login: 'acme-owner' }, reviewThreads: conn([{ path: 'acme.js', line: 9,
+      comments: conn([{ author: { login: 'acme-reviewer' }, originalCommit: { oid: A }, body: `${format(2)} Acme inline finding.` }]) }]), reviews: conn([]) };
+    assert.equal(roundFindings(inline)[0].severity, 2, 'inline findings use the same punctuation normalization');
+    const prose = { ...pr, reviews: conn(reviews.map(r => ({ ...r, body: r.body.replace(/Acme finding\./, 'Acme finding. P0 later prose.').replace(format(1), 'Acme context').replace(format(2), 'Acme context').replace(format(3), 'Acme context') }))) };
+    assert.deepEqual(roundFindings(prose).map(f => f.severity), [null, null, null], 'severity must open the unwrapped finding');
+  }
+});
+
 test('plates review: a review that made progress goes on past 3 and stops at 6; one that repeats stops at 3, saying why', async t => {
   const dir = await project(t);
   const three = await stubGh(t, { threads: progressing(), reviews: [onHead] });

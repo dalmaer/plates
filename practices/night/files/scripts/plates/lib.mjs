@@ -1705,7 +1705,13 @@ export function reviewRounds(pr) {
 export function roundFindings(pr) {
   const author = pr?.author?.login;
   const { pushes } = reviewRounds(pr), counted = new Set(pushes);
-  const severity = body => { const m = /^\W*P([0-3])\b/.exec(String(body ?? '').replace(/<!--[\s\S]*?-->/g, '').trim()); return m ? Number(m[1]) : null; };
+  const severity = body => {
+    // robotText encodes Markdown punctuation in emitted findings. Decode only
+    // those punctuation entities; never scan attribution or later prose for Pn.
+    const text = String(body ?? '').replace(/<!--[\s\S]*?-->/g, '').replace(/&#(40|41|42|91|92|93|95|96|124|126);/g, (_, code) => String.fromCharCode(Number(code))).trim();
+    const m = /^\W*P([0-3])\b/.exec(text);
+    return m ? Number(m[1]) : null;
+  };
   const time = at => { const t = Date.parse(at ?? ''); return Number.isFinite(t) ? t : Infinity; };
   const found = [];
   for (const t of pr?.reviewThreads?.nodes ?? []) {
@@ -1720,7 +1726,7 @@ export function roundFindings(pr) {
     const robot = robotReview(pr, r);
     if (!robot && author && sameLogin(loginOf(r), author)) continue;
     if (robot ? robot.status : isStatus(r.body)) continue;
-    found.push({ push, at: time(r.submittedAt), path: null, line: null, severity: severity(r.body) });
+    found.push({ push, at: time(r.submittedAt), path: null, line: null, severity: severity(robot ? robot.text : r.body) });
   }
   // Rounds in the order they arrived: each push by its earliest finding, so a
   // later round of any kind (thread or body) never renumbers the first ones.

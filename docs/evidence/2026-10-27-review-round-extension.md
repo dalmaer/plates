@@ -23,3 +23,27 @@ finding (cancel atomicity, new ground) made #249 look like progress. The
 measurement corrected that.
 
 Automated proof: `node --test tests/review-rounds.test.mjs tests/board.test.mjs`.
+
+
+## Follow-up verification (2026-10-29)
+
+Spin's managed template and rendered copy now describe the same base checkpoint,
+one progress extension and repetition stop as the executable decision. The prose
+contract fails against the original skill and passes against the correction.
+
+The hosted protected review on `1fc928e4` completed successfully on Ubuntu 24.04
+(run 40812388268), retaining the read-only sandbox, disabled sudo,
+no-new-privileges and empty capability sets. The Ubuntu 26.04 attempts failed
+before model execution (upstream openai/codex-action#188); no protection was
+relaxed. Its finding exposed wrapped robot messages losing their severity.
+
+The correction parses the validated inner message and normalizes only the
+punctuation entities emitted by `robotText`. The regression covers both marker
+namespaces, emitted plain/bracket/bold severity, malformed envelopes, inline
+findings and nonleading severity text. Equal-count P1→P2→P3 findings extend;
+flat P2 findings stop. `plates prove tests/review-rounds.test.mjs --name
+'roundFindings: verified robot envelopes preserve emitted severity and distinguish
+easing from repeating findings' --fix
+practices/night/files/scripts/plates/lib.mjs scripts/plates/lib.mjs --base
+1fc928e4 --trailer` reports VERIFIED: the test fails without the correction and
+passes with it. This proves the regression, not general semantic loop detection.
