@@ -51,7 +51,7 @@
     },
     ".agents/skills/spin/SKILL.md": {
       "practice": "conduct",
-      "sha256": "b36eb5a84323052847c0859eca7517f785ce1569c9af899dcb62eaebdeee0caa"
+      "sha256": "19c086b1ce9186afb94cb4134bded9ab24b3b9d5fde52ab9b30dcd66deefdd9a"
     },
     ".claude/skills/conduct": {
       "practice": "conduct",
@@ -79,7 +79,7 @@
     },
     ".github/workflows/plates-cross-review.yml": {
       "practice": "cross-review",
-      "sha256": "01f16965008c9a404f11b701f2ff2dc854c471e6bfe5881d0151ae212e5764ca"
+      "sha256": "fd829d57bc5ffb8ae19b3ba7c6777d239eee2ab3c845cec78584ee4c6045210f"
     },
     ".github/workflows/plates-impact.yml": {
       "practice": "reconciliation",
@@ -139,7 +139,7 @@
     },
     "docs/plates-lessons.md": {
       "practice": "lessons",
-      "sha256": "07584f49a8e772900fecf092c11ac387c4e1f9eed6b79f8f73918f639b4b8f05"
+      "sha256": "ce901fd03435f87f2efcc7908f36028eb2c4f2c0d851a2a71203d91c7546abcf"
     },
     "docs/reconciliation.md": {
       "practice": "reconciliation",
@@ -219,7 +219,7 @@
     },
     "scripts/plates/lib.mjs": {
       "practice": "night",
-      "sha256": "0a224f841d6ccd23c2710c1e336af7c5b4943fce61648e4a708118c85bbdcc44"
+      "sha256": "6c2996d864899a58a87a82708df8afcdd393147087e7171ade543d8460314d33"
     },
     "scripts/plates/milestones.mjs": {
       "practice": "night",
