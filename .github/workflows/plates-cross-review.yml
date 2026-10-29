@@ -106,7 +106,8 @@ jobs:
       (github.event_name == 'push' &&
         github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) ||
       github.event_name == 'schedule'
-    runs-on: ubuntu-latest
+    # Keep drop-sudo protection working: openai/codex-action#188 on Ubuntu 26.04.
+    runs-on: ubuntu-24.04
     # The agent's own step is bounded by the budget (5 to 60 minutes); this
     # bounds the whole run.
     timeout-minutes: 75
