@@ -47,3 +47,11 @@ easing from repeating findings' --fix
 practices/night/files/scripts/plates/lib.mjs scripts/plates/lib.mjs --base
 1fc928e4 --trailer` reports VERIFIED: the test fails without the correction and
 passes with it. This proves the regression, not general semantic loop detection.
+
+
+The first full follow-up gate retained three operation-coverage failures because
+the shared library's reviewed checksum still named the pre-fix bytes. Inspection
+of the complete library diff found only severity extraction inside `roundFindings`;
+CLI dispatch, argument grammar and hosted execution scope did not change. The
+single checksum was refreshed after that audit. The original failures remain in
+the validation record; no audit predicate or assertion was weakened.
