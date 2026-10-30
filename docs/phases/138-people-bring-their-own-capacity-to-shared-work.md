@@ -84,10 +84,10 @@ created as part of this design task.
 
 ## Deliberately open
 
-- AQ's current resources expose aggregate tokens/cachedTokens, not the requested
-  input/output/cache-write/read and funding breakdown. U1 extends that existing
-  schema/ledger compatibly; historical detail cannot be reconstructed by guessing.
-  Refer to AQ by pinned branch/path until the draft phase-ID collision is resolved.
+- **Settled 2026-10-30:** U1 extends the selectively imported AQ episode ledger
+  with optional versioned measurements for input/output/cache and funding;
+  historical detail cannot be reconstructed by guessing. Consolidation uses
+  phases 137–141; the separate AQ branch and its phase identities are preserved.
 - Quality calibration and task/model-cohort coverage remain incomplete. S1 can
   explain capabilities and capacity, but must withhold quality-superiority claims
   without relevant evidence. No paid benchmark or automatic routing is authorized.

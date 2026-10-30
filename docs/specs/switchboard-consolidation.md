@@ -135,8 +135,10 @@ subscription allowance when provider window/accounting semantics differ.
 
 Additional read-only baseline: `codex/agent-quality` at
 `9f8c17adb12e4291c4a9a4c11870c3755f3d762e`, inspected 30 October 2026. References
-prefixed `AQ:` below mean that exact branch/commit, not files present on this
-consolidation branch. Its `AQ:docs/specs/agent-quality.md` and lifecycle/adapters
+prefixed `AQ:` below mean that exact branch/commit. The consolidation candidate
+selectively imports its episode/ledger/report/lifecycle modules and tests, with
+provenance retained in their headers; its execution runner remains unavailable
+through this candidate's CLI. Its `AQ:docs/specs/agent-quality.md` and lifecycle/adapters
 guides already define an episode as one outcome with all attempts, many-to-many
 PR links, prospective task passports, exact checkpoints, source-idempotent
 observations and unknown usage. It is locally implemented with installation and
@@ -286,8 +288,9 @@ retain their own bounded scope; this recommendation feature enables none.
 U1 extends AQ records/lifecycle/report tests with synthetic fixtures for the first
 five cases. S1 adds planned `tests/routine-recommendations.test.mjs` plus existing
 web-capacity/model-selection tests for the last two and funding/permission refusal.
-The existing AQ tests are a branch-qualified prerequisite, not files claimed to
-exist or pass on this branch. No fixture needs actual provider tokens or spend.
+The imported AQ tests and new `tests/agent-quality-usage.test.mjs` exercise the
+same ledger on this branch; evidence records the actual verified revisions.
+No fixture needs actual provider tokens or spend.
 
 ## Person, plate, set and provider ownership decisions
 

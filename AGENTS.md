@@ -424,3 +424,17 @@ summary continuation retains the task ceiling and completed work. Metadata acces
 is not inference capacity, and model advice is not owner acceptance. See the
 [model planning guide](docs/guide/web-model-routing.md). Activation and live spend
 remain separately approved; no subscription credentials are copied.
+
+## Consolidated routine observations and usage
+
+Use explicit source registries and initialized private quality state. Routine
+inspection reads metadata only, never source prompts, transcripts or credentials;
+unreadable or unsupported sources remain gaps. Full task/PR usage extends the
+existing agent-quality episode ledger, preserving immutable attempts and source
+receipts, provider token/cache semantics, missing totals and nonadditive shared
+work. Personal remaining capacity is a separate authorized observation, never
+inferred from historical tokens or pooled across contributors/sets. Existing
+board and history views use sanitized projections; hosted local observations
+remain unavailable without an authenticated adapter. See the
+[routine observations guide](docs/guide/routine-observations.md). These read paths
+grant no model execution, provider access, publication or cutover authority.

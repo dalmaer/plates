@@ -409,6 +409,10 @@ then gives the commands and every flag by the reason you'd pass it.
 | [Deployment, recovery and owner trial](docs/guide/web-recovery.md) | you want serving-revision checks, restore quarantine, original-operation reconciliation and a private trial worksheet |
 | [Private web workspace setup](docs/guide/web-workspace-setup.md) | you want a private data repo and the path to hosted sign-in and Home |
 | [Private result feedback](docs/guide/feedback.md) | you want to preserve the exact result reviewed and explicitly propose or resolve follow-up work |
+| [Routine observations and PR usage](docs/guide/routine-observations.md) | you want explicit local routine reads and lifecycle usage in the existing board, with unavailable coverage and private accounts preserved |
+| [Agent quality](docs/guide/agent-quality.md) | you want evidence about attempts, checkpoints and task outcomes without treating sparse samples as a model ranking |
+| [Agent-quality lifecycle](docs/guide/agent-quality-lifecycle.md) | you want to capture one task's planning, implementation, review and retries in initialized private state |
+| [Agent-quality adapters](docs/guide/agent-quality-adapters.md) | you want bounded metadata collection with explicit source coverage and no transcript import |
 | [The board](docs/guide/the-board.md) | you are asking "what's next?", or what is waiting on you |
 
 ## The verbs
@@ -444,6 +448,7 @@ Every verb takes `--json`. Exit codes are the same everywhere:
 | `plates goodnight` | You shape tonight's plan: what was settled and left open, the default plan, things to try; add, drop, edit, budget or skip items; `--yes` pushes it to the plan branch |
 | `plates morning` | The night's brief: done, tried, failed and why, left alone, your next; `--send` opens the assigned "Good morning" issue, once a night; `--card` keeps the plan as a live canvas card |
 | `plates retro sessions` | Reserve and record bounded handoff trials; audit, promote and roll back within an explicit envelope (`plates improve --sessions` reads the same evidence) |
+| `plates retro quality` | Inspect, preview and record private episode/lifecycle observations and scoped quality reports; the command runner is unavailable in this consolidation candidate |
 | `plates retro` | After a phase that changed more than docs: a worksheet from the session's transcript (counts and pointers, never its text) and seven areas to answer; the owner picks what becomes a check |
 | `plates shape check\|render\|plan` | Validate and render local shaping records; write drafts with `--yes --digest <reviewed-digest>` |
 | `plates decision context` | Read scoped decisions for `--phase <id>` or `--issue <owner/repo#n>`; refresh before dispatch or resume |
@@ -463,6 +468,9 @@ Every verb takes `--json`. Exit codes are the same everywhere:
 | Verb | What it does |
 | --- | --- |
 | `plates workspace inspect\|init` | Inspect explicit external workspace configuration; preview private runtime initialization, then apply with `--yes`; remote privacy remains unverified |
+| `plates routines inspect` | Read metadata from an explicit source registry; report bounded coverage, conflicts and unavailable sources without changing routines |
+| `plates routines usage` | Project task/PR lifecycle consumption from private quality state; distinguish partial totals, unverified attribution and shared work from personal remaining quota |
+| `plates routines record-usage` | Preview a versioned usage observation, then append with the exact reviewed digest; preserve original attempts and receipts |
 | `plates canvas` | Project lifecycle snapshots and isocan canvas publishing; preview changes before applying them |
 | `plates loose-ends` | What you started and didn't finish, across plates and each fleet checkout: chats, files, branches, PRs, owner steps; `mark` one resume, park or drop |
 | `plates production status`, `collect`, `spec`, `verify` | Bounded production-error evidence, recurring repair candidates, and revision-scoped verification; missing coverage stays unknown |

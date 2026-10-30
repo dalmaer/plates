@@ -198,12 +198,13 @@ Measure the count.
     for (const name of names().sort((a, b) => (a === 'phase new') - (b === 'phase new'))) {
       const r = plates([...name.split(' '), ...(needs[name] ?? []), '--json'], cwdOf(name), BIN, { ...env, PLATES_GH: emptyGh, PLATES_ISOCAN: join(dir, 'no-isocan'), PLATES_CLAUDE_DIR: join(dir, 'no-transcripts'), PLATES_CACHE: join(dir, 'cache') });
       // feedback requires a verified Git boundary; this copied tree has no Git history.
+      // routines needs an explicit source binding; its actual JSON reads are covered separately.
       // shape needs an explicit record; its packed lifecycle is covered separately.
       // decision needs a source revision; this copied tree has no git history.
       // phase claim, ready and integrate need a remote to push to, and this copy has none: exit 2, as JSON
       // (tests/claim.test.mjs and tests/integrate.test.mjs cover the verbs). promote needs the delivery practice,
       // which plates's copy has not taken: exit 2, as JSON (tests/promote.test.mjs covers the verb).
-      assert.equal(r.code, name === 'names' ? 1 : name === 'issue' ? 3 : ['migrate', 'phase claim', 'ready', 'integrate', 'promote', 'decision', 'shape', 'workspace', 'feedback'].includes(name) ? 2 : 0, `${name}: ${r.err}${r.out}`);
+      assert.equal(r.code, name === 'names' ? 1 : name === 'issue' ? 3 : ['migrate', 'phase claim', 'ready', 'integrate', 'promote', 'decision', 'shape', 'workspace', 'feedback', 'routines'].includes(name) ? 2 : 0, `${name}: ${r.err}${r.out}`);
       assert.doesNotThrow(() => JSON.parse(r.out), `${name} --json did not parse: ${r.out}`);
       assert.equal(r.err, '', `${name} wrote to stderr`);
       if (name === 'names') { const data = JSON.parse(r.out); assert.equal(data.mode, 'preview'); assert.ok(data.projects.some(project => project.state === 'unavailable')); assert.equal(data.readOnly, true); }

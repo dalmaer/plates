@@ -3,7 +3,7 @@
 This records specification review, not migration implementation or acceptance.
 All five new phases remain `designed`, with unchecked feature acceptance and no
 claim of live verification. The [contract](../specs/switchboard-consolidation.md)
-and [phase 132](../phases/132-a-project-set-shows-its-routines.md) lead to phases
+and [phase 132](../phases/137-a-project-set-shows-its-routines.md) lead to phases
 133–136. Goal G8 and the generated roadmap make the work discoverable.
 
 ## Inputs and isolation

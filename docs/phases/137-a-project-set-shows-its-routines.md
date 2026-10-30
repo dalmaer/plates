@@ -4,8 +4,8 @@ since: 2026-10-30
 goal: G8
 spec: 2
 depends: [93, 102]
-note: "Local Home/Routines/Activity set-filter slice implemented; broader source readers, task/PR usage and observation bridge remain. No hosted activation or routine migration."
-evidence: ["evidence/2026-10-30-project-set-lens.md"]
+note: "Local set lens extended with explicit metadata readers, canonical task/PR usage and existing-UI projections. Authenticated bridge activation, live source walks and remaining navigation/terminology work are unverified."
+evidence: ["evidence/2026-10-30-project-set-lens.md", "evidence/2026-10-30-consolidated-observations-usage.md"]
 ---
 
 # A project set shows its routines and what actually ran
@@ -45,7 +45,7 @@ changes user-facing “fleet” language to “set”/“project set,” and pre
 routes, commands and receipts until a separately verified alias retirement.
 
 U1 exposes lifecycle usage through current work/Activity views using the existing
-agent-quality episode/attempt ledger, with branch-qualified integration described
+agent-quality episode/attempt ledger, with selective integration described
 in the contract. Observing consumption is separate from current quota or funding
 permission. Do not add a competing routine telemetry store.
 
@@ -53,14 +53,14 @@ permission. Do not add a competing routine telemetry store.
 
 - [x] An optional bounded registry filters existing Home/Routines/Activity before source reads; hidden members are not returned, pagination is membership/source-bound, refresh retains the set, access revocation fails closed, and original project/attempt links work: `npm run check:focused -- tests/web-project-sets.test.mjs tests/web-home.test.mjs tests/web-events.test.mjs tests/web-runs-ui.test.mjs tests/web-responsive.test.mjs tests/web-recovery.test.mjs`.
 
-- [ ] A task/PR usage view includes planning, coding, review, remediation, retries and failed/abandoned work, with person/account/model/stage/token/cost breakdowns, source coverage and nonadditive shared-work attribution: `npm run check:focused -- tests/routine-views.test.mjs` (planned) plus the branch-qualified AQ records/lifecycle/report tests named in the contract after integration.
+- [ ] A task/PR usage view includes planning, coding, review, remediation, retries and failed/abandoned work, with person/account/model/stage/token/cost breakdowns, source coverage and nonadditive shared-work attribution: `npm run check:focused -- tests/agent-quality-usage.test.mjs tests/management-surfaces.test.mjs tests/web-management-observations.test.mjs`. Local ledger and sanitized views are implemented; private per-account drill-down and live walkthrough remain.
 
 - [ ] Existing Home, project detail, decisions/reviews, Daily/health, Learning, Connections and job/operation views remain reachable through the set/plate lens with source-bound return routes, filters and pending receipts preserved: `npm run check:focused -- tests/routine-views.test.mjs tests/web-home.test.mjs tests/web-operation-coverage.test.mjs` (first file planned).
 - [ ] N1 inventories user-facing fleet labels, moves product language to set/project set and tests existing routes/JSON/CLI aliases and stored receipts without broad runtime renaming: `npm run check:focused -- tests/routine-views.test.mjs tests/web-operation-coverage.test.mjs` (first file planned).
 
-- [ ] Versioned routine/source/attempt identities distinguish workspace/actor, project, host and provider, preserving conflicts and unknown outcomes: `npm run check:focused -- tests/routine-model.test.mjs` (planned file).
-- [ ] All inventoried reader capabilities have a reasoned reuse/redesign/drop disposition; supported sources retain bounded reads, provenance, timezone and explicit gaps: `npm run check:focused -- tests/routine-sources.test.mjs` (planned file).
-- [ ] Existing CLI/board/Routines/Activity consume one model; filters, keyboard/mobile use, old run attempts and current authorization survive aggregation: `npm run check:focused -- tests/routine-views.test.mjs tests/web-runs.test.mjs tests/web-runs-ui.test.mjs` (first file planned).
+- [ ] Versioned routine/source/attempt identities distinguish workspace/actor, project, host and provider, preserving conflicts and unknown outcomes: `npm run check:focused -- tests/routine-model.test.mjs`.
+- [ ] All inventoried reader capabilities have a reasoned reuse/redesign/drop disposition; supported sources retain bounded reads, provenance, timezone and explicit gaps: `npm run check:focused -- tests/routine-sources.test.mjs`.
+- [ ] Existing CLI/board/Routines/Activity consume one model; filters, keyboard/mobile use, old run attempts and current authorization survive aggregation: `npm run check:focused -- tests/management-surfaces.test.mjs tests/web-management-observations.test.mjs tests/web-runs.test.mjs tests/web-runs-ui.test.mjs`; real desktop/mobile source comparison still requires its walk.
 - [ ] Observation enrollment cannot dispatch work; revoked/forged hosts, replayed uploads and cross-actor/project reads fail without exposing private source content: `npm run check:focused -- tests/routine-views.test.mjs` (planned file).
 - [ ] The installed candidate exposes JSON and help for supported observation commands, preserves current board/fleet contracts, and passes source conventions: `npm run check` and `npm run typecheck` on the integrated implementation.
 - [ ] Selected authorized sources agree with independent provider observations on desktop/mobile, with unavailable sources visibly incomplete: ⚑ by hand: owner and conductor; observation-only activation reviewed separately.
@@ -116,7 +116,7 @@ window, gaps and observation-only activation separately from acceptance.
 
 ## Next action
 
-Continue T1/T2 with normalized source/attempt observations and bounded read-only adapters. Resolve agent-quality draft phase-ID allocation before integrating its ledger for U1; extend its usage contracts instead of adding another store. Keep set-wide lessons and actor-private capacity outside this first lens until their audience/funding contracts and fixtures are implemented.
+Verify the final T1/T2/U1 candidate and its installed-package fixture walk. Then prepare authenticated observation enrollment/replay/revocation and selected-source comparisons, with exact sources reviewed before activation. Continue actor-private capacity in phase 138 without changing existing funding or sharing grants. Complete the remaining navigation/terminology inventory before claiming the whole management journey.
 
 ## Trajectory
 
