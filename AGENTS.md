@@ -269,6 +269,19 @@ records, original verdicts and settlement history. Comparisons retain failures,
 unknown costs and missing coverage; scripted trials never establish agent efficacy
 or activate a candidate. See [the record guide](docs/guide/harness-evaluations.md).
 
+## Agent quality observations
+
+`plates retro quality` reads bounded local metadata and stores explicit task
+observations in the existing private evaluation workspace. Preserve source IDs,
+checkpoints, original failures and unknown usage. Historical commits are candidate
+episode mappings, not verified task outcomes; agent identity is never inferred
+from author names or writing style. Human adjudication and actual acceptance
+evidence remain separate from CI and merge status. Report planning, coding,
+review, iteration and proportionality independently, with project/specialty
+coverage. Reuse an existing reporting routine for weekly reports; this command
+does not schedule model work or change routing. See
+[the agent quality guide](docs/guide/agent-quality.md).
+
 ## Session handoff trials
 
 Use `plates retro sessions` for an explicitly configured handoff experiment and

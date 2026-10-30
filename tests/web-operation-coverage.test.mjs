@@ -208,6 +208,32 @@ test('harness evaluation forms describe only local records and never enable host
   for (const path of ['lib/evaluation-ledger.mjs', 'lib/evaluation-records.mjs', 'lib/evaluation-comparison.mjs', 'lib/evaluation-comparison-report.mjs', 'lib/session-ledger-io.mjs']) assert.ok(paths.includes(path));
 });
 
+test('quality metadata forms cover each option and remain CLI-only with hosted mutations enabled', () => {
+  const row = catalogue(enabled).rows.find(entry => entry.id === 'cli.retro');
+  assert.equal(row.readiness.state, 'unsupported');
+  assert.equal(row.adapter, null); assert.equal(row.route, null);
+  const forms = row.cli[0].forms.filter(form => form.subcommand?.startsWith('quality '));
+  assert.deepEqual(forms.map(form => form.subcommand), ['quality baseline', 'quality collect', 'quality inspect', 'quality report', 'quality weekly', 'quality replay-plan']);
+  const expected = {
+    baseline: ['--json', '--repository', '--pr-metadata', '--limit'],
+    collect: ['--json', '--manifest', '--state', '--bundle', '--yes', '--digest'],
+    inspect: ['--json', '--manifest', '--state'],
+    report: ['--json', '--manifest', '--state', '--previous', '--reference-mix'],
+    weekly: ['--json', '--manifest', '--state', '--previous', '--reference-mix', '--repository', '--pr-metadata', '--limit'],
+    'replay-plan': ['--json', '--manifest', '--state', '--previous', '--reference-mix'],
+  };
+  for (const form of forms) {
+    assert.deepEqual(form.arguments.map(arg => arg.token), expected[form.subcommand.slice(8)]);
+    assert.match(form.constraints, /CLI-only/);
+    for (const argument of form.arguments) {
+      assert.equal(argument.treatment, argument.token === '--json' ? 'presentation-only' : 'limited');
+      assert.equal(argument.repeat, ['--repository', '--pr-metadata'].includes(argument.token) ? 'allowed' : 'forbidden');
+    }
+  }
+  const paths = reviewedOperationSources().files.map(file => file.path);
+  for (const path of ['lib/agent-quality.mjs', 'lib/agent-quality-records.mjs', 'lib/agent-quality-ledger.mjs', 'lib/agent-quality-report.mjs', 'lib/evaluation-ledger.mjs', 'lib/evaluation-comparison-report.mjs', 'lib/session-ledger-io.mjs', 'lib/web/workspace.mjs']) assert.ok(paths.includes(path), path);
+});
+
 test('names transition stays CLI-only even when hosted mutations are enabled', async () => {
   const { parseNamesArgs } = await import('../lib/names-cli.mjs');
   const row = catalogue(enabled).rows.find(entry => entry.id === 'cli.names');

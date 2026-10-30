@@ -2008,6 +2008,24 @@ worksheet above remains read-only. See `plates --agent-help canvas` for publishi
 
 ### Bounded session trials (explicit records)
 
+`plates retro quality baseline|collect|inspect|report|weekly|replay-plan [--json]`
+adds private metadata observations and stage/project scorecards. Baseline is a
+read-only bounded local Git audit: optional repeated `--repository <dir>` and
+`--limit <1..200>` (20 total by default). Optional `--pr-metadata <file>` entries
+match repository order and accept only minimal GitHub PR metadata. Neither a
+commit nor a merged PR establishes a task episode, agent identity or acceptance.
+Collect takes `--manifest <file> --state <dir> --bundle <file>` in an initialized
+external workspace; preview exits 3 and `--yes --digest <exact-preview>` appends
+immutable observations. Inspect, report, weekly and replay-plan use the same
+manifest/state and are read-only. Reports accept `--previous <report.json>` and
+`--reference-mix <mix.json>`. Weekly adds a fresh baseline preview, but does not
+collect it: an existing weekly workflow must explicitly collect its bundle and
+retain the subsequent report privately. No new scheduler or model calls occur.
+Replay-plan describes the balanced A/B and reviewer crossover design with spend
+disabled; it cannot dispatch a trial. Existing schema-2 freeze/compare remains
+the experiment authority. See `docs/guide/agent-quality.md` for the full workflow,
+privacy, unknowns and retention boundaries.
+
 `plates retro evaluations plan|freeze|inspect|run|resume|reconcile|cancel|compare --manifest <absolute-file>
 --state <absolute-dir> [--bundle <file>] [--experiment <id>] [--execution <absolute-json>] [--json]` freezes
 schema-2 harness input records in an already initialized external workspace.

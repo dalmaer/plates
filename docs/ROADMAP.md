@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**57 of 134 phases built; 57 owe a walk.** Built means implemented and checked; planned is not available.
+**57 of 135 phases built; 57 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -261,7 +261,7 @@ Without anyone remembering, each project is measured nightly, dependencies move 
 
 Plates can show, with numbers across the fleet, whether projects it manages ship more and break less, and what conducting costs.
 
-6/14 built; 3 owe a walk.
+6/15 built; 3 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -279,6 +279,7 @@ Plates can show, with numbers across the fleet, whether projects it manages ship
 | [118. Evaluate one historical artifact behind an independent boundary](phases/118-evaluation-isolation.md) | built | 2026-10-23 | [117](phases/117-evaluation-records.md) | Offline isolated execution, historical compatibility verdicts and adversarial boundary proved; no paid agent efficacy claim. |
 | [119. Compare paired harness trials and resume interrupted comparisons](phases/119-evaluation-comparison.md) | partial | 2026-10-23 | [118](phases/118-evaluation-isolation.md) | Offline comparison and original-operation recovery proved; live provider adapter, enforced spend and approved screening remain pending. |
 | [120. Freeze six historically grounded development cases](phases/120-evaluation-corpus.md) | designed | 2026-10-23 | [119](phases/119-evaluation-comparison.md) | Specified only; production implementation and paid evaluation have not started. |
+| [134. Agent quality is measured by stage and project](phases/134-agent-quality-is-measured-by-stage-and-project.md) | partial | 2026-10-30 | [117](phases/117-evaluation-records.md) | Private metadata pipeline and real baseline verified locally; full gate, publication and ongoing human-adjudicated observations remain separate. |
 
 - **12 done when:** `plates fleet` lists every managed project with its practice version, last health page, CI state and unsent lessons, from `plates.json` and `gh`, in under ten seconds.
 - **13 done when:** A dated research page compares the fleet before and after adoption on measures fixed in advance (red-streak length, time from lesson to guard, phases moved per week, conduct cost per phase) and says plainly what it found.
@@ -294,6 +295,7 @@ Plates can show, with numbers across the fleet, whether projects it manages ship
 - **118 done when:** One historical compatibility case runs through a fresh isolated builder and independently controlled acceptance, retaining an artifact-bound verdict.
 - **119 done when:** A frozen paired comparison preserves all attempts, enforces total allowance and reports per-case outcomes, costs, uncertainty and safe recovery.
 - **120 done when:** All six historical case definitions retain source provenance, independent acceptance and explicit development versus held-out exposure.
+- **134 done when:** Private task observations produce reproducible stage and project scorecards, retain failures and unknowns, and support weekly passive reports without model spend or automatic routing.
 
 ## G6 — A change reaches production once, checked
 
