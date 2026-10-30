@@ -4,6 +4,10 @@ Repository inventory, 30 October 2026. This document makes no claims about Herdr
 or another product. External product research and the build/adopt decision are
 separate. No architecture change or runtime cutover follows from this inventory.
 
+The expanded [continuous-project evaluation](2026-10-30-continuous-project-evaluation.md)
+maps the requested self-healing, learning, conversations and Mission Control loop
+to actual code, local additions and missing implementation, with acceptance scenarios.
+
 Baseline: Plates main `0165c2902784073ba89dd717256ad233faf4865f`;
 consolidation checkpoint `2a40a4842ce2119c9ab2392949e74397f67ffda9`;
 Switchboard `a6651db5ff570eada8b04b2c4ffb993d8e67fbe9`. Code present in main

@@ -12,16 +12,22 @@ import {hash} from '../lib/web/common.mjs';
 import {modelHarness,sourceInput,token} from './helpers/web-model-tasks.mjs';
 const H=s=>hash(s),stamp=n=>new Date(n).toISOString();
 async function world(t){
- const h=await modelHarness(),db=new PGlite();t.after(()=>db.close());h.state.now=Date.now();
+ const h=await modelHarness(),db=new PGlite();t.after(()=>db.close());
  await db.exec('CREATE ROLE anon;CREATE ROLE authenticated;CREATE ROLE service_role;');
+ // Inject only the clock dependency while executing the real migration bodies.
+ // Both service and SQL time stay fixed until a test advances a known boundary.
+ await db.exec(`CREATE FUNCTION public.acme_test_now() RETURNS timestamptz LANGUAGE sql VOLATILE AS $$ SELECT current_setting('acme.test_now')::timestamptz $$;`);
+ const syncClock=()=>db.query("SELECT set_config('acme.test_now',$1,false)",[stamp(h.state.now)]);
+ await syncClock();
+ async function advanceTime(ms){h.state.now+=ms;await syncClock();}
  const directory=new URL('../lib/web/migrations/',import.meta.url);
- for(const file of (await readdir(directory)).filter(f=>f.endsWith('.sql')&&Number(f.slice(0,3))<=15).sort())await db.exec(await readFile(new URL(file,directory),'utf8'));
+ for(const file of (await readdir(directory)).filter(f=>f.endsWith('.sql')&&Number(f.slice(0,3))<=15).sort())await db.exec((await readFile(new URL(file,directory),'utf8')).replaceAll('clock_timestamp()','public.acme_test_now()'));
  const config={...h.config,projectRepoIds:{...h.config.projectRepoIds,other:103},personalFunding:{enabled:true,verifiedAt:stamp(h.state.now-1000),restoreReconciledAt:stamp(h.state.now-1000),brokerScope:fundingBroker(h.config)}};
- const calls=[];let loseNext=false,capacityTtl=60000,beginDelay=0;
+ const calls=[];let loseNext=false,capacityTtl=60000,beforeBegin=null;
  async function fetcher(url,options={}){
   if(new URL(url).pathname.startsWith('/rest/v1/rpc/')){
    const name=new URL(url).pathname.split('/').at(-1);assert.match(name,/^(keel|plates)_[a-z_]+$/);const p=JSON.parse(options.body),entries=Object.entries(p);calls.push({name,p});
-   if(p.p_operation==='begin'&&beginDelay)await new Promise(resolve=>setTimeout(resolve,beginDelay));
+   if(p.p_operation==='begin'&&beforeBegin){const hook=beforeBegin;beforeBegin=null;await hook(p);}
    const output=await db.query(`SELECT public.${name}(${entries.map(([k],i)=>`${k} => $${i+1}`).join(',')}) value`,entries.map(([,v])=>v&&typeof v==='object'?JSON.stringify(v):v));
    if(loseNext&&p.p_operation==='reserve'){loseNext=false;throw Error('Acme lost reservation response');}return Response.json(output.rows[0].value);
   }
@@ -43,7 +49,7 @@ async function world(t){
   const data={task,stage:1,connection:store.connectionFor(d.id),digest,quote,fence:H(`fence-${suffix}`),value:{id,taskId:task,stage:1,actorId:b.ownerActorId,project:p,digest,preview,quote:q,evidence:{inputMicroUsdPerMillion:1000000,outputMicroUsdPerMillion:2000000},taskAllowance:100000,funding},ceiling:3000,taskLimit:100000,workspaceLimit:1000000,projectLimit:1000000,connectionLimit:1000000,concurrency:20,windows:funding.windows.map(w=>({pool:hash(JSON.stringify(w.tuple)),amount:w.amount,available:w.available,expiresAt:w.expiresAt})),credential,funding};
   return {id,actor:b.ownerActorId,project:p,data,apply:()=>store.reserve(id,b.ownerActorId,p,data)};
  }
- return {...h,config,db,fetcher,calls,store,vault,descriptor,project,other,binding,context,observation,enroll,reservation,lose:()=>{loseNext=true;},setCapacityTtl:ms=>{capacityTtl=ms;},setBeginDelay:ms=>{beginDelay=ms;},models:createModelTasks(config,{fetcher,now:()=>h.state.now,fundingSource})};
+ return {...h,config,db,fetcher,calls,store,vault,descriptor,project,other,binding,context,observation,enroll,reservation,lose:()=>{loseNext=true;},setCapacityTtl:ms=>{capacityTtl=ms;},advanceTime,beforeBegin:hook=>{beforeBegin=hook;},models:createModelTasks(config,{fetcher,now:()=>h.state.now,fundingSource})};
 }
 
 test('personal ownership is explicit and encrypted; legacy mutation actor never becomes ownership',async t=>{
@@ -108,12 +114,14 @@ test('real service requires explicit funding choice, reserves through SQL and pr
 
 
 test('renewed same-account authorization can retrieve and cancel an original response after identity expiry',async t=>{
- const w=await world(t);w.state.now=Date.now();const b=w.binding();b.evidence={...b.evidence,observedAt:stamp(w.state.now-298000),expiresAt:stamp(w.state.now+1500)};
+ const w=await world(t),b=w.binding();
  await w.enroll(b);const plan=await w.reservation(b),reserved=await plan.apply(),begun=await w.store.transition('begin',reserved.row);
  const responseId='resp_acme_recovery';const queued=await w.store.transition('update',begun.row,{state:'queued',responseId,result:null,actual:null});
  w.model.responses.set(responseId,{model:b.grant.models[0]});
- await w.db.query("update keel_private.model_attempts set created_at=clock_timestamp()-interval '6 minutes' where id=$1",[plan.id]);
- await new Promise(resolve=>setTimeout(resolve,2100));w.state.now=Date.now();
+ assert.equal(queued.row.state,'queued');
+ await w.advanceTime(6*60000);
+ assert.equal(w.state.now-Date.parse(queued.row.created_at),6*60000);
+ await assert.rejects(w.vault.readPersonalRecoveryKey(w.descriptor,{actor:1,attemptId:plan.id,attemptScope:w.store.scope,policyDigest:b.connectionPolicyDigest,expectedVersion:1}),/funding_conflict/);
  const renewed={...b,grant:{...b.grant,version:2},evidence:{...b.evidence,observedAt:stamp(w.state.now),expiresAt:stamp(w.state.now+240000)}};
  await w.vault.updateFunding(w.descriptor,{actor:1,binding:renewed,requestId:H('renew'),expectedVersion:1});
  await assert.rejects(w.vault.readPersonalKey(w.descriptor,{actor:1,policyDigest:b.connectionPolicyDigest,expectedVersion:1,funding:plan.data.funding}),/funding_conflict/);
@@ -135,8 +143,17 @@ test('renewed same-account authorization can retrieve and cancel an original res
 test('trusted short expiry bounds actual SQL begin; known refusal releases only an unsent original attempt',async t=>{
  const w=await world(t),b=w.binding();await w.enroll(b);
  const p=await w.models.prepare(w.access,token,w.project,{...sourceInput(),fundingConnectionId:w.descriptor.id});const q=await w.models.quote(w.access,token,w.project,{previewId:p.id,digest:p.digest},{reauthorize:w.reauthorize});
- w.state.now=Date.now();w.setCapacityTtl(150);w.setBeginDelay(250);
+ w.setCapacityTtl(150);let beginReached=false;
+ w.beforeBegin(async()=>{
+  beginReached=true;
+  const reserved=(await w.store.read(H('short-expiry'),1,w.project)).row;
+  assert.equal(reserved.state,'reserved');
+  assert.equal(reserved.value.funding.windows[0].expiresAt,stamp(w.state.now+150));
+  assert.equal((await w.db.query('select count(*)::int n from keel_private.model_reservations')).rows[0].n,1);
+  await w.advanceTime(250);
+ });
  await assert.rejects(w.models.run(w.access,token,w.project,{quoteId:q.id,digest:q.digest,requestId:H('short-expiry')},{reauthorize:w.reauthorize}),/funding_changed/);
+ assert.equal(beginReached,true);
  const row=(await w.store.read(H('short-expiry'),1,w.project)).row;assert.equal(row.state,'refused');assert.equal(row.charged,0);assert.equal(row.settled,true);
  assert.equal((await w.db.query('select count(*)::int n from keel_private.model_reservations')).rows[0].n,0);assert.equal(w.model.calls.filter(c=>new URL(c.url).pathname==='/v1/responses').length,0);
 });

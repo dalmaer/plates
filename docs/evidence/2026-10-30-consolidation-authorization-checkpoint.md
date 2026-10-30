@@ -3,7 +3,9 @@
 Local implementation after checkpoint `2a40a484`, 30 October 2026. This is an
 unpublished branch checkpoint, not deployment, activation, import or cutover proof.
 The [comparison inventory](../research/2026-10-30-plates-orchestration-boundary.md)
-records the build-versus-adopt boundary. Further general executor and migration
+records the build-versus-adopt boundary. The [continuous-project evaluation](../research/2026-10-30-continuous-project-evaluation.md)
+audits recovery, learning, conversations, Mission Control and multi-person authority
+against repository code and gives falsifiable acceptance scenarios. Further general executor and migration
 work is paused for that comparison; existing services and routines keep operating.
 
 ## Implemented scope
@@ -65,8 +67,53 @@ Review corrected these boundaries before freezing code:
   cannot become authorized choices through a trusted profile adapter.
 
 All source examples are synthetic Acme data. Logs are retained outside the
-checkout in this task directory. The final combined gate and exact revision are
-recorded after code freeze; earlier passing gates do not cover these edits.
+checkout in this task directory. Earlier passing gates do not cover later edits.
+
+The first frozen checkpoint was `8d36146fc38bd0a02ad16cae958deef91629b1d4`:
+
+- Typecheck passed (`authorization-typecheck-8d36146f.log`).
+- An offline installed-package walk from that exact Git archive passed
+  (`packed-authorization-walk.log`), including observation privacy, unavailable
+  local authority, packaged default-off transports and migrations, and dormant
+  import policy. This is synthetic package proof, not activation.
+- The focused preflight passed 302 of 303 tests. Its guide convention rejected
+  two inline error identifiers as undocumented measures. The guide was corrected;
+  the six guide tests and roadmap/render/inbox/whitespace guards then passed.
+  Both `authorization-focused-final.log` and `authorization-guide-correction.log`
+  retain that sequence; the first command is not reported as successful.
+- The full gate ran 3,901 tests: 3,895 passed, two failed and four opt-in Docker
+  tests were skipped (`authorization-full-8d36146f.log`). The failures identified
+  missing canonical private-SQL name inventory and a funding expiry test whose
+  wall-clock deadline could elapse before its intended reserve-to-begin boundary.
+  Neither failure is hidden by the earlier passing subsets. Corrections and their
+  final validation are recorded separately below.
+
+The corrections preserve runtime SQL and authorization behavior. Fourteen new
+private database identities are inventoried under the existing held schema, and
+two dynamic compatibility prefixes are pinned to exact source lines. The rendered
+names table and only its lock entry were refreshed. Funding tests now share a
+controlled service/SQL clock and advance it after asserting the reserved state;
+the renewal case also proves stale recovery fails before same-account renewal.
+Independent review found no weakened assertions or SQL predicates.
+
+Focused correction proof: funding 9/9 and final names 5/5 passed; render and
+whitespace checks passed. The initial names/rename batch retained 121 passes and
+two failures: an overly broad new negative-control assertion, subsequently
+corrected, and an npm-pack test unable to write the sandboxed npm log directory.
+The other 117 rename tests passed. Logs are `funding-deterministic-tests.log`,
+`names-safeguard-tests.log`, `names-safeguard-final.log` and
+`names-render-check.json`. The final integrated checkpoint uses the same approved
+execution environment as the initial full gate; no unsuccessful run is erased.
+
+Independent read-only audits covered execution/recovery, learning/identity and
+web/collaboration. The evaluation document then received a separate source review;
+its reconnect scenario and failed-gate record were corrected and cleared. The
+44 roadmap/guide tests passed and 57 relative links resolved before final freeze.
+`plates retro --since 2a40a484 --json` completed as a read-only worksheet; no
+compatible session transcript was found, so session signal counts are unavailable.
+Two review candidates are retained without applying a new rule: include canonical
+name inventory in migration preflight, and use deterministic reserve/begin clock
+boundaries in SQL expiry tests. No lesson was automatically promoted.
 
 ## Completion boundary
 
