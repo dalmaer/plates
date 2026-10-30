@@ -4,7 +4,9 @@ Gas City supplies useful session and conversation seams, but this experiment
 **does not qualify it for adoption or unattended care**. A restart can erase
 session-create response deduplication; an inbound retry can notify an agent twice.
 Plates can conservatively retain uncertain intent, but complete automatic
-reconciliation is still missing. No live Gas City city, provider or model ran.
+reconciliation is still missing. The initial checkpoint ran no live Gas City
+city, provider or model. The follow-up below exercises the real subprocess
+provider; no city supervisor or model ran.
 
 ## Scope and pinned evidence
 
@@ -23,8 +25,8 @@ reconciliation is still missing. No live Gas City city, provider or model ran.
   their complete transitive licenses/deployment obligations were not audited.
 - Existing Node 24.22.1 and Go 1.27.3 used. Plates development dependencies reused
   through a temporary worktree-local symlink to the consolidation checkout's
-  existing `node_modules`, removed after validation; no package installation or
-  global configuration edit.
+  existing `node_modules`, removed after initial validation. The follow-up
+  downloaded only the official Go module detailed below; no global configuration edit.
 
 Official contracts inspected at the pin:
 [connected clients](https://github.com/gastownhall/gascity/blob/3f3224faaeff2da774417293e4a847aa421365a5/docs/guides/connected-clients.md),
@@ -58,7 +60,7 @@ Authentication, runtime attestation and current capacity are injected trusted
 fixture boundaries. This must remain outside production imports until those
 boundaries are wired to the existing production stores and reviewed HTTP routes.
 
-## Acceptance observations — 2026-10-30
+## Initial acceptance observations — 2026-10-30
 
 The named cases are in [the executable test](../../tests/gas-city-evaluation.test.mjs).
 All observations below distinguish local adapter behavior from live integration.
@@ -82,7 +84,7 @@ All observations below distinguish local adapter behavior from live integration.
 
 | Area | Classification | Evidence and consequence |
 | --- | --- | --- |
-| Composable runtime providers, city/rig sessions | Native | API and provider contracts exist; full runtime not executed |
+| Composable runtime providers, city/rig sessions | Native | Contracts inspected; real subprocess provider exercised in follow-up; full city/rig runtime not executed |
 | Async creation correlation | Native + adapter | Request ID/event cursor supplied on acknowledgment; Plates journal survives its own restart |
 | Durable create retry after city/server restart | Conflicting with blind retry | `idempotency.go` stores responses in a map; actual upstream code negative control proves a new cache forgets prior request |
 | Webhook duplicate suppression | Limited native | `webhook_dedup.go` TTL map and server-lifetime field; no cross-restart guarantee established |
@@ -101,7 +103,7 @@ session-event journey waived for 0.8+. Backend selection is city-wide; per-agent
 `session` selects transport rather than Herdr backend. No new `herdr-core` was
 substituted and no Herdr installation was attempted.
 
-## Commands and verification record — 2026-10-30
+## Initial commands and verification record — 2026-10-30
 
 From this experiment worktree unless another root is named:
 
@@ -133,10 +135,11 @@ GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off GOCACHE=/tmp/plates-gascity-go-cache g
 ```
 
 They could not resolve missing cached modules and attempted lock/cache writes
-outside the writable task roots; no component tests executed. No dependencies
-were downloaded to overcome this. The narrower checker instead uses an isolated
-cache and standard-library-only source files. Full upstream runtime remains
-**not run**, rather than represented by fixture passes.
+outside the writable task roots; no component tests executed. At that checkpoint no dependencies
+were downloaded to overcome this. The narrower checker used an isolated cache
+and standard-library-only source files. The follow-up below resolves the missing
+subprocess dependency and exercises that component; extmsg and the full city
+supervisor remain **not run**.
 
 Independent review reproduced and drove corrections for stop/create races,
 message funding bypass, termination incorrectly releasing financial reservations,
@@ -164,13 +167,13 @@ No model cost was incurred; local processing and imported source are not a live
 usage benchmark. No numeric maintenance-hours estimate is supported by this trial.
 The next meaningful test is a separately scoped, dependency-reviewed local city
 with fake executable workers, then durable create lookup and outbound delivery
-reconciliation. It needs no personal credentials if kept synthetic. Installing
-uncached upstream runtime dependencies or Herdr requires a concrete reviewed
-installation plan. Any paid provider trial, credentials/delegations, public
+reconciliation. It needs no personal credentials if kept synthetic. Additional dependencies need inspection and isolated setup; ordinary reputable
+local test dependencies fit the existing authorization. Herdr needs a separate
+version-compatible plan and is outside this trial. Any paid provider trial, credentials/delegations, public
 issue/PR/chat write, deployment, routine enablement or Switchboard cutover needs
 separate authorization. None was attempted here.
 
-## Final local checkpoint — 2026-10-30
+## Initial final-code checkpoint — 2026-10-30
 
 All implementation/test files were unchanged during the final full gate.
 This final results paragraph and evidence clarifications were added afterward;
@@ -197,3 +200,128 @@ do not prove per-turn native model cost enforcement. Likewise, the Go restart
 negative control constructs a fresh cache, exercising the actual implementation;
 it does not kill/restart a full supervisor process. No real PR/chat provider or
 model endpoint was contacted by the qualification tests.
+
+## Actual subprocess-runtime follow-up — 2026-10-30
+
+The earlier missing dependency was recoverable local setup, not a requirement for
+another user decision. Under the existing authorization, the ordinary sandbox
+review permitted the exact public module download and local process/socket tests.
+No permission denial remains. No global installation or settings changed.
+
+Only `golang.org/x/sys v0.49.0` was downloaded into the task-local module cache.
+The official Go proxy/checksum receipt matched both hashes already in the pinned
+`go.sum`; its origin is `https://go.googlesource.com/sys`, commit
+`b6b8557e8e2974925aec7a136ba0e323eedc5f43`. The module is BSD-licensed and has no
+module dependencies in its inspected manifest. Existing Go 1.27.3 compiled the
+trial with `CGO_ENABLED=0`. Offline compilation succeeded without another module.
+[Runtime evidence](2026-10-30-gas-city-runtime-evidence.json) retains the receipt,
+source-manifest digest, named test outcomes and actual process proof.
+
+A local archive of the same Gas City revision was used. Every Go source file in
+the ten inspected packages was byte-compared with the pinned checkout; the
+[manifest](../../experiments/gas-city/runtime-sources.json) retains individual
+hashes. No upstream production source was edited. A task-owned driver was added
+only to the archived trial tree for compilation. Module/cache/binary/log storage
+is under `task-3/gas-city-runtime-trial`; temporary roots are owned short paths.
+
+Executed from the archived upstream source with sanitized `env -i`, explicit
+`GOENV=off`, `GOWORK=off`, `GOTOOLCHAIN=local`, task-local `GOPATH`, `GOMODCACHE`,
+`GOCACHE`, `TMPDIR` and `TEST_TMPDIR`:
+
+```sh
+go mod download -json golang.org/x/sys@v0.49.0
+go test -mod=readonly -p=1 -parallel=1 -count=1 -v -timeout=60s ./internal/runtime/subprocess -run '^(TestSeamsLifecycle|TestSeamsInterrupt|TestSeamsStage|TestSeamsMetaStore|TestSeamsTransportShape|TestTerminateRuntimeBindsKillToScannedIdentity|TestSubprocessFencedInputChecksTheLiveProcess|TestSubprocessRespawnBetweenCheckAndSendIsRefused|TestSubprocessFencedInputToAnExitedChildIsADeadMiss)$'
+go build -mod=readonly -o ../bin/plates-subprocess-driver ./cmd/plates-subprocess-driver
+```
+
+Download used only `GOPROXY=https://proxy.golang.org`, `GOSUMDB=sum.golang.org`;
+compilation and tests used `GOPROXY=off`, `GOSUMDB=off`. All three commands exited
+0. The nine named upstream tests actually ran and passed: lifecycle includes
+launch, duplicate rejection, re-resolution, liveness and teardown; interruption
+kills a real child; fencing refuses stale incarnations and a check/send respawn;
+process-identity fencing rejects an incorrect identity before signaling. This is
+scoped macOS component evidence, not the upstream Bazel gate.
+
+The [driver](../../experiments/gas-city/runtime-driver/main.go) links the unchanged
+subprocess provider and accepts only a fixed finite `exec /bin/sleep 60` worker.
+Its local component protocol is explicitly **not** the supervisor API. A
+[coordinator child](../../experiments/gas-city/runtime-coordinator.mjs) uses the
+existing Plates experimental bridge/journal. The
+[trial runner](../../experiments/gas-city/runtime-trial.mjs) SIGKILLs that actual
+Node coordinator and starts new OS processes against the same journal while the
+provider driver stays alive. Real process identity is read from the provider's
+own control socket and the Darwin kernel. No global process scan or arbitrary
+PID/command endpoint is exposed.
+
+The first harness run failed because it used the old session-name socket path;
+the pinned runtime hashes the name. Plates retained `launch-uncertain` and its
+hold. Provider teardown ran, but that attempt never captured independent PID
+proof and is not a pass. Its original stderr and journal remain retained. After
+correcting the pinned socket mapping, a run passed. Review then found an
+independent failure-cleanup ordering issue, which was fixed and regression-tested
+before the final run; no failed attempt was erased or retried unchanged.
+
+Final command from the Plates experiment worktree:
+
+```sh
+node experiments/gas-city/runtime-trial.mjs /absolute/task-3/gas-city-runtime-trial/bin/plates-subprocess-driver
+```
+
+Exit 0. The final run retained PID `16161` and kernel start identity
+`1793397704501209000` across a confirmed coordinator `SIGKILL` and restart; the
+actual provider create count remained one. While the worker lived, termination
+confirmation was refused. A typed native `FenceMismatchError` carried the
+expected incumbent digest and left the worker alive. After real provider Stop,
+the bridge still showed `stop-pending` with the lane held. A stale callback was
+rejected. Only matching session/fence/PID/start-identity evidence with kernel
+absence released the lane; the capacity reservation stayed held. Cleanup joined
+owned coordinators and the driver, recorded `running:false`, `exitConfirmed:true`,
+no stop/observation error, and removed that successful run's temporary root.
+
+The driver has a 90-second lifetime ceiling and the worker a 60-second ceiling.
+All harness waits are bounded. Cleanup signals every owned process before waiting
+for any one; driver shutdown cannot be skipped by a failed coordinator exit.
+Unknown cleanup or any failed trial retains its directory. Three focused tests
+exercise rejected/timed-out child cleanup, signaling errors, unavailable exit
+proof and successful joined cleanup. Independent final review found no remaining
+blocker for the bounded component trial.
+
+### Current scenario classification
+
+`Pass (component)` means the named real-runtime boundary was exercised; it does
+not qualify the full supervisor/product. All untouched original fixture evidence
+remains at the prior scope, not promoted by the runtime pass.
+
+| Common scenario | Current status | Exact evidence / remaining gap |
+| --- | --- | --- |
+| Lost acknowledgment and coordinator restart | Partial | Real coordinator SIGKILL/restart recovered the same PID and one creation; original lost-HTTP-ack test still mocked; supervisor request lookup remains unresolved |
+| Worker death/stale callbacks | Pass (component); full-engine unknown | Nine upstream lifecycle/fence tests plus final harness typed stale interrupt and stale termination rejection; no supervisor crash/reconciliation or live agent |
+| Duplicate issue/chat inputs | Partial | Original test lines 41 and 49 persist dedupe/uncertainty against a fixture; actual extmsg not run |
+| Worker/coordinator conversation and human conflicts | Partial | Original line 54 tests separate projects and withheld revision conflict; subprocess input is a no-op, not a conversational transport |
+| Capacity expiry/revocation/no payer switch | Partial | Original lines 17, 26 and 108; real worker exit additionally retained capacity hold; no native model-cost enforcement |
+| One account across project sets | Partial | Original line 17 shares canonical pool across two projects; no actual set objects/UI exercised |
+| Completion-to-learning crash | Partial | Original line 64 reopens durable pending/captured/no-useful-lesson records; native worker outcome-to-learning integration absent |
+| Scoped learning promotion/rollback | Partial | Original line 64 validates reviewer/destination/version and rollback; production retrieval/effectiveness untested |
+| UI/chat reconnect without replay | Partial | Original line 82 read model and revocation checks; actual coordinator journal recovery now demonstrated; browser/SSE/outbound delivery absent |
+| Malicious content cannot forge authority | Partial | Original lines 54 and 135; typed native fence rejection now proven; real authentication/tool permission enforcement absent |
+| Whole-PR usage | Partial | Original line 74 inserts five stage-labeled receipts on one run; no actual PR/retry/review/model usage collected |
+| Pending stop versus confirmed termination | Pass (component); full-engine unknown | Actual provider Stop acknowledgment retained lane; stale callback refused; kernel/PID/start-identity plus matching fence released lane; funding hold retained |
+
+### Follow-up validation scope
+
+`npm run check:focused -- tests/gas-city-evaluation.test.mjs
+tests/gas-city-runtime-trial.test.mjs` exited 0: 134 passed, zero failed or skipped,
+including 17 existing adapter tests, three new cleanup regression tests and
+required conventions; roadmap/render/inbox/whitespace passed. The isolated
+three-test cleanup run used the repository ledger reporter: no flaky or slower
+test was reported (three busy runs excluded from comparison). Raw follow-up logs
+are retained in `task-3/gas-city-runtime-trial/logs`; evidence JSON records their
+hashes. Documentation results were updated afterward and whitespace rechecked.
+The unchanged full suite from
+`0c584d7f` is historical evidence (3,914 pass, four opt-in Docker skips), not a
+new full-suite claim for these additions. It was not rerun, as requested. No
+production source/route, existing experiment behavior, upstream source, model
+credential or routine was changed. Remaining work includes full-city request
+reconciliation, authenticated conversations, native usage enforcement and
+production learning integration; these remain engineering work, not simply
+missing credentials.

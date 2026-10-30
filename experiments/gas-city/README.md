@@ -51,3 +51,29 @@ learning or full lifecycle accounting.
 
 See [the dated evaluation](../../docs/research/2026-10-30-gas-city-experiment.md)
 for findings, commands, limitations and adoption criteria.
+
+
+## Actual subprocess component trial
+
+The follow-up exercises real upstream process lifecycle and a forced restart of
+the Plates coordinator. It does not start a city or a model. Build the supplied
+`runtime-driver/main.go` as `cmd/plates-subprocess-driver/main.go` inside an
+isolated archive of the pinned upstream tree, using existing Go 1.27.3 and only
+`golang.org/x/sys v0.49.0` in explicit task-local caches. Preserve `go.sum`; do not
+use `go get`, `go install`, `gc init`, global configuration or ambient provider
+environment. The research report records exact checksums and build/test flags.
+
+```sh
+node experiments/gas-city/runtime-trial.mjs /absolute/path/to/plates-subprocess-driver
+node --import ./tests/helpers/hermetic.mjs --test tests/gas-city-runtime-trial.test.mjs
+```
+
+The runner owns a short private `/tmp/plates-gcp-*` root, one finite worker,
+its local provider driver and coordinator children. It deliberately SIGKILLs
+one coordinator after durable launch evidence, then reconstructs the same run
+without relaunch. A stop acknowledgment retains the lane until the driver's
+kernel identity check proves the original worker exited. The component protocol
+and its request ID are local harness plumbing, not native supervisor receipts.
+Successful cleanup removes only that owned root. Failure or uncertain cleanup
+retains it and emits its path; never delete it merely to retry. The driver's
+90-second and worker's 60-second lifetime caps bound an interrupted runner.
