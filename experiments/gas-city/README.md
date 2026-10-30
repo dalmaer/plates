@@ -77,3 +77,13 @@ and its request ID are local harness plumbing, not native supervisor receipts.
 Successful cleanup removes only that owned root. Failure or uncertain cleanup
 retains it and emits its path; never delete it merely to retry. The driver's
 90-second and worker's 60-second lifetime caps bound an interrupted runner.
+
+## Two-project full loop
+
+`full-loop.mjs <pinned-loop-driver> <new-output-directory>` runs the actual
+subprocess worker and real Plates private-learning service/SQL across two
+synthetic repositories. See [the replay and evidence record](../../docs/research/2026-10-30-gas-city-full-loop.md).
+It creates `report.json` and an offline `index.html` trace viewer; keeps private
+journals and fixture repos for inspection; and stops all owned processes. The
+finite lesson interpreter, human turns and account policy are explicitly
+synthetic. This demonstrates lifecycle/learning contracts, not model learning.

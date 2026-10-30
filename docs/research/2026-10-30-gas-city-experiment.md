@@ -325,3 +325,12 @@ credential or routine was changed. Remaining work includes full-city request
 reconciliation, authenticated conversations, native usage enforcement and
 production learning integration; these remain engineering work, not simply
 missing credentials.
+
+## Full-loop follow-up — 2026-10-30
+
+The [two-project lifecycle demonstration](2026-10-30-gas-city-full-loop.md)
+now joins actual subprocess execution and crash recovery to Plates' real private
+learning service/SQL, exact reviewed cross-project lesson use, a measured fixture
+difference and harmful-copy withdrawal/rollback. It upgrades this bounded loop
+from disconnected assertions; full supervisor, live identity/provider funding,
+agent reasoning and general learning effectiveness remain unqualified.
