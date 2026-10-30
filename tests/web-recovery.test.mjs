@@ -51,7 +51,7 @@ test('daily draft restores authored fields alongside current observations withou
  saved.items[0].title='Acme authored title';saved.leftOpen=['Owner question'];
  const current=dailyPlan();current.items[0].status='failed';current.items[0].result={note:'Current observed failure'};
  const restored=restoreDailyDraft(current,saved);assert.equal(restored.items[0].title,'Acme authored title');assert.equal(restored.items[0].status,'failed');assert.deepEqual(restored.items[0].result,current.items[0].result);assert.deepEqual(restored.leftOpen,['Owner question']);
- assert.equal(lensRoute('/projects/studio/walks',null).path,'/');assert.match(lensRoute('/projects/studio/walks',null).notice,/no fleet index/);
+ assert.equal(lensRoute('/projects/studio/walks',null).path,'/');assert.match(lensRoute('/projects/studio/walks',null).notice,/no set index/);
 });
 
 for(const outcome of ['discard','denial'])test(`daily ${outcome} clears dirty guards without claiming a save`, async()=>{

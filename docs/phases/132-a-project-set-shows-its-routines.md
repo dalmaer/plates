@@ -1,11 +1,11 @@
 ---
-status: designed
+status: partial
 since: 2026-10-30
 goal: G8
 spec: 2
 depends: [93, 102]
-note: "Read-only project-set routine visibility specified against Plates 0165c290 and Switchboard a6651db5. No product migration or local-to-hosted bridge is implemented by this design."
-evidence: []
+note: "Local Home/Routines/Activity set-filter slice implemented; broader source readers, task/PR usage and observation bridge remain. No hosted activation or routine migration."
+evidence: ["evidence/2026-10-30-project-set-lens.md"]
 ---
 
 # A project set shows its routines and what actually ran
@@ -33,7 +33,8 @@ The remaining outcomes are [personal capacity for shared work](133-people-bring-
 [policy and reversible import](134-a-routine-has-one-plates-policy.md),
 [accountable execution and effects](135-routines-run-with-accountable-effects.md)
 and [safe replacement](136-a-routine-changes-owner-without-losing-work.md).
-No product code, personal state or active routine is moved by these phase records.
+The first local slice adds a read-only lens to existing web views. Personal state
+and active routines remain at their existing sources.
 
 Extend the existing set overview → plate detail → work/runs/reviews/health
 journey, with Learning, full task/PR usage and Connections/capacity in the same navigation. Source
@@ -49,6 +50,8 @@ in the contract. Observing consumption is separate from current quota or funding
 permission. Do not add a competing routine telemetry store.
 
 ## Acceptance
+
+- [x] An optional bounded registry filters existing Home/Routines/Activity before source reads; hidden members are not returned, pagination is membership/source-bound, refresh retains the set, access revocation fails closed, and original project/attempt links work: `npm run check:focused -- tests/web-project-sets.test.mjs tests/web-home.test.mjs tests/web-events.test.mjs tests/web-runs-ui.test.mjs tests/web-responsive.test.mjs tests/web-recovery.test.mjs`.
 
 - [ ] A task/PR usage view includes planning, coding, review, remediation, retries and failed/abandoned work, with person/account/model/stage/token/cost breakdowns, source coverage and nonadditive shared-work attribution: `npm run check:focused -- tests/routine-views.test.mjs` (planned) plus the branch-qualified AQ records/lifecycle/report tests named in the contract after integration.
 
@@ -113,8 +116,10 @@ window, gaps and observation-only activation separately from acceptance.
 
 ## Next action
 
-Start T1's observation schema in an isolated branch: read current decision context, revalidate the pinned inventories and write scope/identity/privacy fixtures before implementing readers.
+Continue T1/T2 with normalized source/attempt observations and bounded read-only adapters. Resolve agent-quality draft phase-ID allocation before integrating its ledger for U1; extend its usage contracts instead of adding another store. Keep set-wide lessons and actor-private capacity outside this first lens until their audience/funding contracts and fixtures are implemented.
 
 ## Trajectory
 
 - **2026-10-30** — Created from repository inventory, then split into five user outcomes after the owner asked for Plates-native phases and preferred “set.” Product migration has not started.
+
+- **2026-10-30** — Owner authorized local implementation. Added the optional project-set lens in existing Home/Routines/Activity with focused authorization, polling and continuation checks. Phase remains partial; no runtime enrollment, provider execution or migration is claimed.

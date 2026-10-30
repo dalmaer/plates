@@ -28,7 +28,7 @@ test('project switching refreshes real anchor destinations after a client receip
   window.location={pathname:`/projects/studio/jobs/${'a'.repeat(64)}`,search:''};listeners.toggle();
   assert.equal(anchors[0].href,'/projects/lab/jobs');assert.equal(anchors[1].href,'/jobs');assert.match(notice.textContent,/record stays/);
   assert.doesNotMatch(anchors.map(a=>a.href).join(' '),/a{64}/);
-  const scoped=navigation(access,{path:'/projects/studio/walks',project:projects[0]});assert.match(scoped,/There is no fleet index for this project view/);assert.match(scoped,/data-project-lens="" href="\/"/);client.stop();
+  const scoped=navigation(access,{path:'/projects/studio/walks',project:projects[0]});assert.match(scoped,/There is no set index for this project view/);assert.match(scoped,/data-project-lens="" href="\/"/);client.stop();
 });
 test('real authenticated shell routes retain navigation and security boundaries; sign-in has no private project menu',async()=>{
   const h=harness(),login=await h.login();

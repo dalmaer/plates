@@ -1,7 +1,7 @@
 # Switchboard consolidation into Plates
 
-Implementation contract for Plates phases 132–136, 30 October 2026. This is a design and task inventory; proposed paths and commands
-below are not shipped features. Each phase owns its acceptance/status; this document owns no duplicate progress state.
+Implementation contract for Plates phases 132–136, 30 October 2026. This is an implementation contract and task inventory; proposed paths and commands
+below are not shipped features unless the owning phase records implementation evidence. Each phase owns its acceptance/status; this document owns no duplicate progress state.
 
 ## Source baseline and boundaries
 
@@ -26,6 +26,24 @@ This work does not install a listener, run a routine, read personal task bodies,
 change permissions, copy credentials, publish code, deploy, or retire anything.
 Switchboard's installed Plates practices are not evidence of product migration.
 Preserve the existing agent-quality branches and any uncommitted user work.
+
+## First local implementation boundary
+
+The initial read-only set lens extends existing Home, Routines and Activity using
+an optional `projectSets` web-service configuration registry. It intersects current
+project access and repository pins before source reads, preserves full authorization
+for existing operations, and binds continuation to the visible member/source digest.
+It uses existing project caches and run models. It copies no Switchboard source,
+creates no telemetry store and adds no runtime worker. Unattributed workspace
+receipts remain explicitly outside a set. See the
+[configuration and view guide](../guide/web-routine-history.md#inspect-a-project-set)
+and the phase's evidence for verified scope. Personal capacity, task/PR usage,
+set-wide Learning, observation enrollment and routine import are subsequent slices.
+
+This registry is deliberately an interim observation configuration. A future
+authored set model must provide versioned import from it, stable IDs, conditional
+writes and an ownership decision; it must not silently treat grouping as access
+or copy private account allowances into shared project data.
 
 ## Plates outcomes and reuse decisions
 
