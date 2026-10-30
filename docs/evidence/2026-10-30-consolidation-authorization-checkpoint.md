@@ -117,6 +117,33 @@ coverage and names tests passed (`name-closure-correction-tests.log`). Typecheck
 and the installed-package walk had passed at `7a4c61cd`. These corrections receive
 their own final integrated validation; the second gate is not called successful.
 
+## Final verified checkpoint
+
+Code revision `b48b3a6dcbe700fae789f5a9865e80cfd4059c77`, checked on
+30 October 2026 with a clean working tree:
+
+| Command or check | Result |
+| --- | --- |
+| `npm run check` | Exit 0: 3,901 tests, 3,897 passed, zero failures, four opt-in Docker skips; roadmap, render and inbox guards passed |
+| `npm run typecheck` | Exit 0 |
+| Offline Git-archive/package/install Acme walk at this exact revision | Passed; existing observation/privacy/usage/recommendation behavior, dormant policy and default-off checkpoint modules packaged |
+| Independent review | Clear on funding timing correction, held names inventory, retained historical retry bytes and current capability coverage pin |
+
+Logs: `authorization-full-b48b3a6d.log`,
+`authorization-typecheck-b48b3a6d.log`, and
+`packed-authorization-walk-b48b3a6d.log`. The gate's hygiene summary reported no
+flaky or slower test among eligible observations, with four busy runs omitted.
+Only documentation evidence was changed after this verified code revision.
+Final documentation checks passed: 44 roadmap/guide tests, roadmap/render/inbox
+guards, whitespace checks and all 59 relative links across the three audit records.
+The documentation log is `evaluation-doc-final.log` with the three
+`evaluation-*-final.log` guard logs.
+
+The original Plates checkout remained at `0165c290` with its 48 pre-existing
+untracked paths; Switchboard remained clean at `a6651db5`; the separate
+agent-quality checkout remained clean at `9f8c17ad`. This branch is local and
+unpublished. No production database migration or runtime activation was tested.
+
 Independent read-only audits covered execution/recovery, learning/identity and
 web/collaboration. The evaluation document then received a separate source review;
 its reconnect scenario and failed-gate record were corrected and cleared. The

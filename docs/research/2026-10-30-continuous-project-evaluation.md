@@ -2,11 +2,15 @@
 
 30 October 2026. Audited Plates main `0165c2902784073ba89dd717256ad233faf4865f`
 and local consolidation code `8d36146fc38bd0a02ad16cae958deef91629b1d4`.
+Reviewed validation corrections are included in the final verified code checkpoint
+`b48b3a6dcbe700fae789f5a9865e80cfd4059c77`.
 Switchboard remains at `a6651db5ff570eada8b04b2c4ffb993d8e67fbe9`; its runtime
 has not moved. “On main” means code is present in that revision, not that a
 hosted instance has enabled or exercised it. “Local” means unpublished branch
 implementation, with synthetic proof and explicit integration gaps. See the
 [checkpoint evidence](../evidence/2026-10-30-consolidation-authorization-checkpoint.md).
+The earlier [consolidation specification](../specs/switchboard-consolidation.md)
+contains the detailed Switchboard capability inventory and Plates-native migration plan.
 
 ## Assessment
 
@@ -153,7 +157,7 @@ one plate can have different personal accounts and quota windows. One person's
 same account appearing through several sets must not become several allowances.
 The local [funding foundation](../../lib/web/funding.mjs) preserves original payer
 and account identity, including uncertain-response recovery and atomic shared-pool
-reservations. It still needs HTTP trusted-source wiring and a usable personal
+reservations within the configured broker. It still needs HTTP trusted-source wiring and a usable personal
 funding selection/enrollment flow. Supported bounded API planning is not general
 personal-subscription execution or organization-plan allocation.
 

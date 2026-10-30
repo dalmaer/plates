@@ -32,6 +32,10 @@ The committed consolidation code at `10076b5b` passed the combined local gate
 (3,836 tests, zero failures, four opt-in Docker skips), typecheck and an installed
 Acme package walk. That evidence does **not** cover subsequent checkpoint edits;
 see [the original validation record](../evidence/2026-10-30-consolidation-local-validation.md).
+The subsequent checkpoint at `b48b3a6d` passed 3,901 tests (3,897 passed, four
+opt-in Docker skips), typecheck and an installed Acme walk. Its
+[evidence](../evidence/2026-10-30-consolidation-authorization-checkpoint.md)
+preserves the intermediate failures and corrections; this remains local proof.
 
 ## Architecture worth retaining
 
