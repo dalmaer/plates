@@ -84,3 +84,21 @@ activation. Later host enrollment, daemon installation, provider data transfer,
 spend, permission changes, shared-audience expansion, cutover and retirement need
 their concrete scoped review. No active routine, credential, permission, private
 runtime state or existing health-reports trial was changed here.
+
+## Usage and recommendation clarification — 30 October 2026
+
+Read agent-quality branch `9f8c17ad` without changing it. U1 now extends its
+existing episode/attempt ledger with full task/PR lifecycle usage, provider-specific
+input/output/cache semantics, funding attribution, observed/estimated charges,
+coverage and nonadditive multi-PR/parent-child mappings. S1 separately recommends
+an authorized agent using fresh personal capacity and relevant quality/latency/cost
+evidence; it never dispatches or infers subscription quota from historical tokens.
+
+Review found phase-ID collisions: agent-quality's branch already has different
+phases 132–134. Both branches remain intact; reconcile draft phase allocation and
+references before integration/publication. Branch-qualified contract prerequisites
+avoid pretending that consolidation phase 134 is the agent-quality phase.
+
+For this documentation clarification, roadmap generation/check, managed render,
+inbox and whitespace checks passed. New usage/recommendation tests are planned,
+not executed. Earlier focused-check results above retain their original scope.

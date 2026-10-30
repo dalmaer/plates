@@ -25,7 +25,12 @@ successful process and renamed directory do not establish safe effects.
 Local runner support, cloud worker support, observation enrollment and execution
 authority are distinct capabilities. Maintain explicit placement evidence and
 cloud-first advice; BenOS-dependent work remains home-only until remote support
-is proved. No existing routine, daemon, permission or credential changes merely
+is proved. Each executed stage emits source-idempotent measurement references into the
+existing agent-quality lifecycle/ledger under U1, including failure, retry and
+remediation. Recommendation alone does not dispatch; actual run approval pins
+funding and model, and telemetry collection grants no further spend.
+
+No existing routine, daemon, permission or credential changes merely
 because this phase exists. Automatic reviewer spend remains off unless approved.
 
 ## Acceptance

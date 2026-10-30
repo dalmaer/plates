@@ -78,11 +78,12 @@ production. Existing phase activation/walk gaps remain. Extend these surfaces:
 | `/capabilities`, `/setup`, `/recovery`; auth and operation capability coverage | Retain supported/implemented/activated distinctions, permission gaps, restore quarantine and original receipt recovery. Generic links cannot stand in for the real operating journey. |
 
 The intended journey is **set overview → plate detail → work, runs, reviews and
-health**, with **Learning** and **Connections/capacity** reachable at every lens.
+health**, with **Learning**, **task/PR usage** and **Connections/capacity** reachable at every lens.
 Set Home shows authorized plates needing attention, active work, observed health,
 routines waiting for approval/capacity and coverage timestamps. Plate detail shows
 its source plans, current changes, review decisions, job attempts and outcomes.
-Activity retains original operation links. Learning compares patterns with source
+Activity retains original operation links and links to the task/PR lifecycle usage
+projection, including failed and abandoned work. Learning compares patterns with source
 provenance; Capacity shows “my accounts” and explicitly authorized organization
 pools separately from the plate's configured budget and consumed usage.
 
@@ -102,6 +103,175 @@ registry. Preserve project detail URLs and original receipts during scope change
 login/reconnect and browser back. Test screen-reader labels, keyboard behavior,
 mobile widths, filtered pagination and absent/denied sources; do not claim a
 coherent whole-product experience from a fresh dashboard screenshot alone.
+
+## Historical usage and current capacity are different products
+
+The owner's 30 October clarification distinguishes **what a full task/PR consumed**
+from **which of my authorized agents is suitable and available now**. Persist
+historical usage for the entire lifecycle; use fresh capacity as a separate
+selection input. Tokens, dollars, reserved ceilings, subscription quota and
+quality are different measures. A task's token sum cannot reconstruct remaining
+subscription allowance when provider window/accounting semantics differ.
+
+### Integrate the existing agent-quality contract
+
+Additional read-only baseline: `codex/agent-quality` at
+`9f8c17adb12e4291c4a9a4c11870c3755f3d762e`, inspected 30 October 2026. References
+prefixed `AQ:` below mean that exact branch/commit, not files present on this
+consolidation branch. Its `AQ:docs/specs/agent-quality.md` and lifecycle/adapters
+guides already define an episode as one outcome with all attempts, many-to-many
+PR links, prospective task passports, exact checkpoints, source-idempotent
+observations and unknown usage. It is locally implemented with installation and
+human-calibration gaps, not verified provider billing or an automatic router.
+
+| Existing agent-quality seam | Extension or reuse |
+| --- | --- |
+| `AQ:lib/agent-quality-records.mjs` | Reuse episode/source/attempt/checkpoint identity and versioned strict validation. Current `resources` has `tokens`, `cachedTokens`, `currencyUsd`, currency provenance and time; it lacks full input/output/cache and funding decomposition. Extend with a versioned usage measurement/reference contract rather than guessing missing fields. |
+| `AQ:lib/agent-quality-lifecycle.mjs`, `agent-quality-observer.mjs`, `agent-quality-execution.mjs` | Reuse begin/link/start/finish, original command receipts, parent attempts and exact review checkpoints. Feed routine and supported runner telemetry into this lifecycle; collection does not authorize execution. |
+| `AQ:lib/agent-quality-ledger.mjs` | Reuse the initialized external workspace, shared session-ledger lock, source deduplication, append-only revisions and retention/refusal semantics. No new routine-token ledger. Existing terminal attempts remain immutable; a new usage observation can reference them without editing old receipts. |
+| `AQ:lib/agent-quality-report.mjs`, `agent-quality-weekly.mjs` | Add task/PR lifecycle projections and source-bound filtered breakdowns to existing reporting. Preserve known subtotal vs complete total, original failures, coverage and quality cohorts. Hosted views consume authorized projections, not another telemetry store. |
+| `AQ:docs/specs/agent-quality.md`, `AQ:docs/guide/agent-quality-lifecycle.md`, `AQ:docs/guide/agent-quality-adapters.md` | Preserve metadata-only privacy, exact preview/recovery, explicit provider/model uncertainty and no routing or model spend from collection. New recommendation semantics require their own reviewed contract below. |
+
+Integration prerequisite: that branch already owns phase IDs 132 (risk tolerance),
+133 (review continuation) and 134 (agent quality), while this isolated draft also
+uses 132–134 for different outcomes. Do not merge the two roadmaps or add a bare
+`depends: [134]` to mean agent quality here: that would refer to routine import.
+Before integration/publication, reconcile draft phase allocation and references
+under the phase contract, preserving existing source identities and historical
+records. Neither branch is modified or merged by this specification update.
+U1/S1 require the branch-qualified agent-quality contracts above; if unavailable,
+usage/quality integration remains a named gap, not a duplicate implementation.
+
+### Full task and PR lifecycle accounting
+
+An episode is the durable unit, created before work when possible; a PR is a
+many-to-many view over episodes and attempts. Retain planning before a PR exists,
+implementation, independent or self-review, iteration/remediation, retries,
+verification/model work and failed, denied, timed-out or abandoned attempts.
+Use existing stage names `planning`, `coding`, `review`, `iteration`; add a typed
+activity/retry reason for finer detail rather than conflating retry with a new
+stage. Abandoned work stays an episode even if no PR is ever opened. A merged PR
+is neither complete telemetry nor accepted quality.
+
+Bind mappings to canonical repository numeric identity plus PR number/provider ID,
+commit SHA and exact input/output checkpoint digest where available. Preserve old
+name-based AQ links as source references; verify them before joining to canonical
+PR identities. Commit authors, branch names, temporal proximity and reviewer names
+do not establish funding identity, exact model or usage. A late PR link appends
+mapping provenance without pretending the original task classification was
+prospective. Rebase/squash/review-again relationships are explicit, not duplicated
+work inferred from new commit hashes.
+
+Each usage observation references the existing episode/attempt and records:
+
+- Stable source receipt/provider request ID, measurement ID/revision, observation
+  time and authenticated/provider/declared provenance; opaque account identity
+  and actor/funding principal under existing private scope.
+- Agent/provider, exact model/version and harness/configuration identity when
+  actually known; role/stage/activity, attempt parent and checkpoint/commit/PR
+  mappings with their provenance. Missing version remains unknown.
+- Input and output tokens, cache-read and cache-write tokens, optional reasoning
+  or other provider units, raw numeric provider counters and a versioned semantics
+  descriptor. Fields may overlap: record whether cached/reasoning tokens are
+  subsets of another field, rather than adding them twice. Preserve unknowns and
+  provider-defined units; do not infer input/output from a legacy total.
+- Whether a counter is per-call, cumulative session or inclusive parent total,
+  its covered interval/request set and whether child work is included. Successive
+  snapshots replace/refine one measurement in the projection; they are not new
+  consumption. A counter reset starts a new explicit segment; do not subtract
+  unrelated sessions or assume monotonicity across resets.
+- Observed monetary charge/currency with source evidence, or a separately labeled
+  estimate carrying price/version/date, billable-unit/cache semantics and coverage.
+  Keep subscription allocation estimates distinct from provider invoiced charges.
+  Preserve reservations separately. No conversion across currencies without an
+  explicit dated rate; missing cost is null rather than a free run.
+
+Reports show whole lifecycle and breakdowns by person/account (within visibility),
+agent/model/version, stage, attempt and input/output/cache units. For each metric
+show observed/expected attempt coverage, unknown fields, first-observed cutoff,
+retention gaps and known subtotal. A complete total is null if required parts are
+missing or overlap is unresolved; do not advertise complete PR cost from the last
+successful attempt. Private details can be hidden in a shared PR projection;
+its coverage must say restricted rather than leaking another person's account.
+Durability uses the existing explicit retention policy: retain original structured
+receipts and mappings while within approved bounds, flag expired evidence, and
+never silently enlarge retention or delete data to make a rollup look complete.
+
+Deduplication and allocation rules:
+
+1. One provider request/measurement identity has one canonical observation even
+   when imported, read by multiple hosts, linked to a retry, or seen in both AQ
+   and routine receipts. Import retains source aliases; conflicting counters are
+   a reconciliation gap, not additive independent usage.
+2. Parent session totals that include children and leaf request totals are
+   alternative views of the same consumption. Prefer disjoint verified request
+   coverage; retain parent as a reconciliation total. If inclusion is unknown,
+   expose overlap and withhold a complete rollup. A retry with a genuinely new
+   provider request is separate consumption even when its prompt is identical.
+3. Task-to-PR association does not allocate cost automatically. A single-PR episode
+   may attribute fully after explicit binding. Shared work across PRs carries an
+   explicit versioned allocation per metric/request, whose weights sum to at most
+   one; any remainder is unallocated. Without a justified split, show it as shared
+   unallocated work on each related PR, excluded from additive attributed totals.
+   A separate “associated usage” view is labeled nonadditive. Project/set rollups
+   deduplicate canonical measurements regardless of how many PRs reference them.
+4. Reused evidence or a checkpoint link incurs no new recorded model consumption.
+   A new review of the same patch does. Historical expense stays at its original
+   attempt; no repeated attribution because a PR, task or set references it.
+5. Later billing/telemetry can append a superseding measurement in the same ledger
+   domain; retain original uncertainty and both provenance records. Never rewrite
+   immutable terminal attempts or count old and refined measurements together.
+
+### Agent recommendations for the current person
+
+Initial selection is an **explainable recommendation**, not automatic assignment
+or a paid run. Start with the current person's authorized account/model choices
+and explicit delegated/org grants; filter by plate/workspace policy, task-role
+capabilities, privacy/isolation, context/tool support and current funding scope.
+Then present fit tradeoffs using fresh observed allowance/reset windows, observed
+latency, bounded cost estimates and agent-quality evidence relevant to planning,
+coding, review or iteration and the task's specialty/difficulty/risk. A cheap or
+available agent is not necessarily the strongest reviewer; unsupported required
+independence is a refusal, not a second model from the same provider relabeled.
+
+Reuse AQ's exact model/harness/configuration cohorts and human adjudication;
+include sample/coverage, freshness, task similarity and disputed judgments.
+Retrospective correlations are advisory and not causal rankings. Sparse,
+unmatched or version-mismatched evidence says “quality unknown”; do not invent a
+universal score or train a routing rule from token totals. Without calibrated
+comparative evidence, explain capability/capacity and user preferences while
+withholding a quality-superiority claim. Agent/model updates invalidate applicable
+quality matches unless explicitly supported by evidence.
+
+The recommendation records candidate reasons, evidence digests, observation times,
+quality uncertainty, expected latency/cost ranges and selected funding principal.
+The person chooses, overrides within existing authority, or waits. Selection does
+not reserve/spend until the existing exact run-preview/action boundary; overrides
+cannot widen permission or use another person's account. Refresh stale quota or
+changed policy/connection evidence before execution. Subscription remaining quota
+comes from the provider's own authorized observation semantics, never historical
+PR tokens, price estimates or other collaborators' allowances. Exhaustion can
+suggest an authorized alternative, but never silently switches payer/model on an
+in-flight or uncertain attempt. Existing deliberately approved automatic policies
+retain their own bounded scope; this recommendation feature enables none.
+
+### Usage and recommendation acceptance cases
+
+| Case | Required assertion |
+| --- | --- |
+| Alice plans/codes and Bob reviews/remediates one Acme PR | One lifecycle includes both contributors, all stage/retry failures and permitted cost/token breakdowns; personal remaining quota and account IDs stay private. Missing Bob telemetry makes the relevant total unknown. |
+| A research episode supports two PRs, then one commit is rebased and evidence reused | Explicit allocations plus unallocated remainder conserve observed usage; associated views are nonadditive; project/set totals count each measurement once. Rebase/evidence reuse creates no new consumption. |
+| Parent session includes a child review; both are imported with cumulative snapshots | Use a verified disjoint request set or report overlap; duplicate imports/snapshots do not add tokens. Unknown inclusion prevents a complete total. |
+| A failed attempt retries with cache hits and a changed model version | Both real requests count; input/output/cache counters follow each provider's semantics; cache subsets are not added twice; price estimates and exact versions stay separate. |
+| A terminal attempt lacks usage; later a billing receipt arrives | Original attempt remains immutable; append referenced measurement/refinement and revise projection once. Unknown is never zero and observed charge never silently replaces an estimate without provenance. |
+| Quota window resets, report becomes stale, or outside apps spend allowance | Historical PR usage remains unchanged; selection requests fresh evidence or explains a wait. Token totals never imply remaining subscription percent. |
+| A fast cheap coder has weaker relevant review evidence, or quality evidence is sparse/version-mismatched | Recommendation explains role-specific evidence/uncertainty and tradeoffs; it neither makes unsupported superiority claims nor launches a paid trial. User retains the authorized choice. |
+
+U1 extends AQ records/lifecycle/report tests with synthetic fixtures for the first
+five cases. S1 adds planned `tests/routine-recommendations.test.mjs` plus existing
+web-capacity/model-selection tests for the last two and funding/permission refusal.
+The existing AQ tests are a branch-qualified prerequisite, not files claimed to
+exist or pass on this branch. No fixture needs actual provider tokens or spend.
 
 ## Person, plate, set and provider ownership decisions
 
@@ -457,6 +627,8 @@ test filenames below are created with their implementation, never empty placehol
 | Task | Dependencies | Concrete patch and exit condition | Focused proof |
 | --- | --- | --- | --- |
 | N1: set terminology and navigation | Read-side route audit; phase 132 | Inventory fleet labels/callers; adopt set/project set in existing product views and validated set lens. Preserve routes, JSON, CLI and receipt identifiers; document versioned aliases and retirement window separately. | Planned routine-views and existing web-home/web-operation-coverage tests, deep-link and reconnect cases. |
+| U1: whole-task/PR usage | AQ contract integration and ID reconciliation, T1/P1 identity; phases 132–133 | Extend the existing AQ ledger schema/adapters with funding and provider-specific token/cost measurements; project full lifecycles, allocation, coverage and privacy in current work/Activity views. No duplicate telemetry store. | AQ records/lifecycle/report tests extended for contributor splits, multi-PR allocation, imported/parent-child duplicates, retries/cache and missing telemetry. |
+| S1: personal agent recommendation | P1, AQ quality evidence integration, U1 metric boundaries; phase 133 | Read current authorized choices and capacity, combine role/capability and relevant quality/latency/cost evidence, and explain recommendation or uncertainty. No automatic execution or payer switch. | Planned `tests/routine-recommendations.test.mjs`, existing web-capacity/model-selection and AQ report tests; sparse/version mismatch, reset/stale quota, override and spend refusal. |
 | P1: shared work and personal capacity | T1 observation identity; phase 133 | Extend actor/project/account ownership, funding grants, canonical pool reservations and reviewed lesson promotion. No live access migration. | Planned `tests/routine-ownership.test.mjs` and existing web-auth/capacity/connections/model-selection/learning tests; cross-scope matrix above. |
 | T1: domain and policy | Existing workspace/history/worker/model contracts; no live activation | Add pure versioned model, definition validators, scope/alias/coverage contracts and destination policy. Record provenance/reuse basis before porting; remove source circular coupling. Lock the module boundary and all inventory dispositions. | `tests/routine-model.test.mjs`: strict schema, ID collision, private scope, unsupported trigger/capability and unknown outcome fixtures. |
 | T2: observation adapters | T1 | Port local launchd/Claude/Codex, declared and Vercel readers; share GitHub extraction/history with Plates. Bound file/API/time reads, retain freshness and format gaps, keep consistent WAL snapshot. No provider writes. | `tests/routine-sources.test.mjs`: source tests in inventory table plus torn snapshot, stale cache, malformed YAML, unsupported schedule/timezone and privacy sentinel fixtures. |
@@ -528,7 +700,7 @@ names inspected revisions, checks actually run and remaining implementation work
 For the specification, regenerate the roadmap and run phase/format/link and
 focused conventions checks. No model calls, provider writes or full suites are
 needed for this deliverable. Implementation proof commands are in phases 132–136 and
-N1, P1 and T1–T8; existing source tests establish what to preserve, not that a port passes.
+N1, P1, U1, S1 and T1–T8; existing source tests establish what to preserve, not that a port passes.
 
 Repository review corrections incorporated into this contract: current BenOS
 code uses active-record listing, despite older design references to a changes

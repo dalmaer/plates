@@ -18,7 +18,8 @@ Two people can collaborate on one plate using separately authorized personal or 
 
 Implement P1 in the [consolidation contract](../specs/switchboard-consolidation.md):
 explicit person/plate/set/account ownership, current read/write/execute/share
-permissions, funding identity, shared reservation keys and lesson visibility.
+permissions, funding identity, shared reservation keys and lesson visibility,
+plus U1 historical-usage attribution and S1 evidence-based agent recommendations.
 Extend existing Connections, capacity/model policy, Learning and authorization;
 do not add a second capacity dashboard or credential vault. This is a product
 schema and permission-model extension, not an implication of existing owner IDs.
@@ -30,7 +31,19 @@ A shared organizational pool requires verified provider scope and explicit admin
 allocation; otherwise it remains unsupported. Planned implementation does not
 change live grants or make existing private lessons shared.
 
+Historical consumption is durable task/PR lifecycle accounting in the existing
+agent-quality ledger, including unsuccessful attempts. Personal capacity is fresh
+provider allowance used to help the current user choose an agent. Token totals
+cannot stand in for remaining subscription quota. The initial recommendation
+explains role-specific quality, latency/cost and uncertainty; it never dispatches,
+changes funding identity or grants paid execution.
+
 ## Acceptance
+
+- [ ] Two contributors to one PR retain all lifecycle stages, retries and failed/abandoned attempts under stable episode/attempt/commit/PR identities; metric visibility respects each account's private scope: branch-qualified `AQ:tests/agent-quality-records.test.mjs`, `AQ:tests/agent-quality-lifecycle.test.mjs` and `AQ:tests/agent-quality-report.test.mjs`, extended by U1 after integration.
+- [ ] Cross-PR work, parent/child totals, cumulative snapshots, imported receipts and reused evidence cannot double-count usage; unknown input/output/cache semantics and missing telemetry prevent a complete total: branch-qualified `AQ:tests/agent-quality-report.test.mjs` extended by U1 after integration.
+- [ ] Usage measurements distinguish observed charge from dated estimates and retain provider-specific input/output/cache semantics, immutable original receipts and model/version identity: branch-qualified `AQ:tests/agent-quality-records.test.mjs` extended by U1 after integration.
+- [ ] Personal agent recommendations explain authorized choices, task-role strengths, relevant quality evidence, latency/cost and fresh allowance/reset windows; sparse quality or stale quota stays uncertain and choosing never executes or switches payer: `npm run check:focused -- tests/routine-recommendations.test.mjs tests/web-capacity.test.mjs tests/web-model-selection.test.mjs` (first file planned).
 
 - [ ] Person-owned account metadata/secrets/preferences, plate work/policy/history, set membership/aggregation and provider pools have distinct versioned identities and access rules: `npm run check:focused -- tests/routine-ownership.test.mjs tests/web-auth.test.mjs` (first file planned).
 - [ ] Two Acme contributors on one plate see allowed shared work while private account details, quotas, task text and lessons remain isolated; losing project/account access prevents new execution: `npm run check:focused -- tests/routine-ownership.test.mjs tests/web-connections.test.mjs` (first file planned).
@@ -61,13 +74,23 @@ change live grants or make existing private lessons shared.
 ## Proof
 
 Run `npm run check:focused -- tests/routine-ownership.test.mjs tests/web-capacity.test.mjs tests/web-model-selection.test.mjs tests/web-connections.test.mjs tests/web-learning.test.mjs tests/web-auth.test.mjs`
-after the planned ownership file exists. Run `npm run check` and
+after the planned ownership file exists. After branch integration, also run the
+extended AQ records/lifecycle/report tests for U1 and
+`npm run check:focused -- tests/routine-recommendations.test.mjs tests/web-capacity.test.mjs tests/web-model-selection.test.mjs` for S1. Run `npm run check` and
 `npm run typecheck` on the integrated candidate. Retain two-person visibility
 observations, account/pool alias decisions and conflict/revocation evidence.
 No new provider connection, quota reset, login transfer or shared entitlement is
 created as part of this design task.
 
 ## Deliberately open
+
+- AQ's current resources expose aggregate tokens/cachedTokens, not the requested
+  input/output/cache-write/read and funding breakdown. U1 extends that existing
+  schema/ledger compatibly; historical detail cannot be reconstructed by guessing.
+  Refer to AQ by pinned branch/path until the draft phase-ID collision is resolved.
+- Quality calibration and task/model-cohort coverage remain incomplete. S1 can
+  explain capabilities and capacity, but must withhold quality-superiority claims
+  without relevant evidence. No paid benchmark or automatic routing is authorized.
 
 - Current connection descriptors are workspace/project scoped and authorize all
   named projects; adding an owner field alone is insufficient. P1 must review
@@ -86,4 +109,6 @@ created as part of this design task.
 
 ## Next action
 
-After phase 132's observation identity contract, implement P1's two-person/one-plate and one-person/two-sets fixtures before extending connection policy, funding reservations or lesson sharing.
+After phase 132's observation identity contract, implement P1's two-person/one-plate and one-person/two-sets fixtures before extending connection policy, funding reservations or lesson sharing; then
+implement U1/S1 against the reconciled agent-quality contracts, preserving the
+usage-versus-current-capacity boundary.

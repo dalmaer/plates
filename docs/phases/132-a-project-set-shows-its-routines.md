@@ -36,14 +36,21 @@ and [safe replacement](136-a-routine-changes-owner-without-losing-work.md).
 No product code, personal state or active routine is moved by these phase records.
 
 Extend the existing set overview → plate detail → work/runs/reviews/health
-journey, with Learning and Connections/capacity in the same navigation. Source
+journey, with Learning, full task/PR usage and Connections/capacity in the same navigation. Source
 records remain authoritative; provider success is not phase acceptance. A set
 selector filters authorized plates, retains view context and never clones work.
 Safe terminology migration N1 inventories visible labels and compatibility names,
 changes user-facing “fleet” language to “set”/“project set,” and preserves old
 routes, commands and receipts until a separately verified alias retirement.
 
+U1 exposes lifecycle usage through current work/Activity views using the existing
+agent-quality episode/attempt ledger, with branch-qualified integration described
+in the contract. Observing consumption is separate from current quota or funding
+permission. Do not add a competing routine telemetry store.
+
 ## Acceptance
+
+- [ ] A task/PR usage view includes planning, coding, review, remediation, retries and failed/abandoned work, with person/account/model/stage/token/cost breakdowns, source coverage and nonadditive shared-work attribution: `npm run check:focused -- tests/routine-views.test.mjs` (planned) plus the branch-qualified AQ records/lifecycle/report tests named in the contract after integration.
 
 - [ ] Existing Home, project detail, decisions/reviews, Daily/health, Learning, Connections and job/operation views remain reachable through the set/plate lens with source-bound return routes, filters and pending receipts preserved: `npm run check:focused -- tests/routine-views.test.mjs tests/web-home.test.mjs tests/web-operation-coverage.test.mjs` (first file planned).
 - [ ] N1 inventories user-facing fleet labels, moves product language to set/project set and tests existing routes/JSON/CLI aliases and stored receipts without broad runtime renaming: `npm run check:focused -- tests/routine-views.test.mjs tests/web-operation-coverage.test.mjs` (first file planned).
@@ -86,6 +93,11 @@ are porting evidence, not passing Plates tests. Record actual source/host/scope,
 window, gaps and observation-only activation separately from acceptance.
 
 ## Deliberately open
+
+- Agent-quality integration is required for U1. Its branch at `9f8c17ad` already
+  owns phase IDs 132–134, colliding with this isolated draft. Reconcile draft ID
+  allocation and references before integrating either roadmap; do not interpret
+  a bare phase number as the other branch's outcome or duplicate its ledger.
 
 - Local-to-hosted observation is a new authenticated capability. Until T3 proves
   and the owner activates enrollment, local views work and hosted coverage says

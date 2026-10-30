@@ -66,6 +66,11 @@ one writer per routine and original receipts survive uncertainty and rollback.
 compatible while N1 inventories terminology, updates product labels and preserves
 old routes/receipts; identifier retirement has its own reviewed window.
 
+Historical usage belongs to full task/PR lifecycles in the existing agent-quality
+episode ledger, including unsuccessful stages. Current personal provider capacity
+is a separate input to an explainable user-controlled agent recommendation; token
+totals do not imply remaining subscription quota or a pooled allowance.
+
 This is specified work, not an implemented migration or approval to activate
 hosts, transfer credentials or retire routines. Existing Switchboard evidence
 and its incomplete adoption/cloud work remain attributed to their source.
