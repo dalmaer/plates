@@ -56,3 +56,23 @@ Command: `npm run check:focused -- tests/web-project-sets.test.mjs tests/web-hom
 Roadmap/render/inbox/whitespace stages also passed. The log is
 `/Users/dionalmaer/Documents/Codex/2026-10-30/task-2/set-focused-final.log`.
 This is focused evidence, not a full-gate or live-use claim.
+
+## First integrated checkpoint and release-test correction
+
+On clean `81f5bc38b1220413346d7db966f117f1a7050b37`, `npm run check`
+ran 3,694 tests: 3,689 passed, one failed, four opt-in Docker tests skipped.
+The gate stopped before roadmap/render/inbox. Typecheck passed on that revision.
+Full log: `/Users/dionalmaer/Documents/Codex/2026-10-30/task-2/set-full-gate.log`.
+The ledger reported no flaky or slower test, with one busy run excluded from
+comparison; that is not evidence of quiet-host performance.
+
+The sole failure was the existing release self-test assuming the next patch tag
+is unused. The package is 0.8.35 while shared repository tags include v0.8.36–38.
+The explicit read-only `release 0.8.36 ... --dry-run --json` returned
+`tag v0.8.36 already exists`. The production refusal is correct. The test now
+chooses the first unused patch across tags and release notes, retaining all
+practice-plan assertions and printing JSON errors when present. It changes no
+tag, version, release implementation or remote state. Independent review accepted
+the correction; an inaccurate coverage comment was removed. The focused release
+file passed 21/21. A second integrated gate is required on the corrected checkpoint;
+the first gate remains failed, not superseded by a passing subset.

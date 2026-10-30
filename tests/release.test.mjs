@@ -302,9 +302,17 @@ test('plates itself: practices/VERSION is the practice, and a release now would 
   const practice = practiceVersion();
   const pkg = JSON.parse(readFileSync(join(PLATES, 'package.json'), 'utf8'));
   const since = practiceChange(PLATES, practice, ENV);
-  const next = (([a, b, c]) => `${a}.${b}.${c + 1}`)(pkg.version.split('.').map(Number));
+  // A linked worktree can precede release tags fetched by another checkout.
+  // Exercise the practice plan with an unused version, preserving the existing
+  // duplicate-tag refusal. Never remove a shared repository tag.
+  const used = new Set([...git(PLATES, 'tag', '--list').split('\n'),
+    ...entries(readFileSync(join(PLATES, 'WHATSNEW.md'), 'utf8')).map(entry => `v${entry.version}`)]);
+  const [major, minor, patch] = pkg.version.split('.').map(Number);
+  let candidate = patch + 1;
+  while (used.has(`v${major}.${minor}.${candidate}`)) candidate++;
+  const next = `${major}.${minor}.${candidate}`;
   const r = run(process.execPath, [BIN, 'release', next, '--notes', '-', '--dry-run', '--json'], { cwd: PLATES, env: ENV, input: NOTES });
-  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.status, 0, r.stderr || r.stdout);
   const plan = JSON.parse(r.stdout);
   assert.equal(plan.practice.from, practice);
   assert.equal(plan.practice.changed, since.changed);
