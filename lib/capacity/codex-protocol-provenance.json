@@ -1,0 +1,14 @@
+{
+  "source": "Installed Codex CLI offline-generated app-server JSON schemas",
+  "sourceVersion": "0.164.0",
+  "observedOn": "2026-10-30",
+  "verification": "Source-schema inspection and synthetic protocol peers only; no live account read or activation",
+  "schemas": {
+    "v1/InitializeParams.json": "b55124e7c0f36a1789396daa5578217a92be67f053903696236686e59f6f212e",
+    "v1/InitializeResponse.json": "62ad689c2cb6379913c1d72749cfd8de5089d35760214123518eb92eef11acc9",
+    "v2/GetAccountParams.json": "30b545275f60975b55bd6fbaafd70f15505801d14168ee82d3931b6e93c78aab",
+    "v2/GetAccountResponse.json": "612109fe4c80e62a6f6a36f056761bc2b4f60f9b811edf23bbb86004274ec7a3",
+    "v2/NullableGetAccountRateLimitsParams.json": "072f813ca1c696831a7f2fbd934feaa8cad228a6b3d44a4be8877547c796341b",
+    "v2/GetAccountRateLimitsResponse.json": "9c0def7f8ab2396122af939dffbf01b34b8d66082fe4129dd20917bfd4313fdc"
+  }
+}

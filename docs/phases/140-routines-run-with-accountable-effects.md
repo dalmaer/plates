@@ -84,6 +84,8 @@ price before execution; unknown charges remain unknown.
 
 ## Next action
 
+Further implementation is paused for the build-versus-adopt comparison. The execution and transition work below remains unimplemented; no installation or external trial is authorized. See the [implementation boundary](../research/2026-10-30-plates-orchestration-boundary.md).
+
 After phase 139, implement the shared execution conformance suite with fake adapters and failure injection before connecting local processes, event wake-ups or effect delivery.
 
 - **2026-10-30** — Reallocated this unpublished consolidation draft from 135 to 140 after inspecting agent-quality at `9f8c17ad`; existing agent-quality phases are unchanged.

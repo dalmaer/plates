@@ -4,8 +4,8 @@ since: 2026-10-30
 goal: G8
 spec: 2
 depends: [93, 102]
-note: "Local set lens extended with explicit metadata readers, canonical task/PR usage and existing-UI projections. Authenticated bridge activation, live source walks and remaining navigation/terminology work are unverified."
-evidence: ["evidence/2026-10-30-project-set-lens.md", "evidence/2026-10-30-consolidated-observations-usage.md", "evidence/2026-10-30-consolidation-local-validation.md"]
+note: "Local set visibility/readers and observation-only bridge implemented; live enrollment/source walks and remaining navigation/terminology work are unverified."
+evidence: ["evidence/2026-10-30-project-set-lens.md", "evidence/2026-10-30-consolidated-observations-usage.md", "evidence/2026-10-30-consolidation-local-validation.md", "evidence/2026-10-30-consolidation-authorization-checkpoint.md"]
 ---
 
 # A project set shows its routines and what actually ran
@@ -116,7 +116,7 @@ window, gaps and observation-only activation separately from acceptance.
 
 ## Next action
 
-The combined gate and exact-revision installed-package walk passed. Prepare authenticated observation enrollment/replay/revocation and selected-source comparisons, with exact sources reviewed before activation. Continue actor-private capacity in phase 138 without changing existing funding or sharing grants. Complete the remaining navigation/terminology inventory before claiming the whole management journey.
+Safeguard the local observation bridge checkpoint and compare external orchestration seams before further runtime work. Live source enrollment, selected-source comparisons and the remaining navigation/terminology inventory are still unverified; no service is activated.
 
 ## Trajectory
 

@@ -4,8 +4,8 @@ since: 2026-10-30
 goal: G8
 spec: 2
 depends: [137, 103, 106]
-note: "Local canonical usage and advisory personal recommendations implemented; verified live quota adapters, collaboration/funding policy, reservations and lesson sharing remain unactivated and incomplete."
-evidence: ["evidence/2026-10-30-consolidated-observations-usage.md", "evidence/2026-10-30-personal-agent-recommendations.md", "evidence/2026-10-30-consolidation-local-validation.md"]
+note: "Local usage/advice, explicit personal funding admission and reviewed private lesson copies implemented; real multi-person/provider activation, subscription execution and organization grants remain unsupported or unverified."
+evidence: ["evidence/2026-10-30-consolidated-observations-usage.md", "evidence/2026-10-30-personal-agent-recommendations.md", "evidence/2026-10-30-consolidation-local-validation.md", "evidence/2026-10-30-consolidation-authorization-checkpoint.md"]
 ---
 
 # People bring their own capacity to shared work
@@ -45,13 +45,13 @@ changes funding identity or grants paid execution.
 - [x] Usage measurements distinguish observed charge from dated estimates and retain provider-specific input/output/cache semantics, immutable original receipts and model/version identity: `tests/agent-quality-usage.test.mjs` and `tests/agent-quality-records.test.mjs`.
 - [ ] Personal agent recommendations explain authorized choices, task-role strengths, relevant quality evidence, latency/cost and fresh allowance/reset windows; sparse quality or stale quota stays uncertain and choosing never executes or switches payer: `npm run check:focused -- tests/routine-recommendations.test.mjs tests/web-capacity.test.mjs tests/web-model-selection.test.mjs tests/recommendation-surfaces.test.mjs tests/web-recommendation-surfaces.test.mjs`; local claims remain unverified and a live authenticated adapter is not activated.
 
-- [ ] Person-owned account metadata/secrets/preferences, plate work/policy/history, set membership/aggregation and provider pools have distinct versioned identities and access rules: `npm run check:focused -- tests/routine-ownership.test.mjs tests/web-auth.test.mjs` (first file planned).
-- [ ] Two Acme contributors on one plate see allowed shared work while private account details, quotas, task text and lessons remain isolated; losing project/account access prevents new execution: `npm run check:focused -- tests/routine-ownership.test.mjs tests/web-connections.test.mjs` (first file planned).
-- [ ] One contributor using the same account through two sets observes one pool/window and one reservation; concurrent demands cannot spend the same allowance twice or sum unrelated percentages/units: `npm run check:focused -- tests/routine-ownership.test.mjs tests/web-capacity.test.mjs tests/web-model-selection.test.mjs` (first file planned).
-- [ ] A run pins initiator, funding principal, verified account/pool, connection generation and policy digest; exhaustion/stale quota produces an explained wait and cannot silently use another person's account: `npm run check:focused -- tests/routine-ownership.test.mjs tests/web-model-selection.test.mjs` (first file planned).
-- [ ] Verified organizational plans share only their real provider pool under explicit allocation; unknown org identity, cross-instance coordination and unsupported subscription enforcement remain unavailable: `npm run check:focused -- tests/routine-ownership.test.mjs tests/web-capacity.test.mjs` (first file planned).
-- [ ] Personal-to-plate or set-shared lesson promotion is an exact reviewed copy with source provenance, destination audience and redaction; personal defaults and revocation do not leak original content: `npm run check:focused -- tests/routine-ownership.test.mjs tests/web-learning.test.mjs` (first file planned).
-- [ ] Existing owner-scoped receipts, Connections, Learning and return routes retain their current restrictions until an explicit schema migration and per-record sharing decision: `npm run check:focused -- tests/routine-ownership.test.mjs tests/web-operation-coverage.test.mjs` (first file planned).
+- [ ] Person-owned account metadata/secrets/preferences, plate work/policy/history, set membership/aggregation and provider pools have distinct versioned identities and access rules: `npm run check:focused -- tests/routine-ownership.test.mjs tests/web-auth.test.mjs` (local synthetic coverage; real walk remains).
+- [ ] Two Acme contributors on one plate see allowed shared work while private account details, quotas, task text and lessons remain isolated; losing project/account access prevents new execution: `npm run check:focused -- tests/routine-ownership.test.mjs tests/web-connections.test.mjs` (local synthetic coverage; real walk remains).
+- [ ] One contributor using the same account through two sets observes one pool/window and one reservation; concurrent demands cannot spend the same allowance twice or sum unrelated percentages/units: `npm run check:focused -- tests/routine-ownership.test.mjs tests/web-capacity.test.mjs tests/web-model-selection.test.mjs` (local synthetic coverage; real walk remains).
+- [ ] A run pins initiator, funding principal, verified account/pool, connection generation and policy digest; exhaustion/stale quota produces an explained wait and cannot silently use another person's account: `npm run check:focused -- tests/routine-ownership.test.mjs tests/web-model-selection.test.mjs` (local synthetic coverage; real walk remains).
+- [ ] Verified organizational plans share only their real provider pool under explicit allocation; unknown org identity, cross-instance coordination and unsupported subscription enforcement remain unavailable: `npm run check:focused -- tests/routine-ownership.test.mjs tests/web-capacity.test.mjs` (local synthetic coverage; real walk remains).
+- [ ] Personal-to-plate or set-shared lesson promotion is an exact reviewed copy with source provenance, destination audience and redaction; personal defaults and revocation do not leak original content: `npm run check:focused -- tests/web-private-learning.test.mjs tests/web-private-learning-client.test.mjs tests/web-learning.test.mjs` (local synthetic coverage; real walk remains).
+- [ ] Existing owner-scoped receipts, Connections, Learning and return routes retain their current restrictions until an explicit schema migration and per-record sharing decision: `npm run check:focused -- tests/routine-ownership.test.mjs tests/web-operation-coverage.test.mjs` (local synthetic coverage; real walk remains).
 - [x] Existing and new contract tests pass without assuming live multi-user or provider activation: `npm run check` and `npm run typecheck` on the integrated candidate.
 - [ ] Two separately authorized test identities exercise the shared plate and private account views, with no model spend required for the visibility walkthrough: ⚑ by hand: owner and conductor, after exact test-identity/scope approval.
 
@@ -74,7 +74,7 @@ changes funding identity or grants paid execution.
 ## Proof
 
 Run `npm run check:focused -- tests/routine-ownership.test.mjs tests/web-capacity.test.mjs tests/web-model-selection.test.mjs tests/web-connections.test.mjs tests/web-learning.test.mjs tests/web-auth.test.mjs`
-after the planned ownership file exists. The current local increment runs the
+for the local funding foundation. The current local increment runs the
 imported AQ records/lifecycle/report and usage tests for U1 and
 `npm run check:focused -- tests/routine-recommendations.test.mjs tests/web-capacity.test.mjs tests/web-model-selection.test.mjs` for S1. Run `npm run check` and
 `npm run typecheck` on the integrated candidate. Retain two-person visibility
@@ -109,7 +109,7 @@ created by this local implementation.
 
 ## Next action
 
-The local recommendation and existing-UI integration passed the combined gate and installed-package walk. Prepare an exact authenticated provider/account adapter and its visibility walk for separate activation review. Continue P1's versioned collaborator/funding/reservation and lesson-sharing boundaries without automatically widening existing owner-scoped descriptors or changing active routines.
+Complete checkpoint review/validation and evaluate external execution adapters before further orchestration work. Activation still needs exact storage/restore and identity/source review. Current Codex protocol proof is synthetic; no subscription descriptor, live quota source, new credential or permission is activated.
 
 ## Trajectory
 

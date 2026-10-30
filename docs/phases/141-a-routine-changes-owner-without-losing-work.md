@@ -91,6 +91,8 @@ receipt cannot check the real-use boxes.
 
 ## Next action
 
+Further implementation is paused for the build-versus-adopt comparison. The execution and transition work below remains unimplemented; no installation or external trial is authorized. See the [implementation boundary](../research/2026-10-30-plates-orchestration-boundary.md).
+
 After phase 140, build the synthetic comparison and rollback harness, then prepare a read-only candidate selection report without changing the existing health-reports trial.
 
 - **2026-10-30** — Reallocated this unpublished consolidation draft from 136 to 141 after inspecting agent-quality at `9f8c17ad`; existing agent-quality phases are unchanged.

@@ -138,7 +138,7 @@ is aggregated across sets. The hosted Routines/Activity project view supports a
 read-only constructor adapter; it is unavailable by default. Set views link to
 plates and never invoke that adapter or duplicate personal pools.
 
-A future authenticated adapter must separately attest current actor, workspace,
+An authenticated adapter must separately attest current actor, workspace,
 plate, numeric repository, policy, account ownership, connection generation and
 canonical quality evidence. Local files and browser requests cannot supply that
 authority. Checks and capacity observations expire within five minutes; reset,
@@ -153,3 +153,48 @@ and latency as separate observations. Sparse quality is not a winner. Preference
 may order available choices, but cannot grant access, switch payer, pool personal
 accounts or enable organization funding. There are no execution buttons, new
 credentials, enrollment, grants, reservations or active routing in this slice.
+
+## Optional local implementation checkpoint
+
+The consolidation branch now contains additional opt-in service code. These
+features remain disabled by default and have not been deployed or activated.
+
+- `hostObservations` and migration 017 provide an observation-only enrollment,
+  exact apply/revoke and bounded authenticated report endpoint. Current owner,
+  workspace, project and restore checks remain required. Wire reports exclude
+  task text, paths, personal account details and quota; an enrolled host is not
+  proof of provider state. Existing Routines/Activity consumes the projection.
+- `personalFunding` and migration 015 bind explicit personal ownership and
+  funding choice to the existing encrypted connection store and model admission.
+  Legacy rows are not converted. The supported bounded OpenAI API path requires
+  a trusted capacity source; personal subscription execution and organization
+  allocation remain unsupported. Set membership never creates extra allowance.
+- `lessons` and migration 016 add private originals and exact redacted copies to
+  existing Learning. Explicit recipients must already pass existing owner and
+  workspace rules and current access to every destination project. A changed
+  set cannot widen an earlier copy. Revocation stops future catalogue reads;
+  it cannot recall delivered content. Original Git lessons remain unchanged.
+
+The trusted recommendation service composes existing policy, private funding and
+canonical AQ readers. Its adapters are startup-owned code, never browser claims.
+It validates full workspace or project policies, but the descriptive task profile
+cannot establish compliance with model evidence, task bounds, reserve/freshness,
+cooldowns and reservations. Checked policy-selection integration is unimplemented:
+the service refuses because checked selection context is unavailable, and the
+existing HTTP projection reports an unavailable authenticated recommendation.
+This is a code integration gap, not a
+credential or approval blocker. No available-choice attestation leaves the service;
+the standalone descriptive recommendation API is unchanged.
+A separate bounded Codex app-server reader implements the offline-inspected
+0.164.0 quota protocol and requires an exact authorized process launch. It has
+only synthetic process proof here. It neither logs in nor starts an agent, and
+missing account identity, model coverage or backend permission stays unavailable.
+Current hosted connection descriptors do not support Codex subscriptions, so this
+reader is not an activated end-to-end subscription recommendation integration.
+
+The internal authored-policy/import preview API validates explicit snapshots and
+returns sanitized descriptors, aliases and gaps. It has no CLI verb or apply
+backend yet; even a declared frozen snapshot remains unverified and cannot dispatch.
+General routine execution, event/effect adapters and cutover remain unimplemented.
+See the [implementation boundary](../research/2026-10-30-plates-orchestration-boundary.md)
+before choosing further runtime work or an external orchestrator.
