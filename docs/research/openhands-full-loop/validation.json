@@ -1,0 +1,579 @@
+{
+  "date": "2026-10-30",
+  "baseline": "037e13b4f78c061405cef899b528badb536584ad",
+  "previousCommit": "060fe4165c75dcdbc99f39c34c76ee9a6fa1fe82",
+  "sources": {
+    "experiments/openhands/full-loop.mjs": "3627b697a6c686ac3f66b02e29c02267041e25d2ce5ba3ef83252b1b8bc08890",
+    "experiments/openhands/sdk-worker.py": "b15983b9566ee14cf5c27ca173cd92ba501f78f6cc1979f2e4b5bdee2da58fcf",
+    "experiments/openhands/evaluation.mjs": "b251c303e6a07ef1533719348df040d9c7f935ab15fd782454b65f5d5836ef04",
+    "experiments/openhands/requirements-sdk.txt": "ab500a7823fe6526fba164b4a3c308f615e4463efa857bd783c949bd7b3e0d08",
+    "experiments/openhands/prepare-real-trial.mjs": "478ee269b21374112a7393505bb0c9b276258ba50e834c46ac6c4a9371c95fee",
+    "experiments/openhands/real-trial-check.mjs": "57e6df0d52da051cede1d0b2e733ae8013d5763b0bcedf7037cf7d3228724b45",
+    "tests/openhands-full-loop.test.mjs": "409fff251fcc58d85a8b984c2ca92bfe599ef5f63e5ef57c71e43aab15294900",
+    "tests/fixtures/openhands/loop-worker.mjs": "5b19c4f84bec6e4b1f5317b565c499240d663edc14f8c59fd74263dd0b6aa0c3"
+  },
+  "nativeReplay": {
+    "command": "node experiments/openhands/full-loop.mjs --output /Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-full-loop-final --python /Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-sdk-env/bin/python --sdk /Users/dionalmaer/Documents/Codex/2026-10-30/task-4/upstream-sdk",
+    "exitCode": 0,
+    "result": {
+      "seq": 42,
+      "kind": "loop-complete",
+      "operations": 6,
+      "fileEffects": 6,
+      "pendingLearning": 0,
+      "capturedLessons": 1,
+      "noUsefulLesson": 5,
+      "usage": {
+        "one": {
+          "attempts": 2,
+          "knownTokens": 480,
+          "totalTokens": 480,
+          "billingVerified": false
+        },
+        "two": {
+          "attempts": 4,
+          "knownTokens": 960,
+          "totalTokens": 960,
+          "billingVerified": false
+        }
+      },
+      "reconnectReplayEffects": 0,
+      "externalProviderCalls": 0
+    },
+    "crash": {
+      "code": null,
+      "signal": "SIGKILL",
+      "checkpoint": {
+        "checkpoint": "outcome-before-capture",
+        "operation": "fae5c487-c109-4da8-a7ee-46755c348b29"
+      },
+      "pid": 60291
+    },
+    "receipts": [
+      {
+        "operation": "72504144-b486-4cba-afd1-323e99fc53d3",
+        "conversation": "90d30e71-9513-4757-9c3a-b09bdd0c17cf",
+        "workerConversation": "8b19b887-8ef4-4bcd-a0eb-116b5de7288e",
+        "project": "acme-one",
+        "account": "acme-account-1",
+        "stage": "build",
+        "learning": "no-useful-lesson",
+        "terminated": true,
+        "receiptPath": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-full-loop-final/workspaces/72504144-b486-4cba-afd1-323e99fc53d3/receipt.json",
+        "receiptSha256": "d1174fd7a85709514855b3ea40b37ff8e90cf927e7855651ad64c9c281525611",
+        "binding": {
+          "inputSha256": "68f9266920ca6a37920be7cd3a13cb03b5c1a9547768143387365bfbec2c28b2",
+          "messagesSha256": "33ffea9b47920500b1f9d243eb19b8044e36846db396d654b17a41c01257a955",
+          "strategy": "raw",
+          "workerSha256": "b15983b9566ee14cf5c27ca173cd92ba501f78f6cc1979f2e4b5bdee2da58fcf",
+          "workspace": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-full-loop-final/workspaces/72504144-b486-4cba-afd1-323e99fc53d3"
+        },
+        "model": {
+          "calls": 2,
+          "inputTokens": 200,
+          "kind": "scripted-completion",
+          "outputTokens": 40,
+          "providerCalls": 0,
+          "synthetic": true,
+          "tokens": 240,
+          "tokensSynthetic": true
+        },
+        "confirmation": {
+          "approved": true,
+          "authority": "fixture-host-token-only",
+          "outputExistedBeforeApproval": false,
+          "waitingBeforeApproval": true
+        },
+        "effect": {
+          "executions": 1,
+          "id": "8b19b887-8ef4-4bcd-a0eb-116b5de7288e",
+          "state": "applied"
+        },
+        "test": {
+          "actual": {
+            "greeting": "Hello   Ada  !"
+          },
+          "expected": {
+            "greeting": "Hello Ada!"
+          },
+          "name": "synthetic-greeting-predicate",
+          "passed": false,
+          "preserveWhitespace": false
+        },
+        "blockedSystemEvents": [
+          {
+            "at": "2026-10-30T23:05:02.040095+00:00",
+            "event": "socket.bind"
+          }
+        ],
+        "nativeEventKinds": [
+          "SystemPromptEvent",
+          "MessageEvent",
+          "MessageEvent",
+          "ActionEvent",
+          "ObservationEvent",
+          "MessageEvent"
+        ]
+      },
+      {
+        "operation": "fae5c487-c109-4da8-a7ee-46755c348b29",
+        "conversation": "0d933d3d-dafa-4845-9fb7-4904803f0bef",
+        "workerConversation": "7a44efac-9446-490f-8b87-93c750263091",
+        "project": "acme-one",
+        "account": "acme-account-1",
+        "stage": "build",
+        "learning": "captured",
+        "terminated": true,
+        "receiptPath": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-full-loop-final/workspaces/fae5c487-c109-4da8-a7ee-46755c348b29/receipt.json",
+        "receiptSha256": "6ad0d50b283505f230028e7d9330e3331fcf10d445d93bac7233ef4488d3acb0",
+        "binding": {
+          "inputSha256": "68f9266920ca6a37920be7cd3a13cb03b5c1a9547768143387365bfbec2c28b2",
+          "messagesSha256": "33ffea9b47920500b1f9d243eb19b8044e36846db396d654b17a41c01257a955",
+          "strategy": "normalize",
+          "workerSha256": "b15983b9566ee14cf5c27ca173cd92ba501f78f6cc1979f2e4b5bdee2da58fcf",
+          "workspace": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-full-loop-final/workspaces/fae5c487-c109-4da8-a7ee-46755c348b29"
+        },
+        "model": {
+          "calls": 2,
+          "inputTokens": 200,
+          "kind": "scripted-completion",
+          "outputTokens": 40,
+          "providerCalls": 0,
+          "synthetic": true,
+          "tokens": 240,
+          "tokensSynthetic": true
+        },
+        "confirmation": {
+          "approved": true,
+          "authority": "fixture-host-token-only",
+          "outputExistedBeforeApproval": false,
+          "waitingBeforeApproval": true
+        },
+        "effect": {
+          "executions": 1,
+          "id": "7a44efac-9446-490f-8b87-93c750263091",
+          "state": "applied"
+        },
+        "test": {
+          "actual": {
+            "greeting": "Hello Ada!"
+          },
+          "expected": {
+            "greeting": "Hello Ada!"
+          },
+          "name": "synthetic-greeting-predicate",
+          "passed": true,
+          "preserveWhitespace": false
+        },
+        "blockedSystemEvents": [
+          {
+            "at": "2026-10-30T23:05:07.808012+00:00",
+            "event": "socket.bind"
+          }
+        ],
+        "nativeEventKinds": [
+          "SystemPromptEvent",
+          "MessageEvent",
+          "MessageEvent",
+          "ActionEvent",
+          "ObservationEvent",
+          "MessageEvent"
+        ]
+      },
+      {
+        "operation": "e06758a9-766b-4caa-96d8-e87e2c425232",
+        "conversation": "6b7ace0c-e6c1-48e9-b801-1a8152eda097",
+        "workerConversation": "f92566c9-dfaa-468a-9c3c-282ea24df0e6",
+        "project": "acme-two",
+        "account": "acme-account-2",
+        "stage": "build",
+        "learning": "no-useful-lesson",
+        "terminated": true,
+        "receiptPath": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-full-loop-final/workspaces/e06758a9-766b-4caa-96d8-e87e2c425232/receipt.json",
+        "receiptSha256": "e8080acbd86928dc5aa432cadfdd38351b081ebea1409ed0eeb6630e8d46a30b",
+        "binding": {
+          "inputSha256": "a5674532f104a3d40b43d5d86a9cfccb85dbda5aaef6cb0bd2afb0627e713ab2",
+          "messagesSha256": "33ffea9b47920500b1f9d243eb19b8044e36846db396d654b17a41c01257a955",
+          "strategy": "raw",
+          "workerSha256": "b15983b9566ee14cf5c27ca173cd92ba501f78f6cc1979f2e4b5bdee2da58fcf",
+          "workspace": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-full-loop-final/workspaces/e06758a9-766b-4caa-96d8-e87e2c425232"
+        },
+        "model": {
+          "calls": 2,
+          "inputTokens": 200,
+          "kind": "scripted-completion",
+          "outputTokens": 40,
+          "providerCalls": 0,
+          "synthetic": true,
+          "tokens": 240,
+          "tokensSynthetic": true
+        },
+        "confirmation": {
+          "approved": true,
+          "authority": "fixture-host-token-only",
+          "outputExistedBeforeApproval": false,
+          "waitingBeforeApproval": true
+        },
+        "effect": {
+          "executions": 1,
+          "id": "f92566c9-dfaa-468a-9c3c-282ea24df0e6",
+          "state": "applied"
+        },
+        "test": {
+          "actual": {
+            "greeting": "Hello   Bob  !"
+          },
+          "expected": {
+            "greeting": "Hello Bob!"
+          },
+          "name": "synthetic-greeting-predicate",
+          "passed": false,
+          "preserveWhitespace": false
+        },
+        "blockedSystemEvents": [
+          {
+            "at": "2026-10-30T23:05:12.731220+00:00",
+            "event": "socket.bind"
+          }
+        ],
+        "nativeEventKinds": [
+          "SystemPromptEvent",
+          "MessageEvent",
+          "MessageEvent",
+          "ActionEvent",
+          "ObservationEvent",
+          "MessageEvent"
+        ]
+      },
+      {
+        "operation": "66923bc9-f48d-4c8a-abc3-340f91a0c29d",
+        "conversation": "d096d876-9cba-49cc-bd73-e04973c082b4",
+        "workerConversation": "f5966bf6-b55c-4736-8fdc-81ff2ac3c69f",
+        "project": "acme-two",
+        "account": "acme-account-2",
+        "stage": "build",
+        "learning": "no-useful-lesson",
+        "terminated": true,
+        "receiptPath": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-full-loop-final/workspaces/66923bc9-f48d-4c8a-abc3-340f91a0c29d/receipt.json",
+        "receiptSha256": "41f839b53d91c33d5f8a7f8dcf2fba5a75cb538ee5a17bbc13c29f726f4ab529",
+        "binding": {
+          "inputSha256": "a5674532f104a3d40b43d5d86a9cfccb85dbda5aaef6cb0bd2afb0627e713ab2",
+          "messagesSha256": "33ffea9b47920500b1f9d243eb19b8044e36846db396d654b17a41c01257a955",
+          "strategy": "normalize",
+          "workerSha256": "b15983b9566ee14cf5c27ca173cd92ba501f78f6cc1979f2e4b5bdee2da58fcf",
+          "workspace": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-full-loop-final/workspaces/66923bc9-f48d-4c8a-abc3-340f91a0c29d"
+        },
+        "model": {
+          "calls": 2,
+          "inputTokens": 200,
+          "kind": "scripted-completion",
+          "outputTokens": 40,
+          "providerCalls": 0,
+          "synthetic": true,
+          "tokens": 240,
+          "tokensSynthetic": true
+        },
+        "confirmation": {
+          "approved": true,
+          "authority": "fixture-host-token-only",
+          "outputExistedBeforeApproval": false,
+          "waitingBeforeApproval": true
+        },
+        "effect": {
+          "executions": 1,
+          "id": "f5966bf6-b55c-4736-8fdc-81ff2ac3c69f",
+          "state": "applied"
+        },
+        "test": {
+          "actual": {
+            "greeting": "Hello Bob!"
+          },
+          "expected": {
+            "greeting": "Hello Bob!"
+          },
+          "name": "synthetic-greeting-predicate",
+          "passed": true,
+          "preserveWhitespace": false
+        },
+        "blockedSystemEvents": [
+          {
+            "at": "2026-10-30T23:05:17.603459+00:00",
+            "event": "socket.bind"
+          }
+        ],
+        "nativeEventKinds": [
+          "SystemPromptEvent",
+          "MessageEvent",
+          "MessageEvent",
+          "ActionEvent",
+          "ObservationEvent",
+          "MessageEvent"
+        ]
+      },
+      {
+        "operation": "941c993b-138d-444a-b0a0-ddf76336009b",
+        "conversation": "62c2a051-c7d5-404a-be84-b8bf655fd840",
+        "workerConversation": "d43bed32-6527-43c0-bea0-f000e049a42e",
+        "project": "acme-two",
+        "account": "acme-account-2",
+        "stage": "review",
+        "learning": "no-useful-lesson",
+        "terminated": true,
+        "receiptPath": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-full-loop-final/workspaces/941c993b-138d-444a-b0a0-ddf76336009b/receipt.json",
+        "receiptSha256": "b568a55ffd11e85a8b0d94937744939cedfb1dfe81990329dbe6621828bf9668",
+        "binding": {
+          "inputSha256": "cea2b12fc600feccd4bdf39886aa64fbe2e1f718beb03b1089089b98b650fdc8",
+          "messagesSha256": "33ffea9b47920500b1f9d243eb19b8044e36846db396d654b17a41c01257a955",
+          "strategy": "normalize",
+          "workerSha256": "b15983b9566ee14cf5c27ca173cd92ba501f78f6cc1979f2e4b5bdee2da58fcf",
+          "workspace": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-full-loop-final/workspaces/941c993b-138d-444a-b0a0-ddf76336009b"
+        },
+        "model": {
+          "calls": 2,
+          "inputTokens": 200,
+          "kind": "scripted-completion",
+          "outputTokens": 40,
+          "providerCalls": 0,
+          "synthetic": true,
+          "tokens": 240,
+          "tokensSynthetic": true
+        },
+        "confirmation": {
+          "approved": true,
+          "authority": "fixture-host-token-only",
+          "outputExistedBeforeApproval": false,
+          "waitingBeforeApproval": true
+        },
+        "effect": {
+          "executions": 1,
+          "id": "d43bed32-6527-43c0-bea0-f000e049a42e",
+          "state": "applied"
+        },
+        "test": {
+          "actual": {
+            "greeting": "Hello Bob!"
+          },
+          "expected": {
+            "greeting": "Hello   Bob  !"
+          },
+          "name": "synthetic-greeting-predicate",
+          "passed": false,
+          "preserveWhitespace": true
+        },
+        "blockedSystemEvents": [
+          {
+            "at": "2026-10-30T23:05:22.557206+00:00",
+            "event": "socket.bind"
+          }
+        ],
+        "nativeEventKinds": [
+          "SystemPromptEvent",
+          "MessageEvent",
+          "MessageEvent",
+          "ActionEvent",
+          "ObservationEvent",
+          "MessageEvent"
+        ]
+      },
+      {
+        "operation": "8170b33c-fae3-4ec2-ad23-3357d31fe108",
+        "conversation": "7915cdbe-0bbd-482c-b56e-1a2744a33ce8",
+        "workerConversation": "5c4eef0d-3374-4ae0-b5c2-d8448b5449fd",
+        "project": "acme-two",
+        "account": "acme-account-2",
+        "stage": "review",
+        "learning": "no-useful-lesson",
+        "terminated": true,
+        "receiptPath": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-full-loop-final/workspaces/8170b33c-fae3-4ec2-ad23-3357d31fe108/receipt.json",
+        "receiptSha256": "9b7c8f9535376914f181b4fa94e6b4732fc40a1fccbd5cf73353db02d74df1a5",
+        "binding": {
+          "inputSha256": "cea2b12fc600feccd4bdf39886aa64fbe2e1f718beb03b1089089b98b650fdc8",
+          "messagesSha256": "33ffea9b47920500b1f9d243eb19b8044e36846db396d654b17a41c01257a955",
+          "strategy": "raw",
+          "workerSha256": "b15983b9566ee14cf5c27ca173cd92ba501f78f6cc1979f2e4b5bdee2da58fcf",
+          "workspace": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-full-loop-final/workspaces/8170b33c-fae3-4ec2-ad23-3357d31fe108"
+        },
+        "model": {
+          "calls": 2,
+          "inputTokens": 200,
+          "kind": "scripted-completion",
+          "outputTokens": 40,
+          "providerCalls": 0,
+          "synthetic": true,
+          "tokens": 240,
+          "tokensSynthetic": true
+        },
+        "confirmation": {
+          "approved": true,
+          "authority": "fixture-host-token-only",
+          "outputExistedBeforeApproval": false,
+          "waitingBeforeApproval": true
+        },
+        "effect": {
+          "executions": 1,
+          "id": "5c4eef0d-3374-4ae0-b5c2-d8448b5449fd",
+          "state": "applied"
+        },
+        "test": {
+          "actual": {
+            "greeting": "Hello   Bob  !"
+          },
+          "expected": {
+            "greeting": "Hello   Bob  !"
+          },
+          "name": "synthetic-greeting-predicate",
+          "passed": true,
+          "preserveWhitespace": true
+        },
+        "blockedSystemEvents": [
+          {
+            "at": "2026-10-30T23:05:27.429854+00:00",
+            "event": "socket.bind"
+          }
+        ],
+        "nativeEventKinds": [
+          "SystemPromptEvent",
+          "MessageEvent",
+          "MessageEvent",
+          "ActionEvent",
+          "ObservationEvent",
+          "MessageEvent"
+        ]
+      }
+    ]
+  },
+  "checks": {
+    "focusedInitial": {
+      "command": "npm run check:focused -- tests/openhands-full-loop.test.mjs",
+      "log": "/tmp/openhands-loop-focused.log",
+      "result": "passed before review refinements; final two tests independently rerun"
+    },
+    "independentReview": {
+      "agent": "deadline_review",
+      "testsPassed": 2,
+      "findingsClosed": [
+        "proposal bytes/revision binding",
+        "actual native user-message delivery"
+      ],
+      "limitations": [
+        "only named crash point proved",
+        "historical catalogue row retained; eligibility journal governs withdrawal"
+      ]
+    },
+    "typecheck": {
+      "command": "npm run typecheck",
+      "exitCode": 0
+    },
+    "baselineProbeGuard": {
+      "trustedBaselineArms": 3,
+      "expectedDefectsStillPresent": true,
+      "modifiedModuleDeniedBeforeImport": true,
+      "sideEffectMarkerAbsent": true
+    },
+    "fullGate": {
+      "status": "passed",
+      "command": "node scripts/validation-budget.mjs run --manifest /Users/dionalmaer/Documents/Codex/2026-10-30/task-4/plates-openhands/plates.json --repo dalmaer/plates --root /Users/dionalmaer/Documents/Codex/2026-10-30/task-4/plates-openhands --state-dir /Users/dionalmaer/Documents/Codex/2026-10-30/task-4/validation-host --capacity 1 --weight 1 --timeout-ms 900000 --foreground-contract --json -- npm run check",
+      "log": "/tmp/openhands-full-loop-gate.log",
+      "logSha256": "4cc879659912a07a6ad767bff190e905592af13d1d7f6efdd0ffa88811635e20",
+      "tests": 3927,
+      "passed": 3923,
+      "failed": 0,
+      "skipped": 4,
+      "testDurationMs": 295468.651166,
+      "receipt": {
+        "schema": 1,
+        "authority": "admission-only",
+        "id": "101ad66b-b865-4422-a0b9-b014758300e3",
+        "foregroundContract": "posix-cooperative-process-group",
+        "repo": "dalmaer/plates",
+        "root": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/plates-openhands",
+        "revision": "060fe4165c75dcdbc99f39c34c76ee9a6fa1fe82",
+        "commandDigest": "5233f39db9091c68afce997411006c2ec123f7b6940732c33914b3c30aeadb69",
+        "createdAt": "2026-10-30T23:08:43.115Z",
+        "endedAt": "2026-10-30T23:14:27.624Z",
+        "childStatus": 0,
+        "signal": null,
+        "timedOut": false,
+        "interrupted": null,
+        "spawnError": null,
+        "wallMs": 344506.44649999996,
+        "cpuMs": null,
+        "released": true,
+        "status": 0,
+        "resources": {
+          "availableParallelism": 14,
+          "freeMemoryBytes": 5346181120
+        },
+        "limits": [
+          "No gate/reuse authority or changed worker defaults.",
+          "Foreground command contract excludes daemonizing/session-escaping descendants; no process sandbox is claimed.",
+          "CPU duration is unavailable; wall duration includes setup and nested waits."
+        ]
+      },
+      "hygiene": "no flaky or slower test; four busy runs omitted",
+      "scope": "Final full-loop runtime/test code; final baseline-probe provenance hardening additionally received independent targeted positive/negative checks and syntax checks."
+    },
+    "independentPreparationReview": {
+      "agent": "deadline_review",
+      "cleanDetachedBaselineWorktrees": 3,
+      "baselineBadCases": {
+        "primary": 4,
+        "followupControl": 2,
+        "followupLesson": 2
+      },
+      "validControlsPass": true,
+      "maliciousModuleRejectedBeforeExecution": true,
+      "oracleHashVerified": true,
+      "remainingFindings": [],
+      "launchLimitations": [
+        "agent/evaluator containment not implemented",
+        "post-patch scorer not implemented",
+        "held-out access not isolated yet"
+      ]
+    },
+    "syntax": {
+      "node": [
+        "experiments/openhands/prepare-real-trial.mjs",
+        "experiments/openhands/real-trial-check.mjs"
+      ],
+      "pythonAst": "experiments/openhands/sdk-worker.py",
+      "passed": true
+    }
+  },
+  "failedAttempts": [
+    {
+      "kind": "fixture-setup",
+      "reason": "strict funding ISO timestamp missing milliseconds",
+      "retained": "/tmp/openhands-loop-fixture-first"
+    },
+    {
+      "kind": "focused-preflight",
+      "reason": "sandbox loopback EPERM",
+      "retained": "/tmp/openhands-loop-focused-initial.log"
+    },
+    {
+      "kind": "native-coordinator",
+      "reason": "receipt schema mismatch after worker completed; effect left uncertain",
+      "retained": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-full-loop-native"
+    },
+    {
+      "kind": "browser-preview",
+      "reason": "file protocol blocked by browser security policy",
+      "outcome": "denied",
+      "screenshot": false
+    }
+  ],
+  "realTrial": {
+    "manifest": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-real-trial-prepared/manifest.json",
+    "modelCalls": 0,
+    "status": "prepared-not-launched",
+    "acceptanceScorer": "baseline-only; contained post-patch scorer remains pending"
+  },
+  "externalSideEffects": {
+    "providerCalls": 0,
+    "credentialsRead": false,
+    "discordConnected": false,
+    "published": false,
+    "liveProjectsChanged": false
+  }
+}

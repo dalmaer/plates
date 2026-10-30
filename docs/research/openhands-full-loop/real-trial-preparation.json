@@ -1,0 +1,168 @@
+{
+  "version": 1,
+  "status": "prepared-not-launched",
+  "createdAt": "2026-10-30T23:04:07.220Z",
+  "baseline": "037e13b4f78c061405cef899b528badb536584ad",
+  "targetBlob": "831fff6973aaf1001725407fde341f964c90e1c4",
+  "backend": "OpenHands SDK 1.59.0",
+  "taskSelection": "candidate-awaiting-parent-reconciliation",
+  "modelAccess": "not-configured-or-invoked",
+  "account": null,
+  "budget": null,
+  "runs": [
+    {
+      "name": "primary",
+      "task": "primary",
+      "worktree": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-real-trial-prepared/primary",
+      "lessonMode": "capture",
+      "before": {
+        "task": "primary",
+        "pass": false,
+        "results": [
+          {
+            "input": "FREQ=DAILY;COUNT=2;UNTIL=20261101T090000Z",
+            "expected": "unknown",
+            "actual": "rrule"
+          },
+          {
+            "input": "FREQ=DAILY;UNTIL=20261101T090000Z;COUNT=2",
+            "expected": "unknown",
+            "actual": "rrule"
+          },
+          {
+            "input": "RRULE:FREQ=DAILY;COUNT=2;UNTIL=20261101T090000Z",
+            "expected": "unknown",
+            "actual": "rrule"
+          },
+          {
+            "input": "RRULE:FREQ=DAILY;UNTIL=20261101T090000Z;COUNT=2",
+            "expected": "unknown",
+            "actual": "rrule"
+          },
+          {
+            "input": "FREQ=DAILY;COUNT=2",
+            "expected": "rrule",
+            "actual": "rrule"
+          },
+          {
+            "input": "FREQ=DAILY;UNTIL=20261101T090000Z",
+            "expected": "rrule",
+            "actual": "rrule"
+          },
+          {
+            "input": "RRULE:FREQ=DAILY;COUNT=2",
+            "expected": "rrule",
+            "actual": "rrule"
+          },
+          {
+            "input": "RRULE:FREQ=DAILY;UNTIL=20261101T090000Z",
+            "expected": "rrule",
+            "actual": "rrule"
+          }
+        ]
+      },
+      "request": "Correct the routine metadata validator so an RRULE cannot contain both COUNT and UNTIL. Preserve each valid alternative. Add focused regression tests and explain evidence. Do not implement recurrence expansion or change schedulers.",
+      "status": "prepared-not-launched",
+      "allowedChanges": [
+        "lib/routines/model.mjs",
+        "tests/routine-model.test.mjs",
+        "tests/routine-sources.test.mjs"
+      ],
+      "requiredChecks": [
+        "node --import ./tests/helpers/hermetic.mjs --test tests/routine-model.test.mjs tests/routine-sources.test.mjs"
+      ],
+      "independentReview": "required after agent patch; reviewer does not change patch",
+      "noRemoteWrites": true
+    },
+    {
+      "name": "followup-control",
+      "task": "followup",
+      "worktree": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-real-trial-prepared/followup-control",
+      "lessonMode": "none",
+      "before": {
+        "task": "followup",
+        "pass": false,
+        "results": [
+          {
+            "input": "FREQ=DAILY;INTERVAL=1,2",
+            "expected": "unknown",
+            "actual": "rrule"
+          },
+          {
+            "input": "FREQ=DAILY;COUNT=1,2",
+            "expected": "unknown",
+            "actual": "rrule"
+          },
+          {
+            "input": "FREQ=DAILY;INTERVAL=2;COUNT=3",
+            "expected": "rrule",
+            "actual": "rrule"
+          },
+          {
+            "input": "FREQ=DAILY;BYHOUR=1,2;BYDAY=MO,TU",
+            "expected": "rrule",
+            "actual": "rrule"
+          }
+        ]
+      },
+      "request": "Audit recurrence scalar multiplicity in the routine metadata validator. Correct invalid repeated scalar values while preserving legitimate list-valued BY fields. Add focused tests and explain evidence. Do not implement recurrence expansion or change schedulers.",
+      "status": "prepared-not-launched",
+      "allowedChanges": [
+        "lib/routines/model.mjs",
+        "tests/routine-model.test.mjs",
+        "tests/routine-sources.test.mjs"
+      ],
+      "requiredChecks": [
+        "node --import ./tests/helpers/hermetic.mjs --test tests/routine-model.test.mjs tests/routine-sources.test.mjs"
+      ],
+      "independentReview": "required after agent patch; reviewer does not change patch",
+      "noRemoteWrites": true
+    },
+    {
+      "name": "followup-lesson",
+      "task": "followup",
+      "worktree": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-real-trial-prepared/followup-lesson",
+      "lessonMode": "reviewed-exact-digest",
+      "before": {
+        "task": "followup",
+        "pass": false,
+        "results": [
+          {
+            "input": "FREQ=DAILY;INTERVAL=1,2",
+            "expected": "unknown",
+            "actual": "rrule"
+          },
+          {
+            "input": "FREQ=DAILY;COUNT=1,2",
+            "expected": "unknown",
+            "actual": "rrule"
+          },
+          {
+            "input": "FREQ=DAILY;INTERVAL=2;COUNT=3",
+            "expected": "rrule",
+            "actual": "rrule"
+          },
+          {
+            "input": "FREQ=DAILY;BYHOUR=1,2;BYDAY=MO,TU",
+            "expected": "rrule",
+            "actual": "rrule"
+          }
+        ]
+      },
+      "request": "Audit recurrence scalar multiplicity in the routine metadata validator. Correct invalid repeated scalar values while preserving legitimate list-valued BY fields. Add focused tests and explain evidence. Do not implement recurrence expansion or change schedulers.",
+      "status": "prepared-not-launched",
+      "allowedChanges": [
+        "lib/routines/model.mjs",
+        "tests/routine-model.test.mjs",
+        "tests/routine-sources.test.mjs"
+      ],
+      "requiredChecks": [
+        "node --import ./tests/helpers/hermetic.mjs --test tests/routine-model.test.mjs tests/routine-sources.test.mjs"
+      ],
+      "independentReview": "required after agent patch; reviewer does not change patch",
+      "noRemoteWrites": true
+    }
+  ],
+  "oracleSha256": "57e6df0d52da051cede1d0b2e733ae8013d5763b0bcedf7037cf7d3228724b45",
+  "scorer": "baseline-only; changed modules refused before import; contained post-patch scorer not implemented"
+}
