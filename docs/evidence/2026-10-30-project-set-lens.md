@@ -76,3 +76,52 @@ tag, version, release implementation or remote state. Independent review accepte
 the correction; an inaccurate coverage comment was removed. The focused release
 file passed 21/21. A second integrated gate is required on the corrected checkpoint;
 the first gate remains failed, not superseded by a passing subset.
+
+## Corrected integrated checkpoint — passed
+
+Exact clean tested revision: `7f08aba846c69c193f3770f9d103175578acd545`.
+Implementation is in ancestor `81f5bc38b1220413346d7db966f117f1a7050b37`;
+the checkpoint adds only the reviewed release-test correction and its evidence.
+Node: v24.22.1. No source or test changed during the gate.
+
+- `npm run check:focused -- tests/release.test.mjs tests/web-project-sets.test.mjs`:
+  141 passed, zero failures/skips; all convention and record stages passed.
+- `npm run check`: exit 0; 3,694 tests, 3,690 passed, zero failed, four skipped.
+  Skips are the existing opt-in real Docker trial/boundary/supervisor cases.
+  Roadmap, managed render (97 targets) and inbox checks passed. Existing undated
+  historical-measurement advisories remain advisory, not new acceptance evidence.
+- `npm run typecheck`: exit 0 on the same revision.
+- Ledger hygiene: no flaky or slower test reported; both retained runs were busy
+  and omitted from timing comparison. This establishes no quiet-host benchmark.
+- Independent review: the set implementation and test correction had no remaining
+  findings after the two UI issues and the coverage comment were corrected.
+
+Logs are retained under `/Users/dionalmaer/Documents/Codex/2026-10-30/task-2`.
+SHA-256 bindings:
+
+- `set-full-gate-corrected.log`: `3e6bf8c281658a640c0ee1f5816ad9ece2bbc890e650fed68d8842b67fc3db1d`
+- `set-typecheck-corrected.log`: `b562ea4eacf3b29ea4e160213f8b2fc984bf8aeefceaf8bbd5b760be0999b6d8`
+- `set-corrected-focused.log`: `f9617be35ce7da7bba00a11f639f4a15217cd24bde1296081cfe656640081430`
+
+This final evidence-only follow-up does not change tested source or tests. Its
+roadmap/render/inbox/whitespace checks are run separately; do not attribute a new
+full-gate run to the later evidence commit.
+
+## Remaining work and boundaries
+
+Phase 132 stays partial. Normalized routine identities, Switchboard source readers,
+local/hosted observation enrollment, broader set continuity and full task/PR usage
+remain; phase 133 personal ownership/capacity and phases 134–136 policy/execution/
+cutover are still designed. U1 must extend the existing agent-quality ledger, whose
+resources need detailed token/cache/funding fields. Resolve the isolated draft
+phase-ID 132–134 collision before branch integration; neither branch was renamed
+or merged here. These are remaining implementation/integration tasks, not a claim
+that source-only configuration activated a live feature.
+
+Original Plates main is still `0165c290`, Switchboard main `a6651db5`, and
+`codex/agent-quality` `9f8c17ad` was inspected read-only and remains clean. Original
+Plates untracked user work was preserved. The local implementation branch has no
+push/PR, merge, deployment, provider permission/account change, paid run, active
+routine mutation or Switchboard deletion. No local coding action is approval-blocked.
+Publication and concrete runtime enrollment/cutover still require their scoped
+owner decisions; current source work does not grant them.
