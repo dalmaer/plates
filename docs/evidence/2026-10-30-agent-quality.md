@@ -87,3 +87,14 @@ telemetry or independently verify the contents behind evidence hashes. Recall
 needs an independently audited defect universe. Paid replay needs a reviewed
 live adapter, explicit budget and prespecified thresholds. No paid run, routing
 change, credential grant, merge, release or deployment occurred in this phase.
+
+## Final local checkpoint — 2026-10-30
+
+Commit b5136adc660569bc7d93263502f24187a183912c contains the complete locally tested implementation.
+The repaired full `npm run check` exited 0: 3,870 passed, zero failed and five
+existing conditional skips. `npm run typecheck` exited 0. Final focused
+conventions passed 211 tests with zero failures and one existing conditional
+skip. The test ledger reported no flaky or slower test and excluded its one busy
+run from performance inference. A real weekly preview over the same 20 private
+PR candidates reported no material changes, zero model runs and preview-only
+collection; it did not schedule or persist new observations.
