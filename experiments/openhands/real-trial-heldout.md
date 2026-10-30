@@ -1,30 +1,20 @@
-# Evaluator-only follow-up: recurrence scalar cardinality
+# Evaluator-only Task B: lesson-copy receipt authorization
 
-Prepared 2026-10-30. Keep this file, the combined oracle and trial manifests outside the primary agent's accessible context. Do not give the primary agent this task, expected learning or a proposed solution. The baseline worktree does not contain these experiment files; filesystem access must enforce that separation before calling the case held out.
+Prepared 2026-10-30 for the parent-selected Gas City/OpenHands comparison. Keep this file, `real-task-b-sealed.md`, the combined specification and evaluator inaccessible to Task A's worker.
 
-Use the same baseline `037e13b4f78c061405cef899b528badb536584ad` and model blob `831fff6973aaf1001725407fde341f964c90e1c4`, with separate untouched follow-up control and lesson worktrees. The follow-up is another existing defect; no code has been changed to create it.
+Task B is the existing private lesson-copy operation receipt race: source-project access is removed during the migration receipt read while workspace membership remains. Both API and HTML can disclose the original committed migration receipt. This is the legacy migration receipt route, not the newer private-learning service.
 
-Task: audit recurrence scalar multiplicity in the routine metadata validator. Reject invalid repeated scalar values while preserving legitimate list-valued BY fields. Add focused tests. Do not expand recurrences or change schedulers.
+The worker prompt is extracted verbatim from task-3's launch specification into `real-task-b-sealed.md`, SHA-256 `1bbe8952505b1abee7adcb70b933b7fd4ec81c95bee79935ce241bc856f2e857`. Use the same prompt, model and bounds in control/treatment; add only the exact reviewed lesson to treatment. Existing affected tests: `tests/web-migration.test.mjs`. Frozen helper policy is identical to Task A.
 
-[RFC 5545 §3.3.10](https://www.rfc-editor.org/rfc/rfc5545#section-3.3.10), checked against the official RFC Editor on 2026-10-30, defines COUNT and INTERVAL as digit sequences, whereas BYHOUR and BYDAY have explicit list grammars. A comma-separated pair is invalid for either scalar, even when each number is individually within range.
-
-Frozen cases:
-
-| Input | Expected kind | Baseline kind |
-| --- | --- | --- |
-| `FREQ=DAILY;INTERVAL=1,2` | `unknown` | `rrule` |
-| `FREQ=DAILY;COUNT=1,2` | `unknown` | `rrule` |
-| `FREQ=DAILY;INTERVAL=2;COUNT=3` | `rrule` | `rrule` |
-| `FREQ=DAILY;BYHOUR=1,2;BYDAY=MO,TU` | `rrule` | `rrule` |
-
-Evaluator command, from the experiment checkout:
-
-This command is a **baseline-only probe**. It refuses changed candidate bytes before import. A post-patch scorer must run candidate code in a separately contained evaluator worker; do not import agent code into the host evaluator.
+Both OpenHands arms start independently from clean consolidation `037e13b4f78c061405cef899b528badb536584ad`: `../openhands-real-trial-prepared/followup-control` and `../openhands-real-trial-prepared/followup-lesson`. Do not transfer Task A's patch, even if a broad fix would improve both routes. Transfer only an independently reviewed lesson with exact digest and scope, or retain explicit rejected/no-useful-lesson status.
 
 ```sh
-node experiments/openhands/real-trial-check.mjs /absolute/path/to/followup-worktree followup
+node experiments/openhands/real-receipt-evaluator.mjs /absolute/path/to/followup-control task-b
+node experiments/openhands/real-receipt-evaluator.mjs /absolute/path/to/followup-lesson task-b
 ```
 
-Observed 2026-10-30 on unchanged target files: exit 1, `pass: false`; both negative cases failed and both positive controls passed. Builder validation is `node --import ./tests/helpers/hermetic.mjs --test tests/routine-model.test.mjs` plus the conductor's required gates. Do not require an implementation shape.
+Only run candidate evaluation inside the parent's containment. The untouched-baseline subprocess evaluations each exited 1: 4/7 cases pass, 3 fail. Mid-read access loss discloses the API/HTML receipt; unknown-operation HTML falls back to a receipt-unavailable page instead of refusing authorization. Authorized and pre-read-denied controls pass. Workspace membership remains present and no GET adds fixture writes. Both worktrees were clean before and after. Reports and SHA-256 digests are retained in `real-receipt-baseline-followup-control.json`, `real-receipt-baseline-followup-lesson.json`, and `real-receipt-baseline-manifest.json`.
 
-After primary work, retain the actual worker's lesson candidate verbatim. An independent reviewer may approve its exact digest and scope, reject it, or record no useful lesson. Only an approved lesson enters the lesson arm. The control arm receives no lesson. Never manufacture a lesson to complete the loop. Record outcomes, review findings, time, calls and usage for both arms; this small paired trial can demonstrate a transfer mechanism, not establish causal efficacy. If the first patch already fixes the follow-up, retain that observation rather than seed a new defect. All execution remains pending parent reconciliation and explicit account/budget approval.
+The exact frozen evaluator covers project-access removal, permitted repeated recovery and the unknown-operation HTML denial distinction. It does not separately exercise mid-read session revocation; the source candidate note proposes that variant, but the frozen evaluator does not implement it. Do not claim coverage that has not run.
+
+Report actual lesson retrieval, authorized/denied behavior, unchanged write counts, patch/review outcomes, wall time and measured usage across both arms. A neutral or harmful lesson remains a valid result. One small pair does not establish general learning efficacy. All model/auth execution remains pending explicit scope and account/budget approval.

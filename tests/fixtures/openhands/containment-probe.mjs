@@ -1,0 +1,17 @@
+const [secret,sibling,parentPidString]=process.argv.slice(2);const parentPid=Number(parentPidString);
+import * as fs from 'node:fs';import {spawnSync} from 'node:child_process';import net from 'node:net';
+const result={};const attempt=(key,fn)=>{try{fn();result[key]='ALLOWED'}catch(e){result[key]=e.code}};
+attempt('readEvaluator',()=>fs.readFileSync(secret));
+attempt('writeEvaluator',()=>fs.writeFileSync(secret,'tampered'));
+attempt('readSibling',()=>fs.readFileSync(sibling));
+attempt('writeSibling',()=>fs.writeFileSync(sibling,'tampered'));
+attempt('ownWrite',()=>fs.writeFileSync('allowed.txt','synthetic worker edit'));
+attempt('helperWrite',()=>fs.writeFileSync('tests/helpers/forged.mjs','tampered'));
+attempt('gitWrite',()=>fs.writeFileSync('.git/config','tampered'));
+attempt('hardlinkRead',()=>{fs.linkSync(secret,'hardlink');fs.readFileSync('hardlink')});
+attempt('symlinkRead',()=>{fs.symlinkSync(secret,'alias');fs.readFileSync('alias')});
+attempt('parentSignal',()=>process.kill(parentPid,0));
+const child=spawnSync(process.execPath,['-e','process.exit(0)']);result.subprocess=child.error?.code??'ALLOWED';
+result.network=await new Promise(resolve=>{const s=net.createServer();s.once('error',e=>resolve(e.code));s.listen(0,'127.0.0.1',()=>{s.close(()=>resolve('ALLOWED'))})});
+result.outbound=await new Promise(resolve=>{const s=net.connect({host:'127.0.0.1',port:9});s.on('error',e=>resolve(e.code));s.on('connect',()=>{s.destroy();resolve('ALLOWED')})});
+result.environmentHasSyntheticSecret=Object.hasOwn(process.env,'ACME_HIDDEN_SECRET');console.log(JSON.stringify(result));

@@ -1,0 +1,343 @@
+{
+  "schema": 1,
+  "manifestSHA256": "a7535adfd023ec5992a30523c3a56fcdcd8dd7729d3abb9dceedf5e0bc450af8",
+  "task": "task-b",
+  "candidate": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-real-trial-prepared/followup-control",
+  "exitCode": 1,
+  "signal": null,
+  "error": null,
+  "groupAbsent": true,
+  "stderr": "",
+  "evaluation": {
+    "schema": 3,
+    "kind": "plates-real-task-evaluation",
+    "task": "task-b",
+    "mode": "acceptance",
+    "baseline": "037e13b4f78c061405cef899b528badb536584ad",
+    "worktree": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-real-trial-prepared/followup-control",
+    "evaluatorSHA256": "f1d9281846f47e42eb6bb5f7e7528d7e2d027ad80ab6ad4666f57b56d9305004",
+    "shimSHA256": "cefcca81a558bcce577072bf71c0eb5acdcdac5adbce6183b29bfd7a3367e6e1",
+    "containmentModuleSHA256": "a1f7916352498f4d9d48fcd7632a0cffad2a0be695f8e1b101490525d88477d9",
+    "integrity": {
+      "passed": true,
+      "trustedManifestSHA256": "8fabd6ade9045f53a6c9a86b3a0924df03b485d45f61c2fbcf3640fe72d23209",
+      "containmentModuleSHA256": "a1f7916352498f4d9d48fcd7632a0cffad2a0be695f8e1b101490525d88477d9",
+      "trustedFiles": 1521,
+      "trustedSymlinks": 4,
+      "candidateHelpers": 59,
+      "problems": []
+    },
+    "candidateSourceSHA256": {
+      "lib/web/server.mjs": "16d2b138f944ac08667a449b0031077404eaa030ff4235fbddb201b0175e6a5f",
+      "lib/web/operations.mjs": "160471cae5f9576b89e823254ca87622c53f3d21ac6902b57ce73810541f3a87",
+      "lib/web/migration.mjs": "c5cdd924c7fafab9d483ec289a9618e8627d8b1109ac14bdbfdcea6779fa7795",
+      "package.json": "5917d0b940c002986865f1e8b6f6aa673337d0721ecf5e0ae037b7e409cffb4b"
+    },
+    "candidateSourceUnchanged": true,
+    "expectedCases": 7,
+    "total": 7,
+    "passed": 4,
+    "failed": 3,
+    "infrastructureFailure": false,
+    "acceptancePassed": false,
+    "qualification": "Assertions and fixture stores run only in the trusted parent; candidate responses are untrusted. OS profile execution is mandatory, never bypassed. This is causal fixture protection, not proof against all semantic test gaming or a formal malware sandbox.",
+    "results": [
+      {
+        "name": "task-b/api/authorized-control",
+        "surface": "api",
+        "scenario": "authorized-control",
+        "unknownOperation": false,
+        "passed": true,
+        "status": 200,
+        "error": null,
+        "returnedOriginalReceipt": true,
+        "revealedCommit": true,
+        "revealedPreview": true,
+        "injections": 0,
+        "membersAfter": [
+          1
+        ],
+        "projectAccessAfter": true,
+        "fixtureWritesBefore": 1,
+        "fixtureWritesAfter": 1,
+        "repeat": {
+          "status": 200,
+          "sameOriginal": true
+        },
+        "ipc": {
+          "calls": 34,
+          "requests": 38,
+          "stdoutBytes": 0,
+          "totalBytes": 14251,
+          "stderr": "",
+          "policySHA256": "5d72dd00c7f3f8a6b31980749d57377256838b32ad85f631c2585ca3dc640716",
+          "terminated": true,
+          "exitObservation": [
+            null,
+            "SIGTERM"
+          ]
+        },
+        "checks": {
+          "fixtureOnlyNoAdditionalSourceWrite": true,
+          "injectionObserved": true,
+          "retainedWorkspaceMembership": true,
+          "authorizedRead": true,
+          "authorizedRepeat": true
+        }
+      },
+      {
+        "name": "task-b/api/before-read-loss",
+        "surface": "api",
+        "scenario": "before-read-loss",
+        "unknownOperation": false,
+        "passed": true,
+        "status": 401,
+        "error": "sign_in_required",
+        "returnedOriginalReceipt": false,
+        "revealedCommit": false,
+        "revealedPreview": false,
+        "injections": 0,
+        "membersAfter": [
+          1
+        ],
+        "projectAccessAfter": false,
+        "fixtureWritesBefore": 1,
+        "fixtureWritesAfter": 1,
+        "repeat": null,
+        "ipc": {
+          "calls": 9,
+          "requests": 12,
+          "stdoutBytes": 0,
+          "totalBytes": 3567,
+          "stderr": "",
+          "policySHA256": "0ee84ddd02a6d517abfd319055ae964be1b1b9dc84b667d277c16fd0efc3bef4",
+          "terminated": true,
+          "exitObservation": [
+            null,
+            "SIGTERM"
+          ]
+        },
+        "checks": {
+          "fixtureOnlyNoAdditionalSourceWrite": true,
+          "injectionObserved": true,
+          "retainedWorkspaceMembership": true,
+          "authorizationRefusal": true,
+          "noBufferedReceipt": true,
+          "typedApiRefusal": true,
+          "noUnknownHtmlFallback": true
+        }
+      },
+      {
+        "name": "task-b/api/mid-read-loss",
+        "surface": "api",
+        "scenario": "mid-read-loss",
+        "unknownOperation": false,
+        "passed": false,
+        "status": 200,
+        "error": null,
+        "returnedOriginalReceipt": true,
+        "revealedCommit": true,
+        "revealedPreview": true,
+        "injections": 1,
+        "membersAfter": [
+          1
+        ],
+        "projectAccessAfter": false,
+        "fixtureWritesBefore": 1,
+        "fixtureWritesAfter": 1,
+        "repeat": null,
+        "ipc": {
+          "calls": 17,
+          "requests": 20,
+          "stdoutBytes": 0,
+          "totalBytes": 7143,
+          "stderr": "",
+          "policySHA256": "0ee0458f76b3d69a85c9976f066fe72b620ac65cbba608e80bcf3d5a2b81f1ed",
+          "terminated": true,
+          "exitObservation": [
+            null,
+            "SIGTERM"
+          ]
+        },
+        "checks": {
+          "fixtureOnlyNoAdditionalSourceWrite": true,
+          "injectionObserved": true,
+          "retainedWorkspaceMembership": true,
+          "authorizationRefusal": false,
+          "noBufferedReceipt": false,
+          "typedApiRefusal": false,
+          "noUnknownHtmlFallback": true
+        }
+      },
+      {
+        "name": "task-b/html/authorized-control",
+        "surface": "html",
+        "scenario": "authorized-control",
+        "unknownOperation": false,
+        "passed": true,
+        "status": 200,
+        "error": null,
+        "returnedOriginalReceipt": true,
+        "revealedCommit": true,
+        "revealedPreview": false,
+        "injections": 0,
+        "membersAfter": [
+          1
+        ],
+        "projectAccessAfter": true,
+        "fixtureWritesBefore": 1,
+        "fixtureWritesAfter": 1,
+        "repeat": {
+          "status": 200,
+          "sameOriginal": true
+        },
+        "ipc": {
+          "calls": 34,
+          "requests": 38,
+          "stdoutBytes": 0,
+          "totalBytes": 20297,
+          "stderr": "",
+          "policySHA256": "980a7f57da71193fb69354432624e4e1a429695b1eab80b2c4d60d42271c1d41",
+          "terminated": true,
+          "exitObservation": [
+            null,
+            "SIGTERM"
+          ]
+        },
+        "checks": {
+          "fixtureOnlyNoAdditionalSourceWrite": true,
+          "injectionObserved": true,
+          "retainedWorkspaceMembership": true,
+          "authorizedRead": true,
+          "authorizedRepeat": true
+        }
+      },
+      {
+        "name": "task-b/html/before-read-loss",
+        "surface": "html",
+        "scenario": "before-read-loss",
+        "unknownOperation": false,
+        "passed": true,
+        "status": 401,
+        "error": null,
+        "returnedOriginalReceipt": false,
+        "revealedCommit": false,
+        "revealedPreview": false,
+        "injections": 0,
+        "membersAfter": [
+          1
+        ],
+        "projectAccessAfter": false,
+        "fixtureWritesBefore": 1,
+        "fixtureWritesAfter": 1,
+        "repeat": null,
+        "ipc": {
+          "calls": 9,
+          "requests": 12,
+          "stdoutBytes": 0,
+          "totalBytes": 4445,
+          "stderr": "",
+          "policySHA256": "f8839f8303f23cb46bf57a8072c509690708ac3de8430eda7d5b3f1b42eeec37",
+          "terminated": true,
+          "exitObservation": [
+            null,
+            "SIGTERM"
+          ]
+        },
+        "checks": {
+          "fixtureOnlyNoAdditionalSourceWrite": true,
+          "injectionObserved": true,
+          "retainedWorkspaceMembership": true,
+          "authorizationRefusal": true,
+          "noBufferedReceipt": true,
+          "typedApiRefusal": true,
+          "noUnknownHtmlFallback": true
+        }
+      },
+      {
+        "name": "task-b/html/mid-read-loss",
+        "surface": "html",
+        "scenario": "mid-read-loss",
+        "unknownOperation": false,
+        "passed": false,
+        "status": 200,
+        "error": null,
+        "returnedOriginalReceipt": true,
+        "revealedCommit": true,
+        "revealedPreview": false,
+        "injections": 1,
+        "membersAfter": [
+          1
+        ],
+        "projectAccessAfter": false,
+        "fixtureWritesBefore": 1,
+        "fixtureWritesAfter": 1,
+        "repeat": null,
+        "ipc": {
+          "calls": 17,
+          "requests": 20,
+          "stdoutBytes": 0,
+          "totalBytes": 10166,
+          "stderr": "",
+          "policySHA256": "30501e32f2608a979ecb85a7cf9b3ad1f2490e139daa958589280aaadf9411a8",
+          "terminated": true,
+          "exitObservation": [
+            null,
+            "SIGTERM"
+          ]
+        },
+        "checks": {
+          "fixtureOnlyNoAdditionalSourceWrite": true,
+          "injectionObserved": true,
+          "retainedWorkspaceMembership": true,
+          "authorizationRefusal": false,
+          "noBufferedReceipt": false,
+          "typedApiRefusal": true,
+          "noUnknownHtmlFallback": true
+        }
+      },
+      {
+        "name": "task-b/html/unknown-operation/mid-read-loss",
+        "surface": "html",
+        "scenario": "mid-read-loss",
+        "unknownOperation": true,
+        "passed": false,
+        "status": 200,
+        "error": null,
+        "returnedOriginalReceipt": false,
+        "revealedCommit": false,
+        "revealedPreview": false,
+        "injections": 1,
+        "membersAfter": [
+          1
+        ],
+        "projectAccessAfter": false,
+        "fixtureWritesBefore": 1,
+        "fixtureWritesAfter": 1,
+        "repeat": null,
+        "ipc": {
+          "calls": 17,
+          "requests": 20,
+          "stdoutBytes": 0,
+          "totalBytes": 9859,
+          "stderr": "",
+          "policySHA256": "02274a98355361db7f4908586eeab15507c28f532615325d26721d9f5cb8b271",
+          "terminated": true,
+          "exitObservation": [
+            null,
+            "SIGTERM"
+          ]
+        },
+        "checks": {
+          "fixtureOnlyNoAdditionalSourceWrite": true,
+          "injectionObserved": true,
+          "retainedWorkspaceMembership": true,
+          "authorizationRefusal": false,
+          "noBufferedReceipt": true,
+          "typedApiRefusal": true,
+          "noUnknownHtmlFallback": false
+        }
+      }
+    ]
+  }
+}

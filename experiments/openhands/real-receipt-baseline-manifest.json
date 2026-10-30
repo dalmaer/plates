@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "date": "2026-10-30",
+  "status": "baseline-reproduced-no-model",
+  "baseline": "037e13b4f78c061405cef899b528badb536584ad",
+  "source": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-3/real-trial-launch-spec.json",
+  "evaluatorSHA256": "723feab106853c71b2016f65904ec9f7880379ddde4804ec4c1dfb0400037548",
+  "specSHA256": "0b7610603f865b91b59f680b485aea544e154a4571e15dd7044cd3c7753d531c",
+  "modelCalls": 0,
+  "targetEdits": 0,
+  "results": [
+    {
+      "task": "task-a",
+      "arm": "primary",
+      "worktree": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-real-trial-prepared/primary",
+      "artifact": "real-receipt-baseline-primary.json",
+      "sha256": "419bd5be7a60aa3df4a0f4e19a5813b9b823c7ec0e56d7b0b5563e7518732c15",
+      "exitCode": 1,
+      "passed": 4,
+      "failed": 2,
+      "integrityPassed": true,
+      "worktreeCleanBeforeAndAfter": true
+    },
+    {
+      "task": "task-b",
+      "arm": "followup-control",
+      "worktree": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-real-trial-prepared/followup-control",
+      "artifact": "real-receipt-baseline-followup-control.json",
+      "sha256": "a13760c45da700f68dacfa788af3b7c1f7a521aa813f34a15fdae88961a7a2d0",
+      "exitCode": 1,
+      "passed": 4,
+      "failed": 3,
+      "integrityPassed": true,
+      "worktreeCleanBeforeAndAfter": true
+    },
+    {
+      "task": "task-b",
+      "arm": "followup-lesson",
+      "worktree": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-real-trial-prepared/followup-lesson",
+      "artifact": "real-receipt-baseline-followup-lesson.json",
+      "sha256": "ef16dbfb16977ec63959231837996ceb4108645c20c695f5003da8f01b1a4a30",
+      "exitCode": 1,
+      "passed": 4,
+      "failed": 3,
+      "integrityPassed": true,
+      "worktreeCleanBeforeAndAfter": true
+    }
+  ],
+  "qualification": "Actual unchanged Plates routes with isolated synthetic fixtures. Evaluator subprocess only; no worker or provider invocation. Not a sandbox proof."
+}

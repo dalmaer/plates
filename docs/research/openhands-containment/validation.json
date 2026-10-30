@@ -1,0 +1,113 @@
+{
+  "schema": 1,
+  "modelCalls": 0,
+  "targetFixesSupplied": false,
+  "sourceSHA256": {
+    "containment.mjs": "50ecd1e724380f90516a9fbd531b54ecc8e655745843fac09e25531fdc39bf0b",
+    "capture-candidate.mjs": "ecfed8d578efe2281a5ce4ab3900e413dd52137a8ce40bdb791e4bb5d8332661",
+    "candidate-service.mjs": "afddef97b1c0aa61cbdf93d44abf155d801fff7b92df2da1d7d01c62a0c9b0be",
+    "contained-score.mjs": "0aff0fbb890b1be537f87e97af31eb3d32fc90f32a92e4c56eadd708713476a5",
+    "workspace-file-tool.mjs": "50859819f56ef5d62118be3ce274f26716dcb518944116657e8bc33d5661ab31",
+    "file-capability-host.mjs": "6c5d7f70591360e8f1a8074023f0302d821fb9bb56f048885dbff2ed04a5dcf4",
+    "sdk-contained-demo.py": "44c50104eab22cc1151bbe636386246abf020f43aa035a325227bf9bdf6fdf9d",
+    "prepare-real-trial.mjs": "b08ec3d698e6fb4dc37fb56b1ec5ff858dc5cac84e71ee0a19cf6faae01344d8"
+  },
+  "nativeContainmentTests": {
+    "passed": 4,
+    "failed": 0,
+    "log": "/tmp/openhands-containment-native-final.log",
+    "qualification": "Completed before notice of separate denied Gas City batch; not rerun after that notice."
+  },
+  "finalBridge": {
+    "nativeSDK": "final-sdk-receipt.json",
+    "fragmentedUnicode": "final-unicode-receipt.json",
+    "providerCalls": 0
+  },
+  "sharedV3Baseline": {
+    "taskA": {
+      "passed": 4,
+      "total": 6
+    },
+    "taskBControl": {
+      "passed": 4,
+      "total": 7
+    },
+    "taskBTreatment": {
+      "passed": 4,
+      "total": 7
+    },
+    "acceptancePassed": false,
+    "expectedUnfixedDefects": true,
+    "helpers": 59
+  },
+  "repositoryGate": {
+    "receipt": "repository-gate-receipt.json",
+    "exitStatus": 0,
+    "tests": 3931,
+    "pass": 3927,
+    "fail": 0,
+    "skip": 4,
+    "scope": "Before final bridge Unicode fix and final provenance/docs edits; focused final checks separately recorded."
+  },
+  "supervisor": {
+    "terminalReceipt": "missing",
+    "lease": "d1bfd29e-d920-4063-b9e4-ddae837a6d56",
+    "leaseState": "recorded-running",
+    "recordedPidsObservedAbsent": [
+      41883,
+      41890
+    ],
+    "cause": "unknown",
+    "leaseManuallyRemoved": false
+  },
+  "review": {
+    "independentScorerAndContainment": "closed capture race, raw output bound, exact negative-test errors, bounded stable capture, in-flight RPC response race",
+    "sdkBridgeAuthorSelfReview": "UTF-8 chunk decoding fixed; not independent-author review",
+    "integratorReadReview": "fixed SDK action/root/approval/demo guards reviewed; generic real-model trial wiring unproven"
+  },
+  "deniedActions": {
+    "separateGasCityBatch": "automated sub-agent cyber filter; not executed/retried/transferred; further user approval not an override",
+    "filePreview": "earlier denied file preview not retried via alternate route"
+  },
+  "remaining": [
+    "provider/model/account and budget selection/authorization",
+    "generic native SDK trial registration with exact-action review and pre-dispatch usage limits",
+    "durable worker fencing and captured-artifact binding",
+    "contained fixed regression/full-gate command runner",
+    "real agent-authored patches and actual lesson comparison",
+    "validation-supervisor lease reconciliation"
+  ],
+  "finalChecks": {
+    "focused": {
+      "command": "npm run check:focused -- tests/openhands-containment.test.mjs tests/openhands-full-loop.test.mjs",
+      "exitStatus": 0,
+      "nativeAdversarialTests": "disabled",
+      "log": "/tmp/openhands-final-focused-approved.log"
+    },
+    "typecheck": {
+      "command": "npm run typecheck",
+      "exitStatus": 0,
+      "log": "/tmp/openhands-final-typecheck.log"
+    },
+    "syntax": {
+      "javascript": "passed",
+      "python": "passed"
+    },
+    "benignBridgeChecks": {
+      "fragmentedUnicode": "passed",
+      "nativeSDKFixedAction": "passed",
+      "providerCalls": 0
+    },
+    "firstFocusedAttempt": {
+      "exitStatus": 2,
+      "reason": "tool-sandbox loopback preflight EPERM; no tests ran",
+      "log": "/tmp/openhands-final-focused.log"
+    }
+  },
+  "logSHA256": {
+    "/tmp/openhands-containment-full-gate.log": "596d9bfd4005f86b07506d492f938706d9ca033dfa8d3ecad7be3edca1be8a1c",
+    "/tmp/openhands-containment-native-final.log": "337f5f949591310bf3d28a3d542a7ea59dcb84d597e46c036642f92e2b706885",
+    "/tmp/openhands-final-focused-approved.log": "835199b99ed75083e5bfa5eb57d9a476bdf89b67f499a1ac2c421fe3f6fbed15",
+    "/tmp/openhands-final-typecheck.log": "b562ea4eacf3b29ea4e160213f8b2fc984bf8aeefceaf8bbd5b760be0999b6d8"
+  }
+}

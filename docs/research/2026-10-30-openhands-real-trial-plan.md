@@ -1,5 +1,7 @@
 # OpenHands: prepared real Plates trial, no model launch
 
+> Historical RRULE alternative. The parent selected the [shared receipt-race plan](2026-10-30-openhands-receipt-trial-plan.md) for the actual comparison.
+
 Date: 2026-10-30. This is preparation authorized by “play with the plates repo … REAL testing.” Parent will reconcile the task with Gas City before either backend starts. No target fix has been written by this coding session, no model/credentialed agent has been invoked, and no existing CLI credential file was read.
 
 ## Genuine candidate and frozen checks
