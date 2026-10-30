@@ -105,6 +105,18 @@ The other 117 rename tests passed. Logs are `funding-deterministic-tests.log`,
 `names-render-check.json`. The final integrated checkpoint uses the same approved
 execution environment as the initial full gate; no unsuccessful run is erased.
 
+At `7a4c61cdf3ed7b2aa7a9974490210a4060b387ae`, the integrated gate ran
+3,901 tests: 3,892 passed, five failed and four opt-in Docker tests were skipped
+(`authorization-full-7a4c61cd.log`). All five failures exposed dependent source
+pins after the names inventory changed. The historical 0.8.34 retry fixture now
+retains the exact original names blob from release `94ae6ac1`; its canonical
+production retry closure and authority remain unchanged. The current web coverage
+inventory separately records the reviewed names table's new SHA-256. A repository
+search found no other stale current-source pins. The 47 night-retry, operation
+coverage and names tests passed (`name-closure-correction-tests.log`). Typecheck
+and the installed-package walk had passed at `7a4c61cd`. These corrections receive
+their own final integrated validation; the second gate is not called successful.
+
 Independent read-only audits covered execution/recovery, learning/identity and
 web/collaboration. The evaluation document then received a separate source review;
 its reconnect scenario and failed-gate record were corrected and cleared. The
