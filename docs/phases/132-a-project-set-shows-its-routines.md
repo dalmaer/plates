@@ -1,0 +1,108 @@
+---
+status: designed
+since: 2026-10-30
+goal: G8
+spec: 2
+depends: [93, 102]
+note: "Read-only project-set routine visibility specified against Plates 0165c290 and Switchboard a6651db5. No product migration or local-to-hosted bridge is implemented by this design."
+evidence: []
+---
+
+# A project set shows its routines and what actually ran
+
+## Done when
+
+An authorized owner can inspect the routines and observed runs associated with a project set or their private workspace in Plates, with source provenance, missing coverage and placement reasons, without visiting a separate Switchboard application or changing an executor.
+
+## Scope
+
+The first Plates-native outcome in the [consolidation contract](../specs/switchboard-consolidation.md):
+T1's observation/identity contracts, T2 readers and T3 shared views. It is a useful
+read-only delivery independently of routine ownership and execution. Switchboard's
+components are evidence and possible implementation material, not the new product
+structure. Reuse, redesign and discard choices are explicit in that contract.
+
+Extend existing Routines/Activity and local board projections. Local and hosted
+views share normalized observations; local sources remain unavailable to hosted
+views until a separately approved observation-only bridge is activated. Personal
+routine visibility is actor scoped; a project set is a view grouping, not an
+access-control grant. Use “project set” and “set” in product language;
+keep existing fleet command/API identifiers stable during this work.
+
+The remaining outcomes are [personal capacity for shared work](133-people-bring-their-own-capacity-to-shared-work.md),
+[policy and reversible import](134-a-routine-has-one-plates-policy.md),
+[accountable execution and effects](135-routines-run-with-accountable-effects.md)
+and [safe replacement](136-a-routine-changes-owner-without-losing-work.md).
+No product code, personal state or active routine is moved by these phase records.
+
+Extend the existing set overview → plate detail → work/runs/reviews/health
+journey, with Learning and Connections/capacity in the same navigation. Source
+records remain authoritative; provider success is not phase acceptance. A set
+selector filters authorized plates, retains view context and never clones work.
+Safe terminology migration N1 inventories visible labels and compatibility names,
+changes user-facing “fleet” language to “set”/“project set,” and preserves old
+routes, commands and receipts until a separately verified alias retirement.
+
+## Acceptance
+
+- [ ] Existing Home, project detail, decisions/reviews, Daily/health, Learning, Connections and job/operation views remain reachable through the set/plate lens with source-bound return routes, filters and pending receipts preserved: `npm run check:focused -- tests/routine-views.test.mjs tests/web-home.test.mjs tests/web-operation-coverage.test.mjs` (first file planned).
+- [ ] N1 inventories user-facing fleet labels, moves product language to set/project set and tests existing routes/JSON/CLI aliases and stored receipts without broad runtime renaming: `npm run check:focused -- tests/routine-views.test.mjs tests/web-operation-coverage.test.mjs` (first file planned).
+
+- [ ] Versioned routine/source/attempt identities distinguish workspace/actor, project, host and provider, preserving conflicts and unknown outcomes: `npm run check:focused -- tests/routine-model.test.mjs` (planned file).
+- [ ] All inventoried reader capabilities have a reasoned reuse/redesign/drop disposition; supported sources retain bounded reads, provenance, timezone and explicit gaps: `npm run check:focused -- tests/routine-sources.test.mjs` (planned file).
+- [ ] Existing CLI/board/Routines/Activity consume one model; filters, keyboard/mobile use, old run attempts and current authorization survive aggregation: `npm run check:focused -- tests/routine-views.test.mjs tests/web-runs.test.mjs tests/web-runs-ui.test.mjs` (first file planned).
+- [ ] Observation enrollment cannot dispatch work; revoked/forged hosts, replayed uploads and cross-actor/project reads fail without exposing private source content: `npm run check:focused -- tests/routine-views.test.mjs` (planned file).
+- [ ] The installed candidate exposes JSON and help for supported observation commands, preserves current board/fleet contracts, and passes source conventions: `npm run check` and `npm run typecheck` on the integrated implementation.
+- [ ] Selected authorized sources agree with independent provider observations on desktop/mobile, with unavailable sources visibly incomplete: ⚑ by hand: owner and conductor; observation-only activation reviewed separately.
+
+## Your part
+
+- **Ask:** Compare the routine view with a few selected source tools and confirm that it shows what you need.
+- **Why:** Synthetic fixtures cannot establish current provider formats or useful real coverage.
+- **Look at:** The project set's Routines and Activity views and their coverage report.
+- **Choices:** View is useful | Missing context
+- **Keeps it open:** Missing context
+- **Takes:** About 10 minutes.
+- **Then:** View is useful: record read-side acceptance. Missing context: record the missing source or explanation and refine the view.
+- **Ready when:** Read-side implementation checks pass and exact sources/observation access are approved.
+
+## Real surfaces
+
+- published package: install a packed candidate in an Acme consumer and exercise JSON/help and source fixtures without ambient personal data.
+- owner's machine: explicitly selected source reads compared with provider facts; no scheduler edits or routine execution.
+- GitHub API: authorized numeric-repository workflow/attempt reads with bounded coverage and no writes.
+
+## Proof
+
+For this specification delivery run `npm run roadmap`, `npm run roadmap:check`,
+`npm run render:check`, `npm run inbox:check`, `git diff --check`, and
+`npm run check:focused -- tests/roadmap.test.mjs`; inspect all local links and
+inventory paths against pinned repositories. These prove records, not features.
+No expensive full suite for documentation alone.
+
+For implementation run the named focused files as added, then `npm run check`
+and `npm run typecheck` once on the integrated candidate. Source Switchboard tests
+are porting evidence, not passing Plates tests. Record actual source/host/scope,
+window, gaps and observation-only activation separately from acceptance.
+
+## Deliberately open
+
+- Local-to-hosted observation is a new authenticated capability. Until T3 proves
+  and the owner activates enrollment, local views work and hosted coverage says
+  unavailable; no filesystem scan or transcript upload is implied.
+- Provider formats and quota/capability evidence are dated. T2 records current
+  observed versions; no missing read can count as empty or current.
+- No Switchboard license file was found. Before copying source, T1 records the
+  reuse basis and provenance; this specification copies no implementation.
+- “Project set” is the product direction, not a broad fleet rename. N1 inventories
+  commands, URLs and stored names, changes product labels and tests continuity;
+  identifier removal needs a separately reviewed compatibility window. No global
+  search/replace is part of this phase.
+
+## Next action
+
+Start T1's observation schema in an isolated branch: read current decision context, revalidate the pinned inventories and write scope/identity/privacy fixtures before implementing readers.
+
+## Trajectory
+
+- **2026-10-30** — Created from repository inventory, then split into five user outcomes after the owner asked for Plates-native phases and preferred “set.” Product migration has not started.

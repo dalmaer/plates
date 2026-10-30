@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**55 of 132 phases built; 57 owe a walk.** Built means implemented and checked; planned is not available.
+**55 of 137 phases built; 57 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -352,6 +352,26 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 - **106 done when:** Each run selects an eligible model under an explicit capacity and budget policy, explains the choice and preserves task and review requirements during fallback or handoff.
 - **107 done when:** Every current Plates operation has a deliberate web treatment, and core fleet/project journeys work on mobile and desktop without a terminal detour.
 - **108 done when:** Repeated real use demonstrates that the owner operates the selected fleet from mobile and desktop, including routine failure recovery, updates, learning and bounded model fallback.
+
+## G8 — A project set and its routines share one operating surface
+
+Plates provides one management experience from project sets to each plate, its work, runs, reviews, health and lessons, with personal or organizational capacity kept distinct from shared project policy and safe, reversible consolidation of Switchboard capabilities.
+
+0/5 built.
+
+| Phase | Status | Since | Depends on | Why it stands here |
+| --- | --- | --- | --- | --- |
+| [132. A project set shows its routines and what actually ran](phases/132-a-project-set-shows-its-routines.md) | designed | 2026-10-30 | [93](phases/93-workspace-data-stays-outside-public-code.md), [102](phases/102-routines-have-a-complete-observed-history.md) | Read-only project-set routine visibility specified against Plates 0165c290 and Switchboard a6651db5. No product migration or local-to-hosted bridge is implemented by this design. |
+| [133. People bring their own capacity to shared work](phases/133-people-bring-their-own-capacity-to-shared-work.md) | designed | 2026-10-30 | [132](phases/132-a-project-set-shows-its-routines.md), [103](phases/103-connections-expose-scoped-model-capacity.md), [106](phases/106-model-routing-respects-capacity-and-policy.md) | Person, plate and set ownership/visibility and funding contracts specified. Current owner-scoped web policy is not yet a multi-contributor personal-account model. |
+| [134. A routine has one explicit Plates policy](phases/134-a-routine-has-one-plates-policy.md) | designed | 2026-10-30 | [133](phases/133-people-bring-their-own-capacity-to-shared-work.md) | Plates-native policy and dormant reversible import specified; no credentials, active definitions, cursors or effects transferred. |
+| [135. Routines run with accountable effects](phases/135-routines-run-with-accountable-effects.md) | designed | 2026-10-30 | [134](phases/134-a-routine-has-one-plates-policy.md), [104](phases/104-web-operations-run-through-durable-workers.md), [106](phases/106-model-routing-respects-capacity-and-policy.md) | One bounded execution/effect path specified for manual, scheduled and event work; unsupported cloud/BenOS capabilities and live activation remain gated. |
+| [136. A routine changes owner without losing or repeating work](phases/136-a-routine-changes-owner-without-losing-work.md) | designed | 2026-10-30 | [135](phases/135-routines-run-with-accountable-effects.md) | Per-routine comparison, reversible single-writer cutover and explicit retirement specified; no incumbent disabled and no Switchboard state deleted. |
+
+- **132 done when:** An authorized owner can inspect the routines and observed runs associated with a project set or their private workspace in Plates, with source provenance, missing coverage and placement reasons, without visiting a separate Switchboard application or changing an executor.
+- **133 done when:** Two people can collaborate on one plate using separately authorized personal or organizational accounts, see permitted shared work and lessons, and understand which account funds each run without pooling, double-counting or exposing private allowances across project sets.
+- **134 done when:** An owner can review a routine's purpose, scope, trigger, placement, allowed effects and bounds as one Plates policy and import selected legacy history into dormant private state with an exact, recoverable receipt.
+- **135 done when:** A selected Plates routine runs through one policy-bound durable operation regardless of trigger, with an explicit outcome and separately reviewed effects, and crashes or uncertain delivery never silently duplicate work or free its allowance.
+- **136 done when:** An owner can move a selected routine from its incumbent executor to Plates after complete outcome/effect parity, retain recoverable original history, and reverse the transition without replaying work delivered after the snapshot.
 
 ## Updating this roadmap
 
