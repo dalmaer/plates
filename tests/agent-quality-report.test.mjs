@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { qualityReport, renderQualityReport, qualityStratum } from '../lib/agent-quality-report.mjs';
+import { qualityReport, renderQualityReport, qualityStratum, qualityAnnotationQueue } from '../lib/agent-quality-report.mjs';
 import { qualityEpisode } from '../lib/agent-quality-records.mjs';
 import { sealRecord, fingerprint } from '../lib/evaluation-records.mjs';
 import { acmeQualityEpisode, acmeQualityBundle, QUALITY_TIME, QUALITY_HASH as HASH } from './helpers/agent-quality.mjs';
@@ -184,7 +184,7 @@ test('material changes flag new cohorts and critical evidence without claiming s
     e.evaluations[0].proportionalityEvidence.requiredSafeguard = true;
   });
   const r = report([e], { previous: before });
-  assert.ok(r.materialChanges.some(c => c.kind === 'new-agent-cohort' && c.severity === 'watch'));
+  assert.ok(r.materialChanges.some(c => c.kind === 'new-agent-configuration' && c.severity === 'watch'));
   assert.ok(r.materialChanges.some(c => c.kind === 'critical-finding' && c.severity === 'investigate'));
   assert.equal(r.recommendation.winner, null);
   assert.equal(r.workload.stages.coding.proportionality.mean, 3, 'required safeguards are not penalized automatically for rarity');
@@ -347,4 +347,193 @@ test('reference mix only accepts bounded metadata dimensions and rejects extra f
   assert.throws(() => report([e], { referenceMix: { ...referenceMix, strata: [{ ...referenceMix.strata[0], risk: 'arbitrary-text' }] } }), /dimension/);
   const uppercase = { ...referenceMix, strata: [{ ...referenceMix.strata[0], project: 'Acme/widget' }] };
   assert.equal(report([e], { referenceMix: uppercase }).fixedMix.coverageWeight, 1);
+});
+
+test('live assignments expose frozen classification gaps without inventing execution or judgments', () => {
+  const e = edited('acme-assigned', e => { e.passport.specialty = null; e.passport.difficulty = null; e.attempts = []; e.evaluations = []; });
+  const r = report([e]), queue = qualityAnnotationQueue(acmeQualityBundle([e]), { now: QUALITY_TIME });
+  assert.deepEqual(r.annotations, queue);
+  assert.equal(r.workload.completion.denominator, 1);
+  assert.equal(r.workload.completion.unknown, 1);
+  assert.equal(queue.items.find(item => item.kind === 'passport').state, 'historical-gap');
+  assert.deepEqual(queue.items.find(item => item.kind === 'passport').fields, ['specialty', 'difficulty']);
+  assert.equal(queue.items.find(item => item.kind === 'execution-observation').state, 'waiting');
+  assert.equal(queue.items.some(item => item.kind === 'independent-adjudication'), false);
+  assert.match(renderQualityReport(r), /frozen historical gaps/);
+});
+
+test('completed checkpoints list missing independent annotations while model judgments cannot close them', () => {
+  const e = edited('acme-unjudged', e => { e.evaluations[0].authority = 'model'; e.attempts[0].resources.activeHumanMinutes = null; });
+  const r = report([e]);
+  const judgment = r.annotations.items.find(item => item.kind === 'independent-adjudication');
+  assert.equal(judgment.state, 'pending');
+  assert.equal(judgment.attemptId, 'acme-code');
+  assert.deepEqual(judgment.fields, ['quality', 'proportionality', 'acceptance']);
+  assert.equal(r.annotations.items.find(item => item.kind === 'execution-metadata').state, 'historical-gap');
+  assert.equal(r.workload.completion.accepted, 0);
+});
+
+test('partial human annotations abstain per dimension and cannot satisfy another checkpoint', () => {
+  const e = edited('acme-partial-annotations', e => {
+    e.evaluations[0].quality = null; e.evaluations[0].proportionality = null; e.evaluations[0].proportionalityEvidence = null; e.evaluations[0].acceptance = 'unknown';
+    e.evaluations.push({ ...structuredClone(e.evaluations[0]), id: 'acme-quality', quality: 3 });
+  });
+  const first = report([e]);
+  assert.equal(first.workload.stages.coding.quality.mean, 3);
+  assert.equal(first.workload.completion.unknown, 1);
+  assert.deepEqual(first.annotations.items.find(item => item.kind === 'independent-adjudication').fields, ['proportionality', 'acceptance']);
+  const completed = structuredClone(e), original = acmeQualityEpisode();
+  completed.evaluations.push({ ...structuredClone(original.evaluations[0]), id: 'acme-acceptance', rubricVersion: 'quality-v2', quality: null, proportionality: null, proportionalityEvidence: null });
+  const second = report([sealRecord(completed)]);
+  assert.equal(second.workload.completion.accepted, 1);
+  assert.equal(second.workload.stages.coding.quality.mean, 3, 'an abstaining new rubric does not invalidate an earlier dimension');
+  assert.equal(second.annotations.items.some(item => item.kind === 'adjudication-dispute'), false);
+  const revised = structuredClone(completed);
+  revised.attempts.push(extraAttempt(revised, 'iteration', 'acme-new-checkpoint'));
+  const third = report([sealRecord(revised)]);
+  assert.equal(third.workload.completion.accepted, 0, 'prior coding acceptance cannot transfer to an unjudged revised checkpoint');
+  assert.ok(third.annotations.items.some(item => item.attemptId === 'acme-new-checkpoint' && item.fields.includes('acceptance')));
+  completed.evaluations.push({ ...structuredClone(original.evaluations[0]), id: 'acme-disagreement', acceptance: 'rejected' });
+  const disputed = report([sealRecord(completed)]);
+  assert.equal(disputed.workload.completion.unknown, 1);
+  assert.ok(disputed.annotations.items.some(item => item.kind === 'adjudication-dispute' && item.fields.includes('acceptance')));
+});
+
+test('pending follow-up starts from meaningful use and distinguishes due from immature windows', () => {
+  const accepted = acmeQualityEpisode();
+  const beforeUse = report([accepted]);
+  assert.ok(beforeUse.annotations.items.some(item => item.kind === 'first-use' && item.state === 'pending'));
+  assert.equal(beforeUse.annotations.items.some(item => item.kind === 'follow-up'), false);
+  const observed = edited('acme-used', e => { e.followup = [{ days: 7, usedAt: '2026-10-20T00:00:00.000Z', observedAt: '2026-10-21T00:00:00.000Z', exposure: 10, regressions: null, repairMinutes: null, evidence: [] }]; });
+  const r = report([observed]);
+  assert.equal(r.annotations.items.find(item => item.kind === 'follow-up' && item.days === 7).state, 'pending');
+  assert.equal(r.annotations.items.find(item => item.kind === 'follow-up' && item.days === 30).state, 'waiting');
+  assert.equal(r.annotations.items.find(item => item.kind === 'follow-up' && item.days === 30).dueAt, '2026-11-19T00:00:00.000Z');
+  assert.equal(r.workload.followup[7].mature, 0);
+  const mature = structuredClone(observed);
+  mature.followup.push({ ...mature.followup[0], observedAt: QUALITY_TIME, regressions: 0, repairMinutes: 0, evidence: [HASH] });
+  const after = report([sealRecord(mature)]);
+  assert.equal(after.annotations.items.some(item => item.kind === 'follow-up' && item.days === 7), false);
+  assert.equal(after.annotations.items.find(item => item.kind === 'follow-up' && item.days === 30).state, 'waiting');
+});
+
+test('retrospective first observed work is assigned without claiming complete task accounting', () => {
+  const partial = edited('acme-already-started', e => {
+    e.passport.timing = 'retrospective';
+    e.assignedAt = e.attempts[0].startedAt;
+  });
+  const r = report([partial]);
+  assert.equal(r.coverage.assignedEpisodes, 1);
+  assert.equal(r.coverage.metadataCandidates, 0);
+  assert.equal(r.coverage.comparisonEligibleEpisodes, 0);
+  assert.equal(r.episodes[0].observationCoverage, 'retrospective-partial');
+  assert.ok(r.episodes[0].gaps.includes('history.before-enrollment-unknown'));
+  assert.equal(r.workload.currencyUsd.knownSubtotal, 2);
+  assert.equal(r.workload.currencyUsd.total, null);
+  assert.equal(r.workload.currencyUsd.costPerAccepted, null);
+  assert.equal(r.workload.activeHumanMinutes.knownSubtotal, 5);
+  assert.equal(r.workload.activeHumanMinutes.total, null);
+  assert.equal(r.workload.wallMs.mean, 2000);
+  assert.match(r.workload.wallMs.scope, /not total task/);
+  assert.equal(r.workload.observationCoverage.priorAttempts, 'unknown-before-enrollment');
+  assert.equal(r.workflows[0].summary.currencyUsd.total, null);
+  assert.equal(r.projects[0].summary.currencyUsd.total, null);
+  assert.match(renderQualityReport(r), /earlier attempts, charges, human effort and task latency unknown/);
+  const mixed = report([partial, acmeQualityEpisode('acme-prospective')]);
+  assert.equal(mixed.workload.currencyUsd.knownSubtotal, 4);
+  assert.equal(mixed.workload.currencyUsd.total, null);
+  assert.equal(mixed.workload.observationCoverage.retrospectiveEpisodes, 1);
+});
+
+test('conflicting first-use anchors make all delayed scorecards unknown and retain evidence', () => {
+  const e = edited('acme-conflicting-use', e => {
+    e.followup = [
+      { days: 7, usedAt: '2026-10-01T00:00:00.000Z', observedAt: '2026-10-10T00:00:00.000Z', exposure: 100, regressions: 0, repairMinutes: 0, evidence: [HASH] },
+      { days: 30, usedAt: '2026-09-01T00:00:00.000Z', observedAt: '2026-10-10T00:00:00.000Z', exposure: 1000, regressions: 0, repairMinutes: 0, evidence: ['b'.repeat(64)] },
+    ];
+  });
+  const r = report([e]);
+  assert.ok(r.annotations.items.some(item => item.kind === 'first-use' && item.state === 'pending'));
+  for (const days of [7, 30]) {
+    assert.equal(r.workload.followup[days].mature, 0);
+    assert.equal(r.workload.followup[days].unknown, 1);
+    assert.equal(r.workload.followup[days].regressions.total, null);
+    const observation = r.episodes[0].followup.find(f => f.days === days);
+    assert.equal(observation.reason, 'conflicting-first-use');
+    assert.deepEqual(observation.evidence, [HASH, 'b'.repeat(64)]);
+  }
+  const later = structuredClone(e);
+  later.followup[1].observedAt = '2026-11-20T00:00:00.000Z';
+  const beforeObservation = report([sealRecord(later)]);
+  assert.equal(beforeObservation.workload.followup[7].mature, 1, 'future evidence does not alter an earlier as-of report');
+  assert.equal(beforeObservation.annotations.items.some(item => item.kind === 'first-use'), false);
+  const afterObservation = report([sealRecord(later)], { now: '2026-11-21T00:00:00.000Z' });
+  assert.equal(afterObservation.workload.followup[7].mature, 0);
+  assert.equal(afterObservation.workload.followup[30].mature, 0);
+});
+
+test('stable configuration summaries accumulate across task prompts and context while exact provenance remains', () => {
+  const one = acmeQualityEpisode('acme-context-one');
+  const two = edited('acme-context-two', e => {
+    e.attempts[0].agent.contextDigest = 'b'.repeat(64); e.attempts[0].agent.promptDigest = 'c'.repeat(64);
+    e.evaluations[0].quality = 1;
+  });
+  const before = report([one]), r = report([one, two], { previous: before });
+  assert.equal(r.cohorts.length, 2);
+  assert.equal(r.configurationCohorts.length, 1);
+  assert.equal(r.scopedConfigurationCohorts.length, 1);
+  const stable = r.configurationCohorts[0];
+  assert.equal(stable.scorecard.tasks, 2);
+  assert.equal(stable.scorecard.quality.mean, 2);
+  assert.deepEqual(stable.contextDigests, [HASH, 'b'.repeat(64)]);
+  assert.deepEqual(stable.promptDigests, [HASH, 'c'.repeat(64)]);
+  assert.equal(Object.hasOwn(stable.agent, 'contextDigest'), false);
+  assert.equal(Object.hasOwn(stable.agent, 'promptDigest'), false);
+  assert.equal(r.episodes.find(e => e.id === two.id).attempts[0].agent.promptDigest, 'c'.repeat(64));
+  assert.equal(r.materialChanges.some(c => c.kind === 'new-agent-configuration'), false);
+  assert.equal(r.materialChanges.find(c => c.kind === 'stage-score-changed').current.mean, 2);
+  assert.match(stable.association, /no causal ranking/);
+  const model = edited('acme-new-model', e => { e.attempts[0].agent.model = 'acme-v2'; });
+  const settings = edited('acme-new-settings', e => { e.attempts[0].agent.settingsDigest = 'd'.repeat(64); });
+  const changed = report([one, two, model, settings], { previous: r });
+  assert.equal(changed.configurationCohorts.length, 3);
+  assert.equal(changed.materialChanges.filter(c => c.kind === 'new-agent-configuration').length, 2);
+});
+
+test('stable configuration stage summaries preserve project specialty family difficulty and risk strata', () => {
+  const a = acmeQualityEpisode('acme-one');
+  const b = edited('acme-other-project', e => { e.project = 'Acme/other'; e.evaluations[0].quality = 1; e.attempts[0].agent.contextDigest = 'b'.repeat(64); });
+  const r = report([a, b]);
+  assert.equal(r.configurationCohorts.length, 1);
+  assert.equal(r.configurationCohorts[0].scorecard.quality.mean, 2);
+  assert.equal(r.scopedConfigurationCohorts.length, 2);
+  assert.equal(r.scopedConfigurationCohorts.find(c => c.stratum.project === 'acme/other').scorecard.quality.mean, 1);
+  assert.equal(r.scopedConfigurationCohorts.find(c => c.stratum.project === 'acme/widget').scorecard.quality.mean, 3);
+  const prior = structuredClone(r); delete prior.configurationCohorts; delete prior.scopedConfigurationCohorts;
+  const { digest: ignored, ...body } = prior; prior.digest = fingerprint(body);
+  const next = report([a, b], { previous: prior });
+  assert.ok(next.materialChanges.some(c => c.kind === 'configuration-baseline-unavailable'));
+  assert.equal(next.materialChanges.some(c => c.kind === 'new-agent-configuration'), false);
+});
+
+test('reports expose uncertain retained collector sources rather than implying full capture', () => {
+  const noCoverage = report([acmeQualityEpisode()]);
+  assert.equal(noCoverage.collectionCoverage.state, 'unknown');
+  assert.equal(noCoverage.collectionCoverage.sourceIssues, null);
+  const collectionCoverage = { events: 1, expired: 0, retainedBytes: 3000, reportBytes: 1000, sourceBytes: 500, sourceEvents: 1,
+    sourceIssues: [{ source: `command-${HASH}`, state: 'uncertain', reason: 'result-unavailable' }], rawTranscripts: false, cleanup: 'manual-only' };
+  const r = report([acmeQualityEpisode()], { collectionCoverage, previous: noCoverage });
+  assert.equal(r.collectionCoverage.state, 'incomplete');
+  assert.equal(r.collectionCoverage.sourceEvents, 1);
+  assert.deepEqual(r.collectionCoverage.sourceIssues, collectionCoverage.sourceIssues);
+  assert.equal(r.recommendation.status, 'unknown');
+  assert.ok(r.materialChanges.some(c => c.kind === 'collection-source-uncertainty' && c.severity === 'watch'));
+  assert.match(renderQualityReport(r), /Collector coverage: incomplete; uncertain source records 1/);
+  assert.match(renderQualityReport(r), /result-unavailable/);
+  assert.notEqual(r.digest, noCoverage.digest);
+  const expired = report([], { collectionCoverage: { ...collectionCoverage, sourceIssues: [], expired: 1 } });
+  assert.equal(expired.collectionCoverage.state, 'incomplete');
+  assert.throws(() => report([], { collectionCoverage: { ...collectionCoverage, secret: 'not report metadata' } }), /coverage fields/);
+  assert.throws(() => report([], { collectionCoverage: { ...collectionCoverage, sourceIssues: [{ ...collectionCoverage.sourceIssues[0], body: 'private text' }] } }), /fields/);
+  assert.throws(() => report([], { collectionCoverage: { ...collectionCoverage, sourceIssues: [{ ...collectionCoverage.sourceIssues[0], reason: 'private prose' }] } }), /source issue/);
 });

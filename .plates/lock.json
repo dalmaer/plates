@@ -51,7 +51,7 @@
     },
     ".agents/skills/spin/SKILL.md": {
       "practice": "conduct",
-      "sha256": "19c086b1ce9186afb94cb4134bded9ab24b3b9d5fde52ab9b30dcd66deefdd9a"
+      "sha256": "6a844ac689d2ba5824462629f0be793c02a8d0cd042a2df8d498afb382222f64"
     },
     ".claude/skills/conduct": {
       "practice": "conduct",

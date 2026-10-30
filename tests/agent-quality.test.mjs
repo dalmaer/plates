@@ -8,6 +8,7 @@ import { run } from './helpers/run.mjs';
 import { qualityBaseline, qualityCommand, replayProposal } from '../lib/agent-quality.mjs';
 import { initializeWorkspace } from '../lib/web/workspace.mjs';
 import { qualityReport } from '../lib/agent-quality-report.mjs';
+import { acmeQualityBundle } from './helpers/agent-quality.mjs';
 
 const appRoot = fileURLToPath(new URL('..', import.meta.url));
 const BIN = join(appRoot, 'bin/plates.mjs');
@@ -94,15 +95,57 @@ test('real CLI collects exact preview, reports unknowns and refuses irrelevant o
   }
 });
 
-test('weekly reporting reads existing observations and exposes collection as a separate exact approval', async t => {
+test('weekly reporting previews then ingests observations and retains the resulting report', async t => {
   const w = await world(t), before = await readdir(w.state);
   const r = await w.call(['weekly', '--manifest', w.manifest, '--state', w.state, '--repository', w.repos[0]]);
   assert.equal(r.data.readOnly, true); assert.equal(r.data.baseline.coverage.candidates, 2);
-  assert.equal(r.data.collection.status, 'preview-only'); assert.equal(r.data.modelRuns, 0);
+  assert.equal(r.data.collection.status, 'preview'); assert.equal(r.data.modelRuns, 0);
   assert.equal(r.data.report.coverage.episodes, 0); assert.deepEqual(await readdir(w.state), before);
-  const path = join(w.root, 'inputs/previous.json'); await writeFile(path, JSON.stringify(r.data.report));
+  assert.equal(r.exitCode, 3);
+  const args = ['weekly', '--manifest', w.manifest, '--state', w.state, '--repository', w.repos[0]];
+  await assert.rejects(w.call([...args, '--yes', '--digest', '0'.repeat(64)]), /stale/);
+  const applied = await w.call([...args, '--yes', '--digest', r.data.digest]);
+  assert.equal(applied.exitCode, 0); assert.equal(applied.data.readOnly, false);
+  assert.equal(applied.data.collection.added, 2); assert.equal(applied.data.report.coverage.episodes, 2);
+  assert.equal(applied.data.report.coverage.comparableEpisodes, 0);
+  const retained = JSON.parse(await readFile(join(w.state, 'session-trials/.quality/reports', applied.data.saved.name)));
+  assert.deepEqual(retained.result.report, applied.data.report);
+  const again = await w.call([...args, '--yes', '--digest', r.data.digest]);
+  assert.equal(again.data.saved.recovered, true); assert.deepEqual(again.data.report, applied.data.report);
+  assert.equal((await readdir(join(w.state, 'session-trials/.quality/reports'))).length, 1);
+  const path = join(w.root, 'inputs/previous.json'); await writeFile(path, JSON.stringify(applied.data.report));
   const report = await w.call(['report', '--manifest', w.manifest, '--state', w.state, '--previous', path]);
   assert.ok(Array.isArray(report.data.materialChanges));
+  const noScan = await w.call(['weekly', '--manifest', w.manifest, '--state', w.state]);
+  assert.equal(noScan.data.baseline, null); assert.equal(noScan.data.report.coverage.episodes, 2);
+  const onlyReport = ['weekly', '--manifest', w.manifest, '--state', w.state, '--yes', '--digest', noScan.data.digest];
+  const saved = await w.call(onlyReport), recovered = await w.call(onlyReport);
+  assert.equal(recovered.data.saved.recovered, true); assert.deepEqual(recovered.data.report, saved.data.report);
+});
+
+test('weekly binds report inputs and refuses invalid reports before collecting', async t => {
+  const w = await world(t), path = join(w.root, 'inputs/previous.json');
+  const args = ['weekly', '--manifest', w.manifest, '--state', w.state, '--repository', w.repos[0]];
+  const preview = await w.call(args);
+  await writeFile(path, JSON.stringify(preview.data.report));
+  await assert.rejects(w.call([...args, '--previous', path, '--yes', '--digest', preview.data.digest]), /stale/);
+  await writeFile(path, JSON.stringify({ bogus: true }));
+  await assert.rejects(w.call([...args, '--reference-mix', path]), /evaluations:/);
+  const inspected = await w.call(['inspect', '--manifest', w.manifest, '--state', w.state]);
+  assert.equal(inspected.data.bundle.episodes.length, 0);
+});
+
+test('weekly ingests attributed local observations and pending CLI reads the same retained evidence', async t => {
+  const w = await world(t), path = join(w.root, 'inputs/observations.json');
+  await writeFile(path, JSON.stringify(acmeQualityBundle()));
+  const args = ['weekly', '--manifest', w.manifest, '--state', w.state, '--bundle', path];
+  const preview = await w.call(args), applied = await w.call([...args, '--yes', '--digest', preview.data.digest]);
+  assert.equal(applied.data.report.coverage.assignedEpisodes, 1);
+  assert.equal(applied.data.report.coverage.comparableEpisodes, 1);
+  assert.equal(applied.data.report.workload.completion.accepted, 1);
+  const pending = await w.call(['pending', '--manifest', w.manifest, '--state', w.state]);
+  assert.deepEqual(pending.data, applied.data.report.annotations);
+  assert.equal(applied.data.baseline, null);
 });
 
 test('replay proposal binds evidence but cannot dispatch or reserve a budget', async t => {

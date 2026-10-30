@@ -98,3 +98,62 @@ skip. The test ledger reported no flaky or slower test and excluded its one busy
 run from performance inference. A real weekly preview over the same 20 private
 PR candidates reported no material changes, zero model runs and preview-only
 collection; it did not schedule or persist new observations.
+
+## Lifecycle completion — 2026-10-30
+
+The preceding checkpoint was the metadata foundation, not complete ongoing
+capture. This continuation adds explicit lifecycle events, append-only task/PR
+links, a POSIX ordinary-command observer, the existing PR review read hook,
+optional Spin instrumentation, pending adjudication and collecting weekly
+reports. Review capture binds both the mapped PR and actual content checkpoint.
+Unknown model versions, usage, earlier work and human acceptance remain unknown.
+No ambient GUI sessions or cloud harnesses are discovered; the adapter guide
+names supported boundaries and explicit private bindings.
+
+Local independent review found and verified repairs for original-report recovery,
+source/report retention, exact review inputs and task joins, late terminal-result
+reconciliation, retrospective assignment and costs, conflicting first-use dates,
+and configuration summaries that previously fragmented by task context. The
+final review returned no findings. This review is model advice, not independent
+human product adjudication or measured cross-provider review efficacy.
+
+The actual current task was enrolled retrospectively in the private operating
+ledger. Its coding checkpoint and a real validation command were captured through
+the supported path. That command ran all 76 quality tests: 76 passed, zero failed,
+with 6,278 ms measured process duration. Exact model/build, charges, prior work
+and product acceptance were not invented. Its original source checkpoint is
+`7ef5ca02c07c03cb2c89a894702afe1adc80b5a12ac90978ac33ac9fcb9ef3e3`.
+
+An actual weekly application ingested one new task/commit linkage observation,
+retained a private report and recovered that original report on exact retry.
+Report `61a8efe8348f74faf10c5b79a6aff62b2fe6c75754d195c0c7cce3c6c38b14fb`
+contains 20 historical candidates, one assigned retrospective task, two captured
+attempts and zero comparable episodes across two projects. Source capture issues
+were empty. Independent human judgments and first-use/follow-up evidence remain
+pending. No weekly schedule was installed.
+
+The first integrated focused preflight passed 253 tests and failed one because
+three new phase acceptance entries omitted their named proof commands. After
+adding those references, a direct CLI check verified the repair but its package
+test hit the existing unwritable default npm cache. No cache ownership was
+changed. With the already-used isolated npm cache, the repaired required focused
+preflight passed 254 tests with zero failures and all roadmap/render/inbox/
+whitespace stages. `npm run typecheck` exited 0. The full gate follows on this
+integrated tree; its terminal result will be recorded separately.
+
+Publication and scheduling remain blocked separately from local completion.
+Automatic approval review rejected the branch push as external publication not
+explicitly authorized for that destination, and rejected the earlier routine
+update because its existing prompt included an external publication destination.
+Neither action executed or was retried. The parent is awaiting explicit approval
+for a draft PR and a separate local-only weekly routine; the existing Loop routine
+remains unchanged. There was no merge, deployment, new access grant or paid replay.
+
+The first lifecycle full gate exited 1 with 3,902 passes, two failures and five
+existing conditional skips. Both failures were shipped-template conventions in
+the optional Spin instructions: a capitalized project name and a rule missing
+its causal note. The template now describes the CLI generically and explains
+that retrospective metadata cannot recover missing boundaries or review inputs.
+Managed rendering and the required focused practice/convention preflight pass.
+The failed run and the npm-cache refusal remain retained; neither is attributed
+as successful validation or silently discarded.

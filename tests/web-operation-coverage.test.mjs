@@ -213,14 +213,17 @@ test('quality metadata forms cover each option and remain CLI-only with hosted m
   assert.equal(row.readiness.state, 'unsupported');
   assert.equal(row.adapter, null); assert.equal(row.route, null);
   const forms = row.cli[0].forms.filter(form => form.subcommand?.startsWith('quality '));
-  assert.deepEqual(forms.map(form => form.subcommand), ['quality baseline', 'quality collect', 'quality inspect', 'quality report', 'quality weekly', 'quality replay-plan']);
+  assert.deepEqual(forms.map(form => form.subcommand), ['quality baseline', 'quality collect', 'quality inspect', 'quality report', 'quality weekly', 'quality replay-plan', 'quality lifecycle', 'quality pending', 'quality run']);
   const expected = {
     baseline: ['--json', '--repository', '--pr-metadata', '--limit'],
     collect: ['--json', '--manifest', '--state', '--bundle', '--yes', '--digest'],
     inspect: ['--json', '--manifest', '--state'],
     report: ['--json', '--manifest', '--state', '--previous', '--reference-mix'],
-    weekly: ['--json', '--manifest', '--state', '--previous', '--reference-mix', '--repository', '--pr-metadata', '--limit'],
+    weekly: ['--json', '--manifest', '--state', '--previous', '--reference-mix', '--repository', '--pr-metadata', '--limit', '--bundle', '--yes', '--digest'],
     'replay-plan': ['--json', '--manifest', '--state', '--previous', '--reference-mix'],
+    lifecycle: ['--json', '--manifest', '--state', '--record', '--yes', '--digest'],
+    pending: ['--json', '--manifest', '--state'],
+    run: ['--json', '--record', '--yes', '--digest'],
   };
   for (const form of forms) {
     assert.deepEqual(form.arguments.map(arg => arg.token), expected[form.subcommand.slice(8)]);

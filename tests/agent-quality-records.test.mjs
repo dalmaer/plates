@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { acmeQualityBundle, acmeQualityEpisode, QUALITY_TIME, QUALITY_HASH } from './helpers/agent-quality.mjs';
 import { validateQualityBundle, qualityEpisode } from '../lib/agent-quality-records.mjs';
-import { qualityOperation } from '../lib/agent-quality-ledger.mjs';
+import { qualityOperation, qualitySourceOperation, qualitySourceUsage } from '../lib/agent-quality-ledger.mjs';
 import { sealRecord, fingerprint } from '../lib/evaluation-records.mjs';
 import { evaluations } from '../lib/evaluation-ledger.mjs';
 import { storeImmutable } from '../lib/session-ledger-io.mjs';
@@ -166,4 +166,60 @@ test('passive observations join frozen original attempts without inventing execu
   assert.deepEqual(await readFile(join(home, 'state.json')), frozenBytes);
   const duplicate = structuredClone(e); duplicate.id = 'acme-duplicate'; duplicate.source.id = 'acme-duplicate';
   await assert.rejects(w.collect(acmeQualityBundle([sealRecord(duplicate)])), /another episode/);
+});
+
+test('saved report bytes share collection retention and stale an earlier approval', async t => {
+  const w = await world(t); await w.approve(acmeQualityBundle());
+  const before = await w.inspect(), next = acmeQualityBundle([acmeQualityEpisode('acme-after-report')]), preview = await w.collect(next);
+  const reports = join(w.directory, 'reports'); await mkdir(reports, { mode: 0o700 });
+  const path = join(reports, `${QUALITY_HASH}.json`);
+  await storeImmutable(path, { kind: 'acme-synthetic-report', metadataOnly: true });
+  const observed = await w.inspect(), bytes = (await stat(path)).size;
+  assert.equal(observed.coverage.reportBytes, bytes);
+  assert.equal(observed.coverage.retainedBytes, before.coverage.retainedBytes + bytes);
+  await assert.rejects(qualityOperation({ ...w.opts, action: 'collect', inputBundle: next, yes: true, digest: preview.digest }), /stale/);
+  await writeFile(join(reports, `${'b'.repeat(64)}.json`), Buffer.alloc(4 * 1024 * 1024), { mode: 0o400 });
+  await assert.rejects(w.inspect(), /retention byte bound/);
+});
+
+test('command source reservations share bounds and keep uncertain intent without a second dispatch', async t => {
+  const w = await world(t), bundle = acmeQualityBundle(); bundle.retention.maxEvents = 2; await w.approve(bundle);
+  const identity = { project: 'Acme/widget', episodeId: 'acme-task' }, id = `command-${fingerprint({ project: 'acme/widget', episodeId: 'acme-task', id: 'acme-command' })}`;
+  const intent = sealRecord({ schemaVersion: 2, kind: 'quality-command-intent', id: 'acme-command', createdAt: QUALITY_TIME, identity, output: 'discarded' });
+  const options = { ...w.opts, id, kind: 'intent', record: intent };
+  const first = await qualitySourceOperation(options); assert.equal(first.recovered, false);
+  assert.equal((await qualitySourceOperation(options)).recovered, true);
+  const usage = await qualitySourceUsage(w.directory); assert.equal(usage.events, 1); assert.ok(usage.bytes > 0);
+  assert.equal(usage.issues[0].reason, 'result-unavailable');
+  const result = sealRecord({ schemaVersion: 2, kind: 'quality-command-result', id: 'acme-command', createdAt: QUALITY_TIME, intentDigest: intent.digest, output: 'discarded' });
+  await assert.rejects(qualitySourceOperation({ ...options, kind: 'result', record: result }), /capacity/);
+  assert.deepEqual(JSON.parse(await readFile(first.path, 'utf8')), intent);
+  assert.equal((await w.inspect()).coverage.sourceEvents, 1);
+});
+
+test('terminal source result binds the original intent and same receipt recovery is immutable', async t => {
+  const w = await world(t); await w.approve(acmeQualityBundle());
+  const identity = { project: 'Acme/widget', episodeId: 'acme-task' }, id = `command-${fingerprint({ project: 'acme/widget', episodeId: 'acme-task', id: 'acme-command' })}`;
+  const intent = sealRecord({ schemaVersion: 2, kind: 'quality-command-intent', id: 'acme-command', createdAt: QUALITY_TIME, identity, output: 'discarded' });
+  const options = { ...w.opts, id }; await qualitySourceOperation({ ...options, kind: 'intent', record: intent });
+  const result = sealRecord({ schemaVersion: 2, kind: 'quality-command-result', id: 'acme-command', createdAt: QUALITY_TIME, intentDigest: intent.digest, output: 'discarded' });
+  await assert.rejects(qualitySourceOperation({ ...options, kind: 'result', record: sealRecord({ ...result, intentDigest: QUALITY_HASH }) }), /original intent/);
+  await qualitySourceOperation({ ...options, kind: 'result', record: result });
+  assert.equal((await qualitySourceOperation({ ...options, kind: 'result', record: result })).recovered, true);
+  const usage = await qualitySourceUsage(w.directory); assert.equal(usage.events, 2); assert.deepEqual(usage.issues, []);
+});
+
+test('raw metadata imports cannot upgrade retrospective outcomes into prospective comparisons', async t => {
+  const w = await world(t), e = acmeQualityEpisode(); e.passport.timing = 'retrospective';
+  const original = sealRecord(e); await w.approve(acmeQualityBundle([original]));
+  const update = structuredClone(original); update.previousDigest = original.digest; update.source.id = 'acme-upgraded'; update.passport.timing = 'prospective';
+  await assert.rejects(w.collect(acmeQualityBundle([sealRecord(update)])), /cannot become prospective/);
+});
+
+test('later observations cannot delete or replace an existing task mapping', async t => {
+  const w = await world(t), original = acmeQualityEpisode(); await w.approve(acmeQualityBundle([original]));
+  for (const links of [[], ['Acme/widget#2']]) {
+    const update = structuredClone(original); update.previousDigest = original.digest; update.source.id = 'acme-remapped'; update.links = links;
+    await assert.rejects(w.collect(acmeQualityBundle([sealRecord(update)])), /prior task mapping removed/);
+  }
 });

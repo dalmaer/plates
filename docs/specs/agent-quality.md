@@ -1,11 +1,12 @@
 # Agent quality observations
 
-Phase 134 implements the metadata and reporting stages of the owner-approved
+Phase 134 implements local lifecycle capture, adjudication and reporting for the owner-approved
 Agent Quality Evaluation Plan, Library `libfile_2dc7772d11a0819188b918dd19269058`,
 version 0 (30 October 2026). The existing schema-2 harness comparison remains
 the authority for frozen experiments, slots, attempts and original-operation
-recovery. This feature never dispatches a model, accepts a phase or changes
-agent routing.
+recovery. The observation pipeline never dispatches a benchmark model, accepts
+a phase or changes agent routing. Its opt-in ordinary command adapter runs only
+the exact locally reviewed command; capturing work does not authorize new spending.
 
 ## Unit and provenance
 
@@ -89,9 +90,11 @@ digests authorize collection. Retention limits bound storage and exclude expired
 observations; deletion remains an audited manual operation, not silent cleanup.
 Read or write failure is a gap or refusal, never an empty successful sample.
 
-Use an existing authorized weekly routine for baseline, collection and reports.
-No second scheduler is introduced. This local setup does not create hosted UI,
-new persistent access grants, a provider telemetry adapter or public sharing.
+Weekly preview/application ingests selected local observations and retains the
+resulting private report through the existing ledger. It does not schedule itself
+or change an existing routine. Any separate local-only schedule awaits approval.
+This local setup does not create hosted UI, new persistent access grants,
+authenticated provider telemetry or public sharing.
 
 ## Replay remains disabled
 

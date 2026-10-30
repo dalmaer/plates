@@ -2008,7 +2008,7 @@ worksheet above remains read-only. See `plates --agent-help canvas` for publishi
 
 ### Bounded session trials (explicit records)
 
-`plates retro quality baseline|collect|inspect|report|weekly|replay-plan [--json]`
+`plates retro quality baseline|collect|inspect|report|weekly|replay-plan|lifecycle|pending|run [--json]`
 adds private metadata observations and stage/project scorecards. Baseline is a
 read-only bounded local Git audit: optional repeated `--repository <dir>` and
 `--limit <1..200>` (20 total by default). Optional `--pr-metadata <file>` entries
@@ -2016,11 +2016,18 @@ match repository order and accept only minimal GitHub PR metadata. Neither a
 commit nor a merged PR establishes a task episode, agent identity or acceptance.
 Collect takes `--manifest <file> --state <dir> --bundle <file>` in an initialized
 external workspace; preview exits 3 and `--yes --digest <exact-preview>` appends
-immutable observations. Inspect, report, weekly and replay-plan use the same
+immutable observations. Inspect, report, pending and replay-plan use the same
 manifest/state and are read-only. Reports accept `--previous <report.json>` and
-`--reference-mix <mix.json>`. Weekly adds a fresh baseline preview, but does not
-collect it: an existing weekly workflow must explicitly collect its bundle and
-retain the subsequent report privately. No new scheduler or model calls occur.
+`--reference-mix <mix.json>`. Weekly previews collection of an optional local
+`--bundle` and explicitly requested repository metadata. `--yes --digest` ingests
+those observations and retains the resulting private report. No repository scan
+occurs unless requested. Scheduling remains a separate action.
+Lifecycle takes `--record <event.json>` and exact preview approval for begin,
+start, finish, task/PR linking, annotation, adjudication and follow-up events. Pending shows
+missing human judgments, provenance and delayed outcomes. Run takes a reviewed
+`--record <execution.json>` and exact approval to capture an ordinary local
+command's stage boundaries through an explicitly enabled private binding.
+Provider details are declarations; undisclosed model versions stay unknown.
 Replay-plan describes the balanced A/B and reviewer crossover design with spend
 disabled; it cannot dispatch a trial. Existing schema-2 freeze/compare remains
 the experiment authority. See `docs/guide/agent-quality.md` for the full workflow,

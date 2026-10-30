@@ -71,6 +71,15 @@ are provenance, not authentication of a human evaluator or proof of correctness.
 
 ## Read the scorecards
 
+Use the [lifecycle and adjudication workflow](agent-quality-lifecycle.md) to enroll
+ordinary work, capture stage boundaries and append independent judgments.
+The [local observer guide](agent-quality-adapters.md) gives the private binding,
+ordinary command wrapper and existing-review hook configuration.
+`retro quality pending --manifest ... --state ... --json` shows actionable
+annotations, waiting follow-up and historical gaps separately. Current app
+sessions are not discovered automatically; capture requires the explicit local
+binding and supported command/review hooks or conductor instrumentation.
+
 ```sh
 node bin/plates.mjs retro quality report --manifest /absolute/inputs/workspace.json --state /absolute/private-state --json
 node bin/plates.mjs retro quality report --manifest /absolute/inputs/workspace.json --state /absolute/private-state --previous /absolute/reports/previous.json --reference-mix /absolute/inputs/mix.json --json
@@ -87,6 +96,10 @@ An optional reference mix is `{id,createdAt,strata:[{project,specialty,family,
 difficultyBand,risk,weight}]}`. Weights must total one and the mix must be frozen
 before assignment. Missing strata remain unknown without redistributed weights.
 The separately labelled workload view reflects the actual changing workload.
+Exact provenance retains task-specific prompts and context hashes. Descriptive
+configuration cohorts group stable agent settings across those different tasks;
+project/specialty/family/difficulty/risk views remain separate. Unknown model
+versions are not guessed, and aggregated associations do not establish a winner.
 Paired summaries reuse existing frozen comparison inventory, including missing
 slots and failures. Observational matching does not create causal evidence.
 
@@ -97,24 +110,38 @@ critical-regression changes are review signals, not automatic routing decisions.
 Statistical changes remain watch signals without prespecified practical thresholds
 and repeated-check controls. Preserve the source reports for investigation.
 
-## Add to an existing weekly workflow
+## Collect and retain a weekly report
 
-Do not create a second scheduler. A current authorized local weekly workflow can:
+```sh
+node bin/plates.mjs retro quality weekly --manifest /absolute/inputs/workspace.json --state /absolute/private-state --json
+node bin/plates.mjs retro quality weekly --manifest /absolute/inputs/workspace.json --state /absolute/private-state --yes --digest EXACT_PREVIEW_DIGEST --json
+```
 
-1. Run baseline on the explicit repositories and save its output privately.
-2. Extract `bundle`, preview collection, then approve that exact digest.
-3. Run report with the previous saved report and the frozen reference mix if set.
-4. Retain the JSON report under its digest as a new private file; keep prior files.
-5. Summarize coverage, failures, critical regressions and changed cohorts to the
-   owner. Keep private quality evidence out of any existing external publication.
+Preview exits 3. Exact application ingests an optional `--bundle` of eligible
+local observations and reports on all retained lifecycle events. Explicit
+`--repository`, `--pr-metadata` and `--limit` add a bounded metadata baseline;
+without these flags weekly does not scan repositories. Duplicate episode IDs
+between an added baseline and bundle refuse rather than guess a reconciliation.
+Use `--previous` and `--reference-mix` as on report; their contents are bound to
+the reviewed operation.
 
-`retro quality weekly --manifest ... --state ... --repository ... --json` combines
-the current stored report with a fresh baseline **preview** for this workflow. It
-does not persist candidates, save reports or schedule itself. Run collection and
-the subsequent report explicitly as above. This preserves exact preview approval
-and makes unfinished collection visible. A weekly report with no new adjudicated
-episodes should say unknown, not tied. Continuous real-data collection is verified
-only after subsequent workflow runs and manual reconciliation, not by unit tests.
+The command saves an immutable receipt under private
+`session-trials/.quality/reports/<approved-digest>.json`. Its `result.report`
+contains the report and its own content digest. Repeating that exact approved
+operation returns the original report, including its original observation time.
+If report retention fails after collection, collection remains committed and the
+failure is explicit; inspect the retained evidence before recovery. Reports and
+observations share the existing storage byte ceiling. Nothing silently expires
+or deletes report files to make room. The observation-event limit includes command
+source receipts; saved report files have a separate count bound of the same size,
+while all three share the single byte ceiling.
+
+An authorized local weekly routine can invoke preview then apply and summarize
+coverage, failures, changed cohorts and pending judgments. This command neither
+creates a scheduler nor changes an existing routine. Scheduling requires its
+separate approval. Keep private quality evidence out of unrelated publication
+destinations. A weekly report without new adjudicated episodes says unknown,
+not tied. Ongoing operation is verified by subsequent real runs, not unit tests.
 
 ## Prepare replay without spending
 
