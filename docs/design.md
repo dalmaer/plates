@@ -51,7 +51,7 @@ proved on plates before any other project gets it.
 
 ## Routine consolidation (designed, 30 October 2026)
 
-[Phases 132–136](phases/132-a-project-set-shows-its-routines.md) and their
+[Phases 137–141](phases/137-a-project-set-shows-its-routines.md) and their
 [migration contract](specs/switchboard-consolidation.md) bring Switchboard's
 local and cloud routine capabilities into Plates as five native user outcomes:
 visibility across a project set, personal capacity for shared work, explicit

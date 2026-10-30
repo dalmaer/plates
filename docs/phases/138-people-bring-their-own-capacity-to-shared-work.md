@@ -3,7 +3,7 @@ status: designed
 since: 2026-10-30
 goal: G8
 spec: 2
-depends: [132, 103, 106]
+depends: [137, 103, 106]
 note: "Person, plate and set ownership/visibility and funding contracts specified. Current owner-scoped web policy is not yet a multi-contributor personal-account model."
 evidence: []
 ---
@@ -109,6 +109,8 @@ created as part of this design task.
 
 ## Next action
 
-After phase 132's observation identity contract, implement P1's two-person/one-plate and one-person/two-sets fixtures before extending connection policy, funding reservations or lesson sharing; then
+After phase 137's observation identity contract, implement P1's two-person/one-plate and one-person/two-sets fixtures before extending connection policy, funding reservations or lesson sharing; then
 implement U1/S1 against the reconciled agent-quality contracts, preserving the
 usage-versus-current-capacity boundary.
+
+- **2026-10-30** — Reallocated this unpublished consolidation draft from 133 to 138 after inspecting agent-quality at `9f8c17ad`; existing agent-quality phases are unchanged.

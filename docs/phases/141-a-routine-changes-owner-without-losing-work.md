@@ -3,7 +3,7 @@ status: designed
 since: 2026-10-30
 goal: G8
 spec: 2
-depends: [135]
+depends: [140]
 note: "Per-routine comparison, reversible single-writer cutover and explicit retirement specified; no incumbent disabled and no Switchboard state deleted."
 evidence: []
 ---
@@ -91,4 +91,6 @@ receipt cannot check the real-use boxes.
 
 ## Next action
 
-After phase 135, build the synthetic comparison and rollback harness, then prepare a read-only candidate selection report without changing the existing health-reports trial.
+After phase 140, build the synthetic comparison and rollback harness, then prepare a read-only candidate selection report without changing the existing health-reports trial.
+
+- **2026-10-30** — Reallocated this unpublished consolidation draft from 136 to 141 after inspecting agent-quality at `9f8c17ad`; existing agent-quality phases are unchanged.

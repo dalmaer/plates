@@ -47,7 +47,7 @@ nonempty display name of at most 120 characters. IDs follow the existing project
 slug format. Live configuration and deployment remain separately approved;
 this source change neither creates a set in production nor reads Switchboard.
 This first slice is tracked in the
-[project-set phase](../phases/132-a-project-set-shows-its-routines.md).
+[project-set phase](../phases/137-a-project-set-shows-its-routines.md).
 
 ## Inspect a routine
 

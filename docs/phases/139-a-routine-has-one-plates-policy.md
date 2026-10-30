@@ -3,7 +3,7 @@ status: designed
 since: 2026-10-30
 goal: G8
 spec: 2
-depends: [133]
+depends: [138]
 note: "Plates-native policy and dormant reversible import specified; no credentials, active definitions, cursors or effects transferred."
 evidence: []
 ---
@@ -58,7 +58,7 @@ from execution activation and never implies approval for held effects.
 Run `npm run check:focused -- tests/routine-model.test.mjs tests/routine-import.test.mjs`
 after those planned files are implemented, then `npm run check` and
 `npm run typecheck` on the integrated candidate. Documentation validation is
-specified in phase 132. A live import needs exact snapshot/destination review;
+specified in phase 137. A live import needs exact snapshot/destination review;
 any required writer pause/drain is separately shown before the action.
 
 ## Deliberately open
@@ -73,4 +73,6 @@ any required writer pause/drain is separately shown before the action.
 
 ## Next action
 
-After phases 132–133's identity and funding contracts, implement authored-policy and importer fixtures for dormant Acme routines, including pending effects and changed-source refusal.
+After phases 137–138's identity and funding contracts, implement authored-policy and importer fixtures for dormant Acme routines, including pending effects and changed-source refusal.
+
+- **2026-10-30** — Reallocated this unpublished consolidation draft from 134 to 139 after inspecting agent-quality at `9f8c17ad`; existing agent-quality phases are unchanged.

@@ -3,7 +3,7 @@ status: designed
 since: 2026-10-30
 goal: G8
 spec: 2
-depends: [134, 104, 106]
+depends: [139, 104, 106]
 note: "One bounded execution/effect path specified for manual, scheduled and event work; unsupported cloud/BenOS capabilities and live activation remain gated."
 evidence: []
 ---
@@ -84,4 +84,6 @@ price before execution; unknown charges remain unknown.
 
 ## Next action
 
-After phase 134, implement the shared execution conformance suite with fake adapters and failure injection before connecting local processes, event wake-ups or effect delivery.
+After phase 139, implement the shared execution conformance suite with fake adapters and failure injection before connecting local processes, event wake-ups or effect delivery.
+
+- **2026-10-30** — Reallocated this unpublished consolidation draft from 135 to 140 after inspecting agent-quality at `9f8c17ad`; existing agent-quality phases are unchanged.

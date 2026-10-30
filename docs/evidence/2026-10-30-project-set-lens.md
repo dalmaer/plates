@@ -1,6 +1,6 @@
 # Project-set lens — local implementation evidence
 
-Date: 2026-10-30. Phase: [132](../phases/132-a-project-set-shows-its-routines.md).
+Date: 2026-10-30. Phase: [132](../phases/137-a-project-set-shows-its-routines.md).
 Base: Plates `0165c2902784073ba89dd717256ad233faf4865f`.
 Local branch: `codex/switchboard-consolidation`; documentation parent `de3ab696`.
 

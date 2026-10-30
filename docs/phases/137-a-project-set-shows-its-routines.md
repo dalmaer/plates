@@ -29,10 +29,10 @@ routine visibility is actor scoped; a project set is a view grouping, not an
 access-control grant. Use “project set” and “set” in product language;
 keep existing fleet command/API identifiers stable during this work.
 
-The remaining outcomes are [personal capacity for shared work](133-people-bring-their-own-capacity-to-shared-work.md),
-[policy and reversible import](134-a-routine-has-one-plates-policy.md),
-[accountable execution and effects](135-routines-run-with-accountable-effects.md)
-and [safe replacement](136-a-routine-changes-owner-without-losing-work.md).
+The remaining outcomes are [personal capacity for shared work](138-people-bring-their-own-capacity-to-shared-work.md),
+[policy and reversible import](139-a-routine-has-one-plates-policy.md),
+[accountable execution and effects](140-routines-run-with-accountable-effects.md)
+and [safe replacement](141-a-routine-changes-owner-without-losing-work.md).
 The first local slice adds a read-only lens to existing web views. Personal state
 and active routines remain at their existing sources.
 
@@ -97,10 +97,10 @@ window, gaps and observation-only activation separately from acceptance.
 
 ## Deliberately open
 
-- Agent-quality integration is required for U1. Its branch at `9f8c17ad` already
-  owns phase IDs 132–134, colliding with this isolated draft. Reconcile draft ID
-  allocation and references before integrating either roadmap; do not interpret
-  a bare phase number as the other branch's outcome or duplicate its ledger.
+- **Settled 2026-10-30:** The owner authorized resolving the unpublished draft
+  allocation. Consolidation drafts 132–136 now use 137–141. Agent-quality keeps
+  its existing 132–134 identities and branch untouched. Historical checkpoint
+  evidence retains its original numbering; current links point here.
 
 - Local-to-hosted observation is a new authenticated capability. Until T3 proves
   and the owner activates enrollment, local views work and hosted coverage says
@@ -123,3 +123,5 @@ Continue T1/T2 with normalized source/attempt observations and bounded read-only
 - **2026-10-30** — Created from repository inventory, then split into five user outcomes after the owner asked for Plates-native phases and preferred “set.” Product migration has not started.
 
 - **2026-10-30** — Owner authorized local implementation. Added the optional project-set lens in existing Home/Routines/Activity with focused authorization, polling and continuation checks. Phase remains partial; no runtime enrollment, provider execution or migration is claimed.
+
+- **2026-10-30** — Reallocated this unpublished consolidation draft from 132 to 137 after inspecting agent-quality at `9f8c17ad`; existing agent-quality phases are unchanged.

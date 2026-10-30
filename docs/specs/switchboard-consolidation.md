@@ -1,6 +1,6 @@
 # Switchboard consolidation into Plates
 
-Implementation contract for Plates phases 132–136, 30 October 2026. This is an implementation contract and task inventory; proposed paths and commands
+Implementation contract for Plates phases 137–141, 30 October 2026. This is an implementation contract and task inventory; proposed paths and commands
 below are not shipped features unless the owning phase records implementation evidence. Each phase owns its acceptance/status; this document owns no duplicate progress state.
 
 ## Source baseline and boundaries
@@ -59,11 +59,11 @@ no bulk runtime search/replace or historical receipt rewrite.
 
 | Plates phase | User outcome | Tasks and boundary |
 | --- | --- | --- |
-| [132: A project set shows its routines](../phases/132-a-project-set-shows-its-routines.md) | See what exists and what actually ran in the existing Plates surfaces. | T1 observation identities, T2 readers, T3 projections/observation bridge and N1 terminology; independently useful without execution. |
-| [133: People bring their own capacity](../phases/133-people-bring-their-own-capacity-to-shared-work.md) | Collaborate on a plate without sharing private accounts or inventing pooled allowance. | P1 scope, funding, reservation and lesson-sharing contracts; preserve existing access until reviewed activation. |
-| [134: A routine has one Plates policy](../phases/134-a-routine-has-one-plates-policy.md) | Review one explicit policy and reversible dormant import. | T1 authored policy and T4; legacy declarations are translated, not adopted as authority. |
-| [135: Routines run with accountable effects](../phases/135-routines-run-with-accountable-effects.md) | Time, events and manual intent reach the same bounded operation and effect review. | T5–T7 combine execution and effects around a user outcome, not separate old subsystems. |
-| [136: A routine changes owner safely](../phases/136-a-routine-changes-owner-without-losing-work.md) | Replace an incumbent with proof and recovery. | T8 and real per-routine comparison/cutover; explicit retirement, no automatic source deletion. |
+| [137: A project set shows its routines](../phases/137-a-project-set-shows-its-routines.md) | See what exists and what actually ran in the existing Plates surfaces. | T1 observation identities, T2 readers, T3 projections/observation bridge and N1 terminology; independently useful without execution. |
+| [138: People bring their own capacity](../phases/138-people-bring-their-own-capacity-to-shared-work.md) | Collaborate on a plate without sharing private accounts or inventing pooled allowance. | P1 scope, funding, reservation and lesson-sharing contracts; preserve existing access until reviewed activation. |
+| [139: A routine has one Plates policy](../phases/139-a-routine-has-one-plates-policy.md) | Review one explicit policy and reversible dormant import. | T1 authored policy and T4; legacy declarations are translated, not adopted as authority. |
+| [140: Routines run with accountable effects](../phases/140-routines-run-with-accountable-effects.md) | Time, events and manual intent reach the same bounded operation and effect review. | T5–T7 combine execution and effects around a user outcome, not separate old subsystems. |
+| [141: A routine changes owner safely](../phases/141-a-routine-changes-owner-without-losing-work.md) | Replace an incumbent with proof and recovery. | T8 and real per-routine comparison/cutover; explicit retirement, no automatic source deletion. |
 
 | Decision | Rationale |
 | --- | --- |
@@ -114,7 +114,7 @@ until identity and authorization can be proved; it is never inferred from names.
 For a run, pin the selected plate and policy; a later set edit cannot retarget it.
 
 N1 inventories labels, navigation, CLI help, persisted names and links before any
-terminology implementation. Phase 132 changes display labels and adds a validated
+terminology implementation. Phase 137 changes display labels and adds a validated
 set selector to the current navigation. Keep existing routes/JSON as supported
 compatibility, with explicit set-context query/route variants in the shared route
 registry. Preserve project detail URLs and original receipts during scope changes,
@@ -150,15 +150,13 @@ human-calibration gaps, not verified provider billing or an automatic router.
 | `AQ:lib/agent-quality-report.mjs`, `agent-quality-weekly.mjs` | Add task/PR lifecycle projections and source-bound filtered breakdowns to existing reporting. Preserve known subtotal vs complete total, original failures, coverage and quality cohorts. Hosted views consume authorized projections, not another telemetry store. |
 | `AQ:docs/specs/agent-quality.md`, `AQ:docs/guide/agent-quality-lifecycle.md`, `AQ:docs/guide/agent-quality-adapters.md` | Preserve metadata-only privacy, exact preview/recovery, explicit provider/model uncertainty and no routing or model spend from collection. New recommendation semantics require their own reviewed contract below. |
 
-Integration prerequisite: that branch already owns phase IDs 132 (risk tolerance),
-133 (review continuation) and 134 (agent quality), while this isolated draft also
-uses 132–134 for different outcomes. Do not merge the two roadmaps or add a bare
-`depends: [134]` to mean agent quality here: that would refer to routine import.
-Before integration/publication, reconcile draft phase allocation and references
-under the phase contract, preserving existing source identities and historical
-records. Neither branch is modified or merged by this specification update.
-U1/S1 require the branch-qualified agent-quality contracts above; if unavailable,
-usage/quality integration remains a named gap, not a duplicate implementation.
+Draft allocation resolved on 30 October 2026 under the owner's instruction:
+consolidation drafts 132–136 now use **137–141**, leaving the existing
+agent-quality branch's phases 132 (risk), 133 (review continuation) and 134
+(agent quality) untouched. Earlier evidence keeps its tested commit and original
+numbering. Selective source integration reuses the pinned AQ modules/contracts;
+it is not a merge, publication or activation of that branch. U1/S1 extend the
+same ledger rather than creating a second telemetry store.
 
 ### Full task and PR lifecycle accounting
 
@@ -293,7 +291,7 @@ exist or pass on this branch. No fixture needs actual provider tokens or spend.
 
 ## Person, plate, set and provider ownership decisions
 
-These are proposed implementation decisions to review and prove in phase 133,
+These are proposed implementation decisions to review and prove in phase 138,
 not claims that current code supports them or permission to change live access.
 Current `learning.mjs` checks configured owner IDs and workspace membership;
 `connection-policy.mjs` binds project lists and requires access to every named
@@ -644,14 +642,14 @@ test filenames below are created with their implementation, never empty placehol
 
 | Task | Dependencies | Concrete patch and exit condition | Focused proof |
 | --- | --- | --- | --- |
-| N1: set terminology and navigation | Read-side route audit; phase 132 | Inventory fleet labels/callers; adopt set/project set in existing product views and validated set lens. Preserve routes, JSON, CLI and receipt identifiers; document versioned aliases and retirement window separately. | Planned routine-views and existing web-home/web-operation-coverage tests, deep-link and reconnect cases. |
-| U1: whole-task/PR usage | AQ contract integration and ID reconciliation, T1/P1 identity; phases 132–133 | Extend the existing AQ ledger schema/adapters with funding and provider-specific token/cost measurements; project full lifecycles, allocation, coverage and privacy in current work/Activity views. No duplicate telemetry store. | AQ records/lifecycle/report tests extended for contributor splits, multi-PR allocation, imported/parent-child duplicates, retries/cache and missing telemetry. |
-| S1: personal agent recommendation | P1, AQ quality evidence integration, U1 metric boundaries; phase 133 | Read current authorized choices and capacity, combine role/capability and relevant quality/latency/cost evidence, and explain recommendation or uncertainty. No automatic execution or payer switch. | Planned `tests/routine-recommendations.test.mjs`, existing web-capacity/model-selection and AQ report tests; sparse/version mismatch, reset/stale quota, override and spend refusal. |
-| P1: shared work and personal capacity | T1 observation identity; phase 133 | Extend actor/project/account ownership, funding grants, canonical pool reservations and reviewed lesson promotion. No live access migration. | Planned `tests/routine-ownership.test.mjs` and existing web-auth/capacity/connections/model-selection/learning tests; cross-scope matrix above. |
+| N1: set terminology and navigation | Read-side route audit; phase 137 | Inventory fleet labels/callers; adopt set/project set in existing product views and validated set lens. Preserve routes, JSON, CLI and receipt identifiers; document versioned aliases and retirement window separately. | Planned routine-views and existing web-home/web-operation-coverage tests, deep-link and reconnect cases. |
+| U1: whole-task/PR usage | AQ contract integration and ID reconciliation, T1/P1 identity; phases 137–138 | Extend the existing AQ ledger schema/adapters with funding and provider-specific token/cost measurements; project full lifecycles, allocation, coverage and privacy in current work/Activity views. No duplicate telemetry store. | AQ records/lifecycle/report tests extended for contributor splits, multi-PR allocation, imported/parent-child duplicates, retries/cache and missing telemetry. |
+| S1: personal agent recommendation | P1, AQ quality evidence integration, U1 metric boundaries; phase 138 | Read current authorized choices and capacity, combine role/capability and relevant quality/latency/cost evidence, and explain recommendation or uncertainty. No automatic execution or payer switch. | Planned `tests/routine-recommendations.test.mjs`, existing web-capacity/model-selection and AQ report tests; sparse/version mismatch, reset/stale quota, override and spend refusal. |
+| P1: shared work and personal capacity | T1 observation identity; phase 138 | Extend actor/project/account ownership, funding grants, canonical pool reservations and reviewed lesson promotion. No live access migration. | Planned `tests/routine-ownership.test.mjs` and existing web-auth/capacity/connections/model-selection/learning tests; cross-scope matrix above. |
 | T1: domain and policy | Existing workspace/history/worker/model contracts; no live activation | Add pure versioned model, definition validators, scope/alias/coverage contracts and destination policy. Record provenance/reuse basis before porting; remove source circular coupling. Lock the module boundary and all inventory dispositions. | `tests/routine-model.test.mjs`: strict schema, ID collision, private scope, unsupported trigger/capability and unknown outcome fixtures. |
 | T2: observation adapters | T1 | Port local launchd/Claude/Codex, declared and Vercel readers; share GitHub extraction/history with Plates. Bound file/API/time reads, retain freshness and format gaps, keep consistent WAL snapshot. No provider writes. | `tests/routine-sources.test.mjs`: source tests in inventory table plus torn snapshot, stale cache, malformed YAML, unsupported schedule/timezone and privacy sentinel fixtures. |
 | T3: shared views and observation bridge | T1–T2; phase 102 access contract | Add routine CLI namespace/JSON; integrate existing local board and hosted Routines/Activity. Implement observation-only enrollment/transport and revoke tests, without activating it. Add help/guide and capability registry when commands ship. | `tests/routine-views.test.mjs`, existing `tests/web-runs.test.mjs`, `tests/web-runs-ui.test.mjs`: account/project revocation, forged host, replay, mixed sources, attempts, keyboard/mobile filters and no mutation on refresh. |
-| T4: reversible import | T1–T2, P1; phase 134 | Implement preview/digest/import receipt/verification, original-data retention, aliases and dormant definitions. Include pending outboxes/cursors and reject inconsistent or changed snapshots; caches discarded. | `tests/routine-import.test.mjs`: same-digest recovery, conflicting destination, source race, symlink/traversal, duplicate timestamp, missing held files and restore to original snapshot. |
+| T4: reversible import | T1–T2, P1; phase 139 | Implement preview/digest/import receipt/verification, original-data retention, aliases and dormant definitions. Include pending outboxes/cursors and reject inconsistent or changed snapshots; caches discarded. | `tests/routine-import.test.mjs`: same-digest recovery, conflicting destination, source race, symlink/traversal, duplicate timestamp, missing held files and restore to original snapshot. |
 | T5: one execution path | T1, P1, T4; phases 103/104/106 contracts | Introduce supported local runner adapters and registered cloud extension, shared intent/budget/fence protocol, separate host execution enrollment. Keep unsupported remote/subscription adapters off. Capability/permission/placement and unknown capacity must be checked before reservation/spawn. | `tests/routine-execution.test.mjs`, existing `tests/web-jobs.test.mjs`: concurrent manual/shim/schedule calls, spawn/receipt loss, timeout descendants, stale fence, budget exhaustion, auth revocation and forbidden fallback. |
 | T6: durable events and time integration | T2, T5 | Port matcher/socket/SSE plus durable batch/cursor linking. Generate launchd definition only; time scheduling uses existing approved schedulers. Preserve cloud-first recommendation and home requirement facts separately. | `tests/routine-events.test.mjs`: split SSE, restart IDs, partial pages, source gap, queued/auth refusal, changed record activity, concurrent listeners and crash at every intent/start/checkpoint boundary. |
 | T7: reviewed effects | T4–T6 | Typed outbox/Drive/notification adapters and BenOS action correlation. Shared operation recovery and current scope checks; no auto-retry of uncertain effects. Preserve held effects and original approval records. | `tests/routine-effects.test.mjs`: changed payload/target/policy, path escape, missing attachment, duplicate approval, partial delivery, lost upload/notify response, and unresolved BenOS action. |
@@ -717,7 +715,7 @@ names inspected revisions, checks actually run and remaining implementation work
 
 For the specification, regenerate the roadmap and run phase/format/link and
 focused conventions checks. No model calls, provider writes or full suites are
-needed for this deliverable. Implementation proof commands are in phases 132–136 and
+needed for this deliverable. Implementation proof commands are in phases 137–141 and
 N1, P1, U1, S1 and T1–T8; existing source tests establish what to preserve, not that a port passes.
 
 Repository review corrections incorporated into this contract: current BenOS
