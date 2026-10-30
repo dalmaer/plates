@@ -471,6 +471,7 @@ Every verb takes `--json`. Exit codes are the same everywhere:
 | `plates routines inspect` | Read metadata from an explicit source registry; report bounded coverage, conflicts and unavailable sources without changing routines |
 | `plates routines usage` | Project task/PR lifecycle consumption from private quality state; distinguish partial totals, unverified attribution and shared work from personal remaining quota |
 | `plates routines record-usage` | Preview a versioned usage observation, then append with the exact reviewed digest; preserve original attempts and receipts |
+| `plates routines recommend` | Explain personal agent choices using separate capacity and task-quality evidence; local input claims cannot verify availability or start an agent |
 | `plates canvas` | Project lifecycle snapshots and isocan canvas publishing; preview changes before applying them |
 | `plates loose-ends` | What you started and didn't finish, across plates and each fleet checkout: chats, files, branches, PRs, owner steps; `mark` one resume, park or drop |
 | `plates production status`, `collect`, `spec`, `verify` | Bounded production-error evidence, recurring repair candidates, and revision-scoped verification; missing coverage stays unknown |

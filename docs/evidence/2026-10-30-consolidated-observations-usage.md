@@ -37,6 +37,16 @@ generated capability inventory was refreshed for those final reader bytes.
 The focused checkpoint is preliminary evidence; it does not cover that later
 change or the subsequent personal-capacity increment.
 
+An isolated installed-package walk ran from exact checkpoint `7d05a6a7` on
+30 October 2026. `git archive` supplied the committed tree, `npm pack` produced
+the candidate, and `npm install --offline --ignore-scripts` installed it in a
+temporary Acme consumer. The installed executable read the synthetic registry,
+returned one routine with partial coverage and no actions/private source fields,
+left source bytes unchanged, exposed routine help, and retained the legacy
+executable. Exit 0. Local script/log: `../packed-observation-walk.mjs` and
+`../packed-observation-walk.log`. This proves the packed source path, not public
+publication or real provider agreement.
+
 A separate guide/CLI test initially failed because npm attempted to write its
 cache outside the sandbox; no application assertion failed. Using
 `npm_config_cache=/tmp/plates-consolidation-npm-cache` gave exit 0, 24/24.
@@ -87,7 +97,7 @@ findings; the reviewer's final surface proof passed 7/7.
 ## Gaps and decision
 
 Phase 137 remains partial. Authenticated transport enrollment, replay/revocation
-receipts, real selected-source comparisons, installed-candidate walk and the
+receipts, real selected-source comparisons and the
 complete terminology/navigation migration remain separate proof. Phase 138
 still needs personal capacity recommendations, collaboration/sharing policy and
 separately approved activation. No synthetic result is a live multi-person,

@@ -58,8 +58,8 @@ permission. Do not add a competing routine telemetry store.
 - [ ] Existing Home, project detail, decisions/reviews, Daily/health, Learning, Connections and job/operation views remain reachable through the set/plate lens with source-bound return routes, filters and pending receipts preserved: `npm run check:focused -- tests/routine-views.test.mjs tests/web-home.test.mjs tests/web-operation-coverage.test.mjs` (first file planned).
 - [ ] N1 inventories user-facing fleet labels, moves product language to set/project set and tests existing routes/JSON/CLI aliases and stored receipts without broad runtime renaming: `npm run check:focused -- tests/routine-views.test.mjs tests/web-operation-coverage.test.mjs` (first file planned).
 
-- [ ] Versioned routine/source/attempt identities distinguish workspace/actor, project, host and provider, preserving conflicts and unknown outcomes: `npm run check:focused -- tests/routine-model.test.mjs`.
-- [ ] All inventoried reader capabilities have a reasoned reuse/redesign/drop disposition; supported sources retain bounded reads, provenance, timezone and explicit gaps: `npm run check:focused -- tests/routine-sources.test.mjs`.
+- [x] Versioned routine/source/attempt identities distinguish workspace/actor, project, host and provider, preserving conflicts and unknown outcomes: `npm run check:focused -- tests/routine-model.test.mjs`.
+- [x] All inventoried reader capabilities have a reasoned reuse/redesign/drop disposition; supported sources retain bounded reads, provenance, timezone and explicit gaps: `npm run check:focused -- tests/routine-sources.test.mjs`.
 - [ ] Existing CLI/board/Routines/Activity consume one model; filters, keyboard/mobile use, old run attempts and current authorization survive aggregation: `npm run check:focused -- tests/management-surfaces.test.mjs tests/web-management-observations.test.mjs tests/web-runs.test.mjs tests/web-runs-ui.test.mjs`; real desktop/mobile source comparison still requires its walk.
 - [ ] Observation enrollment cannot dispatch work; revoked/forged hosts, replayed uploads and cross-actor/project reads fail without exposing private source content: `npm run check:focused -- tests/routine-views.test.mjs` (planned file).
 - [ ] The installed candidate exposes JSON and help for supported observation commands, preserves current board/fleet contracts, and passes source conventions: `npm run check` and `npm run typecheck` on the integrated implementation.
@@ -116,7 +116,7 @@ window, gaps and observation-only activation separately from acceptance.
 
 ## Next action
 
-Verify the final T1/T2/U1 candidate and its installed-package fixture walk. Then prepare authenticated observation enrollment/replay/revocation and selected-source comparisons, with exact sources reviewed before activation. Continue actor-private capacity in phase 138 without changing existing funding or sharing grants. Complete the remaining navigation/terminology inventory before claiming the whole management journey.
+Run the combined final candidate gate after the personal-capacity increment; the exact-checkpoint installed-package fixture walk passed. Prepare authenticated observation enrollment/replay/revocation and selected-source comparisons, with exact sources reviewed before activation. Continue actor-private capacity in phase 138 without changing existing funding or sharing grants. Complete the remaining navigation/terminology inventory before claiming the whole management journey.
 
 ## Trajectory
 
@@ -125,3 +125,5 @@ Verify the final T1/T2/U1 candidate and its installed-package fixture walk. Then
 - **2026-10-30** — Owner authorized local implementation. Added the optional project-set lens in existing Home/Routines/Activity with focused authorization, polling and continuation checks. Phase remains partial; no runtime enrollment, provider execution or migration is claimed.
 
 - **2026-10-30** — Reallocated this unpublished consolidation draft from 132 to 137 after inspecting agent-quality at `9f8c17ad`; existing agent-quality phases are unchanged.
+
+- **2026-10-30** — Bounded metadata readers and canonical AQ lifecycle usage now feed the existing board/history surfaces. Independent review required fail-closed limits, stable identity, scoped totals and filter continuity; local checkpoint `7d05a6a7` passes focused and installed-package proof. Hosted enrollment and live source agreement remain unverified.

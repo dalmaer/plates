@@ -33,7 +33,7 @@ Verbs (`--json` for data):
 - `plates issue new --agent` — issue preview; `--yes` creates
 - `plates review <repo>#<n>` — comments; `--wait`; `--close`
 - `plates board` — local work and explicit observations
-- `plates routines inspect|usage|record-usage` — sources, PR usage and approved capture
+- `plates routines inspect|usage|record-usage|recommend` — sources, PR usage and approved capture
 - `plates promote [<commit>]` — tested commit to prod; `--back`
 - `plates walk done|decide` — settle a walk or proposal
 - `plates canvas` — snapshot, render, connect, sync, live, night
@@ -1978,6 +1978,22 @@ metadata, provenance and repository verification. Capture JSON returns status,
 digest, added/duplicate counts and recovery status. No projection exposes source
 paths or funding/account identity. See `docs/guide/routine-observations.md` for
 exact source schemas and gaps.
+
+`plates routines recommend --input <absolute-file> --manifest <absolute-file>
+--state <absolute-dir> [--json]` reads version-1 candidate claims and the canonical
+initialized AQ ledger. Input cannot contain authority or a qualityBundle.
+Local files do not authenticate accounts or quotas: availability and suggestions
+remain unavailable. Output explains personal scope, task stage, model/build,
+matching quality samples/uncertainty, historical cost and latency separately.
+No command executes or reserves work. Historical usage never implies quota.
+
+Board binding version 2 adds `recommendation: {input, manifest, state}` (or null)
+to the existing registry/usage fields; version 1 remains supported. It renders a
+separate personal panel. Hosted personal recommendations appear only on explicit
+project views through a trusted injected adapter, never as set-level quota sums.
+The default adapter is unavailable. Current actor/project/policy/connection checks
+and capacity must remain fresh through the final response (at most five minutes).
+See the routine-observations guide for input and activation limits.
 
 <!-- topic: retro | the worksheet for a retro after a phase that did real work -->
 

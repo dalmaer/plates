@@ -535,7 +535,8 @@ test('the stat tiles\' counts equal the JSON\'s', async () => {
     // The embedded script compiles (the renderer is the same function the server used).
     const script = /<script nonce="n0nce">([\s\S]*?)<\/script>/.exec(html)[1];
     assert.doesNotThrow(() => new vm.Script(script));
-    assert.match(script, /function boardView\(\)/);
+    assert.match(script, /function boardView\(recommendationRenderer\)/);
+    assert.match(script, /function recommendationView\(/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -1201,4 +1202,17 @@ test('board startup reads actual explicit sources and strips private metadata be
     data.management.usage=usageProjection({scope:{projects:['acme/widget'],pr:{repositoryId:102,number:7},visibility:'project',actorId:'PRIVATE-ACTOR'},repositoryVerification:'unverified',coverage:{state:'partial',expectedAttempts:2,observedAttempts:1,gaps:[]},totals:{tokens:{knownSubtotal:100,total:null,complete:false},costs:[{currency:'USD',kind:'estimate',knownSubtotal:1,total:null,complete:false}]},attempts:[{id:'attempt',stage:'review',status:'failed',provider:'acme',model:'acme-v1',modelVersion:'1',usageState:'missing'}]});
     const withUsage=pageHtml(data,'acme-token');assert.match(withUsage,/Billing not independently verified/);assert.match(withUsage,/USD estimate: Unknown total/);assert.match(withUsage,/review · failed · acme \/ acme-v1/);assert.match(withUsage,/Repository binding: unverified/);assert.match(withUsage,/acme\/widget · PR #7 \(repository 102\) · project visibility/);assert.doesNotMatch(withUsage,/PRIVATE-ACTOR/);
   } finally {await rm(root,{recursive:true,force:true});}
+});
+
+test('board v2 renders actual local recommendation claims without account authority or action controls',async()=>{
+  const root=await acme();
+  try {
+    const canonical=await realpath(root),manifest=join(canonical,'recommend-inputs/workspace.json'),state=join(canonical,'recommend-state'),input=join(canonical,'recommend-input.json'),binding=join(canonical,'recommend-board.json');
+    const {initializeWorkspace}=await import('../lib/web/workspace.mjs'),{recommendationFixture}=await import('./helpers/recommendation-surfaces.mjs');
+    await mkdir(join(canonical,'recommend-inputs'));await writeFile(manifest,JSON.stringify({version:1,id:'acme',name:'Acme',repo:'acme/private',projects:[{id:'widget',repo:'acme/widget'}]}));await initializeWorkspace({manifest,state,appRoot:PLATES});
+    const {qualityBundle,...claims}=recommendationFixture({now:new Date().toISOString()}).input;await writeFile(input,JSON.stringify({version:1,...claims}));await writeFile(binding,JSON.stringify({version:2,registry:null,usage:null,recommendation:{input,manifest,state}}));
+    const data=await board({root},{...deps(root),appRoot:PLATES,observationBinding:binding});assert.equal(data.management.recommendation.authorization,'unverified');assert.deepEqual(data.management.recommendation.actions,[]);
+    const html=pageHtml(data,'acme-token');assert.match(html,/Your agent choices/);assert.match(html,/Local claims only/);assert.match(html,/No authenticated current capacity/);assert.doesNotMatch(html,/PRIVATE-ACCOUNT|PRIVATE-CONNECTION|PRIVATE-POOL|PRIVATE-CHOICE/);
+    const scripts=[...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)].map(m=>m[1]);assert.ok(scripts.some(code=>code.includes('function recommendationView')),'same renderer is available to browser refresh');
+  }finally{await rm(root,{recursive:true,force:true});}
 });

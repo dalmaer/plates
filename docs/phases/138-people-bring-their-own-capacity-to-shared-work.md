@@ -1,11 +1,11 @@
 ---
-status: designed
+status: partial
 since: 2026-10-30
 goal: G8
 spec: 2
 depends: [137, 103, 106]
-note: "Person, plate and set ownership/visibility and funding contracts specified. Current owner-scoped web policy is not yet a multi-contributor personal-account model."
-evidence: []
+note: "Local canonical usage and advisory personal recommendations implemented; verified live quota adapters, collaboration/funding policy, reservations and lesson sharing remain unactivated and incomplete."
+evidence: ["evidence/2026-10-30-consolidated-observations-usage.md", "evidence/2026-10-30-personal-agent-recommendations.md"]
 ---
 
 # People bring their own capacity to shared work
@@ -40,10 +40,10 @@ changes funding identity or grants paid execution.
 
 ## Acceptance
 
-- [ ] Two contributors to one PR retain all lifecycle stages, retries and failed/abandoned attempts under stable episode/attempt/commit/PR identities; metric visibility respects each account's private scope: branch-qualified `AQ:tests/agent-quality-records.test.mjs`, `AQ:tests/agent-quality-lifecycle.test.mjs` and `AQ:tests/agent-quality-report.test.mjs`, extended by U1 after integration.
-- [ ] Cross-PR work, parent/child totals, cumulative snapshots, imported receipts and reused evidence cannot double-count usage; unknown input/output/cache semantics and missing telemetry prevent a complete total: branch-qualified `AQ:tests/agent-quality-report.test.mjs` extended by U1 after integration.
-- [ ] Usage measurements distinguish observed charge from dated estimates and retain provider-specific input/output/cache semantics, immutable original receipts and model/version identity: branch-qualified `AQ:tests/agent-quality-records.test.mjs` extended by U1 after integration.
-- [ ] Personal agent recommendations explain authorized choices, task-role strengths, relevant quality evidence, latency/cost and fresh allowance/reset windows; sparse quality or stale quota stays uncertain and choosing never executes or switches payer: `npm run check:focused -- tests/routine-recommendations.test.mjs tests/web-capacity.test.mjs tests/web-model-selection.test.mjs` (first file planned).
+- [x] Two contributors to one PR retain all lifecycle stages, retries and failed/abandoned attempts under stable episode/attempt/commit/PR identities; metric visibility respects each account's private scope: `tests/agent-quality-records.test.mjs`, `tests/agent-quality-lifecycle.test.mjs`, `tests/agent-quality-report.test.mjs` and `tests/agent-quality-usage.test.mjs`.
+- [x] Cross-PR work, parent/child totals, cumulative snapshots, imported receipts and reused evidence cannot double-count usage; unknown input/output/cache semantics and missing telemetry prevent a complete total: `tests/agent-quality-usage.test.mjs` and `tests/agent-quality-report.test.mjs`.
+- [x] Usage measurements distinguish observed charge from dated estimates and retain provider-specific input/output/cache semantics, immutable original receipts and model/version identity: `tests/agent-quality-usage.test.mjs` and `tests/agent-quality-records.test.mjs`.
+- [ ] Personal agent recommendations explain authorized choices, task-role strengths, relevant quality evidence, latency/cost and fresh allowance/reset windows; sparse quality or stale quota stays uncertain and choosing never executes or switches payer: `npm run check:focused -- tests/routine-recommendations.test.mjs tests/web-capacity.test.mjs tests/web-model-selection.test.mjs tests/recommendation-surfaces.test.mjs tests/web-recommendation-surfaces.test.mjs`; local claims remain unverified and a live authenticated adapter is not activated.
 
 - [ ] Person-owned account metadata/secrets/preferences, plate work/policy/history, set membership/aggregation and provider pools have distinct versioned identities and access rules: `npm run check:focused -- tests/routine-ownership.test.mjs tests/web-auth.test.mjs` (first file planned).
 - [ ] Two Acme contributors on one plate see allowed shared work while private account details, quotas, task text and lessons remain isolated; losing project/account access prevents new execution: `npm run check:focused -- tests/routine-ownership.test.mjs tests/web-connections.test.mjs` (first file planned).
@@ -74,13 +74,13 @@ changes funding identity or grants paid execution.
 ## Proof
 
 Run `npm run check:focused -- tests/routine-ownership.test.mjs tests/web-capacity.test.mjs tests/web-model-selection.test.mjs tests/web-connections.test.mjs tests/web-learning.test.mjs tests/web-auth.test.mjs`
-after the planned ownership file exists. After branch integration, also run the
-extended AQ records/lifecycle/report tests for U1 and
+after the planned ownership file exists. The current local increment runs the
+imported AQ records/lifecycle/report and usage tests for U1 and
 `npm run check:focused -- tests/routine-recommendations.test.mjs tests/web-capacity.test.mjs tests/web-model-selection.test.mjs` for S1. Run `npm run check` and
 `npm run typecheck` on the integrated candidate. Retain two-person visibility
 observations, account/pool alias decisions and conflict/revocation evidence.
 No new provider connection, quota reset, login transfer or shared entitlement is
-created as part of this design task.
+created by this local implementation.
 
 ## Deliberately open
 
@@ -109,8 +109,10 @@ created as part of this design task.
 
 ## Next action
 
-After phase 137's observation identity contract, implement P1's two-person/one-plate and one-person/two-sets fixtures before extending connection policy, funding reservations or lesson sharing; then
-implement U1/S1 against the reconciled agent-quality contracts, preserving the
-usage-versus-current-capacity boundary.
+Verify the final local recommendation and existing-UI integration, then prepare an exact authenticated provider/account adapter and its visibility walk for separate activation review. Continue P1's versioned collaborator/funding/reservation and lesson-sharing boundaries without automatically widening existing owner-scoped descriptors or changing active routines.
+
+## Trajectory
 
 - **2026-10-30** — Reallocated this unpublished consolidation draft from 133 to 138 after inspecting agent-quality at `9f8c17ad`; existing agent-quality phases are unchanged.
+
+- **2026-10-30** — Implemented U1 on the existing AQ ledger and S1 as personal advice using canonical quality cohorts and independently fresh capacity windows. Local files cannot authenticate themselves; hosted recommendations default unavailable. No execution, reservation or sharing migration is implied.

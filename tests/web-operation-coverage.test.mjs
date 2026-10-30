@@ -226,8 +226,9 @@ test('the reviewed adoption handoff stays source-bound without enabling a capabi
 
 test('consolidated observation and capture forms stay CLI-only with explicit verification and no quality execution',()=>{
   const rows=catalogue(enabled).rows,record=rows.find(r=>r.id==='cli.routines');assert.equal(record.adapter,null);assert.equal(record.readiness.state,'unsupported');
-  assert.deepEqual(record.cli[0].forms.map(f=>f.subcommand),['inspect','usage','record-usage']);
+  assert.deepEqual(record.cli[0].forms.map(f=>f.subcommand),['inspect','usage','record-usage','recommend']);
   assert.ok(record.cli[0].forms.find(f=>f.subcommand==='usage').arguments.some(a=>a.token==='--verify-repository'&&a.arity===0));
+  assert.match(record.cli[0].forms.find(f=>f.subcommand==='recommend').constraints,/authority/);
   const capture=record.cli[0].forms.find(f=>f.subcommand==='record-usage');assert.match(capture.constraints,/exact.*digest/);
   const quality=rows.find(r=>r.id==='cli.retro').cli[0].forms.filter(f=>f.subcommand?.startsWith('quality '));assert.equal(quality.length,8);assert.ok(quality.every(f=>f.subcommand!=='quality run'));
   assert.ok(reviewedOperationSources().rejectedSyntax.some(r=>r.syntax==='plates retro quality run'));

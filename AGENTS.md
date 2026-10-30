@@ -438,3 +438,10 @@ board and history views use sanitized projections; hosted local observations
 remain unavailable without an authenticated adapter. See the
 [routine observations guide](docs/guide/routine-observations.md). These read paths
 grant no model execution, provider access, publication or cutover authority.
+
+Personal recommendations preserve current actor, workspace, plate and numeric
+repository scope. Local input cannot attest its own account/connection authority;
+hosted advice requires a current authenticated adapter and renewed access checks.
+Keep provider windows separate, explain missing or stale capacity and relevant
+quality coverage, and leave selection to the person. A recommendation neither
+reserves allowance nor guarantees that a task fits it.

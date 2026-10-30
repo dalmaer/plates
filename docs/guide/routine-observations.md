@@ -99,3 +99,57 @@ never turns a supplied provider label into authenticated billing evidence.
 The existing `plates retro quality` metadata and lifecycle commands remain
 available as described in the imported guides. The branch's execution adapter is
 dormant: arbitrary-command quality execution is not exposed by this CLI.
+
+## Personal agent advice
+
+```sh
+plates routines recommend --input /absolute/inputs/recommendation.json --manifest /absolute/inputs/workspace.json --state /absolute/private-state --json
+```
+
+This is a read-only explanation of choices for the current task. The command loads
+quality history from the same initialized AQ ledger, scopes it to the selected
+project, and accepts no quality bundle or authorization from the input file.
+Local claims cannot establish authenticated availability: they produce an
+unverified, unavailable recommendation with no suggested agent. Unavailable
+quality under that authority does not assert that no history exists.
+
+The version-1 input has exactly `version`, `actorId`, `workspaceId`, `projectId`
+(the existing plate slug), `repositoryId` (positive numeric identity), `project`
+(owner/repository), `policyDigest`, `task`, `candidates`, `observations` and
+`preferenceOrder`. The task describes stage, family, specialty, difficulty, risk,
+required capabilities and optional provider independence. Candidates describe
+provider/model and exact stable agent configuration, claimed account/pool and
+connection generation, applicable stages/capabilities, required capacity windows
+and expiry. Observations follow the existing capacity contract. The
+[synthetic example factory](../../tests/helpers/recommendation-surfaces.mjs) and
+[pure contract](../../lib/agent-recommendations.mjs) show every field. Source labels
+such as authenticated-reporter are claims; they do not authenticate themselves.
+
+A version-2 board binding preserves the old registry and usage fields and adds a
+separate personal recommendation binding. Version 1 still behaves as before:
+
+```json
+{"version":2,"registry":null,"usage":null,"recommendation":{"input":"/absolute/inputs/recommendation.json","manifest":"/absolute/inputs/workspace.json","state":"/absolute/private-state"}}
+```
+
+The existing local board displays this personal panel separately from historical
+consumption. Browser URLs cannot change its files or actor. No personal capacity
+is aggregated across sets. The hosted Routines/Activity project view supports a
+read-only constructor adapter; it is unavailable by default. Set views link to
+plates and never invoke that adapter or duplicate personal pools.
+
+A future authenticated adapter must separately attest current actor, workspace,
+plate, numeric repository, policy, account ownership, connection generation and
+canonical quality evidence. Local files and browser requests cannot supply that
+authority. Checks and capacity observations expire within five minutes; reset,
+exhaustion, stale/conflicting/unknown observations or lost access prevent an
+available choice. Expiry during the source read or final authorization also
+suppresses availability before response. These checks neither reserve allowance
+nor prove enough allowance for an arbitrary task.
+
+Advice keeps applicable windows separate, explains exact model/build/task/stage
+quality cohorts with sample counts and uncertainty, and reports historical cost
+and latency as separate observations. Sparse quality is not a winner. Preference
+may order available choices, but cannot grant access, switch payer, pool personal
+accounts or enable organization funding. There are no execution buttons, new
+credentials, enrollment, grants, reservations or active routing in this slice.

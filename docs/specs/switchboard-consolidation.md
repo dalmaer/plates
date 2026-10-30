@@ -242,6 +242,19 @@ Deduplication and allocation rules:
 
 ### Agent recommendations for the current person
 
+The first local implementation separates a pure advisory projection from its
+caller authorization. CLI/board JSON supplies attributed local claims only;
+it cannot supply its own trusted authority or replace the canonical quality
+ledger with a purported report. A hosted reader is a separately injected,
+authenticated read capability bound to the current actor, workspace, plate slug,
+numeric repository, policy and connection generation, with bounded expiry and
+reauthorization before response. Default hosted availability remains unknown.
+Personal recommendation panels belong to an explicit plate view; set-level
+views do not add personal allowance across plates or duplicate provider pools.
+This increment introduces no enrollment, credential, reservation or sharing
+migration. Verified organization funding remains unsupported until its grants
+and provider identity are explicitly represented and proven.
+
 Initial selection is an **explainable recommendation**, not automatic assignment
 or a paid run. Start with the current person's authorized account/model choices
 and explicit delegated/org grants; filter by plate/workspace policy, task-role
