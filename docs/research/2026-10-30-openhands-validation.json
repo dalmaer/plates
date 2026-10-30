@@ -1,0 +1,71 @@
+{
+  "baseline": "037e13b4f78c061405cef899b528badb536584ad",
+  "codeFiles": {
+    "experiments/openhands/client.mjs": "3bef8051bad54781d12d080651071c3a705132773af9118009cb989ddfccf30a",
+    "experiments/openhands/evaluation.mjs": "b251c303e6a07ef1533719348df040d9c7f935ab15fd782454b65f5d5836ef04",
+    "experiments/openhands/probe-upstream.py": "a2b329ba700caa1ca1c3547d7d1082d3c6f31fb834238e080ff17d36c2f7d77e",
+    "experiments/openhands/upstream-lock.json": "f36db2f384b77034a0ddb0230a3cc11f0de311982eca0ff9eebc109cb4a85f8c",
+    "tests/fixtures/openhands/harness.mjs": "204049ee8e8704f62dce4ddc3ca7976bd2ffcf17b1abd297bc27d97ed305a894",
+    "tests/openhands-evaluation.test.mjs": "dbbf783d50b5377167f8fdf88732f85f3b128b6ad32c5909c4f6a08236f983ce"
+  },
+  "upstreamProbe": {
+    "pinnedFiles": 17,
+    "sourceContracts": [
+      "required-workspace",
+      "caller-conversation-id",
+      "no-message-idempotency-field",
+      "AlwaysConfirm"
+    ],
+    "nativeComponent": "FIFO reentrancy/release/reacquire passed",
+    "extractedFunction": "local shared key maps to one deterministic admin identity",
+    "fullServerExecuted": false,
+    "modelCalls": 0
+  },
+  "independentReview": "closed; seven findings corrected and targeted fixes independently verified",
+  "runtime": "Node v24.22.1; Python 3.15.2; TypeScript 7.0.2",
+  "scope": "synthetic HTTP fixture; no live agent server or model calls",
+  "validation": {
+    "focused": {
+      "command": "npm run check:focused -- tests/openhands-evaluation.test.mjs",
+      "status": "passed",
+      "tests": 136,
+      "failed": 0,
+      "openhandsTests": 22,
+      "durationMs": 210816.494917
+    },
+    "fullGate": {
+      "command": "npm run check",
+      "status": "failed",
+      "tests": 3923,
+      "passed": 3918,
+      "failed": 1,
+      "skipped": 4,
+      "durationMs": 404360.506083,
+      "failure": {
+        "test": "SQLite refuses generated columns and kills native query work before cleaning the private copy",
+        "location": "tests/routine-sources.test.mjs:196",
+        "assertion": "deadline exercised after query began, not just during process startup",
+        "actual": false,
+        "expected": true,
+        "unchangedFromBaseline": true
+      },
+      "logSha256": "aedf0c45c0c9e411266050f795b97c523fb2aa1b5e5d5abf4ee08eefa742dfc7"
+    },
+    "diagnostic": {
+      "status": "passed",
+      "tests": 1,
+      "durationMs": 547.88075,
+      "replacesFullGate": false
+    },
+    "typecheck": "passed",
+    "syntax": "passed",
+    "openIssue": "OPH-HYGIENE-1",
+    "finalDocumentChecks": {
+      "roadmap": "passed",
+      "render": "passed: 97 targets",
+      "inbox": "passed",
+      "whitespace": "passed",
+      "relativeReferences": 7
+    }
+  }
+}

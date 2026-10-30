@@ -1,0 +1,39 @@
+{
+  "baseline": "037e13b4f78c061405cef899b528badb536584ad",
+  "checkedAt": "2026-10-30",
+  "components": {
+    "sdk": {
+      "repository": "https://github.com/OpenHands/software-agent-sdk",
+      "revision": "c048a1eb82353b0586f3ce600708394a68ebb246",
+      "version": "1.59.0",
+      "license": "MIT",
+      "files": {
+        "LICENSE": "14a9b631c658eee682c6c2973525fbdf808c3457176bc47513052c559cc5ce86",
+        "uv.lock": "87ff323da08fe4dc21def00bc9ddeb7a04cd6003ef3d43c985f50445acab2ac3",
+        "openhands-agent-server/pyproject.toml": "a951e6581c2a92a866bc330eede9b49b98b1359ef05238c06b13c1395f3253a3",
+        "openhands-sdk/pyproject.toml": "c8e172ade057d77898db9f3f222c5dd30c33c49567f16480d318f379c3cf62a4",
+        "openhands-sdk/openhands/sdk/conversation/request.py": "43d355675c20efd0732bc43d8ef9ca3701bcafa55d307653bfa0c73aff259009",
+        "openhands-sdk/openhands/sdk/conversation/message_request.py": "edab8b23a7ce87f6985c11318f0c6a38696259fb65a3ec4d7d45708b9ea5781a",
+        "openhands-agent-server/openhands/agent_server/conversation_service.py": "f636d01d2bd8904095f9e3b1b97c6b39db7fb9cd4aebed5beb0f78c55c2f43a0",
+        "openhands-agent-server/openhands/agent_server/conversation_router.py": "6ead0c50eb021ebe6dc9ab2cd1c506fd5b94ad5ce4a554f20f2a4caf485ba258",
+        "openhands-agent-server/openhands/agent_server/event_router.py": "cda84cdfbd86f0315e0fdbdd81a4ad8e1285e855646bb23d0dc15995ce6f68d3",
+        "openhands-agent-server/openhands/agent_server/conversation_lease.py": "df62403589068dee7d1a13a5cb8ea6fed9b41d13fc212aac14d48ed2783fcb43",
+        "openhands-sdk/openhands/sdk/conversation/fifo_lock.py": "e83fb2790b6ef40b4c4f791b5fbc88938fe24fe74ecb2dca20fc4dd3e5afcfe8",
+        "openhands-sdk/openhands/sdk/security/confirmation_policy.py": "6ecac839fa3740e5cdc8aae6515cd0cf4ef4177c5b27bb99a7d593af844c765f"
+      }
+    },
+    "automation": {
+      "repository": "https://github.com/OpenHands/automation",
+      "revision": "c1ff860fddd65e1de7c664069bede97211d5712f",
+      "version": "1.26.1",
+      "license": "MIT",
+      "files": {
+        "LICENSE": "14a9b631c658eee682c6c2973525fbdf808c3457176bc47513052c559cc5ce86",
+        "uv.lock": "690daa977e0279e8322dcf2577e8c1c25335a829f8973b31de9be19a7e64bdf6",
+        "pyproject.toml": "668298f55b3c1aa7cd4705092a2d1ac1d5e5580fc135364ea6612b1d3c4eca33",
+        "openhands/automation/auth.py": "8d630f06b83b3511ff55ef3622e6e13eb7e2a547338e9a55b8d9c87a18316276",
+        "openhands/automation/scheduler.py": "7e839ed454cb5c2a1d1fa2d7561d819392efc4ef498ca411696fc68af8cf705d"
+      }
+    }
+  }
+}
