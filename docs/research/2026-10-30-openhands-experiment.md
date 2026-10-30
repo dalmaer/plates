@@ -3,9 +3,15 @@
 Date: 2026-10-30. Branch: `codex/openhands-evaluation`. Baseline:
 `037e13b4f78c061405cef899b528badb536584ad` (verified consolidation code `b48b3a6d`).
 
+Current follow-up: [complete report](2026-10-30-openhands-followup.md) and
+[local dependency plan](2026-10-30-openhands-local-test-plan.md) describe the
+test-only deadline repair, completed native lease component trial and passing
+full gate: 3,921 passed, zero failures, four opt-in skips. The earlier failure
+below remains historical evidence.
+
 This is an executable local experiment, not an adoption, deployed integration,
 continuous agent service, or proof that OpenHands has passed Plates' acceptance
-criteria. No provider/model calls, personal credentials, upstream installation,
+criteria. No provider/model calls, personal credentials, full OpenHands package/server installation,
 GitHub writes, chat sends, routines, deployment or Switchboard cutover occurred.
 
 ## Reproduce
@@ -230,10 +236,10 @@ turns and messaging, completion ingestion, safe process reconciliation, usage
 normalization and real Mission Control HTTP wiring. No measured maintenance-hour
 estimate or performance benefit is justified by this fixture.
 
-Remaining authorization for a live trial: approve a specific isolated host/runtime
-and pinned dependency installation, synthetic model provider or a named provider
-account, an explicit spend ceiling and egress/tool policy, and cleanup/termination
-verification. No credentials, grants, global configuration, publication or scheduler
+Routine reputable dependency setup and synthetic no-cost local tests are already
+authorized by the test-branch request. Actual provider access/spend, real-project
+access, external effects, privileged/global setup and live deployment remain
+separate authority requirements; see the follow-up dependency plan. No credentials, grants, global configuration, publication or scheduler
 activation are needed to run the included tests. This branch is local and unpushed.
 
 Independent follow-up review closed with no remaining material findings within
@@ -242,7 +248,7 @@ termination fencing, revocation and changed capacity-window refusals against
 temporary SQLite, and ran the 17-file source probe. This is separate from the
 author-run test suite and is not a live integration review.
 
-## Final validation appendix (2026-10-30)
+## Initial validation appendix (2026-10-30; retained historical result)
 
 - Focused source preflight: **136 passed, 0 failed**, including all **22 OpenHands
   scenarios**; roadmap/render/inbox/whitespace stages passed. Runtime 210.816 s
@@ -265,7 +271,7 @@ author-run test suite and is not a live integration review.
 node --import ./tests/helpers/hermetic.mjs --test --test-name-pattern='SQLite refuses generated columns' --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/plates/test-ledger.mjs --test-reporter-destination=stdout tests/routine-sources.test.mjs
 ```
 
-**Open validation issue OPH-HYGIENE-1:** `querySnapshot` in
+**Original validation issue OPH-HYGIENE-1 (test-only repair in follow-up):** `querySnapshot` in
 `lib/routines/sources/files.mjs` starts its timeout before the child reports
 `query-started`. Under contention, the existing test may exercise process startup
 rather than native-query termination. One-minute host load was sampled at 271.05

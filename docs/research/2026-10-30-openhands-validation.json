@@ -67,5 +67,118 @@
       "whitespace": "passed",
       "relativeReferences": 7
     }
-  }
+  },
+  "followup": {
+    "issue": "OPH-HYGIENE-1",
+    "repair": "test-only deterministic deadline/closure proof; production reader unchanged",
+    "focused": {
+      "tests": 158,
+      "passed": 158,
+      "failed": 0,
+      "durationMs": 19849.990125
+    },
+    "independentReview": "closed; final four SQLite checks independently passed",
+    "negativeControl": {
+      "mutation": "remove only production child.kill(SIGKILL) in separate temporary source copy",
+      "status": "expected failure",
+      "assertion": "the production deadline must kill, not the test backstop",
+      "durationMs": 5084.202625,
+      "logSha256": "d9569370445a51b5152d46901c16d94c5f893c538f76ed4ae4b52cfe6872de7b"
+    },
+    "nativeLease": {
+      "component": "unchanged upstream ConversationLease",
+      "sourceSha256": "df62403589068dee7d1a13a5cb8ea6fed9b41d13fc212aac14d48ed2783fcb43",
+      "dependency": "filelock==3.20.3",
+      "checksPassed": [
+        "claim-renew-persist-original-generation",
+        "live-owner-blocks-second-owner",
+        "expired-takeover-fences-stale-renew-and-write",
+        "stale-release-preserves-current-owner",
+        "current-release-removes-lease",
+        "confirmed-dead-local-pid-allows-takeover-before-expiry",
+        "corrupt-lease-observed-as-stale-and-generation-reset"
+      ],
+      "loggingImport": "stdlib shim; SDK bootstrap not executed",
+      "fullAgentServer": false,
+      "modelCalls": 0,
+      "qualificationWarning": "corrupt native lease resets generation; Plates must retain external epoch/effect quarantine"
+    },
+    "gatePreflight": {
+      "observedAt": "2026-10-30T22:00:06.318670+00:00",
+      "load": [
+        3.46923828125,
+        17.49072265625,
+        45.49560546875
+      ],
+      "activeTestProcesses": [
+        {
+          "pid": 19087,
+          "parent": 1,
+          "kind": "test-or-check-process"
+        },
+        {
+          "pid": 63109,
+          "parent": 1,
+          "kind": "test-or-check-process"
+        },
+        {
+          "pid": 66798,
+          "parent": 63109,
+          "kind": "test-or-check-process"
+        }
+      ]
+    },
+    "gatePreflightClarification": "Three detected pre-existing test processes were older than two days (one stopped, two sleeping); left untouched. No universal exclusion of nonparticipating processes claimed. Capacity-one wrapper owns only this cooperative gate.",
+    "finalCodeHashes": {
+      "tests/routine-sources.test.mjs": "122da6dcd53fcd431bc91d8c84ced48ecc1b55968201a268919d0d6b982424d1",
+      "tests/helpers/sqlite-process-observer.mjs": "68b26faab1f59bcd54c377685bbb627e7da36e2a9b3e49cd22baf47d73cb584b",
+      "tests/fixtures/routines/sqlite-native-work.mjs": "aa5cd8fc0a5dc15902e8bc1f7821a6378f6ce47f2afc2575b6d3403d0c425358",
+      "experiments/openhands/probe-native-lease.py": "9df8fa7470a2302221b2691f414a706b056899ba0bb5ce1da117266401816b48",
+      "experiments/openhands/requirements-lease.txt": "460d8e24dd7b8c4327405b2df33b448fae70b865c3939c3154128650b6c5d759"
+    },
+    "fullGate": {
+      "command": "node scripts/validation-budget.mjs run --manifest <worktree>/plates.json --repo dalmaer/plates --root <worktree> --state-dir <task>/validation-host --capacity 1 --weight 1 --timeout-ms 900000 --foreground-contract --json -- npm run check",
+      "status": "passed",
+      "tests": 3925,
+      "passed": 3921,
+      "failed": 0,
+      "skipped": 4,
+      "testDurationMs": 218652.038375,
+      "logSha256": "bd369c5e3171c539c78b9feeaa22f9c2f3abc470d48e77b9f70735a1c3566e8a",
+      "receipt": {
+        "schema": 1,
+        "authority": "admission-only",
+        "id": "ec842ba5-91c2-468a-8f1a-eaf8473994ec",
+        "foregroundContract": "posix-cooperative-process-group",
+        "repo": "dalmaer/plates",
+        "root": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/plates-openhands",
+        "revision": "d279d1ee4d650c428b04d19f343f905030eb4366",
+        "commandDigest": "5233f39db9091c68afce997411006c2ec123f7b6940732c33914b3c30aeadb69",
+        "createdAt": "2026-10-30T22:00:06.406Z",
+        "endedAt": "2026-10-30T22:04:33.557Z",
+        "childStatus": 0,
+        "signal": null,
+        "timedOut": false,
+        "interrupted": null,
+        "spawnError": null,
+        "wallMs": 267148.17783299997,
+        "cpuMs": null,
+        "released": true,
+        "status": 0,
+        "resources": {
+          "availableParallelism": 14,
+          "freeMemoryBytes": 7038205952
+        },
+        "limits": [
+          "No gate/reuse authority or changed worker defaults.",
+          "Foreground command contract excludes daemonizing/session-escaping descendants; no process sandbox is claimed.",
+          "CPU duration is unavailable; wall duration includes setup and nested waits."
+        ]
+      }
+    },
+    "typecheck": "passed",
+    "productionReaderChanged": false,
+    "originalFailurePreserved": true
+  },
+  "currentStatus": "passed-local-evaluation; live integration remains unqualified"
 }
