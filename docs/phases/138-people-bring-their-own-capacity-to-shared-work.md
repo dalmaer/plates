@@ -5,7 +5,7 @@ goal: G8
 spec: 2
 depends: [137, 103, 106]
 note: "Local canonical usage and advisory personal recommendations implemented; verified live quota adapters, collaboration/funding policy, reservations and lesson sharing remain unactivated and incomplete."
-evidence: ["evidence/2026-10-30-consolidated-observations-usage.md", "evidence/2026-10-30-personal-agent-recommendations.md"]
+evidence: ["evidence/2026-10-30-consolidated-observations-usage.md", "evidence/2026-10-30-personal-agent-recommendations.md", "evidence/2026-10-30-consolidation-local-validation.md"]
 ---
 
 # People bring their own capacity to shared work
@@ -52,7 +52,7 @@ changes funding identity or grants paid execution.
 - [ ] Verified organizational plans share only their real provider pool under explicit allocation; unknown org identity, cross-instance coordination and unsupported subscription enforcement remain unavailable: `npm run check:focused -- tests/routine-ownership.test.mjs tests/web-capacity.test.mjs` (first file planned).
 - [ ] Personal-to-plate or set-shared lesson promotion is an exact reviewed copy with source provenance, destination audience and redaction; personal defaults and revocation do not leak original content: `npm run check:focused -- tests/routine-ownership.test.mjs tests/web-learning.test.mjs` (first file planned).
 - [ ] Existing owner-scoped receipts, Connections, Learning and return routes retain their current restrictions until an explicit schema migration and per-record sharing decision: `npm run check:focused -- tests/routine-ownership.test.mjs tests/web-operation-coverage.test.mjs` (first file planned).
-- [ ] Existing and new contract tests pass without assuming live multi-user or provider activation: `npm run check` and `npm run typecheck` on the integrated candidate.
+- [x] Existing and new contract tests pass without assuming live multi-user or provider activation: `npm run check` and `npm run typecheck` on the integrated candidate.
 - [ ] Two separately authorized test identities exercise the shared plate and private account views, with no model spend required for the visibility walkthrough: ⚑ by hand: owner and conductor, after exact test-identity/scope approval.
 
 ## Your part
@@ -109,7 +109,7 @@ created by this local implementation.
 
 ## Next action
 
-Verify the final local recommendation and existing-UI integration, then prepare an exact authenticated provider/account adapter and its visibility walk for separate activation review. Continue P1's versioned collaborator/funding/reservation and lesson-sharing boundaries without automatically widening existing owner-scoped descriptors or changing active routines.
+The local recommendation and existing-UI integration passed the combined gate and installed-package walk. Prepare an exact authenticated provider/account adapter and its visibility walk for separate activation review. Continue P1's versioned collaborator/funding/reservation and lesson-sharing boundaries without automatically widening existing owner-scoped descriptors or changing active routines.
 
 ## Trajectory
 

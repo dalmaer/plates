@@ -89,3 +89,8 @@ grants and reviewed lesson sharing are separate work. A synthetic two-person
 fixture is not a live multi-person acceptance walk. Hosted activation still needs
 the exact adapter, identities, provider scope and access reviewed before enabling
 it. No credential transfer, publication, merge or deployment occurred.
+
+## Final validation update
+
+The combined local candidate passed its exact-revision full gate, typecheck and
+installed-package walk on 30 October 2026. See the [final validation record](2026-10-30-consolidation-local-validation.md) for counts, hashes and remaining work.

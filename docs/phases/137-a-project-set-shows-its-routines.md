@@ -5,7 +5,7 @@ goal: G8
 spec: 2
 depends: [93, 102]
 note: "Local set lens extended with explicit metadata readers, canonical task/PR usage and existing-UI projections. Authenticated bridge activation, live source walks and remaining navigation/terminology work are unverified."
-evidence: ["evidence/2026-10-30-project-set-lens.md", "evidence/2026-10-30-consolidated-observations-usage.md"]
+evidence: ["evidence/2026-10-30-project-set-lens.md", "evidence/2026-10-30-consolidated-observations-usage.md", "evidence/2026-10-30-consolidation-local-validation.md"]
 ---
 
 # A project set shows its routines and what actually ran
@@ -62,7 +62,7 @@ permission. Do not add a competing routine telemetry store.
 - [x] All inventoried reader capabilities have a reasoned reuse/redesign/drop disposition; supported sources retain bounded reads, provenance, timezone and explicit gaps: `npm run check:focused -- tests/routine-sources.test.mjs`.
 - [ ] Existing CLI/board/Routines/Activity consume one model; filters, keyboard/mobile use, old run attempts and current authorization survive aggregation: `npm run check:focused -- tests/management-surfaces.test.mjs tests/web-management-observations.test.mjs tests/web-runs.test.mjs tests/web-runs-ui.test.mjs`; real desktop/mobile source comparison still requires its walk.
 - [ ] Observation enrollment cannot dispatch work; revoked/forged hosts, replayed uploads and cross-actor/project reads fail without exposing private source content: `npm run check:focused -- tests/routine-views.test.mjs` (planned file).
-- [ ] The installed candidate exposes JSON and help for supported observation commands, preserves current board/fleet contracts, and passes source conventions: `npm run check` and `npm run typecheck` on the integrated implementation.
+- [x] The installed candidate exposes JSON and help for supported observation commands, preserves current board/fleet contracts, and passes source conventions: `npm run check` and `npm run typecheck` on the integrated implementation.
 - [ ] Selected authorized sources agree with independent provider observations on desktop/mobile, with unavailable sources visibly incomplete: ⚑ by hand: owner and conductor; observation-only activation reviewed separately.
 
 ## Your part
@@ -116,7 +116,7 @@ window, gaps and observation-only activation separately from acceptance.
 
 ## Next action
 
-Run the combined final candidate gate after the personal-capacity increment; the exact-checkpoint installed-package fixture walk passed. Prepare authenticated observation enrollment/replay/revocation and selected-source comparisons, with exact sources reviewed before activation. Continue actor-private capacity in phase 138 without changing existing funding or sharing grants. Complete the remaining navigation/terminology inventory before claiming the whole management journey.
+The combined gate and exact-revision installed-package walk passed. Prepare authenticated observation enrollment/replay/revocation and selected-source comparisons, with exact sources reviewed before activation. Continue actor-private capacity in phase 138 without changing existing funding or sharing grants. Complete the remaining navigation/terminology inventory before claiming the whole management journey.
 
 ## Trajectory
 

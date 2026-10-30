@@ -102,3 +102,8 @@ complete terminology/navigation migration remain separate proof. Phase 138
 still needs personal capacity recommendations, collaboration/sharing policy and
 separately approved activation. No synthetic result is a live multi-person,
 provider-billing or executor-cutover claim.
+
+## Final validation update
+
+The combined local candidate passed its exact-revision full gate, typecheck and
+installed-package walk on 30 October 2026. See the [final validation record](2026-10-30-consolidation-local-validation.md) for counts, hashes and remaining work.
