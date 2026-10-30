@@ -157,3 +157,32 @@ that retrospective metadata cannot recover missing boundaries or review inputs.
 Managed rendering and the required focused practice/convention preflight pass.
 The failed run and the npm-cache refusal remain retained; neither is attributed
 as successful validation or silently discarded.
+
+## Final lifecycle checkpoint — 2026-10-30
+
+Implementation commit `834841bf11336386eebcb16be57c7630c936fc1f` passed the full
+repository gate: 3,904 tests passed, zero failed, five existing conditional skips,
+with successful roadmap, 99-target render and inbox checks. Typecheck exited 0.
+The focused integration preflight passed 254 tests; the corrected practice
+preflight passed 138. The test ledger found no flaky or slower test; busy runs
+were excluded from performance inference.
+
+The final captured content tree is `2ef4e8a7c4bd6d6c21e638eefed190563779732f`:
+the committed tree exactly matches the previously observed working snapshot.
+Its quality checkpoint is
+`07be3750cb144d4068c839932ed58e77219a101c233a774f60b01db56298419c`.
+Retained failed preflights and the cache denial were imported as retrospective
+verification observations with unknown times and unavailable artifact checkpoints,
+rather than omitted or assigned invented measurements. The final artifact and
+successful integrated gate were then recorded against the known content tree.
+
+The latest private report is
+`ae23a29be62a7d9b6e3677fdc3759c589880232d9d3cb9b8200a357e31d5f3ca`.
+It retains 20 historical candidates and one retrospectively observed task across
+two projects, with seven attempts: four completed, two failed and one denied.
+Two attempts came through lifecycle/ordinary-command capture; the later five
+are declared observations from this task's retained checks and final artifact.
+There are still zero comparable episodes and no independent human acceptance.
+Source gaps, provenance, earlier effort, costs and delayed outcomes remain visible.
+No agent ranking, causal improvement, installed fleet-wide capture or active
+weekly schedule is claimed. Publication and scheduling approvals remain pending.

@@ -1,11 +1,13 @@
 ---
 status: partial
+owes: walk
+waits: owner
 since: 2026-10-30
 goal: G5
 spec: 2
 depends: [117]
 review: wait
-note: "Metadata foundation passed validation; local execution hooks, pending adjudication and collecting weekly reports are being completed. Publication and scheduling await separate approval."
+note: "Local hooks, adjudication and weekly collection are complete and validated; the build and validation steps below are satisfied. Draft publication and separate local-only scheduling await approval; broader installation and human calibration remain."
 evidence: ["evidence/2026-10-30-agent-quality.md"]
 ---
 
@@ -24,7 +26,7 @@ Implement the [agent quality contract](../specs/agent-quality.md), derived from 
 - [x] Bounded metadata ingestion is private, idempotent, source-bound and rejects invalid joins: `tests/agent-quality-records.test.mjs`.
 - [x] Stage, project, fixed-mix and workload views retain failures, sparse strata, unknown charges and immature follow-up: `tests/agent-quality-report.test.mjs`.
 - [x] CLI baseline, collection and weekly report integration preserve existing evaluations and require no model run: `tests/agent-quality.test.mjs`.
-- [ ] Repository focused conventions and integrated checks pass on the completed lifecycle integration: `npm run check`; `npm run typecheck`.
+- [x] Repository focused conventions and integrated checks pass on the completed lifecycle integration: `npm run check`; `npm run typecheck`.
 - [x] A real metadata baseline documents sources and gaps: `node bin/plates.mjs retro quality baseline --json`.
 - [x] Local execution and review adapters preserve real stage boundaries and exact checkpoint identities, including failures and explicit unknown provenance: `node --test tests/agent-quality-execution.test.mjs`.
 - [x] Pending annotations and adjudication keep human judgments separate from model declarations and never backdate difficulty: `node --test tests/agent-quality-lifecycle.test.mjs tests/agent-quality-report.test.mjs`.
