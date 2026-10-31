@@ -140,3 +140,38 @@ flags, narrow legacy residue and future unknown flags. Independent semantics
 review cleared the design and the guild-before-overwrite checks. `plates prove`
 against `d0ebcadb` reproduced the real interaction rejection with the prior core
 and verified the corrected behavior; its exact trailer is retained in the commit.
+
+## Native Discord validation — 2026-10-31
+
+The earlier session inventory missed the installed `/Applications/Discord.app`.
+Opening it reached an already authenticated Dion Almaer (`dalmaer`) session with
+Ajaxian channel administration. The owner approved restricting only Plates Test
+in #test and reaffirmed existing-Keychain-token use for this bounded test after
+being informed of possible credential exposure. No credential was reset, copied
+into assistant output, or changed; the bridge must be stopped after this test.
+
+Through the native channel settings, selected the `Plates Test#9721` **member**,
+denied the sixteen approved extra text capabilities, and saved. Read-only Discord
+API verification through the existing private Keychain pipe confirmed the entire
+overwrite list contains only `{id:"1565878548068311060",type:1,allow:"0",deny:"1760285904322625"}`.
+The channel has no parent category. @everyone and all role grants were untouched.
+Verified raw permissions are `488187561512448`, text permissions `3072`, and
+missing/extra/unknown/forbidden bits all zero. No privileges were granted.
+
+Ran the documented foreground `live.mjs --root <private-state>
+--secret-approved --validate-approved --json` entrypoint from `68288f81`.
+Identity and scope checks passed; Gateway connected with only the Guilds intent.
+All three guild slash commands were registered with verified receipts:
+ask `1565895411594563675`, status `1565895412869501009`, stop `1565895413653831702`.
+The one durable smoke intent `validation-v1` was delivered as #test message
+`1565895429923537052`, also visible in the native app. Its text explicitly labels
+the bridge synthetic and coding/model execution disabled. No other channel was
+used. At this checkpoint the inbox was empty; owner slash-command verification
+and runtime shutdown were still pending, so this is not yet a completed reply-path test.
+
+The owner was asked to send `/status` with backend Gas City and target coordinator.
+No interaction receipt had arrived at the handoff. An attempt to interrupt the
+waiting foreground process was denied by automatic approval review: its stated
+reason was that the approved sequence requires the slash-command reply check
+before shutdown. No alternative stop mechanism was attempted. The owned runtime
+therefore remains waiting for that check or explicit approval to stop early.
