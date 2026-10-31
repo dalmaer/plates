@@ -390,6 +390,17 @@
       "ownerAttended": true,
       "rollback": "No hosted change.",
       "proof": "The owner's dated selection, recorded privately per the fleet trial worksheet."
+    },
+    {
+      "id": "migration-015",
+      "phase": 152,
+      "kind": "migration",
+      "migration": "015-push.sql",
+      "what": "After the G7 activation steps, apply 015-push.sql (the plates_push schema: encrypted push subscriptions, the once-per-item notification ledger and plates_push_rpc), so the installed app can subscribe; until then the push routes answer a bounded 503.",
+      "prerequisites": [94, 152],
+      "ownerAttended": true,
+      "rollback": "A failure inside the transaction rolls back by itself. After commit, drop the plates_push schema; nothing else reads it, and the push routes return to their bounded 503.",
+      "proof": "The applied version: file name and SHA-256; the measured hosted schema and grants; one authenticated subscribe request and its response status."
     }
   ],
   "open": [

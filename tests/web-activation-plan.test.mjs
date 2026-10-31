@@ -42,7 +42,7 @@ test('the activation plan is complete and ordered', async t => {
     assert.deepEqual(check(plan), []);
     // Every G7 phase that owes a walk or names a hosted gap is in the plan.
     const owing = phasesNeedingSteps(phases, 'G7', 151);
-    assert.deepEqual(owing, [94, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108]);
+    assert.deepEqual(owing, [94, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 152]);
     for (const id of owing) assert.ok(plan.steps.some(s => s.phase === id), `phase ${id}`);
     // Every migration not yet applied in the hosted database has its step.
     assert.deepEqual(plan.applied.map(a => a.migration), ['001-auth.sql', '002-home-cache.sql', '003-home-retry.sql']);
@@ -60,14 +60,14 @@ test('the activation plan is complete and ordered', async t => {
   });
 
   await t.test('a step whose prerequisite phase is not built or partial is refused', () => {
-    // A phase that has not landed, held planned in memory so the test does not
-    // depend on how far phases 150 and 152 have got on main.
-    const held = phases.map(p => [150, 152].includes(p.id) ? { ...p, status: 'planned', owes: undefined } : p);
+    // Phases held planned in memory so the test does not depend on how far
+    // phases 150 and 147 have got on main.
+    const held = phases.map(p => [147, 150].includes(p.id) ? { ...p, status: 'planned', owes: undefined } : p);
     const g9 = { ...copy(plan), steps: [...copy(plan.steps), { id: 'decisions-due', phase: 150, kind: 'env', what: 'Show decisions due for a check.', prerequisites: [150], ownerAttended: true, rollback: 'Hide it.', proof: 'A request.' }] };
     assert.deepEqual(check(g9, { phases: held, migrations }), [`step ${plan.steps.length + 1} (decisions-due): prerequisite phase 150 is planned, not built or partial; refused`]);
     // An existing step that comes to need an unbuilt phase.
-    assert.deepEqual(check(edited(plan, 'drafts-gate', { prerequisites: [107, 152] }), { phases: held, migrations }),
-      [`step ${index('drafts-gate') + 1} (drafts-gate): prerequisite phase 152 is planned, not built or partial; refused`]);
+    assert.deepEqual(check(edited(plan, 'drafts-gate', { prerequisites: [107, 147] }), { phases: held, migrations }),
+      [`step ${index('drafts-gate') + 1} (drafts-gate): prerequisite phase 147 is planned, not built or partial; refused`]);
     // A phase that is no longer built refuses every step that needs it.
     const unbuilt = phases.map(p => p.id === 104 ? { ...p, status: 'planned', owes: undefined } : p);
     const refused = check(plan, { phases: unbuilt, migrations });
