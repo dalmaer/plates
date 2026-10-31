@@ -66,11 +66,18 @@ export function inlineNode(script) {
 }
 
 const env = () => Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('NODE_TEST_')));
-const spawn = (cmd, args, input) => {
-  const r = spawnSync(cmd, args, { input, encoding: 'utf8', env: env(), maxBuffer: 16 * 1024 * 1024 });
+// No child reads stdin, and none may run unbounded: a bash fed through a pipe
+// was seen blocked on a stdin that never closed, hanging a gate with no test
+// timeout. A child that outlives the bound is reported, never waited on.
+const CHILD_MS = 60_000;
+const spawn = (cmd, args, ms = CHILD_MS) => {
+  const r = spawnSync(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8', env: env(), maxBuffer: 16 * 1024 * 1024, timeout: ms, killSignal: 'SIGKILL' });
+  if (r.error?.code === 'ETIMEDOUT') return { status: 1, stdout: '', stderr: `${cmd} did not finish within ${ms / 1000} s` };
   if (r.error) throw r.error;
   return r;
 };
+/** The bounded child run, for the check's own test. */
+export const boundedChild = spawn;
 
 /** What bash -n and node --check say about one workflow's scripts: [string], each naming the file, step and line. */
 export async function shellProblems(label, text) {
@@ -79,8 +86,10 @@ export async function shellProblems(label, text) {
   try {
     for (const b of runBlocks(text)) {
       const where = `${label}: step "${b.step}" (line ${b.line})`;
-      const sh = spawn('bash', ['-n'], `${b.script}\n`);
-      if (sh.status !== 0) out.push(`${where}: bash -n: ${sh.stderr.trim().split('\n')[0]}`);
+      const script = join(dir, `b${b.line}.sh`);
+      await writeFile(script, `${b.script}\n`);
+      const sh = spawn('bash', ['-n', script]);
+      if (sh.status !== 0) out.push(`${where}: bash -n: ${sh.stderr.replaceAll(script, 'bash').trim().split('\n')[0]}`);
       for (const [k, n] of inlineNode(b.script).entries()) {
         const file = join(dir, `b${b.line}-${k}.${n.module ? 'mjs' : 'cjs'}`);
         await writeFile(file, n.js);
