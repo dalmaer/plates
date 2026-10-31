@@ -1,11 +1,12 @@
 ---
-status: planned
-since: 2026-10-30
+status: partial
+owes: walk
+since: 2026-10-31
 goal: G9
 spec: 2
 depends: [142, 145]
-note: "One transport-neutral chat seam, Discord first (the owner has it working); designed in the stopped executor trials, never connected there."
-evidence: []
+note: "lib/chat holds the envelope, outbox, seam and Discord payload mapping, proven on a fake transport; the bot in the owner's server is the walk."
+evidence: ["evidence/2026-10-31-chat-seam.md"]
 ---
 
 # Agents and the owner talk in one chat the owner can see
@@ -35,10 +36,10 @@ the project's autonomy level and door classes allow.
 
 ## Acceptance
 
-- [ ] A message whose text claims to be the owner, or a message from a bot, triggers nothing; only the authenticated owner's slash command does: `tests/chat-seam.test.mjs: "identity comes from the origin, never the text"`.
-- [ ] A reconnect replays observations and never repeats an effect; an uncertain post stays uncertain: `tests/chat-seam.test.mjs: "reconnect never repeats an effect"`.
-- [ ] A `/plates stop` from the owner stops a running fixture agent, and a request beyond the project's level is refused in chat with the reason: `tests/chat-seam.test.mjs: "chat cannot exceed the level"`.
-- [ ] In the owner's server, `/plates status` for one project answers, and an agent's hand-off to another agent appears in the channel: ⚑ by hand: the owner.
+- [x] A message whose text claims to be the owner, or a message from a bot, triggers nothing; only the authenticated owner's slash command does: `tests/chat-seam.test.mjs: "identity comes from the origin, never the text"`.
+- [x] A reconnect replays observations and never repeats an effect; an uncertain post stays uncertain: `tests/chat-seam.test.mjs: "reconnect never repeats an effect"`.
+- [x] A `/plates stop` from the owner stops a running fixture agent, and a request beyond the project's level is refused in chat with the reason: `tests/chat-seam.test.mjs: "chat cannot exceed the level"`.
+- [ ] In the owner's server, the plates status slash command for one project answers, and an agent's hand-off to another agent appears in the channel: ⚑ by hand: the owner.
 
 ## Your part
 
@@ -70,5 +71,6 @@ server.
 
 ## Next action
 
-Read the owner's working Discord test and the trials' chat-seam design, then
-write the envelope and its three tests against a fake transport.
+The owner names the server and channels and adds the bot token as a secret;
+the conductor writes the gateway connection (outbound only, no message-content
+intent) and walks `/plates status` and a hand-off. Then door classes from 145.
