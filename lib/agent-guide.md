@@ -2079,6 +2079,10 @@ Any overrun blocks further admissions and positive audit/apply, while finish sti
 {"runId":"run1","totalMinutes":10,"costUsd":null,"costSource":null,"accepted":true,"verified":true,"policyApplied":true,"lostDecisions":0,"duplicateActions":0,"regressions":0,"rework":0,"contextPeakTokens":null,"sourceRevision":"acme-result","acceptanceEvidence":"docs/evidence/acme-result.md#acceptance","evidence":["docs/evidence/acme-full-workflow.md"]}
 ```
 
+A failed (`accepted` or `verified` false) or reworked (`rework` >0) finish also
+needs `lessonStatus`: `{"status":"captured","link":"<lesson, proposal or inbox item>"}`,
+`{"status":"known","lesson":"<lesson id>"}` or `{"status":"none"}` (phase 148).
+
 `totalMinutes` is finite >0. Cost is null with null source, or finite >=0 with
 an explicit measured source pointer. `accepted`, `verified`, `policyApplied`
 are boolean or null. `policyApplied: true` explicitly attests the reserved
