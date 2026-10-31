@@ -56,6 +56,8 @@ or paid backup resource has been silently selected.
 
 ## Trajectory
 
+- **2026-10-31** — Owner chose the backup route: the database moves to the provider's Pro plan (from $25 a month; daily backups kept 7 days; no inactivity pause, which had paused the Free database) plus an independent nightly encrypted dump on the owner's machine. The snapshot read-back that closes the backup box waits for the upgrade.
+
 - **2026-10-21** — Remaining resource work is an owner identity/connection walk, not application code. Marked walk owed so phase 95 implementation can proceed while App registration and backup selection remain unverified. Actual serving Node-patch proof moves to phase 95, where the service is first deployed; configured Node 24.x remains a phase 94 check.
 
 - **2026-10-21** — Owner selected Vercel, superseding the unprovisioned Render candidate. Stateless concurrent functions require external transactions and bounded polling; phase 93 remains the local filesystem adapter. Private repository creation succeeded; Vercel login is required.

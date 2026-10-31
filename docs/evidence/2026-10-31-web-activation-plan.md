@@ -25,3 +25,39 @@ contacted Vercel, Supabase or GitHub.
 - ⚑ The owner-attended activation session and a week of use.
 
 Supports **partial** (walk owed).
+
+## Hosted proof SQL for 006–015 (2026-10-31)
+
+| Did | Expected | Observed | Proves / does not prove |
+| --- | --- | --- | --- |
+| `node --import ./tests/helpers/hermetic.mjs --test tests/web-hosted-proofs.test.mjs tests/web-activation-plan.test.mjs` (conductor) | pass | exit 0, 31 of 31 | Each of the ten `docs/evidence/2026-10-31-web-*-hosted-proof.sql` files runs clean after migrations 001..N on development PGlite, leaves private row counts unchanged, can run twice, and its two-tab race replays and cleans up. |
+| Conductor mutation: the jobs proof's row-level-security check replaced with `null` | the wrong-fact test fails | failed (2 of 22), then green restored | A proof that stops checking a fact is caught. |
+
+PGlite stands in plain `anon`, `authenticated` and `service_role` roles. Not
+covered: Supabase's real role setup, pooling, real lock waits (races replay
+serially) and each migration file's SHA-256, which the step still checks.
+The 007 proof runs before 014, whose forwarder for `keel_run_history` is
+VOLATILE.
+
+## Session, steps 1 and 2 (2026-10-31)
+
+- **Step 1 stopped before any migration.** The production workspace had
+  refused every request since 2026-10-22 22:37 UTC: a same-source redeploy
+  set the configured origin to the provider's generated project address,
+  which sits behind the provider's own login, while the browser address
+  stayed the old one (request logs: last 200 on 2026-10-22, 403
+  `invalid_origin` on every request after). With the owner's approval the
+  workspace moved to an owner-chosen custom domain: domain added to the
+  project, the configured origin changed to it, the same reviewed source
+  rebuilt for production. Observed: the sign-in page answers 200, Home and
+  `/api/deployment` answer 401 `sign_in_required` signed out. The serving
+  Node version is not yet read; that needs the owner signed in, after the
+  GitHub App callback is added for the new origin.
+- **The database was paused.** The Free plan pauses after a week without
+  use, and its host stopped resolving. A workspace that isn't used for a
+  week goes dark on Free; step 1 should check the database answers as well
+  as the runtime.
+- **Step 2 decided by the owner, 2026-10-31:** move the database to the
+  provider's Pro plan (from $25 a month: daily backups kept 7 days, no
+  inactivity pause) and keep an independent nightly encrypted dump on the
+  owner's machine. Snapshot read-back is pending the upgrade.

@@ -50,7 +50,7 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
 8. **migration-006** (phase 99, migration, owner attends). Apply 006-private-media.sql (ciphertext capture receipts and the attachment CAS).
    - Needs first: phase 94.
    - Rollback: A failure inside the transaction rolls back by itself. After commit, leave media out of the configuration so no route writes receipts.
-   - Proof to record: The applied version: file name and SHA-256. The commit result, the role denials and a bounded receipt RPC call run as the service role.
+   - Proof to record: The applied version: file name and SHA-256. The commit result, and docs/evidence/2026-10-31-web-media-hosted-proof.sql's result: the role denials and a bounded receipt RPC call run as the service role.
 9. **media-config** (phase 99, env, owner attends). Add media {bucket: keel-captures, retentionDays: 90, capacityBytes: 268435456} to KEEL_WEB_CONFIG and redeploy.
    - Rollback: Remove the media member and redeploy. Stored captures and their receipts are kept.
    - Proof to record: The serving revision, and one capture upload request whose receipt reaches the verified state, with its response status.
@@ -68,14 +68,14 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
 13. **migration-007** (phase 102, migration, owner attends). Apply 007-run-history.sql, the read-only history RPC over the 004 operation store. It has no recovery or purge.
    - Needs first: phase 94.
    - Rollback: A failure inside the transaction rolls back by itself. The function only reads; after commit, the history page can be hidden by redeploying the pinned deployment.
-   - Proof to record: The applied version: file name and SHA-256. The commit result, the role denials and one bounded actor-scoped history call.
+   - Proof to record: The applied version: file name and SHA-256. The commit result, and docs/evidence/2026-10-31-web-run-history-hosted-proof.sql's result: the role denials and one bounded actor-scoped history call.
 14. **connections-choice** (phase 103, decision, owner attends). Owner decides whether to switch on the optional connection vault now, and which provider (OpenAI or Anthropic) to validate. Declining skips the connection steps and model routing (106), which needs them.
    - Rollback: No hosted change; connections stay disabled.
    - Proof to record: The owner's dated choice, recorded in phase 103.
 15. **migration-008** (phase 103, migration, owner attends). Apply 008-connections.sql (runtime credential ciphertext; its RPC never returns ciphertext).
    - Needs first: phase 94.
    - Rollback: A failure inside the transaction rolls back by itself. After commit, keep connections.enabled false so no credential is stored.
-   - Proof to record: The applied version: file name and SHA-256. The commit result, the role denials and a CAS rotation race between two connections.
+   - Proof to record: The applied version: file name and SHA-256. The commit result, docs/evidence/2026-10-31-web-connections-hosted-proof.sql's result (the role denials and a service-role CAS exercise) and its CAS rotation race between two connections.
 16. **connection-wrapping-key** (phase 103, env, owner attends). Bind a separate production wrapping key as KEEL_CONNECTION_ENCRYPTION_KEY (32 bytes, base64, different from the session key) in Vercel's secret store, with a copy in the protected recovery location the backup decision chose. Redeploy.
    - Rollback: Keep connections.enabled false. Never remove or rotate the key while any credential ciphertext exists; removing Plates's copy of a credential does not revoke the provider key.
    - Proof to record: The serving revision, a startup that passes configuration validation, and the key's recovery-location reference (never the key).
@@ -89,7 +89,7 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
 19. **migration-009** (phase 104, migration, owner attends). Apply 009-jobs.sql (job records, reservations and fences). It refuses to run once 013 owns job admission, so it must precede 010 and 013.
    - Needs first: phase 94.
    - Rollback: A failure inside the transaction rolls back by itself. After commit, keep jobs.enabled false; never replay 009 after 013.
-   - Proof to record: The applied version: file name and SHA-256. The commit result, the role denials and a two-connection lane and weekly-minute reservation race.
+   - Proof to record: The applied version: file name and SHA-256. The commit result, docs/evidence/2026-10-31-web-jobs-hosted-proof.sql's result (the role denials and a service-role admission exercise) and its two-connection lane and weekly-minute reservation race.
 20. **typecheck-worker** (phase 104, worker, owner attends). Register the typecheck worker: the approved project carries the reviewed workflow, bridge and runtime at their paths; workers/<project>.json in the private workspace pins their blobs, disabled; the PLATES_WEB_ORIGIN repository variable names the HTTPS origin as the only callback; the project's weekly runtime allowance is written down.
    - Rollback: Set the registration's enabled false (or delete it through review) and remove the repository variable; the copied workflow keeps only its ordinary CI triggers.
    - Proof to record: The registration's commit in the private workspace, the blob identities read back from the project's default branch, and the repository variable read back.
@@ -104,7 +104,7 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
 23. **migration-010** (phase 105, migration, owner attends). Apply 010-fleet-updates.sql (update preparation sharing the job lanes and charges) after 009.
    - Needs first: phases 94, 104.
    - Rollback: A failure inside the transaction rolls back by itself. After commit, keep fleetUpdates.enabled false; never replay 010 after 013.
-   - Proof to record: The applied version: file name and SHA-256. The commit result, the role denials and a hosted concurrency check between preparation and an ordinary job.
+   - Proof to record: The applied version: file name and SHA-256. The commit result, docs/evidence/2026-10-31-web-fleet-updates-hosted-proof.sql's result (the role denials and a service-role preparation exercise) and its two-connection race between an update preparation and an ordinary job on one lane.
 24. **fleet-canary-choice** (phase 105, decision, owner attends). Owner selects one adopted canary project (Plates itself cannot stand in), the exact trusted build (commit, CLI and practice versions, bundle digest), the container image digest, platform and network policy, and the runtime allowance. Docker must be available for the isolated worker walk.
    - Rollback: No hosted change; fleet updates stay disabled.
    - Proof to record: The owner's dated selection, recorded in phase 105.
@@ -122,7 +122,7 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
 28. **migration-011** (phase 106, migration, owner attends). Apply 011-model-routing.sql (model records, tasks and independent monetary accounting; no Actions minute authority).
    - Needs first: phase 94.
    - Rollback: A failure inside the transaction rolls back by itself. After commit, keep modelRouting.enabled false.
-   - Proof to record: The applied version: file name and SHA-256. The commit result, the role denials and a two-connection allowance reservation race.
+   - Proof to record: The applied version: file name and SHA-256. The commit result, docs/evidence/2026-10-31-web-model-routing-hosted-proof.sql's result (the role denials and a service-role allowance exercise) and its two-connection allowance reservation race.
 29. **model-allowance** (phase 106, decision, owner attends). Owner approves the provider credential already validated in 103, the exact source and retention policy, and a small monetary allowance for one bounded run and its saved-summary continuation. No subscription credential is copied.
    - Needs first: phase 103.
    - Rollback: No hosted change; model routing stays disabled.
@@ -134,14 +134,14 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
 31. **migration-012** (phase 107, migration, owner attends). Apply 012-editor-drafts.sql (optional encrypted daily and model editor drafts; never an approval or a dispatch queue).
    - Needs first: phase 94.
    - Rollback: A failure inside the transaction rolls back by itself. After commit, keep drafts.enabled false.
-   - Proof to record: The applied version: file name and SHA-256. The commit result, the role denials and a two-connection draft CAS race.
+   - Proof to record: The applied version: file name and SHA-256. The commit result, docs/evidence/2026-10-31-web-editor-drafts-hosted-proof.sql's result (the role denials and a service-role draft exercise) and its two-connection draft CAS race.
 32. **drafts-gate** (phase 107, env, owner attends). Set drafts {enabled: true, verifiedAt} and redeploy. Draft activation enables neither night action.
    - Rollback: Set drafts.enabled false and redeploy; saved drafts keep their explicit expiry.
    - Proof to record: The serving revision, and one draft save request with its response status and revision.
 33. **migration-013** (phase 107, migration, owner attends). Apply 013-night-retries.sql after 010: native reruns and existing workers share one admission lock. From here on, 013 owns job admission.
    - Needs first: phases 94, 105.
    - Rollback: A failure inside the transaction rolls back by itself; the migration refuses an ambiguous partial state. After commit, keep nightOperations off, and reapply 013 (never 009 or 010) if admission must be restored.
-   - Proof to record: The applied version: file name and SHA-256. The commit result, the role denials and a hosted race between a night retry and an ordinary job on one lane.
+   - Proof to record: The applied version: file name and SHA-256. The commit result, docs/evidence/2026-10-31-web-night-retries-hosted-proof.sql's result (the role denials, the saved 010 delegate and a service-role shared-lane exercise) and its hosted race between a night retry and an ordinary job on one lane.
 34. **night-operations-gate** (phase 107, env, owner attends). Write the reviewed night-retries/<project>.json profile in the private workspace, then set nightOperations {retryEnabled, planWrites, verifiedAt, restoreReconciledAt, profiles} and redeploy. Retry needs Actions write and the jobs gate; plan writes need Contents write.
    - Needs first: phases 97, 101, 104.
    - Rollback: Set retryEnabled and planWrites false and redeploy. A retry already dispatched is reconciled from its original receipt, never sent again.
@@ -149,7 +149,7 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
 35. **migration-014** (phase 127, migration, owner attends). Phase 127 (goal G2) owns this last migration in the folder; it is listed so the folder is complete. After the compatibility-reader baseline is deployed and pinned as the rollback target, apply 014-plates-names.sql (plates_* public RPC names, old names forwarding) and verify both callers. Its 20 held writer rows move only in a separate reviewed change.
    - Needs first: phase 94.
    - Rollback: A failure inside the transaction rolls back by itself. After commit, the old names keep forwarding, so the pinned compatibility baseline still serves; promote it if a caller fails.
-   - Proof to record: The applied version: file name and SHA-256. The commit result, the measured hosted schema, grant and dependency impact, and one request through each name with its response status.
+   - Proof to record: The applied version: file name and SHA-256. The commit result, docs/evidence/2026-10-31-web-plates-names-hosted-proof.sql's result (grant and dependency impact, and one read through each old and new name), the measured hosted schema, and one request through each name with its response status.
 36. **fleet-trial-scope** (phase 108, decision, owner attends). Owner selects the fleet projects, participants and devices, the private evidence destination and the observation window for operating the fleet from the web.
    - Needs first: phases 101, 107.
    - Rollback: No hosted change.
@@ -157,11 +157,11 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
 37. **migration-015** (phase 152, migration, owner attends). After the G7 activation steps, apply 015-push.sql (the plates_push schema: encrypted push subscriptions, the once-per-item notification ledger and plates_push_rpc), so the installed app can subscribe; until then the push routes answer a bounded 503.
    - Needs first: phase 94.
    - Rollback: A failure inside the transaction rolls back by itself. After commit, drop the plates_push schema; nothing else reads it, and the push routes return to their bounded 503.
-   - Proof to record: The applied version: file name and SHA-256; the measured hosted schema and grants; one authenticated subscribe request and its response status.
+   - Proof to record: The applied version: file name and SHA-256; docs/evidence/2026-10-31-web-push-hosted-proof.sql's result (the schema, its grants and the RPC run as the service role); the measured hosted schema size; one authenticated subscribe request and its response status.
 
 ## Still open
 
 - Backup destination (phase 94) is still the owner's choice; the second step asks it, and every migration waits for it.
-- Hosted proof SQL exists only for 001–005 (docs/evidence). For 006–014 the conductor writes the hosted proof from each migration's local PGlite proof before the session, so a step's proof is ready to run, not improvised.
+- Hosted proof SQL exists for every migration step: 004 and 005 have theirs from phases 97–98, and 006–015 each have docs/evidence/2026-10-31-web-<topic>-hosted-proof.sql, which tests/web-hosted-proofs.test.mjs runs on PGlite after migrations 001..N. SQL cannot check the applied file's SHA-256, so each step still compares it with source. PGlite cannot stand in for Supabase's real roles, grants or connection pooling: there anon, authenticated and service_role are plain roles and each two-tab race replays serially on one connection, so the races' lock waits are first observed in the session.
 - Connections (103) are optional. Declining them skips their steps and model routing (106), and the plan records that choice rather than a gap.
 - G9's owner-facing pieces (phases 144, 145, 150) are planned, so they have no step yet; a step for an unbuilt phase is refused.
