@@ -428,6 +428,9 @@ test('waiting-on-owner events reach the notifier', async t => {
   const project = snapshot.projects.find(item => item.id === 'studio');
   assert.equal(snapshot.walks.filter(walk => walk.ready).length, 1, 'phase 3 is not ready');
   assert.deepEqual(waitingEvents(project).map(event => event.kind), ['walk', 'night']);
+  // An unready walk, or one from another project, never waits on the owner.
+  assert.deepEqual(waitingEvents({ ...project, walks: [{ id: 'acme-later', title: 'Acme later walk', ready: false, projectId: project.id },
+    { id: 'acme-elsewhere', title: 'Acme other walk', ready: true, projectId: 'acme-other' }], daily: null }), []);
   const planned = notificationsFor(waitingEvents(project));
   assert.deepEqual(delivered, planned.map(n => ({ title: n.title, body: n.body, url: n.url, tag: n.tag })));
   assert.deepEqual(delivered.map(payload => payload.url), ['/projects/studio', '/projects/studio/daily?date=2026-10-30']);
