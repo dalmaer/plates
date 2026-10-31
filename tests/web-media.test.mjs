@@ -93,5 +93,5 @@ test('receipt persistence failure before dispatch sends no object bytes',async()
 });
 
 test('missing dispatch CAS receipt cannot send an unreserved object',async()=>{
- const h=mediaHarness(),fetcher=(url,options)=>new URL(url).pathname.endsWith('/rpc/keel_media_rpc')&&JSON.parse(options.body).p_operation==='uploading'?Promise.resolve(Response.json(null)):h.fetcher(url,options),media=createMedia(h.config,{fetcher,now:()=>h.state.now,inspectTarget:h.changes.captureTarget});await assert.rejects(media.upload(h.access,token,h.project,'acme-search','desktop-after',await h.input()),bad('invalid_media_storage'));assert.equal(h.mediaState.posts,0);assert.equal(h.objects.size,0);
+ const h=mediaHarness(),fetcher=(url,options)=>new URL(url).pathname.endsWith('/rpc/plates_media_rpc')&&JSON.parse(options.body).p_operation==='uploading'?Promise.resolve(Response.json(null)):h.fetcher(url,options),media=createMedia(h.config,{fetcher,now:()=>h.state.now,inspectTarget:h.changes.captureTarget});await assert.rejects(media.upload(h.access,token,h.project,'acme-search','desktop-after',await h.input()),bad('invalid_media_storage'));assert.equal(h.mediaState.posts,0);assert.equal(h.objects.size,0);
 });

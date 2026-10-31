@@ -258,9 +258,9 @@ export async function nightRetryHarness() {
   }
   const fetcher = async (url, opts = {}) => {
     const u = new URL(url);
-    if (u.pathname === "/rest/v1/rpc/keel_night_retry_rpc")
+    if (u.pathname === "/rest/v1/rpc/plates_night_retry_rpc")
       return database(JSON.parse(opts.body));
-    if (u.pathname === "/rest/v1/rpc/keel_job_rpc") {
+    if (u.pathname === "/rest/v1/rpc/plates_job_rpc") {
       const p = JSON.parse(opts.body);
       if (p.p_operation === "budget") {
         const response = await h.fetcher(url, opts),

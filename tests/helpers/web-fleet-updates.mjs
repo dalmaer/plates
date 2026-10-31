@@ -143,7 +143,7 @@ export async function fleetUpdatesHarness() {
       for (const i of v.installations) i.permissions.pull_requests = "write";
       return Response.json(v);
     }
-    if (path === "/rest/v1/rpc/keel_fleet_rpc") {
+    if (path === "/rest/v1/rpc/plates_fleet_rpc") {
       const p = JSON.parse(opts.body),
         {
           p_operation: op,

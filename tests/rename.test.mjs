@@ -1156,7 +1156,8 @@ test('migration preserves model store and credential RPC identities against exis
   const vault = (await migrated('../lib/web/connection-store.mjs')).createConnectionStore(h.config, fetcher);
   const policy = h.workspace.files['connections/acme-openai.json'], descriptor = JSON.parse(policy);
   assert.equal(await vault.readKey(descriptor, { policyDigest: sha(policy), expectedVersion: 1 }), fakeKey);
-  assert.deepEqual(requests, ['/rest/v1/rpc/keel_model_rpc', '/rest/v1/rpc/keel_model_credential_read']);
+  // Table identities survive rename; phase127's dual rows select the migrated public RPC names.
+  assert.deepEqual(requests, ['/rest/v1/rpc/plates_model_rpc', '/rest/v1/rpc/plates_model_credential_read']);
   assert.equal(h.model.calls.length, 0);
 });
 

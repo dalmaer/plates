@@ -33,7 +33,7 @@ const sessionRef = (cookie) =>
   hash(
     cookie
       .split(";")
-      .find((c) => c.trim().startsWith("__Host-keel-session="))
+      .find((c) => c.trim().startsWith("__Host-plates-session="))
       .trim()
       .split("=")[1],
   );
@@ -275,7 +275,7 @@ test("epoch activation during renewal refuses the authenticated response", async
   const fetcher = async (url, options) => {
     const response = await h.fetcher(url, options);
     if (
-      new URL(url).pathname === "/rest/v1/rpc/keel_web_rpc" &&
+      new URL(url).pathname === "/rest/v1/rpc/plates_web_rpc" &&
       JSON.parse(options.body).p_operation === "renew"
     )
       h.config.recovery = recovery("b", true);
@@ -300,7 +300,7 @@ test("epoch activation while consuming an OAuth attempt prevents exchange; durin
       const response = await h.fetcher(url, options);
       if (
         (stage === "consume" &&
-          new URL(url).pathname === "/rest/v1/rpc/keel_web_rpc" &&
+          new URL(url).pathname === "/rest/v1/rpc/plates_web_rpc" &&
           JSON.parse(options.body).p_operation === "consume") ||
         (stage === "exchange" &&
           url === "https://github.com/login/oauth/access_token")

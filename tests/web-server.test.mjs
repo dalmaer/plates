@@ -126,7 +126,7 @@ try {
   assert.equal(client.status, 200); assert.match(client.text, /export function startHomeClient/);
   assert.equal(views.status, 200); assert.match(views.text, /export function renderHomeSnapshot/);
   assert.equal(response.status, 200); assert.match(response.text, /Continue with GitHub/);
-  assert.match(response.cookies[0], /^__Host-keel-login=.*Secure; HttpOnly; SameSite=Lax/);
+  assert.match(response.cookies[0], /^__Host-plates-login=.*Secure; HttpOnly; SameSite=Lax/);
   assert.doesNotMatch(response.text, /fake-client-secret|fake-service-key|supabase\.co/);
 });
 

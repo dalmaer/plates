@@ -5,7 +5,8 @@ import { createHash } from 'node:crypto';
 import { webConfig } from '../../lib/web/config.mjs';
 import { createWebService } from '../../lib/web/server.mjs';
 
-export function harness() {
+// createService selects the release under test (a rollback-baseline copy, for example).
+export function harness({ createService: create = createWebService } = {}) {
   const state = { now: Date.now(), records: new Map(), requests: [], unavailable: false, userId: 1, members: [1],
     private: true, appId: 11, installationId: 21, suspended: null, selection: 'selected', repoId: 102,
     repoName: 'acme/studio', repoAccess: true, partial: false, failGitHub: false, challenges: new Set() };
@@ -71,7 +72,7 @@ export function harness() {
     }
     throw new Error(`Unexpected synthetic path ${path}`);
   };
-  const makeService = () => createWebService(config, { fetcher, now: () => state.now });
+  const makeService = () => create(config, { fetcher, now: () => state.now });
   const service = makeService();
   const request = (path, { cookie, body, origin = config.origin, method = body ? 'POST' : 'GET', headers = {} } = {}) => new Request(`${config.origin}${path}`, {
     method, headers: { ...(cookie ? { cookie } : {}), ...(body ? { 'content-type': 'application/x-www-form-urlencoded', origin } : {}), ...headers },
