@@ -1,11 +1,11 @@
 ---
-status: planned
+status: partial
 since: 2026-10-31
 goal: G7
 spec: 2
 depends: [151]
-note: "The hosted workspace installs on the phone as an app, with push notifications for what waits on the owner; a native app only if this falls short."
-evidence: []
+note: "Manifest, shell worker, icons and encrypted Web Push are built and tested; wiring the workers to the notifier, migration 015 on the hosted instance and the owner's phone remain."
+evidence: ["evidence/2026-10-31-phone-app.md"]
 ---
 
 # Plates is an app on the owner's phone that says when something needs them
@@ -35,8 +35,9 @@ a native app is still needed.
 
 ## Acceptance
 
-- [ ] The manifest and service worker are served, the worker caches no private route, and a stale shell refreshes on reconnect: `tests/web-pwa.test.mjs: "the app installs and caches only its shell"`.
-- [ ] Each waiting-on-owner event sends one notification with a deep link and no private text, and a repeated event sends none: `tests/web-pwa.test.mjs: "one push per item, no private text"`.
+- [x] The manifest and service worker are served, the worker caches no private route, and a stale shell refreshes on reconnect: `tests/web-pwa.test.mjs: "the app installs and caches only its shell"`.
+- [x] Each waiting-on-owner event sends one notification with a deep link and no private text, and a repeated event sends none: `tests/web-pwa.test.mjs: "one push per item, no private text"`.
+- [ ] The workers that raise decision checks, ready walks, irreversible-door approvals and red nights call the notifier: `tests/web-pwa.test.mjs: "waiting-on-owner events reach the notifier"`.
 - [ ] Installed on the owner's phone, a real notification opens the right item and the owner acts on it: ⚑ by hand: the owner.
 
 ## Your part
@@ -65,5 +66,5 @@ By hand: the owner's two weeks.
 
 ## Next action
 
-After 151, add the manifest, shell worker and push subscription behind the
-existing sign-in.
+Wire the board and night workers to the notifier; apply migration 015 in the
+phase 151 activation session.

@@ -154,6 +154,10 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
    - Needs first: phases 101, 107.
    - Rollback: No hosted change.
    - Proof to record: The owner's dated selection, recorded privately per the fleet trial worksheet.
+37. **migration-015** (phase 152, migration, owner attends). After the G7 activation steps, apply 015-push.sql (the plates_push schema: encrypted push subscriptions, the once-per-item notification ledger and plates_push_rpc), so the installed app can subscribe; until then the push routes answer a bounded 503.
+   - Needs first: phase 94.
+   - Rollback: A failure inside the transaction rolls back by itself. After commit, drop the plates_push schema; nothing else reads it, and the push routes return to their bounded 503.
+   - Proof to record: The applied version: file name and SHA-256; the measured hosted schema and grants; one authenticated subscribe request and its response status.
 
 ## Still open
 
