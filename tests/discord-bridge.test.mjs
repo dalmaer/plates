@@ -118,7 +118,11 @@ test('Discord live preflight verifies application, bot, channel, guild and exact
   const f = permissionFixture(), objects = { '/oauth2/applications/@me': { id: DESTINATION.applicationId }, '/users/@me': { id: DESTINATION.applicationId, bot: true }, [`/guilds/${DESTINATION.guildId}`]: f.guild, [`/channels/${DESTINATION.channelId}`]: f.channel, [`/guilds/${DESTINATION.guildId}/members/${DESTINATION.applicationId}`]: f.member, [`/guilds/${DESTINATION.guildId}/roles`]: f.roles };
   const http = { get: async path => { assert.ok(Object.hasOwn(objects, path), `Unexpected route: ${path}`); return structuredClone(objects[path]); } }; assert.equal((await verifyIdentityAndScope(http)).permissions, '3072');
   f.channel.name = 'tasks'; await assert.rejects(verifyIdentityAndScope(http), /mismatch/); f.channel.name = 'test';
-  f.roles[1].permissions = '11264'; await assert.rejects(verifyIdentityAndScope(http), /exact/);
+  f.roles[1].permissions = '11264'; await assert.rejects(verifyIdentityAndScope(http), error => {
+    assert.equal(error.message, 'exact_view_send_permissions_required');
+    assert.deepEqual(error.permissionObservation, { expected: '3072', observed: '11264', missing: '0', extra: '8192' });
+    return true;
+  });
 });
 test('Discord guild registration never overwrites unrelated commands or retries ambiguous creates', async t => {
   const { bridge } = setup(t); let calls = 0;

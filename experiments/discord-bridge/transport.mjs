@@ -77,7 +77,9 @@ export async function verifyIdentityAndScope(http) {
   const guild = await http.get(`/guilds/${d.guildId}`), channel = await http.get(`/channels/${d.channelId}`);
   if (guild.id !== d.guildId || channel.id !== d.channelId || channel.guild_id !== d.guildId || channel.type !== 0 || channel.name !== 'test') fail('guild_channel_mismatch');
   const member = await http.get(`/guilds/${d.guildId}/members/${bot.id}`), roles = await http.get(`/guilds/${d.guildId}/roles`);
-  if (member.user?.id !== bot.id || effectivePermissions({ guild, channel, member, roles, botId: bot.id }) !== 3072n) fail('exact_view_send_permissions_required');
+  if (member.user?.id !== bot.id) fail('bot_member_mismatch');
+  const permissions = effectivePermissions({ guild, channel, member, roles, botId: bot.id });
+  if (permissions !== 3072n) throw Object.assign(new Error('exact_view_send_permissions_required'), { permissionObservation: { expected: '3072', observed: permissions.toString(), missing: (3072n & ~permissions).toString(), extra: (permissions & ~3072n).toString() } });
   return { applicationId: app.id, botId: bot.id, guildId: guild.id, channelId: channel.id, permissions: '3072' };
 }
 

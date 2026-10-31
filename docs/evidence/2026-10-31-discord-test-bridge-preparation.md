@@ -57,3 +57,37 @@ paths, minimum owner action, runtime command, uncertainty handling and read-only
 backend seam observations. The bridge remains synthetic-only; no executable backend
 adapter, model spend, public listener, routine, webhook, production deployment or
 permission widening was introduced. No phase acceptance/status was changed.
+
+## Approved provisioning and first live preflight — 2026-10-31
+
+The owner subsequently approved storage/use of the existing token in the named
+login Keychain item. A visible local Terminal collected one hidden token entry,
+with the owner-supplied public Discord ID prefilled. Metadata-only lookup confirmed
+the item exists; config inspection confirmed exactly that one human and the fixed
+application/guild/channel. No token was read into assistant output, arguments, logs
+or a plaintext file. The token-only prompt refinement is commit `9271f169`.
+
+The full preparation gate completed at `3713b9d9`: exit 0, 3,915 passed, zero failed,
+four existing opt-in Docker tests skipped, all nine pinned stall checks passed,
+and roadmap/render/inbox checks passed. The ledger reported no flaky or slower test.
+
+After provisioning, the approved runtime captured its Keychain item through the
+private pipe and made read-only Discord preflight requests. Application/bot
+`1565878548068311060`, guild `1565876613382410342`, and text channel #test
+`1565878881473265775` matched. Effective permissions were `2248473465835073`,
+not the required `3072`; missing required bits were `0`, extra bits were
+`2248473465832001`. Additional capabilities include invitations, attachments,
+mentions, history, threads, voice/media, guild expressions and events.
+
+Startup refused with `exact_view_send_permissions_required`, before command
+registration, Gateway connection or any message POST. The durable registration
+map and outbox were empty and the runtime lock was released. No permissions were
+changed. The first generic diagnostic was narrowed to fixed safe error codes and
+then numeric permission metadata; those read-only checks did not retry any write.
+The focused bridge suite passed all 18 tests after adding a negative test for the
+numeric mismatch metadata. The exact-permission policy remains unchanged.
+
+Remaining live boundary: resolve the permission mismatch through a reviewed scoped
+decision; do not alter @everyone or add bot privileges implicitly. Then register
+the three guild commands, deliver the original single synthetic test intent, and
+observe the owner's slash-command reply path. No live reply-path success is claimed.
