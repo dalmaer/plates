@@ -1,11 +1,12 @@
 ---
-status: planned
-since: 2026-10-30
+status: partial
+owes: walk
+since: 2026-10-31
 goal: G9
 spec: 2
 depends: [132, 142]
-note: "Phase 132's levels are declared; this maps each to controls the hosts already enforce."
-evidence: []
+note: "Each level renders Claude, Codex and ruleset controls and doctor reports drift; applying a ruleset on one project is the walk."
+evidence: ["evidence/2026-10-31-autonomy-hosts.md"]
 ---
 
 # A project's risk level is enforced by the tools, not only written down
@@ -32,8 +33,8 @@ reports any drift between the level and what the host actually allows.
 
 ## Acceptance
 
-- [ ] Each level renders the expected Claude, Codex and ruleset settings, and Low never grants push or merge: `tests/autonomy-hosts.test.mjs: "each level renders its host controls"`.
-- [ ] A workflow or ruleset that allows more than the level is reported by doctor with the scope it exceeds: `tests/autonomy-hosts.test.mjs: "drift from the level is reported"`.
+- [x] Each level renders the expected Claude, Codex and ruleset settings, and Low never grants push or merge: `tests/autonomy-hosts.test.mjs: "each level renders its host controls"`.
+- [x] A workflow or ruleset that allows more than the level is reported by doctor with the scope it exceeds: `tests/autonomy-hosts.test.mjs: "drift from the level is reported"`.
 - [ ] On one fleet project at Medium, the previewed ruleset is applied and a robot push to main is refused by GitHub: ⚑ by hand: the conductor, after the owner's yes.
 
 ## Your part
@@ -45,7 +46,7 @@ reports any drift between the level and what the host actually allows.
 - **Keeps it open:** Not yet
 - **Takes:** 5 minutes.
 - **Then:** Apply it: the conductor applies it and tries a refused push. Change the level first: `plates autonomy --level …`, then a new preview.
-- **Ready when:** the render and drift tests pass.
+- **Ready:** yes
 
 ## Real surfaces
 
@@ -65,5 +66,5 @@ By hand: the refused push on one project.
 
 ## Next action
 
-Write the level-to-host mapping table from phase 132's scopes and the two
-CLIs' documented settings.
+The owner picks a fleet project at Medium; the conductor posts the ruleset
+preview, applies it on a yes, and tries a refused robot push.
