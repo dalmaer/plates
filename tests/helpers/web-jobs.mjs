@@ -350,7 +350,7 @@ export async function jobsHarness({ schedule = false } = {}) {
   const fetcher = async (url, opts = {}) => {
     const u = new URL(url),
       p = u.pathname;
-    if (p === "/rest/v1/rpc/keel_job_rpc")
+    if (p === "/rest/v1/rpc/plates_job_rpc")
       return db.handle(JSON.parse(opts.body));
     if (p === "/user/installations") {
       const response = await h.fetcher(url, opts),

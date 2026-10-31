@@ -54,7 +54,7 @@ export function connectionsHarness() {
         headers: provider.headers,
       });
     }
-    if (u.pathname === "/rest/v1/rpc/keel_connection_rpc") {
+    if (u.pathname === "/rest/v1/rpc/plates_connection_rpc") {
       const p = JSON.parse(options.body),
         key = JSON.stringify([p.p_scope, p.p_connection]);
       vault.requests.push(p);

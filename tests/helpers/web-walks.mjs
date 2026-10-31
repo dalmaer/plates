@@ -57,7 +57,7 @@ export function walkHarness(){
  const cfg={name:'Acme Studio',repo:'acme/studio',practices:['phases','shaping']},goals=[{id:'G0',title:'Useful search',outcome:'The owner finds Acme things.'}];
  Object.assign(h.source.files,{'.plates/plates.json':JSON.stringify(cfg),'docs/goals.json':JSON.stringify(goals),[phasePath]:walkPhase(),[resultPath]:resultBytes,'docs/walks/acme-search.json':JSON.stringify(walkDefinition()),'docs/ROADMAP.md':render({config:cfg,phases:[parsePhase(phasePath.split('/').at(-1),walkPhase())],goals})});
  const fetcher=async(url,options)=>{
-  if(new URL(url).pathname.endsWith('/rpc/keel_walk_rpc')){
+  if(new URL(url).pathname.endsWith('/rpc/plates_walk_rpc')){
    if(h.state.unavailable)throw Error('Synthetic private storage unavailable');
    const p=JSON.parse(options.body),row=rows.get(p.p_id),out=row=>row?{id:row.id,revision:row.revision,digest:row.digest,value:row.value}:null;
    if(p.p_operation==='read')return Response.json(row&&row.scope===p.p_scope&&row.project===p.p_project?out(row):null);

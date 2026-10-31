@@ -159,7 +159,7 @@ test('a failed slow first project yields to healthy sources, and fleet cache rea
   let active = 0, peak = 0, healthyDuringSlow = false, slow = false;
   const fetcher = async (url, options) => {
     const u = new URL(url);
-    if (u.pathname.endsWith('keel_home_cache_rpc') && JSON.parse(options.body).p_operation === 'read') {
+    if (u.pathname.endsWith('plates_home_cache_rpc') && JSON.parse(options.body).p_operation === 'read') {
       active++; peak = Math.max(peak, active); await new Promise(resolve => setTimeout(resolve, 2)); active--;
     }
     const id = /^\/repositories\/(2\d\d)$/.exec(u.pathname), repo = /^\/repos\/acme\/app(\d+)\//.exec(u.pathname);

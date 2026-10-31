@@ -360,5 +360,5 @@ test("learning harness composes actual OAuth and authorized session routes", asy
   const h = learningHarness(),
     auth = await h.login();
   assert.equal(auth.session.workspace.id, "acme");
-  assert.ok(auth.cookie.includes("__Host-keel-session="));
+  assert.ok(auth.cookie.includes("__Host-plates-session="));
 });

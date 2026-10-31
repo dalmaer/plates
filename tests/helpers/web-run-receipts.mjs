@@ -70,7 +70,7 @@ export function runReceiptsHarness() {
     history = { missing: false, fail: false, calls: [], mutate: null };
   let sequence = 0;
   const fetcher = async (url, options = {}) => {
-    if (new URL(url).pathname.endsWith("/rpc/keel_run_history")) {
+    if (new URL(url).pathname.endsWith("/rpc/plates_run_history")) {
       const p = JSON.parse(options.body);
       history.calls.push(p);
       if (history.missing)

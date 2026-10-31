@@ -13,7 +13,7 @@ export function mediaHarness(){
  const mediaState={public:false,mode:'success',removeMode:'success',posts:0,deletes:0,requests:[],holdUpload:null,holdDelete:null,failRead:false,failDB:false};
  const fetcher=async(url,options={})=>{
   const path=new URL(url).pathname;
-  if(path.endsWith('/rpc/keel_media_rpc')){
+  if(path.endsWith('/rpc/plates_media_rpc')){
    if(mediaState.failDB)throw Error('Synthetic DB unavailable');const p=JSON.parse(options.body);mediaState.requests.push(p);const row=receipts.get(p.p_id),out=r=>r?{id:r.id,state:r.state,revision:r.revision,value:r.value,digest:r.digest,actor:r.actor}:null,json=Response.json;
    const rows=[...receipts.values()].filter(r=>r.scope===p.p_scope&&r.project===p.p_project).sort((a,b)=>a.id.localeCompare(b.id)),slotKey=`${p.p_scope}:${p.p_project}:${p.p_slot}`;
    if(p.p_operation==='list')return json(rows.filter(r=>!p.p_after||r.id>p.p_after).slice(0,p.p_limit).map(out));

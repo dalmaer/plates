@@ -13,7 +13,7 @@ export async function jobsUIHarness({schedule=false,enabled=true,afterRead=null}
     if(u.pathname==='/repositories/102/actions/workflows')return Response.json({total_count:1,workflows:[{id:501,name:'Acme typecheck',path:h.routineId,state:'active',html_url:`https://github.com/acme/studio/blob/${h.source.head}/${h.routineId}`}]});
     if(u.pathname==='/repositories/102/actions/runs')return Response.json({total_count:h.actions.runs.size,workflow_runs:[...h.actions.runs.values()].map(run=>({...run,path:h.routineId}))});
     const response=await h.fetcher(url,options);
-    if(u.pathname==='/rest/v1/rpc/keel_job_rpc'&&['read','list','budget'].includes(JSON.parse(options.body).p_operation))await afterRead?.(h);
+    if(u.pathname==='/rest/v1/rpc/plates_job_rpc'&&['read','list','budget'].includes(JSON.parse(options.body).p_operation))await afterRead?.(h);
     return response;
   };
   const service=createWebService(config,{fetcher,now:()=>h.state.now});

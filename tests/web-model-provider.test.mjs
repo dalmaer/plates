@@ -107,7 +107,7 @@ test('vault read binds exact generation, policy, scope and existing encryption p
     requested = { url, body: JSON.parse(options.body) }; return json(good);
   });
   assert.equal(await store.readKey(descriptor, { policyDigest, expectedVersion }), key);
-  assert.equal(requested.url, 'https://acme.example/rest/v1/rpc/keel_model_credential_read');
+  assert.equal(requested.url, 'https://acme.example/rest/v1/rpc/plates_model_credential_read');
   assert.deepEqual(requested.body, { p_scope: scopeHash, p_connection: identity, p_policy: policyDigest, p_expected: 3 });
   for (const value of [null, { conflict: true }, { ...good, version: 4 }, { ...good, policy: '3'.repeat(64) },
     { ...good, value: seal({ key }, config.connectionEncryptionKey, purpose + 'wrong') }, { ...good, unexpected: true }]) {

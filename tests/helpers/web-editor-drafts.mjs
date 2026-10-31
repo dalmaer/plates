@@ -5,7 +5,7 @@ export async function editorHarness() {
  const h=await modelHarness(),rows=new Map();let generation=0;
  const db={rows,lost:false,before:null,calls:[]};
  const fetcher=async(url,options={})=>{
-  if(new URL(url).pathname!=='/rest/v1/rpc/keel_editor_draft_rpc')return h.fetcher(url,options);
+  if(new URL(url).pathname!=='/rest/v1/rpc/plates_editor_draft_rpc')return h.fetcher(url,options);
   const p=JSON.parse(options.body);db.calls.push(p);if(db.before)await db.before(p);
   let r=rows.get(p.p_scope);if(!r){if(p.p_operation!=='read')return Response.json({conflict:true});r={revision:++generation,state:'empty',digest:null,saveId:null,savedAt:null,expiresAt:null,value:null};rows.set(p.p_scope,r);}
   if(r.state==='saved'&&Date.parse(r.expiresAt)<=h.state.now){r={...r,revision:++generation,state:'expired',digest:null,value:null};rows.set(p.p_scope,r);}

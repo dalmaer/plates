@@ -31,7 +31,7 @@ test("migration previews and atomically copies three exact typed files to immuta
     assert.equal(file.originalBlob, null);
     validateLesson(JSON.parse(file.content));
   }
-  assert.equal(p.commitMessage, `Copy Plates private lessons\n\nKeel-Operation: ${p.operationId}`);
+  assert.equal(p.commitMessage, `Copy Plates private lessons\n\nPlates-Operation: ${p.operationId}`);
   const result = await apply(h, p);
   assert.equal(result.state, "committed");
   assert.equal(result.receipt.acceptance, "not-established");

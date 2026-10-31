@@ -1,11 +1,12 @@
-import { nameCandidate } from './helpers/web-name-candidate.mjs';
+import { nameBaseline, isRpcWriter } from './helpers/web-name-baseline.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
 import { NAMES, writeName } from '../lib/names.mjs';
 const directory = new URL('../lib/web/migrations/', import.meta.url);
-const rows = NAMES.filter(r => r.surface === 'database' && !r.keel.includes('.') && (r.keel.endsWith('_rpc') || ['keel_run_history', 'keel_model_credential_read'].includes(r.keel)));
+const rows = NAMES.filter(isRpcWriter);
+const storeConfig = { storageUrl: 'https://acme.supabase.co', storageKey: 'fake-key', encryptionKey: Buffer.alloc(32, 7) };
 
 test('renamed functions with forwarders', async t => {
   const db = new PGlite(); t.after(() => db.close());
@@ -15,8 +16,12 @@ test('renamed functions with forwarders', async t => {
   const before = new Map();
   for (const row of rows) before.set(row.id, (await db.query(`SELECT prosrc, proargnames, proargtypes::text, proacl::text, proconfig, prosecdef, pg_get_function_arguments(oid) args FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname=$1`, [row.keel])).rows[0]);
   const key = 'a'.repeat(64);
+  // Shipped source writes the migrated names; the rollback baseline keeps the held rows.
+  const rollback = await nameBaseline(t, { cookies: false, database: true });
+  assert.equal(rows.length, 15);
   for (const row of rows) {
-    assert.equal(writeName(row.id), row.keel, `activation barrier: ${row.id}`);
+    assert.equal(writeName(row.id), row.plates, `shipped phase127 writer: ${row.id}`);
+    assert.equal(rollback.names.writeName(row.id), row.keel, `compatibility baseline: ${row.id}`);
     assert.equal((await db.query("SELECT count(*)::int n FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname=$1", [row.plates])).rows[0].n, 0);
   }
   const { createStore } = await import('../lib/web/store.mjs');
@@ -30,13 +35,17 @@ test('renamed functions with forwarders', async t => {
     const result = await db.query(`SELECT public.${name}(${entries.map(([key], i) => `${key} => $${i+1}`).join(',')}) value`, entries.map(([, value]) => value));
     return Response.json(result.rows[0].value);
   };
-  const store = createStore({ storageUrl: 'https://acme.supabase.co', storageKey: 'fake-key', encryptionKey: Buffer.alloc(32, 7) }, adapter);
+  const store = rollback.store.createStore(storeConfig, adapter), nextStore = createStore(storeConfig, adapter);
   const oldKey = 'b'.repeat(64);
   await store.create('session', oldKey, { owner: 'Acme' }, 600);
   assert.deepEqual((await store.read('session', oldKey)).value, { owner: 'Acme' });
   await store.revoke(oldKey);
   assert.equal(await store.read('session', oldKey), null);
   assert.equal(urls.length, 4);
+  // Shipped source depends on migration 014: before it, the plates RPC does not exist.
+  expectedName = 'plates_web_rpc';
+  await assert.rejects(nextStore.read('session', oldKey), /upstream_unavailable/);
+  expectedName = 'keel_web_rpc';
 
   await db.query(`SELECT public.keel_web_rpc('create','session',$1,'Acme',null,'1',600)`, [key]);
   const preserved = (await db.query('SELECT * FROM keel_private.web_records')).rows;
@@ -58,19 +67,15 @@ test('renamed functions with forwarders', async t => {
       assert.deepEqual(permissions, { anon: false, authenticated: false, service: true });
     }
   }
-  // The exact production store implementation selects the candidate RPC only
-  // through a scratch row change, after the real migration has been applied.
-  const candidate = await nameCandidate(t, { cookies: false, database: true });
-  const nextStore = candidate.store.createStore({ storageUrl: 'https://acme.supabase.co', storageKey: 'fake-key', encryptionKey: Buffer.alloc(32, 7) }, adapter);
+  // After the real migration, the shipped store and the rollback baseline share rows.
   expectedName = 'plates_web_rpc';
-  await nextStore.create('session', oldKey, { owner: 'Acme candidate' }, 600);
-  assert.deepEqual((await nextStore.read('session', oldKey)).value, { owner: 'Acme candidate' });
+  await nextStore.create('session', oldKey, { owner: 'Acme shipped' }, 600);
+  assert.deepEqual((await nextStore.read('session', oldKey)).value, { owner: 'Acme shipped' });
   expectedName = 'keel_web_rpc';
-  assert.deepEqual((await store.read('session', oldKey)).value, { owner: 'Acme candidate' });
+  assert.deepEqual((await store.read('session', oldKey)).value, { owner: 'Acme shipped' });
   await store.revoke(oldKey);
   expectedName = 'plates_web_rpc';
   assert.equal(await nextStore.read('session', oldKey), null);
-  for (const row of rows) assert.equal(candidate.names.writeName(row.id), row.plates);
   for (const name of ['keel_web_rpc','plates_web_rpc']) assert.deepEqual((await db.query(`SELECT public.${name}('read','session',$1) value`, [key])).rows, [{ value: { value: 'Acme', version: 1 } }]);
   const k = `'${key}'`;
   const calls = {
@@ -111,14 +116,14 @@ test('renamed functions with forwarders', async t => {
 });
 
 
-test('baseline never retries a failed or ambiguous mutation under a new RPC alias', async () => {
-  const { createStore } = await import('../lib/web/store.mjs');
-  for (const status of [404, 503]) {
+test('neither release retries a failed or ambiguous mutation under another RPC alias', async t => {
+  const rollback = await nameBaseline(t, { cookies: false, database: true });
+  for (const [{ createStore }, name] of [[await import('../lib/web/store.mjs'), 'plates_web_rpc'], [rollback.store, 'keel_web_rpc']]) for (const status of [404, 503]) {
     const requests = [];
-    const store = createStore({ storageUrl: 'https://acme.supabase.co', storageKey: 'fake-key', encryptionKey: Buffer.alloc(32, 7) }, async url => {
+    const store = createStore(storeConfig, async url => {
       requests.push(url); return new Response('{}', { status });
     });
     await assert.rejects(store.create('session', 'a'.repeat(64), { owner: 'Acme' }, 600));
-    assert.deepEqual(requests, ['https://acme.supabase.co/rest/v1/rpc/keel_web_rpc']);
+    assert.deepEqual(requests, [`https://acme.supabase.co/rest/v1/rpc/${name}`]);
   }
 });

@@ -349,7 +349,7 @@ test("configured media history retains expired state and existing shared project
   h.state.now += 31 * 86400000;
   const before = h.mediaState.requests.length;
   const fetcher = async (url, options) =>
-    new URL(url).pathname.endsWith("/rpc/keel_run_history")
+    new URL(url).pathname.endsWith("/rpc/plates_run_history")
       ? Response.json({ rows: [], after: null, hasMore: false })
       : h.fetcher(url, options);
   const service = createRunReceipts(h.config, {

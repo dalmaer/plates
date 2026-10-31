@@ -1,4 +1,6 @@
-import { nameCandidate, browserJar } from './helpers/web-name-candidate.mjs';
+import { nameBaseline, browserJar } from './helpers/web-name-baseline.mjs';
+import { createWebService } from '../lib/web/server.mjs';
+import { createAuth } from '../lib/web/auth.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { harness } from './helpers/web-http.mjs';
@@ -58,9 +60,10 @@ test('revoke ends every session for that owner and privilege changes require a n
 });
 
 
-test('compatibility baseline reads both cookie families with legacy writers and unchanged flow expiry', async () => {
+test('compatibility baseline reads both cookie families with legacy writers and unchanged flow expiry', async t => {
+  const rollback = await nameBaseline(t);
   for (const prefix of ['plates', 'keel']) {
-    const h = harness();
+    const h = harness({ createService: rollback.server.createWebService });
     const page = await h.service(h.request('/signin'));
     const old = h.cookieHeader(page), csrf = old.split('=')[1];
     assert.match(old, /^__Host-keel-login=/);
@@ -92,25 +95,29 @@ test('compatibility baseline reads both cookie families with legacy writers and 
   }
 });
 
-test('identical cookie aliases consume once and conflicting aliases refuse before side effects', async () => {
-  const { readCookies, COOKIES } = await import('../lib/web/auth.mjs');
-  for (const kind of ['session', 'login', 'oauth']) {
+test('identical cookie aliases consume once and conflicting aliases refuse before side effects', async t => {
+  const rollback = await nameBaseline(t);
+  // Shipped (Plates writers) and rollback baseline (legacy writers) read aliases alike.
+  for (const { readCookies, COOKIES } of [await import('../lib/web/auth.mjs'), rollback.auth]) for (const kind of ['session', 'login', 'oauth']) {
     const value = 'a'.repeat(43), other = 'b'.repeat(43);
     const request = cookie => new Request('https://acme.test', { headers: { cookie } });
     assert.equal(readCookies(request(`__Host-plates-${kind}=${value}; __Host-keel-${kind}=${value}`))[COOKIES[kind]], value);
     assert.throws(() => readCookies(request(`__Host-plates-${kind}=${value}; __Host-keel-${kind}=${other}`)), /conflicting_names/);
   }
-  const h = harness(), attempt = await h.begin();
-  const both = `${attempt.cookie}; ${attempt.cookie.replace('__Host-keel-', '__Host-plates-')}`;
-  const replies = await Promise.all([h.service, h.makeService()].map(service => service(h.request(attempt.path, { cookie: both }))));
-  assert.deepEqual(replies.map(r => r.status).sort(), [303, 400]);
+  for (const [createService, issued] of [[createWebService, '__Host-plates-'], [rollback.server.createWebService, '__Host-keel-']]) {
+    const h = harness({ createService }), attempt = await h.begin();
+    assert.ok(attempt.cookie.startsWith(issued));
+    const both = `${attempt.cookie}; ${attempt.cookie.replace(issued, issued === '__Host-keel-' ? '__Host-plates-' : '__Host-keel-')}`;
+    const replies = await Promise.all([h.service, h.makeService()].map(service => service(h.request(attempt.path, { cookie: both }))));
+    assert.deepEqual(replies.map(r => r.status).sort(), [303, 400]);
+  }
 });
 
 
 // A browser applies deletion and replacement independently by cookie name.
 // Dropping cleared cookies from a response-only fixture hides surviving aliases.
-for (const existingKind of ['login', 'oauth', 'session']) test(`rollback browser replaces existing plates ${existingKind} across re-login`, async () => {
-  const h = harness(), jar = new Map();
+for (const existingKind of ['login', 'oauth', 'session']) test(`rollback browser replaces existing plates ${existingKind} across re-login`, async t => {
+  const rollback = await nameBaseline(t), h = harness({ createService: rollback.server.createWebService }), jar = new Map();
   const apply = response => {
     for (const line of response.headers.getSetCookie()) {
       const [pair] = line.split(';'), index = pair.indexOf('='), name = pair.slice(0, index), value = pair.slice(index+1);
@@ -154,10 +161,10 @@ for (const existingKind of ['login', 'oauth', 'session']) test(`rollback browser
 
 
 test('a keel session survives, and leaves as a plates one', async t => {
-  const candidate = await nameCandidate(t), h = harness(), jar = browserJar(() => h.state.now);
+  const rollback = await nameBaseline(t), h = harness({ createService: rollback.server.createWebService }), jar = browserJar(() => h.state.now);
   const baseline = await h.login(); jar.apply(baseline.completed);
   const original = structuredClone(jar.entries.get('__Host-keel-session'));
-  const upgraded = candidate.server.createWebService(h.config, { fetcher: h.fetcher, now: () => h.state.now });
+  const upgraded = createWebService(h.config, { fetcher: h.fetcher, now: () => h.state.now });
   h.state.now += 30123;
   const previousCalls = h.state.requests.length;
   const response = await upgraded(h.request('/api/session', { cookie: jar.header() }));
@@ -174,8 +181,8 @@ test('a keel session survives, and leaves as a plates one', async t => {
   const ordinary = await upgraded(h.request('/api/session', { cookie: jar.header() }));
   assert.equal(ordinary.status, 200); assert.deepEqual(ordinary.headers.getSetCookie(), []);
   jar.apply(ordinary); assert.deepEqual([...jar.entries], before);
-  const rollback = await h.makeService()(h.request('/api/session', { cookie: jar.header() }));
-  assert.equal(rollback.status, 200); assert.deepEqual(rollback.headers.getSetCookie(), []);
+  const rolledBack = await h.makeService()(h.request('/api/session', { cookie: jar.header() }));
+  assert.equal(rolledBack.status, 200); assert.deepEqual(rolledBack.headers.getSetCookie(), []);
   // Both identical aliases are one session and remove only the legacy name.
   jar.entries.set('__Host-keel-session', structuredClone(current));
   const both = await upgraded(h.request('/api/session', { cookie: jar.header() }));
@@ -188,11 +195,11 @@ test('a keel session survives, and leaves as a plates one', async t => {
 });
 
 test('cookie cutover survives rollback to the compatibility baseline', async t => {
-  const candidate = await nameCandidate(t);
+  const rollback = await nameBaseline(t);
   // Every transition boundary independently crosses releases in each direction.
   for (const modes of [[0,1,0], [1,0,1], [1,1,0], [0,0,1]]) {
-    const h = harness(), jar = browserJar(() => h.state.now);
-    const services = [h.makeService(), candidate.server.createWebService(h.config, { fetcher: h.fetcher, now: () => h.state.now })];
+    const h = harness({ createService: rollback.server.createWebService }), jar = browserJar(() => h.state.now);
+    const services = [h.makeService(), createWebService(h.config, { fetcher: h.fetcher, now: () => h.state.now })];
     const send = async (mode, path, body) => {
       const response = await services[mode](h.request(path, { cookie: jar.header(), ...(body ? { body } : {}) }));
       jar.apply(response); return response;
@@ -236,9 +243,9 @@ test('cookie cutover survives rollback to the compatibility baseline', async t =
   }
 });
 
-test('candidate responses never issue an expired alias or refresh an unconsumed OAuth flow', async t => {
-  const candidate = await nameCandidate(t), h = harness(), baseline = await h.login();
-  const upgraded = candidate.server.createWebService(h.config, { fetcher: h.fetcher, now: () => h.state.now });
+test('shipped new-writer responses never issue an expired alias or refresh an unconsumed OAuth flow', async t => {
+  const rollback = await nameBaseline(t), h = harness({ createService: rollback.server.createWebService }), baseline = await h.login();
+  const upgraded = createWebService(h.config, { fetcher: h.fetcher, now: () => h.state.now });
   h.state.now += 28800001;
   const expired = await upgraded(h.request('/api/session', { cookie: baseline.cookie }));
   assert.equal(expired.status, 401); assert.deepEqual(expired.headers.getSetCookie(), []);
@@ -248,10 +255,10 @@ test('candidate responses never issue an expired alias or refresh an unconsumed 
 });
 
 
-test('login CSRF consumes once across aliases and baseline/candidate instances', async t => {
-  const candidate = await nameCandidate(t);
+test('login CSRF consumes once across aliases and baseline/shipped instances', async t => {
+  const rollback = await nameBaseline(t);
   for (const issuer of [0,1]) {
-    const h = harness(), services = [h.makeService(), candidate.server.createWebService(h.config, { fetcher: h.fetcher, now: () => h.state.now })];
+    const h = harness({ createService: rollback.server.createWebService }), services = [h.makeService(), createWebService(h.config, { fetcher: h.fetcher, now: () => h.state.now })];
     const page = await services[issuer](h.request('/signin'));
     const raw = h.cookieHeader(page).split('=')[1];
     const calls = [0,1].map(index => services[index](h.request('/api/auth/start', {
@@ -264,9 +271,9 @@ test('login CSRF consumes once across aliases and baseline/candidate instances',
   }
 });
 
-test('candidate refuses conflicting sessions before effects and revoke clears both releases', async t => {
-  const candidate = await nameCandidate(t), h = harness(), login = await h.login();
-  const service = candidate.server.createWebService(h.config, { fetcher: h.fetcher, now: () => h.state.now });
+test('shipped new writer refuses conflicting sessions before effects and revoke clears both releases', async t => {
+  const rollback = await nameBaseline(t), h = harness({ createService: rollback.server.createWebService }), login = await h.login();
+  const service = createWebService(h.config, { fetcher: h.fetcher, now: () => h.state.now });
   const oldRaw = login.cookie.split('=')[1], count = h.state.requests.length;
   const conflict = await service(h.request('/api/session', { cookie: `${login.cookie}; __Host-plates-session=${'x'.repeat(43)}` }));
   assert.equal(conflict.status, 400); assert.deepEqual(conflict.headers.getSetCookie(), []); assert.equal(h.state.requests.length, count);
@@ -280,11 +287,11 @@ test('candidate refuses conflicting sessions before effects and revoke clears bo
 });
 
 
-for (const kind of ['login','oauth','session']) test(`candidate fresh ${kind} clears existing legacy alias`, async t => {
-  const candidate = await nameCandidate(t), h = harness(), jar = browserJar(() => h.state.now);
+for (const kind of ['login','oauth','session']) test(`shipped fresh ${kind} clears existing legacy alias`, async t => {
+  const rollback = await nameBaseline(t), h = harness({ createService: rollback.server.createWebService }), jar = browserJar(() => h.state.now);
   if (kind === 'session') jar.apply((await h.login()).completed);
   else jar.entries.set(`__Host-keel-${kind}`, { value: 'a'.repeat(43), expires: h.state.now+500000 });
-  const service = candidate.server.createWebService(h.config, { fetcher: h.fetcher, now: () => h.state.now });
+  const service = createWebService(h.config, { fetcher: h.fetcher, now: () => h.state.now });
   const send = async (path, body) => {
     const reply = await service(h.request(path, { cookie: jar.header(), ...(body ? { body } : {}) })); jar.apply(reply); return reply;
   };
@@ -297,11 +304,11 @@ for (const kind of ['login','oauth','session']) test(`candidate fresh ${kind} cl
   assert.equal(done.status, 303); assert.equal(jar.entries.has('__Host-keel-session'), false); assert.ok(jar.entries.get('__Host-plates-session'));
 });
 
-test('pending candidate alias uses response time and never emits after expiry or epoch change', async t => {
+test('pending shipped alias uses response time and never emits after expiry or epoch change', async t => {
   const { createStore } = await import('../lib/web/store.mjs');
   const { createGitHub } = await import('../lib/web/github.mjs');
-  const candidate = await nameCandidate(t), h = harness(), login = await h.login();
-  const auth = candidate.auth.createAuth(h.config, createStore(h.config,h.fetcher), createGitHub(h.config,h.fetcher), () => h.state.now);
+  const rollback = await nameBaseline(t), h = harness({ createService: rollback.server.createWebService }), login = await h.login();
+  const auth = createAuth(h.config, createStore(h.config,h.fetcher), createGitHub(h.config,h.fetcher), () => h.state.now);
   const absoluteExpiry = h.state.now+28800000;
   h.state.now += 10000;
   await auth.authorized(h.request('/api/session', { cookie: login.cookie }));
