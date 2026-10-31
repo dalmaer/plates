@@ -18,6 +18,9 @@ Commit to the brief's keel/robot-N branch. Both providers use the disposable
 .plates/agent-git directory: git --git-dir=.plates/agent-git --work-tree=. <command>.
 Only commit objects leave the sandbox, never git config/hooks or working files.
 Finish with a concise account of the change, proof and remaining question.
+End it with one line saying what the attempt taught, required when it failed:
+`Lesson status: {"status":"captured","link":"<lesson, proposal or inbox item>"}`,
+`{"status":"known","lesson":"<the lesson applied>"}` or `{"status":"none"}`.
 The publisher supplies the actual PR URL; do not invent one. A separate provider
 reviews the exact published head; only the owner can merge.
 

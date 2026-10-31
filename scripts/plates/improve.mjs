@@ -1320,7 +1320,7 @@ export const MEASURES = [
   {
     // Phase 148: an agent attempt that failed or was reworked ends with a lesson status
     // (captured, known or none). Attempt records are read plates-side (lib/lesson-status.mjs).
-    id: 'failures_untaught', what: 'the worst ISO week of the last four: share of failed or reworked agent attempts (session trial finishes) whose lesson status is none; n/a with no such attempt', unit: '%', bound: 50, better: 'lower', ratchet: false,
+    id: 'failures_untaught', what: 'the worst ISO week of the last four: share of failed or reworked agent attempts (session trial finishes, conductor evidence attempts and robot states) whose lesson status is none; n/a with no such attempt', unit: '%', bound: 50, better: 'lower', ratchet: false,
     async run(ctx) {
       if (!ctx.plates?.lessonCapture) return { na: 'agent attempt records are read plates-side only (plates improve)' };
       const bound = Number.isFinite(ctx.bounds?.failures_untaught) ? ctx.bounds.failures_untaught : 50;
