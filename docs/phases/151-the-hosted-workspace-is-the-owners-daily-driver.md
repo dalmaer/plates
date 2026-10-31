@@ -1,11 +1,12 @@
 ---
-status: planned
+status: partial
+owes: walk
 since: 2026-10-31
 goal: G7
 spec: 2
 depends: [101, 107]
-note: "Most of G7 is built and locally proven but not switched on in the hosted instance. This phase activates it in one planned session and walks it, so the owner drives Plates from the web."
-evidence: []
+note: "The 36-step activation plan is written and checked (docs/guide/web-activation.md); the owner-attended session and a week of use remain."
+evidence: ["evidence/2026-10-31-web-activation-plan.md"]
 ---
 
 # The owner drives Plates from the hosted web workspace every day
@@ -38,7 +39,7 @@ Plates work: deciding, walking, reading what changed and what ran.
 
 ## Acceptance
 
-- [ ] The activation plan lists every remaining hosted step with its rollback, and a step whose prerequisite phase is not built is refused: `tests/web-activation-plan.test.mjs: "the activation plan is complete and ordered"`.
+- [x] The activation plan lists every remaining hosted step with its rollback, and a step whose prerequisite phase is not built is refused: `tests/web-activation-plan.test.mjs: "the activation plan is complete and ordered"`.
 - [ ] Every activated feature has a hosted proof recorded (request, response status, the migration's applied version), and none relies on local proof alone: ⚑ by hand: the conductor, with the owner signed in.
 - [ ] A week of real use from the workspace, and the walks it settles recorded from it: ⚑ by hand: the owner.
 
@@ -51,7 +52,7 @@ Plates work: deciding, walking, reading what changed and what ran.
 - **Keeps it open:** Not yet
 - **Takes:** About 1–2 hours for the session; then a week of normal use.
 - **Then:** Book the session: the conductor runs the plan with you; from then on you work from the web and settle the G7 walks there.
-- **Ready when:** the activation-plan test passes.
+- **Ready:** yes
 
 ## Real surfaces
 
@@ -72,4 +73,5 @@ By hand: the activation session's hosted proofs; a week of use.
 
 ## Next action
 
-Read phases 94–108 and write the activation plan with each step's rollback.
+Write hosted proof SQL for migrations 006–014 from their local proofs; the
+owner books the session and decides the backup destination (step 2).
