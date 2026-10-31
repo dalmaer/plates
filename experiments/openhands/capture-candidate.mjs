@@ -21,4 +21,5 @@ function walk(relative,depth=0) {
   files.push({path:relative,bytes:data.toString('base64')});
 }
 walk('lib');walk('tests/helpers');
+const [regression,...extra]=process.argv.slice(2);if(extra.length||regression&&!/^tests\/[A-Za-z0-9_-]+\.test\.mjs$/.test(regression))throw Error('explicit regression path');if(regression)walk(regression);
 process.stdout.write(JSON.stringify({schema:1,files}));

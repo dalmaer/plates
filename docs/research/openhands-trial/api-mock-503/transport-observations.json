@@ -1,0 +1,36 @@
+{
+  "mockHTTPCalls": 1,
+  "records": [
+    {
+      "kind": "network-denied",
+      "event": "socket.bind"
+    },
+    {
+      "kind": "http-client",
+      "followRedirects": false,
+      "trustEnv": false
+    },
+    {
+      "kind": "request-observed",
+      "url": "https://acme-broker.invalid/v1/chat/completions",
+      "method": "POST",
+      "authorizationMatchesSyntheticKey": true,
+      "model": "gpt-4o-mini",
+      "stream": null,
+      "maxCompletionTokens": 4000,
+      "toolNames": [
+        "plates_bounded_file"
+      ]
+    },
+    {
+      "kind": "mock-http",
+      "ordinal": 1,
+      "url": "https://acme-broker.invalid/v1/chat/completions",
+      "model": "gpt-4o-mini",
+      "maxTokens": 4000,
+      "toolNames": [
+        "plates_bounded_file"
+      ]
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 # OpenHands shared receipt trial plan — 2026-10-30
 
+> Implementation update: see [the completed local entrypoint and exact launch contract](2026-10-31-openhands-trial-entrypoint.md). Its 240-second API ceiling supersedes this plan’s earlier proposed twenty-minute arm. No API spend is authorized.
+
 The parent selected the same real Plates tasks and evaluator as Gas City. Preparation is complete; no model has run and no target fix was supplied. Both backends start at consolidation `037e13b4f78c061405cef899b528badb536584ad`. The earlier RRULE candidate remains an alternative, with its script and original manifest preserved.
 
 ## Selected work

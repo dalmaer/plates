@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "scope": "ordinary fixed suites and one synthetic regression only",
+  "modelCalls": 0,
+  "targetFixes": 0,
+  "records": [
+    {
+      "output": "openhands-fixed-check-task-a-final",
+      "exit": 0,
+      "passed": 19,
+      "failed": 0,
+      "policySHA256": "f7b448e5144dcd993780355a1e5f77f77af8b43e9ba8336d96c19bf2352687d6",
+      "runnerSHA256": "bf53410bea9a558bf5906ff5cdaa7326de343f5f2903531ec85045c3fe587f7a"
+    },
+    {
+      "output": "openhands-fixed-check-task-b-final",
+      "exit": 0,
+      "passed": 15,
+      "failed": 0,
+      "policySHA256": "2d56a9e7c9553c798dbf6c12da9378cbe1673264a4dabb6fb957ab47fe92dde9",
+      "runnerSHA256": "bf53410bea9a558bf5906ff5cdaa7326de343f5f2903531ec85045c3fe587f7a"
+    },
+    {
+      "output": "openhands-fixed-check-synthetic-before",
+      "exit": 1,
+      "passed": 0,
+      "failed": 1,
+      "policySHA256": "668357b1af67ef6d1f05aab5971a618abfdcee9dab0d91165b25984d2a65b9d2",
+      "runnerSHA256": "bf53410bea9a558bf5906ff5cdaa7326de343f5f2903531ec85045c3fe587f7a"
+    },
+    {
+      "output": "openhands-fixed-check-synthetic-after",
+      "exit": 0,
+      "passed": 1,
+      "failed": 0,
+      "policySHA256": "9516be45552b17d8dea4526cd9e4da6c2d6cf78df5d2cd74b1542170e8156a48",
+      "runnerSHA256": "bf53410bea9a558bf5906ff5cdaa7326de343f5f2903531ec85045c3fe587f7a"
+    }
+  ]
+}

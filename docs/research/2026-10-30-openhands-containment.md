@@ -1,5 +1,7 @@
 # OpenHands local containment and captured-code scoring — 2026-10-30
 
+> Follow-up: the three local prerequisites are implemented and qualified in [the native trial entrypoint report](2026-10-31-openhands-trial-entrypoint.md). Live account/model authorization and broker verification remain pending.
+
 This implements the next safe part of the real Plates trial while model/account/budget decisions remain pending. It does not fix either target defect, launch a credentialed agent, install ACP adapters, weaken OS protections, create grants, or configure Discord. The earlier denied file preview was not retried.
 
 ## Concrete boundary implemented

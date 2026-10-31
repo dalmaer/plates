@@ -1,0 +1,23 @@
+{
+  "pass": true,
+  "providerCalls": 0,
+  "coordinatorExit": {
+    "code": null,
+    "signal": "SIGKILL"
+  },
+  "recovery": {
+    "status": "execution-fenced; effects-not-replayed",
+    "observation": {
+      "owner": false,
+      "worker": false,
+      "tools": []
+    },
+    "learning": "pending"
+  },
+  "originalLaunch": "6dc92115-dae7-4d99-84a4-418b780cf9b8",
+  "completedEffects": 1,
+  "duplicateLaunchRefused": true,
+  "learningBeforeCapture": "pending",
+  "learningAfterCapture": "no-useful-lesson",
+  "pendingSecondActionNeverExecuted": true
+}

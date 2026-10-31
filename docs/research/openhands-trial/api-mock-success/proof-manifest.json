@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "qualification": "In-process offline HTTPX MockTransport only. Every socket denied. Synthetic key, synthetic response usage, mocked file-tool results. No real API/provider integration or spending. Production API-route counters in events are mocked here; realProviderCalls=0.",
+  "realProviderCalls": 0,
+  "realCredentialsRead": false,
+  "networkEnabled": false,
+  "sourceAtTransportProofSHA256": "927755adc7fd571f9a35781e1d8300af82f0db28157fd5b39c637ff245967795",
+  "laterChange": "Controller-requested native conversation ID binding only, separately replayed by parent.",
+  "files": {
+    "fixture.py": "abfb6235bf47a639cff94a968b7ae976bb25974554bd9451422fa5218daddbbb",
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "events.json": "6031f4bdc091b3aab7c2a67c2cd0e2567f8225bff7013281859bdc1e8c63f575",
+    "transport-observations.json": "b4a272ed6c6d9b6d323fed0c089dda0a14e6c13fad3bcb7ea83727306009e62b",
+    "config.json": "a513e077f73e5da509394b8e057a4d4e9ebf3e10b580f12d78313f950fc7d3b5",
+    "driver.py": "280334346d8203664a0eb6bf34c217003345cc17e79b0e7c6ef9255fb8a698b0"
+  }
+}

@@ -10,8 +10,8 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 export const BASELINE = '037e13b4f78c061405cef899b528badb536584ad';
 const FIXTURE_EVALUATOR_SHA = '723feab106853c71b2016f65904ec9f7880379ddde4804ec4c1dfb0400037548';
 const fail = message => { throw Error(message); };
-async function captureCandidate(candidate) {
-  const run=spawnContained({workspace:candidate,runner:join(HERE,'capture-candidate.mjs')});
+async function captureCandidate(candidate,regression=null) {
+  const run=spawnContained({workspace:candidate,runner:join(HERE,'capture-candidate.mjs'),args:regression?[regression]:[]});
   let output='',errors='',bytes=0,overflow=false;
   const kill=()=>{try{process.kill(-run.child.pid,'SIGKILL');}catch{}};
   run.child.stdout.on('data',data=>{bytes+=data.length;if(bytes>32*1024*1024){overflow=true;kill();return;}output+=data;});
@@ -22,7 +22,7 @@ async function captureCandidate(candidate) {
   if(value.schema!==1||!Array.isArray(value.files)||value.files.length>4096)fail('capture protocol');
   const files=new Map();let total=0;
   for(const file of value.files) {
-    if(typeof file.path!=='string'||!file.path.startsWith('lib/')&&!file.path.startsWith('tests/helpers/')||file.path.split('/').some(p=>!p||p==='.'||p==='..')||files.has(file.path)||typeof file.bytes!=='string')fail('capture path');
+    if(typeof file.path!=='string'||!file.path.startsWith('lib/')&&!file.path.startsWith('tests/helpers/')&&file.path!==regression||file.path.split('/').some(p=>!p||p==='.'||p==='..')||files.has(file.path)||typeof file.bytes!=='string')fail('capture path');
     const data=Buffer.from(file.bytes,'base64');total+=data.length;if(data.length>4*1024*1024||total>20*1024*1024)fail('capture data bound');files.set(file.path,data);
   }
   return {files,policySHA256:run.policySHA256};
@@ -70,7 +70,8 @@ export function openSubject({workspace, onFetch, timeoutMs=10000}) {
   };
 }
 
-export async function score({candidate,task,output}) {
+export async function score({candidate,task,output,regression=null}) {
+  if(regression!==null&&!/^tests\/[A-Za-z0-9_-]+\.test\.mjs$/.test(regression))fail('explicit regression path');
   if(!['task-a','task-b'].includes(task))fail('task-a or task-b required');
   const candidateRoot=realpathSync(candidate);
   mkdirSync(output);output=realpathSync(output);
@@ -79,7 +80,7 @@ export async function score({candidate,task,output}) {
   immutableFixtureTree(snapshot);
   // Only lib production edits enter the subject snapshot. Everything else remains the
   // pinned baseline; this selected trial requires helper modules unchanged.
-  const captured=await captureCandidate(candidateRoot),helperHashes={};
+  const captured=await captureCandidate(candidateRoot,regression),helperHashes={};
   function hashesUnder(dir,relative='tests/helpers') {
     for(const name of readdirSync(dir).sort()) {
       const p=join(dir,name),r=join(relative,name),st=lstatSync(p);
@@ -91,6 +92,7 @@ export async function score({candidate,task,output}) {
   if(JSON.stringify(Object.entries(actualHelpers).sort())!==JSON.stringify(Object.entries(helperHashes).sort()))fail('fixture-integrity-refused before candidate execution');
   rmSync(join(snapshot,'lib'),{recursive:true});mkdirSync(join(snapshot,'lib'));
   for(const [path,data] of captured.files)if(path.startsWith('lib/')){mkdirSync(dirname(join(snapshot,path)),{recursive:true});writeFileSync(join(snapshot,path),data,{flag:'wx'});sourceHashes[path]=digest(data);}
+  const regressionHashes={};if(regression){if(!captured.files.has(regression))fail('missing captured regression');const data=captured.files.get(regression);writeFileSync(join(snapshot,regression),data,{flag:'wx'});regressionHashes[regression]=digest(data);}
   const originalEvaluator=readFileSync(join(HERE,'real-receipt-evaluator.mjs'));
   if(digest(originalEvaluator)!==FIXTURE_EVALUATOR_SHA)fail('shared evaluator pin changed');
   // Trusted modules come exclusively from the fixed Git archive, never the candidate path.
@@ -144,7 +146,7 @@ export async function score({candidate,task,output}) {
   // Read-only subject snapshot must remain byte-identical after every candidate process.
   const after={};function verify(dir,relative='lib'){for(const name of readdirSync(dir)){const p=join(dir,name),r=join(relative,name);if(lstatSync(p).isDirectory())verify(p,r);else after[r]=digest(readFileSync(p));}}
   verify(join(snapshot,'lib'));if(JSON.stringify(Object.entries(after).sort())!==JSON.stringify(Object.entries(sourceHashes).sort()))fail('subject snapshot changed');
-  const report={schema:1,kind:'plates-contained-receipt-score',task,baseline:BASELINE,candidate:candidateRoot,sharedEvaluatorSHA256:FIXTURE_EVALUATOR_SHA,controllerSHA256:digest(readFileSync(fileURLToPath(import.meta.url))),fixtureArchiveSHA256,capturePolicySHA256:captured.policySHA256,scoredProductionRoot:'lib',workerQuiescence:'Not an agent launch receipt; no model worker was launched. Future acceptance requires supervisor-confirmed worker exit/fencing and this captured digest.',sourceHashes,total:results.length,passed:results.filter(r=>r.passed).length,failed:results.filter(r=>!r.passed).length,acceptancePassed:results.every(r=>r.passed),qualification:'Actual candidate HTTP service in read-only OS sandbox; parent-owned synthetic transport, revocation and assertions. No model, live credentials or network.',results};
+  const report={schema:1,kind:'plates-contained-receipt-score',task,baseline:BASELINE,candidate:candidateRoot,sharedEvaluatorSHA256:FIXTURE_EVALUATOR_SHA,controllerSHA256:digest(readFileSync(fileURLToPath(import.meta.url))),fixtureArchiveSHA256,capturePolicySHA256:captured.policySHA256,scoredProductionRoot:'lib',workerQuiescence:'Not an agent launch receipt; no model worker was launched. Future acceptance requires supervisor-confirmed worker exit/fencing and this captured digest.',sourceHashes,regressionHashes,total:results.length,passed:results.filter(r=>r.passed).length,failed:results.filter(r=>!r.passed).length,acceptancePassed:results.every(r=>r.passed),qualification:'Actual candidate HTTP service in read-only OS sandbox; parent-owned synthetic transport, revocation and assertions. No model, live credentials or network.',results};
   writeFileSync(join(output,'score.json'),JSON.stringify(report,null,2)+'\n');return report;
 }
 if(process.argv[1]===fileURLToPath(import.meta.url)) {

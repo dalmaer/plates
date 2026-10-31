@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "mode": "scripted-native-SDK",
+  "providerCalls": 0,
+  "realDefectsFixed": 0,
+  "admission": {
+    "root": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-integrated-offline-trial-release/control",
+    "operation": "1faab264-5f4d-4412-bba9-ae212e00436a",
+    "configSHA256": "dbde6986cf7d1d769d4f0e28f203ca0d51df4485e381636d17651ab8804dcbea",
+    "mode": "scripted"
+  },
+  "worker": {
+    "launch": "742db659-9df7-4f35-b4c3-78ac47fb71f1",
+    "ownerPid": 8920,
+    "pid": 8923,
+    "state": "terminated",
+    "startedAt": 1793405465717,
+    "deadline": 1793405510717,
+    "exited": true,
+    "fenced": true,
+    "nativeConversation": "2cea04a2-6f54-44b8-8f0f-c48b5599bfc7",
+    "outcome": "finished",
+    "exit": {
+      "code": 0,
+      "signal": null
+    },
+    "error": null,
+    "stderr": "[10/30/26 18:11:09] INFO     Created new conversation               state.py:628\n                             2cea04a2-6f54-44b8-8f0f-c48b5599bfc7               \n[10/30/26 18:11:09] INFO     Confirmation policy set  local_conversation.py:2709\n                             to: kind='AlwaysConfirm'                           \n[10/30/26 18:11:09] INFO     Loaded 1 tools from spec                base.py:579\n[10/30/26 18:11:09] INFO     Confirmation mode: Executing 1 pending agent.py:751\n                             action(s)                                          \n[10/30/26 18:11:09] INFO     Confirmation mode: Executing 1 pending agent.py:751\n                             action(s)                                          \n",
+    "endedAt": 1793405470075
+  },
+  "requests": 3,
+  "effects": 2,
+  "artifact": {
+    "operation": "1faab264-5f4d-4412-bba9-ae212e00436a",
+    "workerLaunch": "742db659-9df7-4f35-b4c3-78ac47fb71f1",
+    "sourceSHA256": "fe302ecddca3ee3373578ba7808695e8819cb35ea87d2c9128fd7beb56c9931c",
+    "regressionHashes": {
+      "tests/acme-trial-probe.test.mjs": "5b0e8619e87d5661e8195fdb58d91db93c529c6a1d12bff6ad6930b7f9a4880e"
+    },
+    "output": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-integrated-offline-trial-release/control/captured",
+    "acceptancePassed": false
+  },
+  "checks": {
+    "passed": true,
+    "total": 20,
+    "report": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-integrated-offline-trial-release/control/checks/check.json"
+  },
+  "learning": "no-useful-lesson",
+  "baselineAcceptance": {
+    "passed": 4,
+    "total": 6,
+    "expectedFailure": true
+  },
+  "qualification": "Actual native SDK, approvals, bounded file effects, durable outcome and captured checks. Scripted responses; no model-quality or learning-benefit claim."
+}
