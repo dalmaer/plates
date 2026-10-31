@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**62 of 146 phases built; 61 owe a walk.** Built means implemented and checked; planned is not available.
+**62 of 147 phases built; 62 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -319,7 +319,7 @@ Each change is verified in parallel and published one at a time; production move
 
 From mobile and desktop, an authenticated owner operates every authorized Plates project: decisions, guided tests, visual changes, routine history and execution, fleet lessons and updates, scoped credentials and policy-bound model capacity, with source-backed evidence and private data.
 
-4/19 built; 14 owe a walk.
+4/20 built; 15 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -342,6 +342,7 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 | [151. The owner drives Plates from the hosted web workspace every day](phases/151-the-hosted-workspace-is-the-owners-daily-driver.md) | partial, walk owed | 2026-10-31 | [101](phases/101-the-workspace-holds-in-real-use.md), [107](phases/107-mobile-and-desktop-cover-plates-operations.md) | Plan and hosted proof SQL for 006–015 written and checked. Session 2026-10-31: production moved to an owner domain after a 9-day origin outage; database resumed; steps 1–5 proven (Node 24.22.2 and sign-in; first encrypted backup; migration 004 with proof and race; Contents write; decision writes on). Next: step 6, migration 005, with the owner. |
 | [152. Plates is an app on the owner's phone that says when something needs them](phases/152-plates-is-an-app-on-the-owners-phone.md) | partial | 2026-10-31 | [151](phases/151-the-hosted-workspace-is-the-owners-daily-driver.md) | Manifest, shell worker, icons and encrypted Web Push are built and tested; ready walks and red nights reach the notifier on a fresh source read. Decision checks and door approvals, migration 015 on the hosted instance and the owner's phone remain. |
 | [153. Decisions read as plain English](phases/153-decisions-read-as-plain-english.md) | partial, walk owed | 2026-10-31 | [97](phases/97-decisions-change-the-reviewed-source.md), [151](phases/151-the-hosted-workspace-is-the-owners-daily-driver.md) | Plain block, freshness, safe markdown, small reports and a too-large message are built and tested; the owner's walk waits for the hosted build to move forward. |
+| [154. The owner stays signed in for up to a year](phases/154-the-owner-stays-signed-in-for-up-to-a-year.md) | partial, walk owed | 2026-10-31 | [127](phases/127-the-web-home-and-its-database-move-to-plates.md), [151](phases/151-the-hosted-workspace-is-the-owners-daily-driver.md) | Renewal, migration 016 and the sign-in page are built and tested; applying 016 on the hosted instance and the owner's overnight check remain. |
 
 - **93 done when:** An explicitly configured external workspace can be inspected and initialized from the installed CLI without writing private data into application or project Git trees.
 - **94 done when:** The owner has an approved deployment recipe and verified private workspace repository, host and selected-repository GitHub App binding, with credentials stored only in the deployment secret store.
@@ -362,6 +363,7 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 - **151 done when:** The features G7 has built and proven locally (decisions, guided walks, recent changes, daily and learning, routines and history, durable workers, fleet updates and lessons, mobile and desktop coverage) are switched on in the owner's private hosted instance, each with its hosted proof, and the owner has used the workspace instead of the terminal for a week of real Plates work: deciding, walking, reading what changed and what ran.
 - **152 done when:** The hosted workspace installs to the owner's phone home screen as an app (a progressive web app: manifest, icon, offline shell, safe reconnect) and sends a push notification when something waits on the owner (a decision to check, a walk ready, an approval for an irreversible door, a red night), with a deep link straight to it; the owner uses it for two weeks and says whether a native app is still needed.
 - **153 done when:** A health proposal the owner opens, in the workspace or the report, says in plain words what is wrong, what is being decided, what Accept and Decline each change (and what doing nothing does), whether it is still true today, and what Plates recommends, without the reader knowing Plates' vocabulary; and every current health report is small enough for the workspace to open.
+- **154 done when:** The owner signs in once on a device and stays signed in on it for up to a year, as long as they open the workspace at least once every 30 days; when a sign-in does end, the page says why in plain words and returns them to the page they were on after signing in again.
 
 ## G9 — Plates owns the judgment layer and rents the rest
 

@@ -1,4 +1,4 @@
-// Phase 151: each migration still to be applied to the hosted database (006–015)
+// Phase 151: each migration still to be applied to the hosted database (006–016)
 // has a hosted proof SQL ready to paste into the Supabase SQL editor. Here each
 // proof runs on a fresh PGlite with migrations 001..N applied, exactly as the
 // owner would run it after step N: the single-connection part must pass and leave
@@ -49,6 +49,9 @@ const PROOFS = [
   { migration: '015-push.sql', proof: '2026-10-31-web-push-hosted-proof.sql',
     wrong: 'grant usage on schema plates_push to anon',
     refused: /a browser role can use schema plates_push/ },
+  { migration: '016-long-sessions.sql', proof: '2026-10-31-web-long-sessions-hosted-proof.sql',
+    wrong: 'grant execute on function public.plates_web_rpc(text,text,text,text,text,text,integer,bigint) to authenticated',
+    refused: /a browser role can execute plates_web_rpc/ },
 ];
 
 const RACE = '/* TWO-CONNECTION RACE';

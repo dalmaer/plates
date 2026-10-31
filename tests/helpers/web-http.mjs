@@ -9,13 +9,22 @@ import { createWebService } from '../../lib/web/server.mjs';
 export function harness({ createService: create = createWebService } = {}) {
   const state = { now: Date.now(), records: new Map(), requests: [], unavailable: false, userId: 1, members: [1],
     private: true, appId: 11, installationId: 21, suspended: null, selection: 'selected', repoId: 102,
-    repoName: 'acme/studio', repoAccess: true, partial: false, failGitHub: false, challenges: new Set() };
+    repoName: 'acme/studio', repoAccess: true, partial: false, failGitHub: false, challenges: new Set(),
+    // Phase 154 opt-in: expiring tokens with single-use rotating refresh tokens.
+    // tokens maps each synthetic access token to its expiry; refreshMode is
+    // 'ok', 'refused' (GitHub's error body), 'down' (a 502) or null (no refresh tokens).
+    refreshMode: null, tokens: new Map([['fake-user-access-token-for-tests', Infinity]]), refreshTokens: new Set(), refreshCalls: [], grants: 0 };
   const input = { version: 1, origin: 'https://plates.acme.test', ownerIds: [1], appId: 11, clientId: 'fake-client', installationId: 21,
     workspace: { id: 'acme', repoId: 101, manifestPath: 'workspace.json', membersPath: 'members.json' }, projectRepoIds: { studio: 102 } };
   const secrets = { clientSecret: 'fake-client-secret-only-for-tests', storageUrl: 'https://acme.supabase.co',
     storageKey: 'fake-service-key-only-for-tests', encryptionKey: Buffer.alloc(32, 7).toString('base64') };
   const config = webConfig(input, secrets);
   state.homeDatabase = homeDatabase(() => state.now);
+  const grant = (access = `fake-user-access-token-for-tests-${++state.grants}`) => {
+    const refresh = `fake-refresh-token-for-tests-${state.grants}-${state.refreshTokens.size}`;
+    state.tokens.set(access, state.now + 28800000); state.refreshTokens.add(refresh);
+    return { access_token: access, token_type: 'bearer', expires_in: 28800, refresh_token: refresh, refresh_token_expires_in: 15897600, scope: '' };
+  };
   const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } });
   const fetcher = async (url, options) => {
     state.requests.push({ url, options });
@@ -47,13 +56,23 @@ export function harness({ createService: create = createWebService } = {}) {
     if (url === 'https://github.com/login/oauth/access_token') {
       const body = JSON.parse(options.body);
       assert.equal(body.client_secret, secrets.clientSecret);
+      if (body.grant_type === 'refresh_token') {
+        state.refreshCalls.push(body.refresh_token);
+        if (state.refreshMode === 'down') return json({ message: 'fake-provider-private-detail' }, 502);
+        if (state.refreshMode === 'refused-status') return json({ message: 'fake-provider-private-detail' }, 400);
+        if (state.refreshMode !== 'ok' || !state.refreshTokens.delete(body.refresh_token)) return json({ error: 'bad_refresh_token', error_description: 'The refresh token passed is incorrect or expired.' });
+        return json(grant());
+      }
       const challenge = createHash('sha256').update(body.code_verifier).digest('base64url');
       if (!state.challenges.has(challenge)) return json({ error: 'bad_verifier' }, 400);
       state.challenges.delete(challenge);
+      if (state.refreshMode) return json(grant('fake-user-access-token-for-tests'));
       return json({ access_token: 'fake-user-access-token-for-tests', token_type: 'bearer', expires_in: 28800 });
     }
     assert.equal(parsed.hostname, 'api.github.com');
-    assert.equal(options.headers.Authorization, 'Bearer fake-user-access-token-for-tests');
+    const token = options.headers.Authorization.replace(/^Bearer /, '');
+    assert.ok(state.tokens.has(token), 'a synthetic access token');
+    if (state.tokens.get(token) <= state.now) return json({ message: 'Bad credentials' }, 401);
     const path = parsed.pathname;
     if (path === '/user') return json({ id: state.userId });
     if (path === '/user/installations') return json({ total_count: 1, installations: [{ id: state.installationId, app_id: state.appId,
