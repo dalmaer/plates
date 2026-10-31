@@ -1317,6 +1317,16 @@ export const MEASURES = [
     },
   },
   {
+    // Phase 148: an agent attempt that failed or was reworked ends with a lesson status
+    // (captured, known or none). Attempt records are read plates-side (lib/lesson-status.mjs).
+    id: 'failures_untaught', what: 'the worst ISO week of the last four: share of failed or reworked agent attempts (session trial finishes) whose lesson status is none; n/a with no such attempt', unit: '%', bound: 50, better: 'lower', ratchet: false,
+    async run(ctx) {
+      if (!ctx.plates?.lessonCapture) return { na: 'agent attempt records are read plates-side only (plates improve)' };
+      const bound = Number.isFinite(ctx.bounds?.failures_untaught) ? ctx.bounds.failures_untaught : 50;
+      return ctx.plates.lessonCapture({ root: ctx.root, env: ctx.env, now: ctx.now, bound });
+    },
+  },
+  {
     id: 'conduct_cost', what: 'whole-check or whole-suite runs by builders (lesson 5: builders test by file)', unit: 'runs', bound: 0, better: 'lower',
     async run(ctx) {
       if (!ctx.transcripts) return { na: 'no --transcripts <dir>: conducting cost is read from a session\'s subagent transcripts' };
@@ -1450,6 +1460,10 @@ export function proposalText(r, config = {}) {
         : `${rose[0].toUpperCase()}${rose.slice(1)}, and none names its phase: name the phase in each fix commit, lesson row or \`— Escape:\` line, so the next night can point at one.`;
     }
     case 'build_time': return `Bring the build back under its budget: \`${f.command}\` took ${f.ms} ms against ${f.budget} ms. A climb night's build-time job can take it ("climb".jobs).`;
+    case 'failures_untaught': {
+      const w = (f.weeks ?? []).find(x => x.week === f.worst) ?? {};
+      return `Read the failed or reworked attempts of ${f.worst} that taught nothing (${list(w.untaught ?? [], 4)}): ${w.none} of ${(w.captured ?? 0) + (w.known ?? 0) + (w.none ?? 0)} ended lesson status none, ${r.value}% against ${r.bound}%. For each with a shape, propose the lesson row (a person decides it), so the next attempt of that shape ends captured or known.`;
+    }
     case 'conduct_cost': return `Brief builders to test the files they touched: they ran the whole check or suite ${f.wholeRuns} times (${f.wholeMinutes} min); the conductor runs it once (lesson 5).`;
     default: return `Move ${r.id} back within its bound (${r.value} against ${r.bound}).`;
   }

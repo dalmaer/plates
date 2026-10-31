@@ -1,11 +1,11 @@
 ---
-status: planned
-since: 2026-10-30
+status: partial
+since: 2026-10-31
 goal: G9
 spec: 2
 depends: [142]
-note: "Close the learning loop: each agent attempt records whether it taught something, so capture is measured."
-evidence: []
+note: "Session-trial attempts carry a lesson status and health measures failures that taught nothing; robot, conductor, climb and cross-review need an end-of-attempt record first."
+evidence: ["evidence/2026-10-31-lesson-status.md"]
 ---
 
 # Every agent attempt says whether it taught something
@@ -30,8 +30,9 @@ and the health page measures how often failures end `none`.
 
 ## Acceptance
 
-- [ ] A failed attempt without a lesson status fails the gate; `captured` without a link fails too: `tests/lesson-status.test.mjs: "a failed attempt says what it taught"`.
-- [ ] The health measure counts statuses by week and flags a week where most failures taught nothing: `tests/lesson-status.test.mjs: "health measures capture"`.
+- [x] A failed attempt without a lesson status fails the gate; `captured` without a link fails too: `tests/lesson-status.test.mjs: "a failed attempt says what it taught"`.
+- [x] The health measure counts statuses by week and flags a week where most failures taught nothing: `tests/lesson-status.test.mjs: "health measures capture"`.
+- [ ] Robot and conductor attempts carry a lesson status in an end-of-attempt record, checked the same way: `tests/lesson-status.test.mjs: "robot and conductor attempts say what they taught"`.
 
 ## Real surfaces
 
@@ -49,4 +50,5 @@ By hand: the conductor reads a month of the measure in health.
 
 ## Next action
 
-List the attempt records Plates keeps and where each ends.
+Give the robot and the conductor an end-of-attempt record (the robot's run
+receipt, the conductor's evidence front matter) that carries the status.
