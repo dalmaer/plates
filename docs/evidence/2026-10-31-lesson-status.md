@@ -27,3 +27,17 @@ Conductor's checks, 2026-10-31, worktree on `claude/phase-148`.
   reads n/a.
 
 Supports **partial**.
+
+## Robot and conductor records (2026-10-31, later)
+
+| Did | Expected | Observed |
+| --- | --- | --- |
+| `node --import ./tests/helpers/hermetic.mjs --test tests/lesson-status.test.mjs` | 3 pass | 3 of 3 (conductor run) |
+| Builder mutations: the robot state's `lessonStatus` dropped; the attempt check replaced with null | the box's test fails | each failed |
+| Conductor mutation: evidence-file attempts ignored | the box's test fails | failed 1 of 3, restored clean |
+| Builder: typecheck, render check, and about 960 tests across robot, climb, improve, practices, update and night files | pass | exit 0 |
+
+The robot's state marker carries `verified`, `rework` and the `lessonStatus`
+from the agent's final `Lesson status:` line (JSON-escaped so it cannot close
+the marker); an evidence file may open with `attempt: {...}` front matter.
+Both are read by `lib/lesson-status.mjs` and counted by `failures_untaught`.
