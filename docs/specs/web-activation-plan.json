@@ -101,7 +101,7 @@
       "prerequisites": [94, 99],
       "ownerAttended": true,
       "rollback": "A failure inside the transaction rolls back by itself. After commit, leave media out of the configuration so no route writes receipts.",
-      "proof": "The applied version: file name and SHA-256. The commit result, the role denials and a bounded receipt RPC call run as the service role."
+      "proof": "The applied version: file name and SHA-256. The commit result, and docs/evidence/2026-10-31-web-media-hosted-proof.sql's result: the role denials and a bounded receipt RPC call run as the service role."
     },
     {
       "id": "media-config",
@@ -152,7 +152,7 @@
       "prerequisites": [94, 102],
       "ownerAttended": true,
       "rollback": "A failure inside the transaction rolls back by itself. The function only reads; after commit, the history page can be hidden by redeploying the pinned deployment.",
-      "proof": "The applied version: file name and SHA-256. The commit result, the role denials and one bounded actor-scoped history call."
+      "proof": "The applied version: file name and SHA-256. The commit result, and docs/evidence/2026-10-31-web-run-history-hosted-proof.sql's result: the role denials and one bounded actor-scoped history call."
     },
     {
       "id": "connections-choice",
@@ -173,7 +173,7 @@
       "prerequisites": [94, 103],
       "ownerAttended": true,
       "rollback": "A failure inside the transaction rolls back by itself. After commit, keep connections.enabled false so no credential is stored.",
-      "proof": "The applied version: file name and SHA-256. The commit result, the role denials and a CAS rotation race between two connections."
+      "proof": "The applied version: file name and SHA-256. The commit result, docs/evidence/2026-10-31-web-connections-hosted-proof.sql's result (the role denials and a service-role CAS exercise) and its CAS rotation race between two connections."
     },
     {
       "id": "connection-wrapping-key",
@@ -214,7 +214,7 @@
       "prerequisites": [94, 104],
       "ownerAttended": true,
       "rollback": "A failure inside the transaction rolls back by itself. After commit, keep jobs.enabled false; never replay 009 after 013.",
-      "proof": "The applied version: file name and SHA-256. The commit result, the role denials and a two-connection lane and weekly-minute reservation race."
+      "proof": "The applied version: file name and SHA-256. The commit result, docs/evidence/2026-10-31-web-jobs-hosted-proof.sql's result (the role denials and a service-role admission exercise) and its two-connection lane and weekly-minute reservation race."
     },
     {
       "id": "typecheck-worker",
@@ -255,7 +255,7 @@
       "prerequisites": [94, 104, 105],
       "ownerAttended": true,
       "rollback": "A failure inside the transaction rolls back by itself. After commit, keep fleetUpdates.enabled false; never replay 010 after 013.",
-      "proof": "The applied version: file name and SHA-256. The commit result, the role denials and a hosted concurrency check between preparation and an ordinary job."
+      "proof": "The applied version: file name and SHA-256. The commit result, docs/evidence/2026-10-31-web-fleet-updates-hosted-proof.sql's result (the role denials and a service-role preparation exercise) and its two-connection race between an update preparation and an ordinary job on one lane."
     },
     {
       "id": "fleet-canary-choice",
@@ -306,7 +306,7 @@
       "prerequisites": [94, 106],
       "ownerAttended": true,
       "rollback": "A failure inside the transaction rolls back by itself. After commit, keep modelRouting.enabled false.",
-      "proof": "The applied version: file name and SHA-256. The commit result, the role denials and a two-connection allowance reservation race."
+      "proof": "The applied version: file name and SHA-256. The commit result, docs/evidence/2026-10-31-web-model-routing-hosted-proof.sql's result (the role denials and a service-role allowance exercise) and its two-connection allowance reservation race."
     },
     {
       "id": "model-allowance",
@@ -337,7 +337,7 @@
       "prerequisites": [94, 107],
       "ownerAttended": true,
       "rollback": "A failure inside the transaction rolls back by itself. After commit, keep drafts.enabled false.",
-      "proof": "The applied version: file name and SHA-256. The commit result, the role denials and a two-connection draft CAS race."
+      "proof": "The applied version: file name and SHA-256. The commit result, docs/evidence/2026-10-31-web-editor-drafts-hosted-proof.sql's result (the role denials and a service-role draft exercise) and its two-connection draft CAS race."
     },
     {
       "id": "drafts-gate",
@@ -358,7 +358,7 @@
       "prerequisites": [94, 105, 107],
       "ownerAttended": true,
       "rollback": "A failure inside the transaction rolls back by itself; the migration refuses an ambiguous partial state. After commit, keep nightOperations off, and reapply 013 (never 009 or 010) if admission must be restored.",
-      "proof": "The applied version: file name and SHA-256. The commit result, the role denials and a hosted race between a night retry and an ordinary job on one lane."
+      "proof": "The applied version: file name and SHA-256. The commit result, docs/evidence/2026-10-31-web-night-retries-hosted-proof.sql's result (the role denials, the saved 010 delegate and a service-role shared-lane exercise) and its hosted race between a night retry and an ordinary job on one lane."
     },
     {
       "id": "night-operations-gate",
@@ -379,7 +379,7 @@
       "prerequisites": [94, 127],
       "ownerAttended": true,
       "rollback": "A failure inside the transaction rolls back by itself. After commit, the old names keep forwarding, so the pinned compatibility baseline still serves; promote it if a caller fails.",
-      "proof": "The applied version: file name and SHA-256. The commit result, the measured hosted schema, grant and dependency impact, and one request through each name with its response status."
+      "proof": "The applied version: file name and SHA-256. The commit result, docs/evidence/2026-10-31-web-plates-names-hosted-proof.sql's result (grant and dependency impact, and one read through each old and new name), the measured hosted schema, and one request through each name with its response status."
     },
     {
       "id": "fleet-trial-scope",
@@ -400,12 +400,12 @@
       "prerequisites": [94, 152],
       "ownerAttended": true,
       "rollback": "A failure inside the transaction rolls back by itself. After commit, drop the plates_push schema; nothing else reads it, and the push routes return to their bounded 503.",
-      "proof": "The applied version: file name and SHA-256; the measured hosted schema and grants; one authenticated subscribe request and its response status."
+      "proof": "The applied version: file name and SHA-256; docs/evidence/2026-10-31-web-push-hosted-proof.sql's result (the schema, its grants and the RPC run as the service role); the measured hosted schema size; one authenticated subscribe request and its response status."
     }
   ],
   "open": [
     "Backup destination (phase 94) is still the owner's choice; the second step asks it, and every migration waits for it.",
-    "Hosted proof SQL exists only for 001–005 (docs/evidence). For 006–014 the conductor writes the hosted proof from each migration's local PGlite proof before the session, so a step's proof is ready to run, not improvised.",
+    "Hosted proof SQL exists for every migration step: 004 and 005 have theirs from phases 97–98, and 006–015 each have docs/evidence/2026-10-31-web-<topic>-hosted-proof.sql, which tests/web-hosted-proofs.test.mjs runs on PGlite after migrations 001..N. SQL cannot check the applied file's SHA-256, so each step still compares it with source. PGlite cannot stand in for Supabase's real roles, grants or connection pooling: there anon, authenticated and service_role are plain roles and each two-tab race replays serially on one connection, so the races' lock waits are first observed in the session.",
     "Connections (103) are optional. Declining them skips their steps and model routing (106), and the plan records that choice rather than a gap.",
     "G9's owner-facing pieces (phases 144, 145, 150) are planned, so they have no step yet; a step for an unbuilt phase is refused."
   ]

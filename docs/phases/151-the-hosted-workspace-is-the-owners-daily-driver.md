@@ -5,7 +5,7 @@ since: 2026-10-31
 goal: G7
 spec: 2
 depends: [101, 107]
-note: "The 36-step activation plan is written and checked (docs/guide/web-activation.md); the owner-attended session and a week of use remain."
+note: "Plan and hosted proof SQL for 006–015 written and checked. Session started 2026-10-31: production was refusing every request (origin moved to a login-protected address on 2026-10-22); moved to an owner domain, sign-in page serves. Backup chosen (Pro plus a nightly encrypted copy). Waiting on the GitHub App callback and the database upgrade."
 evidence: ["evidence/2026-10-31-web-activation-plan.md"]
 ---
 
@@ -73,5 +73,7 @@ By hand: the activation session's hosted proofs; a week of use.
 
 ## Next action
 
-Write hosted proof SQL for migrations 006–014 from their local proofs; the
-owner books the session and decides the backup destination (step 2).
+The owner adds the new origin's callback to the GitHub App and upgrades the
+database to Pro; then the conductor reads /api/deployment signed in (step 1),
+runs the first encrypted backup and reads its snapshot time back (step 2),
+and continues at migration 004.
