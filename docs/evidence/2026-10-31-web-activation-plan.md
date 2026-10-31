@@ -82,3 +82,17 @@ VOLATILE.
   its current plan for now, and the nightly encrypted copy needs a
   read-only backup login, because the production-only database credentials
   can't be read back from the provider. Migrations wait for it.
+
+## Step 2 proof (2026-10-31)
+
+- A read-only backup login was created in the hosted database with its
+  password supplied as a SCRAM verifier (the password exists only in the
+  owner's keychain). Read back from the database: it can log in, bypasses row
+  security for reading, and holds 4 SELECT grants and no other.
+- The first copy, taken through the provider's session pooler and
+  age-encrypted on the owner's machine: snapshot `2026-10-31T06:15:02Z`,
+  113,408 bytes; decrypted and listed, it holds the 4 private tables with
+  their data and 4 functions.
+- Open: the nightly schedule and a second copy of the decryption key are the
+  owner's to install. The provider upgrade is deferred, so this copy is the
+  only backup until then.
