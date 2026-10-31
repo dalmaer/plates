@@ -723,7 +723,7 @@ test('the night commits its page from the configured health dir (read at run tim
   assert.match(own.body, /```text\n└── \.plates\/\n    ├── health\/\n    │   └── 2026-10-05\.md\n    └── bounds\.json\n```/);
   assert.match(own.body, /^Gate: ok: npm test passed, 12 tests/m);
   assert.match(own.body, /^\| prs_stale \(outside\) \| ≤0 \| 2 \|$/m);
-  assert.match(own.body, /^Two-way door: data only/m);
+  assert.match(own.body, /^Two-way door \(reversible\): data only/m);
   assert.match(own.body, /^Blast radius: this repo's data files only\.$/m);
   assert.match(own.body, /\*\*Proposal \(`prs_stale`, outside\):\*\* Close or merge the Acme PRs\./);
   assert.ok(own.body.trimEnd().endsWith('```') && own.body.indexOf('```plates-impact') > at[2], 'the plates-impact block is last');

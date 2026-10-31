@@ -1,11 +1,11 @@
 ---
-status: planned
-since: 2026-10-30
+status: built
+since: 2026-10-31
 goal: G9
 spec: 2
 depends: [39, 144]
-note: "One vocabulary for doors: reversible, windowed, irreversible, driving merge danger and autonomy."
-evidence: []
+note: "lib/doors.mjs classes 21 operation types; Merge danger names the class and levels gate by door, irreversible always waiting for the owner."
+evidence: ["evidence/2026-10-31-door-classes.md"]
 ---
 
 # Every change Plates proposes says whether it can be undone
@@ -33,9 +33,9 @@ reversible changes but never irreversible ones).
 
 ## Acceptance
 
-- [ ] Every operation type has exactly one class, and an unclassified type fails the gate: `tests/door-class.test.mjs: "every operation has a door"`.
-- [ ] The Merge danger line is derived from the class and names it: `tests/door-class.test.mjs: "merge danger says the door"`.
-- [ ] A level that forbids irreversible operations refuses one and says why: `tests/door-class.test.mjs: "an irreversible door waits for the owner"`.
+- [x] Every operation type has exactly one class, and an unclassified type fails the gate: `tests/door-class.test.mjs: "every operation has a door"`.
+- [x] The Merge danger line is derived from the class and names it: `tests/door-class.test.mjs: "merge danger says the door"`.
+- [x] A level that forbids irreversible operations refuses one and says why: `tests/door-class.test.mjs: "an irreversible door waits for the owner"`.
 
 ## Real surfaces
 
@@ -52,5 +52,5 @@ Automated: `node --test tests/door-class.test.mjs`; `npm run check`.
 
 ## Next action
 
-List Plates' operation types from the CLI and night workflows and give each
-a class.
+None; built. The robot and shipped scripts read the classes once they can
+import them (a later phase).
