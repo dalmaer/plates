@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**57 of 134 phases built; 57 owe a walk.** Built means implemented and checked; planned is not available.
+**57 of 142 phases built; 57 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -356,6 +356,32 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 - **106 done when:** Each run selects an eligible model under an explicit capacity and budget policy, explains the choice and preserves task and review requirements during fallback or handoff.
 - **107 done when:** Every current Plates operation has a deliberate web treatment, and core fleet/project journeys work on mobile and desktop without a terminal detour.
 - **108 done when:** Repeated real use demonstrates that the owner operates the selected fleet from mobile and desktop, including routine failure recovery, updates, learning and bounded model fallback.
+
+## G9 — Plates owns the judgment layer and rents the rest
+
+Plates stays small where it is distinctive (practice, evidence and proof, lessons, health and the policy for risk, doors and capacity) and adopts mature open parts for telemetry, host permissions, session execution and live monitoring, behind boundaries an agent can extend without breaking.
+
+0/8 built.
+
+| Phase | Status | Since | Depends on | Why it stands here |
+| --- | --- | --- | --- | --- |
+| [142. Plates says what it owns, and its surface stops growing by accident](phases/142-plates-surface-has-a-boundary-and-a-budget.md) | planned | 2026-10-30 | — | First G9 phase: the own/adopt/watch boundary in design.md and a budget on the CLI's surface. |
+| [143. Every plate's agent runs report to one place the owner picked](phases/143-agent-runs-report-telemetry-to-one-place.md) | planned | 2026-10-30 | [142](phases/142-plates-surface-has-a-boundary-and-a-budget.md) | Adopt the agent CLIs' own OpenTelemetry export; Plates adds the attributes. |
+| [144. A project's risk level is enforced by the tools, not only written down](phases/144-a-project-risk-level-is-enforced-by-its-hosts.md) | planned | 2026-10-30 | [132](phases/132-risk-tolerance-is-explicit-and-scoped.md), [142](phases/142-plates-surface-has-a-boundary-and-a-budget.md) | Phase 132's levels are declared; this maps each to controls the hosts already enforce. |
+| [145. Every change Plates proposes says whether it can be undone](phases/145-every-change-carries-a-door-class.md) | planned | 2026-10-30 | [39](phases/39-every-pr-plates-opens-can-be-judged-in-a-minute-a.md), [144](phases/144-a-project-risk-level-is-enforced-by-its-hosts.md) | One vocabulary for doors: reversible, windowed, irreversible, driving merge danger and autonomy. |
+| [146. What the executor trials learned stays in Plates, whoever runs sessions later](phases/146-what-the-executor-trials-learned-is-kept.md) | planned | 2026-10-30 | [142](phases/142-plates-surface-has-a-boundary-and-a-budget.md), [117](phases/117-evaluation-records.md) | The OpenHands and Gas City trials are stopped (owner, 2026-10-30). Their executor-agnostic pieces become one adapter contract in Plates; no executor is adopted and no paid trial runs. |
+| [147. The owner sees every live agent session in one place](phases/147-live-sessions-are-watched-in-one-place.md) | planned | 2026-10-30 | [142](phases/142-plates-surface-has-a-boundary-and-a-budget.md) | Trial herdr for watching live agent sessions across projects; Plates builds nothing for this unless the trial says so. |
+| [148. Every agent attempt says whether it taught something](phases/148-every-attempt-leaves-a-lesson-status.md) | planned | 2026-10-30 | [142](phases/142-plates-surface-has-a-boundary-and-a-budget.md) | Close the learning loop: each agent attempt records whether it taught something, so capture is measured. |
+| [149. Agents and the owner talk in one chat the owner can see](phases/149-agents-and-the-owner-talk-in-one-visible-chat.md) | planned | 2026-10-30 | [142](phases/142-plates-surface-has-a-boundary-and-a-budget.md), [145](phases/145-every-change-carries-a-door-class.md) | One transport-neutral chat seam, Discord first (the owner has it working); designed in the stopped executor trials, never connected there. |
+
+- **142 done when:** `docs/design.md` names what Plates owns, what it adopts and what it watches, and the gate fails when a verb or flag is added without that boundary saying the new surface belongs to Plates.
+- **143 done when:** Agent runs that Plates starts in a project (robot, cross-review, night, climb) export the agent CLI's own OpenTelemetry metrics and traces, tagged with project, phase, job and experiment, to the backend the owner chose, and a run without a configured backend still runs and says telemetry is off.
+- **144 done when:** A project's Low, Medium or High level (phase 132) renders into the controls its hosts enforce: the Claude Code permission mode and allowed tools, the Codex sandbox and approval policy, and a GitHub ruleset; `plates doctor` reports any drift between the level and what the host actually allows.
+- **145 done when:** Every operation Plates proposes or performs carries a door class, `reversible`, `windowed` (undoable for a stated time) or `irreversible`; the "Merge danger" line on Plates' PRs is derived from it; and an autonomy level can require the owner's approval by class (for example, High may merge reversible changes but never irreversible ones).
+- **146 done when:** The executor-agnostic pieces built during the OpenHands and Gas City trials are in Plates on main as one adapter contract with its tests, the two trial branches are recorded as stopped with what they found, and any future executor is qualified against that contract before it runs a real task.
+- **147 done when:** For two weeks the owner watches live Claude, Codex and other agent sessions across projects in one adopted tool (herdr first), and the decision to keep it, try another, or drop it is recorded with what it showed that the board did not.
+- **148 done when:** Each attempt Plates records (robot, conductor phase, climb, cross-review, executor bake-off) ends with a lesson status, `captured` (a lesson or proposal it links), `known` (an existing lesson applied, named), or `none`, and the health page measures how often failures end `none`.
+- **149 done when:** Plates agents post to, and take requests from, one private chat the owner already uses (Discord first), through one transport-neutral envelope: the owner can ask a project's agent for status, ask it something, or stop it; agents hand work to each other there instead of the owner copying between chats; and nothing posted in chat can trigger an effect beyond what the project's autonomy level and door classes allow.
 
 ## Updating this roadmap
 
