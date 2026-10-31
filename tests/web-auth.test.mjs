@@ -322,3 +322,194 @@ test('pending shipped alias uses response time and never emits after expiry or e
   h.state.now = absoluteExpiry+1;
   assert.deepEqual(auth.responseCookies(), []); assert.equal(h.state.requests.length, count);
 });
+
+// Phase 154: a year-long sign-in renewed through GitHub's rotating refresh tokens.
+const DAY = 86400000;
+const longHarness = () => { const h = harness(); h.state.refreshMode = 'ok'; return h; };
+const sessionCookie = response => response.headers.getSetCookie().find(line => /^__Host-plates-session=[^;]/.test(line));
+const linkOf = html => /<a class="button" href="([^"]+)">Sign in<\/a>/.exec(html)?.[1].replaceAll('&amp;', '&');
+// Every refresh token GitHub handed out, spent or live.
+const refreshTokens = h => [...new Set([...h.state.refreshCalls, ...h.state.refreshTokens])];
+const assertNoRefreshToken = (h, ...texts) => {
+  const tokens = refreshTokens(h);
+  assert.ok(tokens.length > 0);
+  const stored = [...h.state.records.values()].map(row => row.value);
+  for (const text of [...texts, ...stored]) for (const token of tokens) assert.equal(String(text).includes(token), false, 'refresh token leaked');
+};
+async function exposed(response) {
+  return [...response.headers.getSetCookie(), response.headers.get('location') ?? '', await response.clone().text()].join('\n');
+}
+
+test('a session lasts a year with use and ends after 30 days away', async () => {
+  // Year with use: the cookie carries the whole remaining lifetime.
+  const h = longHarness(), start = h.state.now, jar = browserJar(() => h.state.now), signed = await h.login();
+  jar.apply(signed.completed);
+  assert.match(sessionCookie(signed.completed), /; Max-Age=31536000$/);
+  for (let day = 29; day < 365; day += 29) {
+    h.state.now = start + day * DAY;
+    const response = await h.service(h.request('/api/session', { cookie: jar.header() }));
+    assert.equal(response.status, 200, `day ${day}`);
+    assert.deepEqual(response.headers.getSetCookie(), [], 'use renews the server record, not the cookie');
+  }
+  // Phase 127's alias rule holds: a re-issued alias keeps the original absolute expiry.
+  const legacy = jar.header().replace('__Host-plates-', '__Host-keel-');
+  const alias = await h.service(h.request('/api/session', { cookie: legacy }));
+  assert.equal(alias.status, 200);
+  assert.match(sessionCookie(alias), new RegExp(`; Max-Age=${Math.floor((start + 365 * DAY - h.state.now) / 1000)}$`));
+  h.state.now = start + 364 * DAY;
+  assert.equal((await h.service(h.request('/api/session', { cookie: jar.header() }))).status, 200);
+  assert.ok(h.state.refreshCalls.length >= 12, 'each eight-hour token was renewed');
+  h.state.now = start + 365 * DAY + 1000;
+  assert.equal(jar.header(), '', 'the browser drops the cookie at the year limit');
+  assert.equal((await h.service(h.request('/api/session', { cookie: signed.cookie }))).status, 401, 'the server refuses it too');
+
+  // Thirty days away ends it; 29 days and 23 hours do not.
+  const away = longHarness(), kept = await away.login();
+  away.state.now += 30 * DAY - 3600000;
+  assert.equal((await away.service(away.request('/api/session', { cookie: kept.cookie }))).status, 200);
+  away.state.now += 30 * DAY + 1000;
+  const api = await away.service(away.request('/api/session', { cookie: kept.cookie }));
+  assert.equal(api.status, 401); assert.deepEqual(await api.json(), { error: 'sign_in_required' });
+  const page = await away.service(away.request('/', { cookie: kept.cookie }));
+  assert.equal(page.status, 401);
+  const html = await page.text();
+  assert.match(html, /Your sign-in ended\./); assert.match(html, /30 days without use, or because you signed out/);
+  assert.equal(linkOf(html), '/signin?returnTo=%2F&ended=ended');
+
+  // An App without expiring tokens returns no refresh token: the session keeps
+  // the earlier bounds, its token's eight hours in all and thirty minutes idle.
+  const plain = harness(), short = await plain.login();
+  assert.match(sessionCookie(short.completed), /; Max-Age=28800$/);
+  plain.state.now += 1801000;
+  assert.equal((await plain.service(plain.request('/api/session', { cookie: short.cookie }))).status, 401);
+  const bounded = await plain.login();
+  for (let i = 0; i < 15; i++) { plain.state.now += 1800000 - 1000; assert.equal((await plain.service(plain.request('/api/session', { cookie: bounded.cookie }))).status, 200); }
+  plain.state.now += 1800000 + 15000;
+  assert.equal((await plain.service(plain.request('/api/session', { cookie: bounded.cookie }))).status, 401);
+  assert.deepEqual(plain.state.refreshCalls, []);
+});
+
+test('an expiring token is renewed once, however many requests notice', async t => {
+  const logged = ['log', 'info', 'warn', 'error', 'debug'].map(name => t.mock.method(console, name, () => {}));
+  const h = longHarness(), signed = await h.login(), seen = [await exposed(signed.completed)];
+  // Within five minutes of expiry, while the old token still works: one instance
+  // twice and two more instances notice at once.
+  h.state.now += 28800000 - 299000;
+  let replies = await Promise.all([h.service, h.service, h.makeService(), h.makeService()]
+    .map(service => service(h.request('/api/session', { cookie: signed.cookie }))));
+  assert.deepEqual(replies.map(r => r.status), [200, 200, 200, 200]);
+  assert.equal(h.state.refreshCalls.length, 1, 'the refresh token is spent once');
+  for (const reply of replies) seen.push(await exposed(reply));
+  // After the renewed token has lapsed: losers wait for the winner's pair.
+  h.state.now += 28800000 + 1000;
+  replies = await Promise.all([h.service, h.makeService(), h.makeService()]
+    .map(service => service(h.request('/', { cookie: signed.cookie }))));
+  assert.deepEqual(replies.map(r => r.status), [200, 200, 200]);
+  assert.equal(h.state.refreshCalls.length, 2);
+  assert.equal(new Set(h.state.refreshCalls).size, 2, 'no refresh token is ever sent twice');
+  for (const reply of replies) seen.push(await exposed(reply));
+  // The newest token now serves: the fake GitHub refuses lapsed tokens.
+  const after = await h.makeService()(h.request('/api/session', { cookie: signed.cookie }));
+  assert.equal(after.status, 200); seen.push(await exposed(after));
+  assert.equal(h.state.refreshCalls.length, 2);
+  // Never in a cookie, a response, the stored ciphertext or a log line.
+  assertNoRefreshToken(h, ...seen, ...logged.flatMap(mock => mock.mock.calls.map(call => JSON.stringify(call.arguments))));
+});
+
+test('a refused renewal ends the sign-in and says why', async () => {
+  const { createStore } = await import('../lib/web/store.mjs');
+  const { createGitHub } = await import('../lib/web/github.mjs');
+  // GitHub refuses the refresh token (revoked App authorization, expired or reused).
+  const h = longHarness(), signed = await h.login();
+  h.state.refreshMode = 'refused'; h.state.now += 28800000 - 60000;
+  const page = await h.service(h.request('/projects/studio', { cookie: signed.cookie }));
+  assert.equal(page.status, 401);
+  const html = await page.text();
+  assert.match(html, /Your sign-in ended\./); assert.match(html, /GitHub ended it/);
+  assert.doesNotMatch(html, /Reference|sign_in_required/);
+  assert.equal(linkOf(html), '/signin?returnTo=%2Fprojects%2Fstudio&ended=github');
+  assert.equal([...h.state.records.keys()].some(key => key.startsWith('session:')), false, 'the session is revoked');
+  const next = await h.service(h.request('/projects/studio', { cookie: signed.cookie }));
+  assert.equal(next.status, 401); assert.match(await next.text(), /Your sign-in ended\./);
+  assert.equal(h.state.refreshCalls.length, 1);
+  // The thrown error carries a reason word, never the refresh token.
+  const direct = longHarness(), other = await direct.login();
+  direct.state.refreshMode = 'refused'; direct.state.now += 28800000 - 60000;
+  const auth = createAuth(direct.config, createStore(direct.config, direct.fetcher), createGitHub(direct.config, direct.fetcher), () => direct.state.now);
+  const error = await auth.authorized(direct.request('/api/session', { cookie: other.cookie })).then(() => null, e => e);
+  assert.equal(error.code, 'sign_in_required'); assert.equal(error.status, 401); assert.equal(error.reason, 'github');
+  assertNoRefreshToken(direct, error.message, error.stack, JSON.stringify(error), html);
+
+  // Changed project access at renewal ends the session as a privilege change.
+  const moved = longHarness(), owner = await moved.login();
+  moved.state.repoAccess = false; moved.state.now += 28800000 - 60000;
+  const changed = await moved.service(moved.request('/', { cookie: owner.cookie }));
+  assert.equal(changed.status, 401);
+  const words = await changed.text();
+  assert.match(words, /Your access to this workspace or its projects changed\./);
+  assert.equal(linkOf(words), '/signin?returnTo=%2F&ended=access');
+  assert.equal(moved.state.refreshCalls.length, 1);
+  assert.equal([...moved.state.records.keys()].some(key => key.startsWith('session:')), false);
+
+  // A GitHub outage is not a refusal: the old token serves while valid, then
+  // the page says the connection is unavailable, and the session survives.
+  const down = longHarness(), held = await down.login();
+  down.state.refreshMode = 'down'; down.state.now += 28800000 - 60000;
+  assert.equal((await down.service(down.request('/api/session', { cookie: held.cookie }))).status, 200);
+  down.state.now += 120000;
+  const unavailable = await down.service(down.request('/', { cookie: held.cookie }));
+  assert.equal(unavailable.status, 503); assert.match(await unavailable.text(), /A required connection is unavailable/);
+  assert.equal([...down.state.records.keys()].some(key => key.startsWith('session:')), true, 'an outage does not end the sign-in');
+  // The outage's lease lapses after two minutes; then a retry may spend it.
+  down.state.now += 120000; down.state.refreshMode = 'ok';
+  assert.equal((await down.service(down.request('/api/session', { cookie: held.cookie }))).status, 200);
+  assert.equal(down.state.refreshCalls.length, 3);
+});
+
+test('the sign-in page says what happened and comes back', async () => {
+  const { errorView, SIGN_IN_REASONS } = await import('../lib/web/views.mjs');
+  const { SIGN_IN_ENDED } = await import('../lib/web/auth.mjs');
+  assert.deepEqual(Object.keys(SIGN_IN_REASONS), SIGN_IN_ENDED, 'every reason the server may carry has words');
+  const h = harness();
+  // No session: plain words, no raw code, and a way back to the asked-for page.
+  const page = await h.service(h.request('/projects/studio'));
+  assert.equal(page.status, 401);
+  const html = await page.text();
+  assert.match(html, /You’re not signed in\./);
+  assert.doesNotMatch(html, /Reference|sign_in_required/);
+  const link = linkOf(html);
+  assert.equal(link, '/signin?returnTo=%2Fprojects%2Fstudio');
+  // API routes keep their JSON.
+  const api = await h.service(h.request('/api/projects/studio'));
+  assert.equal(api.status, 401); assert.deepEqual(await api.json(), { error: 'sign_in_required' });
+  // Following the button signs in and lands on the asked-for page.
+  const signin = await h.service(h.request(link));
+  assert.equal(signin.status, 200);
+  const form = await signin.text();
+  assert.match(form, /name="returnTo" value="\/projects\/studio"/);
+  const cookie = h.cookieHeader(signin), csrf = cookie.split('=')[1];
+  const started = await h.service(h.request('/api/auth/start', { cookie, body: { csrf, returnTo: '/projects/studio' } }));
+  assert.equal(started.status, 303);
+  const target = new URL(started.headers.get('location')); h.state.challenges.add(target.searchParams.get('code_challenge'));
+  const done = await h.service(h.request(`/api/auth/callback?code=fake-code&state=${target.searchParams.get('state')}`, { cookie: h.cookieHeader(started) }));
+  assert.equal(done.status, 303); assert.equal(done.headers.get('location'), '/projects/studio');
+  // The sign-in page names a known reason; anything else is refused.
+  for (const [reason, words] of [['ended', /30 days without use/], ['year', /a year since you signed in/], ['github', /GitHub ended it/], ['access', /access to this workspace or its projects changed/], ['signed-out', /You’re signed out\./]]) {
+    const shown = await h.service(h.request(`/signin?returnTo=%2Fprojects%2Fstudio&ended=${reason}`));
+    assert.equal(shown.status, 200, reason); assert.match(await shown.text(), words);
+  }
+  for (const query of ['ended=acme', 'ended=github&ended=github', 'ended=%3Cscript%3E']) assert.equal((await h.service(h.request(`/signin?${query}`))).status, 400, query);
+  // An unsafe return path is refused, and an unknown page returns home.
+  for (const destination of ['//evil.test', 'https://evil.test', '/%2f%2fevil.test', '/api/auth/callback']) {
+    assert.equal((await h.service(h.request(`/signin?returnTo=${encodeURIComponent(destination)}`))).status, 400, destination);
+    assert.equal((await h.begin(destination)).started.status, 400, destination);
+  }
+  assert.equal(linkOf(await (await h.service(h.request('/acme-nowhere'))).text()), '/signin?returnTo=%2F');
+  // Signing out says so.
+  const signed = await h.login();
+  const logout = await h.service(h.request('/api/auth/logout', { cookie: signed.cookie, body: { csrf: signed.session.csrf } }));
+  assert.equal(logout.headers.get('location'), '/signin?ended=signed-out');
+  // Other error pages keep their reference.
+  assert.match(errorView(503, 'upstream_unavailable'), /Reference: upstream_unavailable/);
+  assert.doesNotMatch(errorView(401, 'sign_in_required'), /Reference/);
+});

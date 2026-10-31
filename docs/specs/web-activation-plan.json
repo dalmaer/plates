@@ -531,11 +531,26 @@
       "ownerAttended": true,
       "rollback": "A failure inside the transaction rolls back by itself. After commit, drop the plates_push schema; nothing else reads it, and the push routes return to their bounded 503.",
       "proof": "The applied version: file name and SHA-256; docs/evidence/2026-10-31-web-push-hosted-proof.sql's result (the schema, its grants and the RPC run as the service role); the measured hosted schema size; one authenticated subscribe request and its response status."
+    },
+    {
+      "id": "migration-016",
+      "phase": 154,
+      "kind": "migration",
+      "migration": "016-long-sessions.sql",
+      "what": "After 014, and before deploying the build with phase 154, apply 016-long-sessions.sql: plates_web_rpc accepts session lifetimes up to 365 days (31,536,000 seconds) while attempts and versioned records keep eight hours, and keel_web_rpc keeps forwarding. The build before it never asks for more than thirty minutes, so 016 is safe under either build; the phase 154 build cannot sign anyone in until it is applied.",
+      "prerequisites": [
+        94,
+        127,
+        154
+      ],
+      "ownerAttended": true,
+      "rollback": "A failure inside the transaction rolls back by itself. After commit, nothing needs undoing: a rollback build never asks for more than thirty minutes, so the wider session bound goes unused until the phase 154 build is deployed again.",
+      "proof": "The applied version: file name and SHA-256. The commit result, docs/evidence/2026-10-31-web-long-sessions-hosted-proof.sql's result (grants unchanged, a synthetic 365-day session created and rolled back, longer attempts and records refused), and one sign-in on the deployed build with its session cookie's Max-Age."
     }
   ],
   "open": [
     "Backup destination (phase 94) is still the owner's choice; the second step asks it, and every migration waits for it.",
-    "Hosted proof SQL exists for every migration step: 004 and 005 have theirs from phases 97–98, and 006–015 each have docs/evidence/2026-10-31-web-<topic>-hosted-proof.sql, which tests/web-hosted-proofs.test.mjs runs on PGlite after migrations 001..N. SQL cannot check the applied file's SHA-256, so each step still compares it with source. PGlite cannot stand in for Supabase's real roles, grants or connection pooling: there anon, authenticated and service_role are plain roles and each two-tab race replays serially on one connection, so the races' lock waits are first observed in the session.",
+    "Hosted proof SQL exists for every migration step: 004 and 005 have theirs from phases 97–98, and 006–016 each have docs/evidence/2026-10-31-web-<topic>-hosted-proof.sql, which tests/web-hosted-proofs.test.mjs runs on PGlite after migrations 001..N. SQL cannot check the applied file's SHA-256, so each step still compares it with source. PGlite cannot stand in for Supabase's real roles, grants or connection pooling: there anon, authenticated and service_role are plain roles and each two-tab race replays serially on one connection, so the races' lock waits are first observed in the session.",
     "Connections (103) are optional. Declining them skips their steps and model routing (106), and the plan records that choice rather than a gap.",
     "G9's owner-facing pieces (phases 144, 145, 150) are planned, so they have no step yet; a step for an unbuilt phase is refused."
   ]
