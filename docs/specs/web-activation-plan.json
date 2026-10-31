@@ -86,7 +86,7 @@
       "id": "decision-writes-gate",
       "phase": 97,
       "kind": "env",
-      "what": "Deploy the verified revision with decisionWrites false and walk an exact decision preview; then set decisionWrites true in KEEL_WEB_CONFIG and redeploy. The same instance write setting gates walk acceptance (98).",
+      "what": "Deploy the verified revision with decisionWrites false and walk an exact decision preview; then set decisionWrites true in PLATES_WEB_CONFIG and redeploy. The same instance write setting gates walk acceptance (98).",
       "prerequisites": [
         97
       ],
@@ -113,7 +113,7 @@
       "id": "capture-bucket",
       "phase": 99,
       "kind": "decision",
-      "what": "Owner approves, and creates in the existing Supabase project, a private keel-captures bucket with 90-day retention and a 256 MiB application cap. No paid upgrade and no public export.",
+      "what": "Owner approves, and creates in the existing Supabase project, a private plates-captures bucket with 90-day retention and a 256 MiB application cap. No paid upgrade and no public export.",
       "prerequisites": [
         94,
         99
@@ -140,7 +140,7 @@
       "id": "media-config",
       "phase": 99,
       "kind": "env",
-      "what": "Add media {bucket: keel-captures, retentionDays: 90, capacityBytes: 268435456} to KEEL_WEB_CONFIG and redeploy.",
+      "what": "Add media {bucket: plates-captures, retentionDays: 90, capacityBytes: 268435456} to PLATES_WEB_CONFIG and redeploy.",
       "prerequisites": [
         99
       ],
@@ -152,7 +152,7 @@
       "id": "workspace-writes-gate",
       "phase": 100,
       "kind": "env",
-      "what": "Set workspaceWrites true in KEEL_WEB_CONFIG and redeploy. It is the private workspace gate: copying one to three selected lessons here, and later connection policy edits (103), fleet update publication (105) and model policy (106). It needs Contents write on the private workspace repository and the 004 operation store.",
+      "what": "Set workspaceWrites true in PLATES_WEB_CONFIG and redeploy. It is the private workspace gate: copying one to three selected lessons here, and later connection policy edits (103), fleet update publication (105) and model policy (106). It needs Contents write on the private workspace repository and the 004 operation store.",
       "prerequisites": [
         97,
         100

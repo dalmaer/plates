@@ -128,3 +128,20 @@ repositories (the public Plates repository and the private workspace
 repository). An API read of the installation needs a GitHub App user token;
 the owner's CLI token gets 403, the limit recorded on 2026-10-21. Every write
 gate stays false.
+
+## Step 5: decision writes (2026-10-31)
+
+- Preview walked with writes off: the owner opened a health proposal's
+  decision page and asked for its exact source change. `POST
+  /api/projects/<project>/decisions/preview` answered 200; one encrypted
+  preview was stored and no operation. The newest reports (26–30 October)
+  could not be used: each is over the workspace's 256 KiB per-file limit,
+  answered as "a required connection is unavailable" (phase 153 fixes both).
+- `decisionWrites: true` was set in the production configuration and the
+  same source redeployed; the configuration validates (sign-in page 200,
+  signed-out 401). The prior deployment is the rollback target.
+- Before this step the workspace's project id moved from its pre-rename
+  name to `plates`, in the private manifest and the configuration together.
+- The plan now names the capture bucket `plates-captures` and the
+  configuration variable `PLATES_WEB_CONFIG`, which is what production reads.
+- The owner's real decision (phase 97's walk) is still owed.
