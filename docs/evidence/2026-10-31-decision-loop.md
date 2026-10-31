@@ -27,3 +27,16 @@ Conductor's checks, 2026-10-31, worktree on `claude/phase-150`.
   verb); the gate reading Plates' own records enforces the rule.
 
 Supports **partial**.
+
+## The morning brief raises due checks (2026-10-31, later)
+
+| Did | Expected | Observed |
+| --- | --- | --- |
+| `node --import ./tests/helpers/hermetic.mjs --test tests/decision-loop.test.mjs` | 4 pass | 4 of 4 |
+| Builder mutations: the check lines removed from "Your next"; `plates morning` not passing checks | each fails | each failed |
+| Conductor mutations: the brief admits broken records; the brief admits other owner items | each fails | neither failed at first; the conductor added a mixed-items check, and each then failed |
+| Builder: typecheck, web pins, night release bytes, surface budget, and about 925 tests in related files | pass | exit 0 |
+
+"Due" comes from the board's own `decisionItems`, so the board and the brief
+cannot disagree. With nothing due, the brief is byte-identical to one
+rendered without checks.

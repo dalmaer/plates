@@ -4,7 +4,7 @@ since: 2026-10-31
 goal: G9
 spec: 2
 depends: [143, 146, 148]
-note: "Decisions carry evidence, an expectation and a check date; due checks reach the board and health measures them. The morning brief and a month of real checks remain."
+note: "Decisions carry evidence, an expectation and a check date; due checks reach the board, the morning brief (plates morning) and health. A month of real checks remains."
 evidence: ["evidence/2026-10-31-decision-loop.md"]
 ---
 
@@ -53,7 +53,7 @@ outcome is itself evidence for the next decision.
 - [x] A decision recorded with evidence, an expectation and a check date is raised when the date passes, with the evidence that arrived since; one without them is listed as "no check": `tests/decision-loop.test.mjs: "a decision comes back to be checked"`.
 - [x] An outcome without a cited observation is refused, and reversing an irreversible decision is refused with what can still be done: `tests/decision-loop.test.mjs: "an outcome needs evidence"`.
 - [x] Health reports decisions checked on time and decisions that held, by month: `tests/decision-loop.test.mjs: "health measures the decisions"`.
-- [ ] The morning brief raises each due check with a link to it: `tests/decision-loop.test.mjs: "the morning brief raises due checks"`.
+- [x] The morning brief raises each due check with a link to it: `tests/decision-loop.test.mjs: "the morning brief raises due checks"`.
 - [ ] A month in which at least three real decisions on Plates were checked and their outcomes recorded: ⚑ by hand: the owner and the conductor.
 
 ## Your part
@@ -77,6 +77,8 @@ By hand: a month of real checks.
 
 ## Deliberately open
 
+Due checks reach the brief that `plates morning` renders on the owner's machine. The brief a project's CI sends (`plates-morning.yml`) runs the project's own checkout script, which cannot read Plates-side decision records, so it carries no checks; feeding them would need a workflow change. There is no web route for a decision record, so the link is the record itself.
+
 - **Which records count as decisions** across fences, proposals, lessons and
   walks; settled by listing them first and adding the fields where each
   already lives, not a new store.
@@ -85,5 +87,5 @@ By hand: a month of real checks.
 
 ## Next action
 
-Give the morning brief a structured input for due checks, then start a month
-of real checks on Plates' own decisions.
+A month of real checks: the owner and the conductor record outcomes as
+checks come due.

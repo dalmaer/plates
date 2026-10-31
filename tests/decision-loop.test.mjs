@@ -229,6 +229,14 @@ test('the morning brief raises due checks', async t => {
   assert.equal(early.markdown, renderBrief({ plan, now: at('2026-10-14'), links: early.links, health: { before: null, after: null }, production: early.production }).markdown);
   assert.doesNotMatch(early.markdown, /decision/i);
 
+  // Only checks that wait on the owner reach the brief: a broken record or another kind of item does not.
+  const mixed = await briefChecks(root, { today: '2026-10-21' }, async () => ({ items: [
+    { waits: 'owner', kind: 'check', ref: 'docs/decisions/acme.md#due', title: 'check decision: acme', why: 'due' },
+    { waits: 'broken', kind: 'check', ref: 'docs/decisions/acme.md#bad', title: 'decision record breaks the check', why: 'bad' },
+    { waits: 'owner', kind: 'walk', ref: 'docs/phases/1-acme.md', title: 'walk acme', why: 'ready' },
+  ] }));
+  assert.deepEqual(mixed.due.map(i => i.ref), ['docs/decisions/acme.md#due']);
+
   // Records that cannot be read are said, never "nothing due".
   const unread = await briefChecks(root, { today: '2026-10-21' }, async () => { throw new Error('docs/decisions/anvils.md: EACCES'); });
   assert.deepEqual(unread, { due: [], unread: 'docs/decisions/anvils.md: EACCES' });
