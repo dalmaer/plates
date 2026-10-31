@@ -5,7 +5,7 @@ since: 2026-10-31
 goal: G7
 spec: 2
 depends: [101, 107]
-note: "Plan and hosted proof SQL for 006–015 written and checked. Session 2026-10-31: production moved to an owner domain after a 9-day origin outage; database resumed; steps 1–4 proven (Node 24.22.2 and sign-in; first encrypted backup read back; migration 004 with its proof and race; Contents write approved). Next: step 5, the decision-writes gate."
+note: "Plan and hosted proof SQL for 006–015 written and checked. Session 2026-10-31: production moved to an owner domain after a 9-day origin outage; database resumed; steps 1–5 proven (Node 24.22.2 and sign-in; first encrypted backup; migration 004 with proof and race; Contents write; decision writes on). Next: step 6, migration 005, with the owner."
 evidence: ["evidence/2026-10-31-web-activation-plan.md"]
 ---
 
@@ -73,7 +73,6 @@ By hand: the activation session's hosted proofs; a week of use.
 
 ## Next action
 
-Step 5: the owner walks one decision preview with writes off, then the
-conductor sets decisionWrites and redeploys. Separately, remove the runtime
-exception branch through review; the owner installs the nightly backup
-schedule.
+Step 6 with the owner present: migration 005 with its proof and a draft
+revision race (rehearsed on PGlite), then steps 7–13. The owner installs the
+nightly backup schedule.

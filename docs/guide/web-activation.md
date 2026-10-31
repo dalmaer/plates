@@ -36,14 +36,14 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
 4. **github-app-contents-write** (phase 97, github-app, owner attends). Owner approves GitHub App Contents read and write on the selected private workspace repository and the selected project repositories. This is the grant decisions (97), walk acceptance (98), lesson copies (100), connection policy (103) and night plan writes (107) wait for; it enables none of them.
    - Rollback: Owner removes Contents write in the App's settings; every write gate stays false.
    - Proof to record: A GitHub API read of the installation's permissions (contents: write) and its selected repository list, sanitized.
-5. **decision-writes-gate** (phase 97, env, owner attends). Deploy the verified revision with decisionWrites false and walk an exact decision preview; then set decisionWrites true in KEEL_WEB_CONFIG and redeploy. The same instance write setting gates walk acceptance (98).
+5. **decision-writes-gate** (phase 97, env, owner attends). Deploy the verified revision with decisionWrites false and walk an exact decision preview; then set decisionWrites true in PLATES_WEB_CONFIG and redeploy. The same instance write setting gates walk acceptance (98).
    - Rollback: Set decisionWrites false and redeploy, or promote the pinned deployment. A source write already committed is undone only by its own reviewed revert.
    - Proof to record: The serving revision from /api/deployment, a decision preview request and its response status, and the configuration's decisionWrites value on that deployment.
 6. **migration-005** (phase 98, migration, owner attends). Apply 005-walk-drafts.sql (private guided-walk drafts and observation histories) after 004, then run the existing hosted proof SQL.
    - Needs first: phases 94, 97.
    - Rollback: A failure inside the transaction rolls back by itself. After commit, walk drafts are only read and written by the walk routes; leave the tables, and keep source submission behind decisionWrites.
    - Proof to record: The applied version: file name and SHA-256. The commit result, docs/evidence/2026-10-21-web-walks-hosted-proof.sql's result, the role denials and a two-connection draft revision race.
-7. **capture-bucket** (phase 99, decision, owner attends). Owner approves, and creates in the existing Supabase project, a private keel-captures bucket with 90-day retention and a 256 MiB application cap. No paid upgrade and no public export.
+7. **capture-bucket** (phase 99, decision, owner attends). Owner approves, and creates in the existing Supabase project, a private plates-captures bucket with 90-day retention and a 256 MiB application cap. No paid upgrade and no public export.
    - Needs first: phase 94.
    - Rollback: Leave the bucket empty and private, and leave media out of the configuration. Deleting the bucket is a separate owner action; expiry never starts cleanup.
    - Proof to record: The bucket's private visibility read back from Supabase, with the approved retention and cap recorded in phase 99.
@@ -51,10 +51,10 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
    - Needs first: phase 94.
    - Rollback: A failure inside the transaction rolls back by itself. After commit, leave media out of the configuration so no route writes receipts.
    - Proof to record: The applied version: file name and SHA-256. The commit result, and docs/evidence/2026-10-31-web-media-hosted-proof.sql's result: the role denials and a bounded receipt RPC call run as the service role.
-9. **media-config** (phase 99, env, owner attends). Add media {bucket: keel-captures, retentionDays: 90, capacityBytes: 268435456} to KEEL_WEB_CONFIG and redeploy.
+9. **media-config** (phase 99, env, owner attends). Add media {bucket: plates-captures, retentionDays: 90, capacityBytes: 268435456} to PLATES_WEB_CONFIG and redeploy.
    - Rollback: Remove the media member and redeploy. Stored captures and their receipts are kept.
    - Proof to record: The serving revision, and one capture upload request whose receipt reaches the verified state, with its response status.
-10. **workspace-writes-gate** (phase 100, env, owner attends). Set workspaceWrites true in KEEL_WEB_CONFIG and redeploy. It is the private workspace gate: copying one to three selected lessons here, and later connection policy edits (103), fleet update publication (105) and model policy (106). It needs Contents write on the private workspace repository and the 004 operation store.
+10. **workspace-writes-gate** (phase 100, env, owner attends). Set workspaceWrites true in PLATES_WEB_CONFIG and redeploy. It is the private workspace gate: copying one to three selected lessons here, and later connection policy edits (103), fleet update publication (105) and model policy (106). It needs Contents write on the private workspace repository and the 004 operation store.
    - Needs first: phase 97.
    - Rollback: Set workspaceWrites false and redeploy. Copied lesson files stay; the originals were never changed.
    - Proof to record: The serving revision, and a lesson-copy preview request against the pinned private workspace with its response status.
