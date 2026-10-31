@@ -39,6 +39,13 @@ import { status as productionStatus, productionLines } from './production.mjs';
 // (plates phase 81: the branch keel-verify, below): each one that failed in the
 // day before the night started is a line first under "Your next".
 //
+// Decisions due for their check (plates phase 150) are a structured input,
+// `checks`: { due: [the board's check items: { title, why, ref }], unread }.
+// plates's `plates morning` reads them plates-side (lib/decision-loop.mjs,
+// the board's own due computation) and passes them in; each due check is one
+// line under "Your next", linked to its record. Without the input, or with
+// none due, the brief says nothing about checks.
+//
 // Exit: 0 done (sent, already sent, or not yet over); 2 usage, no plan for
 // the night, no assignee, or an input it cannot read; 1 a GitHub write
 // failed (the workflow goes red). gh is process.env.PLATES_GH || 'gh'.
@@ -432,6 +439,23 @@ const itemLine = (it, health, tail = []) => {
 };
 const isPr = link => /^https:\/\/[^/]+\/[^/]+\/[^/]+\/pull\/\d+$/.test(link ?? '');
 
+/** Where the owner opens a decision record: on GitHub when the repo is known, else its path. */
+export const recordLink = (repo, ref) => (repo ? `https://github.com/${repo}/blob/HEAD/${encodeURI(ref)}` : ref);
+
+/** The structured due-check input, checked: { due, unread } or null. */
+function checksOf(checks) {
+  if (checks == null) return null;
+  const bad = () => new MorningError('checks is { due: [{ title, why, ref }], unread }');
+  if (typeof checks !== 'object' || Array.isArray(checks) || !Array.isArray(checks.due ?? [])) throw bad();
+  const due = checks.due ?? [];
+  if (due.some(c => !c || typeof c !== 'object' || ![c.title, c.why, c.ref].every(v => typeof v === 'string' && v.trim()))) throw bad();
+  return { due, unread: checks.unread ? one(checks.unread) : null };
+}
+const checkLine = c => {
+  const title = one(c.title), link = c.link ? one(c.link) : null;
+  return `${title[0].toUpperCase()}${title.slice(1)} (${link && link !== c.ref ? `[${one(c.ref)}](${link})` : `\`${one(c.ref)}\``}): ${one(c.why)}`;
+};
+
 // Observation is an output mode, never a completion rule or a publication intent.
 function checkReportMode(mode, readOnly = true) {
   if (!['final', 'observation'].includes(mode)) throw new MorningError('reportMode must be final or observation');
@@ -463,8 +487,9 @@ function deliveryView(delivery) {
  * review, triage), failed and why, left alone (skipped, left alone, will not
  * touch), not finished (by readyBy when it passed), and the owner's next.
  */
-export function renderBrief({ plan, now = new Date(), health = {}, links = {}, verify = null, production = null, reportMode = 'final', delivery = null }) {
+export function renderBrief({ plan, now = new Date(), health = {}, links = {}, verify = null, production = null, reportMode = 'final', delivery = null, checks = null }) {
   checkReportMode(reportMode);
+  const due = checksOf(checks);
   const deliveryObservation = reportMode === 'observation' ? deliveryView(delivery) : null;
   const r = readiness(plan, now);
   const done = plan.items.filter(i => i.kind === 'build' && i.status === 'done');
@@ -481,6 +506,9 @@ export function renderBrief({ plan, now = new Date(), health = {}, links = {}, v
     ...done.filter(i => isPr(i.result?.link)).map(i => `Review and merge ${i.result.link} (\`${i.id}\`): a person merges.`),
     ...failed.map(i => `Look at why \`${i.id}\` failed: ${i.result?.note ? one(i.result.note) : 'no reason was recorded'}.`),
     ...(r.late ? open.filter(i => i.kind === 'build').map(i => `\`${i.id}\` was not finished by ${r.readyBy}: its pass may still finish it, or tomorrow's plan takes it up.`) : []),
+    // Decisions that came back to be checked (phase 150), each once, linked to its record.
+    ...(due?.due ?? []).map(checkLine),
+    ...(due?.unread ? [`The decision records could not be read: ${due.unread}. Whether a decision is due for its check is unknown.`] : []),
     ...plan.leftOpen.map(l => `Left open: ${one(l)}`),
   ];
   const by = plan.shapedBy === 'owner' ? 'shaped by the owner' : 'plates\'s default plan';
@@ -519,7 +547,7 @@ const dateOf = (date, now) => {
 export async function brief(options) {
   return briefWithConfig(options, await configOf(options.root));
 }
-async function briefWithConfig({ root, date, env = process.env, now = new Date(), namesEvidence = false, reportMode = 'final', delivery = null }, config) {
+async function briefWithConfig({ root, date, env = process.env, now = new Date(), namesEvidence = false, reportMode = 'final', delivery = null, checks = null }, config) {
   checkReportMode(reportMode);
   const night = dateOf(date, now);
   const found = await finalPlan({ root, date: night, namesEvidence });
@@ -535,14 +563,16 @@ async function briefWithConfig({ root, date, env = process.env, now = new Date()
     verify = { failed: verifyFailuresFor(v.results, night, { production: productionOf(config) }), unread: v.unread ?? null };
   }
   const production = await productionStatus({root,config,now});
-  const b = renderBrief({ plan: found.plan, now, health, links, verify, production, reportMode, delivery });
+  const given = checksOf(checks);
+  const linked = given && { ...given, due: given.due.map(c => ({ ...c, link: recordLink(repoOf(config, env), c.ref) })) };
+  const b = renderBrief({ plan: found.plan, now, health, links, verify, production, reportMode, delivery, checks: linked });
   const observation=found.observation;
   if(observation && verifyObservation) {
     const projection=namesFragment(observation,'verify-displayed',JSON.stringify((verify?.failed??[]).map(({sha,ok,at})=>({sha,ok,at}))));
     observation.reads.push(...verifyObservation.reads.map(r=>({...r,outputProjection:projection})));
     observation.gaps.push(...verifyObservation.gaps);
   }
-  return { data: { ok: true, date: night, title: reportMode === 'observation' ? `Morning observation, ${night}` : titleOf(night), ...(b.report ? { report: b.report, delivery: b.delivery } : {}), from: found.from, sources: found.sources, readiness: b.readiness, sections: b.sections, next: b.next, links, verify, production, markdown: b.markdown, plan: found.plan, ...(observation?{observation}:{}) }, text: b.markdown.trimEnd() };
+  return { data: { ok: true, date: night, title: reportMode === 'observation' ? `Morning observation, ${night}` : titleOf(night), ...(b.report ? { report: b.report, delivery: b.delivery } : {}), from: found.from, sources: found.sources, readiness: b.readiness, sections: b.sections, next: b.next, links, verify, production, ...(linked ? { checks: linked } : {}), markdown: b.markdown, plan: found.plan, ...(observation?{observation}:{}) }, text: b.markdown.trimEnd() };
 }
 
 // ---- sending -----------------------------------------------------------------
@@ -593,13 +623,13 @@ export function assigneeOf(config) {
  * issues are closed. An issue with that title already (open or closed) is
  * this night's brief: nothing is sent again.
  */
-export async function send({ root, date, env = process.env, now = new Date(), namesEvidence = false, reportMode = 'final' }) {
+export async function send({ root, date, env = process.env, now = new Date(), namesEvidence = false, reportMode = 'final', checks = null }) {
   checkReportMode(reportMode, false);
   const config = await configOf(root);
   const assignee = assigneeOf(config);
   // Pin the checkout identity once: later gh calls must not follow a changed default.
   config.repo = sendRepository(root, config, env);
-  const b = await briefWithConfig({ root, date, env, now, namesEvidence }, config);
+  const b = await briefWithConfig({ root, date, env, now, namesEvidence, checks }, config);
   const observation=b.data.observation, context=namesEvidenceContext(namesEvidence);
   const observeIssue=(number,intended,{before=null,outcome='confirmed'}={})=>{
     if(!observation) return;
