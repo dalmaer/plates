@@ -12,6 +12,8 @@ import {
 import { board, decideLegacyProposal } from '../lib/board.mjs';
 import { parseProposal, formatProposal } from '../lib/learn.mjs';
 import { measure, MEASURES, proposalText, readBounds } from '../lib/improve.mjs';
+import { morning, renderBrief } from '../lib/morning.mjs';
+import { briefChecks } from '../lib/decision-loop.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const fence = v => `\`\`\`plates-decision\n${JSON.stringify({ version: 1, status: 'accepted', scope: ['anvils'], decided_by: 'Acme owner', decided_at: '2026-10-10', supersedes: [], superseded_by: [], ...v })}\n\`\`\`\n`;
@@ -187,4 +189,56 @@ test('health measures the decisions', async t => {
   const shipped = await import('../practices/night/files/scripts/plates/improve.mjs');
   const [away] = await shipped.measure({ root: empty, config: {}, env: {}, measures: shipped.MEASURES.filter(m => m.id === 'decisions_checked_late') });
   assert.equal(away.state, 'n/a'); assert.match(away.detail, /plates-side/);
+});
+
+test('the morning brief raises due checks', async t => {
+  const root = await world(t);
+  const night = '2026-10-20';
+  const plan = { schema: 1, date: night, shapedBy: 'owner', readyBy: `${night}T15:00:00Z`, willNotTouch: [], settledToday: [], leftOpen: [], items: [
+    { id: 'measures', title: 'Measure the practice', kind: 'measure', source: 'default', lane: 'night', number: null, budget: null, status: 'done', result: { note: 'all ok' } },
+  ] };
+  await mkdir(join(root, 'docs/night'), { recursive: true });
+  await writeFile(join(root, `docs/night/${night}.json`), `${JSON.stringify(plan, null, 2)}\n`);
+  await writeFile(join(root, '.plates/plates.json'), '{"name":"Acme","repo":"acme/anvils"}\n');
+  const at = day => new Date(`${day}T12:00:00Z`);
+
+  // Due: each check the board raises is one line under Your next, linked to its record, with the evidence since.
+  const raised = (await decisionItems(root, { today: '2026-10-21' })).items.filter(i => i.waits === 'owner');
+  assert.equal(raised.length, 2);
+  const { data } = await morning({ root, date: night, now: at('2026-10-21'), env: {} });
+  assert.deepEqual(data.checks.due.map(c => c.ref), raised.map(i => i.ref), 'the board\'s due checks, not a second computation');
+  const next = data.markdown.slice(data.markdown.indexOf('## Your next'));
+  for (const c of data.checks.due) {
+    assert.equal(data.markdown.split('\n').filter(l => l.includes(c.ref)).length, 1, `${c.ref} is raised once`);
+    assert.equal(c.link, `https://github.com/acme/anvils/blob/HEAD/${c.ref}`);
+    assert.ok(next.includes(`[${c.ref}](${c.link})`), `${c.ref} is linked under Your next`);
+  }
+  assert.match(next, /- Check decision: Drop anvils once \(\[docs\/decisions\/anvils\.md#drop-once\]\(https:\/\/github\.com\/acme\/anvils\/blob\/HEAD\/docs\/decisions\/anvils\.md#drop-once\)\): due 2026-10-20; expected: Acme anvils drop once a night, not twice\. Since 2026-10-10: evidence docs\/evidence\/2026-10-12-acme-after\.md; phases 1 built\. Record held, adjust or reverse/);
+  assert.match(next, /- Check decision: health proposal \(2026-10-08\): escapes \(\[docs\/health\/2026-10-08\.md#proposal\]/);
+  assert.doesNotMatch(data.markdown, /#later|#plain|acme-anvils\.md/, 'upcoming and unchecked decisions are not raised');
+  assert.doesNotMatch(next, /Nothing waits for you/);
+
+  // No repo: the link is the record's path.
+  await writeFile(join(root, '.plates/plates.json'), '{"name":"Acme"}\n');
+  const local = (await morning({ root, date: night, now: at('2026-10-21'), env: {} })).data;
+  assert.match(local.markdown, /- Check decision: Drop anvils once \(`docs\/decisions\/anvils\.md#drop-once`\): due 2026-10-20/);
+
+  // None due: the brief says nothing extra.
+  const early = (await morning({ root, date: night, now: at('2026-10-14'), env: {} })).data;
+  assert.deepEqual(early.checks, { due: [], unread: null });
+  assert.equal(early.markdown, renderBrief({ plan, now: at('2026-10-14'), links: early.links, health: { before: null, after: null }, production: early.production }).markdown);
+  assert.doesNotMatch(early.markdown, /decision/i);
+
+  // Only checks that wait on the owner reach the brief: a broken record or another kind of item does not.
+  const mixed = await briefChecks(root, { today: '2026-10-21' }, async () => ({ items: [
+    { waits: 'owner', kind: 'check', ref: 'docs/decisions/acme.md#due', title: 'check decision: acme', why: 'due' },
+    { waits: 'broken', kind: 'check', ref: 'docs/decisions/acme.md#bad', title: 'decision record breaks the check', why: 'bad' },
+    { waits: 'owner', kind: 'walk', ref: 'docs/phases/1-acme.md', title: 'walk acme', why: 'ready' },
+  ] }));
+  assert.deepEqual(mixed.due.map(i => i.ref), ['docs/decisions/acme.md#due']);
+
+  // Records that cannot be read are said, never "nothing due".
+  const unread = await briefChecks(root, { today: '2026-10-21' }, async () => { throw new Error('docs/decisions/anvils.md: EACCES'); });
+  assert.deepEqual(unread, { due: [], unread: 'docs/decisions/anvils.md: EACCES' });
+  assert.match(renderBrief({ plan, now: at('2026-10-21'), checks: unread }).markdown, /- The decision records could not be read: docs\/decisions\/anvils\.md: EACCES\. Whether a decision is due for its check is unknown\./);
 });
