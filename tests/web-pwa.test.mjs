@@ -11,7 +11,8 @@ import { createPwa, shellWorker, SHELL } from '../lib/web/pwa.mjs';
 import { shellRefresh, startPwa } from '../lib/web/pwa-client.mjs';
 import { encryptPayload, vapidAuthorization, vapidKeys, publicKeyObject, validSubscription } from '../lib/web/push.mjs';
 import { createPushStore } from '../lib/web/push-store.mjs';
-import { notificationsFor, createPushNotifier } from '../lib/web/push-notify.mjs';
+import { notificationsFor, createPushNotifier, waitingEvents } from '../lib/web/push-notify.mjs';
+import { projectHarness } from './helpers/web-projects.mjs';
 
 // ---- fakes: a browser cache, a worker global, a push database and a push service
 
@@ -388,6 +389,68 @@ test('one push per item, no private text', async t => {
   assert.equal(redated.sent.length, 1);
   assert.deepEqual((await store.list(1)).map(s => s.endpoint), [phone.subscription.endpoint]);
   assert.equal((await notifier.notify(1, [{ ...events[0], checkBy: '2026-11-30' }])).sent.length, 0);
+});
+
+test('waiting-on-owner events reach the notifier', async t => {
+  // A ready walk (phase 2), an unready one (phase 3) and a night whose latest record has a failed item.
+  const night = date => JSON.stringify({ schema: 1, date, shapedBy: 'owner', readyBy: null, willNotTouch: [], settledToday: [], leftOpen: [], items: [
+    { id: 'acme-merger', title: 'Acme secret merger build', kind: 'build', source: 'owner', number: { measure: 'slow_tests', bound: 20, better: 'lower' }, lane: 'climb:test-time', budget: { minutes: 10 }, status: 'failed', result: { note: 'Acme secret merger failed' } },
+    { id: 'acme-docs', title: 'Acme launch checklist', kind: 'build', source: 'owner', number: { measure: 'slow_tests', bound: 20, better: 'lower' }, lane: 'climb:test-time', budget: { minutes: 10 }, status: 'done', result: null }] });
+  const p = projectHarness(), config = p.config, database = await pushDatabase(t);
+  p.source.files['docs/night/2026-10-30.json'] = night('2026-10-30');
+  const phone = device('https://web.push.apple.com/QAcmePhone'), delivered = [], rpcs = [];
+  let pushStatus = 201, storageDown = false;
+  const fetcher = async (url, options) => {
+    if (new URL(url).pathname === '/rest/v1/rpc/plates_push_rpc') {
+      rpcs.push(JSON.parse(options.body).p_operation);
+      if (storageDown) throw new TypeError('fake-service unreachable');
+      return database.handle(url, options);
+    }
+    if (url === phone.subscription.endpoint) { delivered.push(JSON.parse(decrypt(options.body, phone))); return new Response(null, { status: pushStatus }); }
+    return p.fetcher(url, options);
+  };
+  await createPushStore(config, fetcher).subscribe(1, phone.subscription);
+  rpcs.length = 0;
+  const signed = await p.login(), owner = createWebService(config, { fetcher, now: () => p.state.now });
+  const home = async (service, path = '/api/home?fresh=1') => {
+    p.state.now += 61000;
+    const response = await service(new Request(`${config.origin}${path}`, { headers: { cookie: signed.cookie } }));
+    assert.equal(response.status, 200, await response.clone().text());
+    return response;
+  };
+
+  // The HTML shell reads only the cache: nothing is learned, nothing is sent.
+  await home(owner, '/');
+  assert.deepEqual([delivered.length, rpcs.length], [0, 0]);
+
+  // The owner's fresh read: the ready walk and the red night reach the phone, once each.
+  const snapshot = await (await home(owner)).json();
+  const project = snapshot.projects.find(item => item.id === 'studio');
+  assert.equal(snapshot.walks.filter(walk => walk.ready).length, 1, 'phase 3 is not ready');
+  assert.deepEqual(waitingEvents(project).map(event => event.kind), ['walk', 'night']);
+  const planned = notificationsFor(waitingEvents(project));
+  assert.deepEqual(delivered, planned.map(n => ({ title: n.title, body: n.body, url: n.url, tag: n.tag })));
+  assert.deepEqual(delivered.map(payload => payload.url), ['/projects/studio', '/projects/studio/daily?date=2026-10-30']);
+  for (const payload of delivered) assert.doesNotMatch(JSON.stringify(payload), PRIVATE);
+
+  // The same items at a new source revision send nothing; the ledger holds one row per item.
+  p.source.revision = 'd'.repeat(40); const rereads = rpcs.length;
+  await home(owner);
+  assert.ok(rpcs.length > rereads, 'the new revision was read and its items claimed again');
+  assert.equal(delivered.length, 2);
+  assert.equal((await database.db.query('SELECT count(*)::int n FROM plates_push.ledger')).rows[0].n, 2);
+
+  // A new red night is a new item. A push service that refuses it, or push storage
+  // that is down (migration 015 not applied), never fails Home.
+  pushStatus = 500; p.source.files['docs/night/2026-10-31.json'] = night('2026-10-31'); p.source.revision = 'e'.repeat(40);
+  await home(owner);
+  assert.equal(delivered.length, 3); assert.equal(delivered[2].url, '/projects/studio/daily?date=2026-10-31');
+  storageDown = true; p.source.files['docs/night/2026-11-01.json'] = night('2026-11-01'); p.source.revision = 'f'.repeat(40);
+  const attempts = rpcs.length;
+  await home(owner);
+  assert.ok(rpcs.length > attempts, 'the new night was tried against push storage');
+  assert.equal(delivered.length, 3);
+  assert.equal((await database.db.query('SELECT count(*)::int n FROM plates_push.ledger')).rows[0].n, 3);
 });
 
 test('a signed-in page offers notifications and subscribes with the session CSRF', async () => {
