@@ -1,11 +1,11 @@
 ---
-status: planned
-since: 2026-10-30
+status: built
+since: 2026-10-31
 goal: G9
 spec: 2
 depends: [142, 117]
-note: "The OpenHands and Gas City trials are stopped (owner, 2026-10-30). Their executor-agnostic pieces become one adapter contract in Plates; no executor is adopted and no paid trial runs."
-evidence: []
+note: "lib/executor holds the qualification contract (12 named refusals), the uncertain-state journal, the hash-bound frozen evaluator and the sandbox profile; no executor adopted."
+evidence: ["evidence/2026-10-31-executor-contract.md"]
 ---
 
 # What the executor trials learned stays in Plates, whoever runs sessions later
@@ -39,10 +39,10 @@ executor is qualified against that contract before it runs a real task.
 
 ## Acceptance
 
-- [ ] An executor fixture that auto-approves permissions, loses dedupe on restart, or checks budget only after a step is refused with each reason named: `tests/executor-contract.test.mjs: "an executor that cannot be held to policy is refused"`.
-- [ ] The frozen evaluator scores the held-out task pair on the unfixed baseline as the trials recorded, and a changed evaluator or helper hash is refused: `tests/executor-contract.test.mjs: "the frozen evaluator is the one the trials used"`.
-- [ ] An uncertain attempt stays uncertain across a restart and is never retried blindly: `tests/executor-contract.test.mjs: "uncertain stays uncertain"`.
-- [ ] `npm run check` passes.
+- [x] An executor fixture that auto-approves permissions, loses dedupe on restart, or checks budget only after a step is refused with each reason named: `tests/executor-contract.test.mjs: "an executor that cannot be held to policy is refused"`.
+- [x] The frozen evaluator scores the held-out task pair's recorded observations as the trials did (A 4/6, B 4/7; live scoring needs the unpublished baseline and sandbox-exec, see evidence), and a changed evaluator or helper hash is refused: `tests/executor-contract.test.mjs: "the frozen evaluator is the one the trials used"`.
+- [x] An uncertain attempt stays uncertain across a restart and is never retried blindly: `tests/executor-contract.test.mjs: "uncertain stays uncertain"`.
+- [x] `npm run check` passes.
 
 ## Real surfaces
 
@@ -68,5 +68,5 @@ Automated: `node --test tests/executor-contract.test.mjs`; `npm run check`.
 
 ## Next action
 
-List each harvested file on the two branches against the contract above and
-port the executor-free ones with their tests.
+None; built. An adapter for a real executor is a later phase that must pass
+`qualify()` first.
