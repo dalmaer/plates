@@ -5,7 +5,7 @@ since: 2026-10-31
 goal: G7
 spec: 2
 depends: [101, 107]
-note: "Plan and hosted proof SQL for 006–015 written and checked. Session 2026-10-31: production moved to an owner domain after a 9-day origin outage; database resumed; steps 1–3 proven (Node 24.22.2 and sign-in; first encrypted backup read back; migration 004 applied with its proof and race). Next: step 4."
+note: "Plan and hosted proof SQL for 006–015 written and checked. Session 2026-10-31: production moved to an owner domain after a 9-day origin outage; database resumed; steps 1–4 proven (Node 24.22.2 and sign-in; first encrypted backup read back; migration 004 with its proof and race; Contents write approved). Next: step 5, the decision-writes gate."
 evidence: ["evidence/2026-10-31-web-activation-plan.md"]
 ---
 
@@ -73,7 +73,7 @@ By hand: the activation session's hosted proofs; a week of use.
 
 ## Next action
 
-Step 4: the owner approves GitHub App Contents write on the private
-workspace and selected project repositories. Separately, remove the runtime
+Step 5: the owner walks one decision preview with writes off, then the
+conductor sets decisionWrites and redeploys. Separately, remove the runtime
 exception branch through review; the owner installs the nightly backup
 schedule.

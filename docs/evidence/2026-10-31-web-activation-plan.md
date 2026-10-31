@@ -116,3 +116,15 @@ the owner attending remotely.
 Decision writes stay off (the configuration doesn't enable them), so the
 migration enables nothing on its own. Next: step 4, the GitHub App's
 Contents write approval.
+
+## Step 4: GitHub App Contents write (2026-10-31)
+
+The conductor changed the App's Contents permission from read-only to read
+and write in the owner's browser session, and accepted the request on the
+installation ("Read and write access to Contents — Was read-only"; no other
+permission changed). Read back from GitHub's installation page: read access
+to metadata, read and write access to code, on exactly the two selected
+repositories (the public Plates repository and the private workspace
+repository). An API read of the installation needs a GitHub App user token;
+the owner's CLI token gets 403, the limit recorded on 2026-10-21. Every write
+gate stays false.

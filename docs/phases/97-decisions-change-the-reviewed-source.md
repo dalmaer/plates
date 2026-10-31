@@ -4,7 +4,7 @@ since: 2026-10-21
 goal: G7
 spec: 2
 depends: [90, 91, 96]
-note: "Typed previews and durable conditional operations verified locally; migration 004 applied to the hosted database 2026-10-31 with its proof and race (phase 151 evidence). Contents-write approval and a real owner choice await the owner walk."
+note: "Typed previews and durable conditional operations verified locally; migration 004 and GitHub App Contents write were applied to the hosted instance on 2026-10-31 (phase 151 evidence); the hosted decision-writes gate and a real owner choice remain."
 owes: walk
 evidence: ["evidence/2026-10-21-web-decisions.md"]
 ---
