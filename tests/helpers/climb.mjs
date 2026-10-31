@@ -144,6 +144,9 @@ export const platesCli = (args, cwd, env = {}) => run(process.execPath, [join(PL
  * evidence, all committed. `tend`: the "tend" key, or null for none.
  */
 export async function tendAcme(t, { tend = { budget: { minutes: 30 } } } = {}) {
+  // This fixture isolates lost proof, not phase aging. Keep its unfinished
+  // phase fresh so the wall clock cannot add a second record finding.
+  const since = new Date().toISOString().slice(0, 10);
   const base = await mkdtemp(join(tmpdir(), 'plates-tend-acme-'));
   t.after(() => rm(base, { recursive: true, force: true }));
   const dir = join(base, 'acme');
@@ -156,7 +159,7 @@ export async function tendAcme(t, { tend = { budget: { minutes: 30 } } } = {}) {
     'docs/phases/01-acme-orders.md': ['---', 'status: built', 'since: 2026-10-01', 'goal: G0', 'depends: [0]', 'note: "Acme orders work."', 'evidence: ["evidence/2026-10-01-acme-orders.md"]', '---', '',
       '# Acme orders', '', '## Done when', '', 'An anvil is ordered.', '', '## Scope', '', 'Orders.', '', '## Acceptance', '',
       '- [x] An anvil is ordered. `tests/acme-orders.test.mjs: "orders"`', '', '## Proof', '', 'Automated: `node --test tests/acme-orders.test.mjs`.', '', '## Deliberately open', '', 'Nothing.', '', '## Next action', '', 'None.', ''].join('\n'),
-    'docs/phases/02-acme-ships.md': ['---', 'status: partial', 'since: 2026-10-01', 'goal: G0', 'depends: [1]', 'note: "Acme ships."', 'evidence: []', '---', '',
+    'docs/phases/02-acme-ships.md': ['---', 'status: partial', `since: ${since}`, 'goal: G0', 'depends: [1]', 'note: "Acme ships."', 'evidence: []', '---', '',
       '# Acme ships', '', '## Done when', '', 'An anvil ships.', '', '## Scope', '', 'Shipping.', '', '## Acceptance', '', '- [ ] An anvil ships.', '', '## Proof', '', 'By hand.', '', '## Deliberately open', '', 'Nothing.', '', '## Next action', '', 'Ship one.', ''].join('\n'),
     'tests/acme-ships.test.mjs': "import { test } from 'node:test';\ntest('ships', () => {});\n",
   });
