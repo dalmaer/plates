@@ -144,4 +144,6 @@ gate stays false.
   name to `plates`, in the private manifest and the configuration together.
 - The plan now names the capture bucket `plates-captures` and the
   configuration variable `PLATES_WEB_CONFIG`, which is what production reads.
-- The owner's real decision (phase 97's walk) is still owed.
+- The owner's real decision (phase 97's walk) followed the same day: the
+  25 October proposal declined, commit `f7bf2913`, one committed receipt
+  (phase 97 evidence).

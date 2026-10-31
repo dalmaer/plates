@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**61 of 146 phases built; 62 owe a walk.** Built means implemented and checked; planned is not available.
+**62 of 146 phases built; 61 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -319,7 +319,7 @@ Each change is verified in parallel and published one at a time; production move
 
 From mobile and desktop, an authenticated owner operates every authorized Plates project: decisions, guided tests, visual changes, routine history and execution, fleet lessons and updates, scoped credentials and policy-bound model capacity, with source-backed evidence and private data.
 
-3/19 built; 15 owe a walk.
+4/19 built; 14 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -327,7 +327,7 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 | [94. The private instance has approved connections](phases/94-private-instance-has-approved-connections.md) | partial, walk owed | 2026-10-21 | [93](phases/93-workspace-data-stays-outside-public-code.md) | Private repository, production deployment and selected GitHub App access verified. Backup destination chosen 2026-10-31 and first encrypted copy read back; the nightly schedule and the key's second copy are the owner's to install. |
 | [95. Sign-in scopes every project](phases/95-sign-in-scopes-every-project.md) | built | 2026-10-21 | [94](phases/94-private-instance-has-approved-connections.md) | Deployed owner login, logout, denied and removed-project access, membership revocation and Node v24.21.0 verified; hosted SQL checks pass. |
 | [96. Home explains every project](phases/96-home-explains-every-project.md) | built | 2026-10-21 | [95](phases/95-sign-in-scopes-every-project.md) | Read-only Home passed source, database, deployed desktop/360px and keyboard checks; write operations remain phased. |
-| [97. Decisions change the reviewed source](phases/97-decisions-change-the-reviewed-source.md) | partial, walk owed | 2026-10-21 | [90](phases/90-builders-receive-current-decisions.md), [91](phases/91-ideas-become-plans-with-attributed-choices.md), [96](phases/96-home-explains-every-project.md) | Typed previews and durable conditional operations verified locally; migration 004, GitHub App Contents write and decisionWrites were applied to the hosted instance on 2026-10-31 (phase 151 evidence); a real owner choice through the hosted workspace remains. |
+| [97. Decisions change the reviewed source](phases/97-decisions-change-the-reviewed-source.md) | built | 2026-10-21 | [90](phases/90-builders-receive-current-decisions.md), [91](phases/91-ideas-become-plans-with-attributed-choices.md), [96](phases/96-home-explains-every-project.md) | Owner recorded one real decision through the hosted workspace on 2026-10-31: one commit, one committed receipt, no duplicate. |
 | [98. Guided walks preserve what was tested](phases/98-guided-walks-preserve-what-was-tested.md) | partial, walk owed | 2026-10-21 | [92](phases/92-feedback-names-the-result-reviewed.md), [97](phases/97-decisions-change-the-reviewed-source.md) | Guided walks, private drafts and exact acceptance previews verified locally; hosted migrations, approved source delivery and real owner walk remain. |
 | [99. Recent changes are visible and testable](phases/99-recent-changes-are-visible-and-testable.md) | partial, walk owed | 2026-10-21 | [96](phases/96-home-explains-every-project.md), [98](phases/98-guided-walks-preserve-what-was-tested.md) | Journal, private capture receipts and recovery implemented; hosted activation, provider proof and owner walk remain. |
 | [100. Daily work and learning stay private](phases/100-daily-work-and-learning-stay-private.md) | partial, walk owed | 2026-10-21 | [97](phases/97-decisions-change-the-reviewed-source.md), [98](phases/98-guided-walks-preserve-what-was-tested.md), [99](phases/99-recent-changes-are-visible-and-testable.md) | Daily/learning views and reviewed transfers implemented and locally verified; hosted activation and owner-selected real migration remain. |
