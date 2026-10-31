@@ -1,11 +1,12 @@
 ---
-status: planned
+status: partial
+owes: walk
 since: 2026-10-31
 goal: G7
 spec: 2
 depends: [97, 151]
-note: "Owner, deciding the 25 October health proposal in the hosted workspace: the question was hard to understand, shown as raw markdown, and already out of date; current reports were too large to open."
-evidence: []
+note: "Plain block, freshness, safe markdown, small reports and a too-large message are built and tested; the owner's walk waits for the hosted build to move forward."
+evidence: ["evidence/2026-10-31-plain-decisions.md"]
 ---
 
 # Decisions read as plain English
@@ -42,11 +43,11 @@ and every current health report is small enough for the workspace to open.
 
 ## Acceptance
 
-- [ ] A proposal reads as plain English: no measure id, raw command or error text in its plain block; it names what Accept, Decline and doing nothing each do, and recommends one with a reason; a report without the block still parses and can still be decided: `tests/plain-decisions.test.mjs: "a proposal says what is being decided"`.
-- [ ] A proposal whose measure is back within its bound in a newer report says so and recommends Decline; one still outside does not: `tests/plain-decisions.test.mjs: "a proposal that fixed itself says so"`.
-- [ ] The workspace decision page shows the plain block first and renders the proposal's markdown with no raw `**` or backticks and no unescaped HTML: `tests/plain-decisions.test.mjs: "the decision page leads with the plain question"`.
-- [ ] A health report built from a fleet's worth of reconciliation observations stays under 128 KiB, and its readers (the canvas snapshot, the decision reader) still find the full set: `tests/plain-decisions.test.mjs: "a health report stays small enough to open"`.
-- [ ] A source file over the workspace's per-file limit is answered as too large, naming the limit, not as a connection failure: `tests/plain-decisions.test.mjs: "a file too large to open says so"`.
+- [x] A proposal reads as plain English: no measure id, raw command or error text in its plain block; it names what Accept, Decline and doing nothing each do, and recommends one with a reason; a report without the block still parses and can still be decided: `tests/plain-decisions.test.mjs: "a proposal says what is being decided"`.
+- [x] A proposal whose measure is back within its bound in a newer report says so and recommends Decline; one still outside does not: `tests/plain-decisions.test.mjs: "a proposal that fixed itself says so"`.
+- [x] The workspace decision page shows the plain block first and renders the proposal's markdown with no raw `**` or backticks and no unescaped HTML: `tests/plain-decisions.test.mjs: "the decision page leads with the plain question"`.
+- [x] A health report built from a fleet's worth of reconciliation observations stays under 128 KiB, and its readers (the canvas snapshot, the decision reader) still find the full set: `tests/plain-decisions.test.mjs: "a health report stays small enough to open"`.
+- [x] A source file over the workspace's per-file limit is answered as too large, naming the limit, not as a connection failure: `tests/plain-decisions.test.mjs: "a file too large to open says so"`.
 - [ ] The owner opens a current proposal in the hosted workspace and can say what is being decided without help: ⚑ by hand: the owner, after the hosted build moves forward (phase 151).
 
 ## Your part
@@ -77,5 +78,5 @@ descriptions rewritten.
 
 ## Next action
 
-Build the plain block and the bounded report in the night practice, and the
-page in the workspace, from this contract.
+Deploy main to the hosted workspace in phase 151's session, then the owner
+opens the newest health proposal.

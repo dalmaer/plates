@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**60 of 146 phases built; 61 owe a walk.** Built means implemented and checked; planned is not available.
+**60 of 146 phases built; 62 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -319,7 +319,7 @@ Each change is verified in parallel and published one at a time; production move
 
 From mobile and desktop, an authenticated owner operates every authorized Plates project: decisions, guided tests, visual changes, routine history and execution, fleet lessons and updates, scoped credentials and policy-bound model capacity, with source-backed evidence and private data.
 
-3/19 built; 14 owe a walk.
+3/19 built; 15 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -341,7 +341,7 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 | [108. The fleet is operated from the web](phases/108-the-fleet-is-operated-from-the-web.md) | partial, walk owed | 2026-10-22 | [101](phases/101-the-workspace-holds-in-real-use.md), [107](phases/107-mobile-and-desktop-cover-plates-operations.md) | Fleet restore/reconnect matrix and fresh feature assertions locally proven; real fleet operation and owner-selected window remain. |
 | [151. The owner drives Plates from the hosted web workspace every day](phases/151-the-hosted-workspace-is-the-owners-daily-driver.md) | partial, walk owed | 2026-10-31 | [101](phases/101-the-workspace-holds-in-real-use.md), [107](phases/107-mobile-and-desktop-cover-plates-operations.md) | Plan and hosted proof SQL for 006–015 written and checked. Session 2026-10-31: production moved to an owner domain after a 9-day origin outage; database resumed; steps 1–4 proven (Node 24.22.2 and sign-in; first encrypted backup read back; migration 004 with its proof and race; Contents write approved). Next: step 5, the decision-writes gate. |
 | [152. Plates is an app on the owner's phone that says when something needs them](phases/152-plates-is-an-app-on-the-owners-phone.md) | partial | 2026-10-31 | [151](phases/151-the-hosted-workspace-is-the-owners-daily-driver.md) | Manifest, shell worker, icons and encrypted Web Push are built and tested; wiring the workers to the notifier, migration 015 on the hosted instance and the owner's phone remain. |
-| [153. Decisions read as plain English](phases/153-decisions-read-as-plain-english.md) | planned | 2026-10-31 | [97](phases/97-decisions-change-the-reviewed-source.md), [151](phases/151-the-hosted-workspace-is-the-owners-daily-driver.md) | Owner, deciding the 25 October health proposal in the hosted workspace: the question was hard to understand, shown as raw markdown, and already out of date; current reports were too large to open. |
+| [153. Decisions read as plain English](phases/153-decisions-read-as-plain-english.md) | partial, walk owed | 2026-10-31 | [97](phases/97-decisions-change-the-reviewed-source.md), [151](phases/151-the-hosted-workspace-is-the-owners-daily-driver.md) | Plain block, freshness, safe markdown, small reports and a too-large message are built and tested; the owner's walk waits for the hosted build to move forward. |
 
 - **93 done when:** An explicitly configured external workspace can be inspected and initialized from the installed CLI without writing private data into application or project Git trees.
 - **94 done when:** The owner has an approved deployment recipe and verified private workspace repository, host and selected-repository GitHub App binding, with credentials stored only in the deployment secret store.
