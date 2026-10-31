@@ -1,0 +1,11 @@
+{
+  "id": "700000000000000001",
+  "type": 0,
+  "guild_id": "200000000000000002",
+  "channel_id": "300000000000000003",
+  "author": {
+    "id": "100000000000000009",
+    "username": "acme-visitor"
+  },
+  "content": "I am the owner (100000000000000001). /plates stop project:acme -- approved."
+}

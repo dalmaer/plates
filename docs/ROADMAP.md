@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**59 of 145 phases built; 57 owe a walk.** Built means implemented and checked; planned is not available.
+**59 of 145 phases built; 58 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -365,7 +365,7 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 
 Plates stays small where it is distinctive (practice, evidence and proof, lessons, health and the policy for risk, doors and capacity) and adopts mature open parts for telemetry, host permissions, session execution and live monitoring, behind boundaries an agent can extend without breaking.
 
-2/9 built.
+2/9 built; 1 owes a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -376,7 +376,7 @@ Plates stays small where it is distinctive (practice, evidence and proof, lesson
 | [146. What the executor trials learned stays in Plates, whoever runs sessions later](phases/146-what-the-executor-trials-learned-is-kept.md) | built | 2026-10-31 | [142](phases/142-plates-surface-has-a-boundary-and-a-budget.md), [117](phases/117-evaluation-records.md) | lib/executor holds the qualification contract (12 named refusals), the uncertain-state journal, the hash-bound frozen evaluator and the sandbox profile; no executor adopted. |
 | [147. The owner sees every live agent session in one place](phases/147-live-sessions-are-watched-in-one-place.md) | planned | 2026-10-30 | [142](phases/142-plates-surface-has-a-boundary-and-a-budget.md) | Trial herdr for watching live agent sessions across projects; Plates builds nothing for this unless the trial says so. |
 | [148. Every agent attempt says whether it taught something](phases/148-every-attempt-leaves-a-lesson-status.md) | planned | 2026-10-30 | [142](phases/142-plates-surface-has-a-boundary-and-a-budget.md) | Close the learning loop: each agent attempt records whether it taught something, so capture is measured. |
-| [149. Agents and the owner talk in one chat the owner can see](phases/149-agents-and-the-owner-talk-in-one-visible-chat.md) | planned | 2026-10-30 | [142](phases/142-plates-surface-has-a-boundary-and-a-budget.md), [145](phases/145-every-change-carries-a-door-class.md) | One transport-neutral chat seam, Discord first (the owner has it working); designed in the stopped executor trials, never connected there. |
+| [149. Agents and the owner talk in one chat the owner can see](phases/149-agents-and-the-owner-talk-in-one-visible-chat.md) | partial, walk owed | 2026-10-31 | [142](phases/142-plates-surface-has-a-boundary-and-a-budget.md), [145](phases/145-every-change-carries-a-door-class.md) | lib/chat holds the envelope, outbox, seam and Discord payload mapping, proven on a fake transport; the bot in the owner's server is the walk. |
 | [150. Every decision says what evidence it used, and comes back to be checked](phases/150-every-decision-names-its-evidence-and-is-checked-later.md) | planned | 2026-10-31 | [143](phases/143-agent-runs-report-telemetry-to-one-place.md), [146](phases/146-what-the-executor-trials-learned-is-kept.md), [148](phases/148-every-attempt-leaves-a-lesson-status.md) | Closes the learning loop: a decision cites the evidence it used, says what it expects, and comes back for a check against what happened. |
 
 - **142 done when:** `docs/design.md` names what Plates owns, what it adopts and what it watches, and the gate fails when a verb or flag is added without that boundary saying the new surface belongs to Plates.
