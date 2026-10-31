@@ -175,3 +175,27 @@ waiting foreground process was denied by automatic approval review: its stated
 reason was that the approved sequence requires the slash-command reply check
 before shutdown. No alternative stop mechanism was attempted. The owned runtime
 therefore remains waiting for that check or explicit approval to stop early.
+
+## Completed owner reply and shutdown — 2026-10-31
+
+The owner subsequently sent `/status` with backend `gas-city` and target
+`coordinator`. Gateway logged interaction `1565902319361458218`, an acknowledged
+callback, and confirmed delivery. Read-only durable receipt verification matched
+the sole allowed human `102205549914882048`, command `status`, the approved route,
+and state `handled-synthetic`. Its outbox record is `delivered` in channel
+`1565878881473265775` as message `1565902330485018806`. The native Discord UI also
+displayed the matching receipt and synthetic reply, explicitly stating that no
+backend is connected. The owner's report that it worked was corroborated by these
+receipts rather than used as the only evidence.
+
+After that prerequisite completed, interrupted the owned foreground runtime
+(tool session `96233`). It exited with code 0. A process check found no matching
+bridge runtime, and the private `runtime.lock` was absent. The process exit also
+ends its Gateway connection; no runtime was left listening. This was the approved
+post-test shutdown, not a retry of the earlier denied premature stop.
+
+The bounded live test is complete: one startup smoke message and one public
+synthetic command reply, plus the command's private acknowledgement, all in
+#test. No model or coding backend was invoked. The saved Keychain credential was
+not revoked or changed; it remains valid until the owner revokes it. The three
+guild commands and restrictive bot-member channel overwrite remain installed.
