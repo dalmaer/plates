@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { workflowProblems, shellProblems, spawn } from '../scripts/plates/workflows.mjs';
+import { workflowProblems, shellProblems, boundedChild } from '../scripts/plates/workflows.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -42,7 +42,7 @@ test('the check can fail: broken bash and broken inline JS are named, with the f
 
 test('a check child that never finishes is reported, not waited on', () => {
   const started = Date.now();
-  const r = spawn('sleep', ['5'], 300);
+  const r = boundedChild('sleep', ['5'], 300);
   assert.equal(r.status, 1);
   assert.match(r.stderr, /^sleep did not finish within 0\.3 s$/);
   assert.ok(Date.now() - started < 4000, 'the bound, not the child, ended the wait');
