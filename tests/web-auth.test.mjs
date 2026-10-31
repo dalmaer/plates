@@ -439,6 +439,12 @@ test('a refused renewal ends the sign-in and says why', async () => {
   const error = await auth.authorized(direct.request('/api/session', { cookie: other.cookie })).then(() => null, e => e);
   assert.equal(error.code, 'sign_in_required'); assert.equal(error.status, 401); assert.equal(error.reason, 'github');
   assertNoRefreshToken(direct, error.message, error.stack, JSON.stringify(error), html);
+  // A refusal sent as an HTTP 4xx status is a refusal too, not an outage.
+  const status = longHarness(), byStatus = await status.login();
+  status.state.refreshMode = 'refused-status'; status.state.now += 28800000 - 60000;
+  const refused = await status.service(status.request('/', { cookie: byStatus.cookie }));
+  assert.equal(refused.status, 401); assert.match(await refused.text(), /GitHub ended it/);
+  assert.equal([...status.state.records.keys()].some(key => key.startsWith('session:')), false, 'a 4xx refusal revokes the session');
 
   // Changed project access at renewal ends the session as a privilege change.
   const moved = longHarness(), owner = await moved.login();

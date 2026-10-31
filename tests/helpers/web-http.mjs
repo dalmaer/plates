@@ -59,6 +59,7 @@ export function harness({ createService: create = createWebService } = {}) {
       if (body.grant_type === 'refresh_token') {
         state.refreshCalls.push(body.refresh_token);
         if (state.refreshMode === 'down') return json({ message: 'fake-provider-private-detail' }, 502);
+        if (state.refreshMode === 'refused-status') return json({ message: 'fake-provider-private-detail' }, 400);
         if (state.refreshMode !== 'ok' || !state.refreshTokens.delete(body.refresh_token)) return json({ error: 'bad_refresh_token', error_description: 'The refresh token passed is incorrect or expired.' });
         return json(grant());
       }
