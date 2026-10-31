@@ -1,0 +1,917 @@
+{
+  "provenance": {
+    "note": "Recorded by the stopped OpenHands and Gas City executor trials (2026-10-30); data only, no executable code. Machine-local absolute paths are dropped from the handoff, so its bytes are not carried: only its recorded digest.",
+    "handoff": "codex/openhands-evaluation@9d891e96:docs/research/openhands-containment/shared-handoff.json",
+    "runs": "codex/openhands-evaluation@9d891e96:docs/research/openhands-containment/openhands-frozen-v3-{task-a,task-b-control,task-b-lesson}.json",
+    "baselineObservation": "codex/openhands-evaluation@9d891e96:experiments/openhands/real-receipt-baseline-manifest.json (evaluator v1 723feab1..., identical observations)",
+    "helpers": "git ls-tree 037e13b4 -- tests/helpers (*.mjs), sha256 per blob",
+    "unknownHtmlFallbackShown": "Not recorded as an observation (the evaluator kept only the body check); derived from the recorded noUnknownHtmlFallback check."
+  },
+  "baseline": "037e13b4f78c061405cef899b528badb536584ad",
+  "handoffSHA256": "a7535adfd023ec5992a30523c3a56fcdcd8dd7729d3abb9dceedf5e0bc450af8",
+  "handoff": {
+    "schema": 1,
+    "kind": "plates-receipt-race-handoff",
+    "baseline": "037e13b4f78c061405cef899b528badb536584ad",
+    "modelExecution": "not-authorized",
+    "selection": "parent-selected-receipt-authorization-family",
+    "artifacts": {
+      "evaluator": {
+        "sha256": "f1d9281846f47e42eb6bb5f7e7528d7e2d027ad80ab6ad4666f57b56d9305004"
+      },
+      "candidateShim": {
+        "sha256": "cefcca81a558bcce577072bf71c0eb5acdcdac5adbce6183b29bfd7a3367e6e1"
+      },
+      "trustedFixtureManifest": {
+        "sha256": "8fabd6ade9045f53a6c9a86b3a0924df03b485d45f61c2fbcf3640fe72d23209"
+      },
+      "containmentModule": {
+        "sha256": "a1f7916352498f4d9d48fcd7632a0cffad2a0be695f8e1b101490525d88477d9"
+      },
+      "trustedLauncher": {
+        "sha256": "590d04d6adfb56a1b8e3feb468ca351f16e84e9f8cdf938f224e2f598de353cc"
+      },
+      "workerPreparer": {
+        "sha256": "038f5639f99e4802ae25be393325a3584ca31a4aceea7ccd7c6c153e94c35b26"
+      },
+      "selectedSpec": {
+        "sha256": "b93816edfc823e3ada462c68c6f99da2c65d5f00a25eb0ff92abfa5d912b6f4f"
+      },
+      "taskAPrompt": {
+        "sha256": "86c73d43adbbe1ea7b7beea42750e6ac1aae210138e5d66608b3214ae4a24866"
+      },
+      "taskBPrompt": {
+        "sha256": "1bbe8952505b1abee7adcb70b933b7fd4ec81c95bee79935ce241bc856f2e857"
+      }
+    },
+    "workerRule": "No running worker while evaluating; snapshot candidate first. Held-out material/scorer must stay outside every worker read root. Fresh B baseline; only exact reviewed lesson transfers."
+  },
+  "baselineObservationEvaluatorSHA256": "723feab106853c71b2016f65904ec9f7880379ddde4804ec4c1dfb0400037548",
+  "helpers": {
+    "tree": "7cadb6a00169ebc31296ee42e39a456f1df8238e",
+    "manifestSHA256": "6a846bd128efebc8a1839e9b978ad977701ca1e44ed540ff6208f6401b4de793",
+    "files": [
+      [
+        "tests/helpers/agent-quality.mjs",
+        "774fa71e55e081738179baf5a306f2710f20cd1166da5c0f7439d85d157d5acc"
+      ],
+      [
+        "tests/helpers/climb.mjs",
+        "b64bade862bae6e0dd1d52a0b38643f09bfd4537f2fc8aa0b22791dc5b95a741"
+      ],
+      [
+        "tests/helpers/codex-capacity.mjs",
+        "e6b1d87c5a5f8dcbe240c8cc8aaed1f9b158d2f8bb54137ddaef1257609d6a8b"
+      ],
+      [
+        "tests/helpers/copy-project.mjs",
+        "f4bc1d4efe10fb7341fbb19f19af700e7efe6f737e09a21a2f03b4ae5e3fb145"
+      ],
+      [
+        "tests/helpers/evaluation-execution.mjs",
+        "1ffedfc98990ef6eebf925babdce620ff7fee3dcc814efee3223b6f23ae6200c"
+      ],
+      [
+        "tests/helpers/evaluation-plan.mjs",
+        "8b0fe926ee34d3972e8d4736381b2fa9f15f033a1b19301a76d8c642ac7bf162"
+      ],
+      [
+        "tests/helpers/evidence-child.mjs",
+        "7e79837dc93729a85429a114dac9e55aa23b415cd623311a9fbf2a535c64ee2b"
+      ],
+      [
+        "tests/helpers/feedback.mjs",
+        "d5e5c154bd217109efc45682dfcd8f3dcd480651bf1ecf1c0b20e9d5920ed752"
+      ],
+      [
+        "tests/helpers/hermetic.mjs",
+        "2d11fa70450d543441c4840c62876e251fbe6ded04a397580966dbc6f8ad1a7d"
+      ],
+      [
+        "tests/helpers/improve.mjs",
+        "b32820844f98635dd09da4839d9e2b6cf239e7b0e327431dbfec85714d08c09d"
+      ],
+      [
+        "tests/helpers/isocan.mjs",
+        "480ad4e8976ce763c1ac68906a073c7f22cd3ac8905784bec20c5f5aab30c77d"
+      ],
+      [
+        "tests/helpers/milestones.mjs",
+        "fa10edcba87b4bbf943a992e7a851e6b08b5f99488055c61fbc9fd845b69a0cb"
+      ],
+      [
+        "tests/helpers/names.mjs",
+        "8d06aefc495f8369a8b103e7173c36e6abfbd13680ce37108ee769551d1079ae"
+      ],
+      [
+        "tests/helpers/night-box-gh.mjs",
+        "f4718d15acb9a01d774b9c6c12e5a209cfb2ecf19c501ef52de2b69febb4cb8e"
+      ],
+      [
+        "tests/helpers/night-box-preload.mjs",
+        "e3ba524a3d57494dae5da6e1eb72ba140c205a5df38c264a6be7602ea1c5b845"
+      ],
+      [
+        "tests/helpers/practices.mjs",
+        "42a0e18d72d0def915d3afe397c826ee59a259690fb24c719d46b5eb03f19501"
+      ],
+      [
+        "tests/helpers/private-learning.mjs",
+        "7d5866a377cf8692cb04ec38c9bbe87da05a33a2b350053d8520b9c937b32203"
+      ],
+      [
+        "tests/helpers/property.mjs",
+        "4f77bb5ab0cb9a9dbe3a5626006a35b869a954a490be543671f03e1daa0aa1af"
+      ],
+      [
+        "tests/helpers/property.test.mjs",
+        "071154080e9a54835371ff347bcb7c87548b308c3be3d3e5c004f7b41f434970"
+      ],
+      [
+        "tests/helpers/prove.mjs",
+        "0c478b81b0a684ab023b864ea9ede7fd9d7a54ac0516dcc7fdd9bca482581e87"
+      ],
+      [
+        "tests/helpers/recommendation-service.mjs",
+        "59f849fe2b7553e14028cd5d8f715ef547101246d3d4df647b4e04c386f541de"
+      ],
+      [
+        "tests/helpers/recommendation-surfaces.mjs",
+        "fa87891f065881ab0f370480ef5df96919fbb8d97b9ffcb1a2b1e99fbe4c6c98"
+      ],
+      [
+        "tests/helpers/routine-sources.mjs",
+        "2f37dd682eb5cddb6a417e8d45988b61e576a7d60f64d17504eadab65c2c5a9e"
+      ],
+      [
+        "tests/helpers/run.mjs",
+        "838e26a04c22f0cc5f6bbf33ce689128a6ac5b76bd0dd6621d5587d9a2f1b213"
+      ],
+      [
+        "tests/helpers/shaping.mjs",
+        "d0baad58df14ced291d18b5f26c0b10c288965b6dc52a1168973ef5140485faf"
+      ],
+      [
+        "tests/helpers/verification.mjs",
+        "917cd32cdbed6dc9ef0341e7718bc7fc7b977bb9d717f148ba36e8f03ee7e6ca"
+      ],
+      [
+        "tests/helpers/web-capacity.mjs",
+        "fcdefbdd3b83a710d531dd440d454b54e16b80d55de4bb08378f4e188b565df8"
+      ],
+      [
+        "tests/helpers/web-changes.mjs",
+        "488371c97efe0f2b349e43f0b3a02f7e391951f37638acf6f1d78c0cd50402fa"
+      ],
+      [
+        "tests/helpers/web-connections-ui.mjs",
+        "bf01bc86a21bd54d6ced4cc26a5e2a3b7e2675ce215f238c1f3a9f7a2306ca05"
+      ],
+      [
+        "tests/helpers/web-connections.mjs",
+        "5109d7c77f0432b5c7700c6a7588cdf01b8254b2a8dad7afedff6b1d36417406"
+      ],
+      [
+        "tests/helpers/web-daily.mjs",
+        "be17433ba5bf1d6d9e30a9e52f7c400dc4223a126ad720a44390731bae4bcf74"
+      ],
+      [
+        "tests/helpers/web-decision-store.mjs",
+        "6bf0dbf68fca49f6a88c8d89d32010a44cfacfc3da391097a70f0e0608d5c827"
+      ],
+      [
+        "tests/helpers/web-decisions.mjs",
+        "f03d05005458281fb28ad56296bd400c6f8ba1273e7e9d6c1aa052c217defc0b"
+      ],
+      [
+        "tests/helpers/web-editor-drafts.mjs",
+        "1e51ae01c71c94c0bcd96dc1a4c8c97c171c16ad89d5818f802a8b0ad1b58df7"
+      ],
+      [
+        "tests/helpers/web-fleet-updates-ui.mjs",
+        "44145a1b9827e3672d6d65e76693126a2facfa91cf293e8e27b178b55ad44a61"
+      ],
+      [
+        "tests/helpers/web-fleet-updates.mjs",
+        "4d66e9f4e0c2ee166f941fcaeffd7e3e422c26afb053fd3aa8dc52e2d9aa9c74"
+      ],
+      [
+        "tests/helpers/web-home-store.mjs",
+        "f5f93fd0910a9b247e016f9edff51fa6c8a4cf849ce08fee3bb933ceddf88d07"
+      ],
+      [
+        "tests/helpers/web-http.mjs",
+        "dd493aa113b9b76f1f7845d8c54ed25c879fbd002a3c428c058009b39b601e91"
+      ],
+      [
+        "tests/helpers/web-jobs-ui.mjs",
+        "61b1daea7b2f616f9974cd2528c72a1b11d533c8f8022b5fbca59092ba9b62ca"
+      ],
+      [
+        "tests/helpers/web-jobs.mjs",
+        "8931d06a492b457902e555381eea57e343e67959bf80cc26e3bcee0960aaaa6e"
+      ],
+      [
+        "tests/helpers/web-learning.mjs",
+        "c52852673486a6a63c4456ac6ff90e031c40e9c27f550ed524797179bcb7553b"
+      ],
+      [
+        "tests/helpers/web-lesson-rollout.mjs",
+        "4c798e87544cde2be60739eefb31738381356ca089b6121621dac75cd55799c2"
+      ],
+      [
+        "tests/helpers/web-media.mjs",
+        "78f4a4e59fe50b1e5cc082073261e001f85e64e57f11a20940aee6cea1075c3d"
+      ],
+      [
+        "tests/helpers/web-model-provider.mjs",
+        "3131e3b4e437c53232ec69c3b26b5645be183a056c4471b92a658c6fc4ac29d5"
+      ],
+      [
+        "tests/helpers/web-model-routing-ui.mjs",
+        "1498ab92228c14ad2a2bd9ab0bd026d17f4958521c726ab56f3adeb0741682d7"
+      ],
+      [
+        "tests/helpers/web-model-tasks.mjs",
+        "a4f4f26ae07223a2d365f45f089c40eec8186bab71c9bb802f641d0e624bf8e5"
+      ],
+      [
+        "tests/helpers/web-name-candidate.mjs",
+        "332a1c6d825fbd5a4302b198fcb09cbd24db37828ee36fededa5fd3cde499c5b"
+      ],
+      [
+        "tests/helpers/web-night-legacy.mjs",
+        "2c5873a3b410ae49c91ffc809dbcc469eb1c38ff90f7b76aa166e08a92c0bf32"
+      ],
+      [
+        "tests/helpers/web-night-plan.mjs",
+        "148ccf51179a1a74cd6d1f2cb99a8c5e1bc47e66d8f71228118d5c56f19835a9"
+      ],
+      [
+        "tests/helpers/web-night-plates-release.mjs",
+        "85232f30d9d14982fbf16f5d3d6c0081f088c8c396e8f305eebf4b0b477710a6"
+      ],
+      [
+        "tests/helpers/web-night-retry.mjs",
+        "8a58804a657aab0defb5b1c7a71ed7fafdefd7703a74d56c1be8718308c999cc"
+      ],
+      [
+        "tests/helpers/web-projects.mjs",
+        "7384ef46aff90315bfe6859f2fbd6e047a44d12c37e060d86cae645cc3f57294"
+      ],
+      [
+        "tests/helpers/web-run-receipts.mjs",
+        "725e22a5e055ceffe23dca029b9ddccc4edef0248f40e12a3421e83b67b39e41"
+      ],
+      [
+        "tests/helpers/web-runs-ui.mjs",
+        "2068b24e7d34fbebf6bd23fc4da4a11b563d929481159a152615060ed1c93e05"
+      ],
+      [
+        "tests/helpers/web-runs.mjs",
+        "f7e8aa58640e54f6452f738af2f732e2dd531c0fa03bad9e93d68fe046e0a57c"
+      ],
+      [
+        "tests/helpers/web-update-worker.mjs",
+        "1904d3e6b904283e78f15f8f7d98ad82d67a8e024e90992f38fc35987d215add"
+      ],
+      [
+        "tests/helpers/web-walks.mjs",
+        "5693e42ae184b0a8edb44107d535466741c8c7a502c3abf9117811a3b1a19a91"
+      ],
+      [
+        "tests/helpers/web-worker.mjs",
+        "c4c221686c73a2b4b49ad90e89130cc51a74cc274cc5a1772d3185be045ae106"
+      ],
+      [
+        "tests/helpers/workflows.mjs",
+        "df5651257c2694287c4a5cef0e662f9c2d783fe2e08ad5ec866f6edbfaad9e1c"
+      ]
+    ]
+  },
+  "runs": [
+    {
+      "arm": "primary",
+      "task": "task-a",
+      "report": {
+        "manifestSHA256": "a7535adfd023ec5992a30523c3a56fcdcd8dd7729d3abb9dceedf5e0bc450af8",
+        "evaluatorSHA256": "f1d9281846f47e42eb6bb5f7e7528d7e2d027ad80ab6ad4666f57b56d9305004",
+        "baseline": "037e13b4f78c061405cef899b528badb536584ad",
+        "integrityPassed": true,
+        "candidateHelpers": 59,
+        "passed": 4,
+        "total": 6
+      },
+      "results": [
+        {
+          "name": "task-a/api/authorized-control",
+          "surface": "api",
+          "scenario": "authorized-control",
+          "unknownOperation": false,
+          "status": 200,
+          "error": null,
+          "returnedOriginalReceipt": true,
+          "revealedCommit": true,
+          "revealedPreview": true,
+          "injections": 0,
+          "membersAfter": [
+            1
+          ],
+          "fixtureWritesBefore": 1,
+          "fixtureWritesAfter": 1,
+          "repeat": {
+            "status": 200,
+            "sameOriginal": true
+          },
+          "unknownHtmlFallbackShown": false,
+          "recordedChecks": {
+            "fixtureOnlyNoAdditionalSourceWrite": true,
+            "injectionObserved": true,
+            "retainedWorkspaceMembership": true,
+            "authorizedRead": true,
+            "authorizedRepeat": true
+          },
+          "recordedPassed": true
+        },
+        {
+          "name": "task-a/api/before-read-loss",
+          "surface": "api",
+          "scenario": "before-read-loss",
+          "unknownOperation": false,
+          "status": 404,
+          "error": "access_denied",
+          "returnedOriginalReceipt": false,
+          "revealedCommit": false,
+          "revealedPreview": false,
+          "injections": 0,
+          "membersAfter": [],
+          "fixtureWritesBefore": 1,
+          "fixtureWritesAfter": 1,
+          "repeat": null,
+          "unknownHtmlFallbackShown": false,
+          "recordedChecks": {
+            "fixtureOnlyNoAdditionalSourceWrite": true,
+            "injectionObserved": true,
+            "retainedWorkspaceMembership": true,
+            "authorizationRefusal": true,
+            "noBufferedReceipt": true,
+            "typedApiRefusal": true,
+            "noUnknownHtmlFallback": true
+          },
+          "recordedPassed": true
+        },
+        {
+          "name": "task-a/api/mid-read-loss",
+          "surface": "api",
+          "scenario": "mid-read-loss",
+          "unknownOperation": false,
+          "status": 200,
+          "error": null,
+          "returnedOriginalReceipt": true,
+          "revealedCommit": true,
+          "revealedPreview": true,
+          "injections": 1,
+          "membersAfter": [],
+          "fixtureWritesBefore": 1,
+          "fixtureWritesAfter": 1,
+          "repeat": null,
+          "unknownHtmlFallbackShown": false,
+          "recordedChecks": {
+            "fixtureOnlyNoAdditionalSourceWrite": true,
+            "injectionObserved": true,
+            "retainedWorkspaceMembership": true,
+            "authorizationRefusal": false,
+            "noBufferedReceipt": false,
+            "typedApiRefusal": false,
+            "noUnknownHtmlFallback": true
+          },
+          "recordedPassed": false
+        },
+        {
+          "name": "task-a/html/authorized-control",
+          "surface": "html",
+          "scenario": "authorized-control",
+          "unknownOperation": false,
+          "status": 200,
+          "error": null,
+          "returnedOriginalReceipt": true,
+          "revealedCommit": true,
+          "revealedPreview": true,
+          "injections": 0,
+          "membersAfter": [
+            1
+          ],
+          "fixtureWritesBefore": 1,
+          "fixtureWritesAfter": 1,
+          "repeat": {
+            "status": 200,
+            "sameOriginal": true
+          },
+          "unknownHtmlFallbackShown": false,
+          "recordedChecks": {
+            "fixtureOnlyNoAdditionalSourceWrite": true,
+            "injectionObserved": true,
+            "retainedWorkspaceMembership": true,
+            "authorizedRead": true,
+            "authorizedRepeat": true
+          },
+          "recordedPassed": true
+        },
+        {
+          "name": "task-a/html/before-read-loss",
+          "surface": "html",
+          "scenario": "before-read-loss",
+          "unknownOperation": false,
+          "status": 404,
+          "error": null,
+          "returnedOriginalReceipt": false,
+          "revealedCommit": false,
+          "revealedPreview": false,
+          "injections": 0,
+          "membersAfter": [],
+          "fixtureWritesBefore": 1,
+          "fixtureWritesAfter": 1,
+          "repeat": null,
+          "unknownHtmlFallbackShown": false,
+          "recordedChecks": {
+            "fixtureOnlyNoAdditionalSourceWrite": true,
+            "injectionObserved": true,
+            "retainedWorkspaceMembership": true,
+            "authorizationRefusal": true,
+            "noBufferedReceipt": true,
+            "typedApiRefusal": true,
+            "noUnknownHtmlFallback": true
+          },
+          "recordedPassed": true
+        },
+        {
+          "name": "task-a/html/mid-read-loss",
+          "surface": "html",
+          "scenario": "mid-read-loss",
+          "unknownOperation": false,
+          "status": 200,
+          "error": null,
+          "returnedOriginalReceipt": true,
+          "revealedCommit": true,
+          "revealedPreview": true,
+          "injections": 1,
+          "membersAfter": [],
+          "fixtureWritesBefore": 1,
+          "fixtureWritesAfter": 1,
+          "repeat": null,
+          "unknownHtmlFallbackShown": false,
+          "recordedChecks": {
+            "fixtureOnlyNoAdditionalSourceWrite": true,
+            "injectionObserved": true,
+            "retainedWorkspaceMembership": true,
+            "authorizationRefusal": false,
+            "noBufferedReceipt": false,
+            "typedApiRefusal": true,
+            "noUnknownHtmlFallback": true
+          },
+          "recordedPassed": false
+        }
+      ]
+    },
+    {
+      "arm": "followup-control",
+      "task": "task-b",
+      "report": {
+        "manifestSHA256": "a7535adfd023ec5992a30523c3a56fcdcd8dd7729d3abb9dceedf5e0bc450af8",
+        "evaluatorSHA256": "f1d9281846f47e42eb6bb5f7e7528d7e2d027ad80ab6ad4666f57b56d9305004",
+        "baseline": "037e13b4f78c061405cef899b528badb536584ad",
+        "integrityPassed": true,
+        "candidateHelpers": 59,
+        "passed": 4,
+        "total": 7
+      },
+      "results": [
+        {
+          "name": "task-b/api/authorized-control",
+          "surface": "api",
+          "scenario": "authorized-control",
+          "unknownOperation": false,
+          "status": 200,
+          "error": null,
+          "returnedOriginalReceipt": true,
+          "revealedCommit": true,
+          "revealedPreview": true,
+          "injections": 0,
+          "membersAfter": [
+            1
+          ],
+          "fixtureWritesBefore": 1,
+          "fixtureWritesAfter": 1,
+          "repeat": {
+            "status": 200,
+            "sameOriginal": true
+          },
+          "unknownHtmlFallbackShown": false,
+          "recordedChecks": {
+            "fixtureOnlyNoAdditionalSourceWrite": true,
+            "injectionObserved": true,
+            "retainedWorkspaceMembership": true,
+            "authorizedRead": true,
+            "authorizedRepeat": true
+          },
+          "recordedPassed": true
+        },
+        {
+          "name": "task-b/api/before-read-loss",
+          "surface": "api",
+          "scenario": "before-read-loss",
+          "unknownOperation": false,
+          "status": 401,
+          "error": "sign_in_required",
+          "returnedOriginalReceipt": false,
+          "revealedCommit": false,
+          "revealedPreview": false,
+          "injections": 0,
+          "membersAfter": [
+            1
+          ],
+          "fixtureWritesBefore": 1,
+          "fixtureWritesAfter": 1,
+          "repeat": null,
+          "unknownHtmlFallbackShown": false,
+          "recordedChecks": {
+            "fixtureOnlyNoAdditionalSourceWrite": true,
+            "injectionObserved": true,
+            "retainedWorkspaceMembership": true,
+            "authorizationRefusal": true,
+            "noBufferedReceipt": true,
+            "typedApiRefusal": true,
+            "noUnknownHtmlFallback": true
+          },
+          "recordedPassed": true
+        },
+        {
+          "name": "task-b/api/mid-read-loss",
+          "surface": "api",
+          "scenario": "mid-read-loss",
+          "unknownOperation": false,
+          "status": 200,
+          "error": null,
+          "returnedOriginalReceipt": true,
+          "revealedCommit": true,
+          "revealedPreview": true,
+          "injections": 1,
+          "membersAfter": [
+            1
+          ],
+          "fixtureWritesBefore": 1,
+          "fixtureWritesAfter": 1,
+          "repeat": null,
+          "unknownHtmlFallbackShown": false,
+          "recordedChecks": {
+            "fixtureOnlyNoAdditionalSourceWrite": true,
+            "injectionObserved": true,
+            "retainedWorkspaceMembership": true,
+            "authorizationRefusal": false,
+            "noBufferedReceipt": false,
+            "typedApiRefusal": false,
+            "noUnknownHtmlFallback": true
+          },
+          "recordedPassed": false
+        },
+        {
+          "name": "task-b/html/authorized-control",
+          "surface": "html",
+          "scenario": "authorized-control",
+          "unknownOperation": false,
+          "status": 200,
+          "error": null,
+          "returnedOriginalReceipt": true,
+          "revealedCommit": true,
+          "revealedPreview": false,
+          "injections": 0,
+          "membersAfter": [
+            1
+          ],
+          "fixtureWritesBefore": 1,
+          "fixtureWritesAfter": 1,
+          "repeat": {
+            "status": 200,
+            "sameOriginal": true
+          },
+          "unknownHtmlFallbackShown": false,
+          "recordedChecks": {
+            "fixtureOnlyNoAdditionalSourceWrite": true,
+            "injectionObserved": true,
+            "retainedWorkspaceMembership": true,
+            "authorizedRead": true,
+            "authorizedRepeat": true
+          },
+          "recordedPassed": true
+        },
+        {
+          "name": "task-b/html/before-read-loss",
+          "surface": "html",
+          "scenario": "before-read-loss",
+          "unknownOperation": false,
+          "status": 401,
+          "error": null,
+          "returnedOriginalReceipt": false,
+          "revealedCommit": false,
+          "revealedPreview": false,
+          "injections": 0,
+          "membersAfter": [
+            1
+          ],
+          "fixtureWritesBefore": 1,
+          "fixtureWritesAfter": 1,
+          "repeat": null,
+          "unknownHtmlFallbackShown": false,
+          "recordedChecks": {
+            "fixtureOnlyNoAdditionalSourceWrite": true,
+            "injectionObserved": true,
+            "retainedWorkspaceMembership": true,
+            "authorizationRefusal": true,
+            "noBufferedReceipt": true,
+            "typedApiRefusal": true,
+            "noUnknownHtmlFallback": true
+          },
+          "recordedPassed": true
+        },
+        {
+          "name": "task-b/html/mid-read-loss",
+          "surface": "html",
+          "scenario": "mid-read-loss",
+          "unknownOperation": false,
+          "status": 200,
+          "error": null,
+          "returnedOriginalReceipt": true,
+          "revealedCommit": true,
+          "revealedPreview": false,
+          "injections": 1,
+          "membersAfter": [
+            1
+          ],
+          "fixtureWritesBefore": 1,
+          "fixtureWritesAfter": 1,
+          "repeat": null,
+          "unknownHtmlFallbackShown": false,
+          "recordedChecks": {
+            "fixtureOnlyNoAdditionalSourceWrite": true,
+            "injectionObserved": true,
+            "retainedWorkspaceMembership": true,
+            "authorizationRefusal": false,
+            "noBufferedReceipt": false,
+            "typedApiRefusal": true,
+            "noUnknownHtmlFallback": true
+          },
+          "recordedPassed": false
+        },
+        {
+          "name": "task-b/html/unknown-operation/mid-read-loss",
+          "surface": "html",
+          "scenario": "mid-read-loss",
+          "unknownOperation": true,
+          "status": 200,
+          "error": null,
+          "returnedOriginalReceipt": false,
+          "revealedCommit": false,
+          "revealedPreview": false,
+          "injections": 1,
+          "membersAfter": [
+            1
+          ],
+          "fixtureWritesBefore": 1,
+          "fixtureWritesAfter": 1,
+          "repeat": null,
+          "unknownHtmlFallbackShown": true,
+          "recordedChecks": {
+            "fixtureOnlyNoAdditionalSourceWrite": true,
+            "injectionObserved": true,
+            "retainedWorkspaceMembership": true,
+            "authorizationRefusal": false,
+            "noBufferedReceipt": true,
+            "typedApiRefusal": true,
+            "noUnknownHtmlFallback": false
+          },
+          "recordedPassed": false
+        }
+      ]
+    },
+    {
+      "arm": "followup-lesson",
+      "task": "task-b",
+      "report": {
+        "manifestSHA256": "a7535adfd023ec5992a30523c3a56fcdcd8dd7729d3abb9dceedf5e0bc450af8",
+        "evaluatorSHA256": "f1d9281846f47e42eb6bb5f7e7528d7e2d027ad80ab6ad4666f57b56d9305004",
+        "baseline": "037e13b4f78c061405cef899b528badb536584ad",
+        "integrityPassed": true,
+        "candidateHelpers": 59,
+        "passed": 4,
+        "total": 7
+      },
+      "results": [
+        {
+          "name": "task-b/api/authorized-control",
+          "surface": "api",
+          "scenario": "authorized-control",
+          "unknownOperation": false,
+          "status": 200,
+          "error": null,
+          "returnedOriginalReceipt": true,
+          "revealedCommit": true,
+          "revealedPreview": true,
+          "injections": 0,
+          "membersAfter": [
+            1
+          ],
+          "fixtureWritesBefore": 1,
+          "fixtureWritesAfter": 1,
+          "repeat": {
+            "status": 200,
+            "sameOriginal": true
+          },
+          "unknownHtmlFallbackShown": false,
+          "recordedChecks": {
+            "fixtureOnlyNoAdditionalSourceWrite": true,
+            "injectionObserved": true,
+            "retainedWorkspaceMembership": true,
+            "authorizedRead": true,
+            "authorizedRepeat": true
+          },
+          "recordedPassed": true
+        },
+        {
+          "name": "task-b/api/before-read-loss",
+          "surface": "api",
+          "scenario": "before-read-loss",
+          "unknownOperation": false,
+          "status": 401,
+          "error": "sign_in_required",
+          "returnedOriginalReceipt": false,
+          "revealedCommit": false,
+          "revealedPreview": false,
+          "injections": 0,
+          "membersAfter": [
+            1
+          ],
+          "fixtureWritesBefore": 1,
+          "fixtureWritesAfter": 1,
+          "repeat": null,
+          "unknownHtmlFallbackShown": false,
+          "recordedChecks": {
+            "fixtureOnlyNoAdditionalSourceWrite": true,
+            "injectionObserved": true,
+            "retainedWorkspaceMembership": true,
+            "authorizationRefusal": true,
+            "noBufferedReceipt": true,
+            "typedApiRefusal": true,
+            "noUnknownHtmlFallback": true
+          },
+          "recordedPassed": true
+        },
+        {
+          "name": "task-b/api/mid-read-loss",
+          "surface": "api",
+          "scenario": "mid-read-loss",
+          "unknownOperation": false,
+          "status": 200,
+          "error": null,
+          "returnedOriginalReceipt": true,
+          "revealedCommit": true,
+          "revealedPreview": true,
+          "injections": 1,
+          "membersAfter": [
+            1
+          ],
+          "fixtureWritesBefore": 1,
+          "fixtureWritesAfter": 1,
+          "repeat": null,
+          "unknownHtmlFallbackShown": false,
+          "recordedChecks": {
+            "fixtureOnlyNoAdditionalSourceWrite": true,
+            "injectionObserved": true,
+            "retainedWorkspaceMembership": true,
+            "authorizationRefusal": false,
+            "noBufferedReceipt": false,
+            "typedApiRefusal": false,
+            "noUnknownHtmlFallback": true
+          },
+          "recordedPassed": false
+        },
+        {
+          "name": "task-b/html/authorized-control",
+          "surface": "html",
+          "scenario": "authorized-control",
+          "unknownOperation": false,
+          "status": 200,
+          "error": null,
+          "returnedOriginalReceipt": true,
+          "revealedCommit": true,
+          "revealedPreview": false,
+          "injections": 0,
+          "membersAfter": [
+            1
+          ],
+          "fixtureWritesBefore": 1,
+          "fixtureWritesAfter": 1,
+          "repeat": {
+            "status": 200,
+            "sameOriginal": true
+          },
+          "unknownHtmlFallbackShown": false,
+          "recordedChecks": {
+            "fixtureOnlyNoAdditionalSourceWrite": true,
+            "injectionObserved": true,
+            "retainedWorkspaceMembership": true,
+            "authorizedRead": true,
+            "authorizedRepeat": true
+          },
+          "recordedPassed": true
+        },
+        {
+          "name": "task-b/html/before-read-loss",
+          "surface": "html",
+          "scenario": "before-read-loss",
+          "unknownOperation": false,
+          "status": 401,
+          "error": null,
+          "returnedOriginalReceipt": false,
+          "revealedCommit": false,
+          "revealedPreview": false,
+          "injections": 0,
+          "membersAfter": [
+            1
+          ],
+          "fixtureWritesBefore": 1,
+          "fixtureWritesAfter": 1,
+          "repeat": null,
+          "unknownHtmlFallbackShown": false,
+          "recordedChecks": {
+            "fixtureOnlyNoAdditionalSourceWrite": true,
+            "injectionObserved": true,
+            "retainedWorkspaceMembership": true,
+            "authorizationRefusal": true,
+            "noBufferedReceipt": true,
+            "typedApiRefusal": true,
+            "noUnknownHtmlFallback": true
+          },
+          "recordedPassed": true
+        },
+        {
+          "name": "task-b/html/mid-read-loss",
+          "surface": "html",
+          "scenario": "mid-read-loss",
+          "unknownOperation": false,
+          "status": 200,
+          "error": null,
+          "returnedOriginalReceipt": true,
+          "revealedCommit": true,
+          "revealedPreview": false,
+          "injections": 1,
+          "membersAfter": [
+            1
+          ],
+          "fixtureWritesBefore": 1,
+          "fixtureWritesAfter": 1,
+          "repeat": null,
+          "unknownHtmlFallbackShown": false,
+          "recordedChecks": {
+            "fixtureOnlyNoAdditionalSourceWrite": true,
+            "injectionObserved": true,
+            "retainedWorkspaceMembership": true,
+            "authorizationRefusal": false,
+            "noBufferedReceipt": false,
+            "typedApiRefusal": true,
+            "noUnknownHtmlFallback": true
+          },
+          "recordedPassed": false
+        },
+        {
+          "name": "task-b/html/unknown-operation/mid-read-loss",
+          "surface": "html",
+          "scenario": "mid-read-loss",
+          "unknownOperation": true,
+          "status": 200,
+          "error": null,
+          "returnedOriginalReceipt": false,
+          "revealedCommit": false,
+          "revealedPreview": false,
+          "injections": 1,
+          "membersAfter": [
+            1
+          ],
+          "fixtureWritesBefore": 1,
+          "fixtureWritesAfter": 1,
+          "repeat": null,
+          "unknownHtmlFallbackShown": true,
+          "recordedChecks": {
+            "fixtureOnlyNoAdditionalSourceWrite": true,
+            "injectionObserved": true,
+            "retainedWorkspaceMembership": true,
+            "authorizationRefusal": false,
+            "noBufferedReceipt": true,
+            "typedApiRefusal": true,
+            "noUnknownHtmlFallback": false
+          },
+          "recordedPassed": false
+        }
+      ]
+    }
+  ]
+}
