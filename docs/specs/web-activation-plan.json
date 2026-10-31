@@ -1,0 +1,401 @@
+{
+  "schema": 1,
+  "phase": 151,
+  "goal": "G7",
+  "record": "docs/phases/151-the-hosted-workspace-is-the-owners-daily-driver.md",
+  "readAt": "2026-10-30",
+  "runtimeBaseline": "24.22.1",
+  "summary": "Every hosted step still needed to switch on what goal G7 has built and proven locally, in the order to run them in one owner-attended session. Read from phases 94–108 (status, note, Next action, Your part, Real surfaces), the web specs and guides they cite, and the migrations in lib/web/migrations. Nothing here has been run; this is the plan, not its proof.",
+  "rules": [
+    "Run the steps in order. Stop at the first step whose proof does not hold, run that step's rollback, and record what was observed.",
+    "The owner signs in to Vercel, Supabase and GitHub when a step needs it; the conductor runs the step and records its hosted proof. No credential is typed into chat, Git, a log or browser storage.",
+    "A permission grant, a migration or a configuration date never enables a feature by itself: each feature has its own gate, and a gate's verified date is an operator assertion of a proof already recorded.",
+    "Migrations run in file order, once, each in one transaction. A Git revert cannot undo a committed migration: rolling back means turning its feature's gate off and leaving the tables in place.",
+    "After every configuration change, redeploy and compare the serving revision from /api/deployment with the deployment Vercel says receives production traffic.",
+    "Walks (97–102, 104, 105, 107, 108) come after activation, from the workspace itself, on desktop and phone. They are the owner's, not steps of this plan."
+  ],
+  "applied": [
+    { "migration": "001-auth.sql", "phase": 95, "evidence": "docs/evidence/2026-10-21-web-auth-service.md" },
+    { "migration": "002-home-cache.sql", "phase": 96, "evidence": "docs/evidence/2026-10-21-web-home.md" },
+    { "migration": "003-home-retry.sql", "phase": 96, "evidence": "docs/evidence/2026-10-21-web-home.md" }
+  ],
+  "steps": [
+    {
+      "id": "runtime-exception-recheck",
+      "phase": 95,
+      "kind": "decision",
+      "what": "Re-check the 2026-10-22 hosted runtime exception before anything else. Signed in, read /api/deployment on a fresh production function and record the serving deployment and revision; that deployment is the rollback target for every later step. If the runtime is Node 24.22.1 or later, remove PLATES_HOSTED_RUNTIME_EXCEPTION from the replacement production deployment (the exception branch in lib/web/hosted-runtime.mjs is removed separately, through review). If it still reports 24.21.0, stop: the owner decides whether the exception still stands before any migration runs.",
+      "prerequisites": [95],
+      "ownerAttended": true,
+      "rollback": "Promote the pinned prior deployment in Vercel. Restore the opt-in value only if the runtime is exactly 24.21.0 and the owner keeps the dated exception.",
+      "proof": "The /api/deployment request and its response status, the Node version and revision it reports, the Vercel deployment ID receiving traffic, and the pinned rollback deployment ID."
+    },
+    {
+      "id": "backup-destination",
+      "phase": 94,
+      "kind": "decision",
+      "what": "Owner chooses the independent backup and restore destination (phase 94's open decision), or records that private-data features are being switched on without one and accepts that risk. No paid backup resource is selected silently.",
+      "prerequisites": [94],
+      "ownerAttended": true,
+      "rollback": "No hosted change. If no destination is chosen, record the accepted risk; declining it keeps media, drafts and the connection vault off.",
+      "proof": "The owner's dated choice (destination and price, or the accepted risk) recorded in phase 94; for a destination, one snapshot time read back from it."
+    },
+    {
+      "id": "migration-004",
+      "phase": 97,
+      "kind": "migration",
+      "migration": "004-decision-operations.sql",
+      "what": "Apply 004-decision-operations.sql (encrypted decision previews and fenced durable operations) through the owner's Supabase SQL session, unchanged and atomically, then run the existing hosted proof SQL and a two-connection reservation race.",
+      "prerequisites": [94, 97],
+      "ownerAttended": true,
+      "rollback": "A failure inside the transaction rolls back by itself. After commit, keep decisionWrites false so nothing writes the new tables; dropping them needs a separately reviewed down-migration.",
+      "proof": "The applied version: file name and SHA-256 matched to source. The commit result, docs/evidence/2026-10-21-web-decisions-hosted-proof.sql's result and duration, the role denials and the concurrency outcome."
+    },
+    {
+      "id": "github-app-contents-write",
+      "phase": 97,
+      "kind": "github-app",
+      "what": "Owner approves GitHub App Contents read and write on the selected private workspace repository and the selected project repositories. This is the grant decisions (97), walk acceptance (98), lesson copies (100), connection policy (103) and night plan writes (107) wait for; it enables none of them.",
+      "prerequisites": [97],
+      "ownerAttended": true,
+      "rollback": "Owner removes Contents write in the App's settings; every write gate stays false.",
+      "proof": "A GitHub API read of the installation's permissions (contents: write) and its selected repository list, sanitized."
+    },
+    {
+      "id": "decision-writes-gate",
+      "phase": 97,
+      "kind": "env",
+      "what": "Deploy the verified revision with decisionWrites false and walk an exact decision preview; then set decisionWrites true in KEEL_WEB_CONFIG and redeploy. The same instance write setting gates walk acceptance (98).",
+      "prerequisites": [97],
+      "ownerAttended": true,
+      "rollback": "Set decisionWrites false and redeploy, or promote the pinned deployment. A source write already committed is undone only by its own reviewed revert.",
+      "proof": "The serving revision from /api/deployment, a decision preview request and its response status, and the configuration's decisionWrites value on that deployment."
+    },
+    {
+      "id": "migration-005",
+      "phase": 98,
+      "kind": "migration",
+      "migration": "005-walk-drafts.sql",
+      "what": "Apply 005-walk-drafts.sql (private guided-walk drafts and observation histories) after 004, then run the existing hosted proof SQL.",
+      "prerequisites": [94, 97, 98],
+      "ownerAttended": true,
+      "rollback": "A failure inside the transaction rolls back by itself. After commit, walk drafts are only read and written by the walk routes; leave the tables, and keep source submission behind decisionWrites.",
+      "proof": "The applied version: file name and SHA-256. The commit result, docs/evidence/2026-10-21-web-walks-hosted-proof.sql's result, the role denials and a two-connection draft revision race."
+    },
+    {
+      "id": "capture-bucket",
+      "phase": 99,
+      "kind": "decision",
+      "what": "Owner approves, and creates in the existing Supabase project, a private keel-captures bucket with 90-day retention and a 256 MiB application cap. No paid upgrade and no public export.",
+      "prerequisites": [94, 99],
+      "ownerAttended": true,
+      "rollback": "Leave the bucket empty and private, and leave media out of the configuration. Deleting the bucket is a separate owner action; expiry never starts cleanup.",
+      "proof": "The bucket's private visibility read back from Supabase, with the approved retention and cap recorded in phase 99."
+    },
+    {
+      "id": "migration-006",
+      "phase": 99,
+      "kind": "migration",
+      "migration": "006-private-media.sql",
+      "what": "Apply 006-private-media.sql (ciphertext capture receipts and the attachment CAS).",
+      "prerequisites": [94, 99],
+      "ownerAttended": true,
+      "rollback": "A failure inside the transaction rolls back by itself. After commit, leave media out of the configuration so no route writes receipts.",
+      "proof": "The applied version: file name and SHA-256. The commit result, the role denials and a bounded receipt RPC call run as the service role."
+    },
+    {
+      "id": "media-config",
+      "phase": 99,
+      "kind": "env",
+      "what": "Add media {bucket: keel-captures, retentionDays: 90, capacityBytes: 268435456} to KEEL_WEB_CONFIG and redeploy.",
+      "prerequisites": [99],
+      "ownerAttended": true,
+      "rollback": "Remove the media member and redeploy. Stored captures and their receipts are kept.",
+      "proof": "The serving revision, and one capture upload request whose receipt reaches the verified state, with its response status."
+    },
+    {
+      "id": "workspace-writes-gate",
+      "phase": 100,
+      "kind": "env",
+      "what": "Set workspaceWrites true in KEEL_WEB_CONFIG and redeploy. It is the private workspace gate: copying one to three selected lessons here, and later connection policy edits (103), fleet update publication (105) and model policy (106). It needs Contents write on the private workspace repository and the 004 operation store.",
+      "prerequisites": [97, 100],
+      "ownerAttended": true,
+      "rollback": "Set workspaceWrites false and redeploy. Copied lesson files stay; the originals were never changed.",
+      "proof": "The serving revision, and a lesson-copy preview request against the pinned private workspace with its response status."
+    },
+    {
+      "id": "restore-scope",
+      "phase": 101,
+      "kind": "decision",
+      "what": "Owner selects the isolated restore target, the projects and participants, and the observation window for the restore drill, and records that this instance has never been restored (so no recovery epoch is set). Execution gates later in this plan date their restore assertion from this step.",
+      "prerequisites": [94, 101],
+      "ownerAttended": true,
+      "rollback": "No hosted change. Without a selection, keep jobs, model routing and night operations off.",
+      "proof": "The owner's dated selection, recorded privately per the recovery guide, and the serving identity comparison from /api/deployment."
+    },
+    {
+      "id": "github-app-actions-read",
+      "phase": 102,
+      "kind": "github-app",
+      "what": "Owner approves GitHub App Actions read on the selected project repositories, for routine definitions and run history. It grants no dispatch.",
+      "prerequisites": [102],
+      "ownerAttended": true,
+      "rollback": "Owner removes Actions read; the routine pages show the missing permission as a gap.",
+      "proof": "A GitHub API read of the installation's permissions (actions: read) and one workflow-run list request with its response status."
+    },
+    {
+      "id": "migration-007",
+      "phase": 102,
+      "kind": "migration",
+      "migration": "007-run-history.sql",
+      "what": "Apply 007-run-history.sql, the read-only history RPC over the 004 operation store. It has no recovery or purge.",
+      "prerequisites": [94, 102],
+      "ownerAttended": true,
+      "rollback": "A failure inside the transaction rolls back by itself. The function only reads; after commit, the history page can be hidden by redeploying the pinned deployment.",
+      "proof": "The applied version: file name and SHA-256. The commit result, the role denials and one bounded actor-scoped history call."
+    },
+    {
+      "id": "connections-choice",
+      "phase": 103,
+      "kind": "decision",
+      "what": "Owner decides whether to switch on the optional connection vault now, and which provider (OpenAI or Anthropic) to validate. Declining skips the connection steps and model routing (106), which needs them.",
+      "prerequisites": [103],
+      "ownerAttended": true,
+      "rollback": "No hosted change; connections stay disabled.",
+      "proof": "The owner's dated choice, recorded in phase 103."
+    },
+    {
+      "id": "migration-008",
+      "phase": 103,
+      "kind": "migration",
+      "migration": "008-connections.sql",
+      "what": "Apply 008-connections.sql (runtime credential ciphertext; its RPC never returns ciphertext).",
+      "prerequisites": [94, 103],
+      "ownerAttended": true,
+      "rollback": "A failure inside the transaction rolls back by itself. After commit, keep connections.enabled false so no credential is stored.",
+      "proof": "The applied version: file name and SHA-256. The commit result, the role denials and a CAS rotation race between two connections."
+    },
+    {
+      "id": "connection-wrapping-key",
+      "phase": 103,
+      "kind": "env",
+      "what": "Bind a separate production wrapping key as KEEL_CONNECTION_ENCRYPTION_KEY (32 bytes, base64, different from the session key) in Vercel's secret store, with a copy in the protected recovery location the backup decision chose. Redeploy.",
+      "prerequisites": [103],
+      "ownerAttended": true,
+      "rollback": "Keep connections.enabled false. Never remove or rotate the key while any credential ciphertext exists; removing Plates's copy of a credential does not revoke the provider key.",
+      "proof": "The serving revision, a startup that passes configuration validation, and the key's recovery-location reference (never the key)."
+    },
+    {
+      "id": "connections-gate",
+      "phase": 103,
+      "kind": "env",
+      "what": "After the owner enters the chosen provider credential in the workspace's own form and its live metadata validation passes, set connections {enabled, vaultVerifiedAt, providers} with the actual validation dates and redeploy. No inference request is made.",
+      "prerequisites": [103],
+      "ownerAttended": true,
+      "rollback": "Set connections.enabled false and redeploy. Revoke the provider key at the provider if it should stop working.",
+      "proof": "The serving revision, the credential form's save request and response status, and the provider validation date (no key echoed)."
+    },
+    {
+      "id": "github-app-actions-write",
+      "phase": 104,
+      "kind": "github-app",
+      "what": "Owner approves GitHub App Actions write on the selected project repository, for dispatching the registered typecheck worker (and, later, night retries).",
+      "prerequisites": [102, 104],
+      "ownerAttended": true,
+      "rollback": "Owner removes Actions write; jobs.enabled stays false.",
+      "proof": "A GitHub API read of the installation's permissions (actions: write) on the selected repository."
+    },
+    {
+      "id": "migration-009",
+      "phase": 104,
+      "kind": "migration",
+      "migration": "009-jobs.sql",
+      "what": "Apply 009-jobs.sql (job records, reservations and fences). It refuses to run once 013 owns job admission, so it must precede 010 and 013.",
+      "prerequisites": [94, 104],
+      "ownerAttended": true,
+      "rollback": "A failure inside the transaction rolls back by itself. After commit, keep jobs.enabled false; never replay 009 after 013.",
+      "proof": "The applied version: file name and SHA-256. The commit result, the role denials and a two-connection lane and weekly-minute reservation race."
+    },
+    {
+      "id": "typecheck-worker",
+      "phase": 104,
+      "kind": "worker",
+      "what": "Register the typecheck worker: the approved project carries the reviewed workflow, bridge and runtime at their paths; workers/<project>.json in the private workspace pins their blobs, disabled; the PLATES_WEB_ORIGIN repository variable names the HTTPS origin as the only callback; the project's weekly runtime allowance is written down.",
+      "prerequisites": [104],
+      "ownerAttended": true,
+      "rollback": "Set the registration's enabled false (or delete it through review) and remove the repository variable; the copied workflow keeps only its ordinary CI triggers.",
+      "proof": "The registration's commit in the private workspace, the blob identities read back from the project's default branch, and the repository variable read back."
+    },
+    {
+      "id": "jobs-gate",
+      "phase": 104,
+      "kind": "env",
+      "what": "Set jobs {enabled: true, verifiedAt, restoreReconciledAt, weeklyMinutes, scheduleWrites: false} with dates from the recorded proofs and redeploy. Effects stay off until this step.",
+      "prerequisites": [101, 104],
+      "ownerAttended": true,
+      "rollback": "Set jobs.enabled false and redeploy. Running work is not cancelled by that: reconcile outstanding operations from their original receipts, never by redispatching.",
+      "proof": "The serving revision, and one reservation request's response status with its reserved minutes; no dispatch yet."
+    },
+    {
+      "id": "schedule-writes",
+      "phase": 104,
+      "kind": "schedule",
+      "what": "For one existing workflow with a single literal UTC cron, owner approves Contents and Workflows write, its schedule budget and overlap, then scheduleWrites true. No schedule is added to a workflow that has none.",
+      "prerequisites": [97, 104],
+      "ownerAttended": true,
+      "rollback": "Set scheduleWrites false and redeploy. A committed cron change is undone by a reviewed revert that restores the exact prior bytes.",
+      "proof": "The cron change's commit with every unrelated byte unchanged, and the next scheduled run observed at the new time."
+    },
+    {
+      "id": "migration-010",
+      "phase": 105,
+      "kind": "migration",
+      "migration": "010-fleet-updates.sql",
+      "what": "Apply 010-fleet-updates.sql (update preparation sharing the job lanes and charges) after 009.",
+      "prerequisites": [94, 104, 105],
+      "ownerAttended": true,
+      "rollback": "A failure inside the transaction rolls back by itself. After commit, keep fleetUpdates.enabled false; never replay 010 after 013.",
+      "proof": "The applied version: file name and SHA-256. The commit result, the role denials and a hosted concurrency check between preparation and an ordinary job."
+    },
+    {
+      "id": "fleet-canary-choice",
+      "phase": 105,
+      "kind": "decision",
+      "what": "Owner selects one adopted canary project (Plates itself cannot stand in), the exact trusted build (commit, CLI and practice versions, bundle digest), the container image digest, platform and network policy, and the runtime allowance. Docker must be available for the isolated worker walk.",
+      "prerequisites": [105],
+      "ownerAttended": true,
+      "rollback": "No hosted change; fleet updates stay disabled.",
+      "proof": "The owner's dated selection, recorded in phase 105."
+    },
+    {
+      "id": "github-app-canary-write",
+      "phase": 105,
+      "kind": "github-app",
+      "what": "Owner approves Workflows and Pull requests write (with Contents write) on the canary project only, for installing the pinned workflow and publishing the reviewed update PR.",
+      "prerequisites": [105],
+      "ownerAttended": true,
+      "rollback": "Owner removes those permissions from the canary repository; publishEnabled stays false.",
+      "proof": "A GitHub API read of the installation's permissions and selected repositories, sanitized."
+    },
+    {
+      "id": "update-worker",
+      "phase": 105,
+      "kind": "worker",
+      "what": "Install the update-preparation workflow generated for the exact target in the canary project through its own review, and write update-workers/<project>.json and the shared job-budgets record in the private workspace.",
+      "prerequisites": [104, 105],
+      "ownerAttended": true,
+      "rollback": "Remove the workflow through a reviewed PR in the canary project and disable the registration. The workflow has no schedule, so nothing runs on its own.",
+      "proof": "The canary project's commit installing the workflow, and the registration's commit with its pinned blobs and image digest."
+    },
+    {
+      "id": "fleet-updates-gate",
+      "phase": 105,
+      "kind": "env",
+      "what": "Set fleetUpdates {enabled: true, publishEnabled: false, target} and redeploy; prepare and review one canary. Turn publishEnabled true only for publishing that reviewed canary PR.",
+      "prerequisites": [104, 105],
+      "ownerAttended": true,
+      "rollback": "Set enabled and publishEnabled false and redeploy. An opened PR is closed, not merged; merge and rollback stay separate operations.",
+      "proof": "The serving revision, the preparation request's response status and its reviewed patch identity, and (after publish) the PR receipt."
+    },
+    {
+      "id": "migration-011",
+      "phase": 106,
+      "kind": "migration",
+      "migration": "011-model-routing.sql",
+      "what": "Apply 011-model-routing.sql (model records, tasks and independent monetary accounting; no Actions minute authority).",
+      "prerequisites": [94, 106],
+      "ownerAttended": true,
+      "rollback": "A failure inside the transaction rolls back by itself. After commit, keep modelRouting.enabled false.",
+      "proof": "The applied version: file name and SHA-256. The commit result, the role denials and a two-connection allowance reservation race."
+    },
+    {
+      "id": "model-allowance",
+      "phase": 106,
+      "kind": "decision",
+      "what": "Owner approves the provider credential already validated in 103, the exact source and retention policy, and a small monetary allowance for one bounded run and its saved-summary continuation. No subscription credential is copied.",
+      "prerequisites": [103, 106],
+      "ownerAttended": true,
+      "rollback": "No hosted change; model routing stays disabled.",
+      "proof": "The owner's dated approval with the allowance amount, recorded in phase 106."
+    },
+    {
+      "id": "model-routing-gate",
+      "phase": 106,
+      "kind": "env",
+      "what": "Set modelRouting {enabled: true, verifiedAt, restoreReconciledAt, models} with dated model evidence and redeploy. It requires connections enabled with a verified OpenAI provider and the wrapping key.",
+      "prerequisites": [101, 103, 104, 106],
+      "ownerAttended": true,
+      "rollback": "Set modelRouting.enabled false and redeploy. A request already sent is not recalled and unknown usage is not refunded; keep its original receipt.",
+      "proof": "The serving revision, and a cost-check request's response status with the pinned quote; no generation request yet."
+    },
+    {
+      "id": "migration-012",
+      "phase": 107,
+      "kind": "migration",
+      "migration": "012-editor-drafts.sql",
+      "what": "Apply 012-editor-drafts.sql (optional encrypted daily and model editor drafts; never an approval or a dispatch queue).",
+      "prerequisites": [94, 107],
+      "ownerAttended": true,
+      "rollback": "A failure inside the transaction rolls back by itself. After commit, keep drafts.enabled false.",
+      "proof": "The applied version: file name and SHA-256. The commit result, the role denials and a two-connection draft CAS race."
+    },
+    {
+      "id": "drafts-gate",
+      "phase": 107,
+      "kind": "env",
+      "what": "Set drafts {enabled: true, verifiedAt} and redeploy. Draft activation enables neither night action.",
+      "prerequisites": [107],
+      "ownerAttended": true,
+      "rollback": "Set drafts.enabled false and redeploy; saved drafts keep their explicit expiry.",
+      "proof": "The serving revision, and one draft save request with its response status and revision."
+    },
+    {
+      "id": "migration-013",
+      "phase": 107,
+      "kind": "migration",
+      "migration": "013-night-retries.sql",
+      "what": "Apply 013-night-retries.sql after 010: native reruns and existing workers share one admission lock. From here on, 013 owns job admission.",
+      "prerequisites": [94, 105, 107],
+      "ownerAttended": true,
+      "rollback": "A failure inside the transaction rolls back by itself; the migration refuses an ambiguous partial state. After commit, keep nightOperations off, and reapply 013 (never 009 or 010) if admission must be restored.",
+      "proof": "The applied version: file name and SHA-256. The commit result, the role denials and a hosted race between a night retry and an ordinary job on one lane."
+    },
+    {
+      "id": "night-operations-gate",
+      "phase": 107,
+      "kind": "env",
+      "what": "Write the reviewed night-retries/<project>.json profile in the private workspace, then set nightOperations {retryEnabled, planWrites, verifiedAt, restoreReconciledAt, profiles} and redeploy. Retry needs Actions write and the jobs gate; plan writes need Contents write.",
+      "prerequisites": [97, 101, 104, 107],
+      "ownerAttended": true,
+      "rollback": "Set retryEnabled and planWrites false and redeploy. A retry already dispatched is reconciled from its original receipt, never sent again.",
+      "proof": "The serving revision, the profile's commit, and one retry preview request with its response status."
+    },
+    {
+      "id": "migration-014",
+      "phase": 127,
+      "kind": "migration",
+      "migration": "014-plates-names.sql",
+      "what": "Phase 127 (goal G2) owns this last migration in the folder; it is listed so the folder is complete. After the compatibility-reader baseline is deployed and pinned as the rollback target, apply 014-plates-names.sql (plates_* public RPC names, old names forwarding) and verify both callers. Its 20 held writer rows move only in a separate reviewed change.",
+      "prerequisites": [94, 127],
+      "ownerAttended": true,
+      "rollback": "A failure inside the transaction rolls back by itself. After commit, the old names keep forwarding, so the pinned compatibility baseline still serves; promote it if a caller fails.",
+      "proof": "The applied version: file name and SHA-256. The commit result, the measured hosted schema, grant and dependency impact, and one request through each name with its response status."
+    },
+    {
+      "id": "fleet-trial-scope",
+      "phase": 108,
+      "kind": "decision",
+      "what": "Owner selects the fleet projects, participants and devices, the private evidence destination and the observation window for operating the fleet from the web.",
+      "prerequisites": [101, 107, 108],
+      "ownerAttended": true,
+      "rollback": "No hosted change.",
+      "proof": "The owner's dated selection, recorded privately per the fleet trial worksheet."
+    }
+  ],
+  "open": [
+    "Backup destination (phase 94) is still the owner's choice; the second step asks it, and every migration waits for it.",
+    "Hosted proof SQL exists only for 001–005 (docs/evidence). For 006–014 the conductor writes the hosted proof from each migration's local PGlite proof before the session, so a step's proof is ready to run, not improvised.",
+    "Connections (103) are optional. Declining them skips their steps and model routing (106), and the plan records that choice rather than a gap.",
+    "G9's owner-facing pieces (phases 144, 145, 150) are planned, so they have no step yet; a step for an unbuilt phase is refused."
+  ]
+}

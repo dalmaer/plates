@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**59 of 145 phases built; 60 owe a walk.** Built means implemented and checked; planned is not available.
+**59 of 145 phases built; 61 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -319,7 +319,7 @@ Each change is verified in parallel and published one at a time; production move
 
 From mobile and desktop, an authenticated owner operates every authorized Plates project: decisions, guided tests, visual changes, routine history and execution, fleet lessons and updates, scoped credentials and policy-bound model capacity, with source-backed evidence and private data.
 
-3/18 built; 13 owe a walk.
+3/18 built; 14 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -339,7 +339,7 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 | [106. Model routing respects capacity and policy](phases/106-model-routing-respects-capacity-and-policy.md) | partial, walk owed | 2026-10-21 | [103](phases/103-connections-expose-scoped-model-capacity.md), [104](phases/104-web-operations-run-through-durable-workers.md) | Local routing, accounting, checkpoint and desktop/mobile proofs pass; hosted admission and approved provider/owner walk remain. |
 | [107. Mobile and desktop cover Plates operations](phases/107-mobile-and-desktop-cover-plates-operations.md) | partial, walk owed | 2026-10-22 | [98](phases/98-guided-walks-preserve-what-was-tested.md), [99](phases/99-recent-changes-are-visible-and-testable.md), [105](phases/105-fleet-updates-and-lessons-travel-through-the-web.md), [106](phases/106-model-routing-respects-capacity-and-policy.md) | Coverage, scoped navigation, private drafts and bounded night adapters pass local proof; hosted activation, browser interactions and owner devices remain unverified. |
 | [108. The fleet is operated from the web](phases/108-the-fleet-is-operated-from-the-web.md) | partial, walk owed | 2026-10-22 | [101](phases/101-the-workspace-holds-in-real-use.md), [107](phases/107-mobile-and-desktop-cover-plates-operations.md) | Fleet restore/reconnect matrix and fresh feature assertions locally proven; real fleet operation and owner-selected window remain. |
-| [151. The owner drives Plates from the hosted web workspace every day](phases/151-the-hosted-workspace-is-the-owners-daily-driver.md) | planned | 2026-10-31 | [101](phases/101-the-workspace-holds-in-real-use.md), [107](phases/107-mobile-and-desktop-cover-plates-operations.md) | Most of G7 is built and locally proven but not switched on in the hosted instance. This phase activates it in one planned session and walks it, so the owner drives Plates from the web. |
+| [151. The owner drives Plates from the hosted web workspace every day](phases/151-the-hosted-workspace-is-the-owners-daily-driver.md) | partial, walk owed | 2026-10-31 | [101](phases/101-the-workspace-holds-in-real-use.md), [107](phases/107-mobile-and-desktop-cover-plates-operations.md) | The 36-step activation plan is written and checked (docs/guide/web-activation.md); the owner-attended session and a week of use remain. |
 | [152. Plates is an app on the owner's phone that says when something needs them](phases/152-plates-is-an-app-on-the-owners-phone.md) | planned | 2026-10-31 | [151](phases/151-the-hosted-workspace-is-the-owners-daily-driver.md) | The hosted workspace installs on the phone as an app, with push notifications for what waits on the owner; a native app only if this falls short. |
 
 - **93 done when:** An explicitly configured external workspace can be inspected and initialized from the installed CLI without writing private data into application or project Git trees.
