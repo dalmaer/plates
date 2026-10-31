@@ -39,7 +39,7 @@
     },
     ".agents/robot/PROTOCOL.md": {
       "practice": "climb",
-      "sha256": "50e0627a01d9a78e9ab5bc512a04cb0c599c02fc69da18ec3dbfb10a04540535"
+      "sha256": "300a0cfa452b4dc510e8177eb36d40cc6323d90db659b5c786d6524b5b24b3f4"
     },
     ".agents/skills/conduct/SKILL.md": {
       "practice": "conduct",
@@ -51,7 +51,7 @@
     },
     ".agents/skills/spin/SKILL.md": {
       "practice": "conduct",
-      "sha256": "19c086b1ce9186afb94cb4134bded9ab24b3b9d5fde52ab9b30dcd66deefdd9a"
+      "sha256": "5898f09c8f4821fac4cde69b90973e73a901d9d50615631d663a1f717fb3c6c3"
     },
     ".claude/skills/conduct": {
       "practice": "conduct",
@@ -215,7 +215,7 @@
     },
     "scripts/plates/improve.mjs": {
       "practice": "night",
-      "sha256": "f7c1c24451151230b9040ad2a0903a96d010ce822be0e41a9507612186322af8"
+      "sha256": "9f247df8ad5b6d29fbbe3016d3b45c461086df256d9ae619873fd0f6f3843c79"
     },
     "scripts/plates/lib.mjs": {
       "practice": "night",
@@ -307,7 +307,7 @@
     },
     "scripts/plates/robot.mjs": {
       "practice": "climb",
-      "sha256": "e8f02c2237f40a7c26bc272c576b7d6c3be6871875aaa2220c15dbd72a499654"
+      "sha256": "e07b2032cb3203805cd1cb0cd0d78abf40be55996906d8306eac6bf627eae3f8"
     },
     "scripts/plates/stalls.mjs": {
       "practice": "night",

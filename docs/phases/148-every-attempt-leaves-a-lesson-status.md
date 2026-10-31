@@ -1,10 +1,10 @@
 ---
-status: partial
+status: built
 since: 2026-10-31
 goal: G9
 spec: 2
 depends: [142]
-note: "Session-trial attempts carry a lesson status and health measures failures that taught nothing; robot, conductor, climb and cross-review need an end-of-attempt record first."
+note: "Session trials, the robot (its state marker) and the conductor (evidence front matter) carry a lesson status; health counts failures that taught nothing. Climb and cross-review attempts are not covered yet."
 evidence: ["evidence/2026-10-31-lesson-status.md"]
 ---
 
@@ -32,7 +32,7 @@ and the health page measures how often failures end `none`.
 
 - [x] A failed attempt without a lesson status fails the gate; `captured` without a link fails too: `tests/lesson-status.test.mjs: "a failed attempt says what it taught"`.
 - [x] The health measure counts statuses by week and flags a week where most failures taught nothing: `tests/lesson-status.test.mjs: "health measures capture"`.
-- [ ] Robot and conductor attempts carry a lesson status in an end-of-attempt record, checked the same way: `tests/lesson-status.test.mjs: "robot and conductor attempts say what they taught"`.
+- [x] Robot and conductor attempts carry a lesson status in an end-of-attempt record, checked the same way: `tests/lesson-status.test.mjs: "robot and conductor attempts say what they taught"`.
 
 ## Real surfaces
 
@@ -45,10 +45,12 @@ By hand: the conductor reads a month of the measure in health.
 
 ## Deliberately open
 
+Only the session-trial writer refuses a failed attempt without a status. Robot and conductor records are checked when read: a missing or malformed status is a health finding (`failures_untaught`), not a gate failure, because the robot cannot refuse to post its own failure and `checkLessonStatuses` is not part of `npm run check`. Records from before 2026-10-31 that do not say how their attempt ended are `unknown`, never counted as failed. Climb and cross-review attempts have no end-of-attempt record yet. Reading robot states costs up to ten GitHub reads per night on a project with the robot on; past 1,000 comments in four weeks the robot is reported as a gap, not undercounted.
+
 - **What counts as an attempt** across the different records; settled by
   listing the records first.
 
 ## Next action
 
-Give the robot and the conductor an end-of-attempt record (the robot's run
-receipt, the conductor's evidence front matter) that carries the status.
+Give climb and cross-review attempts the same end-of-attempt record when
+they next change; decide whether `checkLessonStatuses` joins `npm run check`.

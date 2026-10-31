@@ -147,3 +147,96 @@ test('health measures capture', async t => {
   const [away] = await shipped.measure({ root: empty, config: {}, env: {}, measures: shipped.MEASURES.filter(m => m.id === 'failures_untaught') });
   assert.equal(away.state, 'n/a'); assert.match(away.detail, /plates-side/);
 });
+
+test('robot and conductor attempts say what they taught', async t => {
+  const { robotComment, robotLessonStatus } = await import('../scripts/plates/robot.mjs');
+  const { markerHeader } = await import('../practices/night/files/scripts/plates/names.mjs');
+  const { readEvidenceAttempts, readRobotAttempts, robotAttempts: attemptsOf, evidenceAttempt, lessonCapture } = await import('../lib/lesson-status.mjs');
+  const robotAttempts = comments => attemptsOf(comments, markerHeader);
+  const late = new Date(Date.parse(LESSON_STATUS_SINCE) + DAY), lateDay = late.toISOString().slice(0, 10);
+  const old = new Date(Date.parse(LESSON_STATUS_SINCE) - 3 * DAY), oldDay = old.toISOString().slice(0, 10);
+
+  // The robot: its final report's last `Lesson status:` line, kept as written.
+  assert.deepEqual(robotLessonStatus('Done.\nLesson status: {"status":"none"}\n'), { status: 'none' });
+  assert.deepEqual(robotLessonStatus('Lesson status: {"status":"none"}\nmore\nLesson status: {"status":"known","lesson":"plates lesson 5"}'), { status: 'known', lesson: 'plates lesson 5' });
+  for (const m of ['', 'Done.', 'Lesson status: none', 'Lesson status: {not json}', 'Lesson status: ["none"]', ' Lesson status: {"status":"none"}']) assert.equal(robotLessonStatus(m), undefined, m);
+
+  // Its end-of-attempt record, the robot-state marker, says how the attempt ended and carries the status.
+  const bot = { type: 'Bot', login: 'github-actions[bot]' }, posted = [];
+  const github = async ({ method, path, body }) => {
+    if (method === 'POST') { posted.push({ id: 1000 + posted.length, user: bot, body: body.body, path }); return { status: 201, data: { id: 1000 + posted.length } }; }
+    if (path.startsWith('/repos/acme/anvils/issues/comments?')) return { status: 200, data: path.includes('page=1') ? posted : [] };
+    return { status: 200, data: [] };
+  };
+  const plan = n => ({ repo: 'acme/anvils', issueNumber: n, issueHash: 'a'.repeat(64), cursor: 1, instanceId: `issue-${n}`, previousHead: null });
+  await robotComment({ plan: plan(1), result: { state: 'failed', reason: 'Agent or trusted judge failed; no PR published.' }, message: 'Tried.\nLesson status: {"status":"known","lesson":"plates lesson 5 --> <b>x</b> & more"}', github, now: late });
+  await robotComment({ plan: plan(2), result: { state: 'failed', reason: 'Agent or trusted judge failed; no PR published.' }, message: 'No status.', github, now: late });
+  await robotComment({ plan: { ...plan(3), previousHead: 'b'.repeat(40) }, result: { state: 'published', headSha: 'c'.repeat(40), reason: 'Published.' }, message: 'Lesson status: {"status":"captured"}', github, now: late });
+  await robotComment({ plan: plan(4), result: { state: 'published', headSha: 'c'.repeat(40), reason: 'Published.' }, message: 'Done.', github, now: late });
+  assert.equal(posted.length, 4);
+  assert.ok(!posted[0].body.split('\n')[1].slice(4, -4).includes('-->'), "the agent's words cannot close the marker");
+  const states = robotAttempts(posted).map(a => a.state);
+  assert.deepEqual(states.map(s => [s.issueNumber, s.verified, s.rework, s.lessonStatus]), [
+    [1, false, 0, { status: 'known', lesson: 'plates lesson 5 --> <b>x</b> & more' }], [2, false, 0, undefined], [3, true, 1, { status: 'captured' }], [4, true, 0, undefined],
+  ]);
+  assert.deepEqual(robotAttempts([{ ...posted[0], user: { type: 'User', login: 'acme' } }]), [], "only the robot's own records count");
+
+  // Checked the same way: a failed robot attempt without a status, or a malformed one, is a finding.
+  const legacy = { id: 2000, user: bot, body: `<!-- plates:robot-note ${'d'.repeat(64)} -->\n<!-- plates:robot-state ${JSON.stringify({ repo: 'acme/anvils', issueNumber: 5, issueHash: 'a'.repeat(64), cursor: 1, instanceId: 'issue-5', headSha: null, completedAt: late.toISOString(), previousCompletedAt: null })} -->\nDone.` };
+  const older = { ...legacy, id: 2001, body: legacy.body.replace(late.toISOString(), old.toISOString()) };
+  posted.push(legacy, older);
+  const robot = await readRobotAttempts({ repo: 'acme/anvils', github, now: late.getTime() + DAY });
+  assert.deepEqual(robot.gaps, []);
+  assert.deepEqual(robot.attempts.map(a => [a.id, a.outcome, a.status, Boolean(a.problem)]), [
+    ['acme/anvils#1@1000', 'failed', 'known', false],
+    ['acme/anvils#2@1001', 'failed', null, true],
+    ['acme/anvils#3@1002', 'reworked', 'captured', true],
+    ['acme/anvils#4@1003', 'ok', null, false],
+    ['acme/anvils#5@2000', 'unknown', null, false],
+  ], 'a robot state from before the record says no outcome: listed from the rule on, never judged');
+  assert.match(robot.attempts[1].problem, /failed attempt needs lessonStatus/);
+  assert.match(robot.attempts[2].problem, /captured needs a link/);
+  const unread = await readRobotAttempts({ repo: 'acme/anvils', github: async () => ({ status: 403 }), now: late.getTime() });
+  assert.deepEqual(unread.attempts, []); assert.match(unread.gaps[0].reason, /robot attempt records unread/, 'an unread history is a gap, never empty');
+
+  // The conductor: the evidence file's front matter is its end-of-attempt record.
+  assert.equal(evidenceAttempt('# Evidence\n'), null);
+  assert.equal(evidenceAttempt('---\nother: 1\n---\n# Evidence\n'), null);
+  assert.deepEqual(evidenceAttempt('---\nattempt: {"accepted":true,"verified":true,"rework":0}\n---\n'), { record: { accepted: true, verified: true, rework: 0 } });
+  for (const bad of ['---\nattempt: {"verified":"yes"}\n---\n', '---\nattempt: {"rework":-1}\n---\n', '---\nattempt: {"shipped":true}\n---\n', '---\nattempt: nope\n---\n', '---\nattempt: {}\n']) assert.ok(evidenceAttempt(bad).problem, bad);
+  const w = await world(t), evidence = join(w.root, 'docs', 'evidence');
+  await mkdir(evidence, { recursive: true });
+  const front = attempt => `---\nattempt: ${JSON.stringify(attempt)}\n---\n# Evidence: acme\n`;
+  await writeFile(join(evidence, `${lateDay}-taught.md`), front({ accepted: true, verified: true, rework: 2, lessonStatus: { status: 'known', lesson: 'plates lesson 5' } }));
+  await writeFile(join(evidence, `${lateDay}-quiet.md`), front({ accepted: false, verified: true, rework: 0 }));
+  await writeFile(join(evidence, `${lateDay}-unlinked.md`), front({ accepted: true, verified: false, lessonStatus: { status: 'captured' } }));
+  await writeFile(join(evidence, `${lateDay}-fine.md`), front({ accepted: true, verified: true, rework: 0 }));
+  await writeFile(join(evidence, `${lateDay}-legacy.md`), '# Evidence: acme, written without the record\n');
+  await writeFile(join(evidence, `${oldDay}-older.md`), '# Evidence: acme, before the rule\n');
+  await writeFile(join(evidence, `${oldDay}-older-quiet.md`), front({ accepted: false }));
+  const conductor = await readEvidenceAttempts(w.root);
+  assert.deepEqual(conductor.attempts.map(a => [a.id, a.outcome, a.status, Boolean(a.problem)]), [
+    [`evidence/${oldDay}-older-quiet.md`, 'failed', null, false],
+    [`evidence/${lateDay}-fine.md`, 'ok', null, false],
+    [`evidence/${lateDay}-legacy.md`, 'unknown', null, false],
+    [`evidence/${lateDay}-quiet.md`, 'failed', null, true],
+    [`evidence/${lateDay}-taught.md`, 'reworked', 'known', false],
+    [`evidence/${lateDay}-unlinked.md`, 'failed', 'captured', true],
+  ], 'evidence without the record stays valid and is listed from the rule on; earlier records keep the earlier rule');
+
+  // One gate over all three records.
+  const gate = await checkLessonStatuses(w.root, { robot: { repo: 'acme/anvils', github, now: late.getTime() + DAY } });
+  assert.deepEqual(gate.findings.map(f => [f.source, f.id]), [
+    ['conductor', `evidence/${lateDay}-quiet.md`], ['conductor', `evidence/${lateDay}-unlinked.md`], ['robot', 'acme/anvils#2@1001'], ['robot', 'acme/anvils#3@1002'],
+  ]);
+  assert.deepEqual((await checkLessonStatuses(w.root)).findings.map(f => f.source), ['conductor', 'conductor'], 'without a repository the robot is not read');
+
+  // failures_untaught counts them, and lists the ones without a status as untaught.
+  await writeFile(join(w.root, '.plates', 'plates.json'), JSON.stringify({ name: 'Acme', repo: 'acme/anvils', robot: { on: true, budgetMinutes: 60 } }));
+  const reading = await lessonCapture({ root: w.root, now: late.getTime() + DAY, github });
+  const week = reading.facts.weeks.find(r => r.week === isoWeek(late.getTime()));
+  assert.deepEqual([week.failed, week.captured, week.known, week.none, week.missing], [7, 2, 2, 0, 5], 'a failure written before the rule counts as without a status');
+  assert.deepEqual(week.unstated.sort(), ['acme/anvils#2@1001', 'acme/anvils#5@2000', `evidence/${lateDay}-legacy.md`, `evidence/${lateDay}-quiet.md`, `evidence/${oldDay}-older-quiet.md`].sort());
+  assert.match(reading.detail, /5 without a status, listed as untaught/);
+  assert.equal(reading.value, 0);
+});

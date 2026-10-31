@@ -298,6 +298,11 @@ When the proof holds, and only then, write the record, all in one change:
   The gate runs after the record, so the evidence names the gate **command**
   (`{{check}}`) and what it covers, not its result; the gate's result line
   (exit code, test count) goes in the commit body (§4).
+  It opens with the attempt's end-of-attempt record, front matter of one
+  line: `attempt: {"accepted":true,"verified":true,"rework":<rounds sent
+  back>,"lessonStatus":{...}}` between `---` lines. A failed or reworked
+  attempt names its lesson status (`captured` with a link, `known` with the
+  lesson, or `none`); `plates improve` counts the ones that taught nothing.
 - **Proofs that need the commit** (a clean checkout of the committed tree,
   a fresh clone, CI on the pushed commit) can't be in this record. Leave
   their Acceptance boxes unchecked and the status `partial`, with a note
