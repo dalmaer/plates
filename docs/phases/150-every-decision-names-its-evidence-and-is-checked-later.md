@@ -1,11 +1,11 @@
 ---
-status: planned
+status: partial
 since: 2026-10-31
 goal: G9
 spec: 2
 depends: [143, 146, 148]
-note: "Closes the learning loop: a decision cites the evidence it used, says what it expects, and comes back for a check against what happened."
-evidence: []
+note: "Decisions carry evidence, an expectation and a check date; due checks reach the board and health measures them. The morning brief and a month of real checks remain."
+evidence: ["evidence/2026-10-31-decision-loop.md"]
 ---
 
 # Every decision says what evidence it used, and comes back to be checked
@@ -50,9 +50,10 @@ outcome is itself evidence for the next decision.
 
 ## Acceptance
 
-- [ ] A decision recorded with evidence, an expectation and a check date is raised when the date passes, with the evidence that arrived since; one without them is listed as "no check": `tests/decision-loop.test.mjs: "a decision comes back to be checked"`.
-- [ ] An outcome without a cited observation is refused, and reversing an irreversible decision is refused with what can still be done: `tests/decision-loop.test.mjs: "an outcome needs evidence"`.
-- [ ] Health reports decisions checked on time and decisions that held, by month: `tests/decision-loop.test.mjs: "health measures the decisions"`.
+- [x] A decision recorded with evidence, an expectation and a check date is raised when the date passes, with the evidence that arrived since; one without them is listed as "no check": `tests/decision-loop.test.mjs: "a decision comes back to be checked"`.
+- [x] An outcome without a cited observation is refused, and reversing an irreversible decision is refused with what can still be done: `tests/decision-loop.test.mjs: "an outcome needs evidence"`.
+- [x] Health reports decisions checked on time and decisions that held, by month: `tests/decision-loop.test.mjs: "health measures the decisions"`.
+- [ ] The morning brief raises each due check with a link to it: `tests/decision-loop.test.mjs: "the morning brief raises due checks"`.
 - [ ] A month in which at least three real decisions on Plates were checked and their outcomes recorded: ⚑ by hand: the owner and the conductor.
 
 ## Your part
@@ -84,5 +85,5 @@ By hand: a month of real checks.
 
 ## Next action
 
-List every place Plates records a decision today and what each already
-stores.
+Give the morning brief a structured input for due checks, then start a month
+of real checks on Plates' own decisions.
