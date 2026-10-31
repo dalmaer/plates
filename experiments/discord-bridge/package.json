@@ -1,0 +1,8 @@
+{
+  "name": "plates-discord-test-bridge",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24.22.1" },
+  "dependencies": { "discord.js": "14.28.0" }
+}
