@@ -146,15 +146,18 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
    - Needs first: phases 97, 101, 104.
    - Rollback: Set retryEnabled and planWrites false and redeploy. A retry already dispatched is reconciled from its original receipt, never sent again.
    - Proof to record: The serving revision, the profile's commit, and one retry preview request with its response status.
-35. **migration-014** (phase 127, migration, owner attends). Phase 127 (goal G2) owns this last migration in the folder; it is listed so the folder is complete. After the compatibility-reader baseline is deployed and pinned as the rollback target, apply 014-plates-names.sql (plates_* public RPC names, old names forwarding) and verify both callers. Its 20 held writer rows move only in a separate reviewed change.
+35. **main-build** (phase 153, env, owner attends). Deploy the reviewed main build as production from a clean source archive with the same configuration: it carries the name-compatibility readers 014 needs, plain-English decisions (153) and the push routes (152). Pin the prior deployment as the rollback target. Then the owner opens the newest health proposal on its decision page.
+   - Rollback: Promote the pinned prior deployment; the configuration is unchanged, so nothing else moves.
+   - Proof to record: The serving revision and Node version from /api/deployment, a signed-in Home request, and the newest health proposal's decision page request with its response status.
+36. **migration-014** (phase 127, migration, owner attends). Phase 127 (goal G2) owns this last migration in the folder; it is listed so the folder is complete. After the compatibility-reader baseline is deployed and pinned as the rollback target, apply 014-plates-names.sql (plates_* public RPC names, old names forwarding) and verify both callers. Its 20 held writer rows move only in a separate reviewed change.
    - Needs first: phase 94.
    - Rollback: A failure inside the transaction rolls back by itself. After commit, the old names keep forwarding, so the pinned compatibility baseline still serves; promote it if a caller fails.
    - Proof to record: The applied version: file name and SHA-256. The commit result, docs/evidence/2026-10-31-web-plates-names-hosted-proof.sql's result (grant and dependency impact, and one read through each old and new name), the measured hosted schema, and one request through each name with its response status.
-36. **fleet-trial-scope** (phase 108, decision, owner attends). Owner selects the fleet projects, participants and devices, the private evidence destination and the observation window for operating the fleet from the web.
+37. **fleet-trial-scope** (phase 108, decision, owner attends). Owner selects the fleet projects, participants and devices, the private evidence destination and the observation window for operating the fleet from the web.
    - Needs first: phases 101, 107.
    - Rollback: No hosted change.
    - Proof to record: The owner's dated selection, recorded privately per the fleet trial worksheet.
-37. **migration-015** (phase 152, migration, owner attends). After the G7 activation steps, apply 015-push.sql (the plates_push schema: encrypted push subscriptions, the once-per-item notification ledger and plates_push_rpc), so the installed app can subscribe; until then the push routes answer a bounded 503.
+38. **migration-015** (phase 152, migration, owner attends). After the G7 activation steps, apply 015-push.sql (the plates_push schema: encrypted push subscriptions, the once-per-item notification ledger and plates_push_rpc), so the installed app can subscribe; until then the push routes answer a bounded 503.
    - Needs first: phase 94.
    - Rollback: A failure inside the transaction rolls back by itself. After commit, drop the plates_push schema; nothing else reads it, and the push routes return to their bounded 503.
    - Proof to record: The applied version: file name and SHA-256; docs/evidence/2026-10-31-web-push-hosted-proof.sql's result (the schema, its grants and the RPC run as the service role); the measured hosted schema size; one authenticated subscribe request and its response status.
