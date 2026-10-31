@@ -1,0 +1,37 @@
+[
+  {
+    "id": 101,
+    "name": "Acme main",
+    "target": "branch",
+    "source_type": "Repository",
+    "source": "acme/app",
+    "enforcement": "active",
+    "bypass_actors": [],
+    "conditions": { "ref_name": { "include": ["~DEFAULT_BRANCH"], "exclude": [] } },
+    "rules": [
+      { "type": "deletion" },
+      { "type": "pull_request", "parameters": { "required_approving_review_count": 0, "dismiss_stale_reviews_on_push": false, "require_code_owner_review": false, "require_last_push_approval": false, "required_review_thread_resolution": false } },
+      { "type": "required_status_checks", "parameters": { "strict_required_status_checks_policy": false, "required_status_checks": [{ "context": "lint" }] } }
+    ]
+  },
+  {
+    "id": 102,
+    "name": "Acme task branches",
+    "target": "branch",
+    "source_type": "Repository",
+    "source": "acme/app",
+    "enforcement": "active",
+    "bypass_actors": [{ "actor_id": 4242, "actor_type": "Integration", "bypass_mode": "always" }],
+    "conditions": { "ref_name": { "include": ["refs/heads/claude/**"], "exclude": [] } },
+    "rules": [{ "type": "non_fast_forward" }]
+  },
+  {
+    "id": 103,
+    "name": "Acme tags (evaluate only)",
+    "target": "tag",
+    "enforcement": "evaluate",
+    "bypass_actors": [{ "actor_id": 4242, "actor_type": "Integration", "bypass_mode": "always" }],
+    "conditions": { "ref_name": { "include": ["~ALL"], "exclude": [] } },
+    "rules": []
+  }
+]

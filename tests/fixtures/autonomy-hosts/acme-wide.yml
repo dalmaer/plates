@@ -1,0 +1,21 @@
+# Synthetic Acme workflow: one agent step per host, each wider than Medium.
+name: Acme agent
+on: workflow_dispatch
+jobs:
+  agent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Acme Claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: |
+            --append-system-prompt "Acme's guide is AGENTS.md; don't push to main."
+            --allowedTools "Read,Edit,Bash(npm test*),Bash(git push*),Bash(gh pr merge:*)"
+      - name: Acme Codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          sandbox: workspace-write
+          codex-args: -c sandbox_workspace_write.network_access=true
