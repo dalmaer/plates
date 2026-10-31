@@ -169,3 +169,31 @@ Post-merge CI on the exact integrated main revision
 `1b1ad767c2aa77fa7beacca767dba04ca1ddb426` also succeeded: GitHub check run
 `39665599688` and typecheck run `39665599652`, observed 2026-10-21. These
 are remote CI results, not another local gate or production verification.
+
+## Owner walk: one real decision (2026-10-31)
+
+The owner opened the 25 October health proposal in the hosted workspace at
+`plates.dionisaledge.com` on their phone and declined it, with the reason
+"It fixed itself." (the measure reads ok from 26 October). The serving build
+was the 22 October source with migration 004, App Contents write and
+`decisionWrites: true` (phase 151, steps 4 and 5).
+
+- **Source change:** commit `f7bf2913c7d8fb54cdeb60cad4bccb1a251c7ea7` on
+  `dalmaer/plates` main, parent `bd02e47546b2c75dfca7717e5d40bcf3a4d32e53`,
+  committed 2026-10-31T17:32:23Z, authored as the owner and committed by
+  GitHub through the App (signature verified, reason `valid`). It changes
+  one line of `docs/health/2026-10-25.md`: the empty line under the proposal
+  becomes `**Decided 2026-10-31: declined** — It fixed itself.`
+- **Receipt:** the commit message ends `Keel-Operation:
+  ced38ae6748df27286874ba488be77adbe4837b35cf8e4ecdbb8b188c2c7b7b8`, the
+  operation the workspace linked
+  (`/projects/plates/operations/ced38ae6…`). Read with the read-only backup
+  login, `keel_private.decision_operations` holds exactly one row, that id,
+  state `committed`, value encrypted. Exactly one commit on main carries the
+  marker: no duplicate write.
+- **CI on that commit:** typecheck and reconciliation succeeded; the check run
+  was still in progress when this was recorded.
+
+The marker still uses the pre-rename name on purpose: phase 127 holds the
+operation-marker writers until the compatibility build is deployed and pinned
+as the rollback target.

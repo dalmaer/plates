@@ -1,11 +1,10 @@
 ---
-status: partial
+status: built
 since: 2026-10-21
 goal: G7
 spec: 2
 depends: [90, 91, 96]
-note: "Typed previews and durable conditional operations verified locally; migration 004, GitHub App Contents write and decisionWrites were applied to the hosted instance on 2026-10-31 (phase 151 evidence); a real owner choice through the hosted workspace remains."
-owes: walk
+note: "Owner recorded one real decision through the hosted workspace on 2026-10-31: one commit, one committed receipt, no duplicate."
 evidence: ["evidence/2026-10-21-web-decisions.md"]
 ---
 
@@ -27,7 +26,7 @@ Contract: [Private workspace, public Plates application](../specs/web-workspace.
 - [x] Accepted choices and recommendations remain distinct and decision previews name exact consequences: `tests/web-decisions.test.mjs`.
 - [x] Stale digest, concurrent mutation, lost access and replay cannot change a different record: `tests/web-operations.test.mjs`.
 - [x] Uncertain remote writes recover their original operation without a duplicate commit; these two writers never create an issue/PR: `tests/web-operations.test.mjs`.
-- [ ] ⚑ By hand: record one real decision and locate the exact source change and receipt: `docs/guide/web-workspace-setup.md`.
+- [x] ⚑ By hand: record one real decision and locate the exact source change and receipt: `docs/guide/web-workspace-setup.md`. Walked 2026-10-31: commit `f7bf2913`, operation `ced38ae6…` committed once (evidence, "Owner walk").
 
 ## Real surfaces
 
@@ -55,16 +54,13 @@ write and the exact real owner decision remain explicit owner steps.
 
 ## Next action
 
-PR #214 is reviewed and merged. Obtain the fresh Vercel verification code,
-apply migration 004 and verify hosted roles/concurrency; deploy with submission
-disabled and walk the exact preview. Then obtain Contents-write approval and a
-particular owner choice before the real write/receipt walkthrough. Retain the
-existing serving Home until the new deployment prerequisites pass.
+None.
 
 ## Trajectory
 
 - **2026-10-21** — Created from the owner's request for a hosted UI with private workspace data, project-owned records, decisions, guided testing and visible recent additions.
 - **2026-10-21** — Repository names can be reused after a rename, even with cloned history. Independent review reproduced false recovery; previews now pin repository/Ref identities, writes address the Ref ID, and recovery verifies the same repository by node ID. See phase evidence.
+- **2026-10-31** — The owner declined the 25 October health proposal from their phone in the hosted workspace; the decision landed as one App-signed commit with one committed receipt and no duplicate.
 
 ## Your part
 
