@@ -1,6 +1,7 @@
 // Local, synthetic-only conversation bridge. No backend executor or model client.
 import { DatabaseSync } from 'node:sqlite';
 import { createHash } from 'node:crypto';
+import { textPermissionsAllowed } from './permissions.mjs';
 
 export const DESTINATION = Object.freeze({ applicationId: '1565878548068311060', guildId: '1565876613382410342', channelId: '1565878881473265775' });
 export const LABEL = '[Plates TEST · SYNTHETIC]';
@@ -38,7 +39,7 @@ export function normalizeInteraction(raw, config) {
   const user = raw.member?.user, human = config.humans[user?.id];
   if (!snowflake(raw.id) || !snowflake(user?.id) || user.bot || user.system || !human || raw.webhook_id) fail('human_denied');
   if (typeof raw.member.permissions !== 'string' || !/^\d+$/.test(raw.member.permissions) || (BigInt(raw.member.permissions) & 3072n) !== 3072n) fail('human_permissions_denied');
-  if (raw.app_permissions !== '3072') fail('app_permissions_changed');
+  if (!textPermissionsAllowed(raw.app_permissions)) fail('app_permissions_changed');
   if (!['ask', 'status', 'stop'].includes(raw.data?.name) || raw.data.type !== 1) fail('command_denied');
   const values = {}, expected = raw.data.name === 'ask' ? ['backend', 'target', 'text'] : ['backend', 'target'];
   if (!Array.isArray(raw.data.options)) fail('invalid_options');

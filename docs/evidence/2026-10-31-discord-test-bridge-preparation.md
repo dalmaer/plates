@@ -91,3 +91,52 @@ Remaining live boundary: resolve the permission mismatch through a reviewed scop
 decision; do not alter @everyone or add bot privileges implicitly. Then register
 the three guild commands, deliver the original single synthetic test intent, and
 observe the owner's slash-command reply path. No live reply-path success is claimed.
+
+## Permission semantics correction and scoped proposal — 2026-10-31
+
+The earlier whole-bitfield equality was incorrect for a text-channel policy.
+Discord's permission computation retains guild and voice/stage flags; only flags
+marked T in its official table apply to text-channel overwrites. The gate now
+requires exactly View/Send within that explicit mask, preserves outside-text
+observations, and rejects owner/administrator, other server administration grants
+and unknown flags before channel overwrites can hide them. Interaction admission
+uses the same classifier. This corrects the code rather than asking the owner to
+change unrelated guild permissions.
+
+A fresh read-only inspection showed: the bot/app name is `Plates Test`; its managed
+role `1565878752557138014` has exactly `3072`; @everyone has `2248473465835073`;
+#test is a type-0 text channel with no permission overwrites. Thus all extras are
+inherited from @everyone, not requested by the bot role. Do not edit @everyone.
+The current text extras are `1760285904322625`; the other retained bits total
+`488187561509376` and include voice/stage, own nickname/expression and historical
+Clyde permissions. The narrow bit-47 `legacyClyde` exception is supported by
+[Discord.Net's flag definition](https://docs.discordnet.dev/api/Discord.ChannelPermission.html)
+and [DisCatSharp's deprecation annotation](https://docs.dcs.aitsys.dev/api/DisCatSharp/DisCatSharp.Enums.Permissions).
+Interpreting that exact observed bit as historical residue is an inference from
+those SDK-maintainer sources; arbitrary unknown bits remain refused.
+
+An offline calculation against that snapshot proves the minimal new member
+overwrite `{type:1,id:"1565878548068311060",allow:"0",deny:"1760285904322625"}`
+would retain View/Send, deny the sixteen current extra text capabilities, and pass
+the corrected text policy. No allow/grant is needed. The resulting raw value
+would remain `488187561512448`, with text value `3072`; expecting the whole raw
+value to become `3072` would still be wrong. This is a proposal, not applied state.
+Re-read the current permissions before applying, preserving any later changes.
+
+The owner approved narrowing only this bot in #test. The available Chrome Discord
+session presents `dion_45652 — Please log in again`; no native Discord app session
+is available. The #test tab was left at sign-in for the owner. No user token was
+read, no bot elevation was requested, and no Discord permission change was made.
+After owner sign-in, use #test → Edit Channel → Permissions → add the specific
+`Plates Test` member, disable only the approved extra text permissions, preserve
+other members/roles and verify the resulting scoped permissions. The bot must
+not receive Manage Roles/Channels or Administrator to edit itself. See
+[Discord's channel UI guide](https://support.discord.com/hc/en-us/articles/206029707-Setting-Up-Permissions-FAQ)
+and [overwrite API requirements](https://docs.discord.com/developers/resources/channel#edit-channel-permissions).
+
+Verification: 22 focused bridge tests passed, including every extra text bit,
+missing View/Send, guild authority concealed by channel denies, known non-text
+flags, narrow legacy residue and future unknown flags. Independent semantics
+review cleared the design and the guild-before-overwrite checks. `plates prove`
+against `d0ebcadb` reproduced the real interaction rejection with the prior core
+and verified the corrected behavior; its exact trailer is retained in the commit.

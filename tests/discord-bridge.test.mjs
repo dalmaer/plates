@@ -7,6 +7,7 @@ import { Bridge, DESTINATION, commands, validateConfig } from '../experiments/di
 import { DiscordHTTP, effectivePermissions, verifyIdentityAndScope, registerCommands } from '../experiments/discord-bridge/transport.mjs';
 import { syntheticConfig, interaction, demo } from '../experiments/discord-bridge/demo.mjs';
 import { start } from '../experiments/discord-bridge/live.mjs';
+import { LEGACY_CLYDE_MASK, TEXT_PERMISSION_BITS, textPermissionsAllowed, textPermissionObservation } from '../experiments/discord-bridge/permissions.mjs';
 
 function setup(t) {
   const root = mkdtempSync(join(tmpdir(), 'acme-discord-test-')); let now = 100000;
@@ -120,9 +121,42 @@ test('Discord live preflight verifies application, bot, channel, guild and exact
   f.channel.name = 'tasks'; await assert.rejects(verifyIdentityAndScope(http), /mismatch/); f.channel.name = 'test';
   f.roles[1].permissions = '11264'; await assert.rejects(verifyIdentityAndScope(http), error => {
     assert.equal(error.message, 'exact_view_send_permissions_required');
-    assert.deepEqual(error.permissionObservation, { expected: '3072', observed: '11264', missing: '0', extra: '8192' });
+    assert.deepEqual(error.permissionObservation, { expected: '3072', observed: '11264', text: '11264', missing: '0', extra: '8192', outsideText: '0', legacyClyde: '0', unknown: '0', forbidden: '0' });
     return true;
   });
+});
+test('Discord text policy rejects each extra applicable bit and missing capability', () => {
+  assert.equal(textPermissionsAllowed('3072'), true);
+  for (const bit of TEXT_PERMISSION_BITS.filter(b => b !== 10 && b !== 11)) assert.equal(textPermissionsAllowed((3072n | (1n << BigInt(bit))).toString()), false, `extra text bit ${bit}`);
+  for (const raw of ['0', '1024', '2048', (3072n | 8n).toString(), (3072n | (1n << 53n)).toString(), (3072n | (1n << 60n)).toString()]) assert.equal(textPermissionsAllowed(raw), false);
+});
+test('Discord text policy retains known voice and own-profile bits without treating them as text powers', t => {
+  const { bridge } = setup(t), raw = interaction(id(80));
+  const unrelated = [9, 20, 21, 25, 26, 32, 42, 43, 44, 45, 48].reduce((n, b) => n | (1n << BigInt(b)), 0n);
+  raw.app_permissions = (3072n | unrelated).toString();
+  assert.equal(textPermissionsAllowed(raw.app_permissions), true);
+  assert.equal(textPermissionObservation(raw.app_permissions).outsideText, unrelated.toString());
+  bridge.receive(raw); assert.equal(bridge.summary().inbox, 1);
+  const f = permissionFixture(); f.roles[0].permissions = unrelated.toString();
+  f.channel.permission_overwrites.push({ type: 1, id: f.botId, deny: unrelated.toString(), allow: '0' });
+  assert.equal(effectivePermissions(f), 3072n | unrelated, 'text overwrite cannot revoke guild/voice capabilities');
+});
+test('Discord channel denies cannot conceal guild administration or unknown base permissions', () => {
+  for (const bit of [3, 4, 5, 28, 29, 53, 60]) {
+    const f = permissionFixture(), elevated = 1n << BigInt(bit);
+    f.roles[0].permissions = elevated.toString();
+    f.channel.permission_overwrites.push({ type: 1, id: f.botId, deny: elevated.toString(), allow: '0' });
+    assert.throws(() => effectivePermissions(f), /permission.*denied/);
+  }
+  const f = permissionFixture(); f.guild.owner_id = f.botId; assert.throws(() => effectivePermissions(f), /must_not_own/);
+});
+test('Discord historical Clyde bit is explicit residue, never a grant or unknown-bit bypass', () => {
+  const legacy = LEGACY_CLYDE_MASK;
+  assert.equal(textPermissionsAllowed((3072n | legacy).toString()), true);
+  assert.equal(textPermissionObservation((3072n | legacy).toString()).legacyClyde, legacy.toString());
+  for (const denied of [0n, 1024n, 2048n, 3072n | 8n, 3072n | (1n << 5n), 3072n | (1n << 14n), 3072n | (1n << 53n), 3072n | (1n << 60n)]) assert.equal(textPermissionsAllowed((denied | legacy).toString()), false);
+  const f = permissionFixture(); f.roles[0].permissions = legacy.toString();
+  assert.equal(effectivePermissions(f), 3072n | legacy);
 });
 test('Discord guild registration never overwrites unrelated commands or retries ambiguous creates', async t => {
   const { bridge } = setup(t); let calls = 0;

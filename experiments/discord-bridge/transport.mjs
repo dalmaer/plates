@@ -1,6 +1,7 @@
 // Discord API v10. Native fetch intentionally avoids SDK retries of mutating calls.
 import { commands, DESTINATION, fail, hash, snowflake } from './core.mjs';
 import { setTimeout as delay } from 'node:timers/promises';
+import { FORBIDDEN_GUILD_MASK, KNOWN_PERMISSION_MASK, LEGACY_CLYDE_MASK, TEXT_PERMISSION_MASK, permissionBits, textPermissionObservation, textPermissionsAllowed } from './permissions.mjs';
 export class DiscordHTTP {
   constructor(token, { fetcher = fetch, now = Date.now, sleep = delay } = {}) { this.token = token; this.fetcher = fetcher; this.now = now; this.sleep = sleep; this.nextAt = 0; }
   async request(method, path, body, authenticated = true) {
@@ -55,16 +56,20 @@ export class DiscordHTTP {
 
 export function effectivePermissions({ guild, roles, member, channel, botId }) {
   if (guild.owner_id === botId) fail('bot_must_not_own_guild');
+  if (channel.type !== 0) fail('text_channel_required');
   if (!Array.isArray(roles) || !Array.isArray(member.roles) || !Array.isArray(channel.permission_overwrites)) fail('permissions_unavailable');
   const everyone = roles.find(r => r.id === guild.id);
   if (!everyone || member.roles.some(id => !roles.some(r => r.id === id))) fail('roles_unavailable');
-  const bits = value => { if (typeof value !== 'string' || !/^\d+$/.test(value)) fail('invalid_permissions'); return BigInt(value); };
+  const bits = permissionBits;
   let permissions = roles.filter(r => r.id === guild.id || member.roles.includes(r.id)).reduce((n, r) => n | bits(r.permissions), 0n);
   if (permissions & 8n) fail('administrator_permission_denied');
-  const overwrite = o => { permissions = (permissions & ~bits(o.deny)) | bits(o.allow); };
+  if (permissions & FORBIDDEN_GUILD_MASK) fail('elevated_guild_permissions_denied');
+  if (permissions & ~(KNOWN_PERMISSION_MASK | LEGACY_CLYDE_MASK)) fail('unknown_guild_permissions_denied');
+  const channelBits = value => { const raw = bits(value); if (raw & ~(KNOWN_PERMISSION_MASK | LEGACY_CLYDE_MASK)) fail('unknown_overwrite_permissions_denied'); return raw & TEXT_PERMISSION_MASK; };
+  const overwrite = o => { permissions = (permissions & ~channelBits(o.deny)) | channelBits(o.allow); };
   const all = channel.permission_overwrites.find(o => o.type === 0 && o.id === guild.id); if (all) overwrite(all);
   let deny = 0n, allow = 0n;
-  for (const o of channel.permission_overwrites.filter(o => o.type === 0 && member.roles.includes(o.id))) { deny |= bits(o.deny); allow |= bits(o.allow); }
+  for (const o of channel.permission_overwrites.filter(o => o.type === 0 && member.roles.includes(o.id))) { deny |= channelBits(o.deny); allow |= channelBits(o.allow); }
   permissions = (permissions & ~deny) | allow;
   const own = channel.permission_overwrites.find(o => o.type === 1 && o.id === botId); if (own) overwrite(own);
   return permissions;
@@ -79,8 +84,9 @@ export async function verifyIdentityAndScope(http) {
   const member = await http.get(`/guilds/${d.guildId}/members/${bot.id}`), roles = await http.get(`/guilds/${d.guildId}/roles`);
   if (member.user?.id !== bot.id) fail('bot_member_mismatch');
   const permissions = effectivePermissions({ guild, channel, member, roles, botId: bot.id });
-  if (permissions !== 3072n) throw Object.assign(new Error('exact_view_send_permissions_required'), { permissionObservation: { expected: '3072', observed: permissions.toString(), missing: (3072n & ~permissions).toString(), extra: (permissions & ~3072n).toString() } });
-  return { applicationId: app.id, botId: bot.id, guildId: guild.id, channelId: channel.id, permissions: '3072' };
+  const permissionObservation = textPermissionObservation(permissions.toString());
+  if (!textPermissionsAllowed(permissions.toString())) throw Object.assign(new Error('exact_view_send_permissions_required'), { permissionObservation });
+  return { applicationId: app.id, botId: bot.id, guildId: guild.id, channelId: channel.id, permissions: '3072', permissionObservation };
 }
 
 function commandShape(c) {

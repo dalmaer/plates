@@ -14,7 +14,7 @@ Node 24.22.1 or newer and macOS Swift/Security.framework are required.
 | Existing application/bot | `1565878548068311060` |
 | Ajaxian guild | `1565876613382410342` |
 | #test channel | `1565878881473265775` |
-| Bot effective channel permissions | Exactly `3072`: View Channel + Send Messages |
+| Bot effective text-channel permissions | Exactly `3072`: View Channel + Send Messages within Discord's documented text-permission mask |
 | Gateway intents | `Guilds` only; no message-content, member or presence intent |
 | Transport | Outbound TLS Gateway and Discord HTTPS API v10; no listener/tunnel |
 | Mode | Synthetic only; no models, coding, backend invocation or approval parser |
@@ -123,12 +123,24 @@ node experiments/discord-bridge/live.mjs \
 The flags record the operator's action, not independent proof of consent. Never
 use them without the owner's scoped approval. Startup first checks private owned
 paths, config and lock; reads only the named Keychain item; verifies bot/application
-identity, guild, text channel name/ID and exact effective permissions; then creates
+identity, guild, text channel name/ID and exact effective text permissions; then creates
 missing `/ask`, `/status`, `/stop` guild commands. It leaves unrelated commands
 alone and refuses conflicting existing definitions. It never registers global
-commands, grants permissions, installs another bot or creates a webhook. Excess
-inherited permissions cause a refusal; any Discord permission change belongs to
-the owner and needs its own approval.
+commands, grants permissions, installs another bot or creates a webhook. Extra
+text permissions, administrative guild authority and unknown flags cause a refusal.
+Known voice/stage and own-nickname/expression permissions are reported separately;
+they are not capabilities of this text channel and a channel overwrite cannot
+revoke all guild-level privileges. Administrative guild grants are checked before
+overwrites so a channel deny cannot hide them. Any Discord permission change
+belongs to the owner and needs its own approval.
+
+The exact historical `UseClydeAI` flag (bit 47) is reported as `legacyClyde`, with
+no text capability, as a narrow compatibility exception. Discord.Net identifies
+that flag and DisCatSharp marks it deprecated after Clyde's shutdown; interpreting
+its presence in this guild's defaults as historical residue is an inference from
+those maintainer sources. Other unknown bits still refuse activation. This does
+not request a model feature or claim the bot's unrelated guild permissions were
+revoked.
 
 After Gateway readiness, a durable `validation-v1` outbox item posts one labeled
 test message. The owner then issues `/ask` and `/status` in #test. Verify the
