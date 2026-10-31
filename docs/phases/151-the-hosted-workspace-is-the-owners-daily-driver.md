@@ -5,7 +5,7 @@ since: 2026-10-31
 goal: G7
 spec: 2
 depends: [101, 107]
-note: "Plan and hosted proof SQL for 006–015 written and checked. Session 2026-10-31: production moved to an owner domain after a 9-day origin outage; database resumed; step 1 proven (Node 24.22.2, sign-in works). Step 2 decided (Pro plus a nightly encrypted copy), not yet proven; migrations wait for it."
+note: "Plan and hosted proof SQL for 006–015 written and checked. Session 2026-10-31: production moved to an owner domain after a 9-day origin outage; database resumed; step 1 proven (Node 24.22.2, sign-in works); step 2 proven (first encrypted copy read back). Next: migration 004."
 evidence: ["evidence/2026-10-31-web-activation-plan.md"]
 ---
 
@@ -73,7 +73,6 @@ By hand: the activation session's hosted proofs; a week of use.
 
 ## Next action
 
-Step 2: the owner makes a read-only backup login (or upgrades to Pro), the
-conductor runs the first encrypted copy and reads its snapshot time back;
-then migration 004. Separately, remove the runtime exception branch through
-review.
+Migration 004 (step 3) with its hosted proof SQL, the owner attending.
+Separately, remove the runtime exception branch through review; the owner
+installs the nightly backup schedule.

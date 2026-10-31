@@ -6,7 +6,7 @@ since: 2026-10-21
 goal: G7
 spec: 2
 depends: [93]
-note: "Private repository, production deployment and selected GitHub App access verified. Backup destination remains an owner decision."
+note: "Private repository, production deployment and selected GitHub App access verified. Backup destination chosen 2026-10-31 and first encrypted copy read back; the nightly schedule and the key's second copy are the owner's to install."
 evidence: ["evidence/2026-10-21-vercel-workspace-connections.md", "evidence/2026-10-21-web-auth-service.md"]
 ---
 
@@ -55,6 +55,8 @@ Node v24.21.0 are verified by the deployed phase 95 walk. No backup destination
 or paid backup resource has been silently selected.
 
 ## Trajectory
+
+- **2026-10-31** — First independent copy taken and read back: a read-only backup login (no write grant; it bypasses row security only to read, as pg_dump needs) dumps the private schemas through the provider's session pooler, age-encrypted on the owner's machine. Snapshot 2026-10-31T06:15:02Z holds the 4 private tables with data and 4 functions. The provider upgrade is deferred, so this copy is the only backup. The box stays open until the nightly schedule runs and the decryption key has its second copy.
 
 - **2026-10-31** — Owner chose the backup route: the database moves to the provider's Pro plan (from $25 a month; daily backups kept 7 days; no inactivity pause, which had paused the Free database) plus an independent nightly encrypted dump on the owner's machine. The snapshot read-back that closes the backup box waits for the upgrade.
 
