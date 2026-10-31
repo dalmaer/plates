@@ -96,3 +96,35 @@ VOLATILE.
 - Open: the nightly schedule and a second copy of the decryption key are the
   owner's to install. The provider upgrade is deferred, so this copy is the
   only backup until then.
+
+## Step 3: migration 004 (2026-10-31)
+
+Run by the conductor in the provider's SQL editor (the owner's session),
+the owner attending remotely.
+
+| Did | Expected | Observed |
+| --- | --- | --- |
+| Precheck: 004's tables and function absent; private tables; role; server | absent, 4, owner | absent, 4, `postgres`, PostgreSQL 17.11 |
+| SHA-256 of the editor's text before running | `cfe71228…` (004 at main and at the serving source) | matched, 5,362 bytes |
+| Apply `004-decision-operations.sql` unchanged, one transaction | commit | `Success. No rows returned` at about 06:19Z |
+| `docs/evidence/2026-10-21-web-decisions-hosted-proof.sql`, text hash checked | no exception; synthetic rows rolled back | `Success` (any failed check raises); role denials for `anon`, `authenticated`, `service_role` included |
+| Two-tab reservation race: tab A reserves a project and holds its transaction 8 s; tab B reserves the same project | B waits for A, then conflicts | B started 06:20:42.836, finished 06:20:50.854 (A released 06:20:50.850) with `{"conflict":true}` |
+| Race cleanup (fixed synthetic ids) | no rows left | 0 operations, 0 previews |
+| Workspace after the migration | unchanged | `/signin` 200, `/` and `/api/deployment` 401 signed out |
+| Encrypted backup after the migration | the new tables included | snapshot 06:22:14Z holds both decision tables |
+
+Decision writes stay off (the configuration doesn't enable them), so the
+migration enables nothing on its own. Next: step 4, the GitHub App's
+Contents write approval.
+
+## Step 4: GitHub App Contents write (2026-10-31)
+
+The conductor changed the App's Contents permission from read-only to read
+and write in the owner's browser session, and accepted the request on the
+installation ("Read and write access to Contents — Was read-only"; no other
+permission changed). Read back from GitHub's installation page: read access
+to metadata, read and write access to code, on exactly the two selected
+repositories (the public Plates repository and the private workspace
+repository). An API read of the installation needs a GitHub App user token;
+the owner's CLI token gets 403, the limit recorded on 2026-10-21. Every write
+gate stays false.
