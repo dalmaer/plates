@@ -72,7 +72,7 @@ checked offline; actual store/read usability remains unverified until approval.
 The external private directory is
 `~/Library/Application Support/Plates Discord Test Bridge` (mode `0700`). It holds
 the compiled helper (`0700`), an ID/routing config (`0600`), SQLite receipts and a
-single-process lock, never the bot token. The helper accepts the token twice using
+single-process lock, never the bot token. The helper accepts the token once using
 `getpass` with echo disabled. The runtime captures its `read` output through an
 anonymous OS pipe into process memory, then uses it for Discord authentication.
 Neither helper output nor SDK errors are forwarded to logs. The OS may display
@@ -93,11 +93,17 @@ Suggested approval wording:
 > posts one labeled test message in #test and handles synthetic replies there.
 
 After that approval, the owner's minimum provisioning action is one local command
-from this directory, followed by their numeric user ID and two hidden token entries:
+from this directory, followed by their numeric user ID and one hidden token entry:
 
 ```sh
 zsh provision.command --approved
 ```
+
+When the owner has already supplied their public numeric ID, append
+`--user-id DISCORD_USER_ID`. Setup then asks only for the hidden token. Local format
+validation catches malformed input; the approved identity check detects an invalid
+credential without displaying it. A rejected saved credential is not overwritten
+automatically; replacement requires the owner's separate explicit instruction.
 
 Do not run this in an assistant-controlled terminal with token capture. Run it in
 the owner's Terminal. It refuses an existing state directory to preserve partial

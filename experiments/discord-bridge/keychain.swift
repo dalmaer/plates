@@ -27,11 +27,8 @@ if args[1] == "store" {
     guard let first = getpass("Discord bot token (hidden; paste locally): ") else { stop("Token entry cancelled.") }
     let token = String(cString: first)
     first.initialize(repeating: 0, count: strlen(first))
-    guard let second = getpass("Confirm token (hidden): ") else { stop("Token entry cancelled.") }
-    let confirmation = String(cString: second)
-    second.initialize(repeating: 0, count: strlen(second))
-    guard token == confirmation, token.count >= 30, token.count <= 512,
-        token.range(of: "^[A-Za-z0-9_.-]+$", options: .regularExpression) != nil else { stop("Token entries do not match or have invalid format; nothing stored.") }
+    guard token.count >= 30, token.count <= 512,
+        token.range(of: "^[A-Za-z0-9_.-]+$", options: .regularExpression) != nil else { stop("Token format is invalid; nothing stored.") }
     var trusted: SecTrustedApplication?
     guard SecTrustedApplicationCreateFromPath(nil, &trusted) == errSecSuccess, let trusted else { stop("Cannot establish helper identity.") }
     var access: SecAccess?
