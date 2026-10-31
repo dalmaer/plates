@@ -1,11 +1,12 @@
 ---
-status: planned
-since: 2026-10-30
+status: partial
+owes: walk
+since: 2026-10-31
 goal: G9
 spec: 2
 depends: [142]
-note: "Adopt the agent CLIs' own OpenTelemetry export; Plates adds the attributes."
-evidence: []
+note: "Claude steps render the OTLP export from secrets when a project configures telemetry; Codex export, traces and the real run in a backend remain."
+evidence: ["evidence/2026-10-31-agent-telemetry.md"]
 ---
 
 # Every plate's agent runs report to one place the owner picked
@@ -33,8 +34,8 @@ a run without a configured backend still runs and says telemetry is off.
 
 ## Acceptance
 
-- [ ] With an endpoint configured, the rendered workflow passes the export settings and attributes; without one it passes none and logs "telemetry off": `tests/telemetry-render.test.mjs: "telemetry only where configured"`.
-- [ ] No rendered setting carries prompt text or the endpoint key in plain text: `tests/telemetry-render.test.mjs: "no prompts or keys leak"`.
+- [x] With an endpoint configured, the rendered workflow passes the export settings and attributes; without one it passes none and logs "telemetry off": `tests/telemetry-render.test.mjs: "telemetry only where configured"`.
+- [x] No rendered setting carries prompt text or the endpoint key in plain text: `tests/telemetry-render.test.mjs: "no prompts or keys leak"`.
 - [ ] A real robot run in one fleet project appears in the chosen backend with its attributes: ⚑ by hand: the conductor, then the owner opens the backend.
 
 ## Your part
@@ -68,4 +69,6 @@ project needs the owner's yes.
 
 ## Next action
 
-Owner picks the backend; meanwhile the render test against fixtures.
+The owner picks the backend; the conductor adds the endpoint secret to one
+fleet project and runs the walk. Then Codex export once codex-action's config
+input is confirmed.

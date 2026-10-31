@@ -106,6 +106,9 @@ jobs:
           node-version-file: .nvmrc
       - if: steps.configured.outputs.enabled == 'true'
         run: if [ -f package-lock.json ]; then npm ci; fi
+      - name: Telemetry
+        if: steps.configured.outputs.enabled == 'true'
+        run: echo "telemetry off (.plates/plates.json names no telemetry endpoint)"
       - if: steps.configured.outputs.enabled == 'true'
         uses: anthropics/claude-code-action@v1
         with:

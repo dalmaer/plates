@@ -255,6 +255,9 @@ jobs:
             echo "started=$(date +%s)"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Telemetry
+        if: steps.pick.outputs.run == 'yes'
+        run: echo "telemetry off (.plates/plates.json names no telemetry endpoint)"
       # The agent, time-boxed to the budget. Its tools cannot push, merge,
       # delete through git, or reach gh, and the token it is given reads. A
       # timeout is not red: what it committed before the box closed is guarded.
