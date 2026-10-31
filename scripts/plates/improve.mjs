@@ -1327,6 +1327,16 @@ export const MEASURES = [
     },
   },
   {
+    // Phase 150: a decision that cites evidence, expects an effect and names a checkBy date comes back
+    // to be checked. Decision records are read plates-side (lib/decision-loop.mjs).
+    id: 'decisions_checked_late', what: 'the worst month of the last three: share of decisions whose checkBy came due that were not checked (held, adjust or reverse, with observedIn) within a week of it; checked decisions that held, by month, in the detail; n/a with none due', unit: '%', bound: 50, better: 'lower', ratchet: false,
+    async run(ctx) {
+      if (!ctx.plates?.decisionChecks) return { na: 'decision records are read plates-side only (plates improve)' };
+      const bound = Number.isFinite(ctx.bounds?.decisions_checked_late) ? ctx.bounds.decisions_checked_late : 50;
+      return ctx.plates.decisionChecks({ root: ctx.root, env: ctx.env, now: ctx.now, bound });
+    },
+  },
+  {
     id: 'conduct_cost', what: 'whole-check or whole-suite runs by builders (lesson 5: builders test by file)', unit: 'runs', bound: 0, better: 'lower',
     async run(ctx) {
       if (!ctx.transcripts) return { na: 'no --transcripts <dir>: conducting cost is read from a session\'s subagent transcripts' };
@@ -1463,6 +1473,10 @@ export function proposalText(r, config = {}) {
     case 'failures_untaught': {
       const w = (f.weeks ?? []).find(x => x.week === f.worst) ?? {};
       return `Read the failed or reworked attempts of ${f.worst} that taught nothing (${list(w.untaught ?? [], 4)}): ${w.none} of ${(w.captured ?? 0) + (w.known ?? 0) + (w.none ?? 0)} ended lesson status none, ${r.value}% against ${r.bound}%. For each with a shape, propose the lesson row (a person decides it), so the next attempt of that shape ends captured or known.`;
+    }
+    case 'decisions_checked_late': {
+      const m = (f.months ?? []).find(x => x.month === f.worst) ?? {};
+      return `Check the decisions of ${f.worst} that came back late or not at all (${list(m.unchecked ?? [], 4)}): ${(m.late ?? 0) + (m.overdue ?? 0)} of ${(m.onTime ?? 0) + (m.late ?? 0) + (m.overdue ?? 0)} were not checked within ${f.grace ?? 7} days of their checkBy, ${r.value}% against ${r.bound}%. Record each outcome (held, adjust or reverse, with observedIn) in its record, or move its checkBy with the reason when the evidence it waits on has not arrived.`;
     }
     case 'conduct_cost': return `Brief builders to test the files they touched: they ran the whole check or suite ${f.wholeRuns} times (${f.wholeMinutes} min); the conductor runs it once (lesson 5).`;
     default: return `Move ${r.id} back within its bound (${r.value} against ${r.bound}).`;
