@@ -20,6 +20,7 @@
     { "path": "scripts/plates/improve.mjs", "from": "scripts/plates/improve.mjs", "kind": "managed" },
     { "path": "scripts/plates/hygiene-measures.mjs", "from": "scripts/plates/hygiene-measures.mjs", "kind": "managed" },
     { "path": "scripts/plates/hygiene-proposals.mjs", "from": "scripts/plates/hygiene-proposals.mjs", "kind": "managed" },
+    { "path": "scripts/plates/plain-proposal.mjs", "from": "scripts/plates/plain-proposal.mjs", "kind": "managed" },
     { "path": "scripts/plates/drain.mjs", "from": "scripts/plates/drain.mjs", "kind": "managed" },
     { "path": "scripts/plates/night-plan.mjs", "from": "scripts/plates/night-plan.mjs", "kind": "managed" },
     { "path": "scripts/plates/morning.mjs", "from": "scripts/plates/morning.mjs", "kind": "managed" },

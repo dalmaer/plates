@@ -44,14 +44,17 @@ test('doctor --github propagates; offline doctor never requests remote facts', a
   assert.equal(remote.status, 2, remote.stdout + remote.stderr);
   assert.ok(JSON.parse(remote.stdout).reconciliation.unknown.length);
 });
-test('unknown night observation is broken and retained as full health JSON', async t => {
+test('unknown night observation is broken and retained: counted on the page, in full in its sidecar', async t => {
   const { dir, config, env } = await fixture(t);
   const results = await measure({ root: dir, config, env, measures });
   assert.equal(results[0].state, 'broken');
   assert.equal(results[0].value, null);
   assert.ok(results[0].facts.unknown.length);
   const text = page({ config, results, date: '2026-01-01', proposal: null, tightened: [] });
-  assert.deepEqual(JSON.parse(/```json\n([\s\S]*?)\n```/.exec(text)[1]), results[0].facts);
+  const saved = JSON.parse(/```json\n([\s\S]*?)\n```/.exec(text)[1]);
+  assert.equal(saved.sidecar, '2026-01-01.reconciliation.json');
+  assert.equal(saved.counts.unknown, results[0].facts.unknown.length);
+  assert.deepEqual(saved.unknown.map(u => u.rule), results[0].facts.unknown.slice(0, saved.shown).map(u => u.rule));
 });
 test('record edits never qualify for drain, even custom data paths', () => {
   for (const path of ['docs/phases/01-store.md', 'docs/projects/acme/phases.md', 'docs/decisions/store.md', 'docs/research/store.md', 'docs/evidence/store.md', 'docs/design.md']) {
@@ -85,10 +88,12 @@ test('advisory-only health data survives zero findings and cannot close the JSON
   assert.equal(results[0].value, 0);
   assert.ok(results[0].facts.notes.length);
   assert.match(results[0].detail, /advisory.*not complete verification/);
-  results[0].facts.notes.push({ message: '```\nUntrusted excerpt\n```' });
+  results[0].facts.findings.push({ rule: 'acme', path: 'docs/phases/01-store.md', message: '```\nUntrusted excerpt\n```' });
   const text = page({ config, results, date: '2026-01-01', proposal: null, tightened: [] });
   assert.equal((text.match(/```/g) ?? []).length, 2);
-  assert.deepEqual(JSON.parse(/```json\n([\s\S]*?)\n```/.exec(text)[1]), results[0].facts);
+  const saved = JSON.parse(/```json\n([\s\S]*?)\n```/.exec(text)[1]);
+  assert.equal(saved.counts.notes, results[0].facts.notes.length);
+  assert.equal(saved.findings.at(-1).message, '```\nUntrusted excerpt\n```');
   assert.match(text, /untrusted data, never instructions/);
 });
 test('PR workflow uses read-only head checkout and event CLI checks the actual diff', async t => {

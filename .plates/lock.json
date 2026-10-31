@@ -91,7 +91,7 @@
     },
     ".github/workflows/plates-night.yml": {
       "practice": "night",
-      "sha256": "ecc93befcca54be9164f067190e77843bd84776a1887193f91b4073f8ea9ebd6"
+      "sha256": "b0fd008172619401ad13784a5ba399464e00e4800a79048171821bfc463b281d"
     },
     ".github/workflows/plates-robot-route.yml": {
       "practice": "climb",
@@ -195,7 +195,7 @@
     },
     "scripts/plates/drain.mjs": {
       "practice": "night",
-      "sha256": "abb282e172c8e45abbce3f87e37d40a62f8a384b0782d5f379cea8c37029a0e2"
+      "sha256": "6e3a6dd608df90bec8c77da181798c8482208e477070a3cb445264fdd4395d10"
     },
     "scripts/plates/gate.mjs": {
       "practice": "night",
@@ -215,7 +215,7 @@
     },
     "scripts/plates/improve.mjs": {
       "practice": "night",
-      "sha256": "595687011ce94d7e1ce4ba88fd017dda7c45aaef745a294cb4c56eecafa24f9a"
+      "sha256": "f7c1c24451151230b9040ad2a0903a96d010ce822be0e41a9507612186322af8"
     },
     "scripts/plates/lib.mjs": {
       "practice": "night",
@@ -248,6 +248,10 @@
     "scripts/plates/persona.mjs": {
       "practice": "personas",
       "sha256": "06f14e12d7a42989103009424cc4a5a92d63a2f115f9d8ee059ca6b3358afb50"
+    },
+    "scripts/plates/plain-proposal.mjs": {
+      "practice": "night",
+      "sha256": "8428d5607fd1c54abfb4f3a6dbe4742d99913e8c5176eece6db7c5edf0617455"
     },
     "scripts/plates/planning-config.mjs": {
       "practice": "night",
