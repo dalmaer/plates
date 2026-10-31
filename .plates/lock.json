@@ -343,7 +343,7 @@
     },
     "scripts/plates/workflows.mjs": {
       "practice": "ci",
-      "sha256": "32a93025a02d1e5b918c33bd674e30a480cb61af468b30a3516a695325826e92"
+      "sha256": "76a425e227d4d7b0fc5ef851ac2df94856e8b43a126c6a0a87a2d5210777efb7"
     },
     "scripts/roadmap.mjs": {
       "practice": "phases",
@@ -355,7 +355,7 @@
     },
     "tests/plates-workflows.test.mjs": {
       "practice": "ci",
-      "sha256": "a7b6d52ea2ef4d19e513594d627b7b242e1fd70b3553953f75e75a1cbbc48b94"
+      "sha256": "8b03353e54ee6a046c291dc06f3684c4b10b5b61d9311ae985a64df0bcfb6e57"
     },
     "tests/roadmap.test.mjs": {
       "practice": "phases",

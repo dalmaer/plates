@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { workflowProblems, shellProblems } from '../scripts/plates/workflows.mjs';
+import { workflowProblems, shellProblems, spawn } from '../scripts/plates/workflows.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -38,4 +38,12 @@ test('the check can fail: broken bash and broken inline JS are named, with the f
   assert.equal(problems.length, 2, JSON.stringify(problems));
   assert.match(problems[0], /^acme\.yml: step "Branch" \(line 5\): bash -n: /);
   assert.match(problems[1], /^acme\.yml: step "Read the config" \(line 10\): node -e: .*SyntaxError/);
+});
+
+test('a check child that never finishes is reported, not waited on', () => {
+  const started = Date.now();
+  const r = spawn('sleep', ['5'], 300);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /^sleep did not finish within 0\.3 s$/);
+  assert.ok(Date.now() - started < 4000, 'the bound, not the child, ended the wait');
 });
