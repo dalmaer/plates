@@ -61,3 +61,24 @@ VOLATILE.
   provider's Pro plan (from $25 a month: daily backups kept 7 days, no
   inactivity pause) and keep an independent nightly encrypted dump on the
   owner's machine. Snapshot read-back is pending the upgrade.
+
+## Step 1 proof (2026-10-31)
+
+- The owner signed in through the GitHub App at the new origin (callback
+  added for it) after the database was resumed; `/api/deployment`, signed
+  in, answered: Node `v24.22.2`, Plates CLI `0.8.33`, recovery
+  `not-configured`, observed `2026-10-31T06:08:07Z`. Signed out it answers
+  401 `sign_in_required`.
+- Node 24.22.2 meets the patched 24.22.1 baseline, so the 2026-10-22 runtime
+  exception is no longer needed. No exception opt-in is set on the project;
+  removing its branch in `lib/web/hosted-runtime.mjs` is a separate reviewed
+  change.
+- The revision binding reads `unavailable`: it comes from the provider's Git
+  commit variable, which a CLI source-archive deployment does not set. The
+  provider records the serving deployment's source as `519aa219`; the
+  deployment identifiers and the pinned rollback target are in the private
+  record.
+- Step 2 is decided but not yet proven: the owner resumed the database on
+  its current plan for now, and the nightly encrypted copy needs a
+  read-only backup login, because the production-only database credentials
+  can't be read back from the provider. Migrations wait for it.
