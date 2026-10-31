@@ -1,11 +1,11 @@
 ---
-status: planned
-since: 2026-10-30
+status: built
+since: 2026-10-31
 goal: G9
 spec: 2
 depends: []
-note: "First G9 phase: the own/adopt/watch boundary in design.md and a budget on the CLI's surface."
-evidence: []
+note: "The boundary is in design.md; .plates/surface.json holds 49 verbs and 185 flags, and the gate fails on surface added without it."
+evidence: ["evidence/2026-10-31-surface-boundary-and-budget.md"]
 ---
 
 # Plates says what it owns, and its surface stops growing by accident
@@ -30,9 +30,10 @@ saying the new surface belongs to Plates.
 
 ## Acceptance
 
-- [ ] The budget matches the registry today, and a registry with one more verb or flag fails with a message naming it and the boundary: `tests/surface-budget.test.mjs: "new surface needs the boundary"`.
-- [ ] Raising the budget without naming the verb under "Own" in `docs/design.md` fails: `tests/surface-budget.test.mjs: "the boundary owns every verb"`.
-- [ ] `npm run check` passes on the change.
+- [x] The budget matches the registry today, and a registry with one more verb or flag fails with a message naming it and the boundary: `tests/surface-budget.test.mjs: "new surface needs the boundary"`.
+- [x] Raising the budget without naming the verb under "Own" in `docs/design.md` fails: `tests/surface-budget.test.mjs: "the boundary owns every verb"`.
+- [x] Surface removed without lowering the budget fails with the number to lower it to: `tests/surface-budget.test.mjs: "surface removed must lower the budget"`.
+- [x] `npm run check` passes on the change.
 
 ## Real surfaces
 
@@ -51,5 +52,5 @@ Automated: `node --test tests/surface-budget.test.mjs`; `npm run check`.
 
 ## Next action
 
-Write the boundary section and the surface-budget test against the current
-registry.
+None; built. Simplification (removing verbs) is later work that lowers the
+budget.
