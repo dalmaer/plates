@@ -4,7 +4,7 @@ since: 2026-10-31
 goal: G7
 spec: 2
 depends: [151]
-note: "Manifest, shell worker, icons and encrypted Web Push are built and tested; wiring the workers to the notifier, migration 015 on the hosted instance and the owner's phone remain."
+note: "Manifest, shell worker, icons and encrypted Web Push are built and tested; ready walks and red nights reach the notifier on a fresh source read. Decision checks and door approvals, migration 015 on the hosted instance and the owner's phone remain."
 evidence: ["evidence/2026-10-31-phone-app.md"]
 ---
 
@@ -37,7 +37,8 @@ a native app is still needed.
 
 - [x] The manifest and service worker are served, the worker caches no private route, and a stale shell refreshes on reconnect: `tests/web-pwa.test.mjs: "the app installs and caches only its shell"`.
 - [x] Each waiting-on-owner event sends one notification with a deep link and no private text, and a repeated event sends none: `tests/web-pwa.test.mjs: "one push per item, no private text"`.
-- [ ] The workers that raise decision checks, ready walks, irreversible-door approvals and red nights call the notifier: `tests/web-pwa.test.mjs: "waiting-on-owner events reach the notifier"`.
+- [x] Ready walks and red nights reach the notifier when the workspace reads its source fresh, once per item, never failing Home: `tests/web-pwa.test.mjs: "waiting-on-owner events reach the notifier"`.
+- [ ] Decision checks coming due and irreversible-door approvals reach the notifier; the hosted workspace does not learn of either yet (checks are read only by the local board, and there is no hosted approval queue): `tests/web-pwa.test.mjs: "checks and door approvals reach the notifier"`.
 - [ ] Installed on the owner's phone, a real notification opens the right item and the owner acts on it: ⚑ by hand: the owner.
 
 ## Your part
@@ -61,10 +62,12 @@ By hand: the owner's two weeks.
 
 ## Deliberately open
 
+A notification fires when the workspace reads a project's source fresh (the owner loading Home), not when the event happens: there is no hosted background worker, and projects never call back. A walk that becomes ready while nobody opens the workspace is announced on the next fresh read. Settled by the owner's walk: if that is too late to be useful, a scheduled fresh read is the next design.
+
 - **iOS web push limits** (installed app only, user permission per device);
   settled on the owner's phone.
 
 ## Next action
 
-Wire the board and night workers to the notifier; apply migration 015 in the
-phase 151 activation session.
+Apply migration 015 and deploy main in phase 151's session; then the owner
+installs the app and a ready walk reaches the phone.
