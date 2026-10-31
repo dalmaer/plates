@@ -419,6 +419,9 @@ jobs:
             echo "started=$(date +%s)"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Telemetry
+        if: steps.pick.outputs.job != ''
+        run: echo "telemetry off (.plates/plates.json names no telemetry endpoint)"
       # The agent, time-boxed to the budget. Its tools cannot push or merge,
       # it measures only through climb.mjs, and the token it is given reads.
       # A timeout is not red: what it kept before the box closed is judged.
