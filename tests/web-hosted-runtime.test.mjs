@@ -10,16 +10,10 @@ const approved = {
   PLATES_HOSTED_RUNTIME_EXCEPTION: 'node-24.21.0-until-vercel-patched',
 };
 
-test('hosted exception permits only the explicitly approved version and environment', () => {
-  assert.doesNotThrow(() => requireHostedRuntime(approved, '24.21.0'));
-  for (const version of ['24.20.0', '24.21.1', '24.21.99', '24.22.0', '22.23.4', 'v24.21.0', '24.21.0.0', 'invalid']) {
+test('the ended exception no longer admits Node 24.21.0', () => {
+  for (const version of ['24.21.0', '24.20.0', '24.21.99', '22.23.4', 'v24.21.0', 'invalid']) {
     assert.throws(() => requireHostedRuntime(approved, version), { code: 'unsupported_runtime' }, version);
-  }
-  for (const env of [{}, { ...approved, VERCEL: undefined }, { ...approved, VERCEL: '0' },
-    { ...approved, VERCEL_ENV: undefined }, { ...approved, VERCEL_ENV: 'preview' },
-    { ...approved, VERCEL_ENV: 'development' }, { ...approved, PLATES_HOSTED_RUNTIME_EXCEPTION: undefined },
-    { ...approved, PLATES_HOSTED_RUNTIME_EXCEPTION: 'true' }, { ...approved, PLATES_HOSTED_RUNTIME_EXCEPTION: '24.x' }]) {
-    assert.throws(() => requireHostedRuntime(env, '24.21.0'), { code: 'unsupported_runtime' });
+    assert.throws(() => requireHostedRuntime({}, version), { code: 'unsupported_runtime' }, version);
   }
 });
 
@@ -46,7 +40,7 @@ test('real hosted entry point keeps configuration, authentication, origin and re
     Object.defineProperty(process.versions, 'node', version);
   });
   Object.assign(process.env, env);
-  Object.defineProperty(process.versions, 'node', { ...version, value: '24.21.0' });
+  Object.defineProperty(process.versions, 'node', { ...version, value: '24.22.2' });
   t.mock.method(globalThis, 'fetch', h.fetcher);
   assert.equal((await handler.fetch(h.request('/signin'))).status, 200);
   assert.equal((await handler.fetch(h.request('/api/session'))).status, 401);
@@ -60,9 +54,9 @@ test('real hosted entry point keeps configuration, authentication, origin and re
   process.env.VERCEL_ENV = 'preview';
   assert.equal((await handler.fetch(h.request('/signin'))).status, 503);
   process.env.VERCEL_ENV = 'production';
-  delete process.env.PLATES_HOSTED_RUNTIME_EXCEPTION;
+  Object.defineProperty(process.versions, 'node', { ...version, value: '24.21.0' });
   assert.equal((await handler.fetch(h.request('/signin'))).status, 503);
-  process.env.PLATES_HOSTED_RUNTIME_EXCEPTION = approved.PLATES_HOSTED_RUNTIME_EXCEPTION;
+  Object.defineProperty(process.versions, 'node', { ...version, value: '24.22.2' });
   process.env.PLATES_WEB_CONFIG = '{}';
   assert.equal((await handler.fetch(h.request('/signin'))).status, 503);
 });
