@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**58 of 142 phases built; 57 owe a walk.** Built means implemented and checked; planned is not available.
+**58 of 143 phases built; 57 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -361,7 +361,7 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 
 Plates stays small where it is distinctive (practice, evidence and proof, lessons, health and the policy for risk, doors and capacity) and adopts mature open parts for telemetry, host permissions, session execution and live monitoring, behind boundaries an agent can extend without breaking.
 
-1/8 built.
+1/9 built.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -373,6 +373,7 @@ Plates stays small where it is distinctive (practice, evidence and proof, lesson
 | [147. The owner sees every live agent session in one place](phases/147-live-sessions-are-watched-in-one-place.md) | planned | 2026-10-30 | [142](phases/142-plates-surface-has-a-boundary-and-a-budget.md) | Trial herdr for watching live agent sessions across projects; Plates builds nothing for this unless the trial says so. |
 | [148. Every agent attempt says whether it taught something](phases/148-every-attempt-leaves-a-lesson-status.md) | planned | 2026-10-30 | [142](phases/142-plates-surface-has-a-boundary-and-a-budget.md) | Close the learning loop: each agent attempt records whether it taught something, so capture is measured. |
 | [149. Agents and the owner talk in one chat the owner can see](phases/149-agents-and-the-owner-talk-in-one-visible-chat.md) | planned | 2026-10-30 | [142](phases/142-plates-surface-has-a-boundary-and-a-budget.md), [145](phases/145-every-change-carries-a-door-class.md) | One transport-neutral chat seam, Discord first (the owner has it working); designed in the stopped executor trials, never connected there. |
+| [150. Every decision says what evidence it used, and comes back to be checked](phases/150-every-decision-names-its-evidence-and-is-checked-later.md) | planned | 2026-10-31 | [143](phases/143-agent-runs-report-telemetry-to-one-place.md), [146](phases/146-what-the-executor-trials-learned-is-kept.md), [148](phases/148-every-attempt-leaves-a-lesson-status.md) | Closes the learning loop: a decision cites the evidence it used, says what it expects, and comes back for a check against what happened. |
 
 - **142 done when:** `docs/design.md` names what Plates owns, what it adopts and what it watches, and the gate fails when a verb or flag is added without that boundary saying the new surface belongs to Plates.
 - **143 done when:** Agent runs that Plates starts in a project (robot, cross-review, night, climb) export the agent CLI's own OpenTelemetry metrics and traces, tagged with project, phase, job and experiment, to the backend the owner chose, and a run without a configured backend still runs and says telemetry is off.
@@ -382,6 +383,7 @@ Plates stays small where it is distinctive (practice, evidence and proof, lesson
 - **147 done when:** For two weeks the owner watches live Claude, Codex and other agent sessions across projects in one adopted tool (herdr first), and the decision to keep it, try another, or drop it is recorded with what it showed that the board did not.
 - **148 done when:** Each attempt Plates records (robot, conductor phase, climb, cross-review, executor bake-off) ends with a lesson status, `captured` (a lesson or proposal it links), `known` (an existing lesson applied, named), or `none`, and the health page measures how often failures end `none`.
 - **149 done when:** Plates agents post to, and take requests from, one private chat the owner already uses (Discord first), through one transport-neutral envelope: the owner can ask a project's agent for status, ask it something, or stop it; agents hand work to each other there instead of the owner copying between chats; and nothing posted in chat can trigger an effect beyond what the project's autonomy level and door classes allow.
+- **150 done when:** Each decision Plates records (an accepted decision fence, a health proposal accepted or declined, a lesson decided, a walk's choice, a phase's Deliberately open settled) cites the evidence it was made on, states the effect it expects and a date to check it; on that date the board and the morning brief raise it with the evidence gathered since, and the owner or the conductor records whether it held, needs a change, or is reversed — and that outcome is itself evidence for the next decision.
 
 ## Updating this roadmap
 
