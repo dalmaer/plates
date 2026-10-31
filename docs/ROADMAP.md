@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**59 of 145 phases built; 61 owe a walk.** Built means implemented and checked; planned is not available.
+**60 of 145 phases built; 61 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -365,14 +365,14 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 
 Plates stays small where it is distinctive (practice, evidence and proof, lessons, health and the policy for risk, doors and capacity) and adopts mature open parts for telemetry, host permissions, session execution and live monitoring, behind boundaries an agent can extend without breaking.
 
-2/9 built; 3 owe a walk.
+3/9 built; 3 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
 | [142. Plates says what it owns, and its surface stops growing by accident](phases/142-plates-surface-has-a-boundary-and-a-budget.md) | built | 2026-10-31 | — | The boundary is in design.md; .plates/surface.json holds 49 verbs and 185 flags, and the gate fails on surface added without it. |
 | [143. Every plate's agent runs report to one place the owner picked](phases/143-agent-runs-report-telemetry-to-one-place.md) | partial, walk owed | 2026-10-31 | [142](phases/142-plates-surface-has-a-boundary-and-a-budget.md) | Claude steps render the OTLP export from secrets when a project configures telemetry; Codex export, traces and the real run in a backend remain. |
 | [144. A project's risk level is enforced by the tools, not only written down](phases/144-a-project-risk-level-is-enforced-by-its-hosts.md) | partial, walk owed | 2026-10-31 | [132](phases/132-risk-tolerance-is-explicit-and-scoped.md), [142](phases/142-plates-surface-has-a-boundary-and-a-budget.md) | Each level renders Claude, Codex and ruleset controls and doctor reports drift; applying a ruleset on one project is the walk. |
-| [145. Every change Plates proposes says whether it can be undone](phases/145-every-change-carries-a-door-class.md) | planned | 2026-10-30 | [39](phases/39-every-pr-plates-opens-can-be-judged-in-a-minute-a.md), [144](phases/144-a-project-risk-level-is-enforced-by-its-hosts.md) | One vocabulary for doors: reversible, windowed, irreversible, driving merge danger and autonomy. |
+| [145. Every change Plates proposes says whether it can be undone](phases/145-every-change-carries-a-door-class.md) | built | 2026-10-31 | [39](phases/39-every-pr-plates-opens-can-be-judged-in-a-minute-a.md), [144](phases/144-a-project-risk-level-is-enforced-by-its-hosts.md) | lib/doors.mjs classes 21 operation types; Merge danger names the class and levels gate by door, irreversible always waiting for the owner. |
 | [146. What the executor trials learned stays in Plates, whoever runs sessions later](phases/146-what-the-executor-trials-learned-is-kept.md) | built | 2026-10-31 | [142](phases/142-plates-surface-has-a-boundary-and-a-budget.md), [117](phases/117-evaluation-records.md) | lib/executor holds the qualification contract (12 named refusals), the uncertain-state journal, the hash-bound frozen evaluator and the sandbox profile; no executor adopted. |
 | [147. The owner sees every live agent session in one place](phases/147-live-sessions-are-watched-in-one-place.md) | planned | 2026-10-30 | [142](phases/142-plates-surface-has-a-boundary-and-a-budget.md) | Trial herdr for watching live agent sessions across projects; Plates builds nothing for this unless the trial says so. |
 | [148. Every agent attempt says whether it taught something](phases/148-every-attempt-leaves-a-lesson-status.md) | partial | 2026-10-31 | [142](phases/142-plates-surface-has-a-boundary-and-a-budget.md) | Session-trial attempts carry a lesson status and health measures failures that taught nothing; robot, conductor, climb and cross-review need an end-of-attempt record first. |

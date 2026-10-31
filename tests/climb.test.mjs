@@ -145,7 +145,7 @@ test('compare --decide, revert, settle and report: the numbers go in the commit,
   assert.match(body, /^\| acme: share one fixture \([0-9a-f]{7}\) \| \d+ ms, \d+ ms \| \d+ ms, \d+ ms \(−[\d.]+%, −[\d.]+%\) \|$/m);
   assert.match(body, /^- acme: nothing really: round 1: .*inside the 30% margin/m);
   assert.match(body, /^- acme: breaks the gate: the gate failed: acme\.test\.mjs$/m);
-  assert.match(body, /^Two-way door: code changes only/m);
+  assert.match(body, /^Two-way door \(reversible\): code changes only/m);
   assert.match(body, /^Blast radius: this repo's files only\.$/m);
   assert.match(body, /never the agent's own timing/);
   assert.deepEqual(JSON.parse(await readFile(join(dir, '.plates/climb.json'), 'utf8')).last.job, 'test-time');

@@ -255,7 +255,7 @@
     },
     "scripts/plates/pr-body.mjs": {
       "practice": "night",
-      "sha256": "f4ba82489b7c3cde03c75c0ba18a4ee14b93fec8e2a46a8b5900662b4accf36f"
+      "sha256": "ab1afecca4a9ee0f6cdcba3cb9948f9dc0c8a23cc200f7a617ebaba78b47c24f"
     },
     "scripts/plates/production-collectors.mjs": {
       "practice": "night",
