@@ -101,6 +101,16 @@ runs omitted). Log: /tmp/plates-phase122-check.log. This observation names the
 implementation tree above; subsequent record-only changes reconcile the result.
 Typecheck exited 0 as separately recorded. Exact-head CI/review remain separate.
 
+## Subsequent GitHub observation — 24 October 2026
+
+PR [253](https://github.com/dalmaer/plates/pull/253) retains phase122 at exact head
+86c400f1afcf5aba512879a83312ec8eece4050d. The configured reviewer returned zero
+findings on that head and the Plates review gate exited 0. Actions run
+[40075815935](https://github.com/dalmaer/plates/actions/runs/40075815935) completed
+successfully. Observed with `plates review dalmaer/plates#253 --gate --reviewer
+'github-actions[bot]' --json` and `gh run view 40075815935 --json status,conclusion`.
+The PR remains unmerged behind phase119's owner review-limit decision; neither CI
+nor review changes the missing live screening acceptance described above.
 ## Current-main compatibility correction — 1 November 2026
 
 The phase119 recovery projection added an inspection-only field to the shared
