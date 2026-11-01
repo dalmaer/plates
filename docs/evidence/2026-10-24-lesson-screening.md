@@ -111,3 +111,19 @@ successfully. Observed with `plates review dalmaer/plates#253 --gate --reviewer
 'github-actions[bot]' --json` and `gh run view 40075815935 --json status,conclusion`.
 The PR remains unmerged behind phase119's owner review-limit decision; neither CI
 nor review changes the missing live screening acceptance described above.
+## Current-main compatibility correction — 1 November 2026
+
+The phase119 recovery projection added an inspection-only field to the shared
+comparison report. Integrating it with this phase initially changed the strict
+V1 sealed receipt shape. The correction preserves `summarizeComparisonV1` for
+immutable screening receipts and adds recovery only through current inspection.
+No retained report or acceptance record is rewritten.
+
+`node --import ./tests/helpers/hermetic.mjs --test
+tests/evaluation-comparison-report.test.mjs tests/lesson-screening.test.mjs`
+passed 31 tests, with no skips (exit 0; `/tmp/phase122-v1-targeted.log`).
+A temporary-copy negative control restored both staged pre-fix production
+modules: both new regressions failed, on the unexpected recovery field and
+strict receipt validation, not import errors (`/tmp/phase122-v1-negative.log`).
+This establishes compatibility behavior, not paid-agent improvement. The final
+integrated checkpoint and exact-head review remain required.

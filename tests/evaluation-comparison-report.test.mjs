@@ -1,7 +1,7 @@
 // Synthetic Acme receipts; no Docker, provider, network or execution effects.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { summarizeComparison, renderComparison } from '../lib/evaluation-comparison-report.mjs';
+import { summarizeComparison, summarizeComparisonV1, renderComparison } from '../lib/evaluation-comparison-report.mjs';
 import { sealRecord, fingerprint } from '../lib/evaluation-records.mjs';
 import { acmeEvaluationPlan } from './helpers/evaluation-plan.mjs';
 const ref = r => ({ kind: r.kind, id: r.id, digest: r.digest });
@@ -287,4 +287,66 @@ test('unbound derived recovery and changed original evidence cannot establish ac
     const report = summarizeComparison(plan, execution);
     assert.equal(report.slots[0].outcome, 'unknown'); assert.equal(report.arms.baseline.accepted, 9);
   }
+});
+
+
+test('current recovery diagnostics preserve the frozen V1 report projection', () => {
+  const { plan, execution } = fixture();
+  execution.status = 'uncertain';
+  execution.trials[0].status = 'uncertain';
+  delete execution.trials[0].records.result;
+  const legacy = summarizeComparisonV1(plan, execution);
+  const { recovery, ...current } = summarizeComparison(plan, execution);
+  assert.equal(Object.hasOwn(legacy, 'recovery'), false);
+  assert.equal(recovery.executionStatus, 'uncertain');
+  assert.equal(recovery.authorizesMutation, false);
+  assert.deepEqual(current, legacy);
+  assert.equal(JSON.stringify(current), JSON.stringify(legacy));
+});
+
+test('uncertain comparison exposes recovery evidence without authorizing a retry', () => {
+  const { plan, execution } = fixture();
+  execution.status = 'uncertain';
+  execution.issues.push({ record: 'acme-slot/lease.json', reason: 'trial-record-unavailable', detail: 'missing execution record' });
+  execution.cancellation = { admissionClosed: true };
+  execution.trials[0].status = 'uncertain';
+  delete execution.trials[0].records.result;
+  const before = JSON.stringify(execution);
+  const report = summarizeComparison(plan, execution);
+  assert.equal(report.recovery.executionStatus, 'uncertain');
+  assert.equal(report.recovery.admissionClosed, true);
+  assert.equal(report.recovery.authorizesMutation, false);
+  assert.equal(report.recovery.uncertainSlots[0].slot, execution.trials[0].slot);
+  assert.equal(report.recovery.uncertainSlots[0].settlementReleased, null);
+  const markdown = renderComparison(report);
+  assert.match(markdown, /acme-slot\/lease.json/);
+  assert.match(markdown, /trial-record-unavailable/);
+  assert.match(markdown, /missing execution record/);
+  assert.match(markdown, /Do not redispatch/);
+  assert.match(markdown, /Admission closed: true/);
+  assert.equal(JSON.stringify(execution), before);
+});
+
+test('missing execution has unknown admission and recovery never supplies acceptance', () => {
+  const { plan } = fixture();
+  const report = summarizeComparison(plan, null);
+  assert.equal(report.recovery.executionStatus, 'not-observed');
+  assert.equal(report.recovery.admissionClosed, null);
+  assert.equal(report.recovery.authorizesMutation, false);
+  assert.equal(report.arms.baseline.accepted, 0);
+  assert.match(renderComparison(report), /fresh resume preview/);
+});
+
+
+test('known admission refusal remains a visible infrastructure outcome, never acceptance', () => {
+  const { plan, execution } = fixture();
+  const slot = execution.trials[0].slot;
+  execution.trials[0] = { slot, status: 'terminal', reason: 'admission-capacity-refused', records: {} };
+  const report = summarizeComparison(plan, execution);
+  assert.deepEqual(report.recovery.refusedSlots, [slot]);
+  assert.equal(report.slots[0].outcome, 'unknown');
+  assert.equal(report.attempts[0].failureCategory, 'admission-capacity-refused');
+  assert.equal(report.arms.baseline.accepted, 9);
+  assert.equal(report.pairs[0].comparable, false);
+  assert.match(renderComparison(report), /slot is consumed/);
 });

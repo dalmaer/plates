@@ -254,3 +254,12 @@ freeze those mappings and bind actual deliveries; silently normalizing hashes or
 weakening the runtime equality check is not acceptable. Real screening therefore
 needs that mapping as well as provider/spending integration and owner allowance.
 The offline same-environment walk does not establish heterogeneous-corpus execution.
+
+### Recovery diagnostics and retained projections — 1 November 2026
+
+`summarizeComparisonV1` retains the exact version-one sealed report shape.
+`comparisonSnapshot` uses that projector for retained screening receipts and
+`inspectReports` rederives the same projection. The current `summarizeComparison`
+inspection view adds recovery diagnostics outside that historical shape. Do not
+rewrite an old report, change its digest, or infer acceptance from operational
+recovery status when extending the inspection UI.

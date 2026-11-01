@@ -78,3 +78,8 @@ a real quote for owner approval; keep historical target/control screening open.
 - **2026-11-01** — Reconciled the obsolete phase119 merge hold against merged
   PR #249 (`d4fd36d82b68321b7c5ae9fd7939fe6482a76a64`). Dependency integration
   remains distinct from the unimplemented real environment/provider interfaces.
+
+- **2026-11-01** — Integrating current recovery diagnostics exposed a retained
+  report compatibility boundary. Keep the version-one sealed projection stable;
+  operational recovery diagnostics belong to the current inspection view, not
+  a reinterpretation of historical report bytes.
