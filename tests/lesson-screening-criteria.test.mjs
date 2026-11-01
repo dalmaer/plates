@@ -1,7 +1,7 @@
 // Acme synthetic projection arithmetic only: no live provider, execution or efficacy evidence.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateScreeningCriteria, screenComparison, validateScreeningResult } from '../lib/lesson-screening-criteria.mjs';
+import { validateScreeningCriteria, screenComparison, screenComparisonV1, screenComparisonV2, validateScreeningResult } from '../lib/lesson-screening-criteria.mjs';
 const clone = x => structuredClone(x);
 const criteria = () => ({ schemaVersion: 1, targetCaseIds: ['acme-target'], controlCaseIds: ['acme-control'], minimumComparablePairsPerCase: 5,
   minimumTargetNetGains: 1, maxControlRegressions: 0, maxAdditionalCurrencyUsd: 2, maxAdditionalMedianWallMs: 10,
@@ -152,5 +152,44 @@ test('retained result cannot relabel incomplete or unassigned evidence as a deci
     regress(r); if (r.pairs.length === 10) missing(r, 0);
     const result = screenComparison(criteria(), r); result.disposition = 'rejected';
     assert.throws(() => validateScreeningResult(result));
+  }
+});
+
+
+function mappedReport(offline = false) {
+  const r = fixture({ offline }); r.schemaVersion = 2;
+  r.cases.forEach((c, i) => {
+    c.caseRef = { kind: 'case', id: c.id, digest: String(i + 4).repeat(64) };
+    c.environment = { ...r.candidate.baselineConfiguration.environment, dependencyLock: String(i + 6).repeat(64) };
+    for (const a of r.attempts.filter(a => a.caseId === c.id)) { a.identity.taskDigest = c.caseRef.digest; a.identity.environment = clone(c.environment); }
+  });
+  for (const arm of ['baseline', 'candidate']) {
+    const config = r.candidate[arm + 'Configuration']; delete config.environment; config.schemaVersion = 3;
+    config.environments = [...r.cases].sort((a,b) => a.id < b.id ? -1 : 1).map(c => ({ case: clone(c.caseRef), environment: clone(c.environment) }));
+  }
+  return r;
+}
+
+test('V2 screening binds exact per-case mappings and preserves offline inconclusive', () => {
+  const r = mappedReport(), before = clone(r);
+  const result = screenComparisonV2(criteria(), r);
+  assert.equal(result.method, 'paired-screening-v2'); assert.equal(result.disposition, 'supported');
+  assert.deepEqual(screenComparison(criteria(), r), result); assert.deepEqual(r, before);
+  assert.throws(() => screenComparisonV1(criteria(), r), /invalid_screening_report/);
+  assert.throws(() => screenComparisonV2(criteria(), fixture()), /invalid_screening_report/);
+  assert.equal(screenComparisonV2(criteria(), mappedReport(true)).disposition, 'inconclusive');
+  for (const mutate of [
+    r => { r.candidate.baselineConfiguration.environments.pop(); },
+    r => { r.candidate.baselineConfiguration.environments.reverse(); },
+    r => { r.candidate.baselineConfiguration.environments[0].case.digest = 'f'.repeat(64); },
+    r => { r.candidate.candidateConfiguration.environments[0].environment.installer = 'f'.repeat(64); },
+    r => { r.attempts[0].identity.taskDigest = 'f'.repeat(64); },
+    r => { r.attempts[0].identity.environment.dependencyLock = 'f'.repeat(64); },
+    r => { r.candidate.baselineConfiguration.schemaVersion = 2; },
+  ]) {
+    const changed = mappedReport(); mutate(changed);
+    const result = screenComparisonV2(criteria(), changed);
+    assert.equal(result.disposition, 'inconclusive');
+    assert.ok(result.reasons.includes('actual-execution-identities-unavailable-or-drifted'));
   }
 });

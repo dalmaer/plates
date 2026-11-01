@@ -5,8 +5,8 @@ goal: G5
 spec: 2
 depends: [118]
 review: wait
-note: "Offline comparison and original-operation recovery proved; live provider adapter, enforced spend and approved screening remain pending."
-evidence: ["evidence/2026-10-23-evaluation-comparison.md", "evidence/2026-11-01-evaluation-recovery.md"]
+note: "Offline comparison and recovery proved; live runtime components prepared, with orchestration and approved real screening still pending."
+evidence: ["evidence/2026-10-23-evaluation-comparison.md", "evidence/2026-11-01-evaluation-recovery.md", "evidence/2026-11-01-evaluation-live-components.md"]
 ---
 
 # Compare paired harness trials and resume interrupted comparisons
@@ -62,13 +62,13 @@ experiments, hosted activation and fleet schedules are not changed by this phase
 
 ## Next action
 
-The offline runner and report are implemented. Select an isolation-capable live
-provider/runtime and implement its enforced spending gateway before preparing
-the exact owner-approved screening quote. This is an implementation gap as well
-as an approval boundary, so this phase is not marked `owes: walk`.
-Continue the independent historical corpus and lesson-record work in phases
-120–123 against the proven offline contracts; do not infer live efficacy from
-their fixture results.
+Wire the prepared provider, isolated builder and spend components into explicit
+public preview/count/quote/run/reconcile operations, retaining original receipts
+and exact approval scopes. Then prepare the real compatibility/control comparison
+and request its exact provider transfer and bounded quote approval. Components
+and synthetic proof do not establish live efficacy. This remains an implementation
+gap, not `owes: walk`. Phases 120–122 are merged; phase 123 still awaits its
+review-limit decision and final merge.
 
 
 ## Trajectory

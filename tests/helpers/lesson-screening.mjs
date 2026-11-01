@@ -28,13 +28,15 @@ export async function syntheticTerminalReceipts(w,{omitLast=false,recovery=false
   const envelope=(kind,id,body)=>sealRecord({schemaVersion:2,kind,id,createdAt:'2026-10-24T00:00:00.000Z',...body});
   await storeImmutable(join(home,'reservation.json'),envelope('evaluation-reservation','acme-reservation',{planDigest:plan.digest,allowance:b.comparison.allowance,currencyUsage:null}));
   const provenance=await w.load('evaluation-provenance'),controller=await provenance.controllerIdentity();
-  const sources=exportSource(w.repo,w.sha,['acme.mjs']);
+  const legacySources=b.schemaVersion===2?exportSource(w.repo,w.sha,['acme.mjs']):null;
   const slots=b.comparison.pairs.flatMap(p=>['baseline','candidate'].map(arm=>({p,arm})));if(omitLast)slots.pop();
   for(const [index,{p,arm}] of slots.entries()) {
     const task=b.cases.find(c=>c.id===p.case.id),config=b.configurations.find(c=>c.id===b.comparison[arm].id),request={...w.executionRequest,pairId:p.id,arm};
+    if(b.schemaVersion===3){const corpus=await w.load('evaluation-corpus'),d=await corpus.corpusDefinition(task.id);request.sourcePaths=d.definition.sources.map(s=>s.path);}
+    const sources=legacySources??exportSource(w.repo,task.startingCommit,request.sourcePaths);
     const {delivered}=composeExecutionDelivery(b,task,config,sources,request.builderArgv),driver=JSON.parse(b.materials.find(m=>m.id===task.acceptanceManifest.id).content);
     const id=randomBytes(16).toString('hex'),slot=p.id+'-'+arm,path=join(home,slot);await mkdir(path,{mode:0o700});
-    const input={request,planDigest:plan.digest,taskDigest:task.digest,configurationDigest:config.digest,checkManifestDigest:task.acceptanceManifest.digest,sourceDigest:fingerprint(sources),delivered,deliveredDigest:fingerprint(delivered),controller,image:{requested:task.environment.image,id:task.environment.image,platform:task.environment.platform,inherited:[],nodeVersion:'v24.22.1'}};
+    const input={...(b.schemaVersion===3?{environment:task.environment}:{}),request,planDigest:plan.digest,taskDigest:task.digest,configurationDigest:config.digest,checkManifestDigest:task.acceptanceManifest.digest,sourceDigest:fingerprint(sources),delivered,deliveredDigest:fingerprint(delivered),controller,image:{requested:task.environment.image,id:task.environment.image,platform:task.environment.platform,inherited:[],nodeVersion:'v24.22.1'}};
     const operations=['builder',...driver.checks.map((_,i)=>'check-'+i)].map(s=>'plates-eval-'+id+'-'+s);
     const intent=envelope('evaluation-intent',id,{slot,input,previewDigest:fingerprint(input),operations,dispatchProtocol:'ordered-authorization-v1',attempt:1,parentAttemptId:null,interventions:[],repairRounds:0}),records={intent};
     const record=(kind,body)=>envelope(kind,id,{intentDigest:intent.digest,...body});

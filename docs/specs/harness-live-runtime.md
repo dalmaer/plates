@@ -129,3 +129,21 @@ before admitting an operation; lack of capacity refuses before its external
 effect. Never prune or rewrite receipts. Usage remains null when unknown; confirmed
 charges above a reservation are preserved as a breach and close further spend
 admission. Legacy offline execution does not consult or create spend state.
+
+The existing writer context serializes narrow spend transactions invoked by the
+execution controller, then drains them before releasing its lock. This does not
+make the generic writer reentrant. A nested spend transaction refuses promptly;
+parallel top-level spend calls queue and revalidate the original lock owner.
+Schema-3 offline plans with null currency and verified absent spend storage report
+`not-configured`, closed admission and null balances. Unexpected retained spend
+state still reports a gap; it is never treated as free capacity.
+
+Provider response streams admit at most 4,096 nonempty chunks as well as the byte
+ceiling. Empty chunks refuse immediately, so progress cannot depend solely on a
+timer that an immediately resolving stream could starve.
+
+Observed charge arithmetic uses exact integers even when a charge exceeds the
+JSON safe-integer range. Preserve usage and price evidence, expose the exact
+micro-USD decimal string with the numeric projection null, retain the original
+hold and close admission on the breach. Quoted admission amounts must still be
+representable; overflow is never a refund or a reason to discard an observation.
