@@ -6,6 +6,9 @@ import { join } from 'node:path';
 import { acme, climb, json, load, step, WORKFLOW } from './helpers/climb.mjs';
 import { climbLine } from '../scripts/plates/lib.mjs';
 
+// Pair receipt producers and consumers explicitly; never inherit CI run identity.
+const WORKFLOW_ENV = { GITHUB_RUN_ID: 'acme-admission-run', GITHUB_RUN_ATTEMPT: '2' };
+
 async function fixture(t, { wall = 645000, output = '1', job = 'test-time' } = {}) {
   const config = { climb: { jobs: [job], budget: { minutes: 45 }, ...(job === 'perf' ? { perf: { command: 'node probe.mjs', better: 'lower' } } : { testCommand: 'node probe.mjs' }) } };
   const dir = await acme(t, { config, files: {
@@ -13,7 +16,7 @@ async function fixture(t, { wall = 645000, output = '1', job = 'test-time' } = {
     'probe.mjs': `import {readFileSync, writeFileSync} from 'node:fs'; const n = Number(readFileSync('count', 'utf8')); writeFileSync('count', String(n+1)); console.log(${JSON.stringify(output)});`,
     'clock.mjs': `import {readFileSync} from 'node:fs'; Object.defineProperty(performance, 'now', {value: () => Number(readFileSync(${JSON.stringify('count')}, 'utf8')) * ${wall}});`,
   } });
-  return { dir, config, env: { NODE_OPTIONS: `--import=${join(dir, 'clock.mjs')}` }, count: async () => Number(await readFile(join(dir, 'count'), 'utf8')) };
+  return { dir, config, env: { ...WORKFLOW_ENV, NODE_OPTIONS: `--import=${join(dir, 'clock.mjs')}` }, count: async () => Number(await readFile(join(dir, 'count'), 'utf8')) };
 }
 
 for (const [label, wall, minutes, output, job, count, state] of [
@@ -55,7 +58,7 @@ test('invalid or unknown wall time blocks; timeout is allocation bounded without
   const { measure } = await load(f.dir);
   for (const elapsed of [NaN, -1, 0]) {
     let calls = 0, tick = 0;
-    const r = await measure({ root: f.dir, config: f.config, job: 'test-time', baseline: true,
+    const r = await measure({ root: f.dir, config: f.config, env: f.env, job: 'test-time', baseline: true,
       now: () => ++tick <= 2 ? 0 : elapsed,
       execute: () => { calls++; return { status: 0, stdout: '' }; } });
     assert.equal(calls, 1);
@@ -64,7 +67,7 @@ test('invalid or unknown wall time blocks; timeout is allocation bounded without
     assert.equal(r.median, null);
   }
   let options;
-  const r = await measure({ root: f.dir, config: f.config, job: 'test-time', baseline: true, minutes: 10,
+  const r = await measure({ root: f.dir, config: f.config, env: f.env, job: 'test-time', baseline: true, minutes: 10,
     now: () => 0,
     execute: (_command, opts) => { options = opts; return { status: null, error: { code: 'ETIMEDOUT' } }; } });
   assert.equal(options.timeout, 570000);
@@ -72,7 +75,7 @@ test('invalid or unknown wall time blocks; timeout is allocation bounded without
   assert.equal(r.admission.state, 'blocked');
   assert.match(r.admission.reason, /deadline/);
   assert.match(r.admission.termination, /descendant cleanup unverified/);
-  for (const minutes of [0, -1, NaN, Infinity]) await assert.rejects(measure({ root: f.dir, config: f.config, job: 'test-time', baseline: true, minutes }), /finite positive/);
+  for (const minutes of [0, -1, NaN, Infinity]) await assert.rejects(measure({ root: f.dir, config: f.config, env: f.env, job: 'test-time', baseline: true, minutes }), /finite positive/);
 });
 
 test('ordinary measure remains unrestricted by baseline admission', async t => {
@@ -91,7 +94,7 @@ test('blocked workflow retains reason and night before provider launch; publish 
   await writeFile(summary, '');
   const r = await step(t, f.dir, 'Baseline', { ...f.env, JOB: 'test-time', MINUTES: '10', BRANCH: 'acme-climb', RUNNER_TEMP: temp, GITHUB_STEP_SUMMARY: summary });
   assert.equal(r.status, 1, r.out);
-  const finalized = await step(t, f.dir, 'Finalize baseline admission', { JOB: 'test-time', OUTCOME: 'failure', RUNNER_TEMP: temp, GITHUB_STEP_SUMMARY: summary });
+  const finalized = await step(t, f.dir, 'Finalize baseline admission', { ...WORKFLOW_ENV, JOB: 'test-time', OUTCOME: 'failure', RUNNER_TEMP: temp, GITHUB_STEP_SUMMARY: summary });
   assert.equal(finalized.status, 0, finalized.out);
   assert.equal(finalized.outputs.state, 'blocked');
   assert.match(finalized.outputs.line, /picked allowance is 10 min/);
@@ -122,7 +125,7 @@ test('interruption after initial receipt replaces previous night and finalizes b
   await mkdir(join(f.dir, '.plates/climb'), { recursive: true });
   await writeFile(join(f.dir, '.plates/climb/night.json'), JSON.stringify({ job: 'perf', tried: [{ verdict: 'keep' }], line: 'previous night' }));
   let attempted = 0;
-  await assert.rejects(measure({ root: f.dir, config: f.config, job: 'test-time', baseline: true, minutes: 10,
+  await assert.rejects(measure({ root: f.dir, config: f.config, env: f.env, job: 'test-time', baseline: true, minutes: 10,
     now: () => 0, execute: () => { attempted++; throw new Error('simulated interruption'); } }), /simulated interruption/);
   assert.equal(attempted, 1);
   assert.equal(await f.count(), 0, 'no fixture subprocess or model is launched');
@@ -138,7 +141,7 @@ test('interruption after initial receipt replaces previous night and finalizes b
   }
   // A timeout can leave partial stdout. The finalizer must use the durable receipt.
   await writeFile(join(temp, 'baseline-output.json'), '{"state":"admitted"');
-  const finalized = await step(t, f.dir, 'Finalize baseline admission', { JOB: 'test-time', OUTCOME: 'failure', RUNNER_TEMP: temp, GITHUB_STEP_SUMMARY: summary });
+  const finalized = await step(t, f.dir, 'Finalize baseline admission', { ...WORKFLOW_ENV, JOB: 'test-time', OUTCOME: 'failure', RUNNER_TEMP: temp, GITHUB_STEP_SUMMARY: summary });
   assert.equal(finalized.status, 0, finalized.out);
   assert.equal(finalized.outputs.state, 'blocked');
   assert.match(finalized.outputs.line, /interrupted/);
@@ -162,15 +165,16 @@ test('finalizer admits only completed current receipts and bounds unavailable re
   const f = await fixture(t, { wall: 75000 });
   assert.equal(climb(f.dir, ['measure', 'test-time', '--baseline', '--json'], f.env).status, 0);
   const { finalizeBaseline } = await load(f.dir);
-  assert.equal((await finalizeBaseline({ root: f.dir, job: 'test-time', outcome: 'success', env: {} })).state, 'admitted');
+  assert.equal((await finalizeBaseline({ root: f.dir, job: 'test-time', outcome: 'success', env: WORKFLOW_ENV })).state, 'admitted');
   const path = join(f.dir, '.plates/climb/admission.json');
   const previous = await readFile(path, 'utf8');
+  assert.equal(JSON.parse(previous).workflowAttempt, `${WORKFLOW_ENV.GITHUB_RUN_ID}:${WORKFLOW_ENV.GITHUB_RUN_ATTEMPT}`);
   const stale = await finalizeBaseline({ root: f.dir, job: 'test-time', outcome: 'failure', env: { GITHUB_RUN_ID: 'acme-new-run', GITHUB_RUN_ATTEMPT: '1' } });
   assert.equal(stale.state, 'blocked');
   assert.equal(JSON.parse(await readFile(path, 'utf8')).baseline.median, null, 'previous workflow measurements are not transplanted');
   for (const content of ['{', ' '.repeat(1024 * 1024 + 1), JSON.stringify({ ...JSON.parse(previous), line: 'admitted\nstate=admitted' })]) {
     await writeFile(path, content);
-    const r = await finalizeBaseline({ root: f.dir, job: 'test-time', outcome: 'success', env: {} });
+    const r = await finalizeBaseline({ root: f.dir, job: 'test-time', outcome: 'success', env: WORKFLOW_ENV });
     assert.equal(r.state, 'blocked', 'invalid/oversized/output-injecting receipts cannot admit a model');
     assert.doesNotMatch(r.line, /\n/);
     assert.equal(JSON.parse(await readFile(path, 'utf8')).baseline.median, null);

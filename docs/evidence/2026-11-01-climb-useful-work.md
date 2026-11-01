@@ -115,3 +115,22 @@ The preceding failed gate remains historical evidence.
 
 This follow-up changes source records only and uses `plates-source-records-v1`
 against `d6a135b2`; it does not claim another full gate or live scheduled proof.
+
+## GitHub environment correction
+
+[The first CI run](https://github.com/dalmaer/plates/actions/runs/41281911240)
+failed the finalizer identity test plainly and under injected stalls (seed
+380276546). The CLI fixture inherited GitHub run/attempt variables, while the
+in-process finalizer received an empty environment. It correctly blocked the
+foreign identity. Local runs had no inherited GitHub identity and passed.
+The test must supply matching synthetic identities explicitly; the production
+identity check and stale-run refusal remain unchanged. This failure is retained.
+
+The CI identity mismatch reproduced locally with `GITHUB_RUN_ID=acme-host
+GITHUB_RUN_ATTEMPT=9` and the finalizer-only test: exit 1, blocked versus
+admitted. Explicit synthetic producer/consumer identity fixed the shared fixture
+shape. Under the same inherited host variables, all 11 admission tests passed,
+including injected stalls (seed 1260912646), with clean hygiene. The stale-run
+negative control still refuses mismatched identities. No production code changed.
+The revised candidate must pass focused conventions, the full gate and typecheck
+before its next push; CI and cross-review must cover that new head.
