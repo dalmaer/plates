@@ -1104,6 +1104,11 @@ export function climbWorkflowProblems(text) {
   return out;
 }
 
+// Mutate the named agent only; baseline and other step deadlines must survive.
+function withoutStepTimeout(text, id) {
+  return text.replace(new RegExp(`(id: ${id}\\n[^]*?)(?=\\n      - |$)`), block => block.replace(/\n\s+timeout-minutes: [^\n]+/, ''));
+}
+
 test('plates-climb.yml: the agent cannot push or merge, is time-boxed by the budget, and the script judges the night before one PR', async () => {
   const w = (await shipped()).find(x => x.name === 'plates-climb.yml');
   const t = w.template;
@@ -1121,7 +1126,7 @@ test('plates-climb.yml: the agent cannot push or merge, is time-boxed by the bud
     ['loop decide allowed', t.replace(tools, `${tools},Bash(node scripts/loop.mjs decide *)`)],
     ['any loop verb allowed', t.replace('Bash(node scripts/loop.mjs propose *)', 'Bash(node scripts/loop.mjs *)')],
     ['climb.mjs not allowed', t.replace('Bash(node scripts/plates/climb.mjs *),', '')],
-    ['no time box', t.replace(/\n\s+timeout-minutes: \$\{\{ fromJSON\(steps\.pick\.outputs\.minutes\) \}\}/, '')],
+    ['no time box', withoutStepTimeout(t, 'climb')],
     ['no guard', t.replace('          node scripts/plates/climb.mjs guard --base "$GITHUB_SHA"\n', '')],
     ['a push whatever was kept', t.replace('if [ "$KEPT" = 0 ] || [ -z "$KEPT" ]; then', 'if false; then')],
     ['climb off said late', t.replace('      - name: Is climb on?\n', '      - name: Acme first\n        run: true\n      - name: Is climb on?\n')],
@@ -1419,7 +1424,7 @@ test('plates-tend.yml has the climb workflow\'s rights only: its prefix, no merg
     ['git rm allowed', t.replace(tools, `${tools},Bash(git rm *)`)],
     ['gh allowed', t.replace(tools, `${tools},Bash(gh pr close *)`)],
     ['climb.mjs not allowed', t.replace('Bash(node scripts/plates/climb.mjs *),', '')],
-    ['no time box', t.replace(/\n\s+timeout-minutes: \$\{\{ fromJSON\(steps\.pick\.outputs\.minutes\) \}\}/, '')],
+    ['no time box', withoutStepTimeout(t, 'tend')],
     ['no tend guard', t.replace('          node scripts/plates/climb.mjs guard --job tend --base "$GITHUB_SHA"\n', '')],
     ['a push whatever was committed', t.replace('if [ "$COMMITS" = 0 ] || [ -z "$COMMITS" ]; then', 'if false; then')],
     ['a branch deleted', t.replace(push, `${push}\n          git push origin --delete refs/heads/plates-tend/old`)],
@@ -2482,7 +2487,7 @@ export function codexEditProblems(text, { step, id, cond }) {
 
 test('phase 47: Codex runs climb and tend in workspace-write with sudo dropped, never danger-full-access or unsafe; its commits leave its git dir as objects only, in the read-only agent job', async () => {
   const all = await shipped();
-  for (const [name, opts] of [['plates-climb.yml', { step: 'Climb', id: 'climb', cond: "steps.pick.outputs.job != ''" }], ['plates-tend.yml', { step: 'Tend', id: 'tend', cond: "steps.pick.outputs.run == 'yes'" }]]) {
+  for (const [name, opts] of [['plates-climb.yml', { step: 'Climb', id: 'climb', cond: "steps.pick.outputs.job != '' && steps.admission.outputs.state == 'admitted'" }], ['plates-tend.yml', { step: 'Tend', id: 'tend', cond: "steps.pick.outputs.run == 'yes'" }]]) {
     const t = all.find(w => w.name === name).template;
     assert.deepEqual(codexEditProblems(t, opts), [], name);
     assert.deepEqual(agentSandboxProblems(t), [], name);

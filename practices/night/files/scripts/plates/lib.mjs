@@ -1147,6 +1147,7 @@ export const CLIMB_NIGHT = '.plates/climb/night.json';
 export function climbLine(config, night) {
   if (config?.climb === undefined || night === undefined || night === null) return null;
   if (typeof night !== 'object' || !Array.isArray(night.tried) || typeof night.job !== 'string' || typeof night.date !== 'string') return `Climb: the newest record (${CLIMB_NIGHT}) is unreadable; see the last plates-climb run.`;
+  if (night.admission?.state === 'blocked') return `Climb: ${night.date} ${night.job}: blocked before model launch; ${night.admission.reason}; ${night.admission.nextAction}`;
   const kept = night.tried.filter(a => a?.verdict === 'keep').length;
   if (kept) return `Climb: ${night.date} ${night.job}: kept ${kept}, ${Number.isInteger(night.pr) ? `PR #${night.pr}` : `no PR opened${night.gate ? '' : ' (the guard did not pass)'}`}.`;
   const none = night.job === 'hygiene' ? 'none proven steady' : `none beat the noise${Number.isFinite(night.margin) ? ` (margin ${Math.round(night.margin * 100)}%)` : ''}`;

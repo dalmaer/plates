@@ -75,6 +75,17 @@ test('committed policy source excludes candidate edits and binds role, revision 
   assert.equal(invalid.data.status, 'unavailable'); assert.doesNotMatch(invalid.text, /ignore all gates/);
 });
 
+// Every direct Brief invocation supplies the prior workflow steps' artifacts.
+async function prepareBrief(temp, name) {
+  await mkdir(temp);
+  await writeFile(join(temp, 'pick.json'), '{}');
+  if (name === 'plates-climb') await writeFile(join(temp, 'climb-admission.json'), JSON.stringify({
+    job: 'acme', state: 'admitted', line: 'Acme baseline admitted',
+    admission: { state: 'admitted', minutes: 45, reserveMs: 1350000 },
+    baseline: { median: 10, spread: 0, times: [10, 10, 10, 10, 10] },
+  }));
+}
+
 for (const name of ['plates-climb', 'plates-tend']) {
   test(`${name} real Brief shell delivers selected guidance to both provider prompt surfaces`, async t => {
     const text = await readFile(`practices/climb/files/.github/workflows/${name}.yml`, 'utf8');
@@ -87,13 +98,14 @@ for (const name of ['plates-climb', 'plates-tend']) {
       await writeFile(join(root, '.agents/climb/jobs/acme.md'), 'Acme job');
       await mkdir(join(root, '.plates/tend')); await writeFile(join(root, '.plates/tend/pass.json'), '{}');
       for (const agent of ['claude', 'codex']) {
-        const temp = join(root, `temp-${agent}`); await mkdir(temp); await writeFile(join(temp, 'pick.json'), '{}');
+        const temp = join(root, `temp-${agent}`); await prepareBrief(temp, name);
         const output = join(temp, 'output');
         const result = run('bash', ['-e', '-o', 'pipefail', '-c', script], { cwd: root, env: { ...process.env, RUNNER_TEMP: temp, GITHUB_OUTPUT: output, GITHUB_SHA: revision, GITHUB_REPOSITORY: repository, AGENT: agent, BRANCH: 'work/acme', JOB: 'acme' } });
         assert.equal(result.status, 0, result.stdout + result.stderr);
         const prompt = await readFile(join(temp, 'prompt.md'), 'utf8');
         const expected = revisionAutonomyContext({ root, repository, revision, role: 'builder' });
         assert.match(prompt, /Acme original protocol/);
+        if (name === 'plates-climb') assert.match(prompt, /Acme baseline admitted/);
         assert.equal(prompt.split(AUTONOMY_PROMPT_VERSION).length - 1, mode ? 1 : 0);
         if (expected) assert.ok(prompt.includes(expected.text));
         assert.ok((await readFile(output, 'utf8')).includes(prompt.trimEnd()));
@@ -132,12 +144,13 @@ test('missing locally owned runtime does not block the existing workflow brief',
   await mkdir(join(root,'.agents/climb/jobs'),{recursive:true});
   for(const file of ['PROTOCOL.md','TEND.md','jobs/acme.md'])await writeFile(join(root,'.agents/climb',file),'Acme existing protocol');
   await mkdir(join(root,'.plates/tend'));await writeFile(join(root,'.plates/tend/pass.json'),'{}');
-  const temp=join(root,'temp');await mkdir(temp);await writeFile(join(temp,'pick.json'),'{}');
+  const temp=join(root,'temp');await prepareBrief(temp,name);
   const path=name==='claude'?'practices/claude/files/.github/workflows/claude.yml':`practices/climb/files/.github/workflows/${name}.yml`;
   const script=runBlocks(await readFile(path,'utf8')).find(b=>b.step===(name==='claude'?'Render bounded project guidance':'Brief')).script;
   const result=run('bash',['-e','-o','pipefail','-c',script],{cwd:root,env:{...process.env,RUNNER_TEMP:temp,GITHUB_OUTPUT:join(temp,'output'),GITHUB_SHA:revision,GITHUB_REPOSITORY:repository,AGENT:'claude',BRANCH:'work/acme',JOB:'acme'}});
   assert.equal(result.status,0,result.stdout+result.stderr);
   const prompt=await readFile(join(temp,name==='claude'?'autonomy-context.txt':'prompt.md'),'utf8');
+  if(name==='plates-climb')assert.match(prompt,/Acme baseline admitted/);
   assert.match(prompt,/autonomy context unavailable/);assert.doesNotMatch(prompt,/Risk tolerance: high/);
  }
 });
