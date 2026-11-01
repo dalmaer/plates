@@ -350,3 +350,22 @@ Request records retain repairDigest=identityDigest plus repairObservation;
 observed-rollback records retain a new repairObservation with the same identity
 as the request. Strict replay checks that relationship without equating source
 hashes or treating later phase/issue state as acceptance.
+
+## Whole-repository verification bound — 1 November 2026
+
+The GitHub source reader admits at most 6,000 recursive entries per tree, counting
+files, directories, symlinks and submodule entries across the whole repository,
+not just candidate paths. Exactly 6,000 entries may proceed through all remaining
+checks; 6,001 or a truncated response refuses with `incomplete_tree`. The existing
+response-byte, request-count and deadline limits also apply independently.
+
+This is an intentional supported-size limit, not evidence that a candidate is
+invalid. A larger repository cannot currently complete policy/promotion/rollback
+verification through this adapter. Preserve its records and report verification
+unavailable; do not infer acceptance, remove unrelated paths, use truncated data
+or raise the limit at runtime. Supporting a larger tree requires a separately
+reviewed resource-bound change or complete subtree verification.
+
+At PR254 head `619549d60bd6813175cf4dfdc5087806c55b572f`,
+`git ls-tree -r -t HEAD | wc -l` counted 1,874 entries on 1 November 2026. This
+establishes size coverage for that Plates revision only, not the whole fleet.

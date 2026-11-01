@@ -223,3 +223,27 @@ reported no flaky or slower tests (33 retained runs, 18 busy runs omitted).
 Log: /tmp/plates-phase123-repair-check.log. Typecheck independently exited0.
 This is the final local implementation gate after both review corrections;
 earlier proof and failed attempts remain retained above.
+
+## Additional bounded review cycle — 1 November 2026
+
+The owner approved one additional cycle after PR254 reached its third finding
+round. Review comment 4437493957 identified an undocumented whole-repository
+6,000-entry refusal. The bound is unchanged; the contract and guide now describe
+its scope and recovery action. `git ls-tree -r -t HEAD | wc -l` counted 1,874
+entries at `619549d60bd6813175cf4dfdc5087806c55b572f`; fleet coverage is not implied.
+The new boundary test uses real Git tree objects at 6,000 and 6,001 entries.
+Its focused result and counterfactual are recorded with the delivery commit.
+The required integrated checkpoint remains `npm run check` and
+`npm run typecheck`; a prior CI pass is not a pass for these edited bytes.
+
+The focused GitHub-approval suite passed eight tests; the boundary counterfactual
+raising the cap to 6,001 failed with `Missing expected rejection`. Logs:
+`/tmp/phase123-git-tree-boundary-focused.log` and
+`/tmp/phase123-git-tree-boundary-negative.log`. A preliminary scratch copy lacked
+required dependencies; its setup failure is retained separately and is not the
+negative proof (`/tmp/phase123-git-tree-boundary-negative-setup-failure.log`).
+
+The first convention preflight rejected the guide's code-formatted error name as
+an unknown night measure. The guide now describes an incomplete-tree refusal in
+prose and links to the contract's exact error code. The original preflight is
+retained at `/tmp/phase123-extra-cycle-focused.log`; no guard was weakened.
