@@ -1433,8 +1433,15 @@ schedule: an agent climbs one number under `.agents/climb/PROTOCOL.md`, and
   (`plan.skipped` says why for each other); its `budget.minutes` lowers
   `minutes`, never raises it. Refused or another night's: as without.
   `sandbox --plan f` also refuses any path its `willNotTouch` covers.
-- `measure <job> [--runs k] [--baseline]` — median and spread; `--baseline`
-  opens `.plates/climb/night.json`.
+- `measure <job> [--runs k] [--baseline] [--minutes n]` — median and spread;
+  `--baseline` opens `.plates/climb/night.json` and checks timed comparison
+  feasibility after the first probe. `--minutes` lowers the configured allowance
+  to the picked plan budget. Wall time, not benchmark output, estimates twelve
+  default comparison executions; half the allowance is reserved for editing and
+  full validation. An infeasible probe records `admission.state: blocked`, its
+  reason and next action; the workflow skips model execution. This estimate is
+  not a completion guarantee. Baseline wall time precedes the agent allowance;
+  the unchanged full gate and paired comparison still establish correctness.
 - `compare [--base r] [--candidate r] [--rounds n] [--decide] [--final]` —
   alternated rounds (two or more) in temp worktrees; keep only when every
   round beats the margin. `--decide` judges HEAD: keep amends its numbers

@@ -278,3 +278,25 @@ reference is `plates --agent-help climb`. You don't need to run them yourself.
 - [Reviews and PRs](reviews-and-prs.md): reading the PR they leave.
 - [`practices/climb/README.md`](../../practices/climb/README.md): the jobs
   table, the full config and the protocol.
+
+## Admit a measurement that fits
+
+A timed baseline now checks feasibility after its first successful probe, using
+elapsed wall time even when a benchmark prints another unit. The default paired
+comparison needs twelve executions. If that estimate cannot fit the selected
+agent allowance with room for editing and validation, the run retains a blocked
+reason and next action instead of repeating the baseline and starting a model.
+A smaller nightly plan allowance remains authoritative; admission never enlarges it.
+
+Baseline wall time precedes the agent allowance. Report baseline, agent and total
+separately; a long baseline is not evidence of long agent execution. Admission is
+an estimate, not a performance guarantee. No measured attempts means no candidate
+was evaluated, not that evaluated candidates failed to improve.
+
+For Plates itself, `climb.testCommand` targets `tests/improve.test.mjs`: the
+health/report path was the slowest aggregate file in the retained October 31
+suite. A local isolated observation on November 1 passed all eighteen tests in
+74.665 seconds. That is a different environment, not a measured CI speedup.
+The full `npm run check`, base/candidate test-preservation guard, two comparison
+rounds and improvement margin are unchanged. The focused benchmark narrows what
+can claim an improvement; it does not narrow correctness validation.
