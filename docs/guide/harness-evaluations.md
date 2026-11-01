@@ -191,7 +191,22 @@ Normal focused tests leave Docker tests skipped. This opt-in validates machinery
 and adversarial boundaries; it is not a paid agent evaluation or phase acceptance.
 
 
+A capacity refusal after recording an intent has its own immutable
+`admission-refusal.json`. Only the coordinator's proven pre-insertion refusal
+can produce this record. The slot remains consumed under the frozen
+zero-replacement policy, with no execution or acceptance claim; a later resume
+can prepare other missing slots. Inspect host capacity first. A missing, partial,
+misbound or contradictory refusal record remains uncertain and cannot release
+capacity or authorize redispatch.
+
 ## Paired comparison and recovery
+
+Comparison JSON includes read-only `recovery` diagnostics: observed execution
+status, known admission closure, uncertain slots and original operation identities,
+known settlement release, and a next action. Markdown includes the same diagnostics
+and record-level evidence gaps. Unknown closure or settlement stays null. These
+fields never authorize mutation: obtain a fresh recovery preview before acting,
+and never infer retry or capacity release from a missing record.
 
 `compare --experiment <id> --json` returns `{action, preview:false, report, markdown}`;
 omit JSON for Markdown. Every planned slot remains in the report, including
