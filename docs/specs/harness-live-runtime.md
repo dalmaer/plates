@@ -147,3 +147,37 @@ JSON safe-integer range. Preserve usage and price evidence, expose the exact
 micro-USD decimal string with the numeric projection null, retain the original
 hold and close admission on the breach. Quoted admission amounts must still be
 representable; overflow is never a refund or a reason to discard an observation.
+
+## Recoverable directory initialization — 1 November 2026
+
+New operation reservations first retain
+`spend/operations/<operationId>.intent.json`, an immutable sealed schema-1 record
+with kind `spend-operation-initialization` and one `reservation` field containing
+the exact final sealed spend-operation record. Its filename, operation identity,
+plan, quote and digest must agree. This is the original initialization intent,
+not a second budget or approval source; the eventual reservation must equal it.
+Keep it after completion.
+
+Publication order is intent, operation directory, empty observations directory,
+then exact reservation. A valid intent with no directory, an empty directory,
+or only an empty observations directory is pending initialization. Count the
+quoted hold once, reserve the missing reservation's bytes/event plus dispatch
+and observation capacity, and block new admission and dispatch. Only the exact
+retained request may finish those creation prefixes under the existing writer.
+Structural completion grants no dispatch, refunds no money and preserves all
+original records. It may restore an already reserved operation after cancellation,
+price expiry or a breach, but must not reopen admission or bypass the separate
+current-price/authority checks required before any new dispatch.
+
+Complete legacy operations remain readable. A legacy empty directory without
+an initialization intent remains a gap: it cannot establish the original request.
+Partial files, foreign entries, changed records, symlinks and dispatch/observation
+evidence in an incomplete structure are refusals, never cleanup candidates.
+Partial intent files remain immutable uncertainty; this protocol does not promise
+recovery from arbitrary file corruption or lost storage.
+
+For comparison-root initialization, only an empty spend directory or one containing
+solely an empty operations directory is a recognized creation prefix. Complete it
+from the deterministic frozen comparison reservation under its original admission
+checks. Missing root reservation with any operation content remains unavailable.
+Neither root nor operation recovery invokes a provider or authorizes an effect.
