@@ -20,8 +20,8 @@ One approved narrow historical lesson produces a retained baseline-candidate scr
 Implement the corresponding slice of [review-learning-evaluation](../specs/review-learning-evaluation.md).
 The [screening implementation contract](../specs/lesson-screening.md) settles
 registration, actual delivery and immutable report binding. Independent machinery
-can proceed while phase 119 awaits its owner review-limit decision; this branch
-cannot land that held work indirectly.
+can proceed after the dependency PRs land. Phase 119’s former merge hold was
+resolved by PR #249 merging on 27 October 2026; live screening remains unverified.
 Reuse the existing experiment, learn, execution and evidence mechanisms. Do not
 introduce a second scheduler, evidence authority or automatic production default.
 
@@ -66,11 +66,15 @@ experiments, hosted activation and fleet schedules are not changed by this phase
 
 ## Next action
 
-Resolve the phase119 owner merge hold before landing this stack. Implement explicit
-per-case environment mapping and live provider/spending support before preparing
+Complete integration checks and exact-head review after the lesson-record PR.
+Implement explicit per-case environment mapping and live provider/spending support before preparing
 a real quote for owner approval; keep historical target/control screening open.
 
 ## Trajectory
 
 - **2026-10-24** — The real CLI walk refused differing case environments before execution. Shared synthetic probe inputs prove this adapter; historical target/control environments need an explicit per-case mapping, not normalized hashes. The first refusal and corrected 20-trial walk are retained in the evidence.
 - **2026-10-24** — A report can publish before its inbox link. Recovery reserves the original operation, blocks replacement UUIDs and verifies original bytes even on duplicate requests; evaluated remains distinct from supported or promoted.
+
+- **2026-11-01** — Reconciled the obsolete phase119 merge hold against merged
+  PR #249 (`d4fd36d82b68321b7c5ae9fd7939fe6482a76a64`). Dependency integration
+  remains distinct from the unimplemented real environment/provider interfaces.

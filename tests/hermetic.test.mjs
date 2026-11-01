@@ -62,3 +62,32 @@ test('a test file run alone, without npm test\'s --import, is hermetic too', asy
     assert.match(r.stdout, /^ℹ pass 1$/m, `${file}: the named test ran`);
   }
 });
+
+// These are enclosing-night inputs, not defaults for synthetic projects.
+const NIGHT_CONTEXT = {
+  NAMES_EVIDENCE: 'true', PLATES_NIGHT_RECOVERY: '1',
+  PLATES_NAMES_RUNTIME_ROOT: '/Acme/observer', PLATES_NAMES_IMPORTS_FILE: '/Acme/imports.json',
+  PLATES_NAMES_EVIDENCE_REPOSITORY_ID: '123',
+  PLATES_RECONCILE_REQUIRED: '1', PLATES_RECONCILE_DEFAULT_BRANCH: 'main',
+  PLATES_RECONCILE_SNAPSHOT: '/Acme/snapshot.json', PLATES_RECONCILE_PRODUCER_ATTEMPT: '1',
+  PLATES_RECONCILE_ARTIFACT_ID: '456', PLATES_RECONCILE_ARTIFACT_DIGEST: 'sha256:' + 'a'.repeat(64),
+  PLATES_RECONCILE_RESULT_DIGEST: 'b'.repeat(64),
+};
+test('bootstrap isolates enclosing night context while explicit test child environments still work', () => {
+  const probe = `
+    const { run, runAsync } = await import('./tests/helpers/run.mjs');
+    const context = ${JSON.stringify(NIGHT_CONTEXT)};
+    const keys = Object.keys(context);
+    const inherited = Object.fromEntries(keys.filter(k => k in process.env).map(k => [k, process.env[k]]));
+    const code = 'console.log(JSON.stringify(Object.fromEntries(' + JSON.stringify(keys) + '.filter(k => k in process.env).map(k => [k, process.env[k]]))))';
+    const plain = run(process.execPath, ['-e', code]);
+    const explicit = run(process.execPath, ['-e', code], { env: { ...process.env, ...context } });
+    const asynchronous = await runAsync(process.execPath, ['-e', code], { env: { ...process.env, ...context } });
+    console.log(JSON.stringify({ inherited, plain: JSON.parse(plain.stdout), explicit: JSON.parse(explicit.stdout), asynchronous: JSON.parse(asynchronous.stdout), statuses: [plain.status, explicit.status, asynchronous.status], unrelated: process.env.ACME_TEST_CONTEXT }));
+  `;
+  const r = run(process.execPath, ['--import', './tests/helpers/hermetic.mjs', '--input-type=module', '-e', probe], {
+    cwd: ROOT, env: { ...process.env, ...NIGHT_CONTEXT, ACME_TEST_CONTEXT: 'kept' },
+  });
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(JSON.parse(r.stdout), { inherited: {}, plain: {}, explicit: NIGHT_CONTEXT, asynchronous: NIGHT_CONTEXT, statuses: [0, 0, 0], unrelated: 'kept' });
+});

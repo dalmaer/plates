@@ -5,7 +5,7 @@ goal: G5
 spec: 2
 depends: [119]
 review: wait
-note: "Six offline development cases, installed CLI and integrated gates verified; review and phase 119 merge hold remain."
+note: "Six offline development cases implemented; current-main integration and fresh head review remain."
 evidence: ["evidence/2026-10-23-evaluation-corpus.md"]
 ---
 
@@ -19,8 +19,8 @@ All six historical case definitions retain source provenance, independent accept
 
 Implement the corresponding slice of [harness-regression-evaluation](../specs/harness-regression-evaluation.md), including its dated Phase 120 corpus contract.
 Independent corpus preparation uses phase 119’s offline interfaces without its
-missing live-provider activation. While PR #249 waits for the owner’s review-limit
-decision, this dependent branch cannot merge it indirectly.
+missing live-provider activation. PR #249 merged on 27 October 2026; its former dependency merge hold is resolved.
+The current integration still requires fresh checks and review.
 Reuse the existing experiment, learn, execution and evidence mechanisms. Do not
 introduce a second scheduler, evidence authority or automatic production default.
 
@@ -52,9 +52,14 @@ experiments, hosted activation and fleet schedules are not changed by this phase
 
 ## Next action
 
-Complete review. Keep held-out coverage zero and the dependent
-branch unmerged until phase 119’s owner review decision is resolved.
+Complete the current-main integration and review its exact head. Keep held-out
+coverage zero; offline fixture outcomes do not establish measured agent benefit.
 
 ## Trajectory
 
 - **2026-10-23** — The broad canvas snapshot dependency chain exceeds delivery bounds. Scope the recovery case to the actual caller-supplied-card APIs used by its original regression; preserve crash/retry and human-edit assertions, disclose excluded snapshot/export coverage, and prove the exercised closure before calling it runnable.
+
+- **2026-11-01** — Fresh GitHub facts confirm PR #249 merged at
+  `d4fd36d82b68321b7c5ae9fd7939fe6482a76a64` on 27 October. Its old review-limit
+  hold no longer blocks this corpus PR. Preserve original observations and
+  refresh integration checks/review against current main before landing.

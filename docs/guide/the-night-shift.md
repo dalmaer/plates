@@ -82,6 +82,29 @@ improve` is its reference. By family:
   climb `build` command, `dependency_age` with a lockfile,
   `record_contradictions` with reconciliation on.
 
+### Failed gate diagnostics
+
+When the nightly gate fails, its existing `.plates/test-runs/*.json` receipt
+retains at most 80 lines and 8 KiB from the tail of each captured output stream.
+The complete captured streams are redacted before truncation using the ledger's
+credential patterns, sensitive environment values and `tests.configEnv` values.
+Successful gates retain no output. Invalid `tests` or `tests.configEnv` settings
+make diagnostic text unavailable, preserving the command outcome and active-receipt
+cleanup; malformed redaction settings never fall back to retaining raw text.
+Uncaptured streams remain unavailable;
+truncation and observed/retained byte counts are explicit. This is bounded
+failure context, not a complete log or proof of missing stages.
+
+The receipt binds the diagnostics to its invocation ID, command hash, commit,
+start/end identity and actual exit status or signal. `improve --json` carries the
+same diagnostics and invocation link in the gate's facts without mixing command
+output into JSON stdout. Spawn failures and signals remain broken instruments;
+nonzero gate exits remain failures. A Vitest or typecheck failure without a Node
+summary still has unknown test coverage, not zero or an invented count.
+Compound shell commands remain one invocation; no stage completion is inferred
+by splitting a command string. The normal test-ledger artifact already retains
+these receipt files on failure. No raw-output upload or extra profile is added.
+
 ### The test ledger, and why a hygiene note is work
 
 On a node project, `npm test` runs a second reporter,
@@ -292,6 +315,7 @@ email.
 
 ```bash
 plates morning                        # the brief for the night that last started, markdown
+plates morning --observation --json   # early read-only observation; no final send
 plates morning --date 2026-10-15      # for a named night
 plates morning --send                 # the issue "Good morning, <date>", once a night
 plates morning --card --yes           # the plan as the live canvas card night-plan
@@ -306,6 +330,10 @@ plates morning --card --yes           # the plan as the live canvas card night-p
   health page and each PR. The night's health page is read from where its
   record was: while the night's PR is unmerged, from that PR's branch, and
   linked there.
+- **Early observation** is a read-only report, separate from final readiness.
+  It shows pending and failed work without ticking it complete or starting a run.
+  It cannot send an issue or publish a card; the eventual final report keeps its
+  original identity and deduplication. A compatible update does not wait for it.
 - **Sending** needs `"morning": { "assignee": "<your GitHub login>" }` in
   `.plates/plates.json`; without it `--send` refuses, naming the key. It labels
   the issue `keel:morning` and closes yesterday's. A second send for the same

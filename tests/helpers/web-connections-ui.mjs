@@ -7,7 +7,7 @@ export function connectionsUIHarness({enabled=true,afterMetadata=null}={}) {
   const config=enabled?h.config:{...h.config,connections:null,connectionEncryptionKey:null};
   const fetcher=async(url,options={})=>{
     const response=await h.fetcher(url,options);
-    if(new URL(url).pathname==='/rest/v1/rpc/keel_connection_rpc'&&JSON.parse(options.body).p_operation==='metadata')await afterMetadata?.(h);
+    if(new URL(url).pathname==='/rest/v1/rpc/plates_connection_rpc'&&JSON.parse(options.body).p_operation==='metadata')await afterMetadata?.(h);
     return response;
   };
   const service=createWebService(config,{fetcher,now:()=>h.state.now});

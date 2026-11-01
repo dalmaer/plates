@@ -6,7 +6,7 @@ import { createDecisionState, decisionTransition, validPreview, mayApplyDecision
 const project={id:'studio',repo:'acme/studio',name:'Acme Studio'}, access={csrf:'fake-acme-csrf',workspace:{name:'Acme'}};
 const operationId='b'.repeat(64), previewId='a'.repeat(64);
 const detail=()=>({schema:1,project,source:{path:'docs/reviews/2026-10-21.md',head:'c'.repeat(40),blob:'d'.repeat(40),branch:'main',visibility:'public',link:'https://github.com/acme/studio/blob/main/docs/reviews/2026-10-21.md'},target:{kind:'health',path:'docs/reviews/2026-10-21.md'},question:{title:'Accept the Acme repair proposal?',body:'A measured timeout needs review.',choices:[{id:'accept',label:'Accept'},{id:'decline',label:'Decline'}]},context:{state:'not-configured',digest:'e'.repeat(64),decisions:[{statement:'Keep user observations private.'}],proposals:[{statement:'Try a wider retry window.'}],gaps:[]},supported:true,submissionEnabled:false,reason:null});
-const preview=()=>({id:previewId,operationId,operationUrl:`/projects/studio/operations/${operationId}`,expiresAt:'2099-10-21T00:00:00.000Z',project,source:detail().source,target:detail().target,contextDigest:'e'.repeat(64),choice:'decline',consequence:'Record this proposal as declined. No phase or issue is created.',content:'# Acme\r\n\nDecision: declined <not executable>\n',commitMessage:`Record Plates proposal decision\n\nKeel-Operation: ${operationId}`,visibility:'public',canSubmit:false,refusal:'Submission is disabled until the owner enables decision writes.'});
+const preview=()=>({id:previewId,operationId,operationUrl:`/projects/studio/operations/${operationId}`,expiresAt:'2099-10-21T00:00:00.000Z',project,source:detail().source,target:detail().target,contextDigest:'e'.repeat(64),choice:'decline',consequence:'Record this proposal as declined. No phase or issue is created.',content:'# Acme\r\n\nDecision: declined <not executable>\n',commitMessage:`Record Plates proposal decision\n\nPlates-Operation: ${operationId}`,visibility:'public',canSubmit:false,refusal:'Submission is disabled until the owner enables decision writes.'});
 
 test('health choices are unselected, context separates accepted choices from recommendations, and JS starts with disabled preview',()=>{
   const html=decisionView(detail(),access);
@@ -38,7 +38,7 @@ test('public preview includes complete exact outbound text, message, destination
   const html=previewView(model,access);
   assert.match(html,/This change will be public/); assert.match(html,/Record this proposal as declined/);
   assert.match(html,/END-OF-ACME-FILE/); assert.match(html,/# Acme&#13;\n\nDecision: declined &lt;not executable&gt;/);
-  assert.match(html,/Complete outbound file/); assert.match(html,/Exact commit message/); assert.match(html,new RegExp(`Keel-Operation: ${operationId}`));
+  assert.match(html,/Complete outbound file/); assert.match(html,/Exact commit message/); assert.match(html,new RegExp(`Plates-Operation: ${operationId}`));
   assert.match(html,/Destination: <strong>acme\/studio<\/strong>, branch <strong>main/);
   assert.match(html,/data-preview-ack disabled/); assert.match(html,/data-apply-decision disabled/); assert.doesNotMatch(html,/\schecked(?:\s|>)/);
   assert.match(html,/Submission is blocked/); assert.match(html,/data-reserved-operation="b{64}"/);

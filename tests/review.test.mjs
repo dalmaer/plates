@@ -838,7 +838,7 @@ const s = JSON.parse(fs.readFileSync(${JSON.stringify(statePath)}, 'utf8'));
 const save = () => fs.writeFileSync(${JSON.stringify(statePath)}, JSON.stringify(s));
 const field = k => (argv.find(a => a.startsWith(k + '=')) ?? '').slice(k.length + 1);
 const deny = () => { console.error('stub gh: a write the test did not expect: ' + argv.join(' ')); process.exit(1); };
-const page = /^repos\\/acme\\/app\\/issues\\?labels=keel%3Areview-after&state=all&per_page=100&page=(\\d+)$/.exec(argv[0] === 'api' ? argv[1] : '');
+const page = /^repos\\/acme\\/app\\/issues\\?labels=(?:plates|keel)%3Areview-after&state=all&per_page=100&page=(\\d+)$/.exec(argv[0] === 'api' ? argv[1] : '');
 if (page) {
   const n = Number(page[1]);
   console.log(JSON.stringify(s.issues.slice((n - 1) * 100, n * 100).map(i => ({ number: i.number, title: i.title, body: i.body, state: i.state.toLowerCase(), html_url: i.url, created_at: i.createdAt, user: { login: i.author.login === 'app/github-actions' ? 'github-actions[bot]' : i.author.login } }))));
@@ -954,11 +954,11 @@ test('phase 60: an older push\'s review is found however many newer ones there a
   assert.equal(r.code, 1, r.err);
   assert.deepEqual(r.json().comments.map(c => c.id), ['F1'], 'the 250th issue, on the third page');
   const pages = (await gh.calls()).filter(c => c[0] === 'api' && c[1].includes('labels=')).map(c => /page=(\d+)$/.exec(c[1])[1]);
-  assert.deepEqual(pages, ['1', '2', '3']);
+  assert.deepEqual(pages, ['1', '2', '3', '1']);
   // Found on the first page: no more is read.
   const first = await pushGh(t, { issues: [pushIssue([F1]), ...newer] });
   assert.equal(plates(dir, first, [`acme/app@${PUSHED.slice(0, 7)}`]).code, 1);
-  assert.equal((await first.calls()).filter(c => c[0] === 'api' && c[1].includes('labels=')).length, 1);
+  assert.equal((await first.calls()).filter(c => c[0] === 'api' && c[1].includes('labels=')).length, 2);
   // The list ends without it: no review recorded, exit 2.
   const absent = await pushGh(t, { issues: newer });
   const none = plates(dir, absent, [`acme/app@${PUSHED.slice(0, 7)}`]);
@@ -1045,11 +1045,11 @@ test('agent issue canonical rubric identity survives reordered keys in manual an
 test('verified robot top-level reviews remain actionable across heads and prose', () => {
   const head='a'.repeat(40), old='b'.repeat(40), bot={__typename:'Bot',login:'github-actions'};
   const conn=nodes=>({nodes,pageInfo:{hasNextPage:false}});
-  for (const author of ['claude','codex']) {
+  for (const name of ['plates','keel']) for (const author of ['claude','codex']) {
     const reviewer=author==='claude'?'codex':'claude';
     const mark={version:1,repo:'acme/app',issueNumber:7,instanceId:'issue-7',author,headSha:old,cursor:0};
     const review={id:'PRR_acme',databaseId:12,author:bot,commit:{oid:old},submittedAt:'2026-10-01T00:00:00Z',url:'https://github.com/acme/app/pull/8#pullrequestreview-12',body:`<!-- keel:robot-review ${old} ${reviewer} -->\nReviewed by ${reviewer}; built by ${author}.\n\n[P1] acme.js:9 loses a correction.`};
-    const pr={number:8,url:'https://github.com/acme/app/pull/8',author:bot,headRefName:'keel/robot-7',headRefOid:head,repository:{nameWithOwner:'acme/app'},headRepository:{nameWithOwner:'acme/app'},body:`<!-- keel:robot-delivery ${JSON.stringify(mark)} -->`,reviewThreads:conn([]),comments:conn([]),reviews:conn([review])};
+    const pr={number:8,url:'https://github.com/acme/app/pull/8',author:bot,headRefName:`${name}/robot-7`,headRefOid:head,repository:{nameWithOwner:'acme/app'},headRepository:{nameWithOwner:'acme/app'},body:`<!-- keel:robot-delivery ${JSON.stringify(mark)} -->`,reviewThreads:conn([]),comments:conn([]),reviews:conn([review])};
     const entries=reviewComments(pr);
     assert.equal(entries.length,1,'verified robot review must not be dropped as the PR author own review');
     assert.equal(reviewComments({...pr,headRefOid:'c'.repeat(40)})[0].answered,false);
@@ -1118,4 +1118,15 @@ test('review reader verifies repository rename before counting legacy robot find
  await assert.rejects(()=>prepareRobotReview(JSON.parse(original),async()=>({status:403})),/unavailable/);
  // A JSON property cannot spoof the non-serialized verifier state.
  assert.deepEqual(reviewComments({...JSON.parse(original),repositoryAliases:[old]}),[]);
+});
+
+for (const alias of ['PLATES','KEEL']) test(`phase128 REVIEW_POLL_MS ${alias} drives actual wait interval`, async t => {
+  const {review} = await import('../lib/review.mjs');
+  const root = await project(t), gh = await stubGh(t, {}), waits = [];
+  let clock = 0;
+  const result = await review({root,target:'acme/app#3',wait:true}, {
+    env:{PLATES_GH:gh.path,PLATES_CACHE:join(root,'cache'),[`${alias}_REVIEW_POLL_MS`]:'23'},
+    now:()=>clock, sleep:async ms=>{waits.push(ms);clock=2000;},
+  });
+  assert.deepEqual(waits,[23]); assert.equal(result.data.waited.timedOut,true);
 });

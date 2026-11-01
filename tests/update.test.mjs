@@ -441,24 +441,24 @@ test('the update PR reads in a minute: Summary as a tree, Evidence, Merge danger
   assert.match(plain, /```text\n[\s\S]*\.agents\/skills\/conduct\/\n[\s\S]*SKILL\.md[\s\S]*```/, 'the changed files, as a tree');
   assert.match(plain, /^Gate: `npm run check` exit 0 on this change/m);
   assert.match(plain, new RegExp(`^\\| plates practice \\(\\.plates/plates\\.json\\) \\| 0\\.0\\.0 \\| ${TARGET.replaceAll('.', '\\.')} \\|$`, 'm'));
-  assert.match(plain, /^Two-way door: re-renders plates's own files; reverting the merge restores them\.$/m);
+  assert.match(plain, /^Two-way door \(reversible\): re-renders plates's own files; reverting the merge restores them\.$/m);
   assert.match(plain, /^Blast radius: adopted project\.$/m);
-  assert.ok(plain.indexOf('```keel-impact') > at[2], 'the keel-impact block comes after the three sections');
+  assert.ok(plain.indexOf('```plates-impact') > at[2], 'the plates-impact block comes after the three sections');
 
   // A migration that rewrote the project's own file: one-way, the file named, and marked in the tree.
   const dir = await oldProject(t);
   const rewrote = await prOf(t, dir, { migrations: [REWRITES] });
-  assert.match(rewrote, /^One-way door: migration 0099-acme-notes-index rewrote docs\/notes-index\.md\./m);
+  assert.match(rewrote, /^One-way door \(irreversible\): migration 0099-acme-notes-index rewrote docs\/notes-index\.md\./m);
   assert.match(rewrote, /notes-index\.md {2}\(migration 0099-acme-notes-index\)/);
   assert.match(git(dir, 'log', '-1', '--format=%B', BRANCH(TARGET)), /^0099-acme-notes-index: Acme notes gain an index\n {2}rewrites: docs\/notes-index\.md$/m);
 
   // Mutation: the door no longer reads the migrations; a rewriting update says two-way, and is caught.
   const blind = await mutantUpdate(t, 'danger: rewrites.length', 'danger: false');
   const wrong = await prOf(t, await oldProject(t), { migrations: [REWRITES] }, blind);
-  assert.doesNotMatch(wrong, /^One-way door:/m, 'the mutant marks a migration-rewriting update two-way');
+  assert.doesNotMatch(wrong, /^One-way door/m, 'the mutant marks a migration-rewriting update two-way');
   // Mutation: the commit stops naming a migration's edits; the resumed PR could not tell.
   const silent = await mutantUpdate(t, "...(m.edits.length ? [`  rewrites: ${m.edits.map(e => e.path).join(', ')}`] : [])", '');
-  assert.doesNotMatch(await prOf(t, await oldProject(t), { migrations: [REWRITES] }, silent), /^One-way door:/m);
+  assert.doesNotMatch(await prOf(t, await oldProject(t), { migrations: [REWRITES] }, silent), /^One-way door/m);
 });
 
 test('self-update: a behind checkout is pulled and re-run once; PLATES_SELF_UPDATED stops a second time', async t => {
@@ -684,4 +684,12 @@ test('plates update takes only migrations at or below the version it brings the 
   assert.equal(r.exitCode ?? 0, 0, r.text);
   assert.deepEqual(r.data.migrations, [], 'not this update\'s');
   assert.equal(await readFile(join(dir, 'ACME-LATER.md'), 'utf8').catch(() => null), null);
+});
+
+for(const name of ['plates','keel'])test(`update resumes the existing ${name} branch without renaming or publishing`,async t=>{
+ const dir=await oldProject(t), branch=`${name}/update-v${TARGET}`;
+ git(dir,'branch',branch);const before=git(dir,'rev-parse',branch);
+ const result=await run({dir});assert.equal(result.exitCode,3,result.text);assert.equal(result.data.resumed,true);
+ assert.equal(result.data.branch,branch);assert.equal(git(dir,'rev-parse',branch),before);
+ assert.equal(git(dir,'branch','--list',name==='keel'?BRANCH(TARGET):`keel/update-v${TARGET}`),'');
 });

@@ -4,6 +4,8 @@
   "optional": true,
   "requires": ["night"],
   "runtimeFiles": [
+    { "practice": "night", "path": "scripts/plates/autonomy-policy.mjs" },
+    { "practice": "night", "path": "scripts/plates/autonomy-context.mjs" },
     { "practice": "reconciliation", "path": "scripts/plates/reconcile.mjs" },
     { "practice": "reconciliation", "path": "scripts/plates/decision-context.mjs" }
   ],

@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, writeFile, rm, readdir, chmod } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
+import { setTimeout as delay } from 'node:timers/promises';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { run } from './run.mjs';
@@ -18,7 +19,18 @@ export const byId = (data, id) => data.measures.find(m => m.id === id);
 
 export async function scratch(t, prefix = 'plates-improve-') {
   const dir = await mkdtemp(join(tmpdir(), prefix));
-  t.after(() => rm(dir, { recursive: true, force: true }));
+  t.after(async () => {
+    // A late entry can race recursive removal. Retry only this teardown error;
+    // persistent failures and every other error still fail the owning test.
+    const delays = [25, 50, 100];
+    for (let attempt = 0; ; attempt++) {
+      try { await rm(dir, { recursive: true, force: true }); return; }
+      catch (error) {
+        if (error.code !== 'ENOTEMPTY' || attempt === delays.length) throw error;
+        await delay(delays[attempt]);
+      }
+    }
+  });
   return dir;
 }
 

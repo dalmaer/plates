@@ -54,10 +54,11 @@ This phase ships daily/learning views and migration. Full routine execution, fle
 
 ## Next action
 
-Activate approved operation storage and deploy a verified serving revision, then have the owner select real lessons and separately approve the GitHub App Contents-write permission and private workspace gate before the real migration/recovery walk. Compare the hosted morning to its immutable sources. Existing approval does not grant these broader source-write permissions.
+Verify the operation storage required by this phase and deploy a verified serving revision. Reuse the [31 October Contents-write grant](../evidence/2026-10-31-web-activation-plan.md#step-4-github-app-contents-write-2026-10-31) only within its recorded scope: the public Plates repository and the private workspace repository. That grant does not authorize learning transfers or enable their write gate. Have the owner select the exact real lessons and separately approve the private workspace learning-write gate before the migration/recovery walk; any additional repository requires its own grant. Compare the hosted morning to its immutable sources.
 
 ## Trajectory
 
+- **2026-11-01** — Reconciled the next action with the recorded 31 October Contents-write grant for exactly two repositories. Learning selection, its private workspace write gate and the real migration/recovery walk remain separate and unverified; acceptance is unchanged.
 - **2026-10-21** — Created from the owner's request for a hosted UI with private workspace data, project-owned records, decisions, guided testing and visible recent additions.
 - **2026-10-21** — Climb's template imports depend on practice assembly. The hosted view therefore reports explicit allowance declarations and leaves unresolved defaults unavailable; it does not execute project scripts to resolve them. Canonical night validation, merge and readiness remain shared. See the evidence's design finding.
 - **2026-10-21** — Independent review found source changes during final authorization could still copy old bytes. Authorization now precedes the reserved operation's source/destination inspection; the same probe refuses with zero writes. Cross-repository observations remain bounded, not atomic with the private commit.

@@ -10,6 +10,11 @@
       "kind": "managed"
     },
     {
+      "path": "scripts/plates/reconcile-actions.mjs",
+      "from": "scripts/plates/reconcile-actions.mjs",
+      "kind": "managed"
+    },
+    {
       "path": "scripts/plates/decision-context.mjs",
       "from": "scripts/plates/decision-context.mjs",
       "kind": "managed"
@@ -33,6 +38,12 @@
       "path": ".github/pull_request_template.md",
       "from": ".github/pull_request_template.md",
       "kind": "seeded"
+    }
+  ],
+  "runtimeFiles": [
+    {
+      "practice": "night",
+      "path": "scripts/plates/names.mjs"
     }
   ]
 }

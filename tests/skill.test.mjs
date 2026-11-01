@@ -217,18 +217,24 @@ test('the spin skill says: in plates, a practice change lands as a claude/ PR, w
   assert.equal(reviewerOf({ config, head: 'codex/fix' }).reviewer, 'claude');
 });
 
-// Phase 71: at the round limit the conductor stops pushing fixes and reports; it never merges.
-test('the spin skill says: at the review-round limit stop pushing fixes, sort the open findings, report the choice, never merge', async () => {
+// Phase 133: analyse at the base checkpoint; allow one progress extension, retain the stop and owner boundary.
+test('the spin skill describes the progress checkpoint, one extension and evidence-based owner boundary', async () => {
   const skill = await readFile(join(PLATES, 'practices', 'conduct', 'files', '.agents', 'skills', 'spin', 'SKILL.md'), 'utf8');
   const four = skill.slice(skill.indexOf('\n## 4.'), skill.indexOf('\n## ', skill.indexOf('\n## 4.') + 1));
-  const at = four.indexOf('**A review that keeps going is the owner\'s.**');
+  const at = four.indexOf('**Judge review progress at the checkpoint.**');
   assert.ok(at > four.indexOf('Not a gate: an open thread never refuses a merge'), 'in §4, after the answering rule');
   const rule = four.slice(at, four.indexOf('\n\n', at));
   assert.match(rule, /\(why: [^)\n]+\)/);
   assert.match(rule, /A round is one push a reviewer answered with a finding/);
   assert.match(rule, /`plates review <repo>#<n>` exits 3/);
   // The config key, in two parts (the gh-verb scan of test sources reads a quoted verb beside the CLI's name as a run of it).
-  assert.match(rule, /exits 3[\s\S]*round limit \(three unless `[^`]+` `"\w+": \{"rounds": N\}`/);
+  assert.match(rule, /base checkpoint \(three unless `[^`]+` `"\w+": \{"rounds": N\}`/);
+  assert.match(rule, /progress extends the limit once, from N to 2N/);
+  assert.match(rule, /repetition stops at N/);
+  assert.match(rule, /There is no second extension/);
+  assert.match(rule, /proxies, not semantic proof/);
+  assert.match(rule, /material scope expansion/);
+  assert.match(rule, /within the existing authorization/);
   assert.ok(rule.includes('`"review": {"rounds": N}`'));
   assert.match(rule, /stop pushing fixes/);
   assert.match(rule, /`plates review <repo>#<n> --class security\|overwrite\|approval\|other <ids>`\s+\(it records the kind and answers nothing\)/);

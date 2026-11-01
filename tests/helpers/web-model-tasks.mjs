@@ -33,11 +33,11 @@ export async function modelHarness(){
    const status=u.pathname.endsWith('/cancel')?'cancelled':model.status;
    return reply({id,object:'response',model:saved.model,status,created_at:Math.floor(h.state.now/1000),output:status==='completed'?[{type:'message',role:'assistant',content:[{type:'output_text',text:model.text}]}]:[],usage:['completed','failed','cancelled','incomplete'].includes(status)?model.usage:null});
   }
-  if(u.pathname==='/rest/v1/rpc/keel_model_credential_read'){
+  if(u.pathname==='/rest/v1/rpc/plates_model_credential_read'){
    const p=JSON.parse(options.body),r=h.vault.rows.get(JSON.stringify([p.p_scope,p.p_connection]));
    return reply(r?.state==='present'&&r.version===p.p_expected&&r.policy===p.p_policy?{version:r.version,policy:r.policy,value:r.value}:{conflict:true});
   }
-  if(u.pathname==='/rest/v1/rpc/keel_model_rpc'){
+  if(u.pathname==='/rest/v1/rpc/plates_model_rpc'){
    const p=JSON.parse(options.body),d=p.p_data,key=JSON.stringify([p.p_scope,p.p_id]);db.calls.push(p);if(db.before)await db.before(p);
    if(db.malformed)return reply(db.malformed);
    let output=null,row=db.attempts.get(key);const conflict=reason=>({conflict:reason});const envelope=(changed=false,granted=false)=>({row:structuredClone(row),changed,granted});const date=()=>new Date(h.state.now).toISOString();

@@ -1,0 +1,35 @@
+{
+  "id": "600000000000000002",
+  "application_id": "400000000000000004",
+  "type": 2,
+  "guild_id": "200000000000000002",
+  "channel_id": "300000000000000003",
+  "member": {
+    "user": {
+      "id": "100000000000000001",
+      "username": "acme-owner",
+      "global_name": "Acme Owner"
+    },
+    "roles": []
+  },
+  "token": "acme-synthetic-interaction-token",
+  "version": 1,
+  "data": {
+    "id": "500000000000000005",
+    "name": "plates",
+    "type": 1,
+    "options": [
+      {
+        "type": 1,
+        "name": "stop",
+        "options": [
+          {
+            "type": 3,
+            "name": "project",
+            "value": "acme"
+          }
+        ]
+      }
+    ]
+  }
+}

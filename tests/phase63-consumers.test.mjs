@@ -59,6 +59,8 @@ async function installed(t, withNight) {
     await mkdir(join(dir, path, '..'), { recursive: true });
     await cp(join(LOOP, path), join(dir, path));
   }
+  await mkdir(join(dir, 'scripts/plates'), { recursive: true });
+  await cp(join(ROOT, 'practices/night/files/scripts/plates/names.mjs'), join(dir, 'scripts/plates/names.mjs'));
   if (withNight) {
     await mkdir(join(dir, 'scripts/plates'), { recursive: true });
     await cp(join(ROOT, 'practices/night/files/scripts/plates/planning-config.mjs'), join(dir, 'scripts/plates/planning-config.mjs'));

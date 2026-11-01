@@ -5,7 +5,7 @@ goal: G3
 spec: 2
 depends: [120]
 review: wait
-note: "Source verification, immutable inbox records and plan bindings implemented; public CLI and integrated gates passed; review and phase 119 merge hold remain."
+note: "Source verification, immutable inbox records and plan bindings implemented; current-main integration and fresh head review remain."
 evidence: ["evidence/2026-10-24-evaluated-lessons.md"]
 ---
 
@@ -19,9 +19,9 @@ Selected real findings form deduplicated, scoped hypotheses with append-only tra
 
 Implement the corresponding slice of [review-learning-evaluation](../specs/review-learning-evaluation.md).
 The [record implementation contract](../specs/evaluated-learning-records.md)
-settles this slice. Phase 120 is locally built and independently reviewed; phase
-119 remains held for its owner review-limit decision. This record work can
-proceed independently, but cannot land the held branch indirectly.
+settles this slice. Phase 120 is implemented in its dependent PR. Phase 119’s
+former review-limit hold was resolved by PR #249 merging on 27 October 2026.
+Land this record work after the corpus integration, with fresh checks and review.
 Reuse the existing experiment, learn, execution and evidence mechanisms. Do not
 introduce a second scheduler, evidence authority or automatic production default.
 
@@ -53,8 +53,14 @@ experiments, hosted activation and fleet schedules are not changed by this phase
 
 ## Next action
 
-Complete review; retain the independent branch while phase 119 awaits its owner decision.
+Complete integration checks and exact-head review after the corpus PR lands.
+Real lesson benefit still requires the separately approved measured comparison.
 
 ## Trajectory
 
 - **2026-10-24** — Source inspection found that current-head review filtering would exclude the original historical finding, legacy serialization discards unknown sections, and configuration records have no patch field. Verify historical membership separately, guard tagged rewrites, and derive material-overlay patches from actual retained bytes. Preserve older proposal versions and refuse unsupported promotion transitions.
+
+- **2026-11-01** — Fresh GitHub facts resolve the old phase 119 merge hold:
+  PR #249 merged at `d4fd36d82b68321b7c5ae9fd7939fe6482a76a64` on 27 October.
+  Integrate the existing corpus and record PRs in dependency order without
+  treating offline records as measured lesson improvement.

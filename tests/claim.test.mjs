@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, rm, rename, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -631,4 +631,42 @@ test('the session is PLATES_SESSION, else the id Claude Code sets; nothing else 
   assert.equal(sessionOf({ CLAUDE_CODE_SESSION_ID: 'acme-1' }), 'acme-1');
   assert.equal(sessionOf({ CLAUDE_CODE_SESSION_ID: 'acme-1', PLATES_SESSION: 'acme-2' }), 'acme-2');
   assert.equal(sessionOf({ CODEX_HOME: '/acme', CLAUDECODE: '1' }), null);
+});
+
+for (const namespace of ['plates', 'keel']) test(`phase128 claim token ${namespace} location keeps ownership and exact release`, async t => {
+  const x = await acme(t), env = x.env('acme-host', { provider: 'codex', session: 'acme-owner' });
+  const first = await claim({ root: x.a, phase: '1' }, { env });
+  assert.equal(first.data.claimed, true);
+  const token = first.data.token;
+  const gitdir = git(x.a, 'rev-parse', '--absolute-git-dir');
+  const original = join(gitdir, 'keel-claims/phase-1.d');
+  const target = join(gitdir, `${namespace}-claims/phase-1.d`);
+  if (namespace === 'plates') { await mkdir(join(gitdir, 'plates-claims')); await rename(original, target); }
+  await writeFile(join(target, 'other-attempt'), 'keep');
+  const again = await claim({ root: x.a, phase: '1' }, { env });
+  assert.equal(again.data.held, true); assert.equal(again.data.holder.mine, true);
+  const released = await claim({ root: x.a, phase: '1', release: true }, { env });
+  assert.equal(released.data.released, true);
+  assert.deepEqual(await readdir(target), ['other-attempt']);
+  assert.equal(remoteClaim(x.origin, 1), null);
+});
+test('phase128 conflicting namespace session records never establish ownership', async t => {
+  const x = await acme(t), env = x.env('acme-host', { provider: 'codex', session: 'acme-owner' });
+  const first = await claim({ root: x.a, phase: '1' }, { env });
+  const directory = join(git(x.a, 'rev-parse', '--absolute-git-dir'), 'plates-claims/phase-1.d');
+  await mkdir(directory, { recursive: true });
+  await writeFile(join(directory, first.data.token), JSON.stringify({ session: 'someone-else' }));
+  const again = await claim({ root: x.a, phase: '1', release: true }, { env });
+  assert.equal(again.data.refused, true); assert.ok(remoteClaim(x.origin, 1));
+});
+
+for(const alias of ['PLATES','KEEL']) test(`phase128 MACHINE ${alias} preserves claim holder identity`,async t=>{
+ const x=await acme(t),env=x.env();delete env.PLATES_MACHINE;delete env.KEEL_MACHINE;env[`${alias}_MACHINE`]='acme-exact-machine';
+ const result=await claim({root:x.a,phase:'1'},{env});
+ assert.equal(result.data.holder.machine,'acme-exact-machine');
+});
+test('phase128 machine conflicts refuse before remote claim creation',async t=>{
+ const x=await acme(t),env={...x.env(),PLATES_MACHINE:'acme-one',KEEL_MACHINE:'acme-two'};
+ await assert.rejects(claim({root:x.a,phase:'1'},{env}),e=>e.code==='conflicting_names');
+ assert.equal(remoteClaim(x.origin,1),null);
 });

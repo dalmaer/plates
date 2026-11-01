@@ -26,17 +26,17 @@ The health page retains findings, unknown observations and manual proposals.
 
 Keep each phase format, including inline Next action sections. Add stable
 `<!-- acceptance: id -->` markers to existing boxes and a version 1
-`keel-reconciliation` fence under `## Reconciliation`. Start from
+`plates-reconciliation` fence under `## Reconciliation`. Start from
 `docs/templates/reconciliation.md`. References do not duplicate status.
-Decision references name an anchored accepted record with a `keel-decision`
+Decision references name an anchored accepted record with a `plates-decision`
 fence, scoped reciprocal supersession links, `decided_by` and `decided_at`.
 In research/design, mark real decision sections with explicit HTML anchors
-(`<a id="store-choice"></a>`). Evidence references require `keel-proof` receipts;
+(`<a id="store-choice"></a>`). Evidence references require `plates-proof` receipts;
 the template lists their fields. Research samples
 are not decisions. Keep historical measurements and trajectory unchanged.
 
 PRs declare affected phases, decisions, superseded plans and evidence in one
-`keel-impact` fence. Update the records in that PR or give an explicit reason
+`plates-impact` fence. Update the records in that PR or give an explicit reason
 for each unchanged record in `unchanged: {"docs/phases/01-store.md": "reason"}`. A declaration of no impact also needs a reason.
 Directly edited records cannot be omitted. Review meaning as well as file
 changes. Implementation, merge, production verification and lived-in use have
@@ -61,8 +61,10 @@ configurations are not rewritten: add the declaration to their bodies/configs.
 
 Run `plates decision context --phase <id> --json` before dispatch and resume.
 For an issue use `--issue <owner/repo#n>`; its repository must match local config.
-Phase references come from `keel-reconciliation.decisions`; issue references from
-rubric `decisions` or `keel-impact.decisions`. Unstructured issue prose is data.
+Phase references come from `plates-reconciliation.decisions`; issue references from
+rubric `decisions` or `plates-impact.decisions`. Unstructured issue prose is data.
+Historical fences remain readable under the exact aliases in the name
+table. Write the current names for new records; never rewrite old evidence.
 
 The read-only schema-1 bundle includes target, revision, sources with path,
 anchor and content hash, scoped decisions with owner/date and supersession chain,
@@ -82,9 +84,46 @@ The installed `decision-context.mjs` exports `decisionContext({root, phase,
 issue, issueBody})`, `refreshDecisionContext({root, bundle, issueBody})`,
 `decisionBrief(bundle)` and `decisionExitCode(bundle)`. Refresh returns
 `{bundle, changed, allowed}`. Issue callers must supply a fresh body; missing
-input fails closed. The standalone `reconcile.mjs` has no new imports.
+input fails closed. The standalone reconciliation runtime includes `reconcile.mjs`
+and its managed `names.mjs` sibling. Copy both when running it outside an adopted
+project. It requires no CLI installation or third-party runtime dependencies.
 
-Climb imports only the two managed runtime scripts through its `runtimeFiles`
-declaration. This preserves their source owner without enabling reconciliation's
+Climb imports the managed runtime scripts and their canonical names library
+through its `runtimeFiles` declaration. This preserves their source owner without enabling reconciliation's
 workflows, templates, secrets or checks. Reconciliation remains explicitly opt-in.
 Local practice overrides and ejected files remain project-owned.
+
+## Private pull-request observations in Actions
+
+For references in private repositories, optionally configure:
+
+```json
+{"reconciliation":{"githubAccess":{"enabled":true,"repositories":["acme/app","acme/records"]}}}
+```
+
+Provision `PLATES_RECONCILE_TOKEN` as a fine-grained GitHub token for precisely
+those repositories, with Pull requests read-only and automatic Metadata access.
+The repository stores only configuration, never the token. Render the workflows after
+changing this configuration. No configuration preserves the existing behavior.
+
+Configured CI observes remote records in a separate clean default-branch push
+job. Night uses the same producer on its exact default-branch event SHA. The
+producer runs no project setup, npm, configured gate or builder. Only its fixed
+GitHub GET-pull adapter child receives the credential, only for the allowlist;
+other repositories use the normal repository token. PR and feature-branch jobs
+never receive this credential. Missing access remains unknown.
+
+Night restores the producer's immutable Actions artifact before setup. The
+handoff binds repository identity, workflow, source revision, run and attempt,
+artifact ID and digest, runtime bytes, configuration and complete record hashes
+and inventory. Measure checks those sources again after setup. A failed-job rerun
+may reuse a successful producer's result only when its explicit job output and
+immutable envelope agree on the producer attempt, no later than the consumer.
+Both exact attempts must belong to the same run, repository, workflow and source;
+the original observation must remain within 24 hours. The restored wrapper binds
+to the current consumer attempt, and the report retains both attempt identities.
+A later consumer must restore and validate again; no credential or live PR-read
+fallback reaches night. Missing, expired, changed or mismatched
+sources are unknown in the report, never successful reconciliation. This is a
+transport of the existing reconciliation result, not a new acceptance record.
+Local doctor and night invocations retain their existing observation path.

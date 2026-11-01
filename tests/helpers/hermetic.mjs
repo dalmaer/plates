@@ -40,6 +40,18 @@ process.env.PLATES_MILESTONES_OFFLINE = '1';
 // climb.mjs's pointer to Codex's git dir (plates phase 47): a Codex night that runs plates's own suite must not aim the tests' climb.mjs at it.
 delete process.env.PLATES_AGENT_GIT;
 delete process.env.KEEL_AGENT_GIT;
+// The enclosing night owns these observations/recovery records. Synthetic test
+// projects must not consume them or select the enclosing workflow's loader.
+// Clear exact operational keys once, before tests; run()/runAsync() continue to
+// preserve explicit per-test env overrides. Do not strip generic CI/GITHUB_*
+// context or all PLATES_* variables, which other tests intentionally exercise.
+for (const key of [
+  'NAMES_EVIDENCE', 'PLATES_NIGHT_RECOVERY',
+  'PLATES_NAMES_RUNTIME_ROOT', 'PLATES_NAMES_IMPORTS_FILE', 'PLATES_NAMES_EVIDENCE_REPOSITORY_ID',
+  'PLATES_RECONCILE_REQUIRED', 'PLATES_RECONCILE_DEFAULT_BRANCH', 'PLATES_RECONCILE_SNAPSHOT',
+  'PLATES_RECONCILE_PRODUCER_ATTEMPT', 'PLATES_RECONCILE_ARTIFACT_ID',
+  'PLATES_RECONCILE_ARTIFACT_DIGEST', 'PLATES_RECONCILE_RESULT_DIGEST',
+]) delete process.env[key];
 process.env.GIT_CONFIG_NOSYSTEM = '1';
 
 const identity = { GIT_AUTHOR_NAME: 'Acme Builder', GIT_AUTHOR_EMAIL: 'builder@acme.test', GIT_COMMITTER_NAME: 'Acme Builder', GIT_COMMITTER_EMAIL: 'builder@acme.test' };

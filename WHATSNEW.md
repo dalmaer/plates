@@ -5,6 +5,60 @@ practice version: what changes in your repo, and anything you need to do.
 Newest first. `plates release` writes them; `plates update` puts the entries
 between your version and the new one into its pull request.
 
+## v0.8.38 — practice 0.8.38 (2026-10-28)
+
+Review rounds now have a progress checkpoint. At the configured base (three by default), Plates examines finding locations, counts and severity. Qualifying progress gets one extension to twice the base; repetition stops with reasons, and the extension cannot repeat.
+
+The CLI, board and installed Spin instructions describe the same behavior. Location and severity signals are heuristics: agents must inspect actual changes for repeated boundary failures and material scope expansion. This does not authorize broader work, bypass required reviews or permit an automatic merge.
+
+Update the Plates CLI and the project's managed practice together to receive both the executable decision and its guidance. Existing worktrees need synchronization after installation.
+
+Protected cross-review jobs now use Ubuntu 24.04 explicitly because Ubuntu 26.04 can fail Codex Action’s privilege-dropping setup before review starts (openai/codex-action#188). The read-only sandbox, privilege restrictions, token isolation and separate publisher remain unchanged.
+
+Robot review findings retain their severity after attribution wrapping and punctuation escaping, so equal-count findings easing from P1 to P3 can qualify as progress.
+
+## v0.8.37 — practice 0.8.37 (2026-10-28)
+
+Scoped risk guidance now travels with the shared practice into night, climb, tend, robot, cross-review and mention prompts. It follows each project's selected risk level while retaining explicit authorization, validation and rollback boundaries; this update does not enable High risk or increase any provider budget.
+
+Plates also includes paired harness evaluation and recovery tooling, offline Low/Medium/High comparison preparation, and an opt-in Pi context/evidence example. The evaluation scorer accepts a failed health observation before rollback while still rejecting premature success. These source-only evaluation and Pi examples do not activate model trials or consumer integrations. The Pi example retains its documented browser-layout verification gap.
+
+Existing managed-file drift protection, migration checks and project gates still govern upgrades. Review each project's draft update PR before installation; neither publication nor a passing source gate establishes production acceptance.
+
+## v0.8.36 — practice 0.8.36 (2026-10-27)
+
+The morning workflow sends its brief again. Since 0.8.34, the morning's decide job has depended on the dispatch-only names-origin job. On every scheduled run names-origin was skipped, and GitHub skipped finalize, send and card with it. So the night's final PR never opened, no brief was sent and the canvas card stayed stale. The three jobs now run past a skipped ancestor, while still requiring decide to succeed and keeping their existing conditions. A new test flags any workflow job that would be skipped this way.
+
+Storage branches now carry the host's opt-out, the same as the app.
+
+Nothing to do after updating. The next scheduled morning sends as usual. No new credentials, budgets or schedules.
+
+Released without the review gate (2 practice commits unchecked): Owner approved on 2026-10-27: 461092e was pushed directly to main on 2026-10-26; read by Claude before release; the release ships the morning-brief outage fix
+
+Released despite the fleet rehearsal: dalmaer/ledger (Owner approved on 2026-10-27: ledger's perf-budget ms ceilings are load-sensitive under parallel rehearsal; main itself failed in the first rehearsal and passed in the second; ledger CI on main is green; the release touches no ledger code)
+
+## v0.8.35 — practice 0.8.35 (2026-10-26)
+
+Compatible reviewed updates now have an explicit installation and recovery path. Installation is separate from optimization, complete nightly verification and legacy-name retirement. Only a changed workflow concurrency identity requires a scoped pause/drain/restore barrier; ordinary updates do not.
+
+The shipped conductor guidance preserves existing scoped approvals, asks only when authority or relevant inputs change, and batches fixes before the integrated checkpoint. Morning reports gain a read-only observation mode that preserves unfinished work. Plates source gains conservative record-only validation; consumer gates keep their own policy.
+
+The installer checks managed ownership and exact source/check/review evidence, uses conditional publication, retains uncertain operations, and offers pre-merge restoration-only recovery. Unsupported update shapes refuse rather than bypass protection. Installation is not production acceptance.
+
+This release also carries the already-reviewed reconciliation fixes since 0.8.34: private GitHub observations stay bound to their producer run and attempt across partial reruns, and nightly test-history reads preserve recovered state without inheriting the test runner's context. Missing evidence remains unknown. No new credentials, budgets or schedules are enabled by these changes.
+
+## v0.8.34 — practice 0.8.34 (2026-10-25)
+
+The name transition now writes the reviewed Plates names while retaining explicit readers for existing Keel records. A night already started under a Keel branch keeps that identity through its morning. Historical evidence is preserved.
+
+`plates names --json` previews the exact external names that still need attention. Applying a repository or machine plan requires its reviewed digest; uncertain operations retain their original identities for read-only recovery. Secret values are never read: the preview supplies the owner commands. Label evidence must be published at the workflow revision before writers activate.
+
+`plates names --verify` checks the source-bound night and morning observations separately from activation or acceptance. Manual evidence runs pin an exact observer revision and originating night attempt. Missing history, unsupported managed writers and incomplete provider facts remain unknown. Project-owned setup and gate effects remain outside this managed-writer verification scope.
+
+This release does not migrate your labels, variables, hosted settings or machine by itself. Update and verify Plates first, then each approved fleet project. Retiring retained aliases is a separate owner decision. Existing held canvas metadata and coordination state remain held.
+
+Released without the review gate (22 practice commits unchecked): Owner explicitly approved the historical PR 220 exception on 2026-10-25: final merge-main commit 04dca79 lacked exact-head review. This exception covers only that historical PR; normal gates, fleet rehearsal and current PR reviews remain required.
+
 ## v0.8.33 — practice 0.8.33 (2026-10-22)
 
 Keel is now Plates. Each project is a plate, the overview is All plates, and /spin runs the existing guided phase workflow. The plates executable, .plates configuration, managed scripts, workflows, skills and active documentation use the new name; legacy keel and /conduct entry points remain available for compatibility.
