@@ -5,7 +5,7 @@ goal: G3
 spec: 2
 depends: [121]
 review: wait
-note: "Offline screening and immutable report binding verified; real screening still needs per-case environments, live provider/spend integration and owner allowance."
+note: "Offline screening and immutable reports merged; real screening still needs live orchestration and an approved measured cohort."
 evidence: ["evidence/2026-10-24-lesson-screening.md"]
 ---
 
@@ -66,9 +66,10 @@ experiments, hosted activation and fleet schedules are not changed by this phase
 
 ## Next action
 
-Complete integration checks and exact-head review after the lesson-record PR.
-Implement explicit per-case environment mapping and live provider/spending support before preparing
-a real quote for owner approval; keep historical target/control screening open.
+Finish phase119’s public live orchestration and exact bounded quote, then
+retain real target/control results under the frozen screening plan. Per-case
+mapping and versioned report support are implemented in the phase119 continuation;
+they do not establish measured agent efficacy.
 
 ## Trajectory
 

@@ -1,9 +1,9 @@
 // Synthetic Acme receipts; no Docker, provider, network or execution effects.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { summarizeComparison, summarizeComparisonV1, renderComparison } from '../lib/evaluation-comparison-report.mjs';
+import { summarizeComparison, summarizeComparisonV1, summarizeComparisonV2, renderComparison } from '../lib/evaluation-comparison-report.mjs';
 import { sealRecord, fingerprint } from '../lib/evaluation-records.mjs';
-import { acmeEvaluationPlan } from './helpers/evaluation-plan.mjs';
+import { acmeEvaluationPlan, acmeCaseEnvironments } from './helpers/evaluation-plan.mjs';
 const ref = r => ({ kind: r.kind, id: r.id, digest: r.digest });
 function fixture() {
   const bundle = acmeEvaluationPlan();
@@ -349,4 +349,58 @@ test('known admission refusal remains a visible infrastructure outcome, never ac
   assert.equal(report.arms.baseline.accepted, 9);
   assert.equal(report.pairs[0].comparable, false);
   assert.match(renderComparison(report), /slot is consumed/);
+});
+
+
+function mappedFixture() {
+  const f = fixture();
+  Object.assign(f.plan.bundle, acmeCaseEnvironments(f.plan.bundle));
+  f.plan.digest = fingerprint(f.plan.bundle);
+  f.execution.trials = f.plan.bundle.comparison.pairs.flatMap(pair => ['baseline', 'candidate'].map(arm => {
+    const t = f.trial(pair, arm), task = f.plan.bundle.cases.find(c => c.id === pair.case.id);
+    rebind(t.records, input => { input.environment = structuredClone(task.environment); });
+    return t;
+  }));
+  return f;
+}
+
+test('schema 3 comparison resolves each case for both arms without rewriting V1', () => {
+  const { plan, execution } = mappedFixture(), bytes = JSON.stringify({ plan, execution });
+  const report = summarizeComparison(plan, execution);
+  assert.equal(report.schemaVersion, 2);
+  assert.equal(summarizeComparisonV2(plan, execution).schemaVersion, 2);
+  for (const c of report.cases) {
+    const task = plan.bundle.cases.find(task => task.id === c.id);
+    assert.deepEqual(c.caseRef, ref(task)); assert.deepEqual(c.environment, task.environment);
+  }
+  assert.equal(report.pairs.length, 10);
+  assert.ok(report.pairs.every(p => p.comparable));
+  assert.equal(report.arms.baseline.accepted, 10);
+  assert.equal(report.arms.candidate.accepted, 10);
+  assert.deepEqual(report.candidate.baselineConfiguration, plan.bundle.configurations[0]);
+  assert.equal(report.recommendation.agentEfficacy, false);
+  assert.match(renderComparison(report), /Offline scripted outcomes/);
+  assert.throws(() => summarizeComparisonV1(plan, execution), /V1 requires bundle schema 2/);
+  assert.equal(JSON.stringify({ plan, execution }), bytes);
+});
+
+test('schema 3 actual environment and exact mapping drift remain non-comparable', () => {
+  for (const mutate of [
+    i => { delete i.environment; },
+    i => { i.environment.dependencyLock = 'f'.repeat(64); },
+    i => { i.environment.installer = 'f'.repeat(64); },
+    i => { i.image.requested = 'sha256:' + 'f'.repeat(64); },
+    i => { i.image.platform = 'linux/amd64'; },
+  ]) {
+    const { plan, execution } = mappedFixture();
+    // Matched wrong observations in both arms must not validate each other.
+    rebind(execution.trials[0].records, mutate); rebind(execution.trials[1].records, mutate);
+    const report = summarizeComparison(plan, execution);
+    assert.equal(report.pairs[0].comparable, false);
+    assert.ok(report.pairs[0].exclusions.some(r => ['environment-unknown-or-drift', 'image-differs-from-frozen-environment'].includes(r)));
+    assert.ok(report.pairs.slice(1).every(p => p.comparable));
+  }
+  const { plan, execution } = mappedFixture();
+  plan.bundle.configurations[0].environments[0].case.digest = 'f'.repeat(64);
+  assert.ok(summarizeComparison(plan, execution).pairs.every(p => p.exclusions.includes('configured-environment-unknown-or-mismatch')));
 });

@@ -5,9 +5,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
-import { acmeEvaluationPlan } from './helpers/evaluation-plan.mjs';
+import { acmeEvaluationPlan, acmeCaseEnvironments } from './helpers/evaluation-plan.mjs';
 import { run } from './helpers/run.mjs';
-import { validateEvaluationBundle, sealRecord, canonical } from '../lib/evaluation-records.mjs';
+import { validateEvaluationBundle, sealRecord, canonical, resolveCaseEnvironment } from '../lib/evaluation-records.mjs';
 import { evaluations } from '../lib/evaluation-ledger.mjs';
 import { initializeWorkspace } from '../lib/web/workspace.mjs';
 const appRoot = fileURLToPath(new URL('..', import.meta.url));
@@ -199,4 +199,58 @@ test('uninitialized and in-repository state refuse without creating storage', as
   const git = join(w.root, 'acme-repo'); await mkdir(git); await mkdir(join(git, '.git'));
   await assert.rejects(w.call({ action: 'plan', state: join(git, 'private') }), /Git working trees/);
   assert.deepEqual(await readdir(git), ['.git']);
+});
+
+
+test('schema 3 requires exact complete ordered case environments while schema 2 stays unchanged', () => {
+  const legacy = acmeEvaluationPlan(), bytes = JSON.stringify(legacy);
+  assert.equal(validateEvaluationBundle(legacy), legacy);
+  assert.equal(JSON.stringify(legacy), bytes);
+  const b = acmeCaseEnvironments(), mappedBytes = JSON.stringify(b);
+  assert.equal(validateEvaluationBundle(b), b);
+  for (const config of b.configurations) for (const task of b.cases) assert.deepEqual(resolveCaseEnvironment(b, config, ref(task)), task.environment);
+  assert.equal(JSON.stringify(b), mappedBytes);
+  assert.notEqual(b.cases[0].environment.dependencyLock, b.cases[1].environment.dependencyLock);
+  for (const mutate of [
+    b => b.configurations[0].environments.pop(),
+    b => b.configurations[0].environments.push(b.configurations[0].environments[0]),
+    b => { b.configurations[0].environments[1] = b.configurations[0].environments[0]; },
+    b => b.configurations[0].environments.reverse(),
+    b => { b.configurations[0].environments[0].case.id = 'acme-foreign'; },
+    b => { b.configurations[0].environments[0].case.digest = 'f'.repeat(64); },
+    b => { b.configurations[0].environments[0].case.kind = 'material'; },
+    b => { b.configurations[1].environments[0].environment.installer = 'f'.repeat(64); },
+    b => { b.configurations[1].environments[0].environment.dependencyLock = 'f'.repeat(64); },
+    b => { b.configurations[0].environments[0].environment.image = 'latest'; },
+    b => { b.configurations[0].environments[0].extra = true; },
+    b => { b.configurations[0].environment = b.cases[0].environment; },
+    b => { b.configurations[0].schemaVersion = 2; },
+    b => { b.schemaVersion = 2; },
+    b => { b.cases[0].schemaVersion = 3; },
+  ]) {
+    const broken = acmeCaseEnvironments(); mutate(broken);
+    assert.throws(() => validateEvaluationBundle(reseal(broken)), /evaluations:/);
+  }
+  assert.throws(() => resolveCaseEnvironment(b, b.configurations[0], { ...ref(b.cases[0]), digest: 'f'.repeat(64) }), /unresolved reference/);
+  assert.throws(() => resolveCaseEnvironment(b, { ...b.configurations[0], environments: [] }, ref(b.cases[0])), /unbound environment configuration/);
+  // Schema 2 historically permits authoring a config whose environment differs;
+  // execution refuses it. Schema 3 must not retroactively tighten that validator.
+  legacy.configurations[0] = sealRecord({ ...legacy.configurations[0], environment: b.cases[1].environment });
+  validateEvaluationBundle(reseal(legacy));
+});
+
+test('schema 3 freezes separately and inspection preserves schema 2 receipt bytes', async t => {
+  const w = await world(t), legacy = await w.call({ action: 'freeze' });
+  await w.call({ action: 'freeze', yes: true, digest: legacy.digest });
+  const oldBytes = await readFile(join(w.dir, 'state.json'));
+  const b = acmeCaseEnvironments(); await writeFile(w.opts.bundle, JSON.stringify(b));
+  const preview = await w.call({ action: 'freeze' });
+  await assert.rejects(w.call({ action: 'freeze', yes: true, digest: legacy.digest }), /stale/);
+  const saved = await w.call({ action: 'freeze', yes: true, digest: preview.digest });
+  assert.deepEqual(saved.receipt.plan.bundle, b);
+  const options = { ...w.opts, bundle: undefined, action: 'inspect' };
+  const inspected = await evaluations({ ...options, experiment: b.comparison.id });
+  assert.deepEqual(inspected.receipt, saved.receipt);
+  assert.equal((await evaluations({ ...options, experiment: 'acme-comparison' })).receipt.plan.bundle.schemaVersion, 2);
+  assert.deepEqual(await readFile(join(w.dir, 'state.json')), oldBytes);
 });

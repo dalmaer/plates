@@ -5,7 +5,7 @@ goal: G5
 spec: 2
 depends: [119]
 review: wait
-note: "Six offline development cases implemented; current-main integration and fresh head review remain."
+note: "Six historical development cases merged with offline proof; held-out coverage and measured agent benefit remain unverified."
 evidence: ["evidence/2026-10-23-evaluation-corpus.md"]
 ---
 
@@ -52,8 +52,9 @@ experiments, hosted activation and fleet schedules are not changed by this phase
 
 ## Next action
 
-Complete the current-main integration and review its exact head. Keep held-out
-coverage zero; offline fixture outcomes do not establish measured agent benefit.
+Use the frozen development cases in phase119’s real comparison once its live
+path and exact allowance are ready. Keep held-out coverage zero; offline fixture
+outcomes do not establish measured agent benefit.
 
 ## Trajectory
 

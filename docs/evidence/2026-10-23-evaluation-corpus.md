@@ -147,3 +147,11 @@ Own, adopt, watch. It changes no provider or execution permission.
 then passed all three tests. Original full-gate log:
 `/tmp/phase120-full-check.log`. Final integration still requires the unchanged
 full gate, typecheck and review of its exact head.
+
+## Source reconciliation — 1 November 2026
+
+[PR #250](https://github.com/dalmaer/plates/pull/250) merged as
+`33cade5e4efb63f9a946896b572c5ab9463db5c3`. This observed source inclusion resolves the old
+integration/review next action; it does not establish live agent efficacy,
+production verification or lived-in acceptance. Historical test evidence above
+retains its original scope.

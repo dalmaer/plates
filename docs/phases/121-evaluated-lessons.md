@@ -5,7 +5,7 @@ goal: G3
 spec: 2
 depends: [120]
 review: wait
-note: "Source verification, immutable inbox records and plan bindings implemented; current-main integration and fresh head review remain."
+note: "Source verification, immutable inbox records and plan bindings merged; real lesson benefit remains unverified."
 evidence: ["evidence/2026-10-24-evaluated-lessons.md"]
 ---
 
@@ -53,8 +53,8 @@ experiments, hosted activation and fleet schedules are not changed by this phase
 
 ## Next action
 
-Complete integration checks and exact-head review after the corpus PR lands.
-Real lesson benefit still requires the separately approved measured comparison.
+Bind one real proposed improvement to the supported measured comparison.
+Real lesson benefit still requires that separately approved comparison.
 
 ## Trajectory
 
