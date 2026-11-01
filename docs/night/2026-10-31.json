@@ -50,8 +50,11 @@
       "budget": {
         "minutes": 45
       },
-      "status": "planned",
-      "result": null
+      "status": "failed",
+      "result": {
+        "note": "no-candidate: climb test-time 2026-10-31: kept nothing; no measured attempts recorded; 54 min",
+        "link": "https://github.com/dalmaer/plates/actions/runs/41192473018"
+      }
     },
     {
       "id": "robot-60",
