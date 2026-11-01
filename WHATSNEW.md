@@ -5,6 +5,26 @@ practice version: what changes in your repo, and anything you need to do.
 Newest first. `plates release` writes them; `plates update` puts the entries
 between your version and the new one into its pull request.
 
+## v0.8.38 — practice 0.8.38 (2026-10-28)
+
+Review rounds now have a progress checkpoint. At the configured base (three by default), Plates examines finding locations, counts and severity. Qualifying progress gets one extension to twice the base; repetition stops with reasons, and the extension cannot repeat.
+
+The CLI, board and installed Spin instructions describe the same behavior. Location and severity signals are heuristics: agents must inspect actual changes for repeated boundary failures and material scope expansion. This does not authorize broader work, bypass required reviews or permit an automatic merge.
+
+Update the Plates CLI and the project's managed practice together to receive both the executable decision and its guidance. Existing worktrees need synchronization after installation.
+
+Protected cross-review jobs now use Ubuntu 24.04 explicitly because Ubuntu 26.04 can fail Codex Action’s privilege-dropping setup before review starts (openai/codex-action#188). The read-only sandbox, privilege restrictions, token isolation and separate publisher remain unchanged.
+
+Robot review findings retain their severity after attribution wrapping and punctuation escaping, so equal-count findings easing from P1 to P3 can qualify as progress.
+
+## v0.8.37 — practice 0.8.37 (2026-10-28)
+
+Scoped risk guidance now travels with the shared practice into night, climb, tend, robot, cross-review and mention prompts. It follows each project's selected risk level while retaining explicit authorization, validation and rollback boundaries; this update does not enable High risk or increase any provider budget.
+
+Plates also includes paired harness evaluation and recovery tooling, offline Low/Medium/High comparison preparation, and an opt-in Pi context/evidence example. The evaluation scorer accepts a failed health observation before rollback while still rejecting premature success. These source-only evaluation and Pi examples do not activate model trials or consumer integrations. The Pi example retains its documented browser-layout verification gap.
+
+Existing managed-file drift protection, migration checks and project gates still govern upgrades. Review each project's draft update PR before installation; neither publication nor a passing source gate establishes production acceptance.
+
 ## v0.8.36 — practice 0.8.36 (2026-10-27)
 
 The morning workflow sends its brief again. Since 0.8.34, the morning's decide job has depended on the dispatch-only names-origin job. On every scheduled run names-origin was skipped, and GitHub skipped finalize, send and card with it. So the night's final PR never opened, no brief was sent and the canvas card stayed stale. The three jobs now run past a skipped ancestor, while still requiring decide to succeed and keeping their existing conditions. A new test flags any workflow job that would be skipped this way.

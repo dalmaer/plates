@@ -11,7 +11,7 @@
     "github-actions",
     "vercel"
   ],
-  "practice": "0.8.36",
+  "practice": "0.8.38",
   "practices": [
     "base",
     "agents-md",
@@ -45,11 +45,13 @@
     "budget": {
       "minutes": 45
     },
-    "schedule": "nightly"
+    "schedule": "nightly",
+    "testCommand": "node --import ./tests/helpers/hermetic.mjs --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/plates/test-ledger.mjs --test-reporter-destination=stdout tests/improve.test.mjs"
   },
   "tests": {
     "stalls": [
       "tests/climb.test.mjs",
+      "tests/climb-admission.test.mjs",
       "tests/climb-codex.test.mjs",
       "tests/climb-execution-regression.test.mjs",
       "tests/climb-guard.test.mjs",

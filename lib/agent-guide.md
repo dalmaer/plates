@@ -4,17 +4,18 @@ Read `.plates/plates.json`’s `guide` or AGENTS.md.
 
 Verbs (`--json` for data):
 
+- `plates autonomy` — inspect authority first
 - `plates status` — goals and next phase
 - `plates next` — next free phase; `--project <p>`
 - `plates goal list|show|add|retire` — goals
 - `plates phase new|list|claim`
 - `plates ready|integrate` — hand off
-- `plates render` — render practices; `--check` reads only (exit 1)
+- `plates render` — practices; `--check` reads only
 - `plates init [dir] --description "<p>"` — new project
 - `plates names` — preview, apply, recover, verify
 - `plates migrate [root]` — rename preview; `--yes --digest <sha>` applies
 - `plates adopt [dir]` — adopt a repo; `--dry-run` writes nothing
-- `plates doctor` — drift; `--fix <path> restore|eject`
+- `plates doctor` — drift; `--fix`
 - `plates update` — PR or `--local`
 - `plates lessons` — send lessons and drift home; exit 3
 - `plates learn` — lessons → proposals and decisions
@@ -31,7 +32,7 @@ Verbs (`--json` for data):
 - `plates fleet update` — PRs for projects behind; exit 3
 - `plates loose-ends` — unfinished work
 - `plates issue new --agent` — rubric issue preview; `--yes` creates it
-- `plates review <repo>#<n>` — review comments; `--wait`; `--close` answers
+- `plates review <repo>#<n>` — comments; `--wait`; `--close`
 - `plates board` — whose turn: a local page; `--fresh`
 - `plates promote [<commit>]` — tested commit to prod; `--back`
 - `plates walk done|decide` — settle a walk or proposal
@@ -40,8 +41,8 @@ Verbs (`--json` for data):
 - `plates workspace inspect|init` — explicit external storage
 - `plates shape check|render|plan` — reviewed drafts
 - `plates feedback` — capture, list, propose, resolve
-- `plates decision context` — scoped choices for `--phase` or `--issue`
-- `plates evidence rederive <phase>` — preview; `--yes` reruns
+- `plates decision context` — scoped choices
+- `plates evidence rederive <phase>` — preview; `--yes` runs
 - `plates prove <test> --fix <path>...` — red without the fix?
 - `plates release` — review, version, tag
 - `plates help` — verbs
@@ -59,7 +60,7 @@ Rules:
 
 Exits: 0 ok; 1 failure; 2 usage; 3 needs owner's yes. JSON errors: `{"error": "..."}` on stdout.
 
-Topics: `names` `json` `goals` `render` `init` `adopt` `doctor` `update` `lessons` `learn` `improve` `persona` `time` `test` `drain` `night` `loop` `climb` `fleet` `loose-ends` `issue` `review` `board` `retro` `canvas` `install` `coming` `reconciliation` `prove` `evidence` `production` `decision` `shape` `workspace` `feedback`.
+Topics: `autonomy` `names` `json` `goals` `render` `init` `adopt` `doctor` `update` `lessons` `learn` `improve` `persona` `time` `test` `drain` `night` `loop` `climb` `fleet` `loose-ends` `issue` `review` `board` `retro` `canvas` `install` `coming` `reconciliation` `prove` `evidence` `production` `decision` `shape` `workspace` `feedback`.
 
 <!-- topic: json | the output contract every verb keeps -->
 
@@ -685,6 +686,13 @@ plates learn distill propose --kind standardise --family "<name>" --check "<what
   refused. A changed catalogue re-renders the practices; exit 1 if that fails.
 
 <!-- topic: improve | is the practice working here: measures, bounds, a ratchet, one proposal -->
+
+Failed local gates retain bounded, redacted stdout/stderr tails in their existing
+ledger receipt and the gate's JSON facts, linked by invocation, commit and command
+hash. Successful gates retain no output. Missing Node summaries remain unknown
+coverage; signal/spawn failures remain broken. These are whole-command diagnostics,
+not inferred compound-stage results. See [the night guide](../docs/guide/the-night-shift.md#failed-gate-diagnostics).
+
 
 The existing report retains bounded `plates:verification:v1` receipt comments: checked revision and dirty state, remote default branch/SHA, gate attribution, reconciliation coverage and claim findings. Same-day attempts survive refresh and morning finalization. Workflow retries recover the exact prior night branch report before measuring and publish with that SHA lease; unreadable recovery or conflicting local report content refuses publication. Missing coverage stays a gap; old claim observations never prove session inactivity. Home adds a fleet verification summary through its existing instruments; adopter nights only verify themselves. No second gate or acceptance decision is introduced.
 
@@ -1387,6 +1395,22 @@ workspace is `.stitch.json`'s, or `STITCH_WORKSPACE`. The nightly
 
 <!-- topic: climb | climb nights: an agent climbs one number, a script judges it, a person merges -->
 
+The existing preflight verifies runner scratch capabilities only. Its success
+state is `runner-ready`, with `runnerReady: true` and `agentPermissions:
+"unverified"`; this is not agent readiness or permission to retry a denial.
+Agent readiness before baseline remains incomplete: the workflow still has its
+existing runner gate. Do not activate a universal denial or relabel declared
+settings as effective permission evidence to fill that gap. No permissions,
+allowlists or provider settings are changed by these diagnostics.
+
+Retained denial receipts contain at most eight fixed-vocabulary command-prefix
+and target-path classifications. They omit raw commands, arguments, paths,
+messages and session text. `detailsAvailable` means a command or target
+classification was retained; tool names alone do not satisfy it. Missing,
+withheld and omitted details remain explicit. A prefix classification is not
+a reconstruction of a compound shell command and grants no retry authority.
+
+
 The optional `climb` practice (needs `night`) runs `plates-climb.yml` on a
 schedule: an agent climbs one number under `.agents/climb/PROTOCOL.md`, and
 `node scripts/plates/climb.mjs` makes every measurement and keep-or-revert.
@@ -1409,8 +1433,15 @@ schedule: an agent climbs one number under `.agents/climb/PROTOCOL.md`, and
   (`plan.skipped` says why for each other); its `budget.minutes` lowers
   `minutes`, never raises it. Refused or another night's: as without.
   `sandbox --plan f` also refuses any path its `willNotTouch` covers.
-- `measure <job> [--runs k] [--baseline]` — median and spread; `--baseline`
-  opens `.plates/climb/night.json`.
+- `measure <job> [--runs k] [--baseline] [--minutes n]` — median and spread;
+  `--baseline` opens `.plates/climb/night.json` and checks timed comparison
+  feasibility after the first probe. `--minutes` lowers the configured allowance
+  to the picked plan budget. Wall time, not benchmark output, estimates twelve
+  default comparison executions; half the allowance is reserved for editing and
+  full validation. An infeasible probe records `admission.state: blocked`, its
+  reason and next action; the workflow skips model execution. This estimate is
+  not a completion guarantee. Baseline wall time precedes the agent allowance;
+  the unchanged full gate and paired comparison still establish correctness.
 - `compare [--base r] [--candidate r] [--rounds n] [--decide] [--final]` —
   alternated rounds (two or more) in temp worktrees; keep only when every
   round beats the margin. `--decide` judges HEAD: keep amends its numbers
@@ -2062,6 +2093,10 @@ Any overrun blocks further admissions and positive audit/apply, while finish sti
 {"runId":"run1","totalMinutes":10,"costUsd":null,"costSource":null,"accepted":true,"verified":true,"policyApplied":true,"lostDecisions":0,"duplicateActions":0,"regressions":0,"rework":0,"contextPeakTokens":null,"sourceRevision":"acme-result","acceptanceEvidence":"docs/evidence/acme-result.md#acceptance","evidence":["docs/evidence/acme-full-workflow.md"]}
 ```
 
+A failed (`accepted` or `verified` false) or reworked (`rework` >0) finish also
+needs `lessonStatus`: `{"status":"captured","link":"<lesson, proposal or inbox item>"}`,
+`{"status":"known","lesson":"<lesson id>"}` or `{"status":"none"}` (phase 148).
+
 `totalMinutes` is finite >0. Cost is null with null source, or finite >=0 with
 an explicit measured source pointer. `accepted`, `verified`, `policyApplied`
 are boolean or null. `policyApplied: true` explicitly attests the reserved
@@ -2665,3 +2700,71 @@ continuation keeps its original identity. No dispatch or activation is implied.
 Exits: 0 verified operation/readback; 1 refused, incomplete or failed verification;
 2 invalid arguments; 3 preview/approval or held activation. --json returns one
 object with no variable values, secret contents or private journal contents.
+
+<!-- topic: autonomy | explicit risk tolerance within existing permissions -->
+
+Run `plates autonomy --json` before work to inspect the selected risk level and its
+boundaries. Missing settings use Low (`default`), preserving existing behavior.
+Medium (`local`) requests fewer repeated conversational approvals for routine local edits
+and tests after current task authority and selection provenance are verified. High (`delivery`) adds only separately selected exact
+push/merge branches or explicit push namespaces in this repository. Deployment, destructive actions,
+credentials, CI permissions, policy and assistant-rule changes need specific
+approval; script effects matter even when the command is called a test.
+
+Preview with `plates autonomy --level medium --json`; selecting it requires the
+owner's explicit confirmation and the preview's exact `--yes --digest <sha256>`.
+High example: `plates autonomy --level high --push feature/acme --merge main --json`.
+For future task branches, preview `plates autonomy --level high --push-prefix work/ --json`.
+Namespaces never cover merging, protected or default branches. Each action needs
+current target-bound protection/ruleset evidence; unavailable evidence grants nothing.
+Every merge requires exact base-bound current protection evidence and all checks/reviews; protected status never bypasses rules.
+`--mode default|local|delivery` remains an alias for Low/Medium/High; do not combine it with `--level`.
+Each selection replaces all branch/namespace lists; omitted destinations grant nothing.
+Return to existing behavior with `plates autonomy --level low --json` and
+confirm that preview. Selection writes only `.plates/autonomy.json` and does not
+push it. No setting is selected on installation or from approval history.
+
+High favors reversible shipping with required verification and prompt rollback,
+not elimination of every hypothetical regression. Record the exact known-good
+revision and its checks/health evidence, affected effects, available rollback
+procedure, health signals, stop criteria and any bounded non-blocking uncertainty.
+Continue only while the verified task scope and mandatory gates permit it.
+Missing required evidence is not a pass. Stop further rollout when a health
+signal fails; inspect uncertain writes before retrying and escalate if rollback
+needs new authority or recovery is unreliable. A Git revert does not undo data
+migrations, external side effects, destructive deletion or credential exposure;
+those need separate safeguards and authority. See the autonomy guide for the
+rollout record and source-only revert example.
+
+Never interpret this preference as platform permission, bypass a command's own
+approval/digest/proof gate, expand a budget, or change live rules. A current
+explicit user restriction wins. Before acting, verify the selection's human
+provenance and digest, current task and actual repository/destination, effects,
+platform permission, project rules and command gates. Unknown facts stay unknown;
+a denial stays blocked. Preserve exact-operation approvals across handoffs only
+while their scope and evidence still match. Reconfirm changed authority, target,
+budget or risk; exact-head approvals never transfer to changed bytes.
+
+The inspect report is configured scope, not a verified execution grant.
+`evaluateAutonomy` in `lib/autonomy.mjs` is the read-only preflight integration
+seam; it performs no action and requires independent current-context evidence.
+`suggestAutonomy` only returns an optional local-mode suggestion from explicitly
+supplied counts; it never reads session logs, persists settings or confirms one.
+
+
+The generic Plates skill's cold start, `--agent-help all`, this topic and
+`plates decision context` carry the shared versioned guidance and unverified
+selection identity. Include it in dispatch/resume handoffs alongside the original
+task approval; refresh changed facts without re-asking for unchanged authority.
+Climb, Tend, Robot build/resume/review and cross-review consume that same renderer
+from the trusted source revision. Mention-driven Claude receives default-branch
+guidance from a separate read-only context job. Scheduled builders cannot publish;
+reviewers remain read-only and report every material defect. Candidate policy
+changes cannot authorize the candidate; automated build guards protect the setting.
+
+These are model nudges, not proof that a model follows them or a tool-gate bypass.
+The hosted web workers run bounded commands rather than model contexts; their
+authority checks are unchanged. Project Home shows declared scope with unavailable
+host controls. No inspected provider supplies the trusted effective-permission/
+consent API needed to suppress host prompts. No live model or reduced-approval
+claim follows from deterministic prompt-delivery tests.

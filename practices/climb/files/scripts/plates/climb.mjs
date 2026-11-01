@@ -85,7 +85,7 @@ import { environmentValue, writeName, branchSuffix } from './names.mjs';
 // the lessons table, and any finding decided tonight: deciding is the owner's
 // (lesson 53). Loop unreachable is a notice, never red.
 import { denialEvidence, durations, completion } from './climb-execution.mjs';
-import { readFile, readdir, writeFile, mkdir, mkdtemp, rm, symlink, stat, open } from 'node:fs/promises';
+import { readFile, readdir, writeFile, mkdir, mkdtemp, rm, symlink, stat, open, rename } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -593,31 +593,70 @@ export async function signalsOf(root, config, jobs) {
 // ---- measure -------------------------------------------------------------------
 
 /** Run the job's command `runs` times in `cwd`: { median, spread, times }. A failing run throws (exit 2): a failing suite has no time. */
-export function measureIn(cwd, { config, job, runs, env = process.env }) {
+export function measureIn(cwd, { config, job, runs, env = process.env, admissionMinutes, now = () => performance.now(), execute = spawnSync }) {
   if (!Object.hasOwn(JOBS, job)) throw new ClimbError(`unknown job ${JSON.stringify(job)} (known: ${Object.keys(JOBS).join(', ')})`);
   if (JOBS[job].kind !== 'timed') throw new ClimbError(`${job} is not timed: its number is ${JOBS[job].number}, and its changes are judged by ${JOBS[job].kind === 'proposals' ? 'the owner, who reads its proposals' : 'prove-steady'}`);
   const command = JOBS[job].command(config);
   if (!command) throw new ClimbError(`${job} has no command to time (.plates/plates.json "climb")`);
-  const times = [];
+  const times = [], wallTimes = [];
+  const bounded = admissionMinutes !== undefined;
+  if (bounded && (!Number.isFinite(admissionMinutes) || admissionMinutes <= 0)) throw new ClimbError('baseline needs a finite positive minute allowance');
+  const allowanceMs = bounded ? admissionMinutes * 60_000 : null;
+  const reserveMs = bounded ? allowanceMs / 2 : null;
+  // Leave finalization headroom inside the same Actions allowance, never add minutes.
+  const cleanupHeadroomMs = bounded ? Math.min(30_000, allowanceMs * 0.1) : null;
+  const baselineLimitMs = bounded ? allowanceMs - cleanupHeadroomMs : null;
+  const comparisonExecutions = DEFAULTS.rounds * DEFAULTS.compareRuns * 2;
+  let admission = bounded ? { minutes: admissionMinutes, reserveMs, reservePolicy: 'half-allowance-heuristic', cleanupHeadroomMs, baselineLimitMs, comparisonExecutions, probeWallMs: null, estimatedComparisonMs: null, termination: 'shell SIGKILL on deadline; descendant cleanup unverified' } : undefined;
+  const block = reason => {
+    admission = { ...admission, state: 'blocked', reason,
+      nextAction: 'Choose a faster focused measurement command while retaining the full gate, or defer this climb; do not increase the budget automatically.' };
+  };
+  const baselineStart = now();
   // PLATES_CLIMB_CLOCK, a test seam like PLATES_GH: a file the suite writes its own time to (ms), read
   // in place of the wall clock, so plates's tests judge compare's decisions and never the machine (phase 55).
   const clock = environmentValue('variable:KEEL_CLIMB_CLOCK', env) && JOBS[job].reads !== 'output' ? resolve(environmentValue('variable:KEEL_CLIMB_CLOCK', env)) : null;
   for (let i = 0; i < runs; i++) {
     if (clock) rmSync(clock, { force: true });
-    const t0 = performance.now();
+    const t0 = now();
+    const remaining = bounded ? baselineLimitMs - (t0 - baselineStart) : null;
+    if (bounded && (!Number.isFinite(remaining) || remaining <= 0)) { block('baseline wall allowance exhausted or unavailable'); break; }
     // Never a test runner's context (lesson 14); the project's own env over it.
-    const r = spawnSync(command, { cwd, shell: true, env: gateEnv(env, config), encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, timeout: 60 * 60_000 });
-    const ms = clock && r.status === 0 ? clockedMs(clock, command) : performance.now() - t0;
+    const r = execute(command, { cwd, shell: true, env: gateEnv(env, config), encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, timeout: bounded ? Math.max(1, Math.floor(Math.min(remaining, 60 * 60_000))) : 60 * 60_000, ...(bounded ? { killSignal: 'SIGKILL' } : {}) });
+    const elapsed = now() - t0;
+    if (bounded) {
+      wallTimes.push(Number.isFinite(elapsed) && elapsed > 0 ? elapsed : null);
+      admission = { ...admission, minutes: admissionMinutes, reserveMs, comparisonExecutions, probeWallMs: wallTimes[0], estimatedComparisonMs: wallTimes[0] === null ? null : wallTimes[0] * comparisonExecutions };
+      if (r.error || r.status !== 0) { block(r.error?.code === 'ETIMEDOUT' ? 'baseline command exceeded its allocation deadline' : 'baseline command failed; no successful measurement'); break; }
+      if (wallTimes.at(-1) === null) { block('baseline wall duration unavailable or invalid; affordability is unknown'); break; }
+    }
+    let ms;
+    try { ms = clock && r.status === 0 ? clockedMs(clock, command) : elapsed; }
+    catch (e) { if (!bounded) throw e; block('baseline measurement unavailable or invalid'); break; }
     if (r.error) throw new ClimbError(`could not run \`${command}\`: ${r.error.message}`);
     if (r.status !== 0) throw new ClimbError(`\`${command}\` failed (exit ${r.status ?? r.signal}) in ${cwd}: a failing ${JOBS[job].reads === 'output' ? 'benchmark has no number' : 'suite has no time'}. ${`${r.stdout}\n${r.stderr}`.trim().split('\n').slice(-3).join(' | ')}`);
     if (JOBS[job].reads === 'output') {
       // perf: the number the project's own benchmark prints last, never the wall time around it.
       const n = lastNumber(r.stdout);
+      if (n === null && bounded) { block('benchmark printed no valid number; measurement unavailable'); break; }
       if (n === null) throw new ClimbError(`\`${command}\` printed no single number on its last line in ${cwd} (it printed: ${JSON.stringify(String(r.stdout).trim().split('\n').at(-1)?.slice(0, 120) ?? '')}): perf cannot tell`);
       times.push(n);
     } else times.push(Math.round(ms * 10) / 10);
+    if (bounded) {
+      const estimate = Math.max(...wallTimes) * comparisonExecutions;
+      admission.estimatedComparisonMs = estimate;
+      if (estimate + reserveMs > allowanceMs) {
+        block(`${comparisonExecutions} comparison executions need about ${Math.ceil(estimate / 60_000)} min plus ${reserveMs / 60_000} min editing/guard reserve; picked allowance is ${admissionMinutes} min`);
+        break;
+      }
+      if (now() - baselineStart + (runs - times.length) * Math.max(...wallTimes) > baselineLimitMs) {
+        block('remaining baseline samples cannot fit the baseline wall allowance'); break;
+      }
+      admission.state = 'admitted';
+    }
   }
-  return { job, command, runs, times, median: median(times), spread: Math.max(...times) - Math.min(...times), ...(JOBS[job].reads === 'output' ? { better: betterOf(job, config), unit: config?.climb?.perf?.unit ?? null } : {}) };
+  return { job, command, runs: times.length, times, median: times.length ? median(times) : null, spread: times.length ? Math.max(...times) - Math.min(...times) : null,
+    ...(bounded ? { admission, wallTimes, state: admission.state, line: admission.state === 'blocked' ? `blocked: ${admission.reason}. ${admission.nextAction}` : `admitted: pre-agent baseline wall time is separate from the ${admissionMinutes}-minute agent allowance; ${reserveMs / 60_000} min reserved for editing/guard; estimates do not guarantee completion` } : {}), ...(JOBS[job].reads === 'output' ? { better: betterOf(job, config), unit: config?.climb?.perf?.unit ?? null } : {}) };
 }
 
 /** The time a suite wrote to PLATES_CLIMB_CLOCK; a suite that wrote none, or not a number, has no time. */
@@ -665,20 +704,81 @@ export async function flakyNow(root, config) {
   return { job: 'hygiene', command: JOBS.hygiene.command(config), runs: recent.length, times: [found.length], median: found.length, spread: 0, flaky: found, ...(notClimbed.length ? { notClimbed } : {}) };
 }
 
-export async function measure({ root, config, env, job, runs = DEFAULTS.runs, baseline = false }) {
+// A pre-agent receipt is replaced atomically so interruption cannot erase the
+// pending admission. It is part of the existing night directory/artifact.
+async function recordBaseline(root, night) {
+  await writeNight(root, night);
+  const file = join(root, NIGHT_DIR, 'admission.json');
+  await writeFile(`${file}.tmp`, `${JSON.stringify({ ...night, state: night.admission.state }, null, 2)}\n`);
+  await rename(`${file}.tmp`, file);
+}
+
+const baselineAttempt = env => env.GITHUB_RUN_ID ? `${env.GITHUB_RUN_ID}:${env.GITHUB_RUN_ATTEMPT ?? ''}` : null;
+
+/** Finalize only before provider launch. Bounded receipt reads, never stdout as authority. */
+export async function finalizeBaseline({ root, job, outcome, env = process.env }) {
+  let night;
+  const file = join(root, NIGHT_DIR, 'admission.json');
+  try {
+    const handle = await open(file, 'r');
+    try {
+      const buffer = Buffer.alloc(1024 * 1024 + 1);
+      let length = 0;
+      while (length < buffer.length) {
+        const { bytesRead } = await handle.read(buffer, length, buffer.length - length, length);
+        if (!bytesRead) break;
+        length += bytesRead;
+      }
+      if (length > 1024 * 1024) throw new Error('oversized');
+      night = JSON.parse(buffer.subarray(0, length).toString('utf8'));
+    } finally { await handle.close(); }
+    if (night.workflowAttempt !== baselineAttempt(env) || typeof night.line !== 'string' || night.line.length > 2048 || /[\r\n]/.test(night.line) || night.job !== job || night.base !== sha(root, 'HEAD') || !Number.isFinite(Date.parse(night.started)) ||
+        !Array.isArray(night.baseline?.times) || !Array.isArray(night.tried) || night.tried.length ||
+        !['pending', 'admitted', 'blocked'].includes(night.admission?.state)) night = null;
+  } catch { night = null; }
+  if (!night) {
+    // Never reuse a previous night when initialization or receipt reading failed.
+    const started = new Date().toISOString();
+    night = { job, workflowAttempt: baselineAttempt(env), kind: JOBS[job]?.kind, date: today(), started, base: sha(root, 'HEAD'),
+      baseline: { median: null, spread: null, times: [], started, ended: null }, tried: [], gate: null, final: null,
+      admission: { state: 'pending', minutes: null, probeWallMs: null, estimatedComparisonMs: null } };
+  }
+  if (night.admission.state === 'pending' || (outcome !== 'success' && night.admission.state !== 'blocked')) {
+    night.admission = { ...night.admission, state: 'blocked', reason: 'baseline interrupted or terminal completion unavailable; measurement and descendant cleanup are unverified',
+      nextAction: 'Inspect the baseline step and retained receipt before retrying; no model was launched.' };
+    night.line = `blocked: ${night.admission.reason}. ${night.admission.nextAction}`;
+  }
+  await recordBaseline(root, night);
+  return { state: night.admission.state, line: night.line, admission: night.admission };
+}
+
+export async function measure({ root, config, env, job, runs = DEFAULTS.runs, baseline = false, minutes, now, execute }) {
   const c = on(config);
+  if (baseline && minutes !== undefined && (!Number.isFinite(minutes) || minutes <= 0)) throw new ClimbError('baseline needs a finite positive minute allowance');
   if (!Object.hasOwn(JOBS, job)) throw new ClimbError(`unknown job ${JSON.stringify(job)} (known: ${Object.keys(JOBS).join(', ')})`);
   const kind = JOBS[job].kind;
   const started = new Date().toISOString();
-  const m = kind === 'ledger' ? await flakyNow(root, config) : kind === 'proposals' ? await proposalsNow(root, config, job) : measureIn(root, { config, job, runs, env });
+  const pickedMinutes = minutes === undefined ? c.minutes : Math.min(minutes, c.minutes);
+  const initial = baseline ? {
+    job, kind, workflowAttempt: baselineAttempt(env ?? process.env), date: today(), started, base: sha(root, 'HEAD'), command: JOBS[job].command(config),
+    margin: c.margin, attempts: c.attempts, rounds: DEFAULTS.rounds,
+    baseline: { median: null, spread: null, times: [], started, ended: null },
+    admission: { state: 'pending', minutes: pickedMinutes, probeWallMs: null, estimatedComparisonMs: null },
+    line: 'pending: baseline started; measurement and admission are unknown; no model has launched',
+    tried: [], gate: null, final: null,
+  } : null;
+  // Complete both writes before any measurement subprocess starts.
+  if (initial) await recordBaseline(root, initial);
+  const m = kind === 'ledger' ? await flakyNow(root, config) : kind === 'proposals' ? await proposalsNow(root, config, job) : measureIn(root, { config, job, runs, env, ...(baseline ? { admissionMinutes: pickedMinutes, now, execute } : {}) });
   if (baseline) {
-    await writeNight(root, {
-      job, kind, date: today(), started, base: sha(root, 'HEAD'),
-      command: m.command, margin: c.margin, attempts: c.attempts, rounds: DEFAULTS.rounds,
+    await recordBaseline(root, {
+      ...initial, command: m.command,
       ...(m.better ? { better: m.better, unit: m.unit, reads: 'output' } : {}),
       baseline: { median: m.median, spread: m.spread, times: m.times, started, ended: new Date().toISOString() },
+      admission: m.admission ?? { state: 'admitted', minutes: pickedMinutes },
+      line: m.line ?? 'baseline complete; non-timed job',
+      ...(m.wallTimes ? { baselineWallTimes: m.wallTimes } : {}),
       ...(m.flaky ? { flaky: m.flaky } : {}),
-      tried: [], gate: null, final: null,
     });
   }
   return m;
@@ -1594,10 +1694,11 @@ export function reportOf(night, { files = [], pkg = null, now = new Date(), prop
   const kept = night.tried.filter(a => a.verdict === 'keep');
   const reverted = night.tried.filter(a => a.verdict !== 'keep');
   const minutes = Math.max(0, Math.round((now - new Date(night.started)) / 60_000));
+  if (night.admission?.state === 'blocked') return { kept: 0, tried: 0, minutes, line: night.line, input: null };
   const pctMargin = `${Math.round(night.margin * 100)}%`;
   if (!kept.length) {
     const none = night.job === 'hygiene' ? 'none proven steady' : `none beat the noise (margin ${pctMargin})`;
-    const tried = night.tried.length ? `${night.tried.length} tried, ${none}` : 'no measured attempts recorded';
+    const tried = night.tried.length ? `${night.tried.length} tried, ${none}` : 'no measured attempts recorded; inspect the retained execution receipt and measurement scope before retrying; no optimization was evaluated';
     const unsettled = night.settlements?.length ? '; incomplete: unmeasured work recorded at settlement' : '';
     return { kept: 0, tried: night.tried.length, minutes, line: `climb ${night.job} ${night.date}: kept nothing; ${tried}${unsettled}; ${minutes} min`, input: null };
   }
@@ -1973,9 +2074,9 @@ export async function cli(args, { root = rootOf(import.meta), env = process.env 
     case 'measure': {
       const job = o.positional[0];
       if (!job) throw new ClimbError(`measure needs a job; ${USAGE}`);
-      const m = await measure({ ...ctx, job, runs: o.runs, baseline: o.baseline });
+      const m = await measure({ ...ctx, job, runs: o.runs, baseline: o.baseline, minutes: o.minutes });
       const said = JOBS[job].kind === 'proposals' ? `${m.command}: ${m.median} (${JOBS[job].number})` : `\`${m.command}\` median ${fmtFor(job, config)(m.median)}, spread ${fmtFor(job, config)(m.spread)} over ${m.runs} runs`;
-      return { data: m, text: `${job}: ${said}${o.baseline ? `; the night's record is ${NIGHT}` : ''}` };
+      return { data: m, text: m.line ?? `${job}: ${said}${o.baseline ? `; the night's record is ${NIGHT}` : ''}`, exitCode: m.state === 'blocked' ? 1 : 0 };
     }
     case 'distill': {
       if (o.positional[0] === 'propose') {

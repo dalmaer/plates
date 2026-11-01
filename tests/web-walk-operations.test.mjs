@@ -17,6 +17,7 @@ async function fixture({privateRepo=false}={}) {
  let index=0,draftDigest=hash('Acme saved all-pass draft');
  const makePreview=async(change={})=>{
   const id=hash(`Acme preview ${++index}`),operationId=hash(`Acme operation ${index}`);
+  // Saved under Keel-Operation by the held baseline: apply after upgrade commits these exact reviewed bytes.
   const p={schema:1,kind:'walk',id,operationId,project:h.project,target:{kind:'walk',id:'acme'},actorId:1,sourceRevision:h.access.sourceRevision,source:snapshot.source,visibility:privateRepo?'private':'public',files,contextDigest:hash('Acme context'),draftId:hash('Acme draft'),draftDigest,expiresAt:new Date(h.state.now+900000).toISOString(),commitMessage:`Record Acme walk\n\nKeel-Operation: ${operationId}`,digest:hash(`Acme public preview ${index}`),...change};
   await store.createPreview(id,store.scopeFor(1,h.project),p);return p;
  };

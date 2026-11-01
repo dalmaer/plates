@@ -10,7 +10,11 @@ import { sessionTrials, sessionTrialSummary, handoffRecommendation } from '../li
 const BIN = fileURLToPath(new URL('../bin/plates.mjs', import.meta.url));
 const spec = (extra = {}) => ({ version: 1, id: 'acme', provider: 'Acme', model: 'Acme-1', cohort: 'Acme-small', baseline: { contextTokens: null, atBoundary: true, maxHandoffs: 2 }, candidate: { contextTokens: 40000, atBoundary: true, maxHandoffs: 2 }, minPairs: 3, minImprovement: 0.1, maxRuns: 10, budgetMinutes: 200, reserveMinutes: 20, automatic: false, ...extra });
 const descriptor = (id, extra = {}) => ({ id, provider: 'Acme', model: 'Acme-1', cohort: 'Acme-small', task: `Acme task ${id}`, taskClass: 'Acme-test', sourceRevision: 'acme-rev', evidence: ['evidence/acme-admission'], ...extra });
-const finish = (runId, extra = {}) => ({ runId, totalMinutes: 10, costUsd: null, costSource: null, accepted: true, verified: true, policyApplied: true, lostDecisions: 0, duplicateActions: 0, regressions: 0, rework: 0, contextPeakTokens: null, sourceRevision: 'acme-result', acceptanceEvidence: 'evidence/acme-acceptance', evidence: ['evidence/acme-full-workflow'], ...extra });
+// Phase 148: a failed or reworked finish names its lesson status (tests/lesson-status.test.mjs owns that rule).
+const finish = (runId, extra = {}) => {
+  const r = { runId, totalMinutes: 10, costUsd: null, costSource: null, accepted: true, verified: true, policyApplied: true, lostDecisions: 0, duplicateActions: 0, regressions: 0, rework: 0, contextPeakTokens: null, sourceRevision: 'acme-result', acceptanceEvidence: 'evidence/acme-acceptance', evidence: ['evidence/acme-full-workflow'], ...extra };
+  return (r.accepted === false || r.verified === false || r.rework > 0) && !Object.hasOwn(r, 'lessonStatus') ? { ...r, lessonStatus: { status: 'none' } } : r;
+};
 const handoff = (runId, extra = {}) => ({ id: 'handoff1', runId, goal: 'Acme goal', remainingAcceptance: ['Acme proof'], decisions: { ownerChoices: ['keep baseline'], suggestions: ['try candidate'] }, revision: 'acme-dirty', dirtyPaths: ['lib/acme.mjs'], proof: ['node --test tests/acme.test.mjs'], evidence: ['evidence/acme-proof'], activeJobs: [], nextAction: 'Verify Acme proof', claim: 'claims/phase-72', remainingBudget: 10, contextTokens: null, boundaryReached: true, safeBoundary: true, uncertainWrites: false, ...extra });
 async function world(t) {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'acme-session-trials-')));

@@ -1,0 +1,33 @@
+// Explicit local-package integration smoke. Never creates a session or calls a provider.
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import assert from 'node:assert/strict';
+import { captureContext } from '../src/context.mjs';
+
+const packageRoot = process.env.PI_PACKAGE_ROOT;
+if (!packageRoot) throw Error('Set PI_PACKAGE_ROOT to the already-installed @earendil-works/pi-coding-agent directory.');
+const root = pathToFileURL(resolve(packageRoot) + '/');
+const pkg = JSON.parse(await readFile(new URL('package.json', root)));
+assert.equal(pkg.version, '1.4.0', 'This experiment pins Pi 1.4.0; review API changes before upgrading.');
+const { buildSystemPrompt } = await import(new URL('dist/core/system-prompt.js', root));
+const { loadExtensions } = await import(new URL('dist/core/extensions/loader.js', root));
+const { ExtensionRunner } = await import(new URL('dist/core/extensions/runner.js', root));
+const { SessionManager } = await import(new URL('dist/core/session-manager.js', root));
+const loaded = await loadExtensions([resolve('extension.mjs')], process.cwd());
+assert.deepEqual(loaded.errors, []);
+assert.equal(loaded.extensions.length, 1);
+const options = { cwd: '/acme/app', selectedTools: [], skills: [], contextFiles: [{ path: '/acme/app/AGENTS.md', content: 'Acme fixture instructions.' }] };
+const prompt = buildSystemPrompt(options);
+const runner = new ExtensionRunner(loaded.extensions, loaded.runtime, '/acme/app', SessionManager.inMemory('/acme/app'), {});
+runner.bindCore({}, { getSystemPrompt: () => prompt, getSystemPromptOptions: () => options });
+const ctx = runner.createCommandContext();
+assert.equal(captureContext(ctx).instructions[0].status, 'captured');
+const cmds = runner.getRegisteredCommands();
+assert.ok(cmds.some(c => c.name === 'plates-inspect'));
+let widget;
+runner.setUIContext({ setWidget: (_, value) => { widget = value; }, select: async () => 'Close' }, 'interactive');
+await runner.getCommand('plates-inspect').handler('', runner.createCommandContext());
+assert.ok(widget.some(line => line.includes('CAPTURED')));
+assert.ok(widget.some(line => line.includes('EVIDENCE UNKNOWN')));
+console.log(JSON.stringify({ status: 'passed', piVersion: pkg.version, checks: ['real Pi extension loader', 'real command context', 'real prompt builder', 'command invocation with UI harness'], modelCalls: 0, sessionsPersisted: 0 }));

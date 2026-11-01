@@ -323,6 +323,57 @@ existing PR/nightly workflows share contradiction checks and reviewed
 correction proposals. Keep historical evidence and local phase formats;
 generate views from their owners, without another tracking system.
 
+## Own, adopt, watch (goal G9, 30 October 2026)
+
+[The build-or-adopt decision](research/2026-10-30-own-judgment-rent-the-rest.md)
+splits the work into layers. Plates owns a layer when no one else does it;
+it adopts a mature, narrow, open part behind an adapter or a host control
+when one exists; it watches the rest without depending on it.
+
+| Layer | Plates owns | Adopt, and through what | Watch |
+| --- | --- | --- | --- |
+| Practice, evidence, proof, lessons, health | all of it | | |
+| Risk and door policy | the policy: phase 132's levels and the door classes | host enforcement: Claude Code permission modes and hooks, Codex sandbox and approval policy, GitHub rulesets and environments | OpenHands' per-action risk analyzer |
+| Model capacity | the policy (G8; phases 103, 106, 138) | provider-reported limits, with ccusage and CodexBar-style readers as cross-checks | vendor quota APIs |
+| Telemetry | the attributes: project, phase, job, experiment | the agent CLIs' own OpenTelemetry export, to a backend the owner picks | the OTel GenAI semantic conventions (still Development) |
+| Session execution | the contract and its evidence (phase 146) | the Plates robot, until an executor passes that contract | OpenHands Agent Canvas and SDK, Gas City |
+| Live monitoring of sessions | nothing | herdr, on trial | cmux, Conductor |
+| Work and memory substrate | lessons and decisions | | Beads |
+
+Why: what is scarce in Plates is judgment — whether work is done, what a
+failure teaches, how much autonomy a project gets, what a change is allowed
+to spend. Running agents is being commoditised; every platform surveyed is
+strong at it and weak at judging the result. So Plates keeps the judgment and
+rents execution, enforcement, telemetry and monitoring. Its surface is held to
+a budget: `.plates/surface.json` records the verbs and flags `lib/cli.mjs`
+registers, and `tests/surface-budget.test.mjs` fails when a verb or flag is
+added without raising the budget, or a verb is added without being named below.
+A verb named here is a claim that its layer is Plates' own.
+
+### What Plates owns, verb by verb
+
+- **Practice and installation:** `plates init`, `plates adopt`,
+  `plates render`, `plates doctor`, `plates update`, `plates migrate`,
+  `plates names`, `plates release`, `plates help`, `plates status`,
+  `plates next`, `plates goal list`, `plates goal show`, `plates goal add`,
+  `plates goal retire`, `plates phase new`, `plates phase list`,
+  `plates shape`. The top-level flags `--agent-help` and `--version` belong
+  here too.
+- **Evidence, proof and review:** `plates evidence rederive`, `plates prove`,
+  `plates review`, `plates walk`, `plates decision`.
+- **Lessons and learning:** `plates lessons`, `plates learn`, `plates retro`,
+  `plates feedback`.
+- **Health and night:** `plates improve`, `plates persona run`, `plates time`,
+  `plates test`, `plates night plan`, `plates night tick`, `plates morning`,
+  `plates goodnight`, `plates production`.
+- **Fleet and delivery:** `plates fleet`, `plates fleet update`,
+  `plates phase claim`, `plates ready`, `plates integrate`, `plates drain`,
+  `plates promote`, `plates issue`, `plates loose-ends`.
+- **Workspace and canvas:** `plates canvas`, `plates workspace`,
+  `plates board`.
+- **Policy: autonomy, capacity, doors:** `plates autonomy`. Capacity and door
+  policy have no verb of their own.
+
 ## Rules plates holds itself to
 
 **Tests earn their cost (11 October 2026, phase 69).** Consolidation preserves

@@ -378,11 +378,12 @@ then gives the commands and every flag by the reason you'd pass it.
 | [Validation evidence audit](docs/development/validation-audit.md) | you want read-only findings from retained validation evidence without running suites |
 | [Validation planning and admission](docs/development/validation-preflight.md) | you want source-only capability checks, conservative focused suggestions and opt-in shared host admission |
 | [Shadow evidence validation](docs/development/validation-evidence.md) | you want bounded exact-input coverage checks without authorizing gate reuse |
-| [Climb and tend](docs/guide/climb-and-tend.md) | you want an agent to improve a number, or keep the records true, while you sleep |
+| [Climb and tend](docs/guide/climb-and-tend.md) | bounded agent work and sanitized failure diagnostics; runner readiness does not verify agent permissions |
 | [Lessons and learning](docs/guide/lessons-and-learning.md) | a bug turned out to have a shape, or lessons are waiting at home |
 | [Keep the fleet current](docs/guide/keep-the-fleet-current.md) | the practice changed and every project should have it |
 | [Production errors](docs/guide/production-errors.md) | repeated runtime errors should become evidence-backed repair work |
 | [The robot](docs/guide/the-robot.md) | Preview agent issues and opt in to bounded build/review work |
+| [Low, Medium and High risk tolerance](docs/guide/autonomy.md) | you want fewer repeated approval questions within explicitly selected task authority |
 | [Reviews and PRs](docs/guide/reviews-and-prs.md) | a PR from plates arrived, or a reviewer commented on one |
 | [Delivery](docs/guide/delivery.md) | two changes in a row should publish once, and deploys should follow tested commits, not `main` |
 | [When something is red](docs/guide/when-something-is-red.md) | a night, an update, a doctor or a climb did not go green |
@@ -424,6 +425,7 @@ Every verb takes `--json`. Exit codes are the same everywhere:
 
 | Verb | What it does |
 | --- | --- |
+| `plates autonomy` | Inspect or select Low, Medium or High project risk tolerance; platform and command approval gates remain in force |
 | `plates status`, `plates next` | Where the project stands; the next free phase, and which ready ones are claimed |
 | `plates goal list\|show\|add\|retire` | Goals as outcomes. Progress is derived from phases, never stored |
 | `plates phase new\|list\|claim` | Scaffold the next free phase under a goal; claim a phase before building it |
