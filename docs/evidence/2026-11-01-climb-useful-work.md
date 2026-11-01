@@ -59,8 +59,7 @@ copies; no mutation was made to the developer checkout.
 27/27 passed. The fresh expanded read returned ten projects; see
 [operating visibility](../research/2026-11-01-operating-visibility.md).
 
-Integrated focused, full-gate and typecheck outcomes are recorded below when
-complete. No live paid climb, workflow dispatch, hosted activation or consumer
+Integrated validation outcomes are recorded below. No live paid climb, workflow dispatch, hosted activation or consumer
 installation is claimed by this repair.
 
 ## Limits and follow-through
@@ -104,3 +103,15 @@ execution. Agent policy, off/no-secret and publication guards were preserved.
 Targeted sibling tests passed 4/4; the off test passed plainly and under injected
 stalls. The failed full gate remains retained, not relabeled as passing. Its
 hygiene block reported no flaky or slower tests.
+
+## Final local checkpoint
+
+On 2026-11-01, `npm run check` completed with exit 0 on the working tree
+committed as `d6a135b2`: 3,913 passed, five skipped, zero failed (3,918 total).
+The outer ledger receipt records status 0 and 358,915 ms. Injected-stall checks
+passed, seed 1686212897; hygiene reported no flaky or slower tests. Roadmap,
+render (100 targets) and inbox guards passed. `npm run typecheck` exited 0.
+The preceding failed gate remains historical evidence.
+
+This follow-up changes source records only and uses `plates-source-records-v1`
+against `d6a135b2`; it does not claim another full gate or live scheduled proof.

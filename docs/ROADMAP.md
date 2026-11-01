@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**62 of 148 phases built; 62 owe a walk.** Built means implemented and checked; planned is not available.
+**62 of 148 phases built; 63 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -195,7 +195,7 @@ A lesson learned in any project, or a practice improved upstream, reaches plates
 
 Without anyone remembering, each project is measured nightly, dependencies move in reviewed lanes, and anything red reaches a person.
 
-9/29 built; 16 owe a walk.
+9/29 built; 17 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -227,7 +227,7 @@ Without anyone remembering, each project is measured nightly, dependencies move 
 | [92. Feedback names the result the owner reviewed](phases/92-feedback-names-the-result-reviewed.md) | built | 2026-10-21 | [54](phases/54-the-robot-an-agent-works-the-issues-it-is-handed.md), [91](phases/91-ideas-become-plans-with-attributed-choices.md) | Private exact-result feedback, reviewed issue/shaping handoffs and metadata board proven locally and through a packed adopted project; hosted walks remain phase 98. |
 | [114. Complete consumer attestations support exact-head reuse](phases/114-complete-consumer-attestations-support-exact-head-reuse.md) | partial | 2026-10-23 | [112](phases/112-ledger-validates-core-and-web-independently.md), [113](phases/113-isocan-stalled-installation-leaves-bounded-evidence.md) | Source shadow validator has focused proof; integrated checkpoint/review and real consumer producers remain pending. No gate or reuse defaults changed. |
 | [116. Each plate verifies itself and the fleet checks coverage](phases/116-each-plate-verifies-itself-and-the-fleet-checks-coverage.md) | built | 2026-10-23 | [15](phases/15-projects-run-on-their-own.md), [26](phases/26-reconciliation.md), [70](phases/70-a-phase-being-built-is-claimed-and-plates-next.md) | Each plate owns verification; the fleet reads revision-bound evidence without rerunning project gates. |
-| [155. Climb admits useful measured work before spending its night](phases/155-climb-admits-useful-measured-work-before.md) | partial | 2026-11-01 | [35](phases/35-a-project-can-send-an-agent-to-climb-one-number.md), [43](phases/43-each-budgeted-pass-shows-what-it-used.md) | A 54-minute baseline-only night exposed an infeasible comparison; repair admission and explain outcomes before another run. |
+| [155. Climb admits useful measured work before spending its night](phases/155-climb-admits-useful-measured-work-before.md) | partial, walk owed | 2026-11-01 | [35](phases/35-a-project-can-send-an-agent-to-climb-one-number.md), [43](phases/43-each-budgeted-pass-shows-what-it-used.md) | Local admission, interruption and regression proof pass; observe the next scheduled run after reviewed installation. |
 
 - **10 done when:** Plates and one adopted project each run `plates-night.yml` nightly for a week, each night leaving at most one open machine PR, with Renovate's lanes active and a red run reaching the owner by email.
 - **11 done when:** `plates improve` writes `docs/health/<date>.md` with deterministic measures and one proposal, changes nothing else, and its self-test fails on a fixture built to be unhealthy.

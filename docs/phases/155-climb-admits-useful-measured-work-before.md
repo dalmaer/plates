@@ -1,10 +1,11 @@
 ---
 status: partial
+owes: walk
 since: 2026-11-01
 goal: G4
 spec: 2
 depends: [35, 43]
-note: "A 54-minute baseline-only night exposed an infeasible comparison; repair admission and explain outcomes before another run."
+note: "Local admission, interruption and regression proof pass; observe the next scheduled run after reviewed installation."
 evidence: ["evidence/2026-11-01-climb-useful-work.md"]
 ---
 
@@ -22,10 +23,12 @@ Use measured wall duration for feasibility, including benchmarks whose output is
 
 ## Acceptance
 
-- [ ] A slow first probe prevents the remaining baseline runs and model invocation, preserving an actionable receipt: `tests/climb-admission.test.mjs`.
-- [ ] A feasible probe completes normal sampling; benchmark values are not treated as elapsed time; smaller planned allowances are respected: `tests/climb-admission.test.mjs`.
-- [ ] Workflow and brief preserve the configured authority and distinguish baseline, agent and total duration: `tests/workflows.test.mjs`.
-- [ ] The source uses a bounded focused test measurement while its full validation remains unchanged; evidence names scope and limitations: `node --import ./tests/helpers/hermetic.mjs --test tests/improve.test.mjs` and `tests/climb-guard.test.mjs`.
+- [x] A slow first probe prevents the remaining baseline runs and model invocation, preserving an actionable receipt: `tests/climb-admission.test.mjs`.
+- [x] A feasible probe completes normal sampling; benchmark values are not treated as elapsed time; smaller planned allowances are respected: `tests/climb-admission.test.mjs`.
+- [x] Workflow and brief preserve the configured authority and distinguish baseline, agent and total duration: `tests/workflows.test.mjs`.
+- [x] The source uses a bounded focused test measurement while its full validation remains unchanged; evidence names scope and limitations: `node --import ./tests/helpers/hermetic.mjs --test tests/improve.test.mjs` and `tests/climb-guard.test.mjs`.
+
+- [ ] Observe a real scheduled run after reviewed installation with `gh run view <run-id> --repo dalmaer/plates --log`: inspect admission, baseline/agent duration, measured attempts and any candidate; retain blocked evidence if no candidate can be evaluated.
 
 ## Proof
 
@@ -41,4 +44,8 @@ The provider's final explanation was not retained in the downloaded artifacts. D
 
 ## Next action
 
-Implement admission and regression proof, then review the focused benchmark and existing operating views against real source evidence.
+Review and install the repair, then inspect the next scheduled climb without an extra paid dispatch. Record its admission, measured attempts and outcome; use the operating audit to complete existing hosted walks rather than claiming deployment from local tests.
+
+## Trajectory
+
+- **2026-11-01** — The long night was baseline work, not prolonged agent execution. Budget admission now uses independent wall duration; review added durable pending receipts and unconditional finalization so interrupted probes remain visible. Local proof passes; scheduled usefulness remains open.
