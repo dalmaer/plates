@@ -27,6 +27,21 @@ test('twenty terminal receipts yield evaluated inconclusive, read-only approval 
  revision.proposal.hypothesis='Acme revised hypothesis after measured limits.';const revised=(await w.call('revise',revision,{previous:result,apply:true})).result;assert.equal(revised.status,'proposed');assert.deepEqual(await inventory(join(w.dir,'reports')),reports);assert.deepEqual(evaluation(revised),r);
  const legacy=run(process.execPath,[join(w.app,'bin/plates.mjs'),'learn','decide','2026-10-24-acme','accepted','--yes','--json'],{cwd:w.repo,env:w.env});assert.equal(legacy.status,2);
 });
+test('frozen V1 screening receipts remain readable without current comparison recovery diagnostics',async t=>{
+ const w=await screeningWorld(t);await syntheticTerminalReceipts(w,{recovery:true});
+ const p=await w.evaluate();await apply(w,p);
+ const file=join(w.dir,'reports',(await readdir(join(w.dir,'reports')))[0]),before=await readFile(file);
+ const retained=JSON.parse(before),ledger=await w.load('evaluation-ledger'),screening=await w.load('evaluation-screening');
+ const inspected=await ledger.evaluations({...w.options,action:'inspect',experiment:w.b.comparison.id});
+ assert.equal(Object.hasOwn(retained.report,'recovery'),false);
+ assert.deepEqual(screening.validateReportReceipt(retained,inspected.receipt),retained);
+ assert.deepEqual(await screening.inspectReports(w.dir,inspected.receipt),[retained]);
+ const current=await ledger.evaluations({...w.options,action:'compare',experiment:w.b.comparison.id});
+ assert.equal(current.report.recovery.authorizesMutation,false);
+ const expanded={...retained.report,recovery:current.report.recovery};
+ assert.throws(()=>screening.validateReportReceipt(sealRecord({...retained,report:expanded,reportDigest:fingerprint(expanded)}),inspected.receipt));
+ assert.deepEqual(await readFile(file),before);
+});
 test('missing slots, active locks, stale evidence and malformed chain cannot be screened',async t=>{
  const w=await screeningWorld(t);await syntheticTerminalReceipts(w,{omitLast:true});await assert.rejects(w.evaluate(),/terminal_slots/);
  const lock=join(w.options.state,'session-trials','.lock');await writeFile(lock,'',{mode:0o600});await assert.rejects(w.evaluate(),/writer not inactive/);assert.equal(await readFile(lock,'utf8'),'');await rm(lock);

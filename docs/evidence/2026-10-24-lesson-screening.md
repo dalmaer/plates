@@ -100,3 +100,20 @@ The test ledger reported no flaky or slower tests (30 retained runs, 15 busy
 runs omitted). Log: /tmp/plates-phase122-check.log. This observation names the
 implementation tree above; subsequent record-only changes reconcile the result.
 Typecheck exited 0 as separately recorded. Exact-head CI/review remain separate.
+
+## Current-main compatibility correction — 1 November 2026
+
+The phase119 recovery projection added an inspection-only field to the shared
+comparison report. Integrating it with this phase initially changed the strict
+V1 sealed receipt shape. The correction preserves `summarizeComparisonV1` for
+immutable screening receipts and adds recovery only through current inspection.
+No retained report or acceptance record is rewritten.
+
+`node --import ./tests/helpers/hermetic.mjs --test
+tests/evaluation-comparison-report.test.mjs tests/lesson-screening.test.mjs`
+passed 31 tests, with no skips (exit 0; `/tmp/phase122-v1-targeted.log`).
+A temporary-copy negative control restored both staged pre-fix production
+modules: both new regressions failed, on the unexpected recovery field and
+strict receipt validation, not import errors (`/tmp/phase122-v1-negative.log`).
+This establishes compatibility behavior, not paid-agent improvement. The final
+integrated checkpoint and exact-head review remain required.
