@@ -52,7 +52,7 @@ Retention duration is an owner setting with safe bounds. Public export remains s
 
 ## Next action
 
-Obtain the fresh Vercel authenticator code for hosted migrations. Approve a private `keel-captures` bucket in the existing Supabase project, 90-day retention and a 256 MiB application cap; verify hosted storage/roles/concurrency and serving revision, then complete the owner captured-addition walk. No paid upgrade or public export is included.
+Obtain the fresh Vercel authenticator code for hosted migrations. Approve a private `plates-captures` bucket in the existing Supabase project, 90-day retention and a 256 MiB application cap; verify hosted storage/roles/concurrency and serving revision, then complete the owner captured-addition walk. No paid upgrade or public export is included.
 
 ## Trajectory
 

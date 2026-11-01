@@ -441,3 +441,34 @@ test('historical Keel measurement fences remain executable evidence without rewr
   assert.equal(cli(root).data.records.length, 1);
   assert.equal(await readFile(file, 'utf8'), original);
 });
+
+test('measurement aliases read independent historical and current records in one body', async t => {
+  const root = await fixture(t);
+  const path = join(root, 'docs/evidence/acme.md');
+  for (const name of ['plates-measurements', 'keel-measurements']) {
+    await writeFile(path, fence([record()]).replace('plates-measurements', name));
+    assert.equal(cli(root).code, 0);
+  }
+  const current = fence([record({ id: 'current' })]);
+  const legacy = fence([record({ id: 'historical' })]).replace('plates-measurements', 'keel-measurements');
+  for (const text of [current + legacy, legacy + current]) {
+    await writeFile(path, text);
+    const result = cli(root);
+    assert.equal(result.code, 0);
+    assert.deepEqual(result.data.records.map(r=>r.id).sort(), ['current','historical']);
+  }
+  await writeFile(path, '# Earlier\n' + legacy + '# Later\n' + current);
+  assert.deepEqual(cli(root).data.records.map(r=>r.id), ['historical','current']);
+});
+
+
+test('measurement preview requires each canonical alias fallback independently', async t => {
+ const {fenceMutant}=await import('./helpers/names.mjs');
+ const root=await fixture(t);
+ for(const name of ['plates-measurements','keel-measurements']) {
+  await writeFile(join(root,'docs/evidence/acme.md'),fence([record()]).replace('plates-measurements',name));
+  assert.equal((await rederive({root,phase:'64'})).data.records.length,1);
+  const mutant=await fenceMutant(new URL('../lib/evidence.mjs',import.meta.url),'fence:keel-measurements',name);
+  await assert.rejects(mutant.rederive({root,phase:'64'}),/no explicit plates-measurements records/,name);
+ }
+});

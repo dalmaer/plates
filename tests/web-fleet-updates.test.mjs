@@ -1,3 +1,4 @@
+import { nameBaseline } from './helpers/web-name-baseline.mjs';
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -639,4 +640,28 @@ test("ejected project-owned targets remain visible in version comparison", async
       (f) => f.path === "docs/custom.md" && f.state === "ejected",
     ),
   );
+});
+
+
+// Shipped writes Plates-Update-Operation; the held rollback baseline must find that PR,
+// and shipped source must find a PR the baseline wrote under Keel-Update-Operation.
+test('shipped and rollback update markers recover original uncertain PRs across releases', async t => {
+  const rollback = await nameBaseline(t, { cookies: false, markers: true });
+  for (const shippedWrites of [true,false]) {
+    const h = await fleetUpdatesHarness(), shipped = h.fleet;
+    const held = rollback.fleet.createFleetUpdates(h.config, { fetcher: h.fetcher, now: () => h.state.now, resolveInitiator: h.auth.resolveInitiator });
+    h.fleet = shippedWrites ? shipped : held;
+    const s = await prepared(h), p = await publication(h, s);
+    h.remote.lost = 'pulls';
+    let pending = await publish(h, p);
+    for (let i=0; i<30 && pending.state !== 'uncertain'; i++) pending = await h.fleet.continuePublication(h.access, token, pending.id, opts(h));
+    assert.equal(pending.state, 'uncertain'); assert.equal(h.remote.prs.length, 1);
+    const body = h.remote.prs[0].body;
+    assert.ok(body.includes(`${shippedWrites ? 'Plates' : 'Keel'}-Update-Operation: ${p.requestId}`));
+    const count = h.remote.writes.length;
+    h.fleet = shippedWrites ? held : shipped;
+    const recovered = await h.fleet.reconcile(h.access, token, pending.id, opts(h));
+    assert.equal(recovered.state, 'committed'); assert.equal(h.remote.writes.length, count);
+    assert.equal(h.remote.prs.length, 1); assert.equal(h.remote.prs[0].body, body);
+  }
 });

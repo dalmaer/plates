@@ -13,6 +13,49 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  reconciliation:
+    name: Reconcile GitHub records
+    if: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: read
+    outputs:
+      producer_attempt: ${{ steps.observe.outputs.producer_attempt }}
+      artifact_id: ${{ steps.archive.outputs.artifact-id }}
+      artifact_digest: ${{ steps.archive.outputs.artifact-digest }}
+      result_digest: ${{ steps.observe.outputs.digest }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.22.1
+      - name: Observe pull requests
+        id: observe
+        env:
+          PLATES_RECONCILE_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          GH_TOKEN: ${{ github.token }}
+          PLATES_RECONCILE_TOKEN: ${{ secrets.PLATES_RECONCILE_TOKEN }}
+        run: node scripts/plates/reconcile-actions.mjs --produce
+      - name: Keep reconciliation result
+        id: archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: plates-reconciliation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/result.json
+          if-no-files-found: error
+          retention-days: 1
+      - name: Reconciliation verdict
+        env:
+          STATUS: ${{ steps.observe.outputs.status }}
+        run: exit "$STATUS"
+
   check:
     runs-on: ubuntu-latest
     permissions:
@@ -49,8 +92,13 @@ jobs:
       - name: Run the configured gate
         env:
           GH_TOKEN: ${{ github.token }}
+          RECORD_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          RECORD_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          if [ -f scripts/plates/gate.mjs ]; then
+          SELF=$(node -e 'const c=JSON.parse(require("fs").readFileSync(".plates/plates.json","utf8"));console.log(c.plates === "self" ? "true" : "false")')
+          if [ "$SELF" = true ]; then
+            node scripts/check-records.mjs --policy plates-source-records-v1 --base "$RECORD_BASE" --head "$RECORD_HEAD" --json
+          elif [ -f scripts/plates/gate.mjs ]; then
             node scripts/plates/gate.mjs --ci
           elif [ -f scripts/plates/test-ledger.mjs ]; then
             node scripts/plates/test-ledger.mjs --gate
@@ -81,7 +129,4 @@ jobs:
             node scripts/plates/reconcile.mjs --json
             # The PR's keel-impact declaration is plates-impact.yml's, so an
             # changed description is re-checked without re-running this gate.
-            if [ "$EVENT" = push ] && [ "$BRANCH" = "$DEFAULT_BRANCH" ]; then
-              node scripts/plates/reconcile.mjs --github --json
-            fi
           fi

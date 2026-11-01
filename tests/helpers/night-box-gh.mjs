@@ -23,7 +23,11 @@ const fail = (why, code = 1) => { process.stderr.write(`${why}\n`); process.exit
 const pick = rows => { const f = opt('--json'); return f ? rows.map(r => Object.fromEntries(f.split(',').map(k => [k, r[k] ?? null]))) : rows; };
 const repo = opt('--repo') ?? 'acme/anvils';
 
-if (a[0] === 'issue' && a[1] === 'list') {
+if (a[0] === 'api' && a[1] === '/repos/acme/anvils') {
+  out({ id: 7, full_name: 'acme/anvils' });
+} else if (a[0] === 'api' && a[1] === '/repos/acme/anvils/labels?per_page=100&page=1') {
+  out([{ id: 11, name: 'keel:morning' }]);
+} else if (a[0] === 'issue' && a[1] === 'list') {
   const label = opt('--label'), state = opt('--state') ?? 'open';
   const rows = s.issues.filter(i => i.label === label && (state === 'all' || i.state === state.toUpperCase()));
   out(pick(rows));
@@ -57,10 +61,12 @@ if (a[0] === 'issue' && a[1] === 'list') {
   if (!p) fail(`no pull request #${a[2]}`);
   p.body = input;
   save();
-} else if (a[0] === 'api' && /^repos\/[^/]+\/[^/]+\/contents\/\.keel\/night\/plan\.json\?ref=keel-night-plan$/.test(a.at(-1))) {
+} else if (a[0] === 'api' && /^repos\/[^/]+\/[^/]+\/contents\/\.(?:plates|keel)\/night\/plan\.json\?ref=(?:plates|keel)-night-plan$/.test(a.at(-1))) {
   // The contents API on the plan branch: the bare origin's own bytes, or GitHub's 404.
   let text;
-  try { text = execFileSync('git', ['--git-dir', ORIGIN, 'show', 'refs/heads/keel-night-plan:.keel/night/plan.json'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }); }
+  const url=new URL(a.at(-1),'https://api.github.com');
+  const path=url.pathname.split('/contents/')[1], branch=url.searchParams.get('ref');
+  try { text = execFileSync('git', ['--git-dir', ORIGIN, 'show', `refs/heads/${branch}:${path}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }); }
   catch { fail('gh: Not Found (HTTP 404)'); }
   process.stdout.write(text);
 } else {

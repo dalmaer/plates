@@ -45,7 +45,7 @@
 import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { isMain, main, gateWorkflowOf } from './lib.mjs';
+import { environmentValue, isMain, main, gateWorkflowOf } from './lib.mjs';
 import { deliveryOf, promoteRefOf, DeliveryError } from './delivery.mjs';
 import { ciResult } from './gate.mjs';
 import { verify, verifyText, WITHIN, EVERY } from './verify.mjs';
@@ -60,7 +60,7 @@ const short = s => (s ? s.slice(0, 7) : 'nothing');
 export class PromoteError extends DeliveryError {}
 
 function git(root, env, args) {
-  const r = spawnSync(env.PLATES_GIT || 'git', args, { cwd: root, env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 120_000 });
+  const r = spawnSync(environmentValue('variable:KEEL_GIT', env) ?? 'git', args, { cwd: root, env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 120_000 });
   if (r.error) throw new PromoteError(`could not run git: ${r.error.message}`, 1);
   return r;
 }

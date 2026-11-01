@@ -36,7 +36,7 @@ test('--report writes the page to .plates/plates.json `health`; an ignored healt
   const mine = run(process.execPath, ['scripts/plates/improve.mjs', '--report', '--json'], { cwd: dir, env });
   const data = JSON.parse(mine.stdout);
   assert.match(data.report, /^\.plates\/health\/\d{4}-\d{2}-\d{2}\.md$/, mine.stdout);
-  assert.match(await readFile(join(dir, data.report), 'utf8'), /^<!-- keel:health-report:begin [a-f0-9]{64} -->\n# Health — /);
+  assert.match(await readFile(join(dir, data.report), 'utf8'), /^<!-- plates:health-report:begin [a-f0-9]{64} -->\n# Health — /);
   assert.ok(!(await readdir(join(dir, 'docs'))).includes('health'), 'nothing in the default dir');
   assert.ok(!byId(data, 'lint').facts.lint.some(l => l.rule === 'health-ignored'));
   const full = plates(['improve', '--report', '--json'], dir, env).json();
@@ -145,7 +145,7 @@ test('machine_prs: renovate/ holds four, one per lane of plates\'s renovate.json
   const lanes = n => Array.from({ length: n }, (_, i) => `renovate/lane-${i}`);
   const two = await prsOn(t, lanes(2));
   assert.equal(two.state, 'ok', JSON.stringify(two));
-  assert.match(two.detail, /^keel\/ 0, keel-night\/ 0, keel-loop\/ 0, renovate\/ 2$/);
+  assert.match(two.detail, /^plates\/ 0, plates-night\/ 0, plates-loop\/ 0, renovate\/ 2$/);
   const four = await prsOn(t, lanes(4));
   assert.equal(four.state, 'ok', JSON.stringify(four));
   assert.equal(four.value, 4);
@@ -156,7 +156,7 @@ test('machine_prs: renovate/ holds four, one per lane of plates\'s renovate.json
   // A renovate queue that is fine does not hide a plates queue that is not.
   const both = await prsOn(t, [...lanes(3), 'keel-night/a', 'keel-night/b']);
   assert.equal(both.state, 'outside');
-  assert.equal(both.facts.worst, 'keel-night/');
+  assert.equal(both.facts.worst, 'plates-night/');
 });
 
 test('machine_prs: a project with its own Renovate config reports renovate/ as information, not judged', async t => {

@@ -51,7 +51,7 @@ on:
   workflow_dispatch: {}
 
 concurrency:
-  group: keel-tend
+  group: plates-tend
   cancel-in-progress: false
 
 # Each job asks for its own; nothing is granted by default.
@@ -234,6 +234,11 @@ jobs:
             echo
             cat .plates/tend/pass.json
           } > "$RUNNER_TEMP/prompt.md"
+          if [ -f "$RUNNER_TEMP/plates/scripts/plates/autonomy-context.mjs" ] && [ -f "$RUNNER_TEMP/plates/scripts/plates/autonomy-policy.mjs" ]; then
+            node "$RUNNER_TEMP/plates/scripts/plates/autonomy-context.mjs" --root "$PWD" --repository "$GITHUB_REPOSITORY" --revision "$GITHUB_SHA" --role builder >> "$RUNNER_TEMP/prompt.md"
+          else
+            printf '\nProject autonomy context unavailable; existing task and role gates still apply.\n' >> "$RUNNER_TEMP/prompt.md"
+          fi
           if [ "$AGENT" = codex ]; then
             {
               echo
@@ -250,6 +255,9 @@ jobs:
             echo "started=$(date +%s)"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Telemetry
+        if: steps.pick.outputs.run == 'yes'
+        run: echo "telemetry off (.plates/plates.json names no telemetry endpoint)"
       # The agent, time-boxed to the budget. Its tools cannot push, merge,
       # delete through git, or reach gh, and the token it is given reads. A
       # timeout is not red: what it committed before the box closed is guarded.
@@ -623,7 +631,7 @@ jobs:
           node scripts/plates/climb.mjs sandbox --base "$GITHUB_SHA" --head "$head" --job tend
           # The branch is this workflow's alone; a re-run the same day replaces
           # its own pass, so force is safe here and nowhere else.
-          git push --force origin "$head:refs/heads/keel-tend/$DAY"
+          git push --force origin "$head:refs/heads/plates-tend/$DAY"
           if ! gh pr list --state open --head "$BRANCH" --json number --jq '.[0].number' | grep -q .; then
             code=0
             out=$(gh pr create --base "$BASE" --head "$BRANCH" --title "plates tend: $DAY" --body-file "$RUNNER_TEMP/pass/body.md" 2>&1) || code=$?

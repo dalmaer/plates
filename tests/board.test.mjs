@@ -194,6 +194,20 @@ test('a PR past its review-round limit is the owner\'s item, with the round coun
   assert.deepEqual([item.kind, item.source, item.read, item.link, item.rounds, item.limit, item.open], ['review', 'reviews', 'plates review acme/app#7', 'u7', 3, 3, 3]);
   assert.match(item.why, /^Acme anvils\. The review reached its limit, so no more fixes are pushed\. Choose: merge with the rest tracked \(1 to fix first, 1 to track, 1 unsorted\), split it, or close it\.$/);
   assert.match(by['acme/app#10: review round 5 of 3, 0 open findings'].why, /^Someone else's PR \(pkinlan\)/);
+  // Phase 133: with the findings read, a PR whose first three rounds made progress is extended once; one that repeats is marked.
+  const judged = { prs: [], rounds: [
+    { number: 11, title: 'Acme magnets', url: 'u11', author: 'acme-owner', rounds: 3, open: 0, fixFirst: 0, track: 0, unsorted: 0,
+      findings: [{ round: 1, path: 'a.js', line: 1, severity: 1 }, { round: 1, path: 'b.js', line: 1, severity: 2 }, { round: 2, path: 'c.js', line: 1, severity: 2 }, { round: 3, path: 'd.js', line: 1, severity: 3 }] },
+    { number: 12, title: 'Acme glue', url: 'u12', author: 'acme-owner', rounds: 3, open: 1, fixFirst: 0, track: 0, unsorted: 1,
+      findings: [{ round: 1, path: 'a.js', line: 1, severity: 2 }, { round: 2, path: 'a.js', line: 3, severity: 2 }, { round: 3, path: 'b.js', line: 1, severity: 3 }] },
+    { number: 13, title: 'Acme tunnel', url: 'u13', author: 'acme-owner', rounds: 6, open: 0, fixFirst: 0, track: 0, unsorted: 0,
+      findings: [{ round: 1, path: 'a.js', line: 1, severity: 1 }, { round: 1, path: 'b.js', line: 1, severity: 2 }, { round: 2, path: 'c.js', line: 1, severity: 2 }, { round: 3, path: 'd.js', line: 1, severity: 3 },
+        { round: 4, path: 'a.js', line: 1, severity: 3 }, { round: 5, path: 'a.js', line: 1, severity: 3 }, { round: 6, path: 'a.js', line: 1, severity: 3 }] }] };
+  const j = await reviewItems([{ repo: 'acme/app' }], { today: TODAY, me: 'acme-owner', read: async () => judged });
+  assert.deepEqual(j.items.map(i => [i.waits, i.title, i.limit]), [
+    ['owner', 'acme/app#12: review round 3 of 3 (stopped: repeating), 1 open finding', 3],
+    ['owner', 'acme/app#13: review round 6 of 6 (extended: progress), 0 open findings', 6],
+  ], '#11 made progress and is under its extended limit, so it is no one\'s item');
   // The repo's own limit: "review": {"rounds": 2} brings #8 to the owner too; 5 leaves only #10 past it.
   const tight = await reviewItems([{ repo: 'acme/app', rounds: 2 }], { today: TODAY, me: 'acme-owner', read: async () => state });
   assert.ok(tight.items.some(i => i.waits === 'owner' && i.title === 'acme/app#8: review round 2 of 2, 1 open finding'));
@@ -287,7 +301,9 @@ test('the repo-wide read counts each open PR\'s rounds and sorts its open findin
   const got = unansweredPrs(repository, [], TODAY);
   // Found today, so the day-old count has none of them; the rounds do. A merged PR has no loop left to stop.
   assert.deepEqual(got.prs, []);
-  assert.deepEqual(got.rounds, [{ number: 7, title: 'Acme 7', url: 'u7', author: 'acme-owner', rounds: 3, open: 3, fixFirst: 1, track: 1, unsorted: 1 }]);
+  // The findings travel with it (phase 133), so the board can judge the limit from the same read. These threads name no path.
+  const findings = [1, 2, 3, 3].map(round => ({ round, path: null, line: null, severity: null }));
+  assert.deepEqual(got.rounds, [{ number: 7, title: 'Acme 7', url: 'u7', author: 'acme-owner', rounds: 3, findings, open: 3, fixFirst: 1, track: 1, unsorted: 1 }]);
 });
 
 test('a source that cannot be read is n/a with why, never missing', async () => {
@@ -1144,7 +1160,7 @@ test('a failed verify of production is the owner\'s item on the board; a passed 
   assert.match(data.sources.at(-1).why, /passed$/);
   // Unreadable: n/a with why.
   data = await board({ root }, { ...deps(root), verify: async () => ({ results: [], unread: 'git ls-remote exited 128' }) });
-  assert.deepEqual(data.sources.at(-1), { source: 'verify', state: 'n/a', why: 'the verify record (keel-verify) could not be read: git ls-remote exited 128' });
+  assert.deepEqual(data.sources.at(-1), { source: 'verify', state: 'n/a', why: 'the verify record (plates-verify) could not be read: git ls-remote exited 128' });
   // The real read: origin's keel-verify branch, as verify.mjs --record leaves it.
   const g = (args, input) => execFileSync('git', ['-C', root, ...args], { input, encoding: 'utf8' }).trim();
   execFileSync('git', ['clone', '-q', '--bare', root, origin]);
@@ -1154,6 +1170,12 @@ test('a failed verify of production is the owner\'s item on the board; a passed 
   g(['push', '-q', 'origin', `${g(['commit-tree', tree, '-m', 'plates verify: failed'])}:refs/heads/keel-verify`]);
   data = await board({ root }, { ...deps(root), env: { ...process.env, PLATES_CACHE: join(root, '.cache-test') }, fresh: true });
   assert.deepEqual(verifyOf(data).map(i => i.title), ['production failed its verify for a1b2c3d']);
+  const passedBlob=g(['hash-object','-w','--stdin'],JSON.stringify({results:[passed]}));
+  const passedTree=g(['mktree'],`100644 blob ${passedBlob}\tverify.json\n`);
+  g(['push','-q','origin',`${g(['commit-tree',passedTree,'-m','Acme verify pass'])}:refs/heads/plates-verify`]);
+  data=await board({root},{...deps(root),env:{...process.env,PLATES_CACHE:join(root,'.cache-test')},fresh:true});
+  assert.deepEqual(verifyOf(data),[], 'newer plates production pass clears the old failed verify');
+
 });
 
 // PR #182 review: a passing preview (verify.mjs --site … --record) after a production failure cleared production's item.
@@ -1169,4 +1191,13 @@ test('a preview\'s pass never clears production\'s failed verify on the board; o
   assert.deepEqual((await verifyOf([r(preview, true, '2026-10-07T22:00:00Z'), failed])).map(i => i.title), ['production failed its verify for a1b2c3d'], 'a preview\'s pass is not production\'s');
   assert.deepEqual(await verifyOf([r(prod, true, '2026-10-07T23:00:00Z'), r(preview, true, '2026-10-07T22:00:00Z'), failed]), [], 'production\'s own pass clears it');
   assert.deepEqual(await verifyOf([r(preview, false, '2026-10-07T22:00:00Z')]), [], 'a preview\'s failure is the brief\'s, not a production item');
+});
+
+test('board recognizes each update namespace as one draft repair',async t=>{
+ for(const name of ['plates','keel']) {
+  const root=await acme();t.after(()=>rm(root,{recursive:true,force:true}));
+  const site=fleetData.rows[1], rows=[{...site,machinePrs:{total:1,queues:{},heads:[],drafts:[{number:12,head:`${name}/update-v0.8.21`}]}}];
+  const data=await board({root},{...deps(root),fleet:async()=>({rows})});
+  const items=data.items.filter(i=>i.kind==='update');assert.equal(items.length,1);assert.equal(items[0].waits,'broken');
+ }
 });

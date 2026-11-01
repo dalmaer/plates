@@ -1058,3 +1058,127 @@ test('live --off whose journal write after the binding is lost still retires, wh
     assert.equal(card.title, 'Acme: loop, renamed by a person');
   });
 });
+
+for (const namespace of ['plates', 'keel']) test(`phase128 canvas ${namespace} recorded family preserves conditional base and pending edit`, async t => {
+  const f = await liveFixture(t);
+  const manifest = await read(manifestPath(f.root));
+  const owned = manifest.items.pulse, pulse = await f.pulse();
+  // Synthetic pre-existing destination and its matching original receipt, never a migration write.
+  const properties = { ...pulse.properties };
+  for (const id of ['project', 'operation', 'hash', 'key']) {
+    const value = properties[`keel.${id}`]; delete properties[`keel.${id}`]; properties[`${namespace}.${id}`] = value;
+  }
+  pulse.properties = properties; owned.meta.properties = structuredClone(properties);
+  await writeFile(manifestPath(f.root), JSON.stringify(manifest));
+  await f.goLive();
+  const before = structuredClone(owned.meta);
+  f.remote.beforeEdit = async () => { throw new CanvasError('Acme uncertain delivery', 'transport', 1); };
+  await assert.rejects(f.publish(pulseAt(41)), { code: 'transport' });
+  const pending = (await read(manifestPath(f.root))).pending;
+  assert.deepEqual(pending.ifMeta, before);
+  assert.deepEqual(Object.keys(pending.properties).sort(), [`${namespace}.hash`, `${namespace}.operation`]);
+  f.remote.beforeEdit = null;
+  const result = await f.publish(pulseAt(41));
+  assert.equal(result.data.state, 'unchanged', 'pending edit landed, with no newer content to publish');
+  assert.equal(result.data.live[0].status, 'applied');
+  assert.equal(f.remote.adds, 2, 'no duplicate card');
+  assert.equal(f.remote.edits.length, 2);
+  const retry = f.remote.edits[1];
+  assert.equal(retry.operationId, pending.operationId);
+  assert.equal(retry.ifVersion, pending.ifVersion);
+  assert.deepEqual(retry.ifMeta, pending.ifMeta);
+  assert.deepEqual(retry.properties, pending.properties);
+  assert.equal(retry.sourceHash, pending.sourceHash);
+});
+for (const namespace of ['plates', 'keel']) test(`phase128 canvas ${namespace} lost add recovers original metadata without another add`, async t => {
+  const f = await fixture(t); await f.attach();
+  f.remote.afterAdd = async () => { throw new CanvasError('Acme lost answer', 'transport', 1); };
+  await assert.rejects(f.publish(cards()), { code: 'transport' });
+  const pending = (await read(manifestPath(f.root))).pending;
+  const item = [...f.remote.items.values()].find(item => item.properties['keel.operation'] === pending.operationId);
+  for (const id of ['project', 'operation', 'hash', 'key']) {
+    const value = item.properties[`keel.${id}`]; delete item.properties[`keel.${id}`]; item.properties[`${namespace}.${id}`] = value;
+  }
+  const original = structuredClone(item.properties);
+  f.remote.afterAdd = null;
+  assert.equal((await f.publish(cards())).data.state, 'published');
+  const recovered = (await read(manifestPath(f.root))).items[pending.key];
+  assert.equal(recovered.operationId, pending.operationId);
+  assert.equal(recovered.itemId, item.id);
+  assert.deepEqual(recovered.meta.properties, original);
+  assert.equal(f.remote.adds, 2, 'one per original card, no retry duplicate');
+});
+test('phase128 ambiguous canvas property families refuse adoption without rewriting a base', async t => {
+  const f = await liveFixture(t), pulse = await f.pulse();
+  pulse.properties['plates.project'] = 'other-project';
+  const before = await readFile(manifestPath(f.root), 'utf8');
+  await f.goLive();
+  await assert.rejects(f.publish(pulseAt(41)), { code: 'conflict' });
+  assert.equal(f.remote.edits.length, 0); assert.equal(f.remote.adds, 2);
+  assert.deepEqual((await read(manifestPath(f.root))).items, JSON.parse(before).items);
+});
+
+for (const namespace of ['plates', 'keel']) test(`phase128 canvas ${namespace} historical three-field lost add recovers without another add`, async t => {
+  const f = await fixture(t); await f.attach();
+  f.remote.afterAdd = async () => { throw new CanvasError('Acme lost answer', 'transport', 1); };
+  await assert.rejects(f.publish(cards()), { code: 'transport' });
+  const pending = (await read(manifestPath(f.root))).pending;
+  const item = [...f.remote.items.values()].find(item => item.properties['keel.operation'] === pending.operationId);
+  for (const id of ['project', 'operation', 'hash', 'key']) {
+    const value = item.properties[`keel.${id}`]; delete item.properties[`keel.${id}`]; item.properties[`${namespace}.${id}`] = value;
+  }
+  delete item.properties[`${namespace}.key`];
+  const original = structuredClone(item.properties);
+  f.remote.afterAdd = null;
+  let published;
+  await assert.doesNotReject(async () => { published = await f.publish(cards()); }, 'historical metadata must recover its original operation');
+  assert.equal(published.data.state, 'published');
+  const recovered = (await read(manifestPath(f.root))).items[pending.key];
+  assert.equal(recovered.operationId, pending.operationId);
+  assert.equal(recovered.itemId, item.id);
+  assert.deepEqual(item.properties, original, 'recovery preserves original remote bytes');
+  assert.equal(recovered.meta, undefined, 'incomplete metadata cannot become a conditional edit base');
+  assert.equal(f.remote.adds, 2, 'one per original card, no retry duplicate');
+});
+
+for (const namespace of ['plates', 'keel']) for (const conflict of ['mixed', 'duplicate', 'wrong-key', 'missing-hash']) test(`phase128 canvas ${namespace} historical recovery refuses ${conflict} metadata`, async t => {
+  const f = await fixture(t); await f.attach();
+  f.remote.afterAdd = async () => { throw new CanvasError('Acme lost answer', 'transport', 1); };
+  await assert.rejects(f.publish(cards()), { code: 'transport' });
+  const pending = (await read(manifestPath(f.root))).pending;
+  const item = [...f.remote.items.values()].find(item => item.properties['keel.operation'] === pending.operationId);
+  const old = item.properties;
+  item.properties = Object.fromEntries(['project', 'operation', 'hash'].map(id => [`${namespace}.${id}`, old[`keel.${id}`]]));
+  const other = namespace === 'plates' ? 'keel' : 'plates';
+  if (conflict === 'mixed') item.properties[`${other}.key`] = pending.key;
+  if (conflict === 'duplicate') item.properties[`${other}.operation`] = pending.operationId;
+  if (conflict === 'wrong-key') item.properties[`${namespace}.key`] = 'Acme-wrong-key';
+  if (conflict === 'missing-hash') delete item.properties[`${namespace}.hash`];
+  const before = await readFile(manifestPath(f.root), 'utf8'), adds = f.remote.adds, remote = structuredClone(item);
+  f.remote.afterAdd = null;
+  await assert.rejects(f.publish(cards()), { code: 'pending' });
+  assert.equal(await readFile(manifestPath(f.root), 'utf8'), before);
+  assert.deepEqual(item, remote); assert.equal(f.remote.adds, adds);
+});
+
+for (const namespace of ['plates', 'keel']) for (const shape of ['partial', 'mixed']) for (const stage of ['recovery', 'adoption-preview', 'adoption-sync']) test(`phase128 canvas ${namespace} ${stage} counts ${shape} duplicate operation`, async t => {
+  const f = stage === 'recovery' ? await fixture(t) : await liveFixture(t);
+  if (stage === 'recovery') {
+    await f.attach();
+    f.remote.afterAdd = async () => { throw new CanvasError('Acme lost answer', 'transport', 1); };
+    await assert.rejects(f.publish(cards()), { code: 'transport' });
+    f.remote.afterAdd = null;
+  }
+  if (stage === 'adoption-sync') await f.goLive();
+  const manifest = await read(manifestPath(f.root)), receipt = stage === 'recovery' ? manifest.pending : manifest.items.pulse;
+  const item = [...f.remote.items.values()].find(item => item.properties['keel.operation'] === receipt.operationId);
+  const other = namespace === 'plates' ? 'keel' : 'plates';
+  const duplicate = { ...structuredClone(item), id: 'item_acme_duplicate', properties: { [`${namespace}.operation`]: receipt.operationId } };
+  if (shape === 'mixed') duplicate.properties[`${other}.project`] = manifest.projectKey;
+  f.remote.items.set(duplicate.id, duplicate);
+  const before = await readFile(manifestPath(f.root), 'utf8'), config = await readFile(configPath(f.root), 'utf8'), remote = snapshotOf(f.remote), adds = f.remote.adds;
+  await assert.rejects(stage === 'adoption-preview' ? f.goLive() : f.publish(stage === 'recovery' ? cards() : pulseAt(41)), { code: stage === 'recovery' ? 'pending' : 'conflict' });
+  assert.equal(await readFile(manifestPath(f.root), 'utf8'), before);
+  assert.equal(await readFile(configPath(f.root), 'utf8'), config);
+  assert.equal(snapshotOf(f.remote), remote); assert.equal(f.remote.adds, adds); assert.equal(f.remote.edits.length, 0);
+});

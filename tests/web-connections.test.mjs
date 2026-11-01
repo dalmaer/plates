@@ -27,7 +27,7 @@ test("connection policy previews exact private bytes, conditionally commits, and
   assert.equal(p.files[0].path, "connections/acme-openai.json");
   assert.equal(
     p.commitMessage,
-    `Update Plates connection policy\n\nKeel-Operation: ${p.operationId}`,
+    `Update Plates connection policy\n\nPlates-Operation: ${p.operationId}`,
   );
   assert.equal(JSON.parse(p.files[0].content).secretRef.length, 64);
   const r = await h.connections.policyApply(h.access, token, p.previewId, {
@@ -544,7 +544,7 @@ test("duplicate policy submission reauthorizes before returning an existing priv
   const fetcher = async (url, opts) => {
     const response = await h.fetcher(url, opts);
     if (
-      url.endsWith("/keel_decision_rpc") &&
+      url.endsWith("/plates_decision_rpc") &&
       JSON.parse(opts.body).p_operation === "reserve"
     )
       h.state.members = [];
@@ -568,7 +568,7 @@ test("malformed metadata conflict is unavailable and cannot authorize a probe or
     seeded = await h.seedPolicy();
   const fetcher = async (url, opts = {}) => {
     if (
-      new URL(url).pathname === "/rest/v1/rpc/keel_connection_rpc" &&
+      new URL(url).pathname === "/rest/v1/rpc/plates_connection_rpc" &&
       JSON.parse(opts.body).p_operation === "metadata"
     )
       return Response.json({ conflict: true });
@@ -630,7 +630,7 @@ test("null mutation responses are malformed and only exact metadata can confirm 
   );
   const fetcher = async (url, opts = {}) => {
     if (
-      new URL(url).pathname === "/rest/v1/rpc/keel_connection_rpc" &&
+      new URL(url).pathname === "/rest/v1/rpc/plates_connection_rpc" &&
       JSON.parse(opts.body).p_operation === "put"
     )
       return Response.json(null);
@@ -652,7 +652,7 @@ test("null mutation responses are malformed and only exact metadata can confirm 
 });
 
 
-test("connection environment rename keeps explicit activation and absent-only legacy fallback", () => {
+test("connection environment rename keeps activation and refuses conflicting aliases", () => {
   const h = connectionsHarness();
   const canonical = Buffer.alloc(32, 103).toString("base64");
   const legacy = Buffer.alloc(32, 104).toString("base64");
@@ -664,8 +664,9 @@ test("connection environment rename keeps explicit activation and absent-only le
     PLATES_SESSION_ENCRYPTION_KEY: h.secrets.encryptionKey,
     KEEL_CONNECTION_ENCRYPTION_KEY: legacy,
   };
-  assert.deepEqual(configFromEnv({ ...env, PLATES_CONNECTION_ENCRYPTION_KEY: canonical }).connectionEncryptionKey, Buffer.from(canonical, "base64"));
+  assert.throws(() => configFromEnv({ ...env, PLATES_CONNECTION_ENCRYPTION_KEY: canonical }), /conflicting_names/);
+  assert.deepEqual(configFromEnv({ ...env, KEEL_CONNECTION_ENCRYPTION_KEY: undefined, PLATES_CONNECTION_ENCRYPTION_KEY: canonical }).connectionEncryptionKey, Buffer.from(canonical, "base64"));
   assert.deepEqual(configFromEnv(env).connectionEncryptionKey, Buffer.from(legacy, "base64"));
-  assert.throws(() => configFromEnv({ ...env, PLATES_CONNECTION_ENCRYPTION_KEY: "" }), { code: "invalid_service_configuration" });
+  assert.throws(() => configFromEnv({ ...env, PLATES_CONNECTION_ENCRYPTION_KEY: "" }), /conflicting_names/);
   assert.equal(configFromEnv({ ...env, PLATES_WEB_CONFIG: JSON.stringify(h.input) }).connections, undefined);
 });
