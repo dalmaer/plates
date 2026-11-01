@@ -368,6 +368,10 @@ It grants no evaluation execution, provider access or promotion authority.
   `plates review`, `plates walk`, `plates decision`.
 - **Lessons and learning:** `plates lessons`, `plates learn`, `plates retro`,
   `plates feedback`.
+  The evaluated-learning slice uses `--input` for the selected record,
+  `--manifest` and `--state` for its explicit private workspace, and `--digest`
+  for approval of the exact local preview; these flags do not grant provider
+  spend or production promotion.
 - **Health and night:** `plates improve`, `plates persona run`, `plates time`,
   `plates test`, `plates night plan`, `plates night tick`, `plates morning`,
   `plates goodnight`, `plates production`.
@@ -496,6 +500,9 @@ recovery, preserving completed attempts and unknown outcomes. Live provider
 execution, enforced provider spending and measured promotion remain pending.
 Phase 120 supplies six historically grounded development cases through bounded
 inspection/export, preserving provenance and separate acceptance materials.
+Phase 121 binds explicitly selected findings to immutable lesson/proposal history
+and actual frozen material plans in the existing inbox. Local preview approval
+does not execute a trial or establish promotion readiness.
 Case scope follows the actual historical failure surface; unsupported coverage
 stays explicit. Held-out coverage is zero. The offline boundary does not establish
 model efficacy.
