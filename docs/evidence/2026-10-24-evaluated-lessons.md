@@ -95,3 +95,11 @@ completed successfully at 2026-10-24T07:13:27Z. Typecheck, impact and review
 checks also passed. This supersedes the pending-review observation above,
 without changing acceptance or the phase-119 owner hold. The PR remains
 stacked and unmerged.
+
+## Source reconciliation — 1 November 2026
+
+[PR #251](https://github.com/dalmaer/plates/pull/251) merged as
+`ff31713c793ea65d9db5299315540d289ce37a27`. This observed source inclusion resolves the old
+integration/review next action; it does not establish live agent efficacy,
+production verification or lived-in acceptance. Historical test evidence above
+retains its original scope.

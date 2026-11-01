@@ -253,7 +253,10 @@ from the current default branch and must already exist at the exact candidate
 base. The verifier reads complete bounded review/tree/blob observations; only
 exact two-parent merge inclusion is supported. These commands never create a PR,
 merge, install instructions or establish production outcomes. No real policy is
-configured by this feature. The legacy inbox remains `proposed` for a promoted
+configured by this feature. Source verification supports at most 6,000 recursive Git tree
+entries across the entire repository; larger or truncated trees report an
+incomplete-tree refusal. Keep the original records and report verification unavailable;
+[expanding this bound requires reviewed work](../specs/lesson-promotion.md#whole-repository-verification-bound--1-november-2026). The legacy inbox remains `proposed` for a promoted
 lesson and a pending rollback; explicit promotion history never sets `accepted`.
 Rollback repair links retain stable issue IDs or phase filenames separately from
 current state. Comments, edits or closure update the observation; they do not

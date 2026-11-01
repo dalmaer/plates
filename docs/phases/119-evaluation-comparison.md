@@ -67,8 +67,8 @@ public preview/count/quote/run/reconcile operations, retaining original receipts
 and exact approval scopes. Then prepare the real compatibility/control comparison
 and request its exact provider transfer and bounded quote approval. Components
 and synthetic proof do not establish live efficacy. This remains an implementation
-gap, not `owes: walk`. Phases 120–122 are merged; phase 123 still awaits its
-review-limit decision and final merge.
+gap, not `owes: walk`. Phases 120–122 are merged; preserve their offline
+acceptance separately from the real comparison still required here.
 
 
 ## Trajectory

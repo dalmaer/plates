@@ -64,7 +64,7 @@ else if(args[0]==='exec'&&typeof code==='string'&&crypto.createHash('sha256').up
 });
 else {note('unexpected-command');process.exitCode=96;}
 `, { mode: 0o700 });
-  const execute = (callback, { timeout = 10000, waitAfter = 0, source = initial } = {}) => {
+  const execute = (callback, { timeout = 10000, controlledDeadline = false, source = initial } = {}) => {
     const script = join(root, 'controller.mjs');
     writeFileSync(script, `
     import {runLiveBuilder,preflightDocker} from ${JSON.stringify(moduleUrl)};
@@ -72,10 +72,33 @@ else {note('unexpected-command');process.exitCode=96;}
     const log=${JSON.stringify(log)}, work=${JSON.stringify(work)};
     const image=await preflightDocker({image:${JSON.stringify(imageId)},platform:'linux/arm64'});
     let calls=0;
+    // Keep setup on the real clock. Only after readiness can the test advance
+    // the host clock and deliver the actual timeout callback registered by the
+    // production Promise.race. Native AbortSignal timers remain independent.
+    const realNow=Date.now, realSetTimeout=globalThis.setTimeout, realClearTimeout=globalThis.clearTimeout;
+    const timers=[]; let clock=null;
+    if(${controlledDeadline}) {
+      Date.now=()=>clock??realNow();
+      globalThis.setTimeout=(callback,delay,...args)=>{
+        const handle=realSetTimeout(callback,delay,...args);
+        timers.push({callback,delay,args,handle}); return handle;
+      };
+    }
+    const expire=(context,fire)=>{
+      const events=readFileSync(log,'utf8').trim().split('\\n').map(JSON.parse);
+      if(events.at(-1).event!=='ready'||!Object.isFrozen(context.ready)||context.signal.aborted)
+        throw Error('deadline test did not reach live readiness');
+      if(timers.length!==1||timers[0].delay<=0||timers[0].delay>${timeout})
+        throw Error('expected the production host deadline timer');
+      clock=context.deadline+1;
+      appendFileSync(log,JSON.stringify({event:'callback-expired',fire})+'\\n');
+      if(fire) {realClearTimeout(timers[0].handle);timers[0].callback(...timers[0].args);}
+    };
     const result=await runLiveBuilder({name:'plates-eval-${'c'.repeat(32)}-builder',image,files:${JSON.stringify(source)},
       allowlist:['answer.mjs'],protectedPaths:['policy.txt'],deadline:Date.now()+${timeout},
       generate:async context=>{calls++;${callback}}});
-    await new Promise(resolve=>setTimeout(resolve,${waitAfter}));
+    Date.now=realNow; globalThis.setTimeout=realSetTimeout;
+    for(const timer of timers)realClearTimeout(timer.handle);
     console.log(JSON.stringify({result,calls}));
   `);
     return run(process.execPath, [script], { env: { PATH: bin, HOME: root, OPENAI_API_KEY: canary, ACTIONS_RUNTIME_TOKEN: canary }, timeout: timeout + 15000 });
@@ -127,13 +150,21 @@ test('live callback error is sanitized, attempted once and followed by confirmed
 test('live host await bounds never-resolving and late callbacks; neither can dispatch bridge after deadline', async t => {
   for (const late of [false, true]) {
     const f = await fixture(t);
+    // The never-resolving callback needs the host timeout itself. The late
+    // callback returns after clock expiry BEFORE that timer fires, independently
+    // exercising the post-await absolute deadline guard (signal still live).
     const callback = late
-      ? `return await new Promise(resolve=>setTimeout(()=>resolve(${JSON.stringify(envelope([]))}),Math.max(1,context.deadline-Date.now())+200));`
-      : 'return await new Promise(()=>{});';
-    const { result, calls } = receipt(f.execute(callback, { timeout: 1500, waitAfter: late ? 300 : 0 }));
-    assert.equal(calls, 1); assert.equal(result.error, 'deadline-exhausted');
+      ? `expire(context,false); return ${JSON.stringify(envelope([]))};`
+      : 'expire(context,true); return await new Promise(()=>{});';
+    const { result, calls } = receipt(f.execute(callback, { controlledDeadline: true }));
+    assert.equal(calls, 1); assert.equal(result.setup, 'passed');
+    assert.equal(result.error, 'deadline-exhausted');
+    const events = await f.events();
+    assert.equal(events.filter(e => e.event === 'callback-expired').length, 1);
+    assert.equal(events.find(e => e.event === 'callback-expired').fire, !late);
+    assert.equal(events.some(e => e.event === 'apply'), false, 'late callback dispatched the bridge');
+    assert.equal(result.output, null);
     assert.equal(result.generation, 'unknown'); assert.equal(result.termination.state, 'terminated');
-    assert.equal(result.output, null); assert.equal((await f.events()).some(e => e.event === 'apply'), false);
   }
 });
 

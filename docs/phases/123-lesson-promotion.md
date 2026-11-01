@@ -5,7 +5,7 @@ goal: G3
 spec: 2
 depends: [122]
 review: wait
-note: "Review packages and dormant source verification implemented; real readiness lacks provider, environment and delivery interfaces. Current dependency integration and exact-head review remain."
+note: "Review packages and dormant source verification implemented; real readiness still needs live screening, verified delivery and approved policy."
 evidence: ["evidence/2026-10-24-lesson-promotion.md"]
 ---
 
@@ -54,11 +54,10 @@ experiments, hosted activation and fleet schedules are not changed by this phase
 
 ## Next action
 
-Land the dependency PRs in order with current exact-head review and CI.
-Implement live provider/spend,
-per-case environment mapping and verified delivery routing before an exact bounded
-owner-approved screening; then configure approvers separately and observe the actual
-reviewed package. No automatic default or permission change is authorized.
+Complete supported live screening and verified installed delivery, then configure
+approvers separately and observe the actual reviewed package. Keep source
+inclusion, acceptance and production verification distinct. No automatic default
+or permission change is authorized.
 
 ## Trajectory
 

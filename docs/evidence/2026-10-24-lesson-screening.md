@@ -127,3 +127,11 @@ modules: both new regressions failed, on the unexpected recovery field and
 strict receipt validation, not import errors (`/tmp/phase122-v1-negative.log`).
 This establishes compatibility behavior, not paid-agent improvement. The final
 integrated checkpoint and exact-head review remain required.
+
+## Source reconciliation — 1 November 2026
+
+[PR #253](https://github.com/dalmaer/plates/pull/253) merged as
+`464588c7e2848f21485996791141329bf160c6c8`. This observed source inclusion resolves the old
+integration/review next action; it does not establish live agent efficacy,
+production verification or lived-in acceptance. Historical test evidence above
+retains its original scope.

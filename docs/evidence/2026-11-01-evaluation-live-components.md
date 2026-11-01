@@ -75,3 +75,29 @@ against the pre-fix module on arithmetic overflow, covering a single category,
 category sums and aggregate totals. Logs:
 `/tmp/phase119-spend-overflow-fixed-01.log` and
 `/tmp/phase119-spend-overflow-counterfactual-01.log`.
+
+## First hosted CI and deterministic deadline proof — 1 November 2026
+
+PR309 head `aad311491975b7a901df1d9de1646f7bf9c46a9b` passed the local full
+gate (4,068 tests, 12 opt-in skips, all ten timing checks) and received a Claude
+review with no findings. That review covered library changes closely but not
+tests or documentation; it does not establish those omitted checks.
+[Hosted CI](https://github.com/dalmaer/plates/actions/runs/41355709542)
+failed the live deadline test with zero callbacks instead of one. Its original
+log is retained at `/tmp/phase119-pr309-ci-failed.log` (SHA-256
+`18f3903583cc5422a176daebccd5cae668e504de43ba4ddc92b7f2277292c1e1`).
+
+A controlled 1,700ms setup delay reproduced the exact failure: the old 1,500ms
+absolute deadline expired during setup, before readiness. Production behavior
+was correct; the test assumed a setup speed. The revised fixture uses its normal
+setup allowance and advances its clock only after observed readiness. It invokes
+the actual registered timeout callback for nonresolving generation, and separately
+returns late output before that timer fires to test the post-await guard.
+
+The focused file passed five tests with one opt-in Docker skip; the delayed-setup
+control also passed. Disabling timeout rejection failed with unsettled await;
+removing the post-await guard failed with `late callback dispatched the bridge`.
+These independent controls prove both protections without relying on runner speed.
+Commands and unchanged-production hashes: `/tmp/phase119-live-deadline-proof.md`.
+No production code, source pin, provider request or paid trial changed. The original
+failed CI remains part of the record; the next exact-head gate must pass before merge.

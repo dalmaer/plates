@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { approvalWorld } from './helpers/learning-approval-github.mjs';
+import { run } from './helpers/run.mjs';
 import { validateLearningApproval,inspectLearningApprovalPolicy,verifyLearningMerge,validateLearningPolicyObservation,validateLearningMergeObservation } from '../lib/learning-approval-github.mjs';
 const copy=x=>structuredClone(x);
 const opts=w=>({env:w.env,deadline:Date.now()+30000});
@@ -51,4 +52,33 @@ test('shared bounded pagination requires all pages; fresh policy changes and mis
  w.routes[w.reviewsKey.replace('&page=1','&page=2')]=[];await w.save();await verifyLearningMerge(w.expected,opts(w));
  w.routes[w.prefix+'/git/ref/heads/main']={responses:[{ref:'refs/heads/main',object:{type:'commit',sha:w.merge}},{ref:'refs/heads/main',object:{type:'commit',sha:w.base}}]};await w.save();await assert.rejects(inspectLearningApprovalPolicy({repo:w.expected.repo},opts(w)),/source_changed/);
  delete w.routes[w.prefix];await w.save();await assert.rejects(inspectLearningApprovalPolicy({repo:w.expected.repo},opts(w)),/could not be read/);
+});
+test('full repository Git tree accepts 6000 entries and refuses 6001 independently of changed paths',async t=>{
+ const w=await approvalWorld(t),baseTree=w.routes[w.prefix+'/git/commits/'+w.base].tree.sha;
+ const blobOid=w.routes[w.prefix+'/git/trees/'+baseTree+'?recursive=1'].tree.find(e=>e.path==='acme.md').sha;
+ assert.equal(w.expected.changes.length,1); // The existing PR still changes one path.
+ for(const count of [6000,6001]){
+  // Flat, lexically sorted native Git tree bytes reuse one real blob. Two Git
+  // writes per boundary, not a subprocess or working-tree file per entry.
+  const entries=Array.from({length:count},(_,n)=>({path:`acme-${String(n).padStart(6,'0')}.txt`,mode:'100644',type:'blob',sha:blobOid}));
+  const bytes=Buffer.concat(entries.map(e=>Buffer.concat([Buffer.from(`${e.mode} ${e.path}\0`),Buffer.from(e.sha,'hex')])));
+  const hashed=run('git',['hash-object','-w','-t','tree','--stdin'],{cwd:w.repo,env:w.env,input:bytes});
+  assert.equal(hashed.status,0,hashed.stderr);const tree=hashed.stdout.trim();assert.match(tree,/^[a-f0-9]{40}$/);
+  const revision=w.git('commit-tree',tree,'-p',w.base,'-m',`Acme full repository ${count}`);
+  assert.equal(w.git('rev-parse',revision+'^{tree}'),tree);
+  w.routes[w.prefix+'/git/ref/heads/main']={ref:'refs/heads/main',object:{type:'commit',sha:revision}};
+  w.routes[w.prefix+'/git/commits/'+revision]={sha:revision,tree:{sha:tree},parents:[{sha:w.base}]};
+  const endpoint=w.prefix+'/git/trees/'+tree+'?recursive=1';
+  w.routes[endpoint]={sha:tree,truncated:false,tree:entries};await w.save();
+  if(count===6000){
+   const observed=await inspectLearningApprovalPolicy({repo:w.expected.repo},opts(w));
+   // The flat tree intentionally contains no policy. Successful inspection is
+   // accepted tree coverage, not configured governance or promotion authority.
+   assert.equal(observed.state,'not-configured');assert.equal(observed.policy,null);
+   assert.equal(observed.repository.defaultSha,revision);
+  }else await assert.rejects(inspectLearningApprovalPolicy({repo:w.expected.repo},opts(w)),{code:'incomplete_tree'});
+  const calls=(await w.calls()).trim().split('\n').map(line=>JSON.parse(line).at(-1));
+  assert.equal(calls.filter(path=>path===endpoint).length,count===6000?2:1);
+  assert.equal(calls.some(path=>path.includes('/pulls/')),false); // No changed-path/PR inspection supplies this bound.
+ }
 });
