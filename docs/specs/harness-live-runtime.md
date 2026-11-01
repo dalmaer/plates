@@ -92,3 +92,40 @@ provides input counting and includes non-visible tokens in the output cap.
 documents storage/retrieval, foreground generation and output bounds. These
 sources do not establish an account's prices, permissions or invoice ceiling;
 those remain explicit activation inputs.
+
+## Spend receipt storage extension
+
+Only new schema-3 experiments may retain a `spend` child beside existing
+`state.json`, `attachments`, `execution` and `reports`, inside the same experiment
+and retention budget. This is a typed extension of the existing ledger, not a
+second store. Schema-2 roots keep their exact allowlist. Missing/partial/foreign
+spend state is an explicit gap and blocks spending; it must never be ignored as
+an absent balance. Existing read-only inspection remains available with gaps.
+
+The spend component owns strict, hashed schema-1 records under `spend`:
+`reservation.json` binds the frozen plan, comparison ceiling and all planned
+trial ceilings; `operations/<id>/reservation.json` binds one trial, provider
+operation kind, exact public request/price/quote digests and maximum microUSD;
+`dispatch.json` authorizes that original operation; immutable numbered
+`observations/<sequence>.json` retain settlement observations with predecessor
+hashes. No arbitrary files or symlinks are accepted. IDs are validated before
+path construction. Reservation/publication uncertainty preserves the original
+identity and all holds. Repeating an identical operation recovers it; conflicting
+reuse refuses. Missing sequence/predecessor evidence is uncertain, never free.
+
+Use `withEvaluationWriter` and its verified writer context for mutations; a
+read-only inspector never acquires authority to dispatch. Verify frozen currency
+ceilings are non-null, positive and representable without increasing them.
+Reserve against both comparison and trial ceilings. The sum of new quoted
+operation maximums plus known spent and unresolved held amounts cannot exceed
+either. All-count/recovery/generation categories must have explicit supplied
+pricing evidence and bounds; unknown categories refuse admission. Price evidence
+is attributed input, not authentication or a claim that a public URL proves a
+rate. Exact approved quotes retain its source hash, date, model/tier and scope.
+
+Include every spend byte/event in existing retention accounting before writing.
+Conservatively reserve room for authorization and terminal-or-unknown observations
+before admitting an operation; lack of capacity refuses before its external
+effect. Never prune or rewrite receipts. Usage remains null when unknown; confirmed
+charges above a reservation are preserved as a breach and close further spend
+admission. Legacy offline execution does not consult or create spend state.

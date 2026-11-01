@@ -589,3 +589,19 @@ missing/duplicate/foreign mapping refusals, retained schema-2 compatibility and
 mismatched observed environments. The live adapter, enforced spending gateway,
 exact owner-approved screening and real historical case walk remain separate
 requirements; do not mark phase119 or phase122 complete from schema tests.
+
+### Versioned screening for per-case environments
+
+Schema-3 bundles must work through bind-plan, register-screening, execution,
+evaluate, retained-report read and package inspection. Their comparison projection
+is schemaVersion 2 (`summarizeComparisonV2`); their immutable evaluation-report
+envelope is schemaVersion 3; reporter `paired-screening-verifier` version 2 and
+method `paired-screening-v2` identify the algorithm. Retain each exact case
+reference and its complete frozen environment in the new projection. Criteria
+schema 1 and threshold meanings do not change. Readers select the exact recorded
+bundle/envelope/projection/reporter/method combination; mixed versions refuse.
+Keep existing V1 projection, envelope schema 2, reporter version 1 and method
+`paired-screening-v1` unchanged and readable. Prove retained bytes survive reopen,
+and that foreign mappings, changed observations and cross-version substitutions
+cannot become evaluated or ready-for-review authority. Offline schema-3 results
+remain inconclusive; a version change grants no agent efficacy.
