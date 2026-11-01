@@ -343,3 +343,10 @@ test('a run whose output passes the limit is killed, its whole group with it, an
     assert.ok(r.ms < 60_000);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
+
+for(const alias of ['PLATES','KEEL']) test(`phase128 PROVE_MUTANT_MS ${alias} bounds real finite mutants`,async t=>{
+ const tst=[...TESTHEAD,"import {value} from '../lib/value.mjs';","test('Acme value',()=>assert.equal(value,3));",''].join('\n');
+ const repo=await fixRepo(t,{base:{'lib/value.mjs':'export const value = 2;\n'},fix:{'lib/value.mjs':'export const value = 3;\n'},tests:{'tests/value.test.mjs':tst}});
+ const {j}=await mutate(repo,['tests/value.test.mjs','--fix','lib/value.mjs'],0,{env:{[`${alias}_PROVE_MUTANT_MS`]:'4321'}});
+ assert.equal(j.mutate.limitMs,4321);assert.ok(j.mutate.total>0);
+});

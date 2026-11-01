@@ -14,7 +14,7 @@ import { run, cleanEnv } from './helpers/run.mjs';
 import { prGate, classText, classOfFlag } from '../lib/review.mjs';
 // plates's own rendered copy: the practice's source sits apart from the lib.mjs it imports (render:check keeps the two the same).
 import { summaryReview, MARKER } from '../scripts/plates/cross-review.mjs';
-import { reviewRounds, reviewComments, reviewConfigOf, reviewRoundLimit, byMergeRule, classMark, classOf, classOnly, reviewFragment, windowFragment, REVIEW_ROUNDS } from '../practices/night/files/scripts/plates/lib.mjs';
+import { reviewRounds, roundFindings, judgeRounds, REVIEW_NEAR, reviewComments, reviewConfigOf, reviewRoundLimit, byMergeRule, classMark, classOf, classOnly, reviewFragment, windowFragment, REVIEW_ROUNDS } from '../practices/night/files/scripts/plates/lib.mjs';
 
 const PLATES = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BIN = join(PLATES, 'bin', 'plates.mjs');
@@ -141,7 +141,7 @@ test('a round is a push a reviewer answered with a finding: a push it passed is 
   const r = plates(dir, gh, ['#3', '--json']);
   assert.equal(r.code, 1, 'findings unanswered: exit 1, as before');
   const d = r.json();
-  assert.deepEqual(d.rounds, { count: 2, limit: 3, reached: false, pushes: [A, C] });
+  assert.deepEqual(d.rounds, { count: 2, limit: 3, base: 3, reached: false, pushes: [A, C], trend: null });
   assert.equal(d.choice, null);
   assert.equal(d.unanswered, 3, 'the two findings on C, and the author\'s own note (listed as it always was)');
   // Counted from the reviews already read: the one GraphQL read and the REST reviews, nothing more.
@@ -183,7 +183,7 @@ test('a cross-review summary that carries its findings in the body (GitHub refus
   const fallback = [A, B, C].map((commit, i) => node(commit, posted(commit, found, false), i + 1));
   for (const r of fallback) {
     assert.ok(r.body.startsWith(`${MARKER}\n`), 'still the cross-review\'s marked summary');
-    assert.match(r.body, /\n<!-- keel:cross-review findings 1 -->\nGitHub refused the inline comments; the findings \(1\), to answer here:\n- `src\/lid\.js:11` \*\*P1\*\* An unhinged lid/);
+    assert.match(r.body, /\n<!-- plates:cross-review findings 1 -->\nGitHub refused the inline comments; the findings \(1\), to answer here:\n- `src\/lid\.js:11` \*\*P1\*\* An unhinged lid/);
   }
   assert.deepEqual(reviewRounds(pr(fallback)), { count: 3, pushes: [A, B, C] });
   // The same body in the list: owed an answer, not a status board, so the read and the rounds agree.
@@ -193,7 +193,7 @@ test('a cross-review summary that carries its findings in the body (GitHub refus
 
   // A summary with no findings is a status board, inline or not: no round, nothing owed.
   for (const none of [posted(A, [], true), posted(A, [], false), posted(A, found, true)]) {
-    assert.doesNotMatch(none.body, /keel:cross-review findings/);
+    assert.doesNotMatch(none.body, /plates:cross-review findings/);
     assert.equal(reviewRounds(pr([node(A, none, 9)])).count, 0);
     assert.deepEqual(reviewComments(pr([node(A, none, 9)]), ['acme-reviewer']).map(c => [c.status, c.answered]), [[true, true]]);
   }
@@ -354,7 +354,7 @@ test('--class alone records the class and leaves the finding unanswered: the rea
   const writes = writesIn(await gh.calls());
   assert.equal(writes.length, 1, 'one reply, and the thread is not resolved');
   assert.match(writes[0][3], /pulls\/3\/comments\/\d+\/replies$/);
-  assert.equal(bodyOf(writes[0]), '<!-- keel:class security -->\nClassed **security** by the merge rule (a security hole). Not an answer: this finding is still open.');
+  assert.equal(bodyOf(writes[0]), '<!-- plates:class security -->\nClassed **security** by the merge rule (a security hole). Not an answer: this finding is still open.');
   assert.equal((await gh.state()).threads[0].isResolved, undefined);
 
   // Still unanswered, with its class shown.
@@ -409,7 +409,7 @@ test('--close takes --class: the class is recorded with the answer, and a class 
   const done = plates(dir, gh, ['#3', '--close', 'PRRT_1', '--fixed', 'abc1234', '--class', 'overwrite', '--json']);
   assert.equal(done.code, 0, done.err);
   assert.deepEqual([done.json().answer, done.json().class], ['fixed', 'overwrite']);
-  assert.equal(done.json().reply, '**Fixed** in abc1234. Validated against the code first.\n\n<!-- keel:class overwrite -->');
+  assert.equal(done.json().reply, '**Fixed** in abc1234. Validated against the code first.\n\n<!-- plates:class overwrite -->');
   const read = plates(dir, gh, ['#3', '--json']).json();
   const by = Object.fromEntries(read.comments.map(x => [x.id, [x.answered, x.class, x.resolved]]));
   assert.deepEqual(by, { PRRT_1: [true, 'overwrite', true], PRRT_2: [false, 'other', false] });
@@ -427,7 +427,7 @@ test('--class on a review body posts a marked comment that links it and still do
   assert.equal(plates(dir, gh, ['#3', '--class', 'overwrite', 'PRR_1']).code, 0);
   const [post] = writesIn(await gh.calls());
   assert.equal(post[3], 'repos/acme/app/issues/3/comments');
-  assert.equal(bodyOf(post), '<!-- keel:class overwrite -->\n> The whole plan overwrites the owner\'s anvil.\n\nClassed **overwrite** by the merge rule (overwrites the owner\'s files). Not an answer: this finding is still open.\n\nhttps://github.com/acme/app/pull/3#pullrequestreview-7');
+  assert.equal(bodyOf(post), '<!-- plates:class overwrite -->\n> The whole plan overwrites the owner\'s anvil.\n\nClassed **overwrite** by the merge rule (overwrites the owner\'s files). Not an answer: this finding is still open.\n\nhttps://github.com/acme/app/pull/3#pullrequestreview-7');
   const d = plates(dir, gh, ['#3', '--json']).json();
   assert.deepEqual(d.comments.map(x => [x.id, x.kind, x.answered, x.class]), [['PRR_1', 'review', false, 'overwrite']]);
   assert.equal(plates(dir, gh, ['#3', '--gate']).code, 1);
@@ -525,4 +525,135 @@ test('a finding that arrives in the round that reaches the limit, classed and un
   // The sort is the same rule everywhere: no class is unsorted, never track.
   const sorted = byMergeRule([{ id: 'x', answered: false, class: null }, { id: 'y', answered: false }, { id: 'z', answered: false, class: 'other' }, { id: 'done', answered: true, class: 'security' }]);
   assert.deepEqual([sorted.fixFirst, sorted.track.map(x => x.id), sorted.unsorted.map(x => x.id)], [[], ['z'], ['x', 'y']]);
+});
+
+test('class markers prefer current spelling and each reader requires both names independently', async () => {
+  const { markerMutant } = await import('./helpers/names.mjs');
+  const consumer = new URL('../practices/night/files/scripts/plates/lib.mjs', import.meta.url);
+  assert.equal(classMark('security'),'<!-- plates:class security -->');
+  assert.equal(classOf('<!-- plates:class security -->\n<!-- keel:class other -->'),'security');
+  assert.equal(classOf('<!-- keel:class security -->\n<!-- plates:class other -->'),'other');
+  for (const namespace of ['plates','keel']) {
+    const body = `<!-- ${namespace}:class security -->`;
+    assert.equal(classOf(body),'security');
+    assert.equal(classOnly(body),true);
+    assert.equal(classOf('> '+body),null);
+    const mutant = await markerMutant(consumer,'marker:keel:class',`${namespace}:class`);
+    assert.equal(mutant.classOf(body),null);
+    assert.equal(mutant.classOnly(body),false);
+  }
+});
+
+// ---- at the limit: progress extends it once, repetition stops it (phase 133) -------
+
+const [E, F, G] = ['e', 'f', '9'].map(x => `${x}1`.repeat(20));
+/** A finding at a place: path and line on the thread, as GitHub reads them. */
+const at = (id, commit, path, line, opts = {}) => ({ ...finding(id, commit, { answered: true, ...opts }), path, line });
+/** Three rounds on new ground each, falling: 2, 1, 1 findings in three files, severities easing. */
+const progressing = () => [
+  at('PRRT_a1', A, 'anvil.js', 10, { body: '**P1** Acme anvil drops early.' }), at('PRRT_a2', A, 'skates.js', 200, { body: '**P2** Acme skates squeak.' }),
+  at('PRRT_b1', B, 'rocket.js', 40, { body: '**P2** Acme rocket veers.' }),
+  at('PRRT_c1', C, 'magnet.js', 5, { body: '**P3** Acme magnet label.' }),
+];
+
+test('judgeRounds: rounds on new ground that converge extend the limit once, to twice it', () => {
+  const f = [{ round: 1, path: 'anvil.js', line: 10, severity: 1 }, { round: 1, path: 'skates.js', line: 200, severity: 2 },
+    { round: 2, path: 'rocket.js', line: 40, severity: 2 }, { round: 3, path: 'magnet.js', line: 5, severity: 3 }];
+  assert.deepEqual(judgeRounds(f, 3), { verdict: 'progress', reasons: [], counts: [2, 1, 1], limit: 6 });
+  assert.equal(judgeRounds(f.slice(0, 3), 3), null, 'under the limit nothing is judged');
+  // Rounds past the first three never change the verdict: one extension, then the owner's.
+  const later = [...f, { round: 4, path: 'anvil.js', line: 11, severity: 1 }, { round: 5, path: 'anvil.js', line: 12, severity: 1 }, { round: 6, path: 'anvil.js', line: 12, severity: 1 }];
+  assert.deepEqual(judgeRounds(later, 3), judgeRounds(f, 3));
+});
+
+test('judgeRounds: a finding that returns to an earlier one, a file in every round, or no convergence each stop it', () => {
+  const returns = [{ round: 1, path: 'anvil.js', line: 10, severity: 1 }, { round: 1, path: 'skates.js', line: 1, severity: 2 },
+    { round: 2, path: 'anvil.js', line: 10 + REVIEW_NEAR, severity: 2 }, { round: 3, path: 'rocket.js', line: 3, severity: 3 }];
+  assert.deepEqual(judgeRounds(returns, 3), { verdict: 'repeating', reasons: [`round 2 returns to anvil.js:${10 + REVIEW_NEAR}, ${REVIEW_NEAR} lines from a round 1 finding`], counts: [2, 1, 1], limit: 3 });
+  // One line further is new ground.
+  assert.equal(judgeRounds(returns.map(x => x.round === 2 ? { ...x, line: x.line + 1 } : x), 3).verdict, 'progress');
+  const everyRound = [{ round: 1, path: 'anvil.js', line: 10, severity: 1 }, { round: 1, path: 'skates.js', line: 1, severity: 1 },
+    { round: 2, path: 'anvil.js', line: 100, severity: 2 }, { round: 3, path: 'anvil.js', line: 300, severity: 3 }];
+  assert.deepEqual(judgeRounds(everyRound, 3).reasons, ['anvil.js drew a finding in every round']);
+  const flat = [{ round: 1, path: 'a.js', line: 1, severity: 2 }, { round: 2, path: 'b.js', line: 1, severity: 2 }, { round: 3, path: 'c.js', line: 1, severity: 1 }];
+  assert.deepEqual(judgeRounds(flat, 3).reasons, ['no convergence: round 3 had 1 finding to round 1\'s 1, top severity P1 to P2']);
+  // As many findings, but less severe: converging. Severity unknown on either: the count alone decides.
+  assert.equal(judgeRounds(flat.map(x => x.round === 3 ? { ...x, severity: 3 } : x), 3).verdict, 'progress');
+  assert.equal(judgeRounds(flat.map(x => ({ ...x, severity: null })), 3).verdict, 'repeating');
+});
+
+test('roundFindings: each counted finding with its round, file, the line it was made on and its severity', () => {
+  const pr = { author: { login: 'acme-owner' }, reviewThreads: { nodes: [
+    { path: 'anvil.js', line: null, originalLine: 12, comments: { nodes: [{ author: { login: 'acme-reviewer' }, body: '<!-- keel:cross-review finding -->\n**P2** Acme anvil.', originalCommit: { oid: A } }] } },
+    { path: 'skates.js', line: 4, comments: { nodes: [{ author: { login: 'acme-reviewer' }, body: 'No severity here.', originalCommit: { oid: B } }] } },
+    { path: 'note.js', line: 1, comments: { nodes: [{ author: { login: 'acme-owner' }, body: 'P1 the author\'s own.', originalCommit: { oid: B } }] } },
+  ] }, reviews: { nodes: [{ author: { login: 'acme-reviewer' }, commit: { oid: B }, body: 'P3 Acme body finding.', state: 'COMMENTED' }] } };
+  assert.deepEqual(roundFindings(pr), [
+    { round: 1, path: 'anvil.js', line: 12, severity: 2 },
+    { round: 2, path: 'skates.js', line: 4, severity: null },
+    { round: 2, path: null, line: null, severity: 3 },
+  ]);
+});
+
+test('roundFindings: verified robot envelopes preserve emitted severity and distinguish easing from repeating findings', () => {
+  const bot = { __typename: 'Bot', login: 'github-actions' };
+  const conn = nodes => ({ nodes, pageInfo: { hasNextPage: false, hasPreviousPage: false } });
+  // postRobotReview emits this attribution envelope and robotText escapes Markdown punctuation.
+  // Keep plain, bracketed and bold severity forms: all have the same displayed P0-P3 meaning.
+  const formats = [n => `P${n}`, n => `&#91;P${n}&#93;`, n => `&#42;&#42;P${n}&#42;&#42;`];
+  for (const namespace of ['plates', 'keel']) for (const format of formats) {
+    const mark = { version: 1, repo: 'acme/app', issueNumber: 7, instanceId: 'acme-7', author: 'claude', headSha: A, cursor: 0 };
+    const continued = (headSha, cursor) => ({ version: 1, repo: 'acme/app', prNumber: 8, issueNumber: 7, instanceId: 'acme-7', author: 'claude', headSha, cursor,
+      authorization: { receiptId: 10, bodyHash: 'd'.repeat(64), writer: 'acme-owner', policyHash: 'e'.repeat(64) } });
+    const reviews = [A, B, C].map((head, i) => ({ author: bot, commit: { oid: head }, state: 'COMMENTED', submittedAt: `2026-10-1${i}T09:00:00Z`,
+      body: `<!-- ${namespace}:robot-review ${head} codex -->\nReviewed by codex; built by claude.\n\n${format(i + 1)} Acme finding.` }));
+    const pr = { number: 8, url: 'https://github.com/acme/app/pull/8', author: bot, headRefName: `${namespace}/robot-7`, headRefOid: C,
+      repository: { nameWithOwner: 'acme/app' }, headRepository: { nameWithOwner: 'acme/app' },
+      body: `<!-- ${namespace}:robot-delivery ${JSON.stringify(mark)} -->`, reviewThreads: conn([]), reviews: conn(reviews),
+      comments: conn([B, C].map((head, i) => ({ databaseId: 20 + i, author: bot, url: `https://github.com/acme/app/pull/8#issuecomment-${20 + i}`,
+        body: `<!-- ${namespace}:robot-continuation ${JSON.stringify(continued(head, i + 1))} -->\nTrusted robot continuation.\n\nAcme bounded change.` }))) };
+    const findings = roundFindings(pr);
+    assert.deepEqual(findings.map(f => f.severity), [1, 2, 3], 'parse the verified message, not its attribution line');
+    assert.deepEqual(judgeRounds(findings, 3), { verdict: 'progress', reasons: [], counts: [1, 1, 1], limit: 6 });
+    const flat = { ...pr, reviews: conn(reviews.map(r => ({ ...r, body: r.body.replace(format(3), format(1)) }))) };
+    assert.equal(judgeRounds(roundFindings(flat), 3).verdict, 'repeating', 'equal counts with no severity improvement still stop');
+    const malformed = { ...pr, reviews: conn(reviews.map(r => ({ ...r, body: r.body.replace('Reviewed by codex', 'Reviewed by claude') }))) };
+    assert.deepEqual(roundFindings(malformed), [], 'an invalid robot envelope cannot manufacture a counted severity');
+    const inline = { author: { login: 'acme-owner' }, reviewThreads: conn([{ path: 'acme.js', line: 9,
+      comments: conn([{ author: { login: 'acme-reviewer' }, originalCommit: { oid: A }, body: `${format(2)} Acme inline finding.` }]) }]), reviews: conn([]) };
+    assert.equal(roundFindings(inline)[0].severity, 2, 'inline findings use the same punctuation normalization');
+    const prose = { ...pr, reviews: conn(reviews.map(r => ({ ...r, body: r.body.replace(/Acme finding\./, 'Acme finding. P0 later prose.').replace(format(1), 'Acme context').replace(format(2), 'Acme context').replace(format(3), 'Acme context') }))) };
+    assert.deepEqual(roundFindings(prose).map(f => f.severity), [null, null, null], 'severity must open the unwrapped finding');
+  }
+});
+
+test('plates review: a review that made progress goes on past 3 and stops at 6; one that repeats stops at 3, saying why', async t => {
+  const dir = await project(t);
+  const three = await stubGh(t, { threads: progressing(), reviews: [onHead] });
+  const r = plates(dir, three, ['#3']);
+  assert.equal(r.code, 0, 'extended: every finding answered, so the read passes as under the limit');
+  assert.match(r.out, /Review round 3 of 6: rounds 1-3 made progress \(findings 2, 1, 1; none returned to an earlier finding\), so the limit is extended once, from 3 to 6\./);
+  const d = plates(dir, three, ['#3', '--json']).json();
+  assert.deepEqual([d.rounds.count, d.rounds.limit, d.rounds.base, d.rounds.reached, d.rounds.trend.verdict, d.choice], [3, 6, 3, false, 'progress', null]);
+  // Three more rounds, even on the same spot, use the one extension: the owner's choice at 6.
+  const six = await stubGh(t, { head: G, threads: [...progressing(), at('PRRT_d1', D, 'anvil.js', 10), at('PRRT_e1', E, 'anvil.js', 10), at('PRRT_f1', F, 'anvil.js', 10)], reviews: [{ user: 'acme-reviewer', commit_id: G }] });
+  const s = plates(dir, six, ['#3']);
+  assert.equal(s.code, 3);
+  assert.match(s.out, /Review round 6 of 6: this review has reached its limit \(\.plates\/plates\.json "review": \{"rounds": 3\}, extended once to 6\)\.\nRounds 1-3 made progress \(findings 2, 1, 1\), and the one extension is used\.\nStop pushing fixes\./);
+  // Repeating: round 2 lands back where round 1's fix was.
+  const again = await stubGh(t, { threads: [at('PRRT_a1', A, 'anvil.js', 10), at('PRRT_a2', A, 'skates.js', 200), at('PRRT_b1', B, 'anvil.js', 14), at('PRRT_c1', C, 'magnet.js', 5)], reviews: [onHead] });
+  const x = plates(dir, again, ['#3']);
+  assert.equal(x.code, 3);
+  assert.match(x.out, /Review round 3 of 3: this review has reached its limit \(\.plates\/plates\.json "review": \{"rounds": 3\}\)\.\nRounds 1-3 repeat, so the limit is not extended:\n  - round 2 returns to anvil\.js:14, 4 lines from a round 1 finding\nStop pushing fixes\./);
+});
+
+test('rounds are numbered as they arrived: a later inline finding never renumbers body-only rounds, so it never revokes an extension', () => {
+  const body = (commit, sev, day) => ({ author: { login: 'acme-reviewer' }, commit: { oid: commit }, body: `P${sev} Acme body finding.`, state: 'COMMENTED', submittedAt: `2026-10-1${day}T09:00:00Z` });
+  const pr = { author: { login: 'acme-owner' }, reviewThreads: { nodes: [] }, reviews: { nodes: [body(A, 1, 1), body(B, 2, 2), body(C, 3, 3)] } };
+  const before = judgeRounds(roundFindings(pr), 3);
+  assert.deepEqual([before.verdict, before.limit], ['progress', 6]);
+  // A fourth round, inline: reviewRounds visits threads first, but it arrived last.
+  pr.reviewThreads.nodes.push({ path: 'anvil.js', line: 1, comments: { nodes: [{ author: { login: 'acme-reviewer' }, body: 'P3 Acme inline.', createdAt: '2026-10-14T09:00:00Z', originalCommit: { oid: D } }] } });
+  assert.deepEqual(roundFindings(pr).map(f => f.round), [1, 2, 3, 4]);
+  assert.deepEqual(judgeRounds(roundFindings(pr), 3), before);
 });

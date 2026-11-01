@@ -5,7 +5,7 @@ goal: G3
 spec: 2
 depends: [122]
 review: wait
-note: "Review packages and dormant source verification implemented; real readiness lacks provider, environment and delivery interfaces. Stacked behind phase119 owner hold."
+note: "Review packages and dormant source verification implemented; real readiness lacks provider, environment and delivery interfaces. Current dependency integration and exact-head review remain."
 evidence: ["evidence/2026-10-24-lesson-promotion.md"]
 ---
 
@@ -20,8 +20,8 @@ A measured lesson produces a reviewable promotion package or evidence-backed rej
 Implement the corresponding slice of [review-learning-evaluation](../specs/review-learning-evaluation.md).
 The [implementation contract](../specs/lesson-promotion.md) defines strict packages,
 dormant policy verification and exact-source observations. Independent mechanics
-can proceed while real screening remains unavailable; do not land phase119
-indirectly or manufacture a positive promotion walk.
+can proceed while real screening remains unavailable. PR #249 merged on
+27 October 2026, resolving its old hold; do not manufacture a positive promotion walk.
 Reuse the existing experiment, learn, execution and evidence mechanisms. Do not
 introduce a second scheduler, evidence authority or automatic production default.
 
@@ -54,8 +54,8 @@ experiments, hosted activation and fleet schedules are not changed by this phase
 
 ## Next action
 
-Resolve phase119's owner review-limit decision before landing the stack; require
-current exact-head review and CI for each PR at that point. Implement live provider/spend,
+Land the dependency PRs in order with current exact-head review and CI.
+Implement live provider/spend,
 per-case environment mapping and verified delivery routing before an exact bounded
 owner-approved screening; then configure approvers separately and observe the actual
 reviewed package. No automatic default or permission change is authorized.
@@ -72,3 +72,8 @@ reviewed package. No automatic default or permission change is authorized.
   and useful unready package through 47 public CLI observations. Follow-up keeps
   unknown exposure distinct from zero recurrence. Genuine supported promotion
   still needs missing execution, environment and delivery interfaces.
+
+- **2026-11-01** — Reconciled the obsolete phase119 hold with PR #249’s
+  observed merge. Preserve existing review rounds and corrections: promotion
+  remains distinct from acceptance, and rollback identity excludes mutable
+  acceptance state. Real promotion readiness is still not established.

@@ -1,3 +1,4 @@
+import { nameBaseline } from './helpers/web-name-baseline.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { decisionHarness,healthTarget,shapingTarget,token } from './helpers/web-decisions.mjs';
@@ -9,7 +10,7 @@ const options=h=>({fetcher:h.fetcher,now:()=>h.state.now});
 const preview=h=>createDecisions(h.config,options(h)).preview(h.access,token,h.project,{target:healthTarget,choice:'accept',reason:'Owner chooses this outcome.'});
 const apply=(h,p,reauthorize=async()=>h.access)=>createOperations(h.config,options(h)).apply(h.access,token,h.project,p.id,{reauthorize});
 const recover=(h,id)=>createOperations(h.config,options(h)).recover(h.access,token,h.project,id);
-const intentFromPreview=p=>({id:p.operationId,repoId:p.source.repoId,repositoryNodeId:p.source.repositoryNodeId,branchNodeId:p.source.branchNodeId,originalBlob:p.source.blob,head:p.source.head,path:p.source.path,content:p.content,commitMessage:p.commitMessage,marker:`Keel-Operation: ${p.operationId}`});
+const intentFromPreview=p=>({id:p.operationId,repoId:p.source.repoId,repositoryNodeId:p.source.repositoryNodeId,branchNodeId:p.source.branchNodeId,originalBlob:p.source.blob,head:p.source.head,path:p.source.path,content:p.content,commitMessage:p.commitMessage,marker:`Plates-Operation: ${p.operationId}`});
 test('dispatch and receipt recovery have fresh bounded deadlines after source time expires',async t=>{
  const h=decisionHarness(),p=await preview(h),intent=intentFromPreview(p),deadlines=[],outer=new AbortController();
  const timeout=AbortSignal.timeout;
@@ -177,4 +178,36 @@ test('missing Ref, wrong immutable identity and unknown changed-file coverage ke
  const {createDecisionGitHub,gitBlob}=await import('../lib/web/decision-github.mjs'),store=createOperationStore(h.config,h.fetcher),row=await store.read(p.operationId,store.scopeFor(1,h.project));
  assert.equal(await createDecisionGitHub(token,options(h)).recover({...row.value.intent,originalBlob:gitBlob(row.value.intent.content)}),null);
  assert.equal((await recover(h,p.operationId)).state,'committed');assert.equal(h.source.writes.length,1);
+});
+
+
+test('a decision preview reviewed on the rollback baseline commits its exact message after upgrade', async t => {
+  const rollback = await nameBaseline(t, { cookies: false, markers: true });
+  const h = decisionHarness();
+  const p = await rollback.decisions.createDecisions(h.config, options(h)).preview(h.access, token, h.project, { target: healthTarget, choice: 'accept', reason: 'Acme owner decision.' });
+  assert.ok(p.commitMessage.endsWith(`Keel-Operation: ${p.operationId}`));
+  const done = await apply(h, p);
+  assert.equal(done.state, 'committed'); assert.equal(h.source.writes.length, 1);
+  assert.equal(`${h.source.writes[0].message.headline}\n\n${h.source.writes[0].message.body}`, p.commitMessage);
+});
+
+// Upgrade: shipped source finds a commit the held baseline wrote under Keel-Operation.
+// Rollback: the held baseline finds a commit shipped source wrote under Plates-Operation.
+test('shipped and rollback operation markers recover original uncertain commits across releases', async t => {
+  const rollback = await nameBaseline(t, { cookies: false, markers: true });
+  for (const shippedWrites of [true,false]) {
+    const h = decisionHarness();
+    const writerDecisions = shippedWrites ? createDecisions : rollback.decisions.createDecisions;
+    const writerOperations = shippedWrites ? createOperations : rollback.operations.createOperations;
+    const readerOperations = shippedWrites ? rollback.operations.createOperations : createOperations;
+    const p = await writerDecisions(h.config, options(h)).preview(h.access, token, h.project, { target: healthTarget, choice: 'accept', reason: 'Acme owner decision.' });
+    assert.ok(p.commitMessage.endsWith(`${shippedWrites ? 'Plates' : 'Keel'}-Operation: ${p.operationId}`));
+    h.source.mode = 'lost';
+    const pending = await writerOperations(h.config, options(h)).apply(h.access, token, h.project, p.id, { reauthorize: async () => h.access });
+    assert.equal(pending.state, 'uncertain');
+    const original = h.source.commits[0].commit.message;
+    const recovered = await readerOperations(h.config, options(h)).recover(h.access, token, h.project, p.operationId);
+    assert.equal(recovered.state, 'committed');
+    assert.equal(h.source.writes.length, 1); assert.equal(h.source.commits[0].commit.message, original);
+  }
 });

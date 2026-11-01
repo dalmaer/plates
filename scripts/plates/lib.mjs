@@ -1,11 +1,5 @@
-// The tool pin includes the old product name twice.
-if (process.env.KEEL_CANVAS_KEEL_VERSION !== undefined) process.env.PLATES_CANVAS_PLATES_VERSION ??= process.env.KEEL_CANVAS_KEEL_VERSION;
-
-// Accept established environment bindings during the product rename. Canonical names win.
-for (const [name, value] of Object.entries(process.env)) {
-  if (name.startsWith('KEEL_') && process.env[`PLATES_${name.slice(5)}`] === undefined) process.env[`PLATES_${name.slice(5)}`] = value;
-}
-
+export { environmentValue, markerHeader, markerLines, remoteLabelReceipt, repositoryLabelSelection, repositoryLabelWriter, labelNames, matchesLabel, markerComment, markerComments, markerAtStart, leadingMarkers } from './names.mjs';
+import { environmentValue, markerHeader, markerLines, remoteLabelReceipt, repositoryLabelSelection, repositoryLabelWriter, labelNames, matchesLabel, markerComment, markerComments, markerAtStart, leadingMarkers, writeName, branchSuffix, robotIssueOf } from './names.mjs';
 // What the night shift's scripts share (plates practice `night`; managed: plates
 // render rewrites it). Node built-ins only: this runs in the project's own
 // checkout, with no plates anywhere (plates docs/design.md §6, "Projects run on
@@ -1153,6 +1147,7 @@ export const CLIMB_NIGHT = '.plates/climb/night.json';
 export function climbLine(config, night) {
   if (config?.climb === undefined || night === undefined || night === null) return null;
   if (typeof night !== 'object' || !Array.isArray(night.tried) || typeof night.job !== 'string' || typeof night.date !== 'string') return `Climb: the newest record (${CLIMB_NIGHT}) is unreadable; see the last plates-climb run.`;
+  if (night.admission?.state === 'blocked') return `Climb: ${night.date} ${night.job}: blocked before model launch; ${night.admission.reason}; ${night.admission.nextAction}`;
   const kept = night.tried.filter(a => a?.verdict === 'keep').length;
   if (kept) return `Climb: ${night.date} ${night.job}: kept ${kept}, ${Number.isInteger(night.pr) ? `PR #${night.pr}` : `no PR opened${night.gate ? '' : ' (the guard did not pass)'}`}.`;
   const none = night.job === 'hygiene' ? 'none proven steady' : `none beat the noise${Number.isFinite(night.margin) ? ` (margin ${Math.round(night.margin * 100)}%)` : ''}`;
@@ -1162,7 +1157,7 @@ export function climbLine(config, night) {
 }
 
 /** A climb job's PR branch prefix. */
-export const CLIMB_PREFIX = 'keel-climb/';
+export const CLIMB_PREFIX = writeName('git ref:keel-climb/');
 /** Closed-unmerged PRs in a row that make a climb job propose its own retirement (phase 36). */
 export const RETIRE_AFTER = 3;
 
@@ -1181,7 +1176,7 @@ const closedUnmerged = p => (p.state === undefined ? !p.mergedAt : String(p.stat
 export function climbRetiring(prs, jobs) {
   const out = [];
   for (const job of jobs) {
-    const mine = prs.filter(p => typeof p?.headRefName === 'string' && p.headRefName.startsWith(`${CLIMB_PREFIX}${job}/`))
+    const mine = prs.filter(p => typeof p?.headRefName === 'string' && branchSuffix(p.headRefName, 'git ref:keel-climb/')?.startsWith(`${job}/`))
       .sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? '')))
       .slice(0, RETIRE_AFTER);
     if (mine.length === RETIRE_AFTER && mine.every(closedUnmerged)) out.push({ job, prs: mine.map(p => p.number) });
@@ -1454,7 +1449,7 @@ export class IncompleteRead extends Error {
  */
 export const reviewFragment = ({ threads = 100, replies = 100, comments = 100, reviews = 100 } = {}) => `fragment PlatesReview on PullRequest {
   number title url state mergedAt updatedAt headRefName headRefOid body repository { nameWithOwner } headRepository { nameWithOwner } author { __typename login }
-  reviewThreads(first: ${threads}) { pageInfo { hasNextPage } nodes { id isResolved path line
+  reviewThreads(first: ${threads}) { pageInfo { hasNextPage } nodes { id isResolved path line originalLine
     comments(first: ${replies}) { pageInfo { hasNextPage } nodes { databaseId author { login } body createdAt url originalCommit { oid } } } } }
   comments(first: ${comments}) { pageInfo { hasNextPage } nodes { id databaseId author { __typename login } body createdAt url } }
   reviews(first: ${reviews}) { pageInfo { hasNextPage endCursor } nodes { id databaseId author { __typename login } commit { oid } body state submittedAt url } }
@@ -1505,9 +1500,9 @@ const firstLine = body => plainLines(body)[0]?.slice(0, 140) ?? '';
  * The line a cross-review summary carries when its findings are in the body
  * (GitHub refused them inline, cross-review.mjs summaryReview): how many.
  */
-export const fallbackFindingsMark = n => `<!-- keel:cross-review findings ${n} -->`;
+export const fallbackFindingsMark = n => markerComment('marker:keel:cross-review', `findings ${n}`);
 /** Whether a body is such a summary: the cross-review's marker first, and the line naming one finding or more. */
-const carriesFindings = body => /^\s*<!-- keel:cross-review -->/.test(String(body ?? '')) && /^<!-- keel:cross-review findings [1-9]\d* -->[ \t\r]*$/m.test(String(body));
+const carriesFindings = body => markerAtStart(body, 'marker:keel:cross-review') && markerComments(body, 'marker:keel:cross-review', mark => /^findings /.test(mark.payload)).matches.some(mark => /^findings [1-9]\d*$/.test(mark.payload) && (mark.start === 0 || String(body)[mark.start - 1] === '\n') && /^[ \t\r]*(?:\n|$)/.test(String(body).slice(mark.end)));
 /**
  * A bot's status board (a sticky comment it edits in place, opened by a hidden <!-- marker -->): listed, never owed an answer.
  * Not one: a cross-review summary carrying its findings, which are answered there and count as a finding on its push.
@@ -1523,8 +1518,8 @@ export async function prepareRobotReview(pr, github) {
   if (pr?.author?.__typename !== 'Bot' || !sameLogin(pr.author.login, 'github-actions[bot]') || pr.headRepository?.nameWithOwner !== current || pr.url !== `https://github.com/${current}/pull/${pr.number}`) return pr;
   const names = new Set([current]);
   for (const text of [pr.body, ...(pr.comments?.nodes ?? []).filter(c => c.author?.__typename === 'Bot' && sameLogin(c.author.login, 'github-actions[bot]')).map(c => c.body)]) {
-    for (const match of String(text ?? '').matchAll(/^<!-- keel:robot-(?:delivery|continuation) (.+) -->$/gm)) {
-      try { const repo = JSON.parse(match[1]).repo; if (typeof repo === 'string') names.add(repo); } catch { /* parser rejects malformed metadata */ }
+    for (const match of ['marker:keel:robot-delivery','marker:keel:robot-continuation'].flatMap(id=>markerLines(text,id))) {
+      try { const repo = JSON.parse(match.payload).repo; if (typeof repo === 'string') names.add(repo); } catch { /* parser rejects malformed metadata */ }
     }
   }
   if (names.size === 1) return pr;
@@ -1537,37 +1532,39 @@ export async function prepareRobotReview(pr, github) {
 function robotReview(pr, review) {
   const bot = author => author?.__typename === 'Bot' && sameLogin(author.login, 'github-actions[bot]');
   if (!bot(pr.author) || !bot(review.author)) return null;
-  if ((String(review.body ?? '').match(/<!-- keel:robot-review/g) ?? []).length !== 1) return null;
-  const envelope = /^<!-- keel:robot-review ((?:[a-f0-9]{40}|[a-f0-9]{64})) (claude|codex) -->\nReviewed by (claude|codex); built by (claude|codex)\.\n\n([\s\S]+)$/.exec(review.body ?? '');
+  const header=markerHeader(review.body,['marker:keel:robot-review']);
+  if(!header)return null;
+  const envelope = /^((?:[a-f0-9]{40}|[a-f0-9]{64})) (claude|codex)\nReviewed by (claude|codex); built by (claude|codex)\.\n\n([\s\S]+)$/.exec(header.marks['marker:keel:robot-review'].payload+'\n'+header.suffix);
   if (!envelope || envelope[2] !== envelope[3] || envelope[2] === envelope[4] || review.commit?.oid !== envelope[1]) return null;
-  const marks = [...String(pr.body ?? '').matchAll(/^<!-- keel:robot-delivery (.+) -->$/gm)];
+  const marks = markerLines(pr.body,'marker:keel:robot-delivery');
   if (marks.length !== 1) return null;
   let mark;
-  try { mark = JSON.parse(marks[0][1]); } catch { return null; }
+  try { mark = JSON.parse(marks[0].payload); } catch { return null; }
   const {version,repo,issueNumber,instanceId,author,headSha,cursor} = mark ?? {};
   const current = pr.repository?.nameWithOwner, verified = robotReviewRepositories.get(pr);
   const sameRepo = value => value === current || (verified?.current === current && verified.names.has(value));
-  if (version !== 1 || !/^[\w.-]+\/[\w.-]+$/.test(repo ?? '') || repo.split('/').some(part => part === '.' || part === '..') || !Number.isSafeInteger(pr.number) || pr.number < 1 || !Number.isSafeInteger(issueNumber) || issueNumber < 1 || !/^[A-Za-z0-9_-]{1,128}$/.test(instanceId ?? '') || !Number.isSafeInteger(cursor) || cursor < 0 || author !== envelope[4] || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(headSha ?? '') || pr.headRefName !== `keel/robot-${issueNumber}` || !sameRepo(repo) || pr.headRepository?.nameWithOwner !== current || pr.url !== `https://github.com/${current}/pull/${pr.number}`) return null;
-  if (marks[0][1] !== JSON.stringify({version,repo,issueNumber,instanceId,author,headSha,cursor})) return null;
+  if (version !== 1 || !/^[\w.-]+\/[\w.-]+$/.test(repo ?? '') || repo.split('/').some(part => part === '.' || part === '..') || !Number.isSafeInteger(pr.number) || pr.number < 1 || !Number.isSafeInteger(issueNumber) || issueNumber < 1 || !/^[A-Za-z0-9_-]{1,128}$/.test(instanceId ?? '') || !Number.isSafeInteger(cursor) || cursor < 0 || author !== envelope[4] || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(headSha ?? '') || robotIssueOf(pr.headRefName) !== issueNumber || !sameRepo(repo) || pr.headRepository?.nameWithOwner !== current || pr.url !== `https://github.com/${current}/pull/${pr.number}`) return null;
+  if (marks[0].payload !== JSON.stringify({version,repo,issueNumber,instanceId,author,headSha,cursor})) return null;
   if (headSha !== envelope[1]) {
     // A later review must have its own immutable bot receipt. A short window
     // cannot prove absence, uniqueness, or that nobody answered the finding.
     if (!Array.isArray(pr.comments?.nodes) || pr.comments.pageInfo?.hasNextPage !== false || pr.comments.pageInfo?.hasPreviousPage) throw new IncompleteRead('robot continuation comments are incomplete');
     const matches = new Set();
     for (const c of pr.comments.nodes) {
-      if (!bot(c.author) || !String(c.body ?? '').includes('<!-- keel:robot-continuation')) continue;
+      if (!bot(c.author) || !markerComments(c.body,'marker:keel:robot-continuation').name) continue;
       const fail = () => { throw new Error('robot continuation metadata is malformed or inconsistent'); };
-      if (!Number.isSafeInteger(c.databaseId) || c.databaseId < 1 || c.url !== `${pr.url}#issuecomment-${c.databaseId}` || (c.body.match(/<!-- keel:robot-continuation/g) ?? []).length !== 1) fail();
-      const m = /^<!-- keel:robot-continuation (.+) -->\nTrusted robot continuation\.\n\n/.exec(c.body);
-      if (!m) fail();
+      if (!Number.isSafeInteger(c.databaseId) || c.databaseId < 1 || c.url !== `${pr.url}#issuecomment-${c.databaseId}`) fail();
+      const continuation=markerHeader(c.body,['marker:keel:robot-continuation']);
+      if(!continuation || !continuation.suffix.startsWith('Trusted robot continuation.\n\n'))fail();
+      const m=continuation.marks['marker:keel:robot-continuation'];
       let v;
-      try { v = JSON.parse(m[1]); } catch { fail(); }
+      try { v = JSON.parse(m.payload); } catch { fail(); }
       const a = v?.authorization;
       if (!v || !a || !Number.isSafeInteger(a.receiptId) || a.receiptId < 1 || !/^[a-f0-9]{64}$/.test(a.bodyHash ?? '') || !/^[a-f0-9]{64}$/.test(a.policyHash ?? '') || !/^[A-Za-z0-9-]+$/.test(a.writer ?? '')) fail();
       if (!sameRepo(v.repo)) fail();
       const canonical = {version:1,repo:v.repo,prNumber:pr.number,issueNumber,instanceId,author,headSha:v.headSha,cursor:v.cursor,authorization:{receiptId:a.receiptId,bodyHash:a.bodyHash,writer:a.writer,policyHash:a.policyHash}};
-      if (JSON.stringify(canonical) !== m[1] || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(v.headSha ?? '') || !Number.isSafeInteger(v.cursor) || v.cursor < cursor) fail();
-      if (v.headSha === envelope[1]) matches.add(m[1]);
+      if (JSON.stringify(canonical) !== m.payload || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(v.headSha ?? '') || !Number.isSafeInteger(v.cursor) || v.cursor < cursor) fail();
+      if (v.headSha === envelope[1]) matches.add(m.payload);
     }
     if (matches.size !== 1) throw new Error('robot review exact-head continuation metadata is missing or conflicting');
   }
@@ -1659,12 +1656,16 @@ export const REVIEW_CLASSES = ['security', 'overwrite', 'approval', 'other'];
 /** The classes the merge rule fixes before a merge; `other` is tracked. */
 export const FIX_FIRST = ['security', 'overwrite', 'approval'];
 /** The hidden mark that records a finding's class, on a line of its own. */
-export const classMark = kind => `<!-- keel:class ${kind} -->`;
-const CLASS_LINE = /^<!-- keel:class (security|overwrite|approval|other) -->[ \t\r]*$/gm;
-/** The class a comment records: its last mark on a line of its own (a quoted line is not one), or null. */
-export const classOf = body => [...String(body ?? '').matchAll(CLASS_LINE)].at(-1)?.[1] ?? null;
-/** Whether a comment is only a class mark (it opens with one): it sorts a finding and answers nothing. */
-export const classOnly = body => /^\s*<!-- keel:class (?:security|overwrite|approval|other) -->[ \t\r]*(?:\n|$)/.test(String(body ?? ''));
+export const classMark = kind => markerComment('marker:keel:class', kind);
+const classLines = body => {
+  const text = String(body ?? '');
+  return markerComments(text, 'marker:keel:class').matches.filter(mark =>
+    REVIEW_CLASSES.includes(mark.payload) && (mark.start === 0 || text[mark.start - 1] === '\n') && /^[ \t\r]*(?:\n|$)/.test(text.slice(mark.end)));
+};
+/** Current namespace first, then its last standalone class mark. */
+export const classOf = body => classLines(body).at(-1)?.payload ?? null;
+/** Only the opening line classifies a comment as a class-only response. */
+export const classOnly = body => classLines(String(body ?? '').trimStart().split('\n')[0]).some(mark => mark.start === 0);
 
 /**
  * A PR's review rounds, from the read plates review already makes: the pushes
@@ -1692,6 +1693,92 @@ export function reviewRounds(pr) {
     pushes.add(r.commit.oid);
   }
   return { count: pushes.size, pushes: [...pushes] };
+}
+
+/**
+ * Each finding reviewRounds counted, with the round it came in: [{ round,
+ * path, line, severity }]. round is 1-based in the order the pushes' first
+ * findings arrived (createdAt, submittedAt); path and line are the thread's (line the one it was made on,
+ * kept after a later push outdated it), null for a review body; severity is
+ * the P0-P3 the finding opens with, else null. Plain data, so a cached
+ * repo-wide read carries it to the board.
+ */
+export function roundFindings(pr) {
+  const author = pr?.author?.login;
+  const { pushes } = reviewRounds(pr), counted = new Set(pushes);
+  const severity = body => {
+    // robotText encodes Markdown punctuation in emitted findings. Decode only
+    // those punctuation entities; never scan attribution or later prose for Pn.
+    const text = String(body ?? '').replace(/<!--[\s\S]*?-->/g, '').replace(/&#(40|41|42|91|92|93|95|96|124|126);/g, (_, code) => String.fromCharCode(Number(code))).trim();
+    const m = /^\W*P([0-3])\b/.exec(text);
+    return m ? Number(m[1]) : null;
+  };
+  const time = at => { const t = Date.parse(at ?? ''); return Number.isFinite(t) ? t : Infinity; };
+  const found = [];
+  for (const t of pr?.reviewThreads?.nodes ?? []) {
+    const first = t?.comments?.nodes?.[0], push = first?.originalCommit?.oid;
+    if (!counted.has(push) || (author && sameLogin(loginOf(first), author))) continue;
+    const line = Number.isSafeInteger(t.originalLine) ? t.originalLine : Number.isSafeInteger(t.line) ? t.line : null;
+    found.push({ push, at: time(first.createdAt), path: typeof t.path === 'string' ? t.path : null, line, severity: severity(first.body) });
+  }
+  for (const r of pr?.reviews?.nodes ?? []) {
+    const push = r?.commit?.oid;
+    if (!counted.has(push) || !String(r.body ?? '').trim() || r.state === 'APPROVED') continue;
+    const robot = robotReview(pr, r);
+    if (!robot && author && sameLogin(loginOf(r), author)) continue;
+    if (robot ? robot.status : isStatus(r.body)) continue;
+    found.push({ push, at: time(r.submittedAt), path: null, line: null, severity: severity(robot ? robot.text : r.body) });
+  }
+  // Rounds in the order they arrived: each push by its earliest finding, so a
+  // later round of any kind (thread or body) never renumbers the first ones.
+  // A push with no time keeps reviewRounds' order, after the timed ones.
+  const first = new Map();
+  for (const f of found) first.set(f.push, Math.min(first.get(f.push) ?? Infinity, f.at));
+  const order = [...pushes].sort((a, b) => (first.get(a) - first.get(b)) || (pushes.indexOf(a) - pushes.indexOf(b)));
+  const roundOf = new Map(order.map((p, i) => [p, i + 1]));
+  return found.map(({ push, at, ...f }) => ({ round: roundOf.get(push), ...f })).sort((a, b) => a.round - b.round);
+}
+
+/** How near (in lines, same file) a later round's finding must be to an earlier one to count as returning to it. */
+export const REVIEW_NEAR = 20;
+
+/**
+ * At the round limit: did the first `limit` rounds make progress, or repeat?
+ * (phase 133; lesson 59.) A review repeats when, in those rounds,
+ *   - a later round's finding returns to an earlier one: same file, within
+ *     REVIEW_NEAR lines (the fix drew the next finding);
+ *   - one file draws a finding in every round; or
+ *   - it did not converge: the last round has as many findings as the first,
+ *     and none less severe (when both say a severity).
+ * Otherwise it made progress, and the limit is extended once, to twice
+ * `limit`: there is no second extension. The rounds past the first `limit`
+ * never change the verdict, so a read gives the same answer every time.
+ * null under the limit. { verdict: 'progress'|'repeating', reasons, counts,
+ * limit } where limit is the one that now applies.
+ */
+export function judgeRounds(findings, limit) {
+  const rounds = findings.reduce((n, f) => Math.max(n, f.round), 0);
+  if (!Number.isSafeInteger(limit) || limit < 1 || rounds < limit) return null;
+  const within = findings.filter(f => f.round <= limit);
+  const counts = Array.from({ length: limit }, (_, i) => within.filter(f => f.round === i + 1).length);
+  const reasons = [];
+  for (const f of within) {
+    if (!f.path || f.line === null) continue;
+    const earlier = within.find(e => e.round < f.round && e.path === f.path && e.line !== null && Math.abs(e.line - f.line) <= REVIEW_NEAR);
+    if (earlier) reasons.push(`round ${f.round} returns to ${f.path}:${f.line}, ${Math.abs(earlier.line - f.line)} line${Math.abs(earlier.line - f.line) === 1 ? '' : 's'} from a round ${earlier.round} finding`);
+  }
+  if (limit > 1) {
+    for (const path of new Set(within.map(f => f.path).filter(Boolean))) {
+      if (new Set(within.filter(f => f.path === path).map(f => f.round)).size === limit) reasons.push(`${path} drew a finding in every round`);
+    }
+    const top = r => { const s = within.filter(f => f.round === r && f.severity !== null).map(f => f.severity); return s.length ? Math.min(...s) : null; };
+    const [first, last] = [top(1), top(limit)];
+    if (counts[limit - 1] >= counts[0] && (first === null || last === null || last <= first)) {
+      reasons.push(`no convergence: round ${limit} had ${counts[limit - 1]} finding${counts[limit - 1] === 1 ? '' : 's'} to round 1's ${counts[0]}${first !== null && last !== null ? `, top severity P${last} to P${first}` : ''}`);
+    }
+  }
+  const verdict = reasons.length ? 'repeating' : 'progress';
+  return { verdict, reasons, counts, limit: verdict === 'progress' ? limit * 2 : limit };
 }
 
 /**
@@ -1730,7 +1817,7 @@ export const SOLO_READS = 6;
 const NODE = 'databaseId author { __typename login } body createdAt url';
 export const windowFragment = () => `fragment PlatesReviewWindow on PullRequest {
   keelWindow: __typename number title url state mergedAt updatedAt headRefName headRefOid body repository { nameWithOwner } headRepository { nameWithOwner } author { __typename login }
-  reviewThreads(first: ${WINDOW_THREADS}) { pageInfo { hasNextPage } nodes { id isResolved path line
+  reviewThreads(first: ${WINDOW_THREADS}) { pageInfo { hasNextPage } nodes { id isResolved path line originalLine
     tail: comments(last: ${WINDOW_TAIL}) { totalCount nodes { ${NODE} originalCommit { oid } } } } }
   comments(last: ${WINDOW_CONVO}) { pageInfo { hasPreviousPage } nodes { id ${NODE} } }
   reviews(last: ${WINDOW_BODIES}) { pageInfo { hasPreviousPage } nodes { id databaseId author { __typename login } commit { oid } body state submittedAt url } }
@@ -1790,7 +1877,7 @@ export function fromWindow(pr, reviewers = []) {
   // A missing connection stays missing, so reviewComments refuses it.
   const list = conn => conn && Array.isArray(conn.nodes) ? { pageInfo: { hasNextPage: !!conn.pageInfo?.hasPreviousPage }, nodes: conn.nodes } : conn;
   const comments = list(rest.comments), reviews = list(rest.reviews);
-  const bodies = (reviews?.nodes ?? []).some(r => String(r?.body ?? '').trim() && (String(r.body).startsWith('<!-- keel:robot-review ') || !(rest.author?.login && sameLogin(r?.author?.login, rest.author.login))));
+  const bodies = (reviews?.nodes ?? []).some(r => String(r?.body ?? '').trim() && (Boolean(markerHeader(r.body,['marker:keel:robot-review'])) || !(rest.author?.login && sameLogin(r?.author?.login, rest.author.login))));
   if (reviews?.pageInfo.hasNextPage) whole = false;
   if ((reviewers.length || bodies) && (!comments || comments.pageInfo.hasNextPage)) whole = false;
   return { pr: { ...rest, reviewThreads: { pageInfo: { hasNextPage: !!rest.reviewThreads?.pageInfo?.hasNextPage }, nodes: threads }, comments, reviews }, whole };
@@ -1850,7 +1937,8 @@ export async function readRepoReviews(read, date, { readPr, reviewers = [], gith
  * calendar day against `date` (YYYY-MM-DD). Throws on a malformed read, and
  * IncompleteRead on one with pull requests left unread: never a zero.
  * `rounds` (phase 71): each open PR with a review round or more, its count
- * and its open findings of any age by the merge rule, for the board.
+ * and its open findings of any age by the merge rule, for the board; and
+ * roundFindings, so the board can judge a PR at its limit (judgeRounds).
  */
 export function unansweredPrs(repository, reviewers, date) {
   const { open, merged } = windowPrs(repository, date);
@@ -1860,7 +1948,7 @@ export function unansweredPrs(repository, reviewers, date) {
     const round = pr.state === 'MERGED' ? { count: 0 } : reviewRounds(pr);
     if (round.count) {
       const sorted = byMergeRule(comments);
-      rounds.push({ number: pr.number, title: pr.title, url: pr.url, author: pr.author ? `${pr.author.__typename === 'Bot' ? 'app/' : ''}${pr.author.login}` : null, rounds: round.count,
+      rounds.push({ number: pr.number, title: pr.title, url: pr.url, author: pr.author ? `${pr.author.__typename === 'Bot' ? 'app/' : ''}${pr.author.login}` : null, rounds: round.count, findings: roundFindings(pr),
         open: comments.filter(c => !c.answered).length, fixFirst: sorted.fixFirst.length, track: sorted.track.length, unsorted: sorted.unsorted.length });
     }
     const left = comments.filter(c => !c.answered && /^\d{4}-\d{2}-\d{2}/.test(c.at ?? '') && c.at.slice(0, 10) <= addDays(date, -1));
@@ -1993,7 +2081,7 @@ export const AGENT_GIT_DIR = '.plates/agent-git';
  * home) never resolves it, and a gate's child git never sees it in GIT_DIR.
  */
 export function agentGitArgs(cwd, env = process.env) {
-  const d = env?.PLATES_AGENT_GIT;
+  const d = environmentValue('variable:KEEL_AGENT_GIT', env ?? {});
   if (typeof d !== 'string' || !d || isAbsolute(d) || d.split(/[\\/]/).includes('..')) return [];
   const dir = resolve(cwd, d);
   return existsSync(join(dir, 'HEAD')) ? [`--git-dir=${dir}`, `--work-tree=${resolve(cwd)}`] : [];
@@ -2202,13 +2290,13 @@ export const pushTitle = sha => `plates review after ${String(sha ?? '').slice(0
  * line, text, url? }] }. `<` and `>` are escaped, so nothing in it ends the
  * comment. recordOf reads it back (null when absent or not a record). Pure.
  */
-export const recordText = record => `<!-- ${PUSH_LABEL} ${JSON.stringify(record).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')} -->`;
+export const recordText = record => markerComment('marker:keel:review-after', JSON.stringify(record).replace(/</g, '\\u003c').replace(/>/g, '\\u003e'));
 export function recordOf(body) {
   // The body's first line alone (plates#65): the rest holds the agent's summary and findings, which could
   // spell a marker of their own; a pending issue starts with its own marker, so it is never a record.
-  const m = new RegExp(`^<!-- ${PUSH_LABEL} (\\{[^\\n]*\\}) -->(?:\\r?\\n|$)`).exec(String(body ?? ''));
-  if (!m) return null;
-  try { const r = JSON.parse(m[1]); return r && typeof r === 'object' && /^[0-9a-f]{40}$/.test(r.to ?? '') ? r : null; } catch { return null; }
+  const {matches} = leadingMarkers(body, 'marker:keel:review-after');
+  if (matches.length !== 1 || !/^\{[^\n]*\}$/.test(matches[0].payload)) return null;
+  try { const r = JSON.parse(matches[0].payload); return r && typeof r === 'object' && /^[0-9a-f]{40}$/.test(r.to ?? '') ? r : null; } catch { return null; }
 }
 /** An issue the cross-review workflow opened (its token's bot), never a person's: only those are the record. */
 export const byWorkflow = issue => /^(?:app\/)?github-actions(?:\[bot\])?$/.test(String(issue?.author?.login ?? ''));

@@ -1,0 +1,48 @@
+{
+  "version": 2,
+  "repo": "dalmaer/plates",
+  "repositoryId": 1402587435,
+  "renames": [
+    {
+      "row": "label:keel:agent",
+      "labelId": 12655405207,
+      "newName": "plates:agent",
+      "operationId": "names-59bcd34be8e61cd74d3f0a6ecea171968dc2665d8621fcce0fcb04b423bfba35:0",
+      "verifiedAt": "2026-10-25T22:17:14.293Z",
+      "readback": {
+        "repositoryId": 1402587435,
+        "labelId": 12655405207,
+        "name": "plates:agent"
+      },
+      "oldName": "keel:agent"
+    },
+    {
+      "row": "label:keel:morning",
+      "labelId": 12706451752,
+      "newName": "plates:morning",
+      "operationId": "names-59bcd34be8e61cd74d3f0a6ecea171968dc2665d8621fcce0fcb04b423bfba35:2",
+      "verifiedAt": "2026-10-25T22:17:19.538Z",
+      "readback": {
+        "repositoryId": 1402587435,
+        "labelId": 12706451752,
+        "name": "plates:morning"
+      },
+      "oldName": "keel:morning"
+    }
+  ],
+  "creations": [
+    {
+      "kind": "created",
+      "row": "label:keel:review-after",
+      "labelId": 12834406831,
+      "newName": "plates:review-after",
+      "operationId": "names-59bcd34be8e61cd74d3f0a6ecea171968dc2665d8621fcce0fcb04b423bfba35:1",
+      "verifiedAt": "2026-10-25T22:17:16.913Z",
+      "readback": {
+        "repositoryId": 1402587435,
+        "labelId": 12834406831,
+        "name": "plates:review-after"
+      }
+    }
+  ]
+}

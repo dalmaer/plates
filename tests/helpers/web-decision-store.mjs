@@ -4,7 +4,7 @@ export function decisionDatabase(now) {
  const json=value=>Response.json(value);
  const out=(row,created=false)=>row?{id:row.id,state:row.state,value:row.value,created,leaseUntil:new Date(row.leaseUntil).toISOString()}:null;
  return {previews,operations,handle(url,options){
-  if(!new URL(url).pathname.endsWith('/rpc/keel_decision_rpc'))return null;
+  if(!new URL(url).pathname.endsWith('/rpc/plates_decision_rpc'))return null;
   const p=JSON.parse(options.body);let row=operations.get(p.p_id);
   if(p.p_operation==='preview-create'){if(previews.has(p.p_id))return json(null);previews.set(p.p_id,{scope:p.p_scope,value:p.p_value,expires:now()+900000});return json({value:p.p_value});}
   if(p.p_operation==='preview-read'){const r=previews.get(p.p_id);return json(r&&r.scope===p.p_scope&&r.expires>now()?{value:r.value}:null);}
