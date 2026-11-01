@@ -1,13 +1,16 @@
 // Synthetic Acme spend accounting; never calls a provider or reads credentials.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, realpath, mkdir, writeFile, readFile, rm, chmod, symlink, readdir } from 'node:fs/promises';
+import { mkdtemp, realpath, mkdir, writeFile, readFile, rm, chmod, symlink, readdir, lstat, readlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Worker } from 'node:worker_threads';
 import { initializeWorkspace } from '../lib/web/workspace.mjs';
 import { evaluations, withEvaluationWriter, withEvaluationSpendWriter } from '../lib/evaluation-ledger.mjs';
 import { sealRecord } from '../lib/evaluation-records.mjs';
+import { storeImmutable } from '../lib/session-ledger-io.mjs';
+import { usage } from '../lib/evaluation-execution.mjs';
 import { acmeEvaluationPlan, acmeCaseEnvironments } from './helpers/evaluation-plan.mjs';
 import { ceilingMicroUsd, quoteSpend, reserveComparisonSpend, reserveSpend, authorizeSpendDispatch, settleSpend, inspectSpend } from '../lib/evaluation-spend.mjs';
 const H = 'a'.repeat(64), appRoot = fileURLToPath(new URL('..', import.meta.url));
@@ -43,6 +46,220 @@ async function world(t, { legacy = false, retention = {}, currency = 0.00001 } =
   const observation = (d, extra = {}) => ({ planDigest, operationId: 'acme-op', observationId: 'acme-observation', previousDigest: d.receipt.digest, outcome: 'unknown', usage: null, evidenceDigest: H, ...extra });
   return { root, options, planDigest, dir, frozen, request, inspect, init, reserve, observation };
 }
+
+// Synthetic durable-prefix fixtures model interruption after each publication.
+// No production cleanup/repair is used to construct or recover these states.
+async function pendingInitialization(w, { id = 'acme-op', prefix = 0, q = quote() } = {}) {
+  const request = w.request(id, q);
+  const reservation = sealRecord({ schemaVersion: 1, kind: 'spend-operation', planDigest: request.planDigest,
+    trialId: request.trialId, operationId: id, operationKind: q.operationKind, requestDigest: request.requestDigest,
+    quoteDigest: q.digest, priceDigest: q.priceDigest, maximumMicroUsd: q.maximumMicroUsd, quote: q });
+  const intent = sealRecord({ schemaVersion: 1, kind: 'spend-operation-initialization', reservation });
+  const path = join(w.dir, 'spend/operations', id), intentPath = `${path}.intent.json`;
+  await storeImmutable(intentPath, intent);
+  if (prefix >= 1) await mkdir(path, { mode: 0o700 });
+  if (prefix >= 2) await mkdir(join(path, 'observations'), { mode: 0o700 });
+  return { request, reservation, intent, path, intentPath };
+}
+async function spendSnapshot(dir) {
+  const result = [];
+  async function visit(path, name) {
+    const stat = await lstat(path);
+    result.push({ name, mode: stat.mode, data: stat.isSymbolicLink() ? await readlink(path) : stat.isDirectory() ? null : (await readFile(path)).toString('base64') });
+    if (stat.isDirectory()) for (const child of (await readdir(path)).sort()) await visit(join(path, child), `${name}/${child}`);
+  }
+  await visit(join(dir, 'spend'), 'spend'); return result;
+}
+async function cancelSpendFixture(w) {
+  const path = join(w.dir, 'execution/control'); await mkdir(path, { recursive: true, mode: 0o700 });
+  await storeImmutable(join(path, 'cancel.json'), sealRecord({ schemaVersion: 2, kind: 'evaluation-cancel', planDigest: w.planDigest, admissionClosed: true }));
+}
+
+test('initialization root recovers only deterministic empty publication prefixes', async t => {
+  for (const child of [false, true]) {
+    const w = await world(t), home = join(w.dir, 'spend'); await mkdir(home, { mode: 0o700 });
+    if (child) await mkdir(join(home, 'operations'), { mode: 0o700 });
+    assert.equal((await w.inspect()).spend.state, 'gap');
+    const recovered = await w.init(); assert.equal(recovered.recovered, true);
+    assert.equal(recovered.receipt.planDigest, w.planDigest);
+    const snapshot = await spendSnapshot(w.dir); assert.equal((await w.init()).recovered, true);
+    assert.deepEqual(await spendSnapshot(w.dir), snapshot);
+    assert.equal((await w.inspect()).spend.heldMicroUsd, 0);
+  }
+});
+
+test('initialization intent prefixes preserve one hold and complete exact input without dispatch', async t => {
+  for (const prefix of [0, 1, 2]) {
+    const w = await world(t); await w.init(); const p = await pendingInitialization(w, { prefix });
+    const original = await readFile(p.intentPath), pending = (await w.inspect()).spend, before = await usage(w.dir);
+    assert.equal(pending.state, 'ready'); assert.equal(pending.admissionClosed, true);
+    assert.equal(pending.heldMicroUsd, 4); assert.equal(pending.operations[0].initializationPending, true);
+    assert.equal(pending.reservedEvents, 10);
+    assert.equal(pending.reservedBytes, 9 * 4096 + Buffer.byteLength(JSON.stringify(p.reservation) + '\n'));
+    const snapshot = await spendSnapshot(w.dir);
+    await assert.rejects(authorizeSpendDispatch(w.options, { planDigest: w.planDigest, operationId: 'acme-op', reservationDigest: p.reservation.digest }), /admission closed/);
+    await assert.rejects(reserveSpend(w.options, w.request('acme-bypass')), /admission closed/);
+    await assert.rejects(reserveSpend(w.options, { ...p.request, requestDigest: 'b'.repeat(64) }), /conflicting/);
+    await assert.rejects(reserveSpend(w.options, w.request('acme-op', quote({ maxOutputTokens: 2 }))), /conflicting/);
+    assert.deepEqual(await spendSnapshot(w.dir), snapshot);
+    const result = await reserveSpend(w.options, p.request);
+    assert.equal(result.recovered, true); assert.deepEqual(result.receipt, p.reservation);
+    assert.deepEqual(await readFile(p.intentPath), original);
+    const complete = (await w.inspect()).spend, after = await usage(w.dir);
+    assert.equal(complete.heldMicroUsd, 4); assert.equal(complete.operations[0].dispatch, null);
+    assert.equal(complete.operations[0].initializationPending, undefined);
+    assert.equal(before.count + pending.reservedEvents, after.count + complete.reservedEvents);
+    assert.equal(before.bytes + pending.reservedBytes, after.bytes + complete.reservedBytes);
+    const done = await spendSnapshot(w.dir); await reserveSpend(w.options, p.request);
+    assert.deepEqual(await spendSnapshot(w.dir), done);
+  }
+});
+
+test('initialization forward publication retains the exact final reservation intent', async t => {
+  const w = await world(t); await w.init(); const result = await reserveSpend(w.options, w.request());
+  const intent = JSON.parse(await readFile(join(w.dir, 'spend/operations/acme-op.intent.json'), 'utf8'));
+  assert.deepEqual(intent, sealRecord({ schemaVersion: 1, kind: 'spend-operation-initialization', reservation: result.receipt }));
+  const state = (await w.inspect()).spend;
+  assert.equal(state.operations.length, 1); assert.equal(state.heldMicroUsd, 4); assert.equal(state.reservedEvents, 9);
+  assert.equal(state.operations[0].dispatch, null);
+});
+
+test('initialization writer interruptions after each mkdir preserve recoverable prefixes', async t => {
+  for (const boundary of ['spend', 'spend/operations', 'spend/operations/acme-op', 'spend/operations/acme-op/observations']) {
+    const w = await world(t), operation = boundary.includes('acme-op'); if (operation) await w.init();
+    // Isolate builtin fault injection from other tests. This models publication
+    // interruption, not dead-writer reclamation (which remains a separate protocol).
+    const worker = new Worker(`(async () => {
+      const { workerData, parentPort } = await import('node:worker_threads');
+      const fs = (await import('node:fs/promises')).default;
+      const mkdir = fs.mkdir;
+      fs.mkdir = async (path, ...args) => {
+        const result = await mkdir(path, ...args);
+        if (path === workerData.target) throw Error('acme-interrupted-after-mkdir');
+        return result;
+      };
+      (await import('node:module')).syncBuiltinESMExports();
+      const spend = await import(workerData.module);
+      try {
+        if (workerData.operation) await spend.reserveSpend(workerData.options, workerData.request);
+        else await spend.reserveComparisonSpend(workerData.options, { planDigest: workerData.request.planDigest });
+        parentPort.postMessage('unexpected-success');
+      } catch (e) { parentPort.postMessage(e.message); }
+    })().catch(e => { throw e; });`, { eval: true, workerData: {
+      module: new URL('../lib/evaluation-spend.mjs', import.meta.url).href,
+      options: w.options, request: w.request(), target: join(w.dir, boundary), operation
+    } });
+    let message;
+    worker.on('message', value => { message = value; });
+    await new Promise((resolve, reject) => { worker.once('error', reject); worker.once('exit', code => code === 0 ? resolve() : reject(Error(`worker exit ${code}`))); });
+    assert.equal(message, 'acme-interrupted-after-mkdir');
+    if (operation) {
+      const pending = (await w.inspect()).spend;
+      assert.equal(pending.state, 'ready'); assert.equal(pending.heldMicroUsd, 4); assert.equal(pending.admissionClosed, true);
+      await reserveSpend(w.options, w.request());
+      assert.equal((await w.inspect()).spend.operations[0].dispatch, null);
+    } else await w.init();
+    assert.equal((await w.inspect()).spend.state, 'ready');
+  }
+});
+
+test('initialization pending siblings block new admission and unrelated dispatch until completed', async t => {
+  const w = await world(t); await w.init();
+  const complete = await reserveSpend(w.options, w.request('acme-existing'));
+  const first = await pendingInitialization(w), second = await pendingInitialization(w, { id: 'acme-second', q: quote({ inputTokens: 0, maxOutputTokens: 0 }) });
+  await reserveSpend(w.options, first.request);
+  assert.equal((await w.inspect()).spend.admissionClosed, true);
+  await assert.rejects(authorizeSpendDispatch(w.options, { planDigest: w.planDigest, operationId: 'acme-existing', reservationDigest: complete.receipt.digest }), /admission closed/);
+  await assert.rejects(reserveSpend(w.options, w.request('acme-third')), /admission closed/);
+  await reserveSpend(w.options, second.request);
+  assert.equal((await w.inspect()).spend.admissionClosed, false);
+  assert.equal((await w.inspect()).spend.heldMicroUsd, 9);
+});
+
+test('initialization completion preserves cancellation, expired prices and breach without effects', async t => {
+  for (const reason of ['cancel', 'expiry', 'breach']) {
+    const w = await world(t); await w.init();
+    const prior = reason === 'breach' ? await w.reserve('acme-prior') : null;
+    const price = prices(); if (reason === 'expiry') price.validUntil = '2021-01-01T00:00:00.000Z';
+    const p = await pendingInitialization(w, { q: quote({ priceEvidence: price }) });
+    if (reason === 'cancel') await cancelSpendFixture(w);
+    if (prior) await settleSpend(w.options, w.observation(prior.d, { operationId: 'acme-prior', outcome: 'http-error', usage: { inputTokens: 30, outputTokens: 0, requests: 1 } }));
+    const before = (await w.inspect()).spend, intentBytes = await readFile(p.intentPath);
+    await reserveSpend(w.options, p.request);
+    const state = (await w.inspect()).spend;
+    assert.equal(state.heldMicroUsd, before.heldMicroUsd); assert.equal(state.knownMicroUsd, before.knownMicroUsd);
+    assert.deepEqual(await readFile(p.intentPath), intentBytes);
+    assert.equal(state.operations.find(o => o.reservation.operationId === 'acme-op').dispatch, null);
+    await assert.rejects(authorizeSpendDispatch(w.options, { planDigest: w.planDigest, operationId: 'acme-op', reservationDigest: p.reservation.digest }), reason === 'expiry' ? /expired/ : /admission closed/);
+    if (reason !== 'expiry') assert.equal(state.admissionClosed, true);
+  }
+  const w = await world(t); await mkdir(join(w.dir, 'spend'), { mode: 0o700 }); await cancelSpendFixture(w);
+  await assert.rejects(w.init(), /admission closed/);
+  assert.deepEqual(await readdir(join(w.dir, 'spend')), []);
+});
+
+test('initialization legacy complete operations remain readable but unbound stubs cannot heal', async t => {
+  const w = await world(t); await w.init(); const p = await pendingInitialization(w, { prefix: 2 });
+  // Model an old completed operation with its original final reservation, no intent.
+  await storeImmutable(join(p.path, 'reservation.json'), p.reservation); await rm(p.intentPath);
+  assert.equal((await w.inspect()).spend.heldMicroUsd, 4);
+  const snapshot = await spendSnapshot(w.dir);
+  assert.equal((await reserveSpend(w.options, p.request)).recovered, true);
+  assert.deepEqual(await spendSnapshot(w.dir), snapshot);
+  for (const prefix of [1, 2]) {
+    const legacy = await world(t); await legacy.init(); const path = join(legacy.dir, 'spend/operations/acme-op');
+    await mkdir(path, { mode: 0o700 }); if (prefix === 2) await mkdir(join(path, 'observations'), { mode: 0o700 });
+    const before = await spendSnapshot(legacy.dir);
+    await assert.rejects(reserveSpend(legacy.options, legacy.request()), /unbound/);
+    await assert.rejects(reserveSpend(legacy.options, legacy.request('acme-other')), /unbound/);
+    assert.equal((await legacy.inspect()).spend.state, 'gap');
+    assert.deepEqual(await spendSnapshot(legacy.dir), before);
+  }
+});
+
+test('initialization rejects partial files, foreign evidence and changed bindings without mutation', async t => {
+  const mutations = [
+    async p => { await chmod(p.intentPath, 0o600); await writeFile(p.intentPath, '{'); await chmod(p.intentPath, 0o400); },
+    p => storeImmutable(join(p.path, 'reservation.json'), sealRecord({ ...p.reservation, requestDigest: 'b'.repeat(64) })),
+    p => writeFile(join(p.path, 'reservation.json'), '{', { mode: 0o400 }),
+    p => writeFile(join(p.path, 'dispatch.json'), '{}', { mode: 0o400 }),
+    p => writeFile(join(p.path, 'observations/1.json'), '{}', { mode: 0o400 }),
+    p => writeFile(join(p.path, 'foreign'), 'x', { mode: 0o400 }),
+    async p => { await rm(join(p.path, 'observations'), { recursive: true }); await symlink('/tmp', join(p.path, 'observations')); },
+    async p => { await rm(p.intentPath); await symlink('/tmp/missing-acme-intent', p.intentPath); },
+    async p => { await rm(p.intentPath); await storeImmutable(p.intentPath, sealRecord({ ...p.intent, reservation: sealRecord({ ...p.reservation, operationId: 'acme-other' }) })); },
+    async p => { await chmod(p.intentPath, 0o600); }
+  ];
+  for (const mutate of mutations) {
+    const w = await world(t); await w.init(); const p = await pendingInitialization(w, { prefix: 2 }); await mutate(p);
+    const before = await spendSnapshot(w.dir);
+    assert.equal((await w.inspect()).spend.state, 'gap');
+    await assert.rejects(reserveSpend(w.options, p.request)); await assert.rejects(reserveSpend(w.options, w.request('acme-bypass')));
+    assert.deepEqual(await spendSnapshot(w.dir), before);
+  }
+});
+
+test('initialization root refuses partial reservation and nonempty or foreign prefixes', async t => {
+  for (const mutate of [
+    home => writeFile(join(home, 'reservation.json'), '{', { mode: 0o400 }),
+    home => writeFile(join(home, 'foreign'), 'x', { mode: 0o400 }),
+    home => symlink('/tmp', join(home, 'operations')),
+    async home => { await mkdir(join(home, 'operations'), { mode: 0o700 }); await mkdir(join(home, 'operations/acme-op'), { mode: 0o700 }); },
+    async home => { await mkdir(join(home, 'operations'), { mode: 0o700 }); await writeFile(join(home, 'operations/acme-op.intent.json'), '{}', { mode: 0o400 }); }
+  ]) {
+    const w = await world(t), home = join(w.dir, 'spend'); await mkdir(home, { mode: 0o700 }); await mutate(home);
+    const before = await spendSnapshot(w.dir); await assert.rejects(w.init());
+    assert.deepEqual(await spendSnapshot(w.dir), before);
+  }
+});
+
+test('initialization intent and final receipt both consume retention before admission', async t => {
+  // state + attachment + comparison reservation = 3; operation needs 11 more,
+  // including the intent, final reservation and nine future event slots.
+  const w = await world(t, { retention: { maxEvents: 13 } }); await w.init();
+  await assert.rejects(reserveSpend(w.options, w.request()), /retention capacity/);
+  assert.deepEqual(await readdir(join(w.dir, 'spend/operations')), []);
+});
 
 test('checked microUSD arithmetic rounds each category up and ceilings down', () => {
   assert.equal(ceilingMicroUsd(0.0000019), 1);

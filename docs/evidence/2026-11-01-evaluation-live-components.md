@@ -101,3 +101,46 @@ These independent controls prove both protections without relying on runner spee
 Commands and unchanged-production hashes: `/tmp/phase119-live-deadline-proof.md`.
 No production code, source pin, provider request or paid trial changed. The original
 failed CI remains part of the record; the next exact-head gate must pass before merge.
+
+## Intent-bound initialization recovery — 1 November 2026
+
+[Review finding 4437746222](https://github.com/dalmaer/plates/pull/309#discussion_r4437746222)
+identified that a crash between directory creation and reservation publication
+could wedge the comparison. The source contract was settled in `27369398` before
+implementation. Forward reservations now retain an immutable initialization intent
+first; only exact bound creation prefixes can complete. The original hold is
+counted once, pending initialization blocks admission/dispatch, and completion
+never reprices, refunds or authorizes an effect. Complete legacy operations remain
+readable; unbound legacy stubs and partial/corrupt files remain gaps. Root recovery
+is limited to deterministic empty creation prefixes with no operation evidence.
+
+The focused spend suite passed 29 tests with no hygiene findings:
+`node --import ./tests/helpers/hermetic.mjs --test tests/evaluation-spend.test.mjs`
+(with the repository spec and test-ledger reporters in the retained invocation).
+Log: `/tmp/phase119-initialization-fixed-02.log`. The first run found a fixture
+trying to remove a directory as a file; the fixture was corrected and the failure
+is retained at `/tmp/phase119-initialization-fixed-01.log`.
+
+Narrow counterfactuals against the new module prove behavior rather than merely
+new-format support: disabling pending completion leaves initialization pending;
+removing exact-request comparison accepts changed input and fails the rejection
+assertion. Logs: `/tmp/phase119-initialization-no-completion-01.log` and
+`/tmp/phase119-initialization-no-request-binding-01.log`. Older-module controls
+also failed at the root and operation creation boundaries. No provider call,
+financial activation, receipt deletion or historical rewrite occurred.
+
+The preceding `d1f7f293` head's hosted CI passed in
+[run 41360434083](https://github.com/dalmaer/plates/actions/runs/41360434083),
+confirming the deterministic deadline correction on the hosted runner. That pass
+is not evidence for the new initialization changes; they require a fresh gate.
+
+The integrated recovery checkpoint passed on 1 November 2026: `npm run check`
+exited zero with 4,079 passing tests, 12 opt-in skips, all ten timing-stall checks
+and roadmap/render/inbox guards. The test ledger reported no flaky or slower test.
+Log: `/tmp/phase119-initialization-full-check.log`. `npm run typecheck` exited zero
+(`/tmp/phase119-initialization-typecheck.log`). Focused preflight retained 142
+passing tests and completed its final guards
+(`/tmp/phase119-initialization-focused-preflight.log`). Fault injection interrupts
+actual mkdir boundaries with exceptions; it does not prove power-loss durability
+or dead-writer reclamation. Exact commands and narrow controls are retained in
+`/tmp/phase119-initialization-proof.md`.
