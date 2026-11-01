@@ -6,7 +6,7 @@ spec: 2
 depends: [118]
 review: wait
 note: "Offline comparison and original-operation recovery proved; live provider adapter, enforced spend and approved screening remain pending."
-evidence: ["evidence/2026-10-23-evaluation-comparison.md"]
+evidence: ["evidence/2026-10-23-evaluation-comparison.md", "evidence/2026-11-01-evaluation-recovery.md"]
 ---
 
 # Compare paired harness trials and resume interrupted comparisons
@@ -77,3 +77,9 @@ their fixture results.
 - **2026-10-23** — Whole-comparison storage and recovery reservations are needed before admission. New plans can explicitly reserve up to 64 MiB; old frozen ceilings remain unchanged. Preparation reduces each admitted execution deadline, and uncertain operations never refund capacity.
 - **2026-10-23** — Independent proof found image objects must be compared structurally after receipt deserialization. The real twenty-slot walk retained all target/control outcomes and unknown costs; its known scripted patch remains inconclusive about agent improvement.
 - **2026-10-23** — Live provider execution is not supplied by an offline scripted adapter. Preserve the code/activation gap explicitly while continuing later work that depends only on the implemented offline contracts.
+
+- **2026-11-01** — Admission refusal is distinct from an uncertain reservation.
+  A proven pre-insertion capacity refusal receives a bound immutable receipt;
+  the frozen slot stays consumed while other missing work can be prepared.
+  Missing or contradictory evidence still blocks recovery. Comparison views
+  expose evidence gaps and next actions without granting retry authority.
