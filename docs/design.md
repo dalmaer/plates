@@ -350,6 +350,11 @@ registers, and `tests/surface-budget.test.mjs` fails when a verb or flag is
 added without raising the budget, or a verb is added without being named below.
 A verb named here is a claim that its layer is Plates' own.
 
+The `plates retro evaluations corpus` slice owns bounded local case inspection
+and explicit export: `--case` selects the curated case, `--repository` pins its
+local source, and `--destination` names the reviewed private export directory.
+It grants no evaluation execution, provider access or promotion authority.
+
 ### What Plates owns, verb by verb
 
 - **Practice and installation:** `plates init`, `plates adopt`,
@@ -489,7 +494,11 @@ foundation; phase 118 adds offline scripted execution with independent artifact
 verdicts. Phase 119 implements offline paired comparison and original-operation
 recovery, preserving completed attempts and unknown outcomes. Live provider
 execution, enforced provider spending and measured promotion remain pending.
-The offline boundary does not establish model efficacy.
+Phase 120 supplies six historically grounded development cases through bounded
+inspection/export, preserving provenance and separate acceptance materials.
+Case scope follows the actual historical failure surface; unsupported coverage
+stays explicit. Held-out coverage is zero. The offline boundary does not establish
+model efficacy.
 Builders submit artifacts to independently controlled acceptance, comparisons keep
 all attempts and unknown costs, and no result activates a production rule.
 See [harness evaluation](specs/harness-regression-evaluation.md),
