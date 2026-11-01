@@ -350,6 +350,11 @@ registers, and `tests/surface-budget.test.mjs` fails when a verb or flag is
 added without raising the budget, or a verb is added without being named below.
 A verb named here is a claim that its layer is Plates' own.
 
+The `plates retro evaluations corpus` slice owns bounded local case inspection
+and explicit export: `--case` selects the curated case, `--repository` pins its
+local source, and `--destination` names the reviewed private export directory.
+It grants no evaluation execution, provider access or promotion authority.
+
 ### What Plates owns, verb by verb
 
 - **Practice and installation:** `plates init`, `plates adopt`,
@@ -363,6 +368,10 @@ A verb named here is a claim that its layer is Plates' own.
   `plates review`, `plates walk`, `plates decision`.
 - **Lessons and learning:** `plates lessons`, `plates learn`, `plates retro`,
   `plates feedback`.
+  The evaluated-learning slice uses `--input` for the selected record,
+  `--manifest` and `--state` for its explicit private workspace, and `--digest`
+  for approval of the exact local preview; these flags do not grant provider
+  spend or production promotion.
 - **Health and night:** `plates improve`, `plates persona run`, `plates time`,
   `plates test`, `plates night plan`, `plates night tick`, `plates morning`,
   `plates goodnight`, `plates production`.

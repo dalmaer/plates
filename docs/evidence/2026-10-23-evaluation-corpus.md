@@ -129,3 +129,21 @@ observations used `plates review dalmaer/plates#250 --reviewer github-actions[bo
 --gate --json` and `gh run view 40070145413 --repo dalmaer/plates --json
 status,conclusion,headSha`. It remains unmerged while phase 119's owner decision
 is pending. Review and CI do not establish paid-agent efficacy or lived-in use.
+
+## Current-main integration — 1 November 2026
+
+PR #249 merged on 27 October at `d4fd36d82b68321b7c5ae9fd7939fe6482a76a64`,
+resolving the historical dependency hold above. Original dated observations are
+preserved. The integrated tree includes the phase119 admission-recovery change
+from PR #308; its separate review remains a dependency, not corpus efficacy.
+
+The first current-main full gate reported 3948 passed, three failed and eleven
+opt-in skips. All three failures identified the same integration omission:
+the new corpus `--case`, `--repository` and `--destination` flags were absent
+from the newer `.plates/surface.json` inventory. The correction names exactly
+those three flags (185 to 188) and documents their local export authority under
+Own, adopt, watch. It changes no provider or execution permission.
+`node --import ./tests/helpers/hermetic.mjs --test tests/surface-budget.test.mjs`
+then passed all three tests. Original full-gate log:
+`/tmp/phase120-full-check.log`. Final integration still requires the unchanged
+full gate, typecheck and review of its exact head.
