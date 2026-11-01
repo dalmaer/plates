@@ -558,3 +558,34 @@ The installed curator package retains the oracle, but that package is never
 mounted into the builder container. Tests inspect the actual builder inventory
 and prove the original failure and corrected witness using private input.
 This remains an exposed historical development case, not held-out evidence.
+
+## Per-case environment continuation — 1 November 2026
+
+A configuration-wide environment cannot represent a historical target and an
+unrelated control whose pinned dependency/installer identities differ. Extend
+only newly authored bundles; never migrate a frozen comparison or change a
+retained report projection to make old evidence pass.
+
+Bundle schema 3 uses schema-3 configuration records. Replace the single
+`environment` with `environments: [{ case: { kind, id, digest }, environment }]`.
+Cases, materials and comparison records retain their schema-2 shapes. The map
+contains exactly the comparison's referenced cases in deterministic case-id
+order, with no duplicates, unused entries or fallback. Each entry resolves the
+exact case reference and equals that case's complete pinned environment. Both
+arms must bind the same environment for each case. Schema-2 bundles keep their
+existing validation and single-environment behavior unchanged.
+
+Use one shared resolver at preparation, frozen-delivery reconstruction and
+comparison validation; do not select by an unverified case name. Keep original
+configuration identities and case-specific actual image observations in evidence.
+Unknown or mismatched environments remain non-comparable. Existing versioned
+report receipts retain their original bytes and evaluator identity; unsupported
+new projections must refuse explicitly rather than reseal old reports.
+
+This slice supports the existing offline runtime. It grants no provider/network
+access or currency entitlement and does not claim real agent efficacy. Prove a
+new multi-case plan with distinct pinned dependency identities, both arms, exact
+missing/duplicate/foreign mapping refusals, retained schema-2 compatibility and
+mismatched observed environments. The live adapter, enforced spending gateway,
+exact owner-approved screening and real historical case walk remain separate
+requirements; do not mark phase119 or phase122 complete from schema tests.
