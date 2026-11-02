@@ -66,3 +66,24 @@ issue; it did not independently rerun the tests or mutation controls.
 No paid requests, credentials, production activation or held-out efficacy evidence
 were used. Public historical cases remain development cases. The live
 preview/count/quote/run/reconcile orchestration is still outstanding.
+
+## Canonical repository correction — 1 November 2026
+
+[PR310 finding 4437960905](https://github.com/dalmaer/plates/pull/310#discussion_r4437960905)
+identified unchecked repository paths before Git. The new wrapper now applies the
+legacy canonical absolute-path requirement before export; asynchronous realpath
+resolution consumes the original aggregate deadline. Nineteen focused tests passed
+with clean hygiene. Removing this exact guard produces four Git calls instead of
+zero for a noncanonical path. Relative, symlinked, malformed, nonexistent and alias
+paths refuse; a canonical positive case exercises real local Git. Commands and
+causal logs: `/tmp/phase119-input-partition-p3-handoff.md`.
+
+The corrected integrated checkpoint passed on 1 November 2026: 4,098 tests passed,
+12 skipped, all ten timing-stall checks and roadmap/render/inbox guards passed.
+Final test-ledger hygiene reported no flaky or slower test. Focused preflight and
+typecheck also exited zero. Logs: `/tmp/phase119-partition-p3-full-check.log`,
+`/tmp/phase119-partition-p3-preflight.log`, and
+`/tmp/phase119-partition-p3-typecheck.log`. `plates prove` verified the canonical
+regression red without the fix and green with it, retained in
+`/tmp/phase119-partition-p3-prove.log`. Independent read-only review confirmed the
+correction; it did not rerun these commands.

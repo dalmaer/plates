@@ -1,8 +1,8 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, realpath, rm, cp, mkdir, writeFile } from 'node:fs/promises';
+import fsp, { mkdtemp, realpath, rm, cp, mkdir, writeFile, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join, resolve, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 import childProcess from 'node:child_process';
@@ -288,4 +288,34 @@ test('wrapper snapshots caller values before asynchronous classification reads',
   const pending = w.corpus.prepareCorpusInputPartition(options);
   options.sourcePaths.length = 0; options.plan.bundle.cases[0].publicBrief = 'Acme changed while awaiting'; options.configurationRef.digest = '0'.repeat(64);
   assert.deepEqual(w.api.partitionIdentity(await pending), expected);
+});
+
+test('wrapper canonical repository refusals issue zero Git commands', async t => {
+  const alias = join(w.dir, 'repository-alias'); await symlink(w.repository, alias);
+  let calls = 0; observeGit(t, () => { calls++; });
+  const invalid = [relative(process.cwd(), w.repository), alias, undefined, null, 42, {}, join(w.dir, 'nonexistent'),
+    w.repository + '/', w.repository + '/.', w.repository + '/../repository'];
+  for (const repository of invalid) {
+    const options = { ...await wrapperOptions(), repository };
+    const error = await w.corpus.prepareCorpusInputPartition(options).then(() => null, e => e);
+    assert.equal(calls, 0, 'noncanonical repository must issue zero Git commands');
+    assert.equal(error?.code, 'partition_invalid'); assert.equal(error?.message, 'partition_invalid');
+  }
+  const result = await w.corpus.prepareCorpusInputPartition(await wrapperOptions());
+  assert.equal(calls, 4, 'canonical repository reaches actual Git export');
+  assert.deepEqual(w.api.publicInputView(result).files.slice(0, 2).map(f => f.path), ['source-000.txt', 'source-001.txt']);
+});
+test('wrapper asynchronous repository resolution spends the aggregate deadline', async t => {
+  const originalNow = Date.now, originalRealpath = fsp.realpath;
+  let now = 100000, resolutionMs = 2000; const timeouts = [];
+  Date.now = () => now;
+  fsp.realpath = async (...args) => { const path = await originalRealpath(...args); if (args[0] === w.repository) now += resolutionMs; return path; };
+  syncBuiltinESMExports();
+  t.after(() => { Date.now = originalNow; fsp.realpath = originalRealpath; syncBuiltinESMExports(); });
+  observeGit(t, args => { timeouts.push(args[2].timeout); });
+  await w.corpus.prepareCorpusInputPartition(await wrapperOptions());
+  assert.deepEqual(timeouts, [8000, 8000, 8000, 8000], 'resolution time is not a fresh Git budget');
+  timeouts.length = 0; resolutionMs = 10000;
+  await assert.rejects(w.corpus.prepareCorpusInputPartition(await wrapperOptions()), { code: 'partition_invalid' });
+  assert.deepEqual(timeouts, [], 'expired path resolution must issue zero Git commands');
 });
