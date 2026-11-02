@@ -10,7 +10,7 @@ and [phase 132](../phases/137-a-project-set-shows-its-routines.md) lead to phase
 
 - Plates base: `0165c2902784073ba89dd717256ad233faf4865f`.
 - Switchboard inspected source: `a6651db5ff570eada8b04b2c4ffb993d8e67fbe9`.
-- Worktree: `/Users/dionalmaer/Documents/Codex/2026-10-30/task-2/plates-consolidation`.
+- Worktree: a dedicated local worktree outside this repository (`plates-consolidation`).
 - Dedicated branch: `codex/switchboard-consolidation`.
 - The original Plates checkout contained untracked user state and research;
   none was copied, staged, reset or edited. Switchboard remained unchanged.
@@ -69,8 +69,8 @@ On 30 October 2026, Node `v24.22.1`:
   a local read-only Python inspection. All references resolved and no source
   module was omitted. Final document links were rechecked after this record.
 
-The focused log is retained outside Git at
-`/Users/dionalmaer/Documents/Codex/2026-10-30/task-2/consolidation-focused.log`.
+The focused log is retained outside Git, in the task's local log folder, as
+`consolidation-focused.log`.
 No full suite or typecheck was run for this documentation-only task. New named
 implementation test files are explicitly planned, not nonexistent proof claimed
 as passing. This is not a full-gate pass or independent external review.

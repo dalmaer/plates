@@ -54,7 +54,7 @@ Focused preflight passed 185/185 tests, zero failures/skips, with mandatory help
 README, guide, CLI, adoption, managed-skill and package capability conventions.
 Command: `npm run check:focused -- tests/web-project-sets.test.mjs tests/web-home.test.mjs tests/web-events.test.mjs tests/web-runs-ui.test.mjs tests/web-responsive.test.mjs tests/web-recovery.test.mjs tests/web-operation-coverage.test.mjs tests/web-fleet-updates-ui.test.mjs`.
 Roadmap/render/inbox/whitespace stages also passed. The log is
-`/Users/dionalmaer/Documents/Codex/2026-10-30/task-2/set-focused-final.log`.
+`set-focused-final.log`, kept outside Git in the task's local log folder.
 This is focused evidence, not a full-gate or live-use claim.
 
 ## First integrated checkpoint and release-test correction
@@ -62,7 +62,7 @@ This is focused evidence, not a full-gate or live-use claim.
 On clean `81f5bc38b1220413346d7db966f117f1a7050b37`, `npm run check`
 ran 3,694 tests: 3,689 passed, one failed, four opt-in Docker tests skipped.
 The gate stopped before roadmap/render/inbox. Typecheck passed on that revision.
-Full log: `/Users/dionalmaer/Documents/Codex/2026-10-30/task-2/set-full-gate.log`.
+Full log: `set-full-gate.log`, in the same local log folder.
 The ledger reported no flaky or slower test, with one busy run excluded from
 comparison; that is not evidence of quiet-host performance.
 
@@ -96,7 +96,7 @@ Node: v24.22.1. No source or test changed during the gate.
 - Independent review: the set implementation and test correction had no remaining
   findings after the two UI issues and the coverage comment were corrected.
 
-Logs are retained under `/Users/dionalmaer/Documents/Codex/2026-10-30/task-2`.
+Logs are retained outside Git, in the task's local log folder.
 SHA-256 bindings:
 
 - `set-full-gate-corrected.log`: `3e6bf8c281658a640c0ee1f5816ad9ece2bbc890e650fed68d8842b67fc3db1d`
