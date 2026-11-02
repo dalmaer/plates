@@ -47,7 +47,13 @@ those helpers does not expose its process wrapper.
 
 The episode must explicitly include `Acme/widget#12` in its `links`. Identical
 content in another PR is insufficient. A coding/iteration checkpoint must already
-exist, and the exact reviewed commit must be available locally. If the task began
+exist, and the exact reviewed commit must be available locally. The checkpoint
+covers tracked files plus the untracked paths a command record lists in
+`checkpointPaths`. Any other untracked, non-ignored file (or a non-file entry
+such as a socket) makes it unknown: `digest` is null and `coverage` is
+`incomplete`. In a working tree with stray untracked files, every later review
+capture then reports `reviewed-checkpoint-not-recorded`; list those paths, ignore
+them or remove them before the coding attempt finishes. If the task began
 with only an issue reference, append a lifecycle event with `action: "link"`
 and `payload: {"links": ["Acme/widget#12"]}` when the PR is created, using the
 same preview/apply workflow. This adds the source reference without rewriting
