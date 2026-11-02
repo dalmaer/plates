@@ -61,7 +61,10 @@ PLATES_QUALITY_BINDING=/absolute/private-inputs/binding.json plates review Acme/
 This uses only review metadata that `plates review` already fetched. It makes no
 additional provider requests and stores no review bodies. Captured metadata
 includes hashes of the reviewer identifier and exact review facts; provider and
-model identity remain unknown. Repeated reads retain one observation per review.
+model identity remain unknown. The captured review attempt keeps the reviewed tree
+in `inputCheckpointDigest` and the metadata hash in `metadataDigest`; its
+`checkpointDigest` is null, because metadata is not a repository artifact.
+Repeated reads retain one observation per review.
 The default text and JSON report whether capture succeeded or why evidence could
 not join. A capture gap does not block the original review command.
 

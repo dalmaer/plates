@@ -119,6 +119,9 @@ test('exact-head review metadata joins the recorded patch and retries without in
   const second = await observeQualityReview(args); assert.equal(second.status, 'observed'); assert.equal(second.retained, 1);
   const e = (await w.inspect()).bundle.episodes[0], review = e.attempts.find(a => a.stage === 'review');
   assert.equal(review.inputCheckpointDigest, e.attempts[0].checkpointDigest); assert.equal(review.agent, null); assert.equal(review.resources.wallMs, null);
+  assert.equal(review.checkpointDigest, null, 'review metadata is not a repository checkpoint');
+  assert.match(review.metadataDigest, /^[a-f0-9]{64}$/); assert.notEqual(review.metadataDigest, review.inputCheckpointDigest);
+  assert.equal(e.attempts[0].metadataDigest, undefined);
   assert.equal(e.evaluations.length, 0);
   assert.equal((await observeQualityReview({ ...args, reviews: [{ ...reviews[0], commit: 'a'.repeat(40) }] })).reason, 'no-review-at-exact-head');
   assert.equal((await observeQualityReview({ ...args, number: 2 })).reason, 'review-target-not-linked-to-episode');
