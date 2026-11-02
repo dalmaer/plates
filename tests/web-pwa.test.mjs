@@ -133,7 +133,8 @@ test('the app installs and caches only its shell', async () => {
   const manifest = await manifestResponse.json();
   assert.equal(manifest.name, 'Plates'); assert.equal(manifest.short_name, 'Plates');
   assert.equal(manifest.start_url, '/'); assert.equal(manifest.scope, '/'); assert.equal(manifest.display, 'standalone');
-  assert.equal(manifest.theme_color, '#245c48'); assert.equal(manifest.background_color, '#f5f5ef');
+  // Porcelain paper (phase 168), the light --paper token's hex mirror.
+  assert.equal(manifest.theme_color, '#f3f7fc'); assert.equal(manifest.background_color, '#f3f7fc');
   assert.ok(manifest.icons.some(icon => icon.type === 'image/svg+xml' && icon.purpose === 'maskable'));
   for (const icon of manifest.icons) {
     const response = await h.service(h.request(icon.src));
@@ -163,7 +164,10 @@ test('the app installs and caches only its shell', async () => {
     assert.match(html, /<meta name="apple-mobile-web-app-capable" content="yes">/, path);
     assert.ok(html.includes(`<meta name="plates-shell" content="${version}">`), path);
     if (cookie) assert.match(html, /<script type="module" src="\/assets\/pwa-client\.[0-9a-f]{12}\.mjs"><\/script><\/body>/, path);
-    else assert.doesNotMatch(html, /<script/, 'a script-free page stays script-free');
+    else assert.doesNotMatch(html, /<script type="module"/, 'a module-free page stays module-free');
+    // The one classic script: the blocking theme script, before the stylesheet (phase 168).
+    assert.match(html, /<head>.*<script src="\/assets\/theme\.[0-9a-f]{12}\.mjs"><\/script><link rel="stylesheet" href="\/assets\/plates\.[0-9a-f]{12}\.css">/, path);
+    assert.equal((html.match(/<script(?! type="module")/g) || []).length, 1, path);
     assert.equal((html.match(/rel="manifest"/g) || []).length, 1, path);
   }
 

@@ -1,11 +1,12 @@
 ---
-status: planned
+status: partial
+owes: walk
 since: 2026-11-02
 goal: G7
 spec: 2
 depends: [167]
-note: "Owner, 2026-11-02: plates and Ledger 'should feel like they are in the same family'. Ledger's materials (glass surfaces, background wash, radius, motion, theme toggle) with plates's own colour: blue and white, cobalt on porcelain. Owner approved reusing Ledger's token values and a blocking theme script."
-evidence: []
+note: "Built and proven by test: porcelain and cobalt over a drawn wash, glass with three solid fallbacks, every text pair at contrast, and a no-flash system/light/dark toggle. The owner's look beside Ledger remains."
+evidence: ["evidence/2026-11-02-blue-and-white-glass.md"]
 ---
 
 # The shell wears blue and white glass
@@ -32,9 +33,9 @@ Every workspace page sits on a porcelain-and-cobalt wash, under a glass header w
 
 ## Acceptance
 
-- [ ] No text pair is short of contrast over the drawn wash, and phase 167's known list is empty: `tests/web-design.test.mjs: "tokens meet contrast over the wash in both themes"`
-- [ ] No page carries an inline script or style, and the theme script loads before the stylesheet: `tests/web-design.test.mjs: "the theme applies before paint without inline code"`
-- [ ] Each fallback (no blur, reduced transparency, forced colours) yields opaque, readable surfaces: `tests/web-design.test.mjs: "glass falls back to solid surfaces"`
+- [x] No text pair is short of contrast over the drawn wash, and phase 167's known list is empty: `tests/web-design.test.mjs: "tokens meet contrast over the wash in both themes"`
+- [x] No page carries an inline script or style, and the theme script loads before the stylesheet: `tests/web-design.test.mjs: "the theme applies before paint without inline code"`
+- [x] Each fallback (no blur, reduced transparency, forced colours) yields opaque, readable surfaces: `tests/web-design.test.mjs: "glass falls back to solid surfaces"`
 - [ ] ⚑ by hand: the owner opens the workspace on a phone and a laptop, in light and dark, and says whether plates and Ledger feel like one family.
 
 ## Your part
@@ -59,7 +60,13 @@ By hand: the owner's look, beside Ledger.
 ## Deliberately open
 
 - **How strong the cobalt is.** Settled by the owner's look.
+- **Settled 2026-11-02 (build): where the theme script goes.** It is injected where the server decorates every HTML response (`lib/web/pwa.mjs`), right before the first stylesheet. That covers every template at once, instead of each view's `page()`.
 
 ## Next action
 
-Build it after phase 167.
+Walk it: deploy, then the owner compares plates beside Ledger on a phone and a laptop, in light and dark (activation step family-look).
+
+## Trajectory
+
+- **2026-11-02** — Surfaces are derived tokens (from glass tints), so each fallback (no blur, reduced transparency, forced colours) is one `:root` rule. Evidence: tests/web-design.test.mjs "glass falls back to solid surfaces".
+- **2026-11-02** — The theme script is injected at response decoration, not per view, so every template gets it; the CSP needed no change. Evidence: "the theme applies before paint without inline code".

@@ -585,6 +585,19 @@
       "ownerAttended": true,
       "rollback": "Redeploy the previous build; logical asset paths never stopped answering, so open pages keep working.",
       "proof": "The deployed revision, the curl -sI header lines, and the second load's cache column, recorded in docs/evidence/2026-11-02-cached-assets.md."
+    },
+    {
+      "id": "family-look",
+      "phase": 168,
+      "kind": "decision",
+      "what": "After deploying a build with phase 168, the owner opens the workspace on a phone and a laptop, in light and dark through the new theme toggle, with Ledger beside it, and says whether plates and Ledger feel like one family while plates still reads as its own blue and white.",
+      "prerequisites": [
+        151,
+        168
+      ],
+      "ownerAttended": true,
+      "rollback": "Redeploy the previous build; the theme choice is a per-device preference and nothing else was written.",
+      "proof": "The deployed revision and the owner answer (same family, too alike, or too different and where), recorded in docs/evidence/2026-11-02-blue-and-white-glass.md."
     }
   ],
   "open": [
