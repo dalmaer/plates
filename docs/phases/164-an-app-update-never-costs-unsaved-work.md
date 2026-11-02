@@ -1,11 +1,12 @@
 ---
-status: planned
+status: partial
+owes: walk
 since: 2026-11-02
 goal: G7
 spec: 2
 depends: [152]
-note: "From the 2026-11-02 PWA audit: a new shell worker reloads every open page, even one with unsaved private edits; navigations wait on worker start-up with no timeout; an installed app left open never checks for a new version; a rotated push subscription silently stops notifications."
-evidence: []
+note: "Built and proven by test: no reload over unsaved edits, navigation preload with a 30-second offline fallback, a foreground update check, and push subscription rotation. The owner's walk across a real deploy remains."
+evidence: ["evidence/2026-11-02-app-update-unsaved-work.md"]
 ---
 
 # An app update never costs unsaved work
@@ -26,7 +27,7 @@ An installed app returning to the foreground checks for a new worker. A push sub
 - `lib/web/safety-client.mjs`: expose one read-only `hasUnsavedEdits(document)` over its existing guards. Nothing else changes.
 - `lib/web/pwa.mjs` `shellWorker`:
   - **Preload.** `activate` enables navigation preload when supported, and navigation uses `event.preloadResponse` when present.
-  - **Timeout.** Navigation falls back to the offline page after 8 seconds with no response. An aborted or late network response is never stored.
+  - **Timeout.** Navigation falls back to the offline page after 30 seconds with no response (above the server's 25-second source reads). An aborted or late network response is never stored.
   - **Rotated subscriptions.** A `pushsubscriptionchange` handler re-subscribes with the old options and posts the new subscription to a narrow endpoint. Without a page there is no CSRF form value, so it is authorized by the old subscription's endpoint, which the private store already holds.
 - `lib/web/push-routes.mjs`: that endpoint replaces a known subscription by its old endpoint, for the same user. It refuses an unknown old endpoint.
 - Out of scope: hashed assets (phase 165), offline mutations, and the push events themselves.
@@ -37,10 +38,10 @@ One merge. It's compatible: the worker version changes, so installed clients pic
 
 ## Acceptance
 
-- [ ] A new shell with unsaved edits shows the notice and does not reload; with none, the page reloads: `tests/web-pwa.test.mjs: "a new shell never reloads over unsaved edits"`
-- [ ] Navigation uses the preload response, and falls back to the offline page after the timeout without storing anything: `tests/web-pwa.test.mjs: "navigation preloads and gives up on a stalled network"`
-- [ ] Returning to the foreground checks for a new worker: `tests/web-pwa.test.mjs: "a returning app checks for a new shell"`
-- [ ] A rotated subscription replaces only its own record; an unknown old endpoint is refused: `tests/web-pwa.test.mjs: "a rotated push subscription keeps notifications coming"`
+- [x] A new shell with unsaved edits shows the notice and does not reload; with none, the page reloads: `tests/web-pwa.test.mjs: "a new shell never reloads over unsaved edits"`
+- [x] Navigation uses the preload response, and falls back to the offline page after the timeout without storing anything: `tests/web-pwa.test.mjs: "navigation preloads and gives up on a stalled network"`
+- [x] Returning to the foreground checks for a new worker: `tests/web-pwa.test.mjs: "a returning app checks for a new shell"`
+- [x] A rotated subscription replaces only its own record; an unknown old endpoint is refused: `tests/web-pwa.test.mjs: "a rotated push subscription keeps notifications coming"`
 - [ ] ⚑ by hand: the owner, with the app installed, leaves a draft unsaved across a deploy and finds it still there.
 
 ## Your part
@@ -68,4 +69,10 @@ By hand: the owner's draft across a deploy.
 
 ## Next action
 
-Build the client, worker and route changes with their four tests.
+The owner deploys main, leaves a draft unsaved in the installed app across the next deploy, and says whether it was kept.
+
+## Trajectory
+
+- **2026-11-02** — The navigation timeout is 30 seconds, not 8. The server's own source reads run up to 25 seconds, so 8 seconds would have shown "You are offline" for a slow page that was still working. lib/web/pwa.mjs.
+- **2026-11-02** — The rotation route sits in lib/web/server.mjs, outside the brief's file list. A worker has no page and so no CSRF value: origin is checked, a session is optional, and only a record whose old endpoint is already stored can change.
+- **2026-11-02** — Rotation is remove-then-add in one request, not one transaction; a single-statement rotate needs a migration and is left for a later phase.

@@ -169,6 +169,10 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
    - Needs first: phase 151.
    - Rollback: Redeploy the previous build; access and project reads return to the earlier behaviour, and nothing was written.
    - Proof to record: The deployed revision, and the owner's answer recorded in docs/evidence/2026-11-02-workspace-reads-each-plate.md: which plates were listed, and which said unavailable or not tracked.
+41. **draft-survives-update** (phase 164, decision, owner attends). After deploying a build with phase 164, the owner installs Plates on the phone, leaves a draft unsaved across the next deploy, and returns: the draft is still there and the page says a new version is ready instead of reloading.
+   - Needs first: phase 152.
+   - Rollback: Redeploy the previous build; the earlier worker replaces this one through the same upgrade path, and pages reload on a new shell as before.
+   - Proof to record: The two deployed revisions, and the owner's answer recorded in docs/evidence/2026-11-02-app-update-unsaved-work.md: whether the draft was kept and the notice shown.
 
 ## Still open
 
