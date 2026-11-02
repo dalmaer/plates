@@ -267,7 +267,13 @@ Recover a new harness lock only after verified original-writer death and matchin
 ownership; legacy empty or unverifiable locks remain blocked. Preserve partial
 records, original verdicts and settlement history. Comparisons retain failures,
 unknown costs and missing coverage; scripted trials never establish agent efficacy
-or activate a candidate. See [the record guide](docs/guide/harness-evaluations.md).
+or activate a candidate. Explicit `host-gateway-v1` plans also support one-slot
+count/generation and original-ID or local-only recovery, each with its own exact
+preview and approval. Live dispatch uses the supported macOS credential FIFO,
+explicit price evidence and the existing spend/host ledgers; metadata is not
+entitlement. Local-only recovery reads no credentials and never refunds unknown
+money. Live aggregate resume and hosted activation remain unavailable. See
+[the record guide](docs/guide/harness-evaluations.md).
 
 `plates retro evaluations corpus inspect|export` reads the versioned historical
 development catalog or previews a selected case’s private external export. Export

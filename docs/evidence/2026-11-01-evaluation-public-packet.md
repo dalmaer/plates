@@ -36,7 +36,11 @@ reviewed public bytes shared with evaluator support must remain unchanged. No
 content filtering was introduced. Independent read-only code review found no
 concrete defect; it did not rerun focused tests or causal controls.
 The shared fixture extraction preserved existing partition assertions. The newer
-canonical repository guard must be integrated before the final gate.
+canonical repository guard was integrated in e894b5b7 before the final gate; its
+reviewed source subsequently merged through PR #310 at 621949e4. The combined
+focused preflight and typecheck passed after integration (logs
+`/tmp/phase119-packet-focused-preflight.log` and
+`/tmp/phase119-packet-typecheck.log`). These are not a full-gate result.
 
 No real provider, Docker, credential read, hosted activation or paid trial occurred.
 Private bindings, current frozen-ledger authority, separate transfer approval,

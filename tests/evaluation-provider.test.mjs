@@ -2,7 +2,7 @@ import './helpers/hermetic.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { createEvaluationProvider, prepareEvaluationProviderPacket, EVALUATION_PROVIDER_LIMITS as limits } from '../lib/evaluation-provider.mjs';
+import { createEvaluationProvider, evaluationRequestCompletion, prepareEvaluationProviderPacket, EVALUATION_PROVIDER_LIMITS as limits } from '../lib/evaluation-provider.mjs';
 
 // Synthetic Acme inputs only. Every adapter instance receives a fake fetcher.
 const key = 'acme-synthetic-provider-credential-only';
@@ -284,4 +284,70 @@ test('shared packet validation refuses malformed Unicode before count or generat
     await assert.rejects(adapter[operation](request), safeFailure('evaluation_provider_input', 'not-dispatched'));
   }
   assert.equal(calls, 0);
+});
+
+const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+const begin = (adapter, operationId, extra = {}) => adapter.beginEvaluationRequest({ operationId,
+  operation: 'count', input: input(), timeoutMs: 40, ...extra });
+const pending = promise => Promise.race([promise.then(() => false), pause(15).then(() => true)]);
+test('local completion is opaque and bound, and operationId never reaches the wire', async () => {
+  let calls = 0;
+  const adapter = provider(async (url, options) => {
+    calls++; assert.equal(JSON.stringify({url,...options}).includes('acme-completion'), false);
+    return json({object:'response.input_tokens',input_tokens:3});
+  });
+  const request = begin(adapter, 'acme-completion');
+  assert.equal((await request.result).inputTokens, 3);
+  const witness = await request.localCompletion;
+  assert.deepEqual(evaluationRequestCompletion(witness, 'acme-completion'), {state:'transport-closed'});
+  assert.throws(()=>evaluationRequestCompletion({...witness},'acme-completion'), /evaluation_provider_input/);
+  assert.throws(()=>evaluationRequestCompletion(witness,'acme-other'), /evaluation_provider_input/);
+  assert.throws(()=>begin(adapter,'acme-completion'),/evaluation_provider_input/);
+  assert.equal(calls,1);
+});
+test('timed-out result keeps local completion pending until the actual late fetch and body close', async () => {
+  let deliver, cancelDone, calls = 0;
+  const adapter = provider(() => { calls++; return new Promise(resolve=>{deliver=resolve;}); });
+  const request = begin(adapter,'acme-late-fetch');
+  await assert.rejects(request.result,safeFailure('evaluation_provider_timeout'));
+  assert.equal(await pending(request.localCompletion),true);
+  deliver({body:{cancel:()=>new Promise(resolve=>{cancelDone=resolve;})}});
+  await pause(1);
+  assert.equal(await pending(request.localCompletion),true);
+  cancelDone();
+  assert.deepEqual(evaluationRequestCompletion(await request.localCompletion,'acme-late-fetch'),{state:'transport-closed'});
+  assert.equal(calls,1);
+});
+test('pending body read or failed cancellation cannot issue a local close witness', async()=>{
+  let rejectRead;
+  const adapter=provider(async()=>({ok:true,headers:[],body:{getReader:()=>({
+    read:()=>new Promise((_,reject)=>{rejectRead=reject;}),cancel:async()=>{throw Error('Acme cancellation unavailable');}
+  })}}));
+  const request=begin(adapter,'acme-body-unknown');
+  await assert.rejects(request.result,safeFailure('evaluation_provider_timeout'));
+  assert.equal(await pending(request.localCompletion),true);
+  rejectRead(Error('Acme read aborted'));
+  assert.equal(await pending(request.localCompletion),true);
+});
+test('HTTP refusal can close local handles while result still retains uncertain dispatch',async()=>{
+  const request=begin(provider(async()=>json({}, {status:429})),'acme-http-close');
+  await assert.rejects(request.result,safeFailure('evaluation_provider_throttled'));
+  assert.deepEqual(evaluationRequestCompletion(await request.localCompletion,'acme-http-close'),{state:'transport-closed'});
+});
+test('validation and pre-aborted requests produce not-started evidence without transport',async()=>{
+  let calls=0;const adapter=provider(async()=>{calls++;throw Error('Acme forbidden call');});
+  const abort=new AbortController();abort.abort();
+  for(const [id,extra,code] of [['acme-not-started',{input:{}},'evaluation_provider_input'],
+    ['acme-pre-aborted',{signal:abort.signal},'evaluation_provider_timeout']]){
+    const request=begin(adapter,id,extra);
+    await assert.rejects(request.result,safeFailure(code,'not-dispatched'));
+    assert.deepEqual(evaluationRequestCompletion(await request.localCompletion,id),{state:'not-started'});
+  }
+  assert.equal(calls,0);
+});
+test('explicit abort ends the public result promptly but cannot assert closure of an unfinished fetch',async()=>{
+  const request=begin(provider(()=>new Promise(()=>{})),'acme-explicit-abort');
+  request.abort();
+  await assert.rejects(request.result,safeFailure('evaluation_provider_timeout'));
+  assert.equal(await pending(request.localCompletion),true);
 });
