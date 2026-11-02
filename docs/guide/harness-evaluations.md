@@ -302,3 +302,13 @@ snapshot/history collection, rendering and recovery export are excluded. Coordin
 guidance is a procedure task: existing empty state must remain refused. Historical
 corrected witnesses demonstrate scripted machinery only, not agent improvement,
 live provider activation, unseen generalization or production acceptance.
+
+For future live preparation, `prepareCorpusInputPartition` in
+`lib/evaluation-corpus.mjs` exposes a local library boundary for the reviewed
+compatibility/control inventories. It produces public builder inputs separately
+from immutable evaluator dependencies; reconstruction accepts edits only to the
+case's public writable paths. Unclassified context and unsupported cases refuse.
+See the [input partition contract](../specs/harness-input-partition.md).
+This API neither freezes a plan nor executes a trial. A future live caller must
+revalidate the existing frozen ledger and obtain its separate transfer approval;
+there is no new live CLI operation in this component.
