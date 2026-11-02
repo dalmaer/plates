@@ -177,6 +177,10 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
    - Needs first: phase 152.
    - Rollback: Redeploy the previous build; logical asset paths never stopped answering, so open pages keep working.
    - Proof to record: The deployed revision, the curl -sI header lines, and the second load's cache column, recorded in docs/evidence/2026-11-02-cached-assets.md.
+43. **family-look** (phase 168, decision, owner attends). After deploying a build with phase 168, the owner opens the workspace on a phone and a laptop, in light and dark through the new theme toggle, with Ledger beside it, and says whether plates and Ledger feel like one family while plates still reads as its own blue and white.
+   - Needs first: phase 151.
+   - Rollback: Redeploy the previous build; the theme choice is a per-device preference and nothing else was written.
+   - Proof to record: The deployed revision and the owner answer (same family, too alike, or too different and where), recorded in docs/evidence/2026-11-02-blue-and-white-glass.md.
 
 ## Still open
 
