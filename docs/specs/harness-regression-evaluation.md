@@ -605,3 +605,40 @@ Keep existing V1 projection, envelope schema 2, reporter version 1 and method
 and that foreign mappings, changed observations and cross-version substitutions
 cannot become evaluated or ready-for-review authority. Offline schema-3 results
 remain inconclusive; a version change grants no agent efficacy.
+
+### Current inspection: per-operation recovery guidance
+
+The current comparison view must distinguish useful next steps for each retained
+operation and missing slot. One global instruction to prepare reconciliation is
+insufficient when its allowance is consumed or required evidence is unavailable.
+This extends the existing read-only recovery projection; frozen V1/V2 report
+bytes and their acceptance/re-derivation rules remain unchanged.
+
+Each projected operation names its stable slot/operation identity where known,
+observed reason, original evidence references, proposed next inspection/preview,
+and missing prerequisites. Every diagnostic retains `authorizesMutation: false`.
+Use validated existing execution/live/spend records, not a generic failure string,
+to distinguish these cases:
+
+- Proven capacity refusal consumes its original slot. Show other missing work
+  separately; never suggest replacing or redispatching the refused slot.
+- Missing offline work can name its normal resume preview. Missing live work
+  names an explicit count/generation descriptor preview, never aggregate resume.
+- A bound original generation response with unused recovery allowance can name
+  the separately approved original-ID GET preview. Current source, budget,
+  credential and authority checks remain prerequisites, not assumed grants.
+- Bound count uncertainty or generation without a response ID can name local-only
+  recovery if its original intent/lease evidence supports that preview. Exact
+  retained local-completion provenance is required for already-released counts.
+- A retained recovery intent consumes that allowance. Name inspection of that
+  original operation, including a missing final receipt; never a second recovery.
+- Missing, malformed or foreign evidence, unverifiable ownership, missing leases
+  or spending gaps must identify the unmet prerequisite and say that no safe
+  recovery preview is currently established. Never recommend deleting state.
+- Closed admission/cancellation cannot recommend starting missing work. Keep
+  local termination, remote outcome, unknown money and acceptance separate.
+
+Guidance is additive current inspection data, not a new record store, scheduler,
+receipt, retry policy or paid operation. The renderer shows the same explicit
+next steps. Test the finite state matrix and original evidence references, preserve
+historical projection bytes, and prove diagnostics themselves have no effects.

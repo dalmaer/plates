@@ -1,6 +1,6 @@
 {
   "verbs": 49,
-  "flags": 192,
+  "flags": 193,
   "counted": "verbs: every key of `verbs` in lib/cli.mjs (\"goal add\" is one verb). flags: each distinct --flag a verb's usage string names counts once for that verb, so --dry-run on two verbs counts twice; the shared flags --json, --yes and --help count once for the whole CLI, and only when some usage string names them (--help is read by the dispatcher and named by none, so it does not count); each top-level flag in FLAGS (--agent-help, --version) counts once.",
   "surface": {
     "shared": ["--json", "--yes"],
@@ -47,7 +47,7 @@
       "promote": ["--back", "--every", "--within"],
       "walk": ["--accept", "--box", "--choice", "--decline", "--instance", "--map", "--note", "--proposal"],
       "canvas": ["--artifact", "--audience", "--canvas", "--card", "--create", "--dry-run", "--github", "--history", "--home", "--keep", "--no-keep", "--off", "--onto", "--output", "--report", "--snapshot", "--space", "--title", "--window-days"],
-      "retro": ["--bundle", "--case", "--destination", "--digest", "--execution", "--experiment", "--manifest", "--record", "--repository", "--session", "--since", "--state", "--worksheet"],
+      "retro": ["--bundle", "--case", "--credential-fd", "--destination", "--digest", "--execution", "--experiment", "--manifest", "--record", "--repository", "--session", "--since", "--state", "--worksheet"],
       "workspace": ["--manifest", "--state"],
       "shape": ["--digest", "--output"],
       "decision": ["--issue", "--phase"],

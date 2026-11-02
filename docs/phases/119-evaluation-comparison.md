@@ -5,8 +5,8 @@ goal: G5
 spec: 2
 depends: [118]
 review: wait
-note: "Offline comparison and recovery proved; live runtime components prepared, with orchestration and approved real screening still pending."
-evidence: ["evidence/2026-10-23-evaluation-comparison.md", "evidence/2026-11-01-evaluation-recovery.md", "evidence/2026-11-01-evaluation-live-components.md", "evidence/2026-11-01-evaluation-input-partition.md"]
+note: "Offline comparison and one-slot live orchestration have synthetic proof; curated inputs, exact spend approval and real paired screening remain."
+evidence: ["evidence/2026-10-23-evaluation-comparison.md", "evidence/2026-11-01-evaluation-recovery.md", "evidence/2026-11-01-evaluation-live-components.md", "evidence/2026-11-01-evaluation-input-partition.md", "evidence/2026-11-01-evaluation-public-packet.md", "evidence/2026-11-01-evaluation-live-controller.md"]
 ---
 
 # Compare paired harness trials and resume interrupted comparisons
@@ -62,13 +62,18 @@ experiments, hosted activation and fleet schedules are not changed by this phase
 
 ## Next action
 
-Wire the prepared provider, isolated builder and spend components into explicit
-public preview/count/quote/run/reconcile operations, retaining original receipts
-and exact approval scopes. Then prepare the real compatibility/control comparison
-and request its exact provider transfer and bounded quote approval. Components
-and synthetic proof do not establish live efficacy. This remains an implementation
-gap, not `owes: walk`. Phases 120–122 are merged; preserve their offline
-acceptance separately from the real comparison still required here.
+The owner selected the actual coding-agent harness on 2026-11-01: run its tool
+and review loop, not a static-instruction or single-generation substitute. Map
+the existing runtime adapters onto isolated evaluation execution, with explicit
+versioned instruction/skill activation, pinned public current/candidate context,
+independent acceptance, total comparison bounds and original-operation recovery.
+Preserve the one-generation runtime and its evidence as infrastructure proof only.
+Resolve model/runtime identity, attributable pricing and a versioned retained
+live-screening reader before preparing the compatibility/control comparison's
+exact owner transfer/spend approval. Retain five paired observations per case,
+all failures and unknowns. No paid trial is authorized by the runtime choice.
+Phases 120–123 are merged; their real evaluated lesson/promotion outcome still
+depends on this comparison, not merely on their record machinery.
 
 
 ## Trajectory
@@ -83,3 +88,8 @@ acceptance separately from the real comparison still required here.
   the frozen slot stays consumed while other missing work can be prepared.
   Missing or contradictory evidence still blocks recovery. Comparison views
   expose evidence gaps and next actions without granting retry authority.
+
+- **2026-11-01** — The installed recovery walk exposed a valid prior local
+  transport release with unknown remote cost. Recovery now preserves that exact
+  retained settlement instead of fabricating owner death or refunding money;
+  missing original completion evidence remains a gap.

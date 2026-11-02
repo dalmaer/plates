@@ -8,6 +8,11 @@ is the evidence it was drawn from.
 For commands and flags, use the [task guides](../README.md#guides) or
 `plates --agent-help <topic>`. Dated decisions below retain their original context.
 
+The current principles are in [the Plates philosophy](philosophy.md). In
+particular, phases describe outcomes while independently safe increments reach
+main throughout the phase. Historical decisions below retain their dated context;
+the philosophy and current phase contracts describe the intended direction.
+
 ## The problem, in one paragraph
 
 Four projects run the same way of working: isocan, ledger, duo and cajones (ritmo).
@@ -354,6 +359,12 @@ The `plates retro evaluations corpus` slice owns bounded local case inspection
 and explicit export: `--case` selects the curated case, `--repository` pins its
 local source, and `--destination` names the reviewed private export directory.
 It grants no evaluation execution, provider access or promotion authority.
+
+The local evaluation runtime also owns `--credential-fd`: a reference to an
+inherited, bounded credential FIFO for an explicitly approved count, generation
+or original-ID recovery operation. It is not a credential store or a new grant.
+Local-only recovery rejects it, and hosted execution remains unavailable. Provider
+transport stays separate from the independent acceptance authority.
 
 ### What Plates owns, verb by verb
 
