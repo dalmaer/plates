@@ -5,7 +5,7 @@ goal: G2
 spec: 2
 depends: [110]
 review: wait
-note: "Consumer PR 162 merged and main workflow passed; retained acceptance/equivalence evidence remains distinct. Source record reconciliation, no gate-policy change."
+note: "Consumer dalmaer/ledger#162 merged and main workflow passed; retained acceptance/equivalence evidence remains distinct. Source record reconciliation, no gate-policy change."
 evidence: ["evidence/2026-10-23-consumer-validation-reconciliation.md"]
 ---
 
