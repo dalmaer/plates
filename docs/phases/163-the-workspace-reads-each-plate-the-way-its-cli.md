@@ -1,11 +1,12 @@
 ---
-status: planned
+status: partial
+owes: walk
 since: 2026-11-02
 goal: G7
 spec: 2
 depends: [151]
-note: "Owner, 2026-11-02: after the fleet was authorized, the hosted home showed one plate, then a wall of 'source could not be read or validated' rows for Ledger. Ledger does not use the phases practice; the hosted reader parsed its docs/phases anyway."
-evidence: []
+note: "Built and proven by test: phases are read only under the phases practice, phase failures collapse to one line, and unreadable manifest plates are listed with their fix. The owner's look after deploy remains."
+evidence: ["evidence/2026-11-02-workspace-reads-each-plate.md"]
 ---
 
 # The workspace reads each plate the way its CLI does
@@ -32,9 +33,9 @@ One merge. It's compatible: the snapshot gains no new required field; `unavailab
 
 ## Acceptance
 
-- [ ] A project without the phases practice reports no per-phase gaps, and one planning line that says so: `tests/web-projects.test.mjs: "a plate without the phases practice is not read as phases"`
-- [ ] Failing phase files in a phases project collapse to one counted gap: `tests/web-projects.test.mjs: "phase failures collapse into one counted line"`
-- [ ] A manifest project the installation cannot read is listed as unavailable with its reason, and gains no access: `tests/web-access.test.mjs: "a plate the App cannot read is named, not dropped"`
+- [x] A project without the phases practice reports no per-phase gaps, and one planning line that says so: `tests/web-projects.test.mjs: "a plate without the phases practice is not read as phases"`
+- [x] Failing phase files in a phases project collapse to one counted gap: `tests/web-projects.test.mjs: "phase failures collapse into one counted line"`
+- [x] A manifest project the installation cannot read is listed as unavailable with its reason, and gains no access: `tests/web-access.test.mjs: "a plate the App cannot read is named, not dropped"`
 - [ ] ⚑ by hand: the owner opens the hosted home after deploy and sees the six dalmaer plates, with Ledger and duo saying they don't use phases instead of listing errors.
 
 ## Your part
@@ -62,4 +63,9 @@ By hand: the owner's look after deploy.
 
 ## Next action
 
-Build the reader change and its three tests.
+The owner deploys main and opens the workspace: every dalmaer plate listed, Ledger and duo saying they do not use phases.
+
+## Trajectory
+
+- **2026-11-02** — A plate without the phases practice gets planning source `none` and no gap, not a planning error; a missing practice is a fact about the project, not a failed read. tests/web-projects.test.mjs.
+- **2026-11-02** — `HOME_MODEL_VERSION` 7 → 8, so cached models built by the old reader are reread rather than served. lib/web/home.mjs.
