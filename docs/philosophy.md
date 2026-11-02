@@ -88,6 +88,14 @@ independently safe increment as soon as its required checks and reviews pass.
 A phase is the outcome and proof contract; an increment is the unit of integration.
 Do not hold completed work on a branch until the whole phase or rollout is done.
 
+Check in coherent source and documentation as soon as possible. Push the branch
+and open a draft PR while work or validation is still in progress, with the
+remaining checks and next safe increment stated plainly. Publication preserves
+work and makes it reviewable; it does not establish merge readiness. Keep secrets,
+private runtime state and another active builder's unfinished edits out of that
+publication. Required review and integration checks still precede merging to
+main, and incomplete behavior stays unavailable until its exposure is authorized.
+
 Before building, name the **first safe merge**: its useful contract, changed paths,
 compatibility constraints, proof, recovery and what remains unavailable. A common
 sequence is compatible scaffold/contracts, dormant implementation, internal
