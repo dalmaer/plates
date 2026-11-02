@@ -23,7 +23,7 @@ Only source and existing manifest-managed consumers. No deployment or schedule.
 ## Acceptance
 
 - [ ] Focused negative controls prove the phase contract: `node --test cli/ci-workflows.test.ts` in Ledger.
-- [ ] Required consumer validation evidence is complete: `npm run check:all` in Ledger; both unchanged hosted Tests lanes must also pass.
+- [ ] Required consumer validation evidence is complete: `npm run check:all` plus separate `npm run test:later` in Ledger; the complete hosted `scope`/`test`/`later`/`web` union must also pass.
 - [ ] Exact-head review is recorded: `node bin/plates.mjs review dalmaer/ledger#<PR> --gate --json` plus inspection of pinned complete review inputs.
 - [ ] ⚑ by hand: parent reviews evidence before broader rollout.
 
@@ -60,3 +60,5 @@ No duplicate implementation PR: Ledger #162 is merged. Preserve the independent 
 ## Trajectory
 
 - **2026-10-23** — PR [162](https://github.com/dalmaer/ledger/pull/162) merged to `ab69eccf029458dfee26c33822a085445705d629`; the published main [workflow](https://github.com/dalmaer/ledger/actions/runs/39892488810) succeeded. This reconciles observed implementation/merge facts, without inferring full phase acceptance, local/hosted equivalence or causal speed savings. [Evidence](../evidence/2026-10-23-consumer-validation-reconciliation.md).
+
+- **2026-11-02** — Integration retains the historical collector profile and the 27 October coverage correction: normal-clock `check:all`, separate `test:later`, and the complete hosted job union. No historical run is promoted to current equivalence or reuse proof.

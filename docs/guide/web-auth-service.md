@@ -46,9 +46,12 @@ These are synthetic identities. Read actual IDs from GitHub when configuring an
 instance; never copy the example IDs into production. `projectRepoIds` pins each
 manifest project ID to an approved numeric repository ID. A deleted repository
 recreated at the same name does not inherit access. Rename/transfer mismatches
-fail closed until the manifest and approved bindings are reconciled. Projects
-outside the explicit manifest, installation, pins or current user access are
-omitted; direct requests are denied. No ambient checkout or CLI fleet is read.
+fail closed until the manifest and approved bindings are reconciled. A manifest
+project missing from the installation or the pins is listed on Home as
+unavailable, with the step that fixes it, and is never read; its direct requests
+are denied. Projects outside the manifest are omitted. A project whose
+configuration does not list the phases practice has no plates phases read from
+it, as in the CLI. No ambient checkout or CLI fleet is read.
 
 The GitHub App must use selected repositories, with Metadata read and Contents
 read. Set its callback to the exact configured origin plus
@@ -67,6 +70,29 @@ Set these only in the production deployment's secret store:
 | `SUPABASE_URL` | Explicit HTTPS Supabase project origin; Marketplace name supported directly |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only PostgREST authentication; Marketplace name supported directly |
 | `PLATES_SESSION_ENCRYPTION_KEY` | Base64 encoding of 32 cryptographically random bytes for AES-256-GCM |
+
+### Existing Keel deployments
+
+Use `PLATES_` names for new setups. The service accepts the corresponding
+`KEEL_` names for `GITHUB_CLIENT_SECRET`, `SESSION_ENCRYPTION_KEY` and
+`WEB_CONFIG` during the name transition. If both names are present, their
+values must match: conflicting values are rejected before service startup.
+An empty or invalid canonical value fails validation rather than silently
+falling back. The alias reader never includes credential values in its errors.
+
+For an existing deployment that retains `KEEL_` secret names, those names are
+supported compatibility bindings. A name-only migration must supply the
+**same values** from an approved retained source, then redeploy and verify
+before retiring the old bindings. Do not print secrets or commit them.
+The deployment's current bindings and the availability of retained values
+must be verified separately; this guide does not establish either fact.
+
+Changing a value is a separate credential rotation. In particular, the session
+encryption key also protects durable private records: replacing it without a
+planned data migration would make existing ciphertext unreadable. Renaming the
+product does not require a new GitHub App or a new encryption key.
+
+### Initial setup
 
 Generate the encryption key directly into the approved secret store without
 printing it or saving it in Git. Neither the anon key nor a frontend key can
@@ -137,9 +163,32 @@ CAS writes require the current version. Revocation deletes server state, so a
 competing renewal cannot recreate it. Payloads are encrypted with per-record
 associated data; opaque browser cookies are stored only as SHA-256 keys.
 
-Authorization attempts expire after ten minutes; sessions idle out after thirty
-minutes and expire absolutely after at most eight hours (or the provider's
-shorter token lifetime). Refresh tokens are discarded. A new login rotates the
+Authorization attempts expire after ten minutes. A session lasts at most 365
+days from sign-in and ends after 30 days without use; each authorized request
+renews the idle lifetime, capped by the remaining absolute one, and the session
+cookie's Max-Age is that remaining absolute lifetime. GitHub App user tokens
+expire after eight hours, so the session keeps GitHub's single-use refresh token
+sealed inside its encrypted record (never a cookie, URL, log or error). The
+request that finds the access token within five minutes of expiry renews it: it
+claims the renewal by a CAS write with the record's version, exchanges the
+refresh token once, re-checks the owner's access (owner id, installation,
+selected projects) and CAS-writes the new pair. A concurrent request that loses
+the claim re-reads and uses the winner's token, or the old one while it is still
+valid; it never spends the refresh token itself. A refused refresh (revoked App
+authorization, expired or reused refresh token) or changed project access ends
+the session. A GitHub outage keeps the session: the old token serves while
+valid, then pages answer 503 until GitHub answers again. If GitHub returns no
+refresh token (an App without expiring user tokens), the session keeps the
+earlier bounds: the token's own lifetime in all and thirty minutes idle.
+[Migration 016](../../lib/web/migrations/016-long-sessions.sql) raises the
+store's session bound to 365 days (attempts and versioned records keep eight
+hours); apply it before deploying a build that asks for long sessions. A
+rollback build reads a long session, renews it at most thirty minutes at a time
+and asks for a fresh sign-in once its eight-hour token lapses. A page that needs
+a session says in plain words why the owner is not signed in (none yet, 30 days
+away or signed out, a year since signing in, GitHub ended it, project access
+changed) and its Sign in button returns to the requested page through the
+return-path check; API routes keep their JSON errors. A new login rotates the
 session; changed project privileges require a fresh login. Logout deletes the
 current session; `POST /api/auth/revoke` with the current CSRF token revokes all
 sessions for that numeric user in this instance. These are local session

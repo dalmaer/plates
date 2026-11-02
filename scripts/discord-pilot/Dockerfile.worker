@@ -1,0 +1,16 @@
+# Template only: building/installing requires a separate approved setup step.
+# Supply an arm64 Node 24 image pinned by digest and an exact agent version.
+ARG NODE_IMAGE
+FROM ${NODE_IMAGE}
+ARG RUNTIME
+ARG AGENT_VERSION
+RUN test "$RUNTIME" = codex -o "$RUNTIME" = claude \
+ && test -n "$AGENT_VERSION" \
+ && if [ "$RUNTIME" = codex ]; then npm install -g "@openai/codex@$AGENT_VERSION"; else npm install -g "@anthropic-ai/claude-code@$AGENT_VERSION"; fi \
+ && mkdir -p /opt/pilot/read-only-probe /home/agent \
+ && chown -R 1000:1000 /home/agent /opt/pilot/read-only-probe \
+ && chmod 700 /home/agent
+COPY worker.mjs runtime-home.mjs /opt/pilot/
+LABEL plates.discord.worker="1" plates.discord.runtime="${RUNTIME}" plates.discord.runtime.version="${AGENT_VERSION}"
+USER 1000:1000
+ENTRYPOINT ["/usr/local/bin/node", "/opt/pilot/worker.mjs"]

@@ -1,30 +1,33 @@
-// Synthetic source candidate: production has no activation flag or injected authority.
+// Synthetic rollback source: the compatibility baseline is this source with the
+// reviewed phase127 writer rows held again. Production has no activation flag or
+// injected authority; shipped source writes Plates names and reads both.
 import { cp, mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import assert from 'node:assert/strict';
-export async function nameCandidate(t, { cookies = true, database = false, markers = false } = {}) {
+export const COOKIE_WRITERS = ['web:__Host-keel-session','web:__Host-keel-login','web:__Host-keel-oauth'];
+export const MARKER_WRITERS = ['web:Keel-Operation','web:Keel-Update-Operation'];
+export const isRpcWriter = row => row.surface === 'database' && !row.keel.includes('.') && (row.keel.endsWith('_rpc') || ['keel_run_history','keel_model_credential_read'].includes(row.keel));
+export async function nameBaseline(t, { cookies = true, database = false, markers = false } = {}) {
   const source = resolve(import.meta.dirname, '../..'), root = await mkdtemp(join(tmpdir(), 'acme-names-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   for (const path of ['lib', 'scripts', 'practices', 'migrations', 'package.json']) await cp(join(source, path), join(root, path), { recursive: true });
   const table = join(root, 'practices/night/files/scripts/plates/names.mjs');
   const original = await readFile(table, 'utf8');
   let changed = 0;
-  const candidate = original.replace(/Object\.freeze\((\{[^\n]+\})\)/g, (line, json) => {
+  const baseline = original.replace(/Object\.freeze\((\{[^\n]+\})\)/g, (line, json) => {
     const row = JSON.parse(json);
-    const selected = cookies && ['web:__Host-keel-session','web:__Host-keel-login','web:__Host-keel-oauth'].includes(row.id)
-      || markers && ['web:Keel-Operation','web:Keel-Update-Operation'].includes(row.id)
-      || database && row.surface === 'database' && !row.keel.includes('.') && (row.keel.endsWith('_rpc') || ['keel_run_history','keel_model_credential_read'].includes(row.keel));
+    const selected = cookies && COOKIE_WRITERS.includes(row.id) || markers && MARKER_WRITERS.includes(row.id) || database && isRpcWriter(row);
     if (!selected) return line;
-    assert.equal(row.state, 'held', `shipped activation barrier: ${row.id}`);
+    assert.equal(row.state, 'dual', `shipped phase127 writer activation: ${row.id}`);
     changed++;
-    return line.replace('"state": "held"', '"state": "dual"');
+    return line.replace('"state": "dual"', '"state": "held"');
   });
   assert.equal(changed, (cookies ? 3 : 0) + (database ? 15 : 0) + (markers ? 2 : 0));
-  await writeFile(table, candidate);
+  await writeFile(table, baseline);
   // No capability registry is changed. Source coverage remains subject to its
-  // independent pin checks; this candidate only exercises authentication/RPCs.
+  // independent pin checks; this baseline only exercises authentication/RPCs/markers.
   return {
     root,
     auth: await import(pathToFileURL(join(root, 'lib/web/auth.mjs')).href),

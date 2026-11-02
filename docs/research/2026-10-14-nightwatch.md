@@ -180,3 +180,88 @@ robot's passes; 77 needs the canvas's live cards.
 - **Personas that spend tokens.** isocan's small tier calls a model under a
   declared budget. Keel's first personas only run commands; a model tier is a
   later decision, with a budget the owner sets.
+
+## Extension: bounded overnight decisions (2026-11-02, designed, not implemented)
+
+[Phase 162](../phases/162-overnight-decisions-remain-bounded-and-reviewable.md)
+extends this design. The original plan, deterministic measurement, explicitly
+opted-in builders, number-before-build rule, budgets, five-build ceiling,
+`willNotTouch`, settled choices, `readyBy`, reviewed publication and human merge
+boundaries remain. An overnight label changes interruption handling; it cannot
+change permission or disable tool/approval hooks. This is a design contract, not
+a new command or active runtime mode.
+
+### One decision envelope, linked to existing authority and effects
+
+Use a versioned envelope alongside the existing runner's original operation
+receipt. The first increment defines and validates this contract without executing
+anything. Do not add arbitrary fields to the strict schema-1 night plan or rewrite
+existing decision records to look complete.
+
+| Field group | Required content and meaning |
+| --- | --- |
+| Identity and context | Schema version 1; stable decision ID; night date; plan item ID; original operation/attempt IDs; source revision; existing policy/scope reference; dependency decision IDs. References explain authority; the record itself never grants it. |
+| Choice | The question, alternatives considered, selected option or null if parked, rationale, evidence references, confidence label (`low`, `medium`, `high`, `unknown`) and named unknowns. Confidence is attributed judgment, not a calibrated probability. |
+| Consequences | `expects` as a checkable claim; `checkBy`; expected interactions with other choices; observations containing evidence reference, version/flag, time window, meaningful-operation denominator and observed result. Label simulation, real observation and unavailable evidence distinctly; null is not zero. |
+| Change and proof | Affected commits, flags/configuration and issue/PR references; exact validation and outcome; original effect receipt references. A decision and a successful side effect are different facts. |
+| Recovery | Existing door class, recovery preconditions, known-good revision/configuration, undo or compensation steps, limits and any expiry/window. Irreversible effects cannot be described as reverted. |
+| Decision state | `chosen`, `parked` or `revisited`; a parked choice names missing permission/evidence, affected dependents and next action. |
+| Action state | `not-started`, `running`, `completed`, `failed` or `uncertain`, derived from the original operation receipts. Never infer completed from a chosen option or a process exit alone. |
+| Follow-up | Original decision reference, requested keep/adjust/revert, current source identity, observed evidence and resulting correction/decision reference. Retain the earlier record. |
+
+Raw journals belong to the existing configured private runtime state, outside Git
+where required by that runner. Lack of an approved writable/private destination
+blocks journal-dependent execution rather than spilling into a public checkout.
+A sanitized, reviewed summary may reference an existing `docs/decisions/` record
+and its `evidence`, `expects`, `checkBy`, `door` and outcome fields. Do not promote a
+model's choice into an accepted source decision. Extend existing readers to consume
+the journal; do not create another authority store. Exports and morning projections
+retain existing destination/privacy gates and redact secrets, raw prompts and
+private source text. An unreadable journal is missing coverage, never no decisions.
+
+The plan's existing `result.note`/`result.link` may reference a safe summary. A
+parked, unstarted item can be `left-alone` with its reason. An uncertain operation
+remains unfinished with its original receipt; neither parking nor `readyBy` can
+convert it to done. Preserve the existing schema until a separately validated
+compatible extension is necessary.
+
+### Optional questions and dependent work
+
+The harness classifies a question before it tries a default. A routine preference
+within the existing goal and budget, with a verified reversible path, may be
+resolved and journaled. Required permission, an explicitly owner-reserved decision,
+a denied tool call, protected/settled work, missing required evidence, or uncertain
+recovery parks the choice and only its dependent work. Continue ready independent
+items inside the same allowance. Unsupported harness routing also parks; it never
+fabricates a user answer or bypasses a hook. Resume rechecks scope, source and
+original receipts before another effect, and never redispatches an uncertain one.
+
+### Morning review and correction
+
+Keep issue-linked completed work in the existing outcomes section. Add **Calls
+worth revisiting** with the choice, why, expected versus observed consequences,
+confidence/gaps, affected source/flag, validation, reversibility and the next safe
+correction. Show blocked and uncertain work as such, not as completed decisions.
+
+Rank critical failed health/uncertain external effects first; then order remaining
+choices by impact (high before low), expiring recovery window/irreversibility,
+and uncertainty (unknown/low before high). Use stable decision ID to break ties,
+not arrival time. Show the top five with the total and a link to the complete
+permitted journal; critical gaps and blocked owner actions remain explicitly
+visible. The report must include interactions: two individually sensible rules
+can jointly eliminate useful work. Measure the joint behavior or label its
+consequence unmeasured; do not turn a prediction into an observation.
+
+Keep maps to phase 150's `held` outcome with observed evidence. Adjust produces a
+new scoped increment linked to the original decision. Revert uses a verified
+compatible recovery path after current source/authority checks; an irreversible
+effect instead needs an explicit compensating/forward decision. The report itself
+executes none of these. Record the eventual result through the existing decision
+loop, and carry the correction into the next plan without silently making it a
+permanent policy.
+
+Phase 150 currently feeds due checks to CLI morning but not the consumer workflow
+that cannot read central source records. Phase 162 must use the actual configured
+runner/report path and prove that projection; it cannot claim a universal morning
+integration from a local fixture. No new scheduler, transport or notification
+permission is implied.

@@ -879,7 +879,7 @@ test("original model readback and cancellation preserve independent credential-u
       else h.config.connectionEncryptionKey = null;
       let reads = 0;
       const fetcher = async (url, opts) => {
-        if (new URL(url).pathname === "/rest/v1/rpc/keel_model_credential_read")
+        if (new URL(url).pathname === "/rest/v1/rpc/plates_model_credential_read")
           reads++;
         return h.fetcher(url, opts);
       };

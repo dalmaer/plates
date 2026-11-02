@@ -71,6 +71,9 @@ Offline unsaved edits can be lost when a phone closes a background tab or kills
 its process. Navigation warnings cannot prevent that. Plates does not copy private
 form content or credentials into browser persistence, and reconnect never silently
 submits an operation. Save while connected before changing devices.
+When a deploy changes the installed app, a page with unsaved edits is never
+reloaded for you: it says "A new version is ready. Reload when you have saved."
+and reloads when you choose. A page with nothing unsaved refreshes by itself.
 
 ## Return after session expiry or a lost connection
 

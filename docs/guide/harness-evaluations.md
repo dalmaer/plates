@@ -1,8 +1,11 @@
 # Freeze harness evaluation records
 
 `plates retro evaluations plan|freeze|inspect|run|resume|reconcile|cancel|compare` is the available CLI surface.
-Plan/freeze/inspect preserve private records. Run is an explicitly approved offline
-Docker trial; no model request or production promotion occurs. Schema-1 `retro sessions` is unchanged.
+Plan/freeze/inspect preserve private records. Run supports the existing approved
+offline Docker trial and the explicit one-slot live policy described below, with
+separate count, generation and original-response GET approvals. Synthetic proof
+does not activate a paid cohort or authorize production promotion. Schema-1
+`retro sessions` is unchanged.
 
 From this source checkout, create a synthetic Acme bundle in an external input
 directory. Bundles contain private acceptance material: use a directory with mode
@@ -191,7 +194,22 @@ Normal focused tests leave Docker tests skipped. This opt-in validates machinery
 and adversarial boundaries; it is not a paid agent evaluation or phase acceptance.
 
 
+A capacity refusal after recording an intent has its own immutable
+`admission-refusal.json`. Only the coordinator's proven pre-insertion refusal
+can produce this record. The slot remains consumed under the frozen
+zero-replacement policy, with no execution or acceptance claim; a later resume
+can prepare other missing slots. Inspect host capacity first. A missing, partial,
+misbound or contradictory refusal record remains uncertain and cannot release
+capacity or authorize redispatch.
+
 ## Paired comparison and recovery
+
+Comparison JSON includes read-only `recovery` diagnostics: observed execution
+status, known admission closure, uncertain slots and original operation identities,
+known settlement release, and a next action. Markdown includes the same diagnostics
+and record-level evidence gaps. Unknown closure or settlement stays null. These
+fields never authorize mutation: obtain a fresh recovery preview before acting,
+and never infer retry or capacity release from a missing record.
 
 `compare --experiment <id> --json` returns `{action, preview:false, report, markdown}`;
 omit JSON for Markdown. Every planned slot remains in the report, including
@@ -230,7 +248,7 @@ reconcile and one cancel attempt, reserved durably before effects; each operatio
 has a one-second total Docker deadline. An interrupted reservation consumes its
 worst-case allowance. Repeat the original approved digest only to inspect its
 receipt; it does not repeat effects. Uncertain termination blocks further dispatch
-and retains the host lease. Rescore and paid provider execution remain unsupported.
+and retains the host lease. Rescore remains unsupported. The explicit live policy below has separate provider approvals; offline descriptors never enable it.
 
 
 ### Minute coverage
@@ -253,3 +271,123 @@ name the broader measured coverage. Earlier read-only preview calls, human revie
 waiting, and arbitrary stalls in host filesystem/kernel I/O are not billed agent
 work or claimed hard wall-time coverage. No provider currency entitlement is
 implemented. Whole-plan reservation is conservative; unknown usage is not refunded.
+
+
+### Historical development corpus
+
+`plates retro evaluations corpus inspect --json` lists six pinned historical
+cases; all six are development cases and held-out inventory is zero. The shipped
+catalog and protected probes work from an installed package. Export requires a
+local repository containing the pinned historical objects; it never fetches.
+
+```sh
+plates retro evaluations corpus export --case package-entry --repository /absolute/source-repository --destination /absolute/private-parent/package-entry --json
+plates retro evaluations corpus export --case package-entry --repository /absolute/source-repository --destination /absolute/private-parent/package-entry --yes --digest DIGEST_FROM_PREVIEW --json
+```
+
+The parent must already be canonical, private and owned by the caller, outside
+Git. Preview is read-only and exits 3. Approval binds deterministic case/material
+bytes, exact curated source hashes, every output hash, and destination parent
+identity. Exclusive destination creation refuses concurrent, existing or partial
+exports. Preserve partial output for inspection; it is never reset or overwritten.
+
+`inventory.json` names the only files eligible for builder delivery, their hashes,
+writable paths, protected probes and configuration overlays. `builder/` contains
+those files, `evaluator/` contains schema-2 case/material records, and `curator/`
+contains historical corrected-witness provenance. Directory separation is not
+isolation: use only the explicit delivery inventory with the existing container
+adapter. Do not pass curator data or acceptance material as configuration context.
+Export neither creates a comparison nor dispatches work. The caller must author
+and approve its configuration/comparison through the existing harness workflow.
+
+Canvas recovery uses the actual supplied-card `canvasLive`/`canvasSync` surface;
+snapshot/history collection, rendering and recovery export are excluded. Coordinator
+guidance is a procedure task: existing empty state must remain refused. Historical
+corrected witnesses demonstrate scripted machinery only, not agent improvement,
+live provider activation, unseen generalization or production acceptance.
+
+For future live preparation, `prepareCorpusInputPartition` in
+`lib/evaluation-corpus.mjs` exposes a local library boundary for the reviewed
+compatibility/control inventories. It produces public builder inputs separately
+from immutable evaluator dependencies; reconstruction accepts edits only to the
+case's public writable paths. Unclassified context and unsupported cases refuse.
+See the [input partition contract](../specs/harness-input-partition.md).
+This API neither freezes a plan nor executes a trial. A future live caller must
+revalidate the existing frozen ledger and obtain its separate transfer approval;
+there is no new live CLI operation in this component.
+
+`preparePublicPacket` and `convertPublicResult` in
+`lib/evaluation-public-packet.mjs` accept only the partition's branded public view.
+They construct a fixed text-only request and convert bounded UTF-8 replacements to
+the existing base64 artifact envelope. They do not call a provider or execute code.
+The original partition handle must still reconstruct and bound private evaluator
+inputs. See the [packet contract](../specs/harness-public-packet.md); private receipt
+bindings stay local and are not part of the public request.
+
+Current comparison JSON includes `recovery.operations`, one diagnostic for each
+retained operation or missing slot. Each names its slot/operation identity,
+original evidence paths and digests, observed reason, `nextAction`,
+`missingPrerequisites`, and `requiredChecks`. The text view shows the same steps.
+Every diagnostic has `authorizesMutation: false`; a suggested preview still needs
+fresh workspace, source, ownership, retention and budget checks and its separate
+approval. Missing evidence is not permission to retry or remove state.
+
+Guidance distinguishes original-response GET from local-only recovery, consumed
+reconciliation allowance, proven admission refusal, closed admission and missing
+live count/generation versus offline work. A refused slot stays consumed; local
+termination never proves remote completion, refunds unknown spend or accepts an
+artifact. When inspection does not expose a required control or ownership fact,
+the diagnostic retains it as a prerequisite rather than assuming it absent.
+Historical V1/V2 report projections retain their original bytes; these current
+inspection diagnostics are not new durable receipts or acceptance evidence.
+
+## One-slot live controller
+
+New schema3 configurations may explicitly select `host-gateway-v1` in both arms,
+with runtime `single-generation-container-v1` version `1.0.0`, provider `openai`,
+resolved model, null temperature and positive case/comparison currency ceilings.
+The frozen outer plan remains schema2. Mixed live/offline arms refuse.
+
+Use the closed schema2 descriptors in
+[the live integration contract](../specs/harness-live-integration.md#appendix-a-closed-live-descriptors-and-pricing).
+`run --execution /absolute/count.json` previews the exact public packet, fixed
+request price quote, source and workspace binding. Preview exits3, writes nothing
+and never consumes a credential FD. Approve count separately with
+`--yes --digest <preview-digest> --credential-fd 50`. After its retained count and
+local accounting complete, preview a `stage: "generation"` descriptor referencing
+that count operation/result. Approve its separate quote/digest with a new pipe.
+Generation uses one builder lease, then independent private acceptance checks;
+provider completion alone cannot accept the artifact.
+
+The pipe must be an inherited FIFO at an integer FD at least3, containing exactly
+one UTF-8 JSON envelope followed by EOF:
+`{"schemaVersion":1,"ref":"reviewed-key-reference","generation":1,"key":"<key>"}`.
+Credential metadata must match the descriptor. This channel is currently supported
+on macOS only. Never put keys in descriptors, command arguments, environment
+variables or files. There is no key lookup or subscription-credential fallback.
+
+`reconcile --execution /absolute/recovery.json` previews one explicit original-ID
+GET or `mode: "local-only"`. GET needs its own fixed-request quote, approval and
+pipe. Local-only forbids `--credential-fd`, makes no provider request or financial
+settlement, and may release host capacity only from verified original ownership
+or container termination. Both consume the same one-reconcile allowance and
+10-second aggregate budget; cancellation's separate10 seconds are not borrowed.
+Unknown money stays held. Repeating an original approval only inspects retained
+receipts; it cannot POST/GET again or restart a builder. Live aggregate `resume`
+is unavailable.
+
+Preparation requires exact reviewed input classification. The current historical
+manifest's empty `publicMaterials` is a real-cohort preparation gap: curate the
+current harness context and narrow candidate explicitly before a cohort. The fixed
+packet template is not a claim to represent the current harness. Synthetic
+controller proof establishes machinery only, not paid activation or efficacy.
+
+A proven live generation capacity refusal, like a count refusal, consumes the
+original frozen slot as an infrastructure not-admitted outcome. It is terminal
+for execution, never acceptance. Classification requires the original bound
+intent/refusal and undispatched spend reservation, with no builder lease,
+dispatch, provider intent, output or contradictory record. Missing or conflicting
+evidence stays uncertain. Inspect the retained refusal; do not rerun or replace
+that slot. Other missing work may use its normal separate preview. The original
+spending reservation remains held under the existing conservative ledger policy;
+this observation neither charges nor refunds it and creates no recovery action.

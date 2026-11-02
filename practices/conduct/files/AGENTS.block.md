@@ -1,9 +1,12 @@
 **Spin the next phase.** `/spin` (the skill in `.agents/skills/spin`) briefs
 a builder (a phase of a file or two it may build itself: the skill's *Small
-phases*), verifies the proof itself, writes the record and commits each phase
-to `main`, then runs a retro when the phase changed more than docs (the owner
-picks from its candidates). Builders test by file. The conductor runs `{{check}}` once on
-the integrated tree — a green subset hides a red suite, and checking at every level costs more than it catches.
+phases*), names the first safe merge, verifies the proof itself and lands
+independently safe increments on `main` throughout the phase. Keep the phase
+partial until all its acceptance is proven; merged, deployed/installed, enabled
+and verified are separate facts. Read the project philosophy named by this guide.
+Run a retro when the phase changed more than docs (the owner picks from its
+candidates). Builders test by file. The conductor runs `{{check}}` once per
+integrated candidate — a green subset hides a red suite, and checking at every level costs more than it catches.
 (why: Plates lessons 4 and 5: a green subset hides failures, while repeated full gates waste work.)
 
 **A fix is proven by its test failing without it.** A `fix:` commit

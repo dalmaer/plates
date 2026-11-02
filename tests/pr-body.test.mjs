@@ -44,7 +44,7 @@ function bodyProblems(body) {
   const section = h => { const m = new RegExp(`(?:^|\\n)${h}\\n\\n([\\s\\S]*?)(?=\\n## |$)`).exec(body); return m ? m[1].trim() : ''; };
   if (at[0] >= 0 && !/```text\n|^\| /m.test(section('## Summary')) && !/No files changed\./.test(section('## Summary'))) out.push('the Summary is not a picture');
   if (at[1] >= 0 && !section('## Evidence')) out.push('the Evidence section is empty');
-  if (at[2] >= 0 && !/^(Two|One)-way door: \S/m.test(section('## Merge danger'))) out.push('no door');
+  if (at[2] >= 0 && !/^(Two|One)-way door \((reversible|windowed, [^)]+|irreversible)\): \S/m.test(section('## Merge danger'))) out.push('no door');
   if (at[2] >= 0 && !/^Blast radius: \S/m.test(section('## Merge danger'))) out.push('no blast radius');
   const impact = body.indexOf('```plates-impact');
   if (impact >= 0 && body.slice(impact).includes('\n## ')) out.push('the plates-impact block is not last');
@@ -65,7 +65,7 @@ test('three sections in order from structured input; notes after; the plates-imp
   assert.match(body, /```text\n├── \.github\/workflows\/\n│   └── plates-night\.yml\n├── docs\/\n│   └── goals\.json {2}\(migration 0001-milestone-to-goal\)\n├── scripts\/plates\/\n│   ├── improve\.mjs\n│   └── pr-body\.mjs\n└── AGENTS\.md\n```/);
   assert.match(body, /^Gate: `npm run check` exit 0$/m);
   assert.match(body, /^\| plates practice \| 0\.6\.0 \| 0\.7\.0 \|$/m);
-  assert.match(body, /^One-way door: migration 0001/m);
+  assert.match(body, /^One-way door \(irreversible\): migration 0001/m);
   assert.match(body, /^Blast radius: adopted project\.$/m);
   assert.ok(body.indexOf('## Notes') > body.indexOf('## Merge danger'));
   assert.ok(body.trimEnd().endsWith('{"version":1,"reconciliation":"none"}\n```'));
@@ -83,7 +83,7 @@ test('no evidence is written as "Evidence: none recorded.", never dropped; data 
     assert.match(body, /## Evidence\n\nEvidence: none recorded\.\n/);
   }
   const data = pr.prBody({ summary: { files: [] }, danger: { door: 'two-way', why: 'data only.', surfaces: [], within: 'data files' } });
-  assert.match(data, /^Two-way door: data only\.$/m);
+  assert.match(data, /^Two-way door \(reversible\): data only\.$/m);
   assert.match(data, /^Blast radius: this repo's data files only\.$/m);
 });
 

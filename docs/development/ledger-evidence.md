@@ -45,13 +45,21 @@ observation as evidence; do not adjust the expected manifest hash to transformed
 bytes. Synthetic coverage preserves these escape bytes and rejects their changed
 digest.
 
-The manifest keeps configured local `check:all` and hosted Tests coverage
-separate. Its 13 local logical stages include voice diagnostics and performance
-budgets that hosted CI does not run. Both test clocks and the web production
-install/build order remain requirements. Hosted documentation checks add coverage;
-they do not replace local-only checks. Source hash matches validate this mapping,
-not observed runtime execution. A changed source produces a gap requiring review
-of the manifest. Private ledger-data revision/tree remain separately moving inputs.
+The manifest preserves the historical coverage contract at Ledger
+`ab69eccf029458dfee26c33822a085445705d629`: local `check:all` had 13 logical
+stages, and hosted Tests had `scope`, `test` and `web` jobs. Those historical
+source hashes and stage mappings are retained unchanged, not repinned to current
+Ledger. Source hash matches validate that mapping, not observed execution.
+
+Current Ledger coverage differs, as recorded in the
+[27 October reconciliation](../specs/validation-efficiency.md#ledger-coverage-reconciliation--27-october-2026):
+local `check:all` runs normal-clock suites; `test:later` separately runs both
+400-day suites; hosted Tests uses `scope`, `test`, `later` and `web`. CI still
+does not cover the local voice diagnostic and performance-budget checks.
+A current run inspected with this legacy profile must retain changed-source and
+unexpected/missing job or stage gaps. It cannot establish current coverage,
+equivalence or reuse. A current coverage profile requires separate source review;
+never silence a mismatch by refreshing only its expected hashes. Private ledger-data revision/tree remain separately moving inputs.
 Never infer them from the code revision or include private data in this output.
 
 Every report is `advisory-only`, `reuseAuthorized:false` and

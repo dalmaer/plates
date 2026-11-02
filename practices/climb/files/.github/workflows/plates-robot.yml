@@ -186,6 +186,9 @@ jobs:
           path: ${{ runner.temp }}/robot-plan.json
           if-no-files-found: error
           retention-days: 7
+      - name: Telemetry
+        if: steps.prepare.outputs.ready == 'true'
+        run: echo "telemetry off (.plates/plates.json names no telemetry endpoint)"
       - name: Require Claude subprocess isolation
         if: steps.prepare.outputs.ready == 'true' && steps.prepare.outputs.author == 'claude'
         shell: bash
@@ -506,6 +509,9 @@ jobs:
           path: ${{ runner.temp }}/robot-review.json
           if-no-files-found: error
           retention-days: 7
+      - name: Telemetry
+        if: steps.review.outputs.reviewer != ''
+        run: echo "telemetry off (.plates/plates.json names no telemetry endpoint)"
       - name: Require Claude subprocess isolation
         if: steps.review.outputs.reviewer == 'claude'
         shell: bash

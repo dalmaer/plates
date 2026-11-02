@@ -208,6 +208,15 @@ per-command time/output limits. Execution requires POSIX; Windows can preview.
 A failed command or missing numeric output stays unavailable. A changed number
 alone proves neither acceptance nor improvement.
 
+## Plan integration before implementation
+
+For Plates itself, read [the philosophy](../philosophy.md) before shaping work.
+Name the first safe merge, its compatibility boundary, checks and recovery. A
+phase can span scaffold/contracts, dormant implementation, internal enablement,
+wider rollout and cleanup. Land each independently safe increment promptly; keep
+status partial and remaining acceptance unchecked until its evidence exists.
+Merged, deployed/installed, enabled and verified are separate observations.
+
 ## See also
 
 - [Spin a phase](spin-a-phase.md): what happens once a phase is

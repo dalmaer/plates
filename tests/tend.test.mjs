@@ -114,7 +114,7 @@ test('a tend pass: the worksheet, one cited fix, a proposal and a tried note; th
   assert.match(text, /^\| What \| Before \(the worksheet\) \| After \(this branch\) \|$/m);
   assert.match(text, /^\| `roadmap_stale` \| 1 \| 0 \|$/m);
   assert.match(text, new RegExp(`^\\| \\*\\*record count\\*\\* \\| ${before} \\| ${before - 1} \\|$`, 'm'));
-  assert.match(text, /^Two-way door: records and docs only/m);
+  assert.match(text, /^Two-way door \(reversible\): records and docs only/m);
   assert.match(text, /^Blast radius: this repo's records and docs only\.$/m);
   assert.match(text, /^- \[ \] `proofs_hold:1`: Step phase 1 back to partial/m);
   assert.match(text, /```plates-impact\n\{"version":1,"phases":\[\],"decisions":\[\],"supersedes":\[\],"evidence":\[\],"reconciliation":"none"/);
