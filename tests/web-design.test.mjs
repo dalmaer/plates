@@ -11,6 +11,9 @@ import { homeView, projectView, signinView } from '../lib/web/views.mjs';
 import { decisionView } from '../lib/web/decision-views.mjs';
 import { recoveryView } from '../lib/web/recovery-view.mjs';
 import { tokens as designTokens } from '../lib/web/design.mjs';
+// Phase 171 reads design.controls through the namespace, so this file still
+// loads (and fails by assertion) where the export does not exist yet.
+import * as designLayer from '../lib/web/design.mjs';
 import { changeIndexView } from '../lib/web/change-views.mjs';
 import { changesHarness, token } from './helpers/web-changes.mjs';
 // Only modules that exist before the design layer are imported statically, so
@@ -90,8 +93,10 @@ test('the shell stylesheet includes each layer once', async () => {
     // Phase 170: recovery.css inlines the tokens on purpose; it stands alone.
     for (const [path, entry] of table.entries) if (entry.type.startsWith('text/css') && !['/assets/plates.css', '/assets/keel.css'].includes(path) && !(name === 'tokens' && path === '/assets/recovery.css')) assert.ok(!entry.body.includes(css), `${name} is not repeated in ${path}`);
   }
-  // Components are defined but adopted by no view yet: every selector is a .p- class.
-  for (const rule of rules(components)) for (const part of rule.selector.split(',')) assert.match(part.trim(), /^(?:[a-z]+)?\.p-[a-z]/, `${part} only matches opted-in markup`);
+  // Components match opted-in markup (a .p- class), or are phase 171's
+  // control base and its named variants, all inside :where() so any page
+  // rule outranks them.
+  for (const rule of rules(components)) for (const part of rule.selector.split(/,(?![^()]*\))/)) assert.match(part.trim(), /^(?:(?:[a-z]+)?\.p-[a-z]|:where\()/, `${part} only matches opted-in markup or is a zero-specificity base`);
   // CSS only: no browser module imports the design layer, and it is not served.
   for (const [path, entry] of table.entries) {
     assert.ok(!/design\.[0-9a-f]{12}\.mjs|design\.mjs/.test(entry.type.startsWith('text/javascript') ? entry.body : ''), `${path} does not import design.mjs`);
@@ -372,8 +377,10 @@ test('page stylesheets hold layout only', () => {
   for (const [path, entry] of table.entries) {
     if (!entry.type.startsWith('text/css') || ['/assets/plates.css', '/assets/keel.css'].includes(path)) continue;
     if (path === '/assets/recovery.css') {
-      assert.ok(entry.body.startsWith(designTokens), 'recovery.css opens with the design tokens');
-      sheets.set(path, entry.body.slice(designTokens.length));
+      // Phase 171: then the control base, which is the design layer too.
+      const design = designTokens + (designLayer.controls ?? '');
+      assert.ok(entry.body.startsWith(design), 'recovery.css opens with the design tokens and controls');
+      sheets.set(path, entry.body.slice(design.length));
     } else sheets.set(path, entry.body);
   }
   // Page styles that ship inside plates.css (the journal, capabilities).
@@ -385,6 +392,84 @@ test('page stylesheets hold layout only', () => {
   // The journal cards match Home: the 14px radius and the solid card.
   const journal = rules(sheets.get('plates.css journal layer')).find(rule => rule.selector === '.journal-card');
   assert.match(journal.body, /border-radius:var\(--r\)/); assert.match(journal.body, /background:var\(--surface-solid\)/);
+});
+
+// ---- controls are styled once ----------------------------------------------
+// Phase 171: inputs, selects, textareas and buttons take their look from the
+// design layer alone. Every other served sheet may place a control (width,
+// margin, grid, flex) but may not restate its font, colour, background,
+// border, radius, padding or minimum height. Before this phase 45 such rules
+// sat in 12 sheets and plates.css layers.
+const CONTROL = /(?:^|[\s>+~(,])(?:input|select|textarea|button)(?![\w-])|\.button(?![\w-])/;
+const LOOK = /^(?:font(?:-[a-z]+)?|color|background(?:-[a-z]+)?|border(?:-[a-z]+)*|padding(?:-[a-z]+)?|min-height)$/;
+// Every served stylesheet with the design layer cut out: plates.css by its
+// layers, recovery.css after its inlined tokens and control base.
+function pageSheets() {
+  const table = assets.buildAssetTable(assets.defaultSources()), sheets = new Map(), inlined = designTokens + (designLayer.controls ?? '');
+  for (const [path, entry] of table.entries) {
+    if (!entry.type.startsWith('text/css')) continue;
+    if (['/assets/plates.css', '/assets/keel.css'].includes(path)) {
+      assert.equal(entry.body, assets.shellLayers().map(([, css]) => css).join(''), `${path} is exactly its layers`);
+      if (path === '/assets/plates.css') for (const [name, css] of assets.shellLayers()) if (!['tokens', 'components'].includes(name)) sheets.set(`plates.css ${name} layer`, css);
+    } else sheets.set(path, path === '/assets/recovery.css' && entry.body.startsWith(inlined) ? entry.body.slice(inlined.length) : entry.body);
+  }
+  return sheets;
+}
+test('controls are styled once', () => {
+  const sheets = pageSheets(), found = [];
+  for (const page of ['shell', 'navigation', 'journal']) assert.ok(sheets.get(`plates.css ${page} layer`)?.length, `the ${page} layer is scanned`);
+  for (const page of ['run', 'daily', 'fleet', 'job', 'connection', 'model', 'walk', 'decision', 'night', 'recovery']) assert.ok(sheets.get(`/assets/${page}.css`)?.length, `${page}.css is scanned`);
+  for (const [path, css] of sheets) for (const rule of rules(css)) {
+    if (!rule.selector.split(',').some(part => CONTROL.test(part.trim()))) continue;
+    for (const [property] of declarationsOf(rule)) if (LOOK.test(property)) found.push(`${path}: ${rule.context}|${rule.selector}{${property}}`);
+  }
+  assert.deepEqual(found, [], 'outside design.mjs no rule restates a control\'s look');
+  // The design layer carries the look: bare controls at zero specificity, the
+  // select caret drawn without a data: image, and recovery gets the same base.
+  const { components, controls } = designLayer, all = rules(components);
+  assert.equal(typeof controls, 'string', 'design.mjs exports the control base'); assert.ok(components.includes(controls), 'components include the control base');
+  const base = selector => all.find(rule => rule.selector.startsWith(':where(') && rule.selector.includes(selector));
+  for (const selector of ['input', 'select', 'textarea', '.p-field']) assert.match(base(selector)?.body ?? '', /min-height:44px/, `${selector} gets the field look`);
+  assert.match(base('input').body, /font-size:var\(--t-md\)/, 'fields are 16px, so a phone never zooms');
+  for (const selector of ['button', '.button', '.p-button']) assert.match(base(selector)?.body ?? '', /min-height:44px/, `${selector} gets the button look`);
+  const caret = all.find(rule => /^:where\(select:not\(\[multiple\],\[size\]\)\)$/.test(rule.selector));
+  assert.match(caret?.body ?? '', /appearance:none/); assert.match(caret.body, /linear-gradient\(45deg,transparent 50%,currentColor 50%\)/, 'the caret is a currentColor gradient');
+  assert.doesNotMatch(assets.shellLayers().map(([, css]) => css).join(''), /html body select/, 'the interim chevron rule is folded in');
+  assert.ok(assets.buildAssetTable(assets.defaultSources()).entries.get('/assets/recovery.css').body.includes(controls), 'recovery.css inlines the control base');
+  // Every variant still clears a touch target: 40px, 44px for the primary.
+  for (const rule of all) for (const [, px] of rule.body.matchAll(/min-height:(\d+)px/g)) assert.ok(Number(px) >= 40 || /textarea/.test(rule.selector), `${rule.selector} keeps a 40px target`);
+  // Leftovers from 170: the backdrop is the scrim, no 8px corner in the shell.
+  assert.match(all.find(rule => rule.selector === '.p-dialog::backdrop').body, /background:var\(--scrim\)/);
+  for (const name of ['shell', 'navigation']) assert.doesNotMatch(sheets.get(`plates.css ${name} layer`), /radius:8px/, `${name} corners take a token`);
+});
+
+// ---- the design layer does not grow the stylesheets --------------------------
+// Phase 171: the bytes of every served stylesheet (plates.css and keel.css
+// each count) at origin/main 54d67ac0, before controls moved into the design
+// layer. Measured with the same sum; after this phase the total is 79063.
+const CSS_BYTES_BEFORE_171 = 81780;
+test('the design layer does not grow the stylesheets', () => {
+  const table = assets.buildAssetTable(assets.defaultSources());
+  const total = [...table.entries.values()].filter(entry => entry.type.startsWith('text/css')).reduce((sum, entry) => sum + Buffer.byteLength(entry.body), 0);
+  assert.ok(total < CSS_BYTES_BEFORE_171, `served CSS is ${total} bytes, under the ${CSS_BYTES_BEFORE_171} before phase 171`);
+});
+
+// ---- phone toolbars fit ------------------------------------------------------
+// Phase 171: at 390px the Home "Show" select sat in a fixed 120px column and
+// clipped "Everything"; the fleet comparison's header row lost to .fleet-row
+// and ran its labels together. The select column now fits its content, and
+// the header hides on a phone, where each row carries its own labels.
+test('phone toolbars fit their controls', () => {
+  const sheets = pageSheets(), shell = rules(sheets.get('plates.css shell layer')), fleet = rules(sheets.get('/assets/fleet.css'));
+  const narrow = shell.filter(rule => rule.context === '@media(max-width:400px)' && rule.selector === '.home-toolbar').map(rule => rule.body).join(';');
+  assert.match(narrow, /grid-template-columns:minmax\(0,1fr\) auto/, 'the select column fits its content');
+  for (const rule of shell.filter(rule => /home-toolbar/.test(rule.selector))) assert.doesNotMatch(rule.body, /grid-template-columns:[^;]*\d+px\)?$|grid-template-columns:[^;]* \d+px/, `${rule.selector} has no fixed select column`);
+  const phone = fleet.filter(rule => rule.context === '@media(max-width:800px)');
+  const head = phone.findIndex(rule => /\.fleet-table-head/.test(rule.selector) && /display:none/.test(rule.body)), row = phone.findIndex(rule => rule.selector === '.fleet-row');
+  assert.ok(head >= 0, 'the comparison header hides on a phone');
+  const specificity = selector => (selector.match(/\.[\w-]+/g) ?? []).length;
+  assert.ok(specificity(phone[head].selector) > specificity(phone[row].selector) || head > row, 'and .fleet-row does not show it again');
+  assert.ok(fleet.some(rule => rule.context === '@media(max-width:800px)' && rule.selector === '.fleet-mobile-label' && /display:block/.test(rule.body)), 'each row labels its own facts');
 });
 
 // ---- recovery stands alone ------------------------------------------------------

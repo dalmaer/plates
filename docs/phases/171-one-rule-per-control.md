@@ -1,11 +1,11 @@
 ---
-status: planned
+status: built
 since: 2026-11-02
 goal: G7
 spec: 2
 depends: [170]
-note: "Owner, 2026-11-02: plates and Ledger 'should feel like they are in the same family'. Ledger's materials (glass surfaces, background wash, radius, motion, theme toggle) with plates's own colour: blue and white, cobalt on porcelain. Owner approved reusing Ledger's token values and a blocking theme script."
-evidence: []
+note: "Built: controls are styled once in the design layer (45 duplicated rules to 0), served CSS 81,780 to 79,063 bytes, and the phone toolbar select and fleet header fixed."
+evidence: ["evidence/2026-11-02-one-rule-per-control.md"]
 ---
 
 # One rule per control
@@ -22,8 +22,8 @@ Inputs, selects, textareas and buttons are styled in exactly one place. Before t
 
 ## Acceptance
 
-- [ ] Outside `lib/web/design.mjs`, no stylesheet styles a bare `input`, `select`, `textarea` or `button`: `tests/web-design.test.mjs: "controls are styled once"`
-- [ ] The total CSS shrinks, with both numbers in the evidence: `tests/web-design.test.mjs: "the design layer does not grow the stylesheets"`
+- [x] Outside `lib/web/design.mjs`, no stylesheet styles a bare `input`, `select`, `textarea` or `button`: `tests/web-design.test.mjs: "controls are styled once"`
+- [x] The total CSS shrinks, with both numbers in the evidence: `tests/web-design.test.mjs: "the design layer does not grow the stylesheets"`
 
 ## Real surfaces
 
@@ -39,4 +39,9 @@ Automated: `node --test tests/web-design.test.mjs`; `npm run check`.
 
 ## Next action
 
-Build it after phase 170.
+None.
+
+## Trajectory
+
+- **2026-11-02** — The base control rules sit inside `:where()`, so their specificity is zero and every page's placement rules win without restating the look. Evidence: tests/web-design.test.mjs "controls are styled once".
+- **2026-11-02** — The owner's clipped "Show" select on a phone, and the fleet comparison header running together, were fixed here. The fleet canary row spacing is open. Evidence: docs/evidence/2026-11-02-one-rule-per-control.md.
