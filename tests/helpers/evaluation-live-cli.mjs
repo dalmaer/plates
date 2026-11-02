@@ -101,7 +101,29 @@ export async function liveCliWorld(t, installation, scenario='success', {countTi
   const receipt=async path=>JSON.parse(await readFile(join(dir,path),'utf8'));
   const events=async()=>{try{return(await readFile(log,'utf8')).trim().split('\n').filter(Boolean).map(JSON.parse);}catch(e){if(e.code==='ENOENT')return [];throw e;}};
   const generation=async()=>{const r=await receipt(`execution/preparations/${slot}/count-result.json`);return write('generation',{...common,stage:'generation',count:{operationId:r.operationId,resultDigest:r.digest},limits:{timeoutMs:1000,maxOutputTokens:1000}});};
-  return {root,dir,cli,json,call,approve,receipt,events,write,count,generation,live,plan,pairId,arm,slot,log,inspect};
+  const compare=()=>json(cli([...base,'compare',...flags,'--experiment',experiment]));
+  const occupyHost=async()=>{
+    const budget=await load(app,'validation-budget.mjs'),provider=await load(app,'evaluation-provider.mjs');
+    const {stateDir,capacity,weight,repo}=common.admission;
+    const target=await budget.inspectBudgetTarget({manifest:managed,root:repository,repo});
+    const operationId='acme-busy-local-request',deadline=()=>Date.now()+60000;
+    const lease=await budget.reserveRequestBudget({stateDir,capacity,weight,target,id:'e'.repeat(32),commandDigest:'f'.repeat(64),operationId,requestKind:'count',deadline:deadline()});
+    let released=false;
+    const release=async()=>{
+      if(released)return;
+      // Validation refusal supplies an actual opaque not-started witness. This
+      // fixture request never has credentials or dispatches a provider call.
+      let calls=0;
+      const adapter=provider.createEvaluationProvider({fetcher:async()=>{calls++;throw Error('Acme forbidden busy-host transport');},timeoutMs:1000});
+      const request=adapter.beginEvaluationRequest({operationId,operation:'count',input:{},timeoutMs:1000});
+      await request.result.catch(()=>{});
+      const completion=await request.localCompletion;
+      const receipt=await budget.settleRequestBudget({stateDir,capacity,lease,completion,deadline:deadline()});
+      assert.equal(calls,0);assert.equal(receipt.released,true);assert.equal(receipt.observation.state,'not-started');released=true;
+    };
+    return {lease,release,inspect:()=>budget.inspectBudget({stateDir,capacity})};
+  };
+  return {root,dir,cli,json,call,approve,receipt,events,write,count,generation,live,plan,pairId,arm,slot,log,inspect,compare,occupyHost};
 }
 function fetchSource(log,scenario,writeStallMs) { return `import {appendFileSync,constants} from 'node:fs';
 import fs from 'node:fs/promises';

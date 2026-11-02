@@ -254,3 +254,25 @@ proof is unchanged. Both restored active-read counterfactuals fail with
 passed all 148 tests plus required conventions/guards, exit0
 (`/tmp/phase119-contention-preflight.log`). Selected production typecheck inputs
 are unchanged from the successful `/tmp/phase119-shape-typecheck.log` run.
+
+## PR 313 review: generation capacity refusal
+
+The first review identified a real starvation path: capacity refusal after a
+generation intent left the original slot uncertain and blocked other missing
+work. The correction validates the original count, exact generation request,
+sealed refusal and undispatched spend reservation before reporting a terminal
+infrastructure outcome. Acceptance and currency remain unknown; the original
+slot stays consumed and its reservation held. Contradictory recovery or dispatch
+evidence stays blocked. No provider operation or budget release is added.
+
+Focused builder evidence: 47 record/report tests and eight installed CLI tests
+passed. The installed case uses actual synthetic coordinator contention and
+checks no generation effects, replacement or refund, then previews another
+missing slot. The conductor independently ran `plates prove` for
+`bound generation refusal terminates`, reverting only the three production
+files against `86574525`: VERIFIED, assertion failure without the correction
+and success with it. Original JSON: `/tmp/phase119-generation-refusal-prove.json`.
+Three additional negative controls cover baseline behavior, singular recovery
+target binding and request identity. Evidence:
+`/tmp/phase119-generation-refusal-handoff.md` and
+`/tmp/phase119-generation-refusal-installed-proof.md`.
