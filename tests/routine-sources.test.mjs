@@ -7,6 +7,9 @@ import { collectRoutineSources } from '../lib/routines/index.mjs';
 import { routineDefinition } from '../lib/web/routines.mjs';
 import { LIMITS } from '../lib/routines/model.mjs';
 import { fixture, codexFixture, at } from './helpers/routine-sources.mjs';
+import { observeSqliteProcess } from './helpers/sqlite-process-observer.mjs';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 const inspect=(registry,deps={})=>collectRoutineSources({registry,now:at},deps);
 const hasGap=(result,code)=>result.coverage.gaps.some(gap=>gap.code===code);
 
@@ -185,19 +188,39 @@ test('attempt and definition ceilings apply incrementally across tasks, threads,
   const codex=await inspect(f.registry([f.source('codex',{dbPath:c.dbPath,statePath:c.statePath,rolloutRoot:c.rolloutRoot})]));assert.equal(codex.attempts.length,500);assert.ok(hasGap(codex,'entry_limit'));assert.equal(codex.reports[0].read,false);
 });
 
-test('SQLite refuses generated columns and kills native query work before cleaning the private copy',async t=>{
+test('SQLite refuses generated columns before beginning the metadata query',async t=>{
   const f=await fixture(t),c=await codexFixture(f);t.after(()=>c.db.close());
   const registry=f.registry([f.source('codex',{dbPath:c.dbPath,statePath:c.statePath,rolloutRoot:c.rolloutRoot})]);
   c.db.exec("DROP TABLE automations; CREATE TABLE automations(seed INTEGER,id TEXT GENERATED ALWAYS AS (hex(zeroblob(seed))), status TEXT,rrule TEXT,target_thread_id TEXT); INSERT INTO automations(seed,status,rrule) VALUES(100000000,'ACTIVE','FREQ=DAILY')");
-  let began=false;const generated=await inspect(registry,{sqliteQueryStarted:()=>{began=true;}});assert.ok(hasGap(generated,'unsupported_format'));assert.equal(began,false,'generated columns are refused before a query can evaluate them');
-  c.db.exec("DROP TABLE automations; CREATE TABLE automations(id TEXT,status TEXT,rrule TEXT,target_thread_id TEXT); WITH RECURSIVE rows(n) AS (VALUES(1000000) UNION ALL SELECT n-1 FROM rows WHERE n>1) INSERT INTO automations SELECT CAST(n AS TEXT),'ACTIVE','FREQ=DAILY',NULL FROM rows; PRAGMA wal_checkpoint(TRUNCATE)");
-  // Exercise the existing deadline only once native work has started. A wall-clock
-  // 100ms budget can otherwise expire during child startup on a busy CI runner.
-  // The separate 1ms test above still checks the real startup-inclusive deadline.
+  let began=false;const generated=await inspect(registry,{sqliteQueryStarted:()=>{began=true;}});
+  assert.ok(hasGap(generated,'unsupported_format'));assert.equal(began,false,'generated columns are refused before a query can evaluate them');
+});
+
+test('SQLite deadline kills native work at expiry and cleans the copy only after actual process closure',async t=>{
+  const f=await fixture(t),c=await codexFixture(f);t.after(()=>c.db.close());
+  const records=observeSqliteProcess(t,{worker:fileURLToPath(new URL('./fixtures/routines/sqlite-native-work.mjs',import.meta.url))});
   t.mock.timers.enable({apis:['setTimeout']});
-  const start=Date.now();began=false;
-  const timed=await inspect(registry,{sqliteTimeoutMs:100,sqliteQueryStarted:()=>{began=true;t.mock.timers.tick(100);}});
-  assert.equal(began,true,'deadline exercised after query began, not just during process startup');assert.ok(hasGap(timed,'read_timeout'));assert.ok(Date.now()-start<1500,'native query must be killed without waiting for SQLite completion');
+  let began=false;
+  const timed=await inspect(f.registry([f.source('codex',{dbPath:c.dbPath,statePath:c.statePath,rolloutRoot:c.rolloutRoot})]),{
+    sqliteTimeoutMs:100,sqliteQueryStarted:()=>{
+      began=true;t.mock.timers.tick(99);assert.equal(records[0].child.killed,false);
+      t.mock.timers.tick(1);
+    },
+  });
+  assert.equal(began,true);assert.ok(hasGap(timed,'read_timeout'));
+  assert.equal(records.length,1);await records[0].closed;
+  assert.equal(records[0].signal,'SIGKILL');assert.equal(records[0].watchdog,false,'the production deadline must kill, not the test backstop');
+  assert.equal(records[0].existedAtClose,true);assert.equal(existsSync(records[0].snapshot),false);
+});
+
+test('SQLite real deadline also kills a child still waiting for its initial query input',async t=>{
+  const f=await fixture(t),c=await codexFixture(f);t.after(()=>c.db.close());
+  const records=observeSqliteProcess(t,{suppressInput:true});let began=false;
+  const timed=await inspect(f.registry([f.source('codex',{dbPath:c.dbPath,statePath:c.statePath,rolloutRoot:c.rolloutRoot})]),{sqliteTimeoutMs:100,sqliteQueryStarted:()=>{began=true;}});
+  assert.equal(began,false);assert.ok(hasGap(timed,'read_timeout'));
+  assert.equal(records.length,1);await records[0].closed;
+  assert.equal(records[0].signal,'SIGKILL');assert.equal(records[0].watchdog,false);
+  assert.equal(records[0].existedAtClose,true);assert.equal(existsSync(records[0].snapshot),false);
 });
 
 
