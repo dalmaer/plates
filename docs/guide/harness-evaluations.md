@@ -381,3 +381,13 @@ manifest's empty `publicMaterials` is a real-cohort preparation gap: curate the
 current harness context and narrow candidate explicitly before a cohort. The fixed
 packet template is not a claim to represent the current harness. Synthetic
 controller proof establishes machinery only, not paid activation or efficacy.
+
+A proven live generation capacity refusal, like a count refusal, consumes the
+original frozen slot as an infrastructure not-admitted outcome. It is terminal
+for execution, never acceptance. Classification requires the original bound
+intent/refusal and undispatched spend reservation, with no builder lease,
+dispatch, provider intent, output or contradictory record. Missing or conflicting
+evidence stays uncertain. Inspect the retained refusal; do not rerun or replace
+that slot. Other missing work may use its normal separate preview. The original
+spending reservation remains held under the existing conservative ledger policy;
+this observation neither charges nor refunds it and creates no recovery action.

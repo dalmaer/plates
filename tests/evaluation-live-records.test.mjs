@@ -15,7 +15,7 @@ import { quoteSpend } from '../lib/evaluation-spend.mjs';
 import { prepareEvaluationProviderPacket } from '../lib/evaluation-provider.mjs';
 import { PUBLIC_PACKET_TEMPLATE } from '../lib/evaluation-public-packet.mjs';
 import { storeImmutable } from '../lib/session-ledger-io.mjs';
-import { parseLiveDescriptor, validateLiveReceipt, liveOperationIdentity, liveReceiptPath, inspectLiveInventory, inspectLiveRecords, liveRetentionPlan, planLiveReconcile } from '../lib/evaluation-live-records.mjs';
+import { parseLiveDescriptor, validateLiveReceipt, validateLiveGenerationRefusal, liveOperationIdentity, liveReceiptPath, inspectLiveInventory, inspectLiveRecords, liveRetentionPlan, planLiveReconcile } from '../lib/evaluation-live-records.mjs';
 const H = 'a'.repeat(64), T = '2026-11-01T00:00:00.000Z', epoch = Date.parse(T), ref = r => ({ kind: r.kind, id: r.id, digest: r.digest });
 const bytes = r => Buffer.byteLength(JSON.stringify(r) + '\n');
 const model = { requested: 'acme-alias', resolved: 'acme-resolved' }, scope = { organization: 'acme-org', project: 'acme-project' };
@@ -494,4 +494,136 @@ test('CURRENT orphan spend prefix preserves known operation identity without pro
   assert.equal(rows[0].nextAction.kind, 'inspect-evidence');
   assert.ok(rows[0].missingPrerequisites.includes('original-intent'));
   assert.ok(rows[0].evidence.some(e => e.record === w.spendHome + '/reservation.json'));
+});
+
+async function generationRefusalWorld(t, { expiredPrice = false } = {}) {
+  const w = await world(t), task = w.plan.bundle.cases.find(c => c.digest === w.intent.authorization.binding.case.digest);
+  for (const r of [w.admission, w.result, w.local]) await w.put(liveReceiptPath(r), r);
+  await w.put(w.spendHome + '/dispatch.json', w.dispatch);
+  await w.put(w.spendHome + '/observations/1.json', sealRecord({ schemaVersion: 1, kind: 'spend-observation', planDigest: w.plan.digest,
+    operationId: w.countOp.operationId, observationId: 'acme-count-observed', previousDigest: w.dispatch.digest, outcome: 'complete',
+    usage: { inputTokens: 0, outputTokens: 0, requests: 1 }, evidenceDigest: w.result.digest, reservationDigest: w.spendReservation.digest, sequence: 1 }));
+  const request = { ...w.descriptor, stage: 'generation', count: { operationId: w.countOp.operationId, resultDigest: w.result.digest }, limits: { timeoutMs: 1000, maxOutputTokens: 1000 } };
+  delete request.billing;
+  if (expiredPrice) request.live = { ...request.live, priceEvidence: { ...request.live.priceEvidence, validUntil: '2026-11-01T00:00:00.001Z' } };
+  const quote = quoteSpend({ kind: 'generation', packetDigest: request.packet.packetDigest, inputTokens: 20, maxOutputTokens: 1000, priceEvidence: request.live.priceEvidence });
+  const requestDigest = fingerprint({ stage: 'generation', packetDigest: request.packet.packetDigest, model, scope, credential: request.live.credential, credentialChannel: 'pipe-json-v1', limits: request.limits });
+  const reservation = sealRecord({ ...w.spendReservation, operationId: w.generationOp.operationId, operationKind: 'generation', requestDigest,
+    quoteDigest: quote.digest, priceDigest: quote.priceDigest, maximumMicroUsd: quote.maximumMicroUsd, quote });
+  const home = `spend/operations/${w.generationOp.operationId}`;
+  await w.put(home + '.intent.json', sealRecord({ schemaVersion: 1, kind: 'spend-operation-initialization', reservation }));
+  await w.put(home + '/reservation.json', reservation); await mkdir(join(w.directory, home, 'observations'), { mode: 0o700 });
+  const id = w.generationOp.identityDigest.slice(0, 32), binding = w.intent.authorization.binding;
+  const payload = JSON.parse(w.packetRecord.preparation.packet.input);
+  const delivered = [...payload.files.map(f => ({ path: f.path, mode: f.mode, base64: Buffer.from(f.content).toString('base64') })),
+    { path: 'requirements.json', mode: '100644', base64: Buffer.from(JSON.stringify({ publicBrief: payload.publicBrief, requirements: payload.requirements })).toString('base64') }].sort((a, b) => a.path.localeCompare(b.path, 'en'));
+  const input = { request, planDigest: w.plan.digest, taskDigest: task.digest, configurationDigest: binding.configuration.digest,
+    checkManifestDigest: task.acceptanceManifest.digest, environment: binding.environment,
+    image: { requested: binding.environment.image, platform: binding.environment.platform, id: H }, controller: { digest: H }, model,
+    sourceDigest: binding.partitionIdentityDigest, delivered, deliveredDigest: fingerprint(delivered) };
+  const intent = sealRecord({ schemaVersion: 2, kind: 'evaluation-intent', id, createdAt: T, slot: w.slot, previewDigest: fingerprint(input), input,
+    operations: [`plates-eval-${id}-builder`, `plates-eval-${id}-check-0`], dispatchProtocol: 'ordered-live-authorization-v1',
+    attempt: 1, parentAttemptId: null, reservedMinutes: task.limits.minutes, repairRounds: 0, interventions: [] });
+  const refusal = sealRecord({ schemaVersion: 2, kind: 'evaluation-admission-refusal', id, createdAt: T, intentDigest: intent.digest,
+    authority: 'external-admission-refusal-v1', commandDigest: intent.previewDigest, reason: 'capacity_busy_inspect_existing_leases' });
+  await w.put(`execution/${w.slot}/intent.json`, intent); await w.put(`execution/${w.slot}/admission-refusal.json`, refusal);
+  return { ...w, generationHome: home, builderIntent: intent, refusal, generationReservation: reservation };
+}
+
+test('bound generation refusal terminates only execution, retains spend hold and exposes other missing slots', async t => {
+  const { inspectLiveExecutions } = await import('../lib/evaluation-live-inspection.mjs');
+  const { summarizeComparison } = await import('../lib/evaluation-comparison-report.mjs');
+  const w = await generationRefusalWorld(t), live = await inspectLiveRecords(w.directory, w.plan);
+  assert.deepEqual(live.gaps, []); assert.equal(live.effectsBlocked, false); assert.equal(live.state, 'ready');
+  const retained = live.spend.operations.find(o => o.reservation.operationId === w.generationOp.operationId);
+  assert.equal(retained.dispatch, null); assert.equal(retained.complete, false); assert.equal(retained.heldMicroUsd, w.generationReservation.maximumMicroUsd);
+  assert.equal(live.slots[0].generationRefusal.refusal.digest, w.refusal.digest);
+  const execution = await inspectLiveExecutions(w.directory, w.plan);
+  assert.equal(execution.status, 'ready'); assert.equal(execution.trials[0].status, 'terminal');
+  assert.equal(execution.trials[0].reason, 'generation-not-admitted'); assert.equal(execution.trials[0].records.result, undefined);
+  const report = summarizeComparison(w.plan, execution);
+  assert.deepEqual(report.recovery.refusedSlots, [w.slot]); assert.equal(report.recovery.uncertainSlots.length, 0);
+  assert.equal(report.attempts[0].failureCategory, 'infrastructure'); assert.equal(report.attempts[0].terminal, true);
+  assert.deepEqual(report.attempts[0].reasons, ['generation-capacity-refused-no-provider-dispatch']);
+  assert.equal(report.attempts[0].outcome, 'unknown'); assert.equal(report.attempts[0].resources.currencyUsd, null);
+  assert.equal(report.arms.baseline.accepted, 0); assert.equal(report.pairs[0].comparable, false);
+});
+
+test('missing or contradictory generation refusal evidence remains blocked and unaccepted', async t => {
+  const cases = ['missing-refusal', 'missing-spend', 'wrong-command', 'wrong-reason', 'wrong-request', 'wrong-operation', 'lease', 'dispatch', 'provider-intent', 'ready', 'output', 'unknown-file'];
+  for (const name of cases) {
+    const w = await generationRefusalWorld(t), prefix = `execution/${w.slot}/`;
+    const replace = async (path, record) => { await rm(join(w.directory, path)); await w.put(path, record); };
+    if (name === 'missing-refusal') await rm(join(w.directory, prefix + 'admission-refusal.json'));
+    else if (name === 'missing-spend') { await rm(join(w.directory, w.generationHome), { recursive: true }); await rm(join(w.directory, w.generationHome + '.intent.json')); }
+    else if (name.startsWith('wrong-') && ['wrong-command', 'wrong-reason'].includes(name)) await replace(prefix + 'admission-refusal.json', sealRecord({ ...w.refusal, [name === 'wrong-command' ? 'commandDigest' : 'reason']: H }));
+    else if (name === 'wrong-request' || name === 'wrong-operation') {
+      const reservation = sealRecord({ ...w.generationReservation, [name === 'wrong-request' ? 'requestDigest' : 'operationId']: H });
+      await replace(w.generationHome + '/reservation.json', reservation);
+      await replace(w.generationHome + '.intent.json', sealRecord({ schemaVersion: 1, kind: 'spend-operation-initialization', reservation }));
+    } else if (name === 'dispatch') await w.put(w.generationHome + '/dispatch.json', sealRecord({ ...w.dispatch, operationId: w.generationOp.operationId, reservationDigest: w.generationReservation.digest }));
+    else await w.put(prefix + ({ lease: 'lease', 'provider-intent': 'provider-intent', ready: 'ready', output: 'builder', 'unknown-file': 'foreign' }[name]) + '.json', sealRecord({ schemaVersion: 2, kind: 'evaluation-stage', id: w.builderIntent.id, intentDigest: w.builderIntent.digest }));
+    const live = await inspectLiveRecords(w.directory, w.plan);
+    assert.equal(live.effectsBlocked, true, name); assert.notEqual(live.state, 'ready', name);
+    assert.ok(!live.slots[0]?.generationRefusal, name);
+  }
+});
+
+
+test('generation refusal rejects singular-target recovery and retains expired historical quote semantics', async t => {
+  const w = await generationRefusalWorld(t, { expiredPrice: true });
+  const before = await inspectLiveRecords(w.directory, w.plan);
+  assert.deepEqual(before.gaps, []); assert.equal(before.effectsBlocked, false);
+  assert.equal(before.slots[0].generationRefusal.spend.reservation.quote.priceEvidence.validUntil, '2026-11-01T00:00:00.001Z');
+  const local = localRecovery(w);
+  const target = { mode: 'local-only', slot: w.slot, operationKind: 'generation', operationId: w.generationOp.operationId,
+    originalIntentDigest: w.builderIntent.digest, admissionReceiptDigest: null, leaseDigest: null };
+  const schedule = planLiveReconcile({ mode: 'local-only', originalOperations: w.builderIntent.operations.map(operationId => ({ kind: 'docker-observe', operationId, maximumMs: 1000 })), elapsedMs: 0, credentialMs: 0, writeCleanupMs: 1000 });
+  const intent = sealRecord({ ...local.intent, target, schedule }); await w.put(liveReceiptPath(intent), intent);
+  const after = await inspectLiveRecords(w.directory, w.plan);
+  assert.equal(after.reconcile.intent.target.slot, w.slot);
+  assert.ok(after.gaps.some(g => g.path === `execution/${w.slot}` && g.code === 'generation-refusal'));
+  assert.equal(after.slots[0].generationRefusal, null); assert.equal(after.effectsBlocked, true);
+});
+
+test('generation refusal report revalidates reservation and source instead of trusting terminal labels', async t => {
+  const { inspectLiveExecutions } = await import('../lib/evaluation-live-inspection.mjs');
+  const { summarizeComparison } = await import('../lib/evaluation-comparison-report.mjs');
+  const w = await generationRefusalWorld(t), original = await inspectLiveExecutions(w.directory, w.plan);
+  for (const corrupt of [s => { s.generationSpend.dispatch = {}; }, s => { s.generationSpend = null; },
+    s => { s.generationSpend.reservation = sealRecord({ ...s.generationSpend.reservation, requestDigest: H }); },
+    s => { s.count.spend.observations = []; }, s => { s.builder.lease = {}; }]) {
+    const execution = structuredClone(original); corrupt(execution.trials[0].live);
+    const report = summarizeComparison(w.plan, execution);
+    assert.equal(report.attempts[0].terminal, false); assert.equal(report.attempts[0].outcome, 'unknown');
+    assert.deepEqual(report.recovery.refusedSlots, []);
+    assert.ok(!report.attempts[0].reasons.includes('generation-capacity-refused-no-provider-dispatch'));
+  }
+});
+
+
+test('CURRENT real generation refusal guidance consumes only the refused slot with validator-bound evidence', async t => {
+  const w = await generationRefusalWorld(t), before = await inspectLiveRecords(w.directory, w.plan);
+  const execution = await inspectLiveExecutions(w.directory, w.plan), validated = validateLiveGenerationRefusal(execution.trials[0].live, w.plan);
+  const report = summarizeComparison(w.plan, execution);
+  const row = report.recovery.operations.find(o => o.slot === w.slot && o.operationKind === 'generation');
+  assert.equal(row.nextAction.kind, 'inspect-refusal');
+  assert.equal(row.operationId, validated.spend.reservation.operationId);
+  assert.equal(row.authorizesMutation, false);
+  assert.ok(row.evidence.some(e => e.record === `execution/${w.slot}/admission-refusal.json` && e.digest === validated.refusal.digest));
+  assert.ok(row.evidence.some(e => e.digest === validated.spend.reservation.digest));
+  assert.match(row.nextAction.description, /consumed/);
+  assert.deepEqual(report.recovery.refusedSlots, [w.slot]);
+  assert.ok(report.recovery.operations.filter(o => o.slot !== w.slot).every(o => o.nextAction.kind === 'preview-live-count'));
+  assert.equal(validated.spend.complete, false); assert.ok(validated.spend.heldMicroUsd > 0);
+  assert.equal(validated.spend.dispatch, null);
+  assert.deepEqual(await inspectLiveRecords(w.directory, w.plan), before);
+  // A terminal reason cannot retain refusal guidance after provenance changes.
+  const altered = structuredClone(execution);
+  altered.trials[0].live.generationSpend.reservation = sealRecord({ ...validated.spend.reservation, requestDigest: H });
+  assert.throws(() => validateLiveGenerationRefusal(altered.trials[0].live, w.plan));
+  const invalid = summarizeComparison(w.plan, altered);
+  assert.deepEqual(invalid.recovery.refusedSlots, []);
+  assert.equal(invalid.recovery.operations.find(o => o.slot === w.slot && o.operationKind === 'generation').nextAction.kind, 'inspect-evidence');
+  assert.equal(invalid.attempts[0].terminal, false);
 });

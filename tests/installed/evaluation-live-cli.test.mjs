@@ -121,3 +121,42 @@ test('authored count slack survives controlled filesystem stall while original s
     }
   }
 });
+
+
+test('installed generation capacity refusal consumes only the original slot without dispatch or spend refund',supported,async t=>{
+  const w=await liveCliWorld(t,installed);await count(w);
+  const counted=w.inspect().spend,path=await w.generation();
+  const busy=await w.occupyHost();
+  try {
+  assert.equal((await busy.inspect()).used,1);
+  const preview=w.json(w.call('run',path),3),before=await w.events();
+  const refused=w.approve('run',path,preview);
+  assert.equal(refused.status,'not-admitted');
+  const inspection=w.inspect(),trial=inspection.execution.trials.find(x=>x.slot===w.slot);
+  assert.equal(trial.status,'terminal');assert.equal(trial.reason,'generation-not-admitted');
+  const attempt=w.compare().report.attempts.find(x=>x.slot===w.slot);
+  assert.equal(attempt.terminal,true);assert.equal(attempt.outcome,'unknown');assert.equal(attempt.failureCategory,'infrastructure');
+  const entries=await readdir(join(w.dir,'execution',w.slot));
+  assert.deepEqual(entries.sort(),['admission-refusal.json','intent.json']);
+  assert.deepEqual(await w.events(),before,'refused generation never reaches provider or builder dispatch');
+  assert.equal(before.filter(e=>e.event==='provider').length,1,'only successful count transferred');
+  const generationSpend=inspection.spend.operations.filter(x=>x.reservation.operationKind==='generation');
+  assert.equal(generationSpend.length,1);
+  const held=generationSpend[0];assert.equal(held.dispatch,null);assert.deepEqual(held.observations,[]);
+  assert.equal(held.complete,false);assert.equal(held.knownMicroUsd,0);assert.equal(held.heldMicroUsd,held.reservation.maximumMicroUsd);assert.ok(held.heldMicroUsd>0);
+  assert.equal(inspection.spend.knownMicroUsd,counted.knownMicroUsd);
+  assert.equal(inspection.spend.heldMicroUsd,counted.heldMicroUsd+held.heldMicroUsd);
+  assert.deepEqual((await busy.inspect()).leases,[busy.lease],'refusal does not alter existing host owner');
+  const spend=await tree(join(w.dir,'spend')),slot=await tree(join(w.dir,'execution',w.slot));
+  await busy.release();assert.equal((await busy.inspect()).used,0);
+  assert.equal(w.call('run',path,['--yes','--digest',preview.digest]).status,2,'original refused slot cannot dispatch after capacity returns');
+  const replacement=await w.write('generation-replacement',{...JSON.parse(await readFile(path,'utf8')),limits:{timeoutMs:2000,maxOutputTokens:1000}});
+  assert.equal(w.call('run',replacement).status,2,'changed descriptor cannot replace consumed original slot');
+  const other=await w.write('other-count',{...JSON.parse(await readFile(w.count,'utf8')),arm:'candidate'});
+  const next=w.json(w.call('run',other),3);assert.equal(next.preview,true,'another missing slot retains normal separate preview');
+  assert.deepEqual(await tree(join(w.dir,'spend')),spend,'release, replay and preview never refund or reprice original hold');
+  assert.deepEqual(await tree(join(w.dir,'execution',w.slot)),slot,'original slot never reruns or gets replaced');
+  assert.deepEqual(await w.events(),before);
+  await verifyPrivacy(w);
+  } finally { await busy.release(); }
+});
