@@ -3,8 +3,8 @@ status: planned
 since: 2026-11-02
 goal: G7
 spec: 2
-depends: [151]
-note: "Owner, 2026-11-02: 'When I login I find it hard to know what to do.' Home should say what needs attention, what happened recently, and let the owner ask for work next. Builds on phase 156's one read model (PR #316, not yet merged)."
+depends: [151, 156]
+note: "Owner, 2026-11-02: 'When I login I find it hard to know what to do.' Home should say what needs attention, what happened recently, and let the owner ask for work next. Builds on phase 156's one read model."
 evidence: []
 ---
 
@@ -72,7 +72,7 @@ By hand: the owner's look on the phone.
 ## Deliberately open
 
 - **Ranking inside "Needs you."** The proposed order is fix, then decide, then try, oldest first. It is settled by the owner's walk.
-- **This phase also needs phase 156.** 156 is in PR #316 and not on main, so `depends:` names 151 only. Add 156 to `depends:` when it merges.
+- **2026-11-02, settled:** phase 156's plan merged (#316), and `depends:` now names it.
 
 ## Next action
 

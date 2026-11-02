@@ -34,3 +34,9 @@
 The owner's walk on the installed app is not done. The phase is partial, `owes: walk`.
 
 Rotation is two store calls (remove, then add), not one transaction. A failure between them leaves the device unsubscribed until the next page visit re-subscribes it. That gap is tracked in the phase's Trajectory.
+
+## Integration
+
+Landed on main at `3d3cd0fa` by `plates integrate` (2026-11-02): one gate run, `npm run check` exit 0, with phases 163 and 164 integrated together. Two earlier runs did not land:
+- The first gate found that both phases lacked an activation-plan step (since added). Three evaluation tests also timed out under load there; they passed alone, 3/3 in 48 s.
+- The second gate passed, but main moved during it (#285).

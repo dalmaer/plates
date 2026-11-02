@@ -35,7 +35,7 @@ test('real authenticated shell routes retain navigation and security boundaries;
   for(const path of ['/','/projects/studio','/daily','/setup','/capabilities','/projects/studio/capabilities?q=walk']) {
     const response=await h.service(h.request(path,{cookie:login.cookie}));assert.equal(response.status,200,path);
     const html=await response.text();assert.equal((html.match(/data-navigation/g)||[]).length,1,path);
-    assert.match(html,/data-safety-status/);assert.match(html,/\/assets\/navigation-client.mjs/);assert.match(html,/\/assets\/safety-client.mjs/);
+    assert.match(html,/data-safety-status/);assert.match(html,/\/assets\/navigation-client\.[0-9a-f]{12}\.mjs/);assert.match(html,/\/assets\/safety-client\.[0-9a-f]{12}\.mjs/);
     assert.match(html,/Sign out/);assert.match(html,/Skip to content/);
   }
   const signin=await h.service(h.request('/signin'));assert.doesNotMatch(await signin.text(),/data-project-lens/);

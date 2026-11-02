@@ -173,6 +173,10 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
    - Needs first: phase 152.
    - Rollback: Redeploy the previous build; the earlier worker replaces this one through the same upgrade path, and pages reload on a new shell as before.
    - Proof to record: The two deployed revisions, and the owner's answer recorded in docs/evidence/2026-11-02-app-update-unsaved-work.md: whether the draft was kept and the notice shown.
+42. **immutable-assets-live** (phase 165, decision, owner attends). After deploying a build with phase 165, the conductor reads one digest asset's headers on the workspace with curl -sI (Cache-Control: public, max-age=31536000, immutable) and the owner reloads a signed-in page with the browser's network panel open: its assets come from cache.
+   - Needs first: phase 152.
+   - Rollback: Redeploy the previous build; logical asset paths never stopped answering, so open pages keep working.
+   - Proof to record: The deployed revision, the curl -sI header lines, and the second load's cache column, recorded in docs/evidence/2026-11-02-cached-assets.md.
 
 ## Still open
 
