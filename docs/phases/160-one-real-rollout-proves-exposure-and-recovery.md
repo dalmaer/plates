@@ -20,9 +20,9 @@ Pilot one small reversible behavior on one real deployable component. Inspect
 Plates CLI/practice distribution and hosted web delivery separately; reconcile
 Plates' missing delivery adoption and production-not-applicable declaration against
 actual operating evidence. Reuse phases 80–82 (tested ref/promotion/verification),
-88 (production errors), 104/108 (workers/fleet operations), 131 (installation) and
+88 (production errors), 104/108 (workers/operating the set of plates), 131 (installation) and
 145 (door classification). Link their existing walks rather than duplicate or
-silently complete them. Non-goals: a general flag platform, fleet-wide rollout,
+silently complete them. Non-goals: a general flag platform, rollout across the whole set of plates,
 unapproved live writes/spend, or forced HTTP production semantics for the CLI.
 
 Read [the Plates philosophy](../philosophy.md); preserve existing phase ownership

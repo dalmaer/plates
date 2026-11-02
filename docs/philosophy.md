@@ -180,7 +180,7 @@ wider cohorts. Select a reversible, observable behavior for the first pilot.
 Define the denominator, minimum meaningful operations, observation duration,
 comparison baseline, success/stop thresholds and recovery owner before exposure.
 Stable assignment keeps the comparison interpretable. Percentages and elapsed
-time alone are weak evidence in a small fleet; zero observed errors with no
+time alone are weak evidence in a small set of plates; zero observed errors with no
 traffic is not success. Missing telemetry holds the ramp.
 
 Track user outcome, failures, latency, cost and effect correctness as appropriate.
@@ -224,7 +224,7 @@ Repository inspection on **2026-11-02**, based on main `63a48c7d`, found:
   Inspect both paths before choosing the pilot; do not apply an HTTP rollout
   recipe blindly to CLI installations or infer live web health from source tests.
 - [Validation efficiency](specs/validation-efficiency.md), production evidence,
-  scoped autonomy and hosted fleet operation already have owners in the roadmap.
+  scoped autonomy and hosted operation of the set of plates already have owners in the roadmap.
   Preserve their contracts and unfinished proof; no new phase silently accepts them.
 
 The implementation sequence is intentionally incremental:
@@ -233,12 +233,12 @@ The implementation sequence is intentionally incremental:
 2. [158: expose integration delays and work in progress](phases/158-integration-delays-are-visible.md).
 3. [159: bound integration and validate the current candidate](phases/159-current-candidates-land-through-a-bounded-lane.md).
 4. [160: prove one real progressive rollout](phases/160-one-real-rollout-proves-exposure-and-recovery.md).
-5. [161: generalize only what the pilot proves](phases/161-proven-rollout-practice-reaches-the-fleet.md).
+5. [161: generalize only what the pilot proves](phases/161-proven-rollout-practice-reaches-the-set-of-plates.md).
 
 A parallel extension, [162: bounded overnight decisions](phases/162-overnight-decisions-remain-bounded-and-reviewable.md),
 builds on the context increment and existing night/decision machinery.
 
 These phases extend existing goals G0, G5, G6, G2 and G4. They do not authorize
-runtime changes, publication, deployment, spending or fleet installation merely
+runtime changes, publication, deployment, spending or installation across the set of plates merely
 by appearing in the plan. This policy changes how authorized work is divided;
 it does not enlarge the authority to perform it.

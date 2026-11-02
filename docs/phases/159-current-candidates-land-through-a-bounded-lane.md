@@ -22,7 +22,7 @@ Close the gap across both paths, preserve configured checks and existing review
 requirements, and give ready work bounded service. Reuse validation-efficiency
 phases 110–115; do not claim complete attestations or reuse they have not proved.
 Non-goals: replace the integrator, weaken gates, enable auto-merge, change branch
-protection or install delivery across the fleet.
+protection or install delivery across the set of plates.
 
 Read [the Plates philosophy](../philosophy.md); preserve existing phase ownership
 and evidence. Dependencies name prerequisites, not automatic acceptance of their

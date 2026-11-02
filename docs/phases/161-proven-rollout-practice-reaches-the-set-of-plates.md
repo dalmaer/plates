@@ -8,7 +8,7 @@ note: "Planned from the philosophy; implementation and operational proof are not
 evidence: []
 ---
 
-# Proven rollout practice reaches the fleet
+# Proven rollout practice reaches the set of plates
 
 ## Done when
 
@@ -18,8 +18,8 @@ A reviewed reusable practice helps representative projects integrate small incre
 
 Turn the pilot's demonstrated contracts into an optional reusable practice,
 project-specific guidance and compatible adoption proposals. Reuse existing
-reviewed release, rehearsal and fleet-update paths (phases 48, 53, 105 and 131).
-Non-goals: mandatory centralized flag service, automatic fleet migration, new
+reviewed release, rehearsal and update paths (phases 48, 53, 105 and 131).
+Non-goals: mandatory centralized flag service, automatic migration of the set of plates, new
 scheduler/authority, or copying pilot thresholds to unrelated workloads.
 
 Read [the Plates philosophy](../philosophy.md); preserve existing phase ownership
@@ -39,7 +39,7 @@ outstanding real-surface walks.
 
 ## Acceptance
 
-- [ ] A reviewed reusable practice helps representative projects integrate small increments and expose them deliberately, with observed speed and stability and honest coverage gaps. Check: ⚑ by hand: authorized representative consumer adoption and observation through existing fleet update/rehearsal paths.
+- [ ] A reviewed reusable practice helps representative projects integrate small increments and expose them deliberately, with observed speed and stability and honest coverage gaps. Check: ⚑ by hand: authorized representative consumer adoption and observation through existing update/rehearsal paths.
 - [ ] Contracts encode flag ownership/default/telemetry/removal and distinguish CLI installation from hosted deployment without dictating one vendor Check: `npm run render:check` and `npm run check` with adoption/compatibility cases.
 - [ ] Managed updates preserve project-owned files, existing permissions, budgets and optional local variants Check: `npm run check:focused -- tests/adopt.test.mjs tests/plates-generated.test.mjs`.
 - [ ] Dated observations compare time-to-main, branch/queue/review/CI wait and rollout frequency with failure/recovery/escaped-defect outcomes; unknowns remain unavailable Check: ⚑ by hand: inspect retained baseline and follow-up reports over the agreed meaningful-use window.
@@ -77,7 +77,7 @@ candidate sources and actual consumer configurations. Run
 `npm run render:check`, `npm run check` and `npm run typecheck`. Record real adopted
 source/managed bytes and follow-up windows separately from source tests. Broad
 publication and installation require their existing authority; local preparation
-does not imply the fleet has adopted the practice.
+does not imply the set of plates has adopted the practice.
 
 ## Real surfaces
 

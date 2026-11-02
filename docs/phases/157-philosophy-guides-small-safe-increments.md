@@ -21,7 +21,7 @@ from a whole phase on one branch to independently safe increments. Update the
 managed sources and rendered copies together. This phase is documentation and
 process instructions only, including the bounded overnight principle and its
 follow-up phase. No runtime behavior, permissions, release, deployment, branch
-protection or fleet installation changes.
+protection or installation changes across the set of plates.
 
 Read [the Plates philosophy](../philosophy.md); preserve existing phase ownership
 and evidence. Dependencies name prerequisites, not automatic acceptance of their
