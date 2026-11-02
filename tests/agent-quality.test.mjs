@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, realpath, readFile, writeFile, rm, readdir } from 'node:fs/promises';
+import { access, chmod, constants, mkdir, mkdtemp, realpath, readFile, writeFile, rm, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -159,10 +159,17 @@ test('replay proposal binds evidence but cannot dispatch or reserve a budget', a
 });
 
 test('public quality runner refuses before reading execution inputs or dispatching', async t => {
-  const root = await mkdtemp(join(tmpdir(), 'acme-quality-refusal-'));
-  t.after(() => rm(root, { recursive: true, force: true }));
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'acme-quality-refusal-')));
+  const record = join(root, 'command.json');
+  t.after(async () => { await chmod(record, 0o600).catch(() => {}); await rm(root, { recursive: true, force: true }); });
+  // A schema-valid record that nobody can open: a runner that read it first would fail with EACCES.
+  await writeFile(record, JSON.stringify({ schemaVersion: 1, id: 'acme-code', binding: join(root, 'binding.json'),
+    command: { executable: process.execPath, args: ['-e', 'process.exit(0)'], timeoutSeconds: 5 },
+    stage: 'coding', agent: { provider: 'Acme', model: null }, parentId: null, inputCheckpointDigest: null, checkpointPaths: [] }), { mode: 0o600 });
+  await chmod(record, 0);
+  await assert.rejects(access(record, constants.R_OK), { code: 'EACCES' });
   const env = { ...process.env, PLATES_CLAUDE_DIR: join(root, 'synthetic-transcripts') };
-  const args = ['run', '--record', '/absent-quality-execution.json', '--yes', '--digest', 'a'.repeat(64), '--json'];
+  const args = ['run', '--record', record, '--yes', '--digest', 'a'.repeat(64), '--json'];
   await assert.rejects(qualityCommand({ args, appRoot, cwd: appRoot }), /quality run is unavailable pending execution-boundary review/);
   const result = run(process.execPath, [BIN, 'retro', 'quality', ...args], { cwd: root, env });
   assert.notEqual(result.status, 0);
