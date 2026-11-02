@@ -24,7 +24,8 @@ import * as navigationClient from '../lib/web/navigation-client.mjs';
 // the phase's base), so any unintended markup change fails here. A phase
 // that changes markup on purpose regenerates it with
 // PLATES_WRITE_MARKUP_GOLDEN=1 and the diff shows in review (phase 168: the
-// navigation's theme toggle).
+// navigation's theme toggle, then its walk fix: the toggle and Sign out move
+// to the page footer).
 const GOLDEN = new URL('./fixtures/web-design/markup.json', import.meta.url);
 const access = { workspace: { id: 'acme', name: 'Acme workspace' }, userId: 1, projects: [{ id: 'studio', repo: 'acme/studio', name: 'Acme Studio' }], sourceRevision: 'a'.repeat(40), csrf: 'fake-csrf-acme' };
 const project = { id: 'studio', repo: 'acme/studio', name: 'Acme Studio' };
@@ -251,6 +252,31 @@ test('the theme applies before paint without inline code', async () => {
     ['Dark', 'dark', 'dark', 'Theme: Dark. Switch to System', `${THEME.darkPaper} ${THEME.darkPaper}`],
     ['System', null, null, 'Theme: System. Switch to Light', `${THEME.paper} ${THEME.darkPaper}`],
   ]);
+});
+
+// ---- the phone header is one row ---------------------------------------------
+// Phase 168 walk: brand and navigation share one row, and the theme toggle and
+// Sign out sit in a quiet page footer instead of the header.
+test('the phone header is one row and the theme toggle sits in the footer', async () => {
+  const rendered = await pages();
+  for (const name of ['home', 'project', 'decision']) {
+    const html = rendered[name], header = /<header\b[\s\S]*?<\/header>/.exec(html)?.[0] ?? '';
+    assert.ok(header.includes('data-navigation'), `${name}: renders the navigation header`);
+    assert.doesNotMatch(header, /data-theme-toggle/, `${name}: the theme toggle is not in the header`);
+    const footers = [...html.matchAll(/<footer\b[^>]*>[\s\S]*?<\/footer>/g)].map(([footer]) => footer).filter(footer => footer.includes('data-theme-toggle'));
+    assert.equal(footers.length, 1, `${name}: one footer carries the theme toggle`);
+    assert.match(footers[0], /<button type="button"[^>]*data-theme-toggle[^>]*aria-label="Theme: System\. Switch to Light"[^>]*>System<\/button>/, `${name}: the same toggle button`);
+    assert.match(footers[0], /action="\/api\/auth\/logout"/, `${name}: Sign out sits in the footer`);
+  }
+  const all = rules(assets.shellLayers().map(([, css]) => css).join(''));
+  const phone = selector => all.filter(rule => rule.context === '@media(max-width:700px)' && rule.selector === selector).map(rule => rule.body).join(';');
+  assert.match(phone('.plates-navigation .brand span'), /display:none/, 'under 700px the brand has no tagline');
+  assert.match(phone('header.plates-navigation'), /flex-wrap:nowrap/, 'under 700px brand and strip stay on one row');
+  assert.match(phone('.plates-navigation nav'), /flex-wrap:nowrap/, 'the strip does not wrap');
+  assert.match(phone('.plates-navigation nav'), /overflow-x:auto/, 'the strip scrolls on its own');
+  assert.doesNotMatch(phone('.plates-navigation nav'), /flex:1 1 100%|flex-basis:100%/, 'the strip does not take a row of its own');
+  for (const rule of all.filter(rule => /^header\.plates-navigation$/.test(rule.selector))) assert.doesNotMatch(rule.body, /flex-wrap:wrap/, `${rule.context || 'base'}: brand and nav never wrap apart`);
+  for (const selector of ['.plates-navigation nav>a,.plates-navigation summary']) assert.match(phone(selector), /min-height:(?:4[0-9])px/, 'phone pills keep a 40px touch target');
 });
 
 // ---- glass falls back to solid surfaces --------------------------------------

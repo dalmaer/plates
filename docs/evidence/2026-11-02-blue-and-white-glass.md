@@ -33,6 +33,7 @@ Key contrast pairs: the minimum over paper and all three wash stops.
 | Conductor: served the fixture preview over local http in the built-in browser, Home at desktop width | Cobalt pills, porcelain wash, glass header | As expected | The rendering on one engine; not the owner's judgement |
 | Conductor: toggled System, then Light, then Dark | The theme switches, and the label names the state | Switched; the label read "Theme: System. Switch to Light" before the first press | The toggle wiring |
 | Conductor: decision page at 375px, dark | A pill strip, no sideways page scroll, dark kept across pages | `scrollWidth <= innerWidth` was true; dark carried over from Home | Phone layout and remembered choice |
+| Owner: the installed app on a phone, after the first deploy | A header that doesn't waste the first screen | "The header is a lil weird. Use the top row to save vertical space", and the theme toggle belongs at the bottom. Fixed: one row, 57px instead of 120px at 390px, with toggle and Sign out in the footer | The phone layout; not yet the family resemblance |
 | Owner: phone and laptop, light and dark, beside Ledger | One family, with plates still its own | Not run: needs the deploy | The family resemblance |
 
 ## Gaps and decision

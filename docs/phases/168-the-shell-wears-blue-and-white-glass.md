@@ -68,5 +68,6 @@ Walk it: deploy, then the owner compares plates beside Ledger on a phone and a l
 
 ## Trajectory
 
+- **2026-11-02** — Owner walk, first look from the installed app on a phone: "The header is a lil weird. Use the top row to save vertical space. And the widget for dark / light mode on the bottom." Fixed in this phase: brand and pills share one row (the header went from 120px to 57px at 390px), and the theme toggle and Sign out moved to a quiet page footer. Evidence: tests/web-design.test.mjs "the phone header is one row and the theme toggle sits in the footer". The family-look answer is still owed.
 - **2026-11-02** — Surfaces are derived tokens (from glass tints), so each fallback (no blur, reduced transparency, forced colours) is one `:root` rule. Evidence: tests/web-design.test.mjs "glass falls back to solid surfaces".
 - **2026-11-02** — The theme script is injected at response decoration, not per view, so every template gets it; the CSP needed no change. Evidence: "the theme applies before paint without inline code".
