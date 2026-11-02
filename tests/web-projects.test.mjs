@@ -274,3 +274,30 @@ test('ambiguous 403 without Retry-After preserves authorization and pauses optio
   h.state.now += 31000;
   const resumed = await read(); assert.equal(calls, 2); assert.equal(resumed.projects[0].state, 'partial'); assert.equal(resumed.quota.blockedUntil, null);
 });
+
+test('a plate without the phases practice is not read as phases', async () => {
+  const h = projectHarness(), config = JSON.parse(h.source.files['.plates/plates.json']);
+  h.source.files['.plates/plates.json'] = JSON.stringify({ ...config, practices: ['base', 'night'] });
+  for (const path of Object.keys(h.source.files)) if (path.startsWith('docs/phases/')) h.source.files[path] = 'its own format, not plates phases';
+  const result = await home(h)(h.access, token), project = result.projects[0];
+  assert.equal(project.planning.source, 'none');
+  assert.match(project.planning.headline, /does not use the phases practice/);
+  assert.equal(project.gaps.some(gap => gap.source === 'planning'), false);
+  assert.deepEqual([result.decisions, result.walks, result.waiting], [[], [], []]);
+  const blobs = harness => harness.source.requests.filter(request => /\/git\/blobs\//.test(request.url)).length;
+  const control = projectHarness(); control.source.files['.plates/plates.json'] = JSON.stringify({ ...config, practices: ['base', 'phases'] });
+  await home(control)(control.access, token);
+  const phaseFiles = Object.keys(h.source.files).filter(path => path.startsWith('docs/phases/')).length;
+  assert.ok(blobs(control) - blobs(h) >= phaseFiles, `no phase file is read (${blobs(h)} blobs without phases, ${blobs(control)} with)`);
+});
+
+test('phase failures collapse into one counted line', async () => {
+  const h = projectHarness(), config = JSON.parse(h.source.files['.plates/plates.json']);
+  h.source.files['.plates/plates.json'] = JSON.stringify({ ...config, practices: ['base', 'phases'] });
+  const paths = Object.keys(h.source.files).filter(path => path.startsWith('docs/phases/'));
+  for (const path of paths) h.source.files[path] = 'malformed';
+  const result = await home(h)(h.access, token), planning = result.projects[0].gaps.filter(gap => gap.source === 'planning' && /phase files/.test(gap.reason));
+  assert.equal(planning.length, 1);
+  assert.match(planning[0].reason, new RegExp(`^${paths.length} of ${paths.length} phase files could not be read or validated: `));
+  assert.equal(result.projects[0].gaps.filter(gap => /source could not be read or validated/.test(gap.reason)).length, 0);
+});

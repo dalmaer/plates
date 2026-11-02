@@ -68,3 +68,18 @@ test('installation pagination must finish with consistent totals and unique nume
     else await assert.rejects(github.access('fake-user-access-token-for-tests'), /access_denied/, mode);
   }
 });
+
+test('a plate the App cannot read is named, not dropped', async () => {
+  const h = harness(); h.state.repoAccess = false; const signed = await h.login();
+  assert.deepEqual(signed.session.projects, []);
+  assert.equal(signed.session.unavailable.length, 1);
+  assert.equal(signed.session.unavailable[0].id, 'studio');
+  assert.match(signed.session.unavailable[0].reason, /GitHub App cannot read acme\/studio\. Add it to the App installation/);
+  assert.equal(Object.hasOwn(signed.session.unavailable[0], 'repoId'), false, 'an unreadable plate carries no repository pin');
+  const home = await h.service(h.request('/api/home', { cookie: signed.cookie }));
+  assert.equal(home.status, 200);
+  const body = await home.json(), card = body.projects.find(project => project.id === 'studio');
+  assert.equal(card.state, 'unavailable'); assert.match(card.gaps[0].reason, /cannot read acme\/studio/);
+  assert.deepEqual([card.decisions, card.walks, card.waiting, card.changes], [[], [], [], []]);
+  for (const path of ['/projects/studio', '/api/projects/studio']) assert.equal((await h.service(h.request(path, { cookie: signed.cookie }))).status, 404, path);
+});
