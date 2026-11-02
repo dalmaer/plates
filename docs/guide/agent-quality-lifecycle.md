@@ -1,11 +1,5 @@
 # Capture work and adjudicate its outcome
 
-> Source: existing Plates agent-quality branch `9f8c17ad`, selectively integrated.
-> This consolidation CLI exposes passive quality workflows only. The execution
-> adapter and `retro quality run` examples below remain dormant source capabilities;
-> they are not exposed by this CLI and have not been activated here.
-
-
 Use the existing private evaluation workspace described in the
 [agent-quality guide](agent-quality.md). Lifecycle records contain metadata and
 evidence hashes, not task text, prompts, command output or transcripts. They do
@@ -122,8 +116,9 @@ const payload = {
 Finish records the observed result: `completed`, `failed`, `timeout`, `blocked`,
 `skipped`, `denied`, `aborted` or `unknown`. Completion of a process is not product
 acceptance. Capture the actual frozen artifact before later review or changes.
-The local command observer can hash an explicitly selected inventory and record
-the process outcome; see the main guide for its separate command preview.
+Record only boundaries and artifacts actually observed. The retained command
+prototype is not exposed; `retro quality run` refuses pending execution-boundary
+review. The private binding does not instrument ordinary commands or GUI sessions.
 
 Unknown usage remains null. When known, resources may include `currencyUsd`,
 `currencySource` (`actual`, `estimate` or `unknown`), `estimateBasis`, `priceDate`,
@@ -136,11 +131,10 @@ not automatic billing verification. Human interventions contain only `type`,
 A running observation may become unknown and then terminal. Refinement fills
 unknown fields while preserving known identity, order and usage. Terminal records
 are immutable; missing terminal provenance or charges remain historical gaps.
-An original command receipt can be reconciled later without running the command
-again: the observer validates that receipt, keeps `event.at` current, and supplies
-its original `payload.endedAt` and measured `resources.wallMs`. End time must lie
-between the recorded start and current observation. Reconciliation does not grant
-permission to redispatch an uncertain command.
+A later lifecycle observation can retain an evidenced original `payload.endedAt`
+and measured `resources.wallMs`. End time must lie between the recorded start and
+current observation. Historical prototype receipts do not grant permission to
+redispatch an uncertain command.
 
 ## Work the pending queue
 

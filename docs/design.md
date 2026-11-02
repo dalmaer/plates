@@ -8,6 +8,11 @@ is the evidence it was drawn from.
 For commands and flags, use the [task guides](../README.md#guides) or
 `plates --agent-help <topic>`. Dated decisions below retain their original context.
 
+The current principles are in [the Plates philosophy](philosophy.md). In
+particular, phases describe outcomes while independently safe increments reach
+main throughout the phase. Historical decisions below retain their dated context;
+the philosophy and current phase contracts describe the intended direction.
+
 ## The problem, in one paragraph
 
 Four projects run the same way of working: isocan, ledger, duo and cajones (ritmo).
@@ -349,6 +354,78 @@ existing PR/nightly workflows share contradiction checks and reviewed
 correction proposals. Keep historical evidence and local phase formats;
 generate views from their owners, without another tracking system.
 
+## Own, adopt, watch (goal G9, 30 October 2026)
+
+[The build-or-adopt decision](research/2026-10-30-own-judgment-rent-the-rest.md)
+splits the work into layers. Plates owns a layer when no one else does it;
+it adopts a mature, narrow, open part behind an adapter or a host control
+when one exists; it watches the rest without depending on it.
+
+| Layer | Plates owns | Adopt, and through what | Watch |
+| --- | --- | --- | --- |
+| Practice, evidence, proof, lessons, health | all of it | | |
+| Risk and door policy | the policy: phase 132's levels and the door classes | host enforcement: Claude Code permission modes and hooks, Codex sandbox and approval policy, GitHub rulesets and environments | OpenHands' per-action risk analyzer |
+| Model capacity | the policy (G8; phases 103, 106, 138) | provider-reported limits, with ccusage and CodexBar-style readers as cross-checks | vendor quota APIs |
+| Telemetry | the attributes: project, phase, job, experiment | the agent CLIs' own OpenTelemetry export, to a backend the owner picks | the OTel GenAI semantic conventions (still Development) |
+| Session execution | the contract and its evidence (phase 146) | the Plates robot, until an executor passes that contract | OpenHands Agent Canvas and SDK, Gas City |
+| Live monitoring of sessions | nothing | herdr, on trial | cmux, Conductor |
+| Work and memory substrate | lessons and decisions | | Beads |
+
+Why: what is scarce in Plates is judgment — whether work is done, what a
+failure teaches, how much autonomy a project gets, what a change is allowed
+to spend. Running agents is being commoditised; every platform surveyed is
+strong at it and weak at judging the result. So Plates keeps the judgment and
+rents execution, enforcement, telemetry and monitoring. Its surface is held to
+a budget: `.plates/surface.json` records the verbs and flags `lib/cli.mjs`
+registers, and `tests/surface-budget.test.mjs` fails when a verb or flag is
+added without raising the budget, or a verb is added without being named below.
+A verb named here is a claim that its layer is Plates' own.
+
+The `plates retro evaluations corpus` slice owns bounded local case inspection
+and explicit export: `--case` selects the curated case, `--repository` pins its
+local source, and `--destination` names the reviewed private export directory.
+It grants no evaluation execution, provider access or promotion authority.
+
+The local evaluation runtime also owns `--credential-fd`: a reference to an
+inherited, bounded credential FIFO for an explicitly approved count, generation
+or original-ID recovery operation. It is not a credential store or a new grant.
+Local-only recovery rejects it, and hosted execution remains unavailable. Provider
+transport stays separate from the independent acceptance authority.
+
+### What Plates owns, verb by verb
+
+- **Practice and installation:** `plates init`, `plates adopt`,
+  `plates render`, `plates doctor`, `plates update`, `plates migrate`,
+  `plates names`, `plates release`, `plates help`, `plates status`,
+  `plates next`, `plates goal list`, `plates goal show`, `plates goal add`,
+  `plates goal retire`, `plates phase new`, `plates phase list`,
+  `plates shape`. The top-level flags `--agent-help` and `--version` belong
+  here too.
+- **Evidence, proof and review:** `plates evidence rederive`, `plates prove`,
+  `plates review`, `plates walk`, `plates decision`.
+- **Lessons and learning:** `plates lessons`, `plates learn`, `plates retro`,
+  `plates feedback`.
+  The evaluated-learning slice uses `--input` for the selected record,
+  `--manifest` and `--state` for its explicit private workspace, and `--digest`
+  for approval of the exact local preview; these flags do not grant provider
+  spend or production promotion.
+- **Health and night:** `plates improve`, `plates persona run`, `plates time`,
+  `plates test`, `plates night plan`, `plates night tick`, `plates morning`,
+  `plates goodnight`, `plates production`.
+- **Fleet and delivery:** `plates fleet`, `plates fleet update`,
+  `plates phase claim`, `plates ready`, `plates integrate`, `plates drain`,
+  `plates promote`, `plates issue`, `plates loose-ends`.
+- **Workspace and canvas:** `plates canvas`, `plates workspace`,
+  `plates board`.
+- **Policy: autonomy, capacity, doors:** `plates autonomy`. Capacity and door
+  policy have no verb of their own.
+
+The passive agent-quality increment (2 November 2026) adds four flags to the
+existing retro surface: bounded supplied PR metadata, candidate limit, previous
+report and reference mix. Plates owns these private evidence and judgment records.
+The retained local execution prototype remains unexposed pending review of an
+adopted execution boundary; it grants no process, provider or scheduling authority.
+
 ## Rules plates holds itself to
 
 **Tests earn their cost (11 October 2026, phase 69).** Consolidation preserves
@@ -461,8 +538,20 @@ Phases 117–123 specify task-level baseline/candidate evaluation and review les
 promoted through evidence. These extend the experiment ledger, bounded execution,
 learn inbox and reviewed delivery. Phase 117 implements the local record
 foundation; phase 118 adds offline scripted execution with independent artifact
-verdicts. Paired comparison, live agent screening and measured promotion remain
-designed. The offline boundary does not establish model efficacy.
+verdicts. Phase 119 implements offline paired comparison and original-operation
+recovery, preserving completed attempts and unknown outcomes. Live provider
+execution, enforced provider spending and measured promotion remain pending.
+Phase 120 supplies six historically grounded development cases through bounded
+inspection/export, preserving provenance and separate acceptance materials.
+Phase 121 binds explicitly selected findings to immutable lesson/proposal history
+and actual frozen material plans in the existing inbox. Local preview approval
+does not execute a trial or establish promotion readiness. Phase 122 binds
+predeclared screening criteria and complete execution evidence to immutable report
+receipts in the same experiment. Its evaluated state records a verified result,
+including inconclusive results; it does not imply support or production activation.
+Case scope follows the actual historical failure surface; unsupported coverage
+stays explicit. Held-out coverage is zero. The offline boundary does not establish
+model efficacy.
 Builders submit artifacts to independently controlled acceptance, comparisons keep
 all attempts and unknown costs, and no result activates a production rule.
 See [harness evaluation](specs/harness-regression-evaluation.md),

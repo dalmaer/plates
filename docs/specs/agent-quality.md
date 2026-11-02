@@ -1,18 +1,14 @@
 # Agent quality observations
 
-> Source: existing Plates agent-quality branch at `9f8c17ad`, selectively
-> integrated into the consolidation branch. Phase 134 below names that branch’s
-> original lifecycle work, not a new consolidation phase. Its arbitrary-command
-> execution adapter remains dormant here; the consolidation CLI exposes passive
-> observation, reporting and exact-digest metadata capture only.
-
 Phase 134 implements local lifecycle capture, adjudication and reporting for the owner-approved
 Agent Quality Evaluation Plan, Library `libfile_2dc7772d11a0819188b918dd19269058`,
 version 0 (30 October 2026). The existing schema-2 harness comparison remains
 the authority for frozen experiments, slots, attempts and original-operation
 recovery. The observation pipeline never dispatches a benchmark model, accepts
-a phase or changes agent routing. Its opt-in ordinary command adapter runs only
-the exact locally reviewed command; capturing work does not authorize new spending.
+a phase or changes agent routing. The admitted increment is passive: explicit lifecycle events and privately bound
+review metadata only. `retro quality run` refuses before reading input or launching
+a process. The retained execution prototype awaits a separate execution-boundary
+review under G9; retaining source and fixtures does not activate it.
 
 ## Unit and provenance
 

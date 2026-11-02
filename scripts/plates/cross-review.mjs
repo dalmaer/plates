@@ -344,11 +344,16 @@ export function shouldReviewPush({ config, event, head, before = null, history, 
  */
 export async function brief({ root, config, pr, push, repo, agent = 'claude', diff, prFile }) {
   const text = await readFile(join(root, '.agents/cross-review/REVIEW.md'), 'utf8');
+  let autonomy = '';
+  try {
+    const { revisionAutonomyContext } = await import('./autonomy-context.mjs');
+    autonomy = revisionAutonomyContext({ root, repository: repo, revision: gitOf(root).head(), role: 'reviewer' })?.text ?? ''; }
+  catch { autonomy = '\nProject autonomy context unavailable; existing review rules still apply.\n'; }
   const guide = config.guide ?? (existsSync(join(root, 'AGENTS.md')) ? 'AGENTS.md' : existsSync(join(root, 'CLAUDE.md')) ? 'CLAUDE.md' : 'AGENTS.md');
   const context = [guide, lessonsPathOf(config), 'docs/plates-lessons.md'].filter(p => existsSync(join(root, p)));
   // After the push (phase 60): no pull request, so no gh; both providers read the diff the workflow wrote.
   if (push) return [
-    text.trimEnd(), '',
+    text.trimEnd(), autonomy, '',
     '## This push (review after the push)', '',
     'This project ships to main, so there is no pull request: where the brief says "the pull request", read "the push". It has landed; your review comes after it, and nothing waits on it.', '',
     `- Repository: ${repo}`,
@@ -368,7 +373,7 @@ export async function brief({ root, config, pr, push, repo, agent = 'claude', di
     ? [`- Read it: \`gh pr view ${pr.number}\` and \`gh pr diff ${pr.number}\``]
     : [`- Read it: the diff is ${diff ?? '(not written)'}, and the pull request (its title and body) is ${prFile ?? '(not written)'}; this sandbox has no network, so gh cannot reach GitHub`];
   return [
-    text.trimEnd(), '',
+    text.trimEnd(), autonomy, '',
     '## This pull request', '',
     `- Repository: ${repo}`,
     `- Number: ${pr.number}`,

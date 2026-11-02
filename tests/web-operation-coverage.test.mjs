@@ -187,14 +187,96 @@ test('migration catalogue matches the shared approval parser without enabling we
   for (const args of [['--yes'], ['--digest', digest], ['--yes', '--yes', '--digest', digest], ['--yes', '--digest', digest.toUpperCase()], ['acme', 'other']]) assert.throws(() => parseRenameArgs(args));
 });
 
-test('harness evaluation forms describe only local records and never enable hosted execution', () => {
-  const row = catalogue(enabled).rows.find(row => row.id === 'cli.retro');
-  const forms = row.cli[0].forms.filter(form => form.subcommand?.startsWith('evaluations '));
-  assert.deepEqual(forms.map(form => form.subcommand), ['evaluations plan', 'evaluations freeze', 'evaluations inspect', 'evaluations run']);
-  assert.ok(cliData.find(entry => entry.command === 'retro').forms.filter(form => form.subcommand?.startsWith('evaluations ')).every(form => form.parserSource === 'lib/evaluation-ledger.mjs'));
-  assert.ok(forms.every(form => form.arguments.every(arg => ['limited', 'presentation-only'].includes(arg.treatment))));
+test('harness evaluation forms declare versioned local live stages without enabling hosted execution', () => {
+  const expected = ['evaluations plan', 'evaluations freeze', 'evaluations inspect', 'evaluations run', 'evaluations resume',
+    'evaluations reconcile', 'evaluations cancel', 'evaluations compare', 'evaluations corpus inspect', 'evaluations corpus export'];
+  const comparisonActions = ['evaluations resume', 'evaluations cancel', 'evaluations compare'];
+  for (const configuration of [config, enabled]) {
+    const row = catalogue(configuration).rows.find(row => row.id === 'cli.retro');
+    assert.equal(row.readiness.state, 'unsupported');
+    assert.equal(row.adapter, null); assert.equal(row.route, null);
+    const forms = row.cli[0].forms.filter(form => form.subcommand?.startsWith('evaluations '));
+    assert.deepEqual(forms.map(form => form.subcommand), expected);
+    for (const form of forms) {
+      const flags = form.arguments.map(arg => arg.token), action = form.subcommand;
+      assert.equal(flags.includes('--credential-fd'), ['evaluations run', 'evaluations reconcile'].includes(action), action);
+      assert.equal(flags.includes('--execution'), ['evaluations run', 'evaluations resume', 'evaluations reconcile'].includes(action), action);
+      assert.equal(flags.includes('--yes'), ['evaluations freeze', 'evaluations run', 'evaluations resume', 'evaluations reconcile', 'evaluations cancel', 'evaluations corpus export'].includes(action), action);
+      assert.equal(flags.includes('--digest'), flags.includes('--yes'), action);
+      assert.ok(form.arguments.every(arg => ['limited', 'presentation-only'].includes(arg.treatment)));
+      for (const argument of form.arguments.filter(arg => ['--execution', '--credential-fd'].includes(arg.token))) {
+        assert.deepEqual(argument, { token: argument.token, arity: 1, repeat: 'forbidden', treatment: 'limited' });
+      }
+    }
+  }
+  const declaration = cliData.find(entry => entry.command === 'retro');
+  assert.match(declaration.usage, /--credential-fd <N>/);
+  assert.match(declaration.followUp, /grants no provider transfer, spend or permission/);
+  assert.match(declaration.followUp, /no hosted activation/);
+  for (const form of declaration.forms.filter(form => form.subcommand?.startsWith('evaluations '))) {
+    assert.equal(form.parserSource, form.subcommand.startsWith('evaluations corpus ') ? 'lib/evaluation-corpus.mjs'
+      : comparisonActions.includes(form.subcommand) ? 'lib/evaluation-comparison.mjs' : 'lib/evaluation-ledger.mjs');
+  }
   const paths = reviewedOperationSources().files.map(file => file.path);
-  for (const path of ['lib/evaluation-ledger.mjs', 'lib/evaluation-records.mjs', 'lib/session-ledger-io.mjs']) assert.ok(paths.includes(path));
+  for (const path of ['lib/evaluation-ledger.mjs', 'lib/evaluation-records.mjs', 'lib/evaluation-comparison.mjs', 'lib/evaluation-comparison-report.mjs', 'lib/session-ledger-io.mjs']) assert.ok(paths.includes(path));
+});
+
+test('quality metadata forms cover each option and remain CLI-only with hosted mutations enabled', () => {
+  const row = catalogue(enabled).rows.find(entry => entry.id === 'cli.retro');
+  assert.equal(row.readiness.state, 'unsupported');
+  assert.equal(row.adapter, null); assert.equal(row.route, null);
+  const forms = row.cli[0].forms.filter(form => form.subcommand?.startsWith('quality '));
+  assert.deepEqual(forms.map(form => form.subcommand), ['quality baseline', 'quality collect', 'quality inspect', 'quality report', 'quality weekly', 'quality replay-plan', 'quality lifecycle', 'quality pending']);
+  const expected = {
+    baseline: ['--json', '--repository', '--pr-metadata', '--limit'],
+    collect: ['--json', '--manifest', '--state', '--bundle', '--yes', '--digest'],
+    inspect: ['--json', '--manifest', '--state'],
+    report: ['--json', '--manifest', '--state', '--previous', '--reference-mix'],
+    weekly: ['--json', '--manifest', '--state', '--previous', '--reference-mix', '--repository', '--pr-metadata', '--limit', '--bundle', '--yes', '--digest'],
+    'replay-plan': ['--json', '--manifest', '--state', '--previous', '--reference-mix'],
+    lifecycle: ['--json', '--manifest', '--state', '--record', '--yes', '--digest'],
+    pending: ['--json', '--manifest', '--state'],
+  };
+  for (const form of forms) {
+    assert.deepEqual(form.arguments.map(arg => arg.token), expected[form.subcommand.slice(8)]);
+    assert.match(form.constraints, /CLI-only/);
+    for (const argument of form.arguments) {
+      assert.equal(argument.treatment, argument.token === '--json' ? 'presentation-only' : 'limited');
+      assert.equal(argument.repeat, ['--repository', '--pr-metadata'].includes(argument.token) ? 'allowed' : 'forbidden');
+    }
+  }
+  const paths = reviewedOperationSources().files.map(file => file.path);
+  for (const path of ['lib/agent-quality.mjs', 'lib/agent-quality-records.mjs', 'lib/agent-quality-ledger.mjs', 'lib/agent-quality-report.mjs', 'lib/evaluation-ledger.mjs', 'lib/evaluation-comparison-report.mjs', 'lib/session-ledger-io.mjs', 'lib/web/workspace.mjs']) assert.ok(paths.includes(path), path);
+});
+
+test('harness live declarations retain separate approval, credential and original-operation recovery boundaries', () => {
+  const forms = cliData.find(entry => entry.command === 'retro').forms;
+  const constraints = action => forms.find(form => form.subcommand === `evaluations ${action}`).constraints;
+  const run = constraints('run'), recovery = constraints('reconcile');
+  assert.match(run, /Schema1 offline.*refuses --credential-fd/);
+  assert.match(run, /Schema2 live.*count or generation.*one slot.*host-gateway-v1/);
+  assert.match(run, /original successful count and identical packet\/model/);
+  assert.match(run, /Each stage requires separate exact --yes --digest approval/);
+  assert.match(run, /explicit price evidence and bounded spend\/host admission/);
+  assert.match(run, /Original operations never redispatch; uncertain usage stays held/);
+  assert.match(run, /metadata is not entitlement/);
+  for (const text of [run, recovery]) {
+    assert.match(text, /Preview exits 3, writes nothing and reads no FD/);
+    assert.match(text, /pipe-json-v1 credential FD N>=3 on a supported host/);
+    assert.match(text, /No hosted activation or permission inference/);
+  }
+  assert.match(recovery, /Legacy offline.*refuses --execution and --credential-fd/);
+  assert.match(recovery, /schema2 stage recovery descriptor, exactly one target/);
+  assert.match(recovery, /mode provider-get or local-only/);
+  assert.match(recovery, /exact --yes --digest approves only the selected mode/);
+  assert.match(recovery, /one separately quoted, bounded GET of the retained original response ID/);
+  assert.match(recovery, /no repeated POST or polling/);
+  assert.match(recovery, /Local-only rejects --credential-fd even on preview and performs no provider or spend operation/);
+  assert.match(recovery, /Host release does not release unknown money; preserve original acceptance and receipts/);
+  assert.match(constraints('resume'), /Schema1 offline.*frozen pair order.*missing slots only/);
+  assert.match(constraints('resume'), /Live aggregate resume refuses/);
+  assert.match(constraints('cancel'), /no provider cancellation request or confirmation/);
+  assert.match(constraints('compare'), /Read-only comparison/);
 });
 
 test('names transition stays CLI-only even when hosted mutations are enabled', async () => {

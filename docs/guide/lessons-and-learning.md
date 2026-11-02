@@ -159,3 +159,118 @@ A cause belongs in the same item: `(why: ...)`, a lesson or issue reference,
 or a because clause. A date alone is not a cause. This checks attribution
 syntax, not whether the cited lesson is true or the rule is still useful;
 that judgment belongs to the owner. Notes are advisory, never merge gates.
+
+
+## Selected findings and evaluated proposals
+
+`plates learn evaluate` records explicitly selected review findings or retained
+harness artifacts in the existing inbox. It verifies source identity, preserves
+manual classification separately, and keeps raw source bodies private. Historical
+reviews may cover an older commit; this does not assert a defect remains today.
+
+```bash
+plates learn evaluate propose 2026-10-24-acme --input /absolute/capture.json --json
+plates learn evaluate propose 2026-10-24-acme --input /absolute/capture.json --yes --digest <preview-digest> --json
+plates learn evaluate inspect 2026-10-24-acme --json
+plates learn evaluate plan 2026-10-24-acme --input /absolute/plan.json --manifest /absolute/workspace.json --state /absolute/private-state --json
+plates learn evaluate decide 2026-10-24-acme --input /absolute/rejection.json --json
+```
+
+Use the exact request shapes in [the record contract](../specs/evaluated-learning-records.md).
+Every request names an operation UUID, expected file digest/generation, attributed
+actor/time/reason, and explicit local phase `decisionTarget`. Native capture uses
+a full date/slug and expected absence. Subsequent requests retain the phase target.
+Proposal and plan authority must match that phase. Issue targets are unsupported.
+For review intake, first perform the explicit existing review read to retain its
+private receipt, then select the exact reviewed commit and complete body hash.
+
+Propose accepts capture, proposal and revision actions. Plan binds an actual
+frozen comparison to derived material-overlay bytes; it does not run it. Public
+candidate materials are read from private regular files, hashed, and shown in
+the exact preview. Protected task sources, probes and acceptance inputs cannot
+be changed. Revised proposals retain old versions and do not inherit old plans.
+Plan also accepts `register-screening` with payload `{proposalRef,planLinkRef}`.
+Freeze explicit target/control criteria before execution, then register that plan
+against the active proposal. Nonnull criteria cannot be registered after execution
+or reservation. Existing null-criteria plans remain readable and can be imported
+retrospectively, with an inconclusive result.
+
+Decide accepts `evaluate` with payload `{proposalRef,evaluationPlanRef}`. It reads
+the authorized frozen ledger and verifies every planned terminal slot, receipt
+chain and complete delivered source/material/requirements inventory. The preview
+binds the exact private report and inbox change; it creates neither files nor locks.
+Apply acquires the inbox lock before the harness lock, rechecks the observations,
+publishes the immutable report beside the experiment, then appends its inbox ref.
+These two publications are not atomic. Recover an unlinked report with the original
+operation/request bytes; a new UUID cannot bypass it. Missing or changed original
+report bytes also prevent duplicate-operation recovery. Preserve uncertain locks
+and partial files; this operation never reclaims them automatically.
+
+The lifecycle becomes evaluated while the legacy inbox status stays proposed.
+A new revision requires a genuinely changed hypothesis or candidate and keeps
+all prior results; its new plan must use a new experiment. Screening reports keep
+all attempts, invalid outcomes, paired discordance and resource coverage. A known
+cost subtotal is not a total; missing cost and human-help coverage stay unknown.
+Offline scripted results establish machinery only and remain inconclusive about
+agent efficacy. Five pairs per case are screening, not statistical proof. Zero
+held-out cases limits generalization. Incomplete cancelled comparisons refuse
+because closed admission is not established by the current interface.
+
+Explicit follow-up is available as an attributed local record. Promotion requires
+verified readiness; current provider and installed-routing gaps prevent it. Real
+screening still needs an isolation-capable provider adapter, an enforced spending
+gateway and the owner's exact allowance; none is activated by these operations.
+See [the screening contract](../specs/lesson-screening.md).
+
+Preview exits 3 without writes. Apply rechecks the request, source observations,
+phase context and inbox inventory. The same operation/request identity returns
+the existing result without another transition. Inspect reads retained history
+without fresh provider calls. Keep uncertain lock and pending files for operator
+inspection; do not delete them to retry. Cooperating CLI writers share a lock,
+but ordinary editors do not participate in kernel compare-and-swap. Inbox views
+remain separately rebuildable with explicit `plates learn render`.
+
+
+## Review packages and explicit follow-up
+
+`plates learn evaluate package <slug> --manifest <file> --state <directory> --json`
+reads an evaluated proposal and verifies its retained report and material binding.
+It returns deterministic public JSON, Markdown, payload digest and artifact
+`{path,byteDigest,byteLength}`. It writes nothing. Private report inventories,
+source bodies, material contents and host paths are excluded. An inconclusive
+package is useful evidence; it does not establish readiness.
+
+Through `decide`, `record-package` takes `{proposalRef,evaluationRef}` and records
+the internally derived content identity under the existing preview/digest gate.
+The original report must still verify on duplicate-operation recovery. A second
+operation cannot append the same package content. `ready` takes
+`{proposalRef,packageRef}`; current missing provider and installed invocation
+support remain explicit blockers. No caller readiness flag is accepted.
+
+`promote`, `request-rollback` and `observe-rollback` use the strict
+[promotion contract](../specs/lesson-promotion.md). GitHub approval policy is read
+from the current default branch and must already exist at the exact candidate
+base. The verifier reads complete bounded review/tree/blob observations; only
+exact two-parent merge inclusion is supported. These commands never create a PR,
+merge, install instructions or establish production outcomes. No real policy is
+configured by this feature. Source verification supports at most 6,000 recursive Git tree
+entries across the entire repository; larger or truncated trees report an
+incomplete-tree refusal. Keep the original records and report verification unavailable;
+[expanding this bound requires reviewed work](../specs/lesson-promotion.md#whole-repository-verification-bound--1-november-2026). The legacy inbox remains `proposed` for a promoted
+lesson and a pending rollback; explicit promotion history never sets `accepted`.
+Rollback repair links retain stable issue IDs or phase filenames separately from
+current state. Comments, edits or closure update the observation; they do not
+invalidate the link or establish acceptance. Missing or replaced identities refuse.
+
+`follow-up` takes `{proposalRef,decisionRef,window,selections,commentary,relation}`
+in the ordinary request envelope, previewing before `--yes --digest`. Empty
+selections permit an attributed observation. Coverage remains `unmeasured`;
+`eligibleExposure`, `recurrenceRate`, `costChange`, `latencyChange` and `helpChange`
+are null. Selected verified identities are not complete exposure. A relation
+references an existing record, never creates one.
+
+Explicit revision after readiness, promotion or rollback requires `followUpRef`
+for that exact proposal and a changed hypothesis or candidate. It starts a new
+proposed version without transferred support, retaining installation/rollback
+history. Revision does not remove the old rule. Rejected and superseded records
+cannot be reopened through this route.

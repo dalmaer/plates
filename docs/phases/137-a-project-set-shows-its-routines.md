@@ -127,3 +127,11 @@ Safeguard the local observation bridge checkpoint and compare external orchestra
 - **2026-10-30** — Reallocated this unpublished consolidation draft from 132 to 137 after inspecting agent-quality at `9f8c17ad`; existing agent-quality phases are unchanged.
 
 - **2026-10-30** — Bounded metadata readers and canonical AQ lifecycle usage now feed the existing board/history surfaces. Independent review required fail-closed limits, stable identity, scoped totals and filter continuity; local checkpoint `7d05a6a7` passes focused and installed-package proof. Hosted enrollment and live source agreement remain unverified.
+
+## Integration checkpoint — 2 November 2026
+
+The consolidation source is integrated with current main and the passive quality
+branch. Current session recovery, content-addressed browser assets, installed
+test gates and the refusal of public quality execution are retained. This
+checkpoint does not establish a fresh full-gate pass, independent complete-head
+review, live enrollment or human acceptance. Those remain merge/activation work.

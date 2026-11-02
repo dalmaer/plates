@@ -4,17 +4,18 @@ Read the configured guide or AGENTS.md.
 
 Verbs (`--json` for data):
 
+- `plates autonomy` — inspect authority first
 - `plates status` — goals and next phase
 - `plates next` — next free phase; `--project <p>`
 - `plates goal list|show|add|retire` — goals
 - `plates phase new|list|claim`
 - `plates ready|integrate` — hand off
 - `plates render` — practices; `--check` reads only
-- `plates init [dir] --description "<p>"` — project
+- `plates init [dir] --description "<p>"` — new project
 - `plates names` — preview, apply, recover, verify
-- `plates migrate [root]` — rename; `--yes --digest <sha>` applies
-- `plates adopt [dir]` — adopt; `--dry-run` reads only
-- `plates doctor` — drift; `--fix <path> restore|eject`
+- `plates migrate [root]` — rename preview; `--yes --digest <sha>` applies
+- `plates adopt [dir]` — adopt a repo; `--dry-run` writes nothing
+- `plates doctor` — drift; `--fix`
 - `plates update` — PR or `--local`
 - `plates lessons` — send lessons and drift home; exit 3
 - `plates learn` — lessons → proposals and decisions
@@ -30,10 +31,10 @@ Verbs (`--json` for data):
 - `plates fleet` — fleet practice, health, CI
 - `plates fleet update` — update PRs; exit 3
 - `plates loose-ends` — unfinished work
-- `plates issue new --agent` — issue preview; `--yes` creates
+- `plates issue new --agent` — rubric issue preview; `--yes` creates it
 - `plates review <repo>#<n>` — comments; `--wait`; `--close`
-- `plates board` — local work and explicit observations
-- `plates routines inspect|usage|record-usage|recommend` — sources, PR usage and approved capture
+- `plates board` — whose turn: a local page; `--fresh`
+- `plates routines inspect|usage|record-usage|recommend` — scoped observations and capture
 - `plates promote [<commit>]` — tested commit to prod; `--back`
 - `plates walk done|decide` — settle a walk or proposal
 - `plates canvas` — snapshot, render, connect, sync, live, night
@@ -41,8 +42,8 @@ Verbs (`--json` for data):
 - `plates workspace inspect|init` — explicit external storage
 - `plates shape check|render|plan` — reviewed drafts
 - `plates feedback` — capture, list, propose, resolve
-- `plates decision context` — choices for `--phase` or `--issue`
-- `plates evidence rederive <phase>` — preview; `--yes` reruns
+- `plates decision context` — scoped choices
+- `plates evidence rederive <phase>` — preview; `--yes` runs
 - `plates prove <test> --fix <path>...` — red without the fix?
 - `plates release` — review, version, tag
 - `plates help` — verbs
@@ -60,7 +61,7 @@ Rules:
 
 Exits: 0 ok; 1 failure; 2 usage; 3 needs owner's yes. JSON errors: `{"error": "..."}` on stdout.
 
-Topics: `names` `json` `goals` `render` `init` `adopt` `doctor` `update` `lessons` `learn` `improve` `persona` `time` `test` `drain` `night` `loop` `climb` `fleet` `loose-ends` `issue` `review` `board` `routines` `retro` `canvas` `install` `coming` `reconciliation` `prove` `evidence` `production` `decision` `shape` `workspace` `feedback`.
+Topics: `autonomy` `names` `json` `goals` `render` `init` `adopt` `doctor` `update` `lessons` `learn` `improve` `persona` `time` `test` `drain` `night` `loop` `climb` `fleet` `loose-ends` `issue` `review` `board` `retro` `canvas` `install` `coming` `reconciliation` `prove` `evidence` `production` `decision` `shape` `workspace` `feedback` `routines`.
 
 <!-- topic: json | the output contract every verb keeps -->
 
@@ -629,6 +630,10 @@ plates lessons --since v1.2 --json  # practice commits from a ref, not from adop
 plates learn                         # gather: open `lesson` issues + every pinned source; new proposals only
 plates learn propose <slug|issue#> --outcome lesson|practice|decline|link --note "<one line>" --read "<read citing a path or sha>" [--link <n>] [--yes]
 plates learn decide <slug|issue#> accepted|declined [--note "<why>"] [--shape "…" --cost "…" --guard "…"] [--yes]   # the person's verb, never the agent's
+plates learn evaluate inspect <slug> --json
+plates learn evaluate propose|plan|decide <slug> --input <absolute-request.json> [--manifest <absolute-file> --state <absolute-dir>] [--yes --digest <digest>] --json
+plates learn evaluate package <slug> --manifest <absolute-file> --state <absolute-dir> --json
+plates learn evaluate follow-up <slug> --input <absolute-request.json> --manifest <absolute-file> --state <absolute-dir> [--yes --digest <digest>] --json
 plates learn render [--check]        # docs/INBOX.md and docs/patterns.md, generated; npm run check runs --check
 plates learn distill                 # the worksheet: rows, families, open proposals, rows since the last pass
 plates learn distill propose --kind family --name "…" --rule "…" --guard "…" --rows 39,40 --read "…"
@@ -638,6 +643,8 @@ plates learn distill propose --kind standardise --family "<name>" --check "<what
 ```
 
 - Runs on plates only (`"plates": "self"`); elsewhere exit 2.
+- Evaluated records use strict versioned requests with explicit local phase `decisionTarget`; capture/propose/revise, plan binding and rejection/supersession preview exact bytes (exit 3), then apply with `--yes --digest`. Inspect is local. Original operations recover by identity; uncertain locks/pending files require inspection. Tagged records refuse legacy mutation. Plan also accepts `register-screening` with `{proposalRef,planLinkRef}` before execution for nonnull frozen criteria. Decide accepts `evaluate` with `{proposalRef,evaluationPlanRef}` after every planned slot is terminal; it verifies actual delivery and retains an immutable private report before appending evaluated history (legacy status proposed). Offline scripted results are inconclusive efficacy; no promotion, model call or publication occurs. Evaluated revision requires a genuinely changed hypothesis or candidate. Recover an unlinked report with its original request, never a replacement UUID. See `docs/guide/lessons-and-learning.md`.
+- Package returns deterministic public JSON/Markdown and exact artifact metadata without writing or publishing it. Decide accepts `record-package` with `{proposalRef,evaluationRef}`. `ready`, `promote`, `request-rollback` and `observe-rollback` retain strict references and refuse missing evidence; current provider/routing gaps prevent readiness. Approval requires separately configured default-branch GitHub account IDs and an exact reviewed two-parent merge, never caller flags. Follow-up records selected sources and attributed commentary with unmeasured exposure and null outcome-rate/resource changes; it does not poll or reopen. See `docs/specs/lesson-promotion.md` for exact request fields.
 - Issues are read from the inbox: config `inbox`, else plates's `repo`.
   Gather reads `gh issue list -R <inbox> --label lesson --state open`
   and each `practices/*/practice.json` `source` against its upstream head. A
@@ -686,6 +693,13 @@ plates learn distill propose --kind standardise --family "<name>" --check "<what
   refused. A changed catalogue re-renders the practices; exit 1 if that fails.
 
 <!-- topic: improve | is the practice working here: measures, bounds, a ratchet, one proposal -->
+
+Failed local gates retain bounded, redacted stdout/stderr tails in their existing
+ledger receipt and the gate's JSON facts, linked by invocation, commit and command
+hash. Successful gates retain no output. Missing Node summaries remain unknown
+coverage; signal/spawn failures remain broken. These are whole-command diagnostics,
+not inferred compound-stage results. See [the night guide](../docs/guide/the-night-shift.md#failed-gate-diagnostics).
+
 
 The existing report retains bounded `plates:verification:v1` receipt comments: checked revision and dirty state, remote default branch/SHA, gate attribution, reconciliation coverage and claim findings. Same-day attempts survive refresh and morning finalization. Workflow retries recover the exact prior night branch report before measuring and publish with that SHA lease; unreadable recovery or conflicting local report content refuses publication. Missing coverage stays a gap; old claim observations never prove session inactivity. Home adds a fleet verification summary through its existing instruments; adopter nights only verify themselves. No second gate or acceptance decision is introduced.
 
@@ -1388,6 +1402,22 @@ workspace is `.stitch.json`'s, or `STITCH_WORKSPACE`. The nightly
 
 <!-- topic: climb | climb nights: an agent climbs one number, a script judges it, a person merges -->
 
+The existing preflight verifies runner scratch capabilities only. Its success
+state is `runner-ready`, with `runnerReady: true` and `agentPermissions:
+"unverified"`; this is not agent readiness or permission to retry a denial.
+Agent readiness before baseline remains incomplete: the workflow still has its
+existing runner gate. Do not activate a universal denial or relabel declared
+settings as effective permission evidence to fill that gap. No permissions,
+allowlists or provider settings are changed by these diagnostics.
+
+Retained denial receipts contain at most eight fixed-vocabulary command-prefix
+and target-path classifications. They omit raw commands, arguments, paths,
+messages and session text. `detailsAvailable` means a command or target
+classification was retained; tool names alone do not satisfy it. Missing,
+withheld and omitted details remain explicit. A prefix classification is not
+a reconstruction of a compound shell command and grants no retry authority.
+
+
 The optional `climb` practice (needs `night`) runs `plates-climb.yml` on a
 schedule: an agent climbs one number under `.agents/climb/PROTOCOL.md`, and
 `node scripts/plates/climb.mjs` makes every measurement and keep-or-revert.
@@ -1410,8 +1440,15 @@ schedule: an agent climbs one number under `.agents/climb/PROTOCOL.md`, and
   (`plan.skipped` says why for each other); its `budget.minutes` lowers
   `minutes`, never raises it. Refused or another night's: as without.
   `sandbox --plan f` also refuses any path its `willNotTouch` covers.
-- `measure <job> [--runs k] [--baseline]` — median and spread; `--baseline`
-  opens `.plates/climb/night.json`.
+- `measure <job> [--runs k] [--baseline] [--minutes n]` — median and spread;
+  `--baseline` opens `.plates/climb/night.json` and checks timed comparison
+  feasibility after the first probe. `--minutes` lowers the configured allowance
+  to the picked plan budget. Wall time, not benchmark output, estimates twelve
+  default comparison executions; half the allowance is reserved for editing and
+  full validation. An infeasible probe records `admission.state: blocked`, its
+  reason and next action; the workflow skips model execution. This estimate is
+  not a completion guarantee. Baseline wall time precedes the agent allowance;
+  the unchanged full gate and paired comparison still establish correctness.
 - `compare [--base r] [--candidate r] [--rounds n] [--decide] [--final]` —
   alternated rounds (two or more) in temp worktrees; keep only when every
   round beats the margin. `--decide` judges HEAD: keep amends its numbers
@@ -1995,6 +2032,62 @@ The default adapter is unavailable. Current actor/project/policy/connection chec
 and capacity must remain fresh through the final response (at most five minutes).
 See the routine-observations guide for input and activation limits.
 
+<!-- topic: routines | explicit local observation and full task/PR usage -->
+
+`plates routines inspect --registry <absolute-file> [--json]` reads only the
+explicitly selected source registry. No home-directory discovery, scheduler
+writes, model execution or credentials are involved. Unreadable and unsupported
+sources remain coverage gaps. Names are configured metadata; task/transcript text,
+source paths and native account/session IDs are excluded from the projection.
+
+`plates routines usage --manifest <absolute-file> --state <absolute-dir>
+--project <owner/repo> [--pr <repository-id:number>] [--verify-repository] [--actor <id>] [--json]`
+reads the initialized canonical agent-quality ledger. Without `--actor`, only
+shared permitted measurements are projected. Actor selection is local context,
+not hosted authorization. Usage covers the recorded task/PR lifecycle, including
+failed attempts, independently of Activity's date filter. Null totals are unknown;
+known subtotals and shared nonadditive attribution remain distinct from remaining
+provider quota. Local PR totals remain unknown without independently verified
+numeric repository bindings. Explicit `--verify-repository` makes one bounded
+authenticated GitHub repository GET and requires its ID and name to match the
+selected PR. No supplied binding file counts as verification. Inspection starts
+no work.
+
+`plates routines record-usage --manifest <absolute-file> --state <absolute-dir>
+--project <owner/repo> --episode <id> --record <absolute-file> [--yes --digest <sha256>] [--json]`
+previews a sealed metadata observation (exit 3). Exact approval appends to the
+same private ledger; uncertain retries recover the original receipt. Supplied
+provider labels are not authenticated billing proof. No provider is called.
+
+`plates board --observations <absolute-file>` reads an explicit startup binding
+with `version:1`, `registry` (absolute registry file or null) and `usage` (binding
+or null). A usage binding carries manifest/state paths, project repository list,
+optional canonical PR object, actorId and shared boolean. Browser URLs cannot
+change these paths or identity. Existing board refresh and token protection apply.
+Inspection JSON is `{schema, observedAt, routines, attempts, reports, usage,
+coverage, actions:[]}`. Routine names are configured labels with opaque identity;
+usage retains metric known subtotals, nullable totals, coverage, stage/model
+metadata, provenance and repository verification. Capture JSON returns status,
+digest, added/duplicate counts and recovery status. No projection exposes source
+paths or funding/account identity. See `docs/guide/routine-observations.md` for
+exact source schemas and gaps.
+
+`plates routines recommend --input <absolute-file> --manifest <absolute-file>
+--state <absolute-dir> [--json]` reads version-1 candidate claims and the canonical
+initialized AQ ledger. Input cannot contain authority or a qualityBundle.
+Local files do not authenticate accounts or quotas: availability and suggestions
+remain unavailable. Output explains personal scope, task stage, model/build,
+matching quality samples/uncertainty, historical cost and latency separately.
+No command executes or reserves work. Historical usage never implies quota.
+
+Board binding version 2 adds `recommendation: {input, manifest, state}` (or null)
+to the existing registry/usage fields; version 1 remains supported. It renders a
+separate personal panel. Hosted personal recommendations appear only on explicit
+project views through a trusted injected adapter, never as set-level quota sums.
+The default adapter is unavailable. Current actor/project/policy/connection checks
+and capacity must remain fresh through the final response (at most five minutes).
+See the routine-observations guide for input and activation limits.
+
 <!-- topic: retro | the worksheet for a retro after a phase that did real work -->
 
 `plates retro [--worksheet] [--since <commit>] [--session <id>]` is the last
@@ -2057,15 +2150,24 @@ those observations and retains the resulting private report. No repository scan
 occurs unless requested. Scheduling remains a separate action.
 Lifecycle takes `--record <event.json>` and exact preview approval for begin,
 start, finish, task/PR linking, annotation, adjudication and follow-up events. Pending shows
-missing human judgments, provenance and delayed outcomes. The imported execution
-adapter is dormant; `retro quality run` is not exposed in this consolidation CLI.
+missing human judgments, provenance and delayed outcomes. The retained local
+execution prototype is not exposed: `retro quality run` refuses pending a separate
+execution-boundary review. An explicit private binding can capture metadata from
+ordinary review reads; it grants no execution authority.
 Provider details are declarations; undisclosed model versions stay unknown.
 Replay-plan describes the balanced A/B and reviewer crossover design with spend
 disabled; it cannot dispatch a trial. Existing schema-2 freeze/compare remains
 the experiment authority. See `docs/guide/agent-quality.md` for the full workflow,
 privacy, unknowns and retention boundaries.
 
-`plates retro evaluations plan|freeze|inspect|run --manifest <absolute-file>
+`plates retro evaluations corpus inspect|export --json` lists six exposed development
+cases (held-out: zero). Export takes `--case <id> --repository <absolute-dir>
+--destination <absolute-dir>`; preview exits 3, then `--yes --digest <digest>` writes
+a new private destination outside Git. Existing/partial exports refuse overwrite.
+Only the enumerated builder inventory enters isolated delivery; curator fixes and
+private acceptance remain outside it. Export never runs a trial or grants spend.
+
+`plates retro evaluations plan|freeze|inspect|run|resume|reconcile|cancel|compare --manifest <absolute-file>
 --state <absolute-dir> [--bundle <file>] [--experiment <id>] [--execution <absolute-json>] [--json]` freezes
 schema-2 harness input records in an already initialized external workspace.
 Plan reads only. Freeze preview exits 3 and exposes `digest`; approve with
@@ -2081,9 +2183,16 @@ submission, confirms termination, and checks behavior in fresh Docker containers
 Only `pinned-image-tools` authority is supported: all binaries in the approved
 image, no network or host mounts. The host owns acceptance. Original operation
 identities survive uncertainty; retries never redispatch. Unknown cost is null.
-No paid model or production activation occurs. Resume/cancel/compare/rescore
-refuse. Run checks local pinned-image availability; it never downloads an image. See the source guide `docs/guide/harness-evaluations.md` for the
-synthetic Acme bundle and exact invocation.
+No paid model or production activation occurs. Compare reads only; resume/reconcile/cancel preview and require exact approval. Rescore refuses. Run checks local pinned-image availability; it never downloads an image. See the source guide `docs/guide/harness-evaluations.md` for the
+synthetic Acme bundle and exact invocation. Resume's schema-1 execution descriptor
+contains an ordered executions array for every missing slot. Reconcile inspects
+original operations and explicitly recovers a positively verified dead harness
+writer; legacy/partial/foreign locks refuse. Cancel closes admission and requests
+bounded termination. Recovery reserves one reconcile and one cancel attempt,
+20 seconds per planned slot in total; interrupted reservations never refund.
+Identical recovery retries inspect retained receipts without new effects. Trial minutes include measured preparation and admitted execution; captured inputs are reused, subprocess preparation shares a deadline, and cleanup cannot extend the total slot deadline. Prior read-only previews, human waiting and uninterruptible host I/O are not claimed billed work.
+Reports retain invalid/missing trials and null costs; no promotion or live provider
+adapter is implied.
 
 `plates retro sessions <status|start|begin|finish|handoff|audit|apply|rollback>
 [--experiment <id>] [--record <file>] [--yes] [--json]` records local trials.
@@ -2128,6 +2237,10 @@ Any overrun blocks further admissions and positive audit/apply, while finish sti
 ```json
 {"runId":"run1","totalMinutes":10,"costUsd":null,"costSource":null,"accepted":true,"verified":true,"policyApplied":true,"lostDecisions":0,"duplicateActions":0,"regressions":0,"rework":0,"contextPeakTokens":null,"sourceRevision":"acme-result","acceptanceEvidence":"docs/evidence/acme-result.md#acceptance","evidence":["docs/evidence/acme-full-workflow.md"]}
 ```
+
+A failed (`accepted` or `verified` false) or reworked (`rework` >0) finish also
+needs `lessonStatus`: `{"status":"captured","link":"<lesson, proposal or inbox item>"}`,
+`{"status":"known","lesson":"<lesson id>"}` or `{"status":"none"}` (phase 148).
 
 `totalMinutes` is finite >0. Cost is null with null source, or finite >=0 with
 an explicit measured source pointer. `accepted`, `verified`, `policyApplied`
@@ -2732,3 +2845,71 @@ continuation keeps its original identity. No dispatch or activation is implied.
 Exits: 0 verified operation/readback; 1 refused, incomplete or failed verification;
 2 invalid arguments; 3 preview/approval or held activation. --json returns one
 object with no variable values, secret contents or private journal contents.
+
+<!-- topic: autonomy | explicit risk tolerance within existing permissions -->
+
+Run `plates autonomy --json` before work to inspect the selected risk level and its
+boundaries. Missing settings use Low (`default`), preserving existing behavior.
+Medium (`local`) requests fewer repeated conversational approvals for routine local edits
+and tests after current task authority and selection provenance are verified. High (`delivery`) adds only separately selected exact
+push/merge branches or explicit push namespaces in this repository. Deployment, destructive actions,
+credentials, CI permissions, policy and assistant-rule changes need specific
+approval; script effects matter even when the command is called a test.
+
+Preview with `plates autonomy --level medium --json`; selecting it requires the
+owner's explicit confirmation and the preview's exact `--yes --digest <sha256>`.
+High example: `plates autonomy --level high --push feature/acme --merge main --json`.
+For future task branches, preview `plates autonomy --level high --push-prefix work/ --json`.
+Namespaces never cover merging, protected or default branches. Each action needs
+current target-bound protection/ruleset evidence; unavailable evidence grants nothing.
+Every merge requires exact base-bound current protection evidence and all checks/reviews; protected status never bypasses rules.
+`--mode default|local|delivery` remains an alias for Low/Medium/High; do not combine it with `--level`.
+Each selection replaces all branch/namespace lists; omitted destinations grant nothing.
+Return to existing behavior with `plates autonomy --level low --json` and
+confirm that preview. Selection writes only `.plates/autonomy.json` and does not
+push it. No setting is selected on installation or from approval history.
+
+High favors reversible shipping with required verification and prompt rollback,
+not elimination of every hypothetical regression. Record the exact known-good
+revision and its checks/health evidence, affected effects, available rollback
+procedure, health signals, stop criteria and any bounded non-blocking uncertainty.
+Continue only while the verified task scope and mandatory gates permit it.
+Missing required evidence is not a pass. Stop further rollout when a health
+signal fails; inspect uncertain writes before retrying and escalate if rollback
+needs new authority or recovery is unreliable. A Git revert does not undo data
+migrations, external side effects, destructive deletion or credential exposure;
+those need separate safeguards and authority. See the autonomy guide for the
+rollout record and source-only revert example.
+
+Never interpret this preference as platform permission, bypass a command's own
+approval/digest/proof gate, expand a budget, or change live rules. A current
+explicit user restriction wins. Before acting, verify the selection's human
+provenance and digest, current task and actual repository/destination, effects,
+platform permission, project rules and command gates. Unknown facts stay unknown;
+a denial stays blocked. Preserve exact-operation approvals across handoffs only
+while their scope and evidence still match. Reconfirm changed authority, target,
+budget or risk; exact-head approvals never transfer to changed bytes.
+
+The inspect report is configured scope, not a verified execution grant.
+`evaluateAutonomy` in `lib/autonomy.mjs` is the read-only preflight integration
+seam; it performs no action and requires independent current-context evidence.
+`suggestAutonomy` only returns an optional local-mode suggestion from explicitly
+supplied counts; it never reads session logs, persists settings or confirms one.
+
+
+The generic Plates skill's cold start, `--agent-help all`, this topic and
+`plates decision context` carry the shared versioned guidance and unverified
+selection identity. Include it in dispatch/resume handoffs alongside the original
+task approval; refresh changed facts without re-asking for unchanged authority.
+Climb, Tend, Robot build/resume/review and cross-review consume that same renderer
+from the trusted source revision. Mention-driven Claude receives default-branch
+guidance from a separate read-only context job. Scheduled builders cannot publish;
+reviewers remain read-only and report every material defect. Candidate policy
+changes cannot authorize the candidate; automated build guards protect the setting.
+
+These are model nudges, not proof that a model follows them or a tool-gate bypass.
+The hosted web workers run bounded commands rather than model contexts; their
+authority checks are unchanged. Project Home shows declared scope with unavailable
+host controls. No inspected provider supplies the trusted effective-permission/
+consent API needed to suppress host prompts. No live model or reduced-approval
+claim follows from deterministic prompt-delivery tests.

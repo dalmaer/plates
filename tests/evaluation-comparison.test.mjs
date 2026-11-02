@@ -1,0 +1,603 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, realpath, rm, writeFile, readFile, mkdir, lstat, readdir, chmod, symlink } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { once } from 'node:events';
+import { run } from './helpers/run.mjs';
+import { ledgerLock, inspectHarnessLock } from '../lib/session-ledger-io.mjs';
+import { reserveExternalBudget, inspectBudgetTarget, inspectBudget, reconcileExternalBudget, isExternalCapacityRefusal } from '../lib/validation-budget.mjs';
+import { storeImmutable } from '../lib/session-ledger-io.mjs';
+import { evaluations } from '../lib/evaluation-ledger.mjs';
+import { evaluationWorld, evaluationController } from './helpers/evaluation-execution.mjs';
+import { summarizeComparison, summarizeComparisonV1 } from '../lib/evaluation-comparison-report.mjs';
+import { sealRecord, fingerprint } from '../lib/evaluation-records.mjs';
+import { executionInput, admittedDeadline } from '../lib/evaluation-execution-input.mjs';
+import { preflightDocker } from '../lib/evaluation-docker.mjs';
+import { exportSource } from '../lib/evaluation-artifacts.mjs';
+import { runEvaluation, inspectExecutions, unauthorizedStage } from '../lib/evaluation-execution.mjs';
+
+async function home(t) {
+  const dir = await realpath(await mkdtemp(join(tmpdir(), 'acme-harness-lock-')));
+  t.after(() => rm(dir, { recursive: true, force: true })); return dir;
+}
+test('SIGKILL writer recovery preserves bytes and fences two recoverers', async t => {
+  const dir = await home(t), url = new URL('../lib/session-ledger-io.mjs', import.meta.url).href;
+  const child = evaluationController(`import {ledgerLock} from ${JSON.stringify(url)}; await ledgerLock(${JSON.stringify(dir)},{harness:true}); console.log('ready'); setInterval(()=>{},1000);`);
+  t.after(() => child.kill('SIGKILL'));
+  await once(child.stdout, 'data');
+  const active = await inspectHarnessLock(dir);
+  assert.equal(active.status, 'active-or-unverifiable');
+  await assert.rejects(ledgerLock(dir, { harness: true, recover: active }), /death unverified/);
+  const original = await readFile(join(dir, '.lock'));
+  const done = once(child, 'exit'); child.kill('SIGKILL'); await done;
+  const dead = await inspectHarnessLock(dir); assert.equal(dead.status, 'recoverable');
+  const attempts = await Promise.allSettled([ledgerLock(dir, { harness: true, recover: dead }), ledgerLock(dir, { harness: true, recover: dead })]);
+  assert.equal(attempts.filter(a => a.status === 'fulfilled').length, 1);
+  assert.deepEqual(await readFile(join(dir, '.harness-recovered-' + dead.owner.id)), original);
+  await attempts.find(a => a.status === 'fulfilled').value();
+  assert.equal(await inspectHarnessLock(dir), null);
+  const replacement = await ledgerLock(dir, { harness: true });
+  await assert.rejects(ledgerLock(dir, { harness: true, recover: dead }), /changed|death unverified/);
+  await replacement();
+});
+test('legacy empty and partial locks never acquire recovery authority; handoff stays compatible', async t => {
+  const dir = await home(t);
+  const release = await ledgerLock(dir);
+  assert.equal((await inspectHarnessLock(dir)).status, 'blocked');
+  await assert.rejects(ledgerLock(dir, { harness: true }), /locked/);
+  await release();
+  await writeFile(join(dir, '.lock'), '{', { mode: 0o600 });
+  assert.equal((await inspectHarnessLock(dir)).status, 'blocked');
+  await assert.rejects(ledgerLock(dir, { harness: true, recover: await inspectHarnessLock(dir) }), /death unverified/);
+});
+test('structurally invalid JSON lock owners remain blocked without reclaim', async t => {
+  for (const value of [null, false, true, 0, 42, '', 'Acme', [], [null], {}]) {
+    await t.test(JSON.stringify(value), async t => {
+      const dir = await home(t), path = join(dir, '.lock'), bytes = JSON.stringify(value);
+      await writeFile(path, bytes, { mode: 0o600 });
+      const before = await lstat(path);
+      const owner = await inspectHarnessLock(dir);
+      assert.deepEqual(owner, { status: 'blocked', reason: 'unverifiable-lock-owner' });
+      await assert.rejects(ledgerLock(dir, { harness: true }), /storage locked/);
+      await assert.rejects(ledgerLock(dir, { harness: true, recover: owner }), /writer death unverified/);
+      assert.equal(await readFile(path, 'utf8'), bytes);
+      const after = await lstat(path);
+      assert.equal(after.dev, before.dev); assert.equal(after.ino, before.ino);
+      assert.deepEqual(await readdir(dir), ['.lock']);
+    });
+  }
+});
+test('compare retains malformed execution uncertainty and refuses mutation options', async t => {
+  const world = await evaluationWorld(t);
+  const dir = join(world.options.state, 'session-trials', world.b.comparison.id);
+  const original = await readFile(join(dir, 'state.json'));
+  await mkdir(join(dir, 'execution'), { mode: 0o700 });
+  await writeFile(join(dir, 'execution', 'reservation.json'), '{', { mode: 0o400 });
+  const result = await evaluations({ ...world.options, action: 'compare', experiment: world.b.comparison.id });
+  assert.equal(result.preview, false);
+  const execution = await inspectExecutions(dir, { digest: 'unused' });
+  assert.equal(execution.status, 'uncertain'); assert.ok(execution.issues.length);
+  await assert.rejects(evaluations({ ...world.options, action: 'resume', experiment: world.b.comparison.id, execution: world.execution }), /uncertain/);
+  await assert.rejects(evaluations({ ...world.options, action: 'compare', experiment: world.b.comparison.id, yes: true }), /read-only/);
+  assert.deepEqual(await readFile(join(dir, 'state.json')), original);
+});
+test('reconcile previews and rejects stale approval without modifying frozen receipt', async t => {
+  const world = await evaluationWorld(t);
+  const options = { ...world.options, action: 'reconcile', experiment: world.b.comparison.id };
+  const preview = await evaluations(options);
+  assert.equal(preview.preview, true); assert.equal(preview.input.lock, null);
+  await assert.rejects(evaluations({ ...options, yes: true, digest: '0'.repeat(64) }), /stale/);
+});
+
+async function reservedSlot(t, { truncated = false } = {}) {
+  const world = await evaluationWorld(t);
+  const dir = join(world.options.state, 'session-trials', world.b.comparison.id);
+  const ledger = JSON.parse(await readFile(join(dir, 'state.json'))), plan = ledger.plan;
+  const home = join(dir, 'execution'); await mkdir(home, { mode: 0o700 });
+  const record = (kind, id, body) => sealRecord({ schemaVersion: 2, kind, id, createdAt: new Date().toISOString(), ...body });
+  await storeImmutable(join(home, 'reservation.json'), record('evaluation-reservation', world.b.comparison.id, { planDigest: plan.digest, allowance: world.b.comparison.allowance, currencyUsage: null }));
+  const id = 'a'.repeat(32), slot = world.request.pairId + '-baseline', path = join(home, slot); await mkdir(path, { mode: 0o700 });
+  const input = { request: world.request, planDigest: plan.digest, taskDigest: world.b.cases[0].digest,
+    configurationDigest: world.b.configurations[0].digest, checkManifestDigest: world.b.cases[0].acceptanceManifest.digest,
+    sourceDigest: 'b'.repeat(64), image: { id: world.b.cases[0].environment.image }, controller: { digest: 'a'.repeat(64) } };
+  const operations = [`plates-eval-${id}-builder`, `plates-eval-${id}-check-0`];
+  const intent = record('evaluation-intent', id, { slot, input, previewDigest: fingerprint(input), operations,
+    dispatchProtocol: 'ordered-authorization-v1', attempt: 1, parentAttemptId: null, reservedMinutes: 2, interventions: [], repairRounds: 0 });
+  await storeImmutable(join(path, 'intent.json'), intent);
+  const target = await inspectBudgetTarget({ manifest: world.managed, root: world.repository, repo: 'Acme/widget' });
+  const lease = await reserveExternalBudget({ ...world.admission, target, id, commandDigest: intent.previewDigest, operations });
+  await storeImmutable(join(path, 'lease.json'), record('evaluation-lease', id, { intentDigest: intent.digest, lease }));
+  if (truncated) await writeFile(join(path, 'dispatch-builder.json'), '{', { mode: 0o400 });
+  return { ...world, dir, path, plan, intent };
+}
+test('fenced never-authorized stages settle unknown once, retain receipts and consume recovery allowance', async t => {
+  const w = await reservedSlot(t), options = { ...w.options, action: 'reconcile', experiment: w.b.comparison.id };
+  const before = await readFile(join(w.path, 'intent.json'));
+  const preview = await evaluations(options), result = await evaluations({ ...options, yes: true, digest: preview.digest });
+  assert.equal(result.execution.trials[0].status, 'terminal');
+  assert.equal(result.execution.trials[0].recovery.verdict.acceptance, 'unknown');
+  assert.equal(result.execution.trials[0].records.result, undefined);
+  assert.deepEqual(await readFile(join(w.path, 'intent.json')), before);
+  assert.equal((await inspectBudget({ stateDir: w.admission.stateDir, capacity: 1 })).used, 0);
+  const repeated = await evaluations({ ...options, yes: true, digest: preview.digest });
+  assert.equal(repeated.recovered, true);
+  assert.equal((await inspectBudget({ stateDir: w.admission.stateDir, capacity: 1 })).history.length, 1);
+  await assert.rejects(evaluations(options), /allowance exhausted/);
+  await assert.rejects(evaluations({ ...options, yes: true, digest: 'f'.repeat(64) }), /allowance exhausted/);
+});
+test('partial dispatch authorization stays uncertain, cannot be hidden by reconciliation and retains bytes', async t => {
+  const w = await reservedSlot(t, { truncated: true });
+  const options = { ...w.options, action: 'reconcile', experiment: w.b.comparison.id };
+  const preview = await evaluations(options), result = await evaluations({ ...options, yes: true, digest: preview.digest });
+  assert.equal(result.execution.status, 'uncertain');
+  assert.equal(result.execution.trials[0].status, 'uncertain');
+  assert.equal(await readFile(join(w.path, 'dispatch-builder.json'), 'utf8'), '{');
+  assert.equal((await inspectBudget({ stateDir: w.admission.stateDir, capacity: 1 })).used, 1);
+  await assert.rejects(evaluations({ ...w.options, action: 'resume', experiment: w.b.comparison.id, execution: w.execution }), /uncertain/);
+});
+test('cancel closes admission without converting malformed observations into terminal evidence', async t => {
+  const w = await reservedSlot(t, { truncated: true });
+  const options = { ...w.options, action: 'cancel', experiment: w.b.comparison.id };
+  const preview = await evaluations(options), result = await evaluations({ ...options, yes: true, digest: preview.digest });
+  assert.equal(result.execution.cancellation.admissionClosed, true);
+  assert.equal(result.execution.status, 'uncertain');
+  assert.equal((await inspectBudget({ stateDir: w.admission.stateDir, capacity: 1 })).used, 1);
+  assert.equal((await evaluations({ ...options, yes: true, digest: preview.digest })).recovered, true);
+});
+test('legacy planned operations are not evidence of non-dispatch', () => {
+  assert.equal(unauthorizedStage({ intent: { operations: ['Acme'] } }, 0), false);
+  assert.equal(unauthorizedStage({ intent: { dispatchProtocol: 'ordered-authorization-v1', operations: ['Acme'] }, 'dispatch-builder': {} }, 0), false);
+});
+
+test('real killed controller retains first trial, reconciles original operations and resumes missing slots once', { skip: process.env.PLATES_EVALUATION_DOCKER !== '1', timeout: 180000 }, async t => {
+  const w = await evaluationWorld(t, { timeoutSeconds: 8,
+    builder: 'import {readFileSync} from "node:fs"; if(process.argv.includes("slow")) await new Promise(r=>setTimeout(r,30000)); console.log(JSON.stringify({schemaVersion:1,files:[{path:"answer.mjs",mode:"100644",base64:readFileSync("answer.mjs").toString("base64")}]}));' });
+  const first = await w.call({}), completed = await w.call({ yes: true, digest: first.digest });
+  assert.equal(completed.status, 'terminal');
+  const dir = join(w.options.state, 'session-trials', w.b.comparison.id), firstPath = join(dir, 'execution', completed.slot, 'result.json');
+  const firstBytes = await readFile(firstPath), frozenBytes = await readFile(join(dir, 'state.json'));
+  const secondRequest = { ...w.request, arm: 'candidate', builderArgv: [...w.request.builderArgv, 'slow'] };
+  await writeFile(w.execution, JSON.stringify(secondRequest));
+  const url = new URL('../lib/evaluation-ledger.mjs', import.meta.url).href;
+  const options = { ...w.options, action: 'run', experiment: w.b.comparison.id, execution: w.execution };
+  const child = evaluationController(`import {evaluations} from ${JSON.stringify(url)}; const o=${JSON.stringify(options)};const p=await evaluations(o);await evaluations({...o,yes:true,digest:p.digest});`);
+  t.after(() => child.kill('SIGKILL'));
+  const slotDir = join(dir, 'execution', w.request.pairId + '-candidate');
+  let intent, runningObserved = false, terminationObserved = false;
+  const deadline = Date.now() + 15000;
+  while (Date.now() < deadline) {
+    try {
+      intent = JSON.parse(await readFile(join(slotDir, 'intent.json')));
+      const { run } = await import('./helpers/run.mjs');
+      const found = run('docker', ['inspect', '--format', '{{.State.Running}}', intent.operations[0]]);
+      if (found.status === 0 && found.stdout.trim() === 'true') { runningObserved = true; break; }
+    } catch { /* wait for durable dispatch and actual original container */ }
+    await new Promise(r => setTimeout(r, 25));
+  }
+  assert.ok(intent, 'controller reached durable intent');
+  assert.equal(runningObserved, true, 'observed original container running before SIGKILL');
+  const exited = once(child, 'exit'); child.kill('SIGKILL'); await exited;
+  // The original supervisor's bounded deadline terminates its container. No
+  // replacement is launched; the explicit cancel operation has its own budget.
+  const until = Date.now() + 12000;
+  const { run } = await import('./helpers/run.mjs');
+  while (Date.now() < until) {
+    const found = run('docker', ['inspect', '--format', '{{.State.Running}}', intent.operations[0]]);
+    if (found.status === 0 && found.stdout.trim() === 'false') { terminationObserved = true; break; }
+    await new Promise(r => setTimeout(r, 100));
+  }
+  assert.equal(terminationObserved, true, 'observed supervisor termination after controller SIGKILL');
+  const recoverOptions = { ...w.options, action: 'reconcile', experiment: w.b.comparison.id };
+  const preview = await evaluations(recoverOptions);
+  assert.equal(preview.input.lock.status, 'recoverable');
+  const recovered = await evaluations({ ...recoverOptions, yes: true, digest: preview.digest });
+  assert.equal(recovered.execution.status, 'complete');
+  assert.equal(recovered.execution.trials.find(r => r.slot.endsWith('-candidate')).recovery.verdict.acceptance, 'unknown');
+  const executions = w.b.comparison.pairs.flatMap(p => (p.order === 'AB' ? ['baseline','candidate'] : ['candidate','baseline']).map(arm => ({ ...w.request, pairId: p.id, arm }))).slice(2);
+  await writeFile(w.execution, JSON.stringify({ schemaVersion: 1, executions }));
+  const resumeOptions = { ...w.options, action: 'resume', experiment: w.b.comparison.id, execution: w.execution };
+  const resumePreview = await evaluations(resumeOptions);
+  const resumed = await evaluations({ ...resumeOptions, yes: true, digest: resumePreview.digest });
+  assert.equal(resumed.execution.trials.length, 12);
+  assert.equal(resumed.execution.trials.filter(r => r.status === 'terminal').length, 12);
+  assert.deepEqual(await readFile(firstPath), firstBytes);
+  assert.deepEqual(await readFile(join(dir, 'state.json')), frozenBytes);
+  if (process.env.PLATES_EVALUATION_RETAIN === '1') t.diagnostic(JSON.stringify({ retainedPrivateWorkspace: w.root, frozenReceipt: join(dir, 'state.json'), frozenBytesDigest: fingerprint(frozenBytes.toString('base64')), firstResult: firstPath, firstResultBytesDigest: fingerprint(firstBytes.toString('base64')), recoveredIntent: intent.digest, reconcileDigest: preview.digest, resumeDigest: resumePreview.digest, completedSlots: resumed.execution.trials.length, runningObserved, terminationObserved }));
+  await assert.rejects(evaluations(resumeOptions), /every missing slot/);
+});
+
+test('forged derived acceptance and mismatched stage authorization cannot become terminal', async t => {
+  for (const shape of ['derived-acceptance', 'dispatch-operation']) await t.test(shape, async t => {
+    const w = await reservedSlot(t), options = { ...w.options, action: 'reconcile', experiment: w.b.comparison.id };
+    if (shape === 'dispatch-operation') {
+      const forged = sealRecord({ schemaVersion: 2, kind: 'evaluation-dispatch', id: w.intent.id,
+        createdAt: new Date().toISOString(), intentDigest: w.intent.digest, operation: w.intent.operations[1], index: 0 });
+      await storeImmutable(join(w.path, 'dispatch-builder.json'), forged);
+    } else {
+      const preview = await evaluations(options), recovered = await evaluations({ ...options, yes: true, digest: preview.digest });
+      const receipt = recovered.execution.trials[0].recovery.receipt;
+      const verdict = sealRecord({ ...receipt.verdict, acceptance: 'accepted' });
+      const result = sealRecord({ ...receipt.result, verdictDigest: verdict.digest, validation: 'passed' });
+      const forged = sealRecord({ ...receipt, verdict, result });
+      await storeImmutable(join(w.path, `reconciliation-${forged.digest}.json`), forged);
+    }
+    const inspected = await inspectExecutions(w.dir, w.plan);
+    assert.equal(inspected.status, 'uncertain');
+    assert.equal(inspected.trials[0].status, 'uncertain');
+    assert.equal(inspected.trials[0].recovery, undefined);
+  });
+});
+
+test('verified original verdict survives a derived missing-result projection; altered check evidence refuses', async t => {
+  const w = await reservedSlot(t), i = w.intent, records = { intent: i, lease: JSON.parse(await readFile(join(w.path, 'lease.json'))) };
+  const record = (kind, body) => sealRecord({ schemaVersion: 2, kind, id: i.id, createdAt: new Date().toISOString(), intentDigest: i.digest, ...body });
+  const observations = i.operations.map((operation, index) => ({ operation, state: 'terminated', containerId: String(index + 1).repeat(64), running: false }));
+  for (const [index, operation] of i.operations.entries()) {
+    const name = index ? 'check-0' : 'builder';
+    records['dispatch-' + name] = record('evaluation-dispatch', { operation, index });
+    await storeImmutable(join(w.path, 'dispatch-' + name + '.json'), records['dispatch-' + name]);
+    records[name] = record('evaluation-stage', { stage: { operation, containerId: observations[index].containerId,
+      setup: 'passed', execution: 'passed', error: null, output: { exit: 0, signal: null, stdout: index ? 'Acme\n' : '', stderr: '' }, termination: observations[index] } });
+    await storeImmutable(join(w.path, name + '.json'), records[name]);
+  }
+  const files = [{ path: 'answer.mjs', mode: '100644', base64: Buffer.from('export default "Acme";').toString('base64') }];
+  records.artifact = record('evaluation-artifact', { files, filesDigest: fingerprint(files), sourceDigest: 'b'.repeat(64) });
+  await storeImmutable(join(w.path, 'artifact.json'), records.artifact);
+  records.verdict = record('evaluation-verdict', { artifactDigest: records.artifact.digest, checkManifestDigest: i.input.checkManifestDigest,
+    evaluator: { identity: 'plates-host-stdio-v1', version: 1, controller: i.input.controller, image: i.input.image },
+    acceptance: 'accepted', failureCategory: null, checks: [{ id: 'acme-behavior', status: 'passed', observationDigest: records['check-0'].digest }] });
+  await storeImmutable(join(w.path, 'verdict.json'), records.verdict);
+  const missing = await inspectExecutions(w.dir, w.plan);
+  assert.equal(missing.trials[0].status, 'uncertain');
+  assert.equal(missing.trials[0].records.verdict.acceptance, 'accepted');
+  const inputDigest = 'c'.repeat(64), settlement = { id: i.id, commandDigest: i.previewDigest, released: true, observations };
+  const result = record('evaluation-result', { recoveryInputDigest: inputDigest, status: 'terminal', verdictDigest: records.verdict.digest, settlement,
+    setup: 'passed', execution: 'passed', validation: 'passed', resources: { currencyUsd: null } });
+  const receipt = record('evaluation-reconciliation', { inputDigest, result, verdict: records.verdict, settlement, observations, status: 'terminal',
+    originalEvidence: Object.fromEntries(Object.entries(records).map(([k,v]) => [k,v.digest])) });
+  await storeImmutable(join(w.path, `reconciliation-${receipt.digest}.json`), receipt);
+  const projected = await inspectExecutions(w.dir, w.plan);
+  assert.equal(projected.trials[0].status, 'terminal');
+  assert.equal(projected.trials[0].recovery.verdict.digest, records.verdict.digest);
+  assert.equal(projected.trials[0].records.result, undefined);
+  const forged = record('evaluation-reconciliation', { ...receipt, originalEvidence: { ...receipt.originalEvidence, 'check-0': 'd'.repeat(64) } });
+  await storeImmutable(join(w.path, `reconciliation-${forged.digest}.json`), forged);
+  assert.equal((await inspectExecutions(w.dir, w.plan)).trials[0].status, 'uncertain');
+});
+
+test('authorized but unavailable original operation keeps capacity; retries never repeat Docker inspection', async t => {
+  const w = await reservedSlot(t), bin = join(w.root, 'tools'), calls = join(w.root, 'docker-calls');
+  await mkdir(bin, { mode: 0o700 });
+  await writeFile(join(bin, 'docker'), `#!${process.execPath}\nrequire('node:fs').appendFileSync(${JSON.stringify(calls)}, 'inspect\\n');process.exit(1);\n`, { mode: 0o700 });
+  const previousPath = process.env.PATH; process.env.PATH = bin + ':' + previousPath;
+  t.after(() => { process.env.PATH = previousPath; });
+  const dispatch = sealRecord({ schemaVersion: 2, kind: 'evaluation-dispatch', id: w.intent.id, createdAt: new Date().toISOString(),
+    intentDigest: w.intent.digest, operation: w.intent.operations[0], index: 0 });
+  await storeImmutable(join(w.path, 'dispatch-builder.json'), dispatch);
+  for (const action of ['reconcile', 'cancel']) {
+    const options = { ...w.options, action, experiment: w.b.comparison.id };
+    const preview = await evaluations(options);
+    const result = await evaluations({ ...options, yes: true, digest: preview.digest });
+    assert.equal(result.execution.status, 'uncertain');
+    assert.equal((await inspectBudget({ stateDir: w.admission.stateDir, capacity: 1 })).used, 1);
+    const observed = await readFile(calls);
+    await evaluations({ ...options, yes: true, digest: preview.digest });
+    assert.deepEqual(await readFile(calls), observed);
+    await assert.rejects(evaluations(options), /allowance exhausted/);
+  }
+  assert.equal((await readFile(calls, 'utf8')).trim().split('\n').length, 2);
+});
+
+test('derived terminal result must agree with its settlement and reconciliation receipt', async t => {
+  for (const shape of ['result-status', 'result-settlement', 'settlement-observations']) await t.test(shape, async t => {
+    const w = await reservedSlot(t), options = { ...w.options, action: 'reconcile', experiment: w.b.comparison.id };
+    const preview = await evaluations(options), recovered = await evaluations({ ...options, yes: true, digest: preview.digest });
+    const receipt = recovered.execution.trials[0].recovery.receipt;
+    const result = shape === 'result-status' ? sealRecord({ ...receipt.result, status: 'uncertain' })
+      : shape === 'result-settlement' ? sealRecord({ ...receipt.result, settlement: { ...receipt.result.settlement, released: false } }) : receipt.result;
+    const settlement = shape === 'settlement-observations' ? { ...receipt.settlement, observations: [] } : receipt.settlement;
+    const forged = sealRecord({ ...receipt, result, settlement });
+    await storeImmutable(join(w.path, `reconciliation-${forged.digest}.json`), forged);
+    const inspected = await inspectExecutions(w.dir, w.plan);
+    assert.equal(inspected.trials[0].status, 'uncertain');
+  });
+});
+
+
+test('preparation consumes trial allowance and expired external setup refuses before subprocess dispatch', async t => {
+  assert.equal(admittedDeadline({ task: { limits: { minutes: 2 } }, preparationMs: 5000 }, 1000), 116000);
+  assert.throws(() => admittedDeadline({ task: { limits: { minutes: 2 } }, preparationMs: 120000 }), /exhausted/);
+  assert.throws(() => admittedDeadline({ task: { limits: { minutes: 2 } } }), /coverage/);
+  assert.throws(() => exportSource('/Acme/missing', 'a'.repeat(40), ['acme.mjs'], { deadline: 0 }), /preparation deadline/);
+  await assert.rejects(preflightDocker({}, { deadline: 0 }), /preparation deadline/);
+  const w = await evaluationWorld(t);
+  await assert.rejects(inspectBudgetTarget({ manifest: w.managed, root: w.repository, repo: 'Acme/widget', deadline: 0 }), /inspection_deadline/);
+});
+
+test('reused coordinator history must retain exact original settlement and operation evidence', async t => {
+  const w = await reservedSlot(t), options = { ...w.options, action: 'reconcile', experiment: w.b.comparison.id };
+  const preview = await evaluations(options), result = await evaluations({ ...options, yes: true, digest: preview.digest });
+  const trial = result.execution.trials[0], lease = trial.records.lease.lease, observations = trial.recovery.receipt.observations;
+  const args = { stateDir: w.admission.stateDir, capacity: 1, lease, observations };
+  const original = await reconcileExternalBudget(args);
+  assert.equal(original.released, true);
+  const statePath = join(w.admission.stateDir, 'state.json'), pristine = JSON.parse(await readFile(statePath));
+  for (const altered of [{ root: '/Acme/foreign' }, { observations: [] }, { released: 'yes' }, { endedAt: 'invalid' }]) {
+    const state = structuredClone(pristine); Object.assign(state.history[0], altered);
+    await writeFile(statePath, JSON.stringify(state));
+    await assert.rejects(reconcileExternalBudget(args), /invalid_original_settlement_history/);
+  }
+});
+
+test('cancel before first trial retains a valid reservation and closed admission', async t => {
+  const w = await evaluationWorld(t), options = { ...w.options, action: 'cancel', experiment: w.b.comparison.id };
+  const preview = await evaluations(options), cancelled = await evaluations({ ...options, yes: true, digest: preview.digest });
+  assert.equal(cancelled.execution.status, 'complete');
+  assert.equal(cancelled.execution.cancellation.admissionClosed, true);
+  assert.equal(cancelled.execution.reservation.kind, 'evaluation-reservation');
+});
+
+test('a cancel interrupted after its intent still closes admission', async t => {
+  const w = await evaluationWorld(t), options = { ...w.options, action: 'cancel', experiment: w.b.comparison.id };
+  const preview = await evaluations(options);
+  await evaluations({ ...options, yes: true, digest: preview.digest });
+  // The crash between the two writes: the intent is stored, cancel.json is not.
+  const control = join(w.options.state, 'session-trials', w.b.comparison.id, 'execution', 'control');
+  await rm(join(control, 'cancel.json'));
+  const resume = { ...w.options, action: 'resume', experiment: w.b.comparison.id, execution: w.execution };
+  await assert.rejects(evaluations(resume), /admission closed/);
+  const retry = await evaluations({ ...options, yes: true, digest: preview.digest });
+  assert.equal(retry.recovered, true);
+  await assert.rejects(evaluations(resume), /admission closed/);
+  const compared = await evaluations({ ...w.options, action: 'compare', experiment: w.b.comparison.id });
+  assert.equal(compared.report.recovery.admissionClosed, true);
+  assert.match(compared.report.recovery.nextAction, /Admission is closed/);
+  assert.ok(compared.report.recovery.operations.every(o => !o.nextAction.kind.startsWith('preview-')));
+  const current = await inspectExecutions(join(w.options.state, 'session-trials', w.b.comparison.id), (await JSON.parse(await readFile(join(w.options.state, 'session-trials', w.b.comparison.id, 'state.json'), 'utf8'))).plan);
+  assert.equal(current.cancellation, null, 'intent presence is not a validated cancellation receipt');
+  assert.equal(current.recoveryControl.admissionClosed, true);
+  assert.equal(current.recoveryControl.cancelIntent.kind, 'evaluation-recovery-reservation');
+
+});
+
+
+test('lock owner IDs require canonical UUID strings without coercion or reclaim', async t => {
+  const fixture = await home(t), release = await ledgerLock(fixture, { harness: true });
+  const { owner } = await inspectHarnessLock(fixture); await release();
+  for (const [label, id] of [['array', [owner.id]], ['null', null], ['number', 123], ['object', {}], ['all hyphens', '-'.repeat(36)], ['no separators', 'a'.repeat(36)], ['wrong separators', owner.id.replace(/-/g, 'a')]]) {
+    await t.test(label, async t => {
+      const dir = await home(t), path = join(dir, '.lock'), bytes = JSON.stringify({ ...owner, id });
+      await writeFile(path, bytes, { mode: 0o600 });
+      const before = await lstat(path), observed = await inspectHarnessLock(dir);
+      assert.deepEqual(observed, { status: 'blocked', reason: 'unverifiable-lock-owner' });
+      await assert.rejects(ledgerLock(dir, { harness: true, recover: observed }), /writer death unverified/);
+      assert.equal(await readFile(path, 'utf8'), bytes);
+      assert.equal((await lstat(path)).ino, before.ino);
+      assert.deepEqual(await readdir(dir), ['.lock']);
+    });
+  }
+});
+
+test('new slot rejects stale mutable admission before intent without repeating image preflight', async t => {
+  for (const change of ['manifest', 'revision', 'identity', 'deadline']) await t.test(change, async t => {
+    const w = await evaluationWorld(t), dir = join(w.options.state, 'session-trials', w.b.comparison.id);
+    const ledger = JSON.parse(await readFile(join(dir, 'state.json')));
+    const bin = join(w.root, 'bin'), calls = join(w.root, 'docker-calls'); await mkdir(bin);
+    const environment = w.b.cases[0].environment, [Os, Architecture] = environment.platform.split('/');
+    const image = { Id: environment.image, Os, Architecture, Config: { Env: ['NODE_VERSION=24.22.1'] } };
+    await writeFile(join(bin, 'docker'), `#!${process.execPath}
+import {appendFileSync} from 'node:fs';
+appendFileSync(${JSON.stringify(calls)},process.argv.slice(2).join(' ')+'\\n');
+if(process.argv[2]==='image') console.log(${JSON.stringify(JSON.stringify([image]))}); else process.exitCode=1;
+`, { mode: 0o700 });
+    const oldPath = process.env.PATH; process.env.PATH = bin + ':' + oldPath;
+    t.after(() => { process.env.PATH = oldPath; });
+    const options = { ...w.options, experiment: w.b.comparison.id, execution: w.execution };
+    const prepared = await executionInput(options, ledger), captured = JSON.stringify(prepared.input);
+    if (change === 'manifest') await writeFile(w.managed, (await readFile(w.managed, 'utf8')) + ' ');
+    if (change === 'revision') assert.equal(run('git', ['-C', w.repository, 'commit', '--allow-empty', '-qm', 'Acme changed revision']).status, 0);
+    if (change === 'identity') await writeFile(join(w.repository, '.plates/plates.json'), JSON.stringify({ repo: 'Acme/other' }));
+    let reads = 0;
+    const readFrozen = async () => {
+      if (++reads === 2 && change === 'deadline') {
+        // Exhaust the remaining allowance after lock acquisition, before admission.
+        const expired = Date.now() + prepared.task.limits.minutes * 60000;
+        t.mock.method(Date, 'now', () => expired);
+      }
+      return ledger;
+    };
+    await assert.rejects(runEvaluation({ ...options, yes: true, digest: prepared.digest }, {
+      scope: async () => ({ paths: { state: w.options.state } }), readFrozen, preparedInput: prepared,
+    }), change === 'manifest' ? /admission manifest changed/ : change === 'revision' ? /admission target changed/ : change === 'identity' ? /repository_identity_mismatch/ : /deadline exhausted/);
+    assert.equal(JSON.stringify(prepared.input), captured);
+    await assert.rejects(lstat(join(dir, 'execution')), { code: 'ENOENT' });
+    await assert.rejects(lstat(join(w.admission.stateDir, 'state.json')), { code: 'ENOENT' });
+    assert.equal((await readFile(calls, 'utf8')).trim(), 'image inspect ' + environment.image);
+  });
+});
+
+async function capacityRefusalWorld(t) {
+  const w = await evaluationWorld(t), bin = join(w.root, 'bin'), calls = join(w.root, 'docker-calls');
+  await mkdir(bin);
+  const environment = w.b.cases[0].environment, [Os, Architecture] = environment.platform.split('/');
+  const image = { Id: environment.image, Os, Architecture, Config: { Env: ['NODE_VERSION=24.22.1'] } };
+  await writeFile(join(bin, 'docker'), `#!${process.execPath}
+require('node:fs').appendFileSync(${JSON.stringify(calls)},process.argv.slice(2).join(' ')+'\\n');
+if(process.argv[2]==='image') console.log(${JSON.stringify(JSON.stringify([image]))}); else process.exitCode=1;
+`, { mode: 0o700 });
+  const oldPath = process.env.PATH; process.env.PATH = bin + ':' + oldPath;
+  t.after(() => { process.env.PATH = oldPath; });
+  const target = await inspectBudgetTarget({ manifest: w.managed, root: w.repository, repo: w.admission.repo });
+  const id = 'f'.repeat(32);
+  await reserveExternalBudget({ ...w.admission, target, id, commandDigest: 'f'.repeat(64), operations: [`plates-eval-${id}-builder`] });
+  const dir = join(w.options.state, 'session-trials', w.b.comparison.id);
+  const plan = JSON.parse(await readFile(join(dir, 'state.json'))).plan;
+  return { ...w, dir, plan, calls };
+}
+
+test('proven capacity refusal terminates only its admission attempt and leaves other slots resumable', async t => {
+  const w = await capacityRefusalWorld(t), originalBudget = await readFile(join(w.admission.stateDir, 'state.json'));
+  const preview = await w.call();
+  await assert.rejects(w.call({ yes: true, digest: preview.digest }), error => {
+    assert.equal(error.code, 'capacity_busy_inspect_existing_leases');
+    assert.equal(isExternalCapacityRefusal(error), true);
+    return true;
+  });
+  const execution = await inspectExecutions(w.dir, w.plan);
+  assert.equal(execution.status, 'complete', 'a proven admission refusal must not strand the comparison');
+  const first = execution.trials[0];
+  assert.equal(first.status, 'terminal');
+  assert.equal(first.reason, 'admission-capacity-refused');
+  assert.equal(first.records.lease, undefined);
+  assert.equal(first.records.verdict, undefined);
+  const slotDir = join(w.dir, 'execution', first.slot);
+  const before = await Promise.all((await readdir(slotDir)).sort().map(async name => [name, await readFile(join(slotDir, name), 'utf8')]));
+  const recovered = await w.call({ yes: true, digest: preview.digest });
+  assert.equal(recovered.recovered, true);
+  assert.equal(recovered.records.intent.id, first.records.intent.id);
+  assert.deepEqual(await Promise.all((await readdir(slotDir)).sort().map(async name => [name, await readFile(join(slotDir, name), 'utf8')])), before);
+  // A later slot has its own attempt identity; it cannot replace the refused one.
+  await writeFile(w.execution, JSON.stringify({ ...w.request, arm: 'candidate' }));
+  const candidate = await w.call();
+  await assert.rejects(w.call({ yes: true, digest: candidate.digest }), { code: 'capacity_busy_inspect_existing_leases' });
+  const after = await inspectExecutions(w.dir, w.plan);
+  assert.equal(after.status, 'complete');
+  assert.equal(new Set(after.trials.map(trial => trial.records.intent.id)).size, 2);
+  const missing = w.b.comparison.pairs.flatMap(p => (p.order === 'AB' ? ['baseline', 'candidate'] : ['candidate', 'baseline']).map(arm => ({ ...w.request, pairId: p.id, arm }))).slice(2);
+  await writeFile(w.execution, JSON.stringify({ schemaVersion: 1, executions: missing }));
+  const resume = await evaluations({ ...w.options, action: 'resume', experiment: w.b.comparison.id, execution: w.execution });
+  assert.equal(resume.preview, true);
+  assert.equal(resume.input.missing.length, missing.length);
+  assert.ok(resume.input.missing.every(input => input.request.pairId !== w.request.pairId));
+  assert.deepEqual(await readFile(join(w.admission.stateDir, 'state.json')), originalBudget);
+  assert.ok((await readFile(w.calls, 'utf8')).trim().split('\n').every(call => call === 'image inspect ' + w.b.cases[0].environment.image));
+});
+
+test('missing, partial or contradictory admission refusal evidence never permits continuation', async t => {
+  for (const shape of ['missing', 'partial', 'wrong-intent', 'wrong-command', 'wrong-id', 'wrong-authority', 'dispatch', 'lease']) await t.test(shape, async t => {
+    const w = await capacityRefusalWorld(t), preview = await w.call();
+    await assert.rejects(w.call({ yes: true, digest: preview.digest }), { code: 'capacity_busy_inspect_existing_leases' });
+    const slot = w.request.pairId + '-baseline', path = join(w.dir, 'execution', slot);
+    const refusalPath = join(path, 'admission-refusal.json');
+    const refusal = JSON.parse(await readFile(refusalPath)), intent = JSON.parse(await readFile(join(path, 'intent.json')));
+    if (shape === 'dispatch' || shape === 'lease') {
+      const contradictory = sealRecord({ schemaVersion: 2, kind: shape === 'dispatch' ? 'evaluation-dispatch' : 'evaluation-lease',
+        id: intent.id, createdAt: intent.createdAt, intentDigest: intent.digest,
+        ...(shape === 'dispatch' ? { operation: intent.operations[0], index: 0 } : { lease: { id: intent.id } }) });
+      await storeImmutable(join(path, shape === 'dispatch' ? 'dispatch-builder.json' : 'lease.json'), contradictory);
+    } else {
+      await rm(refusalPath);
+      if (shape === 'partial') await writeFile(refusalPath, '{', { mode: 0o400 });
+      else if (shape !== 'missing') {
+        const patch = shape === 'wrong-intent' ? { intentDigest: 'e'.repeat(64) }
+          : shape === 'wrong-command' ? { commandDigest: 'e'.repeat(64) }
+          : shape === 'wrong-id' ? { id: 'e'.repeat(32) } : { authority: 'untrusted' };
+        await storeImmutable(refusalPath, sealRecord({ ...refusal, ...patch }));
+      }
+    }
+    const before = await Promise.all((await readdir(path)).sort().map(async name => [name, await readFile(join(path, name), 'utf8')]));
+    const inspected = await inspectExecutions(w.dir, w.plan);
+    assert.equal(inspected.status, 'uncertain');
+    assert.equal(inspected.trials[0].status, 'uncertain');
+    const options = { ...w.options, experiment: w.b.comparison.id };
+    await assert.rejects(evaluations({ ...options, action: 'resume', execution: w.execution }), /uncertain/);
+    const reconcile = await evaluations({ ...options, action: 'reconcile' });
+    const recovered = await evaluations({ ...options, action: 'reconcile', yes: true, digest: reconcile.digest });
+    assert.equal(recovered.execution.status, 'uncertain');
+    assert.deepEqual(await Promise.all((await readdir(path)).sort().map(async name => [name, await readFile(join(path, name), 'utf8')])), before);
+    assert.equal((await inspectBudget(w.admission)).used, 1);
+  });
+});
+
+test('uncertain coordinator state cannot be recorded as a proven capacity refusal', async t => {
+  const w = await capacityRefusalWorld(t), ledger = JSON.parse(await readFile(join(w.dir, 'state.json')));
+  const options = { ...w.options, experiment: w.b.comparison.id, execution: w.execution };
+  const prepared = await executionInput(options, ledger);
+  let reads = 0;
+  await assert.rejects(runEvaluation({ ...options, yes: true, digest: prepared.digest }, {
+    scope: async () => ({ paths: { state: w.options.state } }),
+    readFrozen: async () => {
+      if (++reads === 2) await writeFile(join(w.admission.stateDir, 'state.json'), '{');
+      return ledger;
+    }, preparedInput: prepared,
+  }), SyntaxError);
+  const path = join(w.dir, 'execution', w.request.pairId + '-baseline');
+  assert.deepEqual(await readdir(path), ['intent.json']);
+  assert.equal((await inspectExecutions(w.dir, w.plan)).status, 'uncertain');
+  await assert.rejects(w.call(), /incomplete execution state/);
+  assert.equal(await readFile(join(w.admission.stateDir, 'state.json'), 'utf8'), '{');
+});
+
+
+test('capacity refusal authority cannot be imitated by structured error fields', () => {
+  const code = 'capacity_busy_inspect_existing_leases';
+  for (const error of [Object.assign(new Error(code), { code }), { code, message: code },
+    { code, authority: 'external-admission-refusal-v1', admitted: false }, null, undefined]) {
+    assert.equal(isExternalCapacityRefusal(error), false);
+  }
+});
+
+async function inspectionBytes(dir) {
+  const entries = [];
+  async function walk(path, relative = '') {
+    for (const name of (await readdir(path)).sort()) {
+      const full = join(path, name), key = relative + name, stat = await lstat(full);
+      entries.push([key, stat.mode, stat.isSymbolicLink() ? 'link' : stat.isFile() ? (await readFile(full)).toString('base64') : 'directory']);
+      if (stat.isDirectory()) await walk(full, key + '/');
+    }
+  }
+  await walk(dir); return entries;
+}
+test('CURRENT offline inspection retains original recovery control without historical projection or read effects', async t => {
+  const w = await reservedSlot(t), options = { ...w.options, action: 'reconcile', experiment: w.b.comparison.id };
+  let current = await inspectExecutions(w.dir, w.plan);
+  assert.equal(current.recoveryControl.coverage, 'complete');
+  assert.equal(current.recoveryControl.reconcileIntentPresent, false);
+  const original = summarizeComparison(w.plan, current).recovery.operations.find(o => o.slot === w.intent.slot);
+  assert.equal(original.nextAction.kind, 'preview-offline-reconcile');
+  const preview = await evaluations(options); await evaluations({ ...options, yes: true, digest: preview.digest });
+  const outcome = join(w.dir, 'execution/control', `reconcile-${preview.digest}.json`);
+  current = await inspectExecutions(w.dir, w.plan);
+  assert.equal(current.recoveryControl.reconcileResult.inputDigest, preview.digest);
+  await rm(outcome); // Crash leaves the original reservation but no final control receipt.
+  const before = await inspectionBytes(w.dir), budgetBefore = await readFile(join(w.admission.stateDir, 'state.json'));
+  current = await inspectExecutions(w.dir, w.plan);
+  const legacy = { ...current }; delete legacy.recoveryControl;
+  assert.equal(JSON.stringify(summarizeComparisonV1(w.plan, current)), JSON.stringify(summarizeComparisonV1(w.plan, legacy)));
+  const compared = await evaluations({ ...w.options, action: 'compare', experiment: w.b.comparison.id });
+  const recovery = compared.report.recovery.operations.find(o => o.operationKind === 'reconcile');
+  assert.equal(recovery.nextAction.kind, 'inspect-original-recovery');
+  assert.ok(recovery.missingPrerequisites.includes('original-recovery-result'));
+  assert.ok(recovery.evidence.some(e => e.record === 'execution/control/reconcile-intent.json' && e.digest === current.recoveryControl.reconcileIntent.digest));
+  assert.ok(compared.report.recovery.operations.every(o => o.authorizesMutation === false));
+  assert.deepEqual(await inspectionBytes(w.dir), before);
+  assert.deepEqual(await readFile(join(w.admission.stateDir, 'state.json')), budgetBefore);
+});
+test('CURRENT controls expose invalid foreign unsafe and ambiguous evidence without preview authority', async t => {
+  for (const variant of ['malformed-intent', 'foreign-intent', 'wrong-action', 'ambiguous-result', 'orphan-result', 'unsafe-link', 'unsafe-mode']) {
+    const w = await reservedSlot(t), options = { ...w.options, action: 'reconcile', experiment: w.b.comparison.id };
+    const preview = await evaluations(options); await evaluations({ ...options, yes: true, digest: preview.digest });
+    const control = join(w.dir, 'execution/control'), intentPath = join(control, 'reconcile-intent.json');
+    const intent = JSON.parse(await readFile(intentPath, 'utf8'));
+    if (variant === 'malformed-intent') { await rm(intentPath); await writeFile(intentPath, '{', { mode: 0o400 }); }
+    if (variant === 'foreign-intent' || variant === 'wrong-action') {
+      await rm(intentPath); await storeImmutable(intentPath, sealRecord({ ...intent, ...(variant === 'foreign-intent' ? { planDigest: 'f'.repeat(64) } : { action: 'cancel' }) }));
+    }
+    if (variant === 'ambiguous-result') {
+      const result = JSON.parse(await readFile(join(control, `reconcile-${preview.digest}.json`), 'utf8'));
+      await storeImmutable(join(control, `reconcile-${'e'.repeat(64)}.json`), sealRecord({ ...result, inputDigest: 'e'.repeat(64) }));
+    }
+    if (variant === 'orphan-result') await rm(intentPath);
+    if (variant === 'unsafe-link') { await rm(control, { recursive: true }); await symlink('/Acme/unavailable-control', control); }
+    if (variant === 'unsafe-mode') await chmod(control, 0o777);
+    const before = await inspectionBytes(w.dir), current = await inspectExecutions(w.dir, w.plan);
+    assert.equal(current.recoveryControl.coverage, 'unavailable', variant);
+    assert.ok(current.recoveryControl.gaps.length, variant);
+    assert.equal(current.recoveryControl.reconcileResult, null, variant);
+    const recovery = summarizeComparison(w.plan, current).recovery;
+    assert.ok(recovery.operations.every(o => !o.nextAction.kind.startsWith('preview-')), variant);
+    assert.ok(recovery.operations.some(o => o.missingPrerequisites.includes('validated-recovery-control-evidence')), variant);
+    assert.deepEqual(await inspectionBytes(w.dir), before, variant);
+  }
+});

@@ -1,11 +1,5 @@
 # Observe agent quality by stage and project
 
-> Source: existing Plates agent-quality branch `9f8c17ad`, selectively integrated.
-> This consolidation CLI exposes passive quality workflows only. The execution
-> adapter and `retro quality run` examples below remain dormant source capabilities;
-> they are not exposed by this CLI and have not been activated here.
-
-
 `plates retro quality` is a local, metadata-only extension of the existing private
 evaluation workspace. It separates planning, coding, review, iteration and
 proportionality. It produces no universal leaderboard and never changes routing.
@@ -80,7 +74,7 @@ are provenance, not authentication of a human evaluator or proof of correctness.
 Use the [lifecycle and adjudication workflow](agent-quality-lifecycle.md) to enroll
 ordinary work, capture stage boundaries and append independent judgments.
 The [local observer guide](agent-quality-adapters.md) gives the private binding,
-ordinary command wrapper and existing-review hook configuration.
+privately bound review-hook configuration and the deferred execution boundary.
 `retro quality pending --manifest ... --state ... --json` shows actionable
 annotations, waiting follow-up and historical gaps separately. Current app
 sessions are not discovered automatically; capture requires the explicit local

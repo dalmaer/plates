@@ -10,7 +10,7 @@ test('legacy health preview uses the exact CLI transform, explicit choice and co
  await assert.rejects(d.preview(h.access,token,h.project,{target:healthTarget}),e=>e.status===400);
  const preview=await d.preview(h.access,token,h.project,{target:healthTarget,choice:'decline',reason:'The owner prefers another order.'});
  assert.equal(preview.content,decideLegacyProposal(h.source.files[healthTarget.path],{decision:'decline',reason:'The owner prefers another order.',today:new Date(h.state.now).toISOString().slice(0,10)}).content);
- assert.equal(preview.visibility,'public');assert.equal(preview.canSubmit,true);assert.match(preview.commitMessage,new RegExp(`Keel-Operation: ${preview.operationId}$`));
+ assert.equal(preview.visibility,'public');assert.equal(preview.canSubmit,true);assert.match(preview.commitMessage,new RegExp(`Plates-Operation: ${preview.operationId}$`));
  assert.equal(preview.operationUrl,`/projects/studio/operations/${preview.operationId}`);assert.equal(h.source.writes.length,0);
  const encrypted=[...h.db.previews.values()][0].value;assert.doesNotMatch(encrypted,/owner prefers|Acme|proposal/);
  assert.equal(h.source.files[healthTarget.path].includes('Decided'),false);

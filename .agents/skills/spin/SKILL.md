@@ -1,6 +1,6 @@
 ---
 name: spin
-description: Walk this project's phases with the conductor pattern — read where it stands, brief a subagent on the next phase, verify the named proof yourself, record what changed course, move the status, commit the phase whole to main, and go on until a step needs a person. Use for "/spin", "conduct the next phase", "do phase 3", "where do we stand", or "keep going"; and for "/goodnight", when the owner asks to shape tonight's plan.
+description: Walk this project's phases with the conductor pattern — read where it stands, brief a subagent on the next phase, verify the named proof yourself, record what changed course, move the status, land independently safe increments on main throughout the phase, and go on until a step needs a person. Use for "/spin", "conduct the next phase", "do phase 3", "where do we stand", or "keep going"; and for "/goodnight", when the owner asks to shape tonight's plan.
 argument-hint: "[status | <phase number> | one]"
 ---
 
@@ -8,7 +8,7 @@ argument-hint: "[status | <phase number> | one]"
      Adapted by plates for one-file-per-phase projects (docs/phases/NN-*.md).
      Plates manages this file: change it upstream in plates, or send the change home with `plates lessons`. -->
 
-# spin: one phase, verified, recorded, committed
+# spin: one outcome, small verified increments
 
 Plates lesson references name the [Plates catalogue](https://github.com/dalmaer/plates/blob/main/docs/lessons.md), not this project’s local lesson numbers.
 
@@ -16,13 +16,16 @@ The phases in `docs/phases/` are the contract. Each one is a file. Its front
 matter owns its status, and its sections say **Done when**, **Acceptance**,
 **Proof**, **Deliberately open** and **Next action**. `docs/goals.json` says
 what the phases are for. `docs/design.md` (or the project's equivalent), if
-the project has one, is the argument they cite.
+the project has one, is the argument they cite. Read the project philosophy
+named by its working guide before planning. When present, read
+`docs/philosophy.md`.
 
 The session that runs this skill is the **conductor**. It does not build. It
 briefs a subagent that builds, then verifies the proof the phase named up
 front, never taking the subagent's word for it. Only then does it write the
-record, run the gate once on that final tree, and commit. Then it goes on to
-the next phase. (A phase of a file or two may be built by the conductor
+record, run the required gate once per integrated candidate, and land each
+independently safe increment. Repeat within the phase until its outcome is proven,
+then go on to the next phase. (A phase of a file or two may be built by the conductor
 itself: see *Small phases* in §1.)
 
 **The default is unattended.** (why: Stopping for routine implementation choices leaves the agreed work unfinished.) The conductor stops for a person, and a person
@@ -36,7 +39,7 @@ Everything else is the conductor's to decide, record and commit: a wrong
 design, a proof that can't run as written, two docs that disagree.
 
 `AGENTS.md` applies to everyone, conductor and subagent alike. Invoking
-`/spin` is the "land this": the conductor commits and pushes each phase to
+`/spin` is the "land this": the conductor commits and pushes safe increments of each phase to
 `main` without asking again.
 
 **No remote?** If `git remote` prints nothing, skip every pull, push and CI
@@ -45,7 +48,7 @@ step below: the walk ends at the local commit on `main`. Say so in the report.
 ## Arguments
 
 - `/spin`: orient, then conduct phase after phase until a step needs a
-  person or nothing is left. Commit after each phase, and push if there is a
+  person or nothing is left. Commit each safe increment, and push if there is a
   remote. The user reads
   progress from the commits.
 - `/spin status`: orient and report. Change nothing.
@@ -76,7 +79,8 @@ pushes `claims/phase-<N>`, a branch every session and provider can see.
 ones with their holder. A refusal names who holds the phase: take another free
 phase, or stop. Never build a claimed phase, and never release a claim that
 is not yours: a stale one is the owner's, on the board. If the claims could
-not be read, stop and say so. When the phase is committed to `main`,
+not be read, stop and say so. Keep the claim across increments. When the phase
+is complete on `main` (or explicitly handed off under the claim rules),
 `plates phase claim <N> --release` clears the branch.
 
 Then read, in this order:
@@ -87,6 +91,33 @@ Then read, in this order:
 4. `docs/lessons.md` rows that share its shape.
 
 Note the wall clock. The commit records what a phase cost.
+
+**Optional local quality capture.** (why: Retrospective metadata cannot recover missing stage boundaries or exact review inputs.) When this task has an explicitly enabled
+`PLATES_QUALITY_BINDING`, use the installed CLI's `retro quality` workflow to
+record the phase as one task episode before assignment. Freeze the actual
+acceptance, context and workflow hashes and known passport labels; unavailable
+model versions, charges and labels stay unknown. Work already underway must be
+marked retrospective. The private manifest, state and event files stay outside
+Git; never include task text, prompts or transcripts in them.
+
+Record `planning`, `coding`, `review` and `iteration` start/finish boundaries as
+they actually occur. `plates retro quality lifecycle --record <event-file>
+--manifest <manifest> --state <state>` previews an event; apply the same input
+with `--yes --digest <preview-digest>`. Use stable attempt IDs, preserve failed or
+denied attempts, and link each review or revision to the exact prior checkpoint.
+Record command and GUI stage boundaries from actual conductor observations;
+the binding does not automatically instrument an app. The local execution
+prototype is not exposed and grants no command authority or model budget.
+
+With the same binding, ordinary `plates review <repo>#<number>` can retain
+already-read exact-head review metadata when that PR is explicitly linked to
+the episode and its content matches a captured coding checkpoint. Read the
+reported capture status: a missing join is a gap. Review identity stays unknown
+unless observed separately. A completed command or posted review does not prove
+acceptance; independent adjudication and delayed outcomes remain separate.
+See the CLI's agent-quality adapter and lifecycle guides for the strict input
+formats. If the installed CLI lacks these commands, report capture unsupported
+and continue the already authorized phase; do not invent observations.
 
 Keep the conductor's own context lean, because it outlives every builder:
 
@@ -124,6 +155,21 @@ ask again for changed authority, scope, destination, budget or risk. Never trans
 an exact-head approval to new bytes. Keep the receipt's operation ID and evidence
 links in the next brief, rather than reconstructing the approval conversation.
 
+### Plan the first safe merge
+
+Before building, name the first independently safe increment in the phase and
+brief: changed paths, compatibility/default behavior, focused proof, required
+integration checks and recovery. Scaffold/contracts, dormant implementation,
+internal enablement, wider rollout and cleanup can land separately. Never hold
+ready work until the phase is complete; never land broken startup, schema or
+contracts because a feature is disabled. Flags control exposure, not permissions.
+
+Target hours and same-day integration. A branch still open next working day
+needs a split, refresh or recorded replan, not a waived gate. Keep one active
+build increment per builder and clear ready work before starting more. A broken
+main takes priority over unrelated integration. Queue delays need an owner and
+next action; they do not authorize stealing a lock or skipping checks.
+
 ## 1. Brief
 
 Write the brief to a scratchpad file, so it can be reread, reused if the
@@ -157,6 +203,8 @@ Aim for under 600 words.
 # <project> phase <N>: <title>
 
 Contract: docs/phases/<NN-name>.md. Design: <doc> <sections>.
+First safe merge: <increment, compatibility, proof, recovery and what stays disabled>.
+Remaining increments: <next safe steps; phase completion is separate>.
 Real surfaces: <the phase's list, word for word, or none>; build so each one can be proven there.
 Trajectory that binds you: <one line each, only ones that change what you build>.
 Decided here, not in the docs: <…>
@@ -168,6 +216,8 @@ Files under <paths>. Not docs/phases/, docs/ROADMAP.md, docs/lessons.md or the
 evidence: the conductor writes the record.
 
 ## Where you stop
+- At the named safe increment: return its proof and remaining work so it can
+  integrate before the next increment starts. Do not build the whole phase first.
 - At each ⚑ step without a yes: build up to it, report.
 - When the proof would need a facade (a fixture that can't fail, a shim that
   answers the test and nothing else): stop and say so. That's a finding.
@@ -216,8 +266,10 @@ A subagent's report isn't shown to the user; relay what matters.
 
 ## 2. Verify
 
-The builder's report is a map. The phase's **Proof** is the territory. Run it
-as written, from the repo root, and read exit codes, not tails.
+The builder's report is a map. The phase's **Proof** is the territory. For each
+increment, run its named proof and required conventions from the repo root,
+reading exit codes, not tails. Run the complete phase proof before claiming the
+whole outcome; future increments' unrun checks remain explicit gaps.
 
 **Read the report's shape first.** (why: A report that skips a box or an exit code reads as done, and the gap is skimmed past.) Read the builder's
 restatement before anything else: where it differs from the phase's Done
@@ -245,15 +297,17 @@ focused tests; the whole check stays yours, once, in §3.
   only the behavioral test. Otherwise name and run the equivalent repository
   convention checks explicitly. Unknown impact still requires broad validation;
   this early feedback does not replace or weaken the integrated gate.
-- The named Proof, command by command. Not yet the whole check: that runs
+- The named Proof, command by command, for this increment; the complete phase
+  Proof before claiming the whole phase. Not yet the whole check: that runs
   once, after the record (§3), so it covers the tree you will commit.
 - One proof per Real surface, run in that place: the published package
   installed, the workflow's shell run, the adopted project updated, the
   owner's machine, a real GitHub API call, the fleet read over nights. A
   fixture is not the surface. `none` needs nothing here. A surface not yet
   walked keeps the phase short of built; say which in the evidence.
-- Each acceptance box's named check: the test it cites exists and asserts
-  the box, the command runs, the ⚑ by hand step is walked or written down.
+- Each acceptance box claimed by this increment: its named check exists and
+  asserts the box, the command runs, the ⚑ by hand step is walked or written
+  down as outstanding. Future increments' boxes remain unchecked.
 - The walk, when the phase has one: a real browser, a real device, a real
   `gh` call. A phase with a walk isn't built until the walk is walked. If a
   person must walk it, write the steps into the evidence file.
@@ -281,7 +335,11 @@ proposal against current records and remote facts; record edits are manual
 review, never night data for automatic merge.
 
 
-When the proof holds, and only then, write the record, all in one change:
+When the increment proof holds, write its code, tests and accurate record in one
+change. Keep unfinished acceptance unchecked and the phase partial with its next
+increment named. Record merged, deployed/installed, enabled and verified facts
+separately; a merge never implies all four. Complete the phase only when its full
+proof holds:
 
 - **Set the phase's `status:`** in its front matter (`built`, or `partial`
   with what waits), with `since` (today) and a `note` saying in one line why
@@ -298,6 +356,11 @@ When the proof holds, and only then, write the record, all in one change:
   The gate runs after the record, so the evidence names the gate **command**
   (`npm run check`) and what it covers, not its result; the gate's result line
   (exit code, test count) goes in the commit body (§4).
+  It opens with the attempt's end-of-attempt record, front matter of one
+  line: `attempt: {"accepted":true,"verified":true,"rework":<rounds sent
+  back>,"lessonStatus":{...}}` between `---` lines. A failed or reworked
+  attempt names its lesson status (`captured` with a link, `known` with the
+  lesson, or `none`); `plates improve` counts the ones that taught nothing.
 - **Proofs that need the commit** (a clean checkout of the committed tree,
   a fresh clone, CI on the pushed commit) can't be in this record. Leave
   their Acceptance boxes unchecked and the status `partial`, with a note
@@ -339,8 +402,10 @@ remote, run it here.
 
 ## 4. Commit
 
-One commit per phase, with the phase whole: code, tests, record. Commit the
-tree the gate just checked in §3; if anything changes after it, run it again.
+One independently safe increment per change: code, tests and its accurate record.
+A phase may span several commits and short branches. Commit the
+tree the gate just checked in §3 (with a remote, the integrator checks the combined candidate below);
+changed inputs invalidate affected proof. Do not wait for a whole phase to land.
 
 - **Title:** `phase <N>: <heading>`, where the heading is the phase file's
   `# ` heading, word for word: it is the source. Or `<area>: <what>` for
@@ -411,13 +476,7 @@ copies, source pins, locks and intentionally historical fixtures before the fina
 checkpoint. Batch related corrections; do not repeat an unchanged full gate to
 compensate for missing evidence. This does not enlarge the review-round limit.
 
-**A review that keeps going is the owner's.** (why: One PR went ten review rounds of fix-and-push before anyone decided.) A round is one push a reviewer answered with a finding. When `plates review <repo>#<n>` exits 3 the PR
-is at its round limit (three unless `.plates/plates.json` `"review": {"rounds": N}`
-says otherwise): stop pushing fixes. Sort each open finding you have read
-with `plates review <repo>#<n> --class security|overwrite|approval|other <ids>`
-(it records the kind and answers nothing), then report the choice it prints
-to the owner: merge with the rest tracked, split, or close. Never merge it
-yourself.
+**Judge review progress at the checkpoint.** (why: A flat three-round stop blocks converging work; repeated instance fixes still need an owner's decision.) A round is one push a reviewer answered with a finding. At the base checkpoint (three unless `.plates/plates.json` `"review": {"rounds": N}` says otherwise), `plates review <repo>#<n>` judges the first N rounds. Read its `rounds.trend` reasons: progress extends the limit once, from N to 2N, and fixes may continue within the existing authorization; repetition stops at N. There is no second extension. The executable judgement uses finding locations, counts and severity as proxies, not semantic proof: inspect the actual changes for a repeated boundary failure or material scope expansion before continuing. Report any such conflict with concrete evidence for an owner decision; never enlarge the task's scope or override a stop silently. When `plates review <repo>#<n>` exits 3, stop pushing fixes: it found repetition or the one extension is exhausted. Sort each open finding you have read with `plates review <repo>#<n> --class security|overwrite|approval|other <ids>` (it records the kind and answers nothing), then report the choice it prints to the owner: merge with the rest tracked, split, or close. Never merge it yourself.
 
 **A phase that waits for review** (opt-in, for a change the owner is nervous
 about): its front matter says `review: wait`, or its issue carries the label

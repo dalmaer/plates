@@ -1,0 +1,19 @@
+# Synthetic Acme workflow held to Medium: edits and tests, nothing leaves the runner.
+name: Acme tend
+on: workflow_dispatch
+jobs:
+  tend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Acme Claude
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_args: >-
+            --permission-mode acceptEdits
+            --allowedTools "Read,Glob,Grep,Edit,Write,Bash(npm test*),Bash(npm run *),Bash(git push*)"
+            --disallowedTools "Bash(git push*)"
+      - name: Acme Codex
+        uses: openai/codex-action@v1
+        with:
+          sandbox: workspace-write
+          safety-strategy: drop-sudo

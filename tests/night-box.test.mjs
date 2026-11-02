@@ -51,10 +51,12 @@ const CLIMB_YML = 'practices/climb/files/.github/workflows/plates-climb.yml';
 // explicit already-sent read path. Hold the exact shipped condition and its
 // truth table so adding that path cannot loosen ordinary ready/unsent/assignee gates.
 const SEND_CONDITION = "needs.decide.outputs.ready == 'true' && (needs.decide.outputs.sent != 'true' || (github.event_name == 'workflow_dispatch' && inputs.names_evidence == true)) && needs.decide.outputs.assignee == 'set'";
+const RUNS_PAST = "${{ !cancelled() && needs.decide.result == 'success' && (";
 function sendCondition(text) {
   const condition = /^  send:\n    needs: decide\n    if: ([^\n]+)\n/m.exec(text)?.[1];
-  assert.equal(condition, SEND_CONDITION, 'the box models the actual send job condition');
-  return condition;
+  // decide runs past the dispatch-only names-origin, so send must too (24 Oct): the gates sit inside the wrapper.
+  assert.equal(condition, `${RUNS_PAST}${SEND_CONDITION}) }}`, 'the box models the actual send job condition');
+  return SEND_CONDITION;
 }
 
 test('morning send condition preserves ordinary gates and bounds the manual observation exception', async () => {
@@ -280,7 +282,7 @@ async function morning(b, now, label) {
   const text = b.texts[MORNING_YML];
   // The scheduling this simulates is the workflow's own: each condition is asserted to be what the YAML says.
   sendCondition(text);
-  for (const cond of ["if: needs.decide.outputs.ready == 'true'\n", "if: needs.decide.outputs.plan == 'found' && (github.event_name != 'workflow_run' || github.event.workflow_run.head_branch == github.event.repository.default_branch)\n"]) {
+  for (const cond of [`if: ${RUNS_PAST}needs.decide.outputs.ready == 'true') }}\n`, `if: ${RUNS_PAST}needs.decide.outputs.plan == 'found' && (github.event_name != 'workflow_run' || github.event.workflow_run.head_branch == github.event.repository.default_branch)) }}\n`]) {
     assert.ok(text.includes(cond), `plates-morning.yml still says ${cond.trim()}`);
   }
   const did = { decide: o };

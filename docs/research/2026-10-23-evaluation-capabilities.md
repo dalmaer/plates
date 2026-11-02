@@ -70,3 +70,32 @@ known broken and corrected historical artifacts through clean synthetic package
 consumers. This tests machinery and acceptance sensitivity, not whether a model
 using candidate instructions improves. No paid provider, comparison runner,
 held-out generalization or lesson promotion is activated.
+
+
+## Implementation follow-up: phase 119
+
+The offline experiment now supports ordered missing-slot resume, compare,
+explicit original-operation reconciliation and cancellation. It extends the
+existing host coordinator and session ledger rather than adding a scheduler.
+New harness locks retain verifiable ownership; legacy ambiguous locks remain
+blocked. Stage authorization and immutable reconciliation preserve failed or
+unknown attempts and completed verdicts. The
+[phase evidence](../evidence/2026-10-23-evaluation-comparison.md) records the real
+twenty-slot CLI walk and actual controller termination/resume.
+
+This is implemented offline machinery, not a live provider adapter. Enforced
+provider spending, paid screening, held-out generalization and measured
+promotion remain gaps. Phase 119 stays partial; its remaining live requirements
+do not prevent independent corpus and lesson-record implementation.
+
+## Phase 120–121 observations — 24 October 2026
+
+Phase 120's six development cases and bounded export are implemented and have
+independent historical artifact replay and installed-CLI evidence. Its exact-head
+CI/review passed; it remains unmerged behind phase 119's review-limit decision.
+Phase 121 now implements selected source verification, append-only inbox versions,
+legacy bypass guards and actual material-plan binding. Its public-CLI walk retained
+five lifecycle transitions and refused acceptance/promotion paths without execution.
+Its final integrated gate and exact-head PR review passed; the stack remains unmerged. These are record and verification
+mechanisms, not measured agent benefit; phase 119's live adapter/spend integration
+and owner-approved screening remain open.

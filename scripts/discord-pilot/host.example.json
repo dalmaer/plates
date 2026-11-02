@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "enabled": false,
+  "dockerBinary": "/usr/local/bin/docker",
+  "dockerSocket": null,
+  "dockerVersion": null,
+  "sdk": {
+    "modulePath": null,
+    "packagePath": null,
+    "version": null,
+    "moduleSha256": null
+  },
+  "secretDirectory": null,
+  "secrets": {
+    "secret:ajaxian.discord.codex.bot-token": "discord-codex",
+    "secret:ajaxian.discord.claude.bot-token": "discord-claude",
+    "secret:ajaxian.openai.api-key": "openai-api",
+    "secret:ajaxian.anthropic.api-key": "anthropic-api"
+  },
+  "workers": {
+    "codex": {
+      "image": null,
+      "volume": null
+    },
+    "claude": {
+      "image": null,
+      "volume": null
+    }
+  },
+  "network": null,
+  "resources": {
+    "memoryMiB": 1024,
+    "cpus": 1,
+    "pids": 128,
+    "maxWorkers": 2
+  },
+  "approval": {
+    "deploymentDigest": null,
+    "apiFundingApproved": false,
+    "maxAdmissionMicros": 5000000,
+    "egress": "runtime-internet"
+  }
+}

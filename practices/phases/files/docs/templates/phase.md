@@ -20,6 +20,10 @@ One independently checkable outcome.
 
 The smallest useful slice, and its boundaries.
 
+## Integration increments
+
+<!-- Before building, name the first independently safe merge and subsequent increments. For each, record compatibility, focused proof, the required integration gate, exposure/default behavior and recovery. A phase need not fit one branch or commit. Keep merged, deployed/installed, enabled and verified facts separate. -->
+
 ## Acceptance
 
 - [ ] Observable behaviour, including the failure path, and the check that proves it: `tests/<file>: "<test name>"`, a command in backticks, or ⚑ by hand: <who>.

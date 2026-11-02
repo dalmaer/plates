@@ -7,13 +7,16 @@ import { pathToFileURL } from 'node:url';
 import { tmpdir } from 'node:os';
 import { randomBytes } from 'node:crypto';
 import { submittedArtifact, exportSource, validateFiles } from '../lib/evaluation-artifacts.mjs';
-import { acceptanceDriver, argv } from '../lib/evaluation-execution-input.mjs';
+import { acceptanceDriver, argv, composeExecutionDelivery } from '../lib/evaluation-execution-input.mjs';
 import { controllerIdentity, CONTROLLER_SOURCES } from '../lib/evaluation-provenance.mjs';
 import { byteDigest, sealRecord, fingerprint } from '../lib/evaluation-records.mjs';
 import { preflightDocker, runDockerStage, containerArgs } from '../lib/evaluation-docker.mjs';
 import { evaluationWorld, IMAGE } from './helpers/evaluation-execution.mjs';
 import { inspectBudgetTarget, inspectBudget, reserveExternalBudget, settleExternalBudget, runBudget } from '../lib/validation-budget.mjs';
 import { evaluations } from '../lib/evaluation-ledger.mjs';
+import { acmeCaseEnvironments } from './helpers/evaluation-plan.mjs';
+import { validateTrialChain } from '../lib/evaluation-execution.mjs';
+import { comparisonSnapshot } from '../lib/evaluation-screening.mjs';
 import { run } from './helpers/run.mjs';
 const file = (path, text = 'Acme', mode = '100644') => ({ path, mode, base64: Buffer.from(text).toString('base64') });
 const submit = files => JSON.stringify({ schemaVersion: 1, files });
@@ -131,6 +134,20 @@ test('observed evaluator provenance hashes fixed executing sources and Node sepa
   assert.ok(!Object.hasOwn(observed, 'harnessCommit'));
 });
 
+test('installed evaluation modules and curated evaluator data all participate in controller identity', async () => {
+  const modules = (await readdir(new URL('../lib/', import.meta.url)))
+    .filter(name => name.startsWith('evaluation-') && name.endsWith('.mjs'));
+  const data = await readdir(new URL('../lib/evaluation-corpus/', import.meta.url), { recursive: true, withFileTypes: true });
+  const corpusRoot = new URL('../lib/evaluation-corpus/', import.meta.url);
+  const files = data.filter(entry => entry.isFile()).map(entry => {
+    const absolute = join(entry.parentPath, entry.name);
+    const root = decodeURIComponent(corpusRoot.pathname);
+    return 'evaluation-corpus/' + absolute.slice(root.length);
+  });
+  for (const path of [...modules, ...files]) assert.ok(CONTROLLER_SOURCES.includes(path), `unbound installed evaluation source: ${path}`);
+  assert.equal(new Set(CONTROLLER_SOURCES).size, CONTROLLER_SOURCES.length, 'each source is observed once');
+});
+
 test('changed installed controller bytes invalidate loaded identity and fresh approval fingerprint', async t => {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'acme-controller-')));
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -193,4 +210,81 @@ test('interrupted execution inspection preserves frozen receipts and bytes and r
       assert.equal((await inspectBudget(w.admission)).initialized, false);
     });
   }
+});
+
+
+test('schema 3 runs both arms with per-case images, reconstructs delivery and resumes only missing slots', async t => {
+  const w = await evaluationWorld(t), b = acmeCaseEnvironments(w.b);
+  const ref = r => ({ kind: r.kind, id: r.id, digest: r.digest });
+  b.configurations = b.configurations.map(c => sealRecord({ ...c, model: { requested: 'none', resolved: 'offline-no-model', unresolvedReason: null } }));
+  b.comparison = sealRecord({ ...b.comparison, baseline: ref(b.configurations[0]), candidate: ref(b.configurations[1]) });
+  const bundle = join(w.root, 'inputs/mapped.json'); await writeFile(bundle, JSON.stringify(b));
+  const preview = await evaluations({ ...w.options, action: 'freeze', bundle });
+  const frozen = await evaluations({ ...w.options, action: 'freeze', bundle, yes: true, digest: preview.digest });
+  const dir = frozen.receipt.plan.destination, frozenBytes = await readFile(join(dir, 'state.json'));
+  const bin = join(w.root, 'fake-client'), database = join(w.root, 'fake-containers.json'), calls = join(w.root, 'fake-calls.jsonl');
+  await mkdir(bin);
+  // This deterministic fake speaks only the offline client's existing protocol.
+  // It never invokes a real container runtime or claims isolation/agent efficacy.
+  await writeFile(join(bin, 'docker'), `#!${process.execPath}
+const fs=require('node:fs'),crypto=require('node:crypto'),a=process.argv.slice(2);
+const path=${JSON.stringify(database)},log=${JSON.stringify(calls)},images=${JSON.stringify(b.cases.map(c => c.environment.image))};
+fs.appendFileSync(log,JSON.stringify(a)+'\\n');
+const db=fs.existsSync(path)?JSON.parse(fs.readFileSync(path)):{};
+if(a[0]==='image'&&a[1]==='inspect'&&images.includes(a[2])) console.log(JSON.stringify([{Id:a[2],Os:'linux',Architecture:'arm64',Config:{Env:['NODE_VERSION=24.22.1']}}]));
+else if(a[0]==='create') {
+ const name=a[a.indexOf('--name')+1],image=a.find(x=>images.includes(x)),id=crypto.createHash('sha256').update(name).digest('hex');
+ if(!image)process.exit(90);db[name]={Id:id,Name:'/'+name,Image:image,State:{Running:false,Paused:false}};fs.writeFileSync(path,JSON.stringify(db));console.log(id);
+} else if(a[0]==='inspect') {const found=db[a.at(-1)]||Object.values(db).find(c=>c.Id===a.at(-1));if(!found)process.exit(90);console.log(a.includes('{{json .}}')?JSON.stringify(found):'false');}
+else if(a[0]==='exec'&&a.includes('--version'))console.log('v24.22.1');
+else if(a[0]==='exec'&&a.includes('console.log(Date.now())'))console.log(Date.now());
+else if(a[0]==='exec'&&a.includes('/work/build.mjs'))console.log(JSON.stringify({schemaVersion:1,files:[]}));
+else if(a[0]==='exec'&&a.includes('/work/probe.mjs'))console.log('Acme');
+else if(!['start','exec'].includes(a[0]))process.exitCode=90;
+`, { mode: 0o700 });
+  const oldPath = process.env.PATH; process.env.PATH = bin + ':' + oldPath;
+  t.after(() => { process.env.PATH = oldPath; });
+  const completed = new Set();
+  for (const task of b.cases) for (const arm of ['baseline', 'candidate']) {
+    const pair = b.comparison.pairs.find(p => p.case.id === task.id), request = { ...w.request, pairId: pair.id, arm };
+    await writeFile(w.execution, JSON.stringify(request));
+    const options = { ...w.options, action: 'run', experiment: b.comparison.id, execution: w.execution };
+    const p = await evaluations(options), config = b.configurations.find(c => c.id === b.comparison[arm].id);
+    assert.deepEqual(p.input.environment, task.environment);
+    assert.equal(p.input.image.requested, task.environment.image);
+    assert.equal(p.input.configurationDigest, config.digest);
+    const source = exportSource(w.repository, task.startingCommit, request.sourcePaths);
+    assert.deepEqual(composeExecutionDelivery(b, task, config, source, request.builderArgv).delivered, p.input.delivered);
+    const broken = structuredClone(config); broken.environments.find(e => e.case.id === task.id).environment.installer = 'f'.repeat(64);
+    assert.throws(() => composeExecutionDelivery(b, task, broken, source, request.builderArgv), /unbound environment configuration/);
+    const result = await evaluations({ ...options, yes: true, digest: p.digest });
+    assert.equal(result.status, 'terminal'); assert.equal(result.verdict.acceptance, 'accepted');
+    assert.deepEqual(result.verdict.evaluator.image, p.input.image);
+    validateTrialChain({ intent: result.intent }, frozen.receipt.plan, result.slot);
+    for (const environment of [undefined, b.cases.find(c => c.id !== task.id).environment]) {
+      const changed = structuredClone(result.intent);
+      if (environment === undefined) delete changed.input.environment; else changed.input.environment = environment;
+      assert.throws(() => validateTrialChain({ intent: changed }, frozen.receipt.plan, result.slot), /trial environment binding mismatch/);
+    }
+    completed.add(result.slot);
+  }
+  const requests = b.comparison.pairs.flatMap(p => (p.order === 'AB' ? ['baseline', 'candidate'] : ['candidate', 'baseline'])
+    .filter(arm => !completed.has(p.id + '-' + arm)).map(arm => ({ ...w.request, pairId: p.id, arm })));
+  await writeFile(w.execution, JSON.stringify({ schemaVersion: 1, executions: requests }));
+  const resume = await evaluations({ ...w.options, action: 'resume', experiment: b.comparison.id, execution: w.execution });
+  assert.equal(resume.input.missing.length, 16);
+  for (const input of resume.input.missing) assert.deepEqual(input.environment, b.cases.find(c => c.digest === input.taskDigest).environment);
+  const compared = await evaluations({ ...w.options, action: 'compare', experiment: b.comparison.id });
+  assert.equal(compared.report.schemaVersion, 2);
+  assert.equal(compared.report.pairs.filter(p => p.comparable).length, 2);
+  assert.equal(compared.report.recommendation.agentEfficacy, false);
+  // Screening snapshots use the new retained projection, without publishing here.
+  const snapshot = await comparisonSnapshot({ ...w.options, experiment: b.comparison.id, repository: w.repository });
+  assert.equal(snapshot.report.schemaVersion, 2); assert.equal(snapshot.reporterIdentity.version, 2);
+  assert.equal(Object.hasOwn(snapshot.report, 'recovery'), false);
+  await assert.rejects(lstat(join(dir, 'reports')), { code: 'ENOENT' });
+  assert.deepEqual(await readFile(join(dir, 'state.json')), frozenBytes);
+  const invoked = (await readFile(calls, 'utf8')).trim().split('\n').map(JSON.parse).filter(a => a[0] === 'create');
+  assert.equal(invoked.length, 8);
+  for (const task of b.cases) assert.equal(invoked.filter(a => a.includes(task.environment.image)).length, 4);
 });

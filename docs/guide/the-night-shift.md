@@ -82,6 +82,29 @@ improve` is its reference. By family:
   climb `build` command, `dependency_age` with a lockfile,
   `record_contradictions` with reconciliation on.
 
+### Failed gate diagnostics
+
+When the nightly gate fails, its existing `.plates/test-runs/*.json` receipt
+retains at most 80 lines and 8 KiB from the tail of each captured output stream.
+The complete captured streams are redacted before truncation using the ledger's
+credential patterns, sensitive environment values and `tests.configEnv` values.
+Successful gates retain no output. Invalid `tests` or `tests.configEnv` settings
+make diagnostic text unavailable, preserving the command outcome and active-receipt
+cleanup; malformed redaction settings never fall back to retaining raw text.
+Uncaptured streams remain unavailable;
+truncation and observed/retained byte counts are explicit. This is bounded
+failure context, not a complete log or proof of missing stages.
+
+The receipt binds the diagnostics to its invocation ID, command hash, commit,
+start/end identity and actual exit status or signal. `improve --json` carries the
+same diagnostics and invocation link in the gate's facts without mixing command
+output into JSON stdout. Spawn failures and signals remain broken instruments;
+nonzero gate exits remain failures. A Vitest or typecheck failure without a Node
+summary still has unknown test coverage, not zero or an invented count.
+Compound shell commands remain one invocation; no stage completion is inferred
+by splitting a command string. The normal test-ledger artifact already retains
+these receipt files on failure. No raw-output upload or extra profile is added.
+
 ### The test ledger, and why a hygiene note is work
 
 On a node project, `npm test` runs a second reporter,
@@ -283,6 +306,25 @@ plates goodnight --yes                             # "that's the plan": write it
   second). The item's lane becomes `robot:#<n>` and the robot builds it
   tonight. A finding no longer accepted stops `--yes` before anything is
   written; an issue not confirmed is exit 1, and `--yes` again recovers it.
+
+### Bounded overnight decisions (planned extension)
+
+[The philosophy](../philosophy.md#overnight-autonomy-leaves-a-reviewable-morning)
+and [phase 162](../phases/162-overnight-decisions-remain-bounded-and-reviewable.md)
+extend the existing plan and morning flow. They do not change today's strict plan
+schema, deterministic measurement, opted-in builder lanes, budgets, `willNotTouch`,
+build limit, `readyBy`, or review/merge authority. No new runtime mode or approval
+hook behavior is installed by this guidance.
+
+An unattended builder should resolve reversible choices within granted scope,
+park actions dependent on missing permission and continue independent work. The
+planned journal links alternatives, confidence, expected versus measured
+consequences, validation, affected commits/flags and recovery to existing records.
+The morning should show completed work separately from ranked decisions to revisit,
+with keep/adjust/revert follow-up and clear blocked/uncertain outcomes. Phase 150
+already supports evidence, expectations and due checks; its CLI-to-workflow
+coverage gap remains explicit. Reuse those records rather than create a second
+source of decision authority.
 
 ### The morning
 

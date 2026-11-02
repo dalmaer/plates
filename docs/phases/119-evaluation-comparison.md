@@ -1,12 +1,12 @@
 ---
-status: designed
+status: partial
 since: 2026-10-23
 goal: G5
 spec: 2
 depends: [118]
 review: wait
-note: "Specified only; production implementation and paid evaluation have not started."
-evidence: []
+note: "Offline comparison and one-slot live orchestration have synthetic proof; curated inputs, exact spend approval and real paired screening remain."
+evidence: ["evidence/2026-10-23-evaluation-comparison.md", "evidence/2026-11-01-evaluation-recovery.md", "evidence/2026-11-01-evaluation-live-components.md", "evidence/2026-11-01-evaluation-input-partition.md", "evidence/2026-11-01-evaluation-public-packet.md", "evidence/2026-11-01-evaluation-live-controller.md"]
 ---
 
 # Compare paired harness trials and resume interrupted comparisons
@@ -23,9 +23,9 @@ introduce a second scheduler, evidence authority or automatic production default
 
 ## Acceptance
 
-- [ ] Five-pair plans include controls; crash recovery preserves successful trials, original leases and uncertain spend; reports retain failures: `tests/evaluation-comparison.test.mjs`.
-- [ ] CLI JSON/help, compatibility, bounds and failure paths are covered: `npm run check:focused -- tests/evaluation-comparison.test.mjs`.
-- [ ] Integrated gates and selected contracts pass: `npm run check`; `npm run typecheck`.
+- [x] Five-pair plans include controls; crash recovery preserves successful trials, original leases and uncertain spend; reports retain failures: `tests/evaluation-comparison.test.mjs`.
+- [x] CLI JSON/help, compatibility, bounds and failure paths are covered: `npm run check:focused -- tests/evaluation-comparison.test.mjs`.
+- [x] Integrated gates and selected contracts pass: `npm run check`; `npm run typecheck`.
 
 - [ ] ⚑ by hand: after the owner approves the exact provider and bounded allowance, retain the real compatibility/control screening report (five pairs each), with unknowns and a justified disposition; a fake-adapter walk is not measured agent efficacy.
 
@@ -46,7 +46,7 @@ introduce a second scheduler, evidence authority or automatic production default
 
 ## Proof
 
-Planned tests (not implemented by this specification):
+Implemented offline proof:
 `npm run check:focused -- tests/evaluation-comparison.test.mjs`. The conductor runs
 `npm run check` and `npm run typecheck` on the integrated implementation.
 Record negative controls and original failures in an evidence file. Live model
@@ -62,4 +62,34 @@ experiments, hosted activation and fleet schedules are not changed by this phase
 
 ## Next action
 
-Implement paired plan admission, interleaved ordering and immutable comparison reports.
+The owner selected the actual coding-agent harness on 2026-11-01: run its tool
+and review loop, not a static-instruction or single-generation substitute. Map
+the existing runtime adapters onto isolated evaluation execution, with explicit
+versioned instruction/skill activation, pinned public current/candidate context,
+independent acceptance, total comparison bounds and original-operation recovery.
+Preserve the one-generation runtime and its evidence as infrastructure proof only.
+Resolve model/runtime identity, attributable pricing and a versioned retained
+live-screening reader before preparing the compatibility/control comparison's
+exact owner transfer/spend approval. Retain five paired observations per case,
+all failures and unknowns. No paid trial is authorized by the runtime choice.
+Phases 120–123 are merged; their real evaluated lesson/promotion outcome still
+depends on this comparison, not merely on their record machinery.
+
+
+## Trajectory
+
+- **2026-10-23** — A crash leaves more than a missing result: recovery now verifies original writer death, serializes lock ownership, retains stage authorization and preserves original verdicts. Legacy or partial ownership stays blocked rather than being reclaimed by age.
+- **2026-10-23** — Whole-comparison storage and recovery reservations are needed before admission. New plans can explicitly reserve up to 64 MiB; old frozen ceilings remain unchanged. Preparation reduces each admitted execution deadline, and uncertain operations never refund capacity.
+- **2026-10-23** — Independent proof found image objects must be compared structurally after receipt deserialization. The real twenty-slot walk retained all target/control outcomes and unknown costs; its known scripted patch remains inconclusive about agent improvement.
+- **2026-10-23** — Live provider execution is not supplied by an offline scripted adapter. Preserve the code/activation gap explicitly while continuing later work that depends only on the implemented offline contracts.
+
+- **2026-11-01** — Admission refusal is distinct from an uncertain reservation.
+  A proven pre-insertion capacity refusal receives a bound immutable receipt;
+  the frozen slot stays consumed while other missing work can be prepared.
+  Missing or contradictory evidence still blocks recovery. Comparison views
+  expose evidence gaps and next actions without granting retry authority.
+
+- **2026-11-01** — The installed recovery walk exposed a valid prior local
+  transport release with unknown remote cost. Recovery now preserves that exact
+  retained settlement instead of fabricating owner death or refunding money;
+  missing original completion evidence remains a gap.
