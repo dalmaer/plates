@@ -7,6 +7,8 @@
     { "name": "VERCEL_API_TOKEN", "optional": true, "when": "production-vercel", "why": "OPTIONAL: only configured Vercel production collection uses it, as step-scoped VERCEL_TOKEN; off and other-provider projects need none", "workflow": ".github/workflows/plates-night.yml" }
   ],
   "files": [
+    { "path": "scripts/plates/autonomy-policy.mjs", "from": "scripts/plates/autonomy-policy.mjs", "kind": "managed" },
+    { "path": "scripts/plates/autonomy-context.mjs", "from": "scripts/plates/autonomy-context.mjs", "kind": "managed" },
     { "path": "scripts/plates/names.mjs", "from": "scripts/plates/names.mjs", "kind": "managed" },
     { "path": "scripts/plates/names-environment.mjs", "from": "scripts/plates/names-environment.mjs", "kind": "managed" },
     { "path": "scripts/plates/names-environment.d.mts", "from": "scripts/plates/names-environment.d.mts", "kind": "managed" },
@@ -18,6 +20,7 @@
     { "path": "scripts/plates/improve.mjs", "from": "scripts/plates/improve.mjs", "kind": "managed" },
     { "path": "scripts/plates/hygiene-measures.mjs", "from": "scripts/plates/hygiene-measures.mjs", "kind": "managed" },
     { "path": "scripts/plates/hygiene-proposals.mjs", "from": "scripts/plates/hygiene-proposals.mjs", "kind": "managed" },
+    { "path": "scripts/plates/plain-proposal.mjs", "from": "scripts/plates/plain-proposal.mjs", "kind": "managed" },
     { "path": "scripts/plates/drain.mjs", "from": "scripts/plates/drain.mjs", "kind": "managed" },
     { "path": "scripts/plates/night-plan.mjs", "from": "scripts/plates/night-plan.mjs", "kind": "managed" },
     { "path": "scripts/plates/morning.mjs", "from": "scripts/plates/morning.mjs", "kind": "managed" },

@@ -232,8 +232,8 @@ test('the default: a project naming no agent runs Claude, and Claude\'s step pas
   const w = await workflows();
   const [climbStep] = agentSteps(w.climb.text, 'claude');
   const [tendStep] = agentSteps(w.tend.text, 'claude');
-  // Phase 47: Claude's step runs when the pass names claude (the default), as cross-review's since phase 45; nothing else differs.
-  assert.equal(climbStep, CLAUDE_BEFORE.climb.replace("if: steps.pick.outputs.job != ''", "if: steps.pick.outputs.job != '' && steps.on.outputs.agent == 'claude'"));
+  // Phase 47 selects Claude by default; phase 155 also requires finalized baseline admission. Action permissions and arguments stay unchanged.
+  assert.equal(climbStep, CLAUDE_BEFORE.climb.replace("if: steps.pick.outputs.job != ''", "if: steps.pick.outputs.job != '' && steps.admission.outputs.state == 'admitted' && steps.on.outputs.agent == 'claude'"));
   assert.equal(tendStep, CLAUDE_BEFORE.tend.replace("if: steps.pick.outputs.run == 'yes'", "if: steps.pick.outputs.run == 'yes' && steps.on.outputs.agent == 'claude'"));
   const [review] = agentSteps(w.crossReview.text, 'claude');
   const expected = CLAUDE_BEFORE.crossReview

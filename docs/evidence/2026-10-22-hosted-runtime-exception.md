@@ -52,3 +52,12 @@ the earlier attempt unexpectedly reassigned the secondary platform alias.
 
 Sources: [Vercel advisory](https://vercel.com/kb/bulletin/node-js-security-advisory),
 [Node 24.22.1 release](https://nodejs.org/en/blog/release/v24.22.1).
+
+## Ended (2026-10-31)
+
+During phase 151's activation session the owner signed in and the production
+function's `/api/deployment` reported Node `v24.22.2`, past the patched
+baseline, with no opt-in variable set on the project. The exception branch
+is removed from `requireHostedRuntime`; 24.21.0 is refused again everywhere.
+Tests: `tests/web-hosted-runtime.test.mjs` ("the ended exception no longer
+admits Node 24.21.0" failed against the old branch, passes without it).

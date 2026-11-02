@@ -29,6 +29,7 @@ async function acme(t, { crossReview = ON, files = {} } = {}) {
   await mkdir(join(dir, '.agents/cross-review'), { recursive: true });
   await mkdir(join(dir, '.plates'), { recursive: true });
   await cp(SCRIPT, join(dir, 'scripts/plates/cross-review.mjs'));
+  for (const name of ['autonomy-context.mjs', 'autonomy-policy.mjs']) await cp(join(PLATES, 'practices/night/files/scripts/plates', name), join(dir, 'scripts/plates', name));
   await cp(LIB, join(dir, 'scripts/plates/lib.mjs'));
   await cp(join(PLATES, 'practices/night/files/scripts/plates/names.mjs'), join(dir, 'scripts/plates/names.mjs'));
   await cp(join(PRACTICE, '.agents/cross-review/REVIEW.md'), join(dir, '.agents/cross-review/REVIEW.md'));
@@ -1479,3 +1480,23 @@ for(const alias of ['PLATES','KEEL']) test(`phase128 NOW ${alias} retains push r
   assert.equal(result.status,1,result.out);assert.equal(result.outputs.dir,undefined);assert.match(result.out,/Publisher identity has not been rendered/);
   assert.equal((await gh.calls()).length,3);assert.ok(!(await readdir(empty)).includes('.git'),'publisher must not create a checkout');
  });
+
+test('review brief carries source-pinned risk guidance for both providers without granting review mutation', async t => {
+  const dir = await acme(t);
+  const git = args => { const r = run('git', args, { cwd: dir }); assert.equal(r.status, 0, r.stderr); return r.stdout.trim(); };
+  git(['init', '-q', '-b', 'main']);
+  const policy = { schema: 1, repository: 'acme/anvils', mode: 'delivery', push: [], merge: ['main'] };
+  await writeFile(join(dir, '.plates/autonomy.json'), JSON.stringify(policy));
+  git(['add', '.']); git(['commit', '-qm', 'Acme trusted policy']); const source = git(['rev-parse', 'HEAD']);
+  const m = await import(pathToFileURL(join(dir, 'scripts/plates/cross-review.mjs')));
+  for (const agent of ['claude', 'codex']) {
+    const prompt = await m.brief({ root: dir, config: {}, pr: prJson(), repo: 'acme/anvils', agent, diff: 'acme.diff' });
+    assert.match(prompt, /Risk tolerance: high/); assert.match(prompt, /role: reviewer/);
+    assert.ok(prompt.includes(`source revision: ${source}`));
+    assert.match(prompt, /High never suppresses findings/);
+    assert.equal(prompt.split('plates-autonomy-prompt-v1').length - 1, 1);
+  }
+  await writeFile(join(dir, '.plates/autonomy.json'), JSON.stringify({ ...policy, mode: 'default', merge: [] }));
+  const unchanged = await m.brief({ root: dir, config: {}, pr: prJson(), repo: 'acme/anvils' });
+  assert.match(unchanged, /Risk tolerance: high/, 'uncommitted candidate preferences do not replace source policy');
+});

@@ -8,8 +8,13 @@ three things:
 - the CLI that installs and updates the practice in other repos;
 - the place where their lessons come home.
 
-Read [`docs/design.md`](docs/design.md) for why and how. This file is how to
-work here.
+Read [`docs/philosophy.md`](docs/philosophy.md) first for the project principles
+and delivery direction, then [`docs/design.md`](docs/design.md) for mechanisms
+and history. This file is how to work here. Plan the first independently safe
+merge before building; a phase can span many short-lived branches and merges.
+For unattended work, use the philosophy's overnight boundary: decide reversible
+choices within scope, park permission-dependent actions, continue independent work
+and retain a morning correction path. Approval and tool hooks still apply.
 
 ```bash
 npm run next      # the next phase to conduct, and its next action
@@ -32,6 +37,7 @@ own configured gates.
 
 | Path | What |
 | --- | --- |
+| `docs/philosophy.md` | **The principles.** Canonical project context; integrate small safe increments, expose deliberately. |
 | `docs/design.md` | **The argument.** Practices, file kinds, migrations, lesson flow, night shift. Phases cite it. |
 | `docs/guide/` | Task guides; [README index](README.md#guides). For the CLI contract, run `plates --agent-help <topic>`. |
 | `docs/goals.json` | What plates is for, as outcomes. Progress is derived, never stored. |
@@ -82,10 +88,13 @@ compares old and new values without rewriting historical evidence.
 <!-- plates:begin conduct -->
 **Spin the next phase.** `/spin` (the skill in `.agents/skills/spin`) briefs
 a builder (a phase of a file or two it may build itself: the skill's *Small
-phases*), verifies the proof itself, writes the record and commits each phase
-to `main`, then runs a retro when the phase changed more than docs (the owner
-picks from its candidates). Builders test by file. The conductor runs `npm run check` once on
-the integrated tree — a green subset hides a red suite, and checking at every level costs more than it catches.
+phases*), names the first safe merge, verifies the proof itself and lands
+independently safe increments on `main` throughout the phase. Keep the phase
+partial until all its acceptance is proven; merged, deployed/installed, enabled
+and verified are separate facts. Read the project philosophy named by this guide.
+Run a retro when the phase changed more than docs (the owner picks from its
+candidates). Builders test by file. The conductor runs `npm run check` once per
+integrated candidate — a green subset hides a red suite, and checking at every level costs more than it catches.
 (why: Plates lessons 4 and 5: a green subset hides failures, while repeated full gates waste work.)
 
 **A fix is proven by its test failing without it.** A `fix:` commit
@@ -234,6 +243,14 @@ Worktree cleanup and draft decisions are owner actions; accepted file splits use
 the existing robot issue flow only under an approved project budget. Refresh a
 proposal when its source changes; preserve recovery intents after uncertain writes.
 
+## Climb readiness
+
+`runner-ready` describes runner checks only; agent permissions remain unverified.
+The pre-baseline agent-readiness mechanism is incomplete and must not be activated
+as a universal denial or a caller-asserted grant. Do not probe denied operations
+or expand permissions. Preserve the existing execution-denial check and inspect
+the sanitized receipt. See [climb and tend](docs/guide/climb-and-tend.md).
+
 ## Robot issues
 
 `plates issue new --agent` previews a rubric-shaped issue before `--yes` creates
@@ -259,7 +276,35 @@ Recover a new harness lock only after verified original-writer death and matchin
 ownership; legacy empty or unverifiable locks remain blocked. Preserve partial
 records, original verdicts and settlement history. Comparisons retain failures,
 unknown costs and missing coverage; scripted trials never establish agent efficacy
-or activate a candidate. See [the record guide](docs/guide/harness-evaluations.md).
+or activate a candidate. Explicit `host-gateway-v1` plans also support one-slot
+count/generation and original-ID or local-only recovery, each with its own exact
+preview and approval. Live dispatch uses the supported macOS credential FIFO,
+explicit price evidence and the existing spend/host ledgers; metadata is not
+entitlement. Local-only recovery reads no credentials and never refunds unknown
+money. Live aggregate resume and hosted activation remain unavailable. See
+[the record guide](docs/guide/harness-evaluations.md).
+
+`plates retro evaluations corpus inspect|export` reads the versioned historical
+development catalog or previews a selected case’s private external export. Export
+requires exact `--yes --digest`; existing or partial destinations refuse overwrite.
+Keep curator provenance and evaluator materials out of builder delivery. Folder
+separation is not isolation: use the existing isolated executor with its explicit
+input inventory. All six initial cases are development cases; held-out coverage
+is zero, and scripted historical replays do not measure agent improvement.
+
+## Evaluated learning records
+
+`plates learn evaluate` verifies selected sources and previews append-only inbox
+changes before exact `--yes --digest` approval. Retain historical review identity
+separately from current PR head; source existence does not prove a defect. Use the
+project's actual phase decision target. Bind candidate material bytes to the frozen
+plan, keep raw source bodies private, and preserve uncertain writes for inspection.
+Legacy acceptance cannot promote a tagged record. Register screening criteria before
+execution; evaluating a terminal comparison retains its original report and every
+attempt. Unknown costs are not zero, and offline results cannot prove agent efficacy.
+Recover the original report operation after an interrupted inbox link; never create
+a replacement. Promotion and follow-up require their own verification interfaces. See the
+[learning guide](docs/guide/lessons-and-learning.md).
 
 ## Session handoff trials
 

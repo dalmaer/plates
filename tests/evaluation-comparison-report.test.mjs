@@ -1,9 +1,9 @@
 // Synthetic Acme receipts; no Docker, provider, network or execution effects.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { summarizeComparison, renderComparison } from '../lib/evaluation-comparison-report.mjs';
+import { summarizeComparison, summarizeComparisonV1, summarizeComparisonV2, renderComparison } from '../lib/evaluation-comparison-report.mjs';
 import { sealRecord, fingerprint } from '../lib/evaluation-records.mjs';
-import { acmeEvaluationPlan } from './helpers/evaluation-plan.mjs';
+import { acmeEvaluationPlan, acmeCaseEnvironments } from './helpers/evaluation-plan.mjs';
 const ref = r => ({ kind: r.kind, id: r.id, digest: r.digest });
 function fixture() {
   const bundle = acmeEvaluationPlan();
@@ -287,4 +287,249 @@ test('unbound derived recovery and changed original evidence cannot establish ac
     const report = summarizeComparison(plan, execution);
     assert.equal(report.slots[0].outcome, 'unknown'); assert.equal(report.arms.baseline.accepted, 9);
   }
+});
+
+
+test('current recovery diagnostics preserve the frozen V1 report projection', () => {
+  const { plan, execution } = fixture();
+  execution.status = 'uncertain';
+  execution.trials[0].status = 'uncertain';
+  delete execution.trials[0].records.result;
+  const legacy = summarizeComparisonV1(plan, execution);
+  const { recovery, ...current } = summarizeComparison(plan, execution);
+  assert.equal(Object.hasOwn(legacy, 'recovery'), false);
+  assert.equal(recovery.executionStatus, 'uncertain');
+  assert.equal(recovery.authorizesMutation, false);
+  assert.deepEqual(current, legacy);
+  assert.equal(JSON.stringify(current), JSON.stringify(legacy));
+});
+
+test('uncertain comparison exposes recovery evidence without authorizing a retry', () => {
+  const { plan, execution } = fixture();
+  execution.status = 'uncertain';
+  execution.issues.push({ record: 'acme-slot/lease.json', reason: 'trial-record-unavailable', detail: 'missing execution record' });
+  execution.cancellation = { admissionClosed: true };
+  execution.trials[0].status = 'uncertain';
+  delete execution.trials[0].records.result;
+  const before = JSON.stringify(execution);
+  const report = summarizeComparison(plan, execution);
+  assert.equal(report.recovery.executionStatus, 'uncertain');
+  assert.equal(report.recovery.admissionClosed, true);
+  assert.equal(report.recovery.authorizesMutation, false);
+  assert.equal(report.recovery.uncertainSlots[0].slot, execution.trials[0].slot);
+  assert.equal(report.recovery.uncertainSlots[0].settlementReleased, null);
+  const markdown = renderComparison(report);
+  assert.match(markdown, /acme-slot\/lease.json/);
+  assert.match(markdown, /trial-record-unavailable/);
+  assert.match(markdown, /missing execution record/);
+  assert.match(markdown, /Do not redispatch/);
+  assert.match(markdown, /Admission closed: true/);
+  assert.equal(JSON.stringify(execution), before);
+});
+
+test('missing execution has unknown admission and recovery never supplies acceptance', () => {
+  const { plan } = fixture();
+  const report = summarizeComparison(plan, null);
+  assert.equal(report.recovery.executionStatus, 'not-observed');
+  assert.equal(report.recovery.admissionClosed, null);
+  assert.equal(report.recovery.authorizesMutation, false);
+  assert.equal(report.arms.baseline.accepted, 0);
+  assert.match(renderComparison(report), /fresh resume preview/);
+});
+
+
+test('known admission refusal remains a visible infrastructure outcome, never acceptance', () => {
+  const { plan, execution } = fixture();
+  const slot = execution.trials[0].slot;
+  const intent = sealRecord({ ...execution.trials[0].records.intent, dispatchProtocol: 'ordered-authorization-v1' });
+  const refusal = sealRecord({ schemaVersion: 2, kind: 'evaluation-admission-refusal', id: intent.id, intentDigest: intent.digest,
+    commandDigest: intent.previewDigest, authority: 'external-admission-refusal-v1', reason: 'capacity_busy_inspect_existing_leases' });
+  execution.trials[0] = { slot, status: 'terminal', reason: 'admission-capacity-refused', records: { intent, 'admission-refusal': refusal } };
+  const report = summarizeComparison(plan, execution);
+  assert.deepEqual(report.recovery.refusedSlots, [slot]);
+  assert.equal(report.slots[0].outcome, 'unknown');
+  assert.equal(report.attempts[0].failureCategory, 'admission-capacity-refused');
+  assert.equal(report.arms.baseline.accepted, 9);
+  assert.equal(report.pairs[0].comparable, false);
+  assert.match(renderComparison(report), /slot is consumed/);
+});
+
+
+function mappedFixture() {
+  const f = fixture();
+  Object.assign(f.plan.bundle, acmeCaseEnvironments(f.plan.bundle));
+  f.plan.digest = fingerprint(f.plan.bundle);
+  f.execution.trials = f.plan.bundle.comparison.pairs.flatMap(pair => ['baseline', 'candidate'].map(arm => {
+    const t = f.trial(pair, arm), task = f.plan.bundle.cases.find(c => c.id === pair.case.id);
+    rebind(t.records, input => { input.environment = structuredClone(task.environment); });
+    return t;
+  }));
+  return f;
+}
+
+test('schema 3 comparison resolves each case for both arms without rewriting V1', () => {
+  const { plan, execution } = mappedFixture(), bytes = JSON.stringify({ plan, execution });
+  const report = summarizeComparison(plan, execution);
+  assert.equal(report.schemaVersion, 2);
+  assert.equal(summarizeComparisonV2(plan, execution).schemaVersion, 2);
+  for (const c of report.cases) {
+    const task = plan.bundle.cases.find(task => task.id === c.id);
+    assert.deepEqual(c.caseRef, ref(task)); assert.deepEqual(c.environment, task.environment);
+  }
+  assert.equal(report.pairs.length, 10);
+  assert.ok(report.pairs.every(p => p.comparable));
+  assert.equal(report.arms.baseline.accepted, 10);
+  assert.equal(report.arms.candidate.accepted, 10);
+  assert.deepEqual(report.candidate.baselineConfiguration, plan.bundle.configurations[0]);
+  assert.equal(report.recommendation.agentEfficacy, false);
+  assert.match(renderComparison(report), /Offline scripted outcomes/);
+  assert.throws(() => summarizeComparisonV1(plan, execution), /V1 requires bundle schema 2/);
+  assert.equal(JSON.stringify({ plan, execution }), bytes);
+});
+
+test('schema 3 actual environment and exact mapping drift remain non-comparable', () => {
+  for (const mutate of [
+    i => { delete i.environment; },
+    i => { i.environment.dependencyLock = 'f'.repeat(64); },
+    i => { i.environment.installer = 'f'.repeat(64); },
+    i => { i.image.requested = 'sha256:' + 'f'.repeat(64); },
+    i => { i.image.platform = 'linux/amd64'; },
+  ]) {
+    const { plan, execution } = mappedFixture();
+    // Matched wrong observations in both arms must not validate each other.
+    rebind(execution.trials[0].records, mutate); rebind(execution.trials[1].records, mutate);
+    const report = summarizeComparison(plan, execution);
+    assert.equal(report.pairs[0].comparable, false);
+    assert.ok(report.pairs[0].exclusions.some(r => ['environment-unknown-or-drift', 'image-differs-from-frozen-environment'].includes(r)));
+    assert.ok(report.pairs.slice(1).every(p => p.comparable));
+  }
+  const { plan, execution } = mappedFixture();
+  plan.bundle.configurations[0].environments[0].case.digest = 'f'.repeat(64);
+  assert.ok(summarizeComparison(plan, execution).pairs.every(p => p.exclusions.includes('configured-environment-unknown-or-mismatch')));
+});
+
+// Synthetic values at the controller-validated inspection boundary. These unit
+// cases test projection choices; disk/chain authority belongs to the inspector.
+function guidanceFixture() {
+  const bundle = acmeCaseEnvironments();
+  bundle.configurations = bundle.configurations.map(c => sealRecord({ ...c, policy: { ...c.policy, execution: 'host-gateway-v1' } }));
+  bundle.comparison = sealRecord({ ...bundle.comparison, baseline: ref(bundle.configurations[0]), candidate: ref(bundle.configurations[1]) });
+  const plan = { bundle, digest: fingerprint(bundle) }, slot = bundle.comparison.pairs[0].id + '-baseline';
+  const live = { state: 'uncertain', gaps: [], files: [], slots: [], reconcile: null, spend: { state: 'ready', admissionClosed: false } };
+  const execution = { status: 'uncertain', trials: [], issues: [], live };
+  const put = (path, body) => {
+    const record = sealRecord({ schemaVersion: 1, planDigest: plan.digest, slot, ...body });
+    live.files.push({ path, record, valid: true }); return record;
+  };
+  const intent = put(`execution/${slot}/provider-intent.json`, { kind: 'live-generation-intent', operationId: 'op-acme-generation' });
+  const lease = put(`execution/${slot}/lease.json`, { kind: 'evaluation-lease', lease: { id: 'acme-lease' } });
+  const result = put(`execution/${slot}/provider-result.json`, { kind: 'live-provider-result', operationId: intent.operationId, intentDigest: intent.digest,
+    observation: { response: { id: 'resp_acme' } } });
+  const generation = { state: 'uncertain', intent, result, spend: { complete: false, heldMicroUsd: 10 } };
+  const context = { slot, count: null, generation, builder: { lease } }; live.slots.push(context);
+  const rows = () => summarizeComparison(plan, execution).recovery.operations;
+  const original = () => rows().find(r => r.slot === slot && r.operationKind === 'generation');
+  return { plan, execution, live, slot, context, generation, intent, lease, result, put, rows, original };
+}
+test('current recovery chooses original GET or local-only from retained evidence, never a reason string', () => {
+  const w = guidanceFixture();
+  let row = w.original();
+  assert.equal(row.nextAction.kind, 'preview-provider-get');
+  assert.equal(row.operationId, w.intent.operationId);
+  assert.deepEqual(row.evidence.map(e => e.digest), [w.intent.digest, w.lease.digest, w.result.digest]);
+  assert.ok(row.requiredChecks.includes('current-price-budget-and-credential-scope'));
+  w.generation.result = null;
+  row = w.original(); assert.equal(row.nextAction.kind, 'preview-local-only');
+  assert.match(row.nextAction.description, /no credential, provider request, refund or acceptance/);
+  w.context.builder.lease = null;
+  row = w.original(); assert.equal(row.nextAction.kind, 'inspect-evidence');
+  assert.ok(row.missingPrerequisites.includes('original-admission-lease'));
+  w.execution.trials.push({ slot: w.slot, status: 'terminal', reason: 'generation-not-admitted', records: {} });
+  assert.equal(w.original().nextAction.kind, 'inspect-evidence');
+  assert.deepEqual(summarizeComparison(w.plan, w.execution).recovery.refusedSlots, []);
+});
+test('retained recovery intent consumes the comparison allowance even without its final receipt', () => {
+  const w = guidanceFixture();
+  const intent = w.put('execution/control/reconcile-intent.json', { kind: 'live-reconcile-intent', target: { slot: w.slot, mode: 'provider-get', generationOperationId: w.intent.operationId } });
+  w.live.reconcile = { intent, result: null };
+  assert.equal(w.original().nextAction.kind, 'inspect-original-recovery');
+  const row = w.rows().find(r => r.operationKind === 'reconcile');
+  assert.equal(row.reason, 'recovery-result-unavailable');
+  assert.ok(row.missingPrerequisites.includes('original-recovery-result'));
+  assert.deepEqual(row.evidence, [{ record: 'execution/control/reconcile-intent.json', digest: intent.digest }]);
+  // An unreadable intent is not absence and cannot restore the allowance.
+  w.live.reconcile = null; w.live.files.at(-1).valid = false; w.live.files.at(-1).record = null;
+  w.live.gaps.push({ path: 'execution/control/reconcile-intent.json', code: 'invalid-record' });
+  assert.equal(w.original().nextAction.kind, 'inspect-original-recovery');
+  assert.equal(w.rows().find(r => r.operationKind === 'reconcile').evidence[0].digest, null);
+});
+test('structural gaps, missing leases and spend gaps never produce a recovery preview', () => {
+  for (const mutate of [
+    w => w.live.gaps.push({ path: 'spend', code: 'spend-gap' }),
+    w => { w.live.spend = null; },
+    w => { w.context.builder.lease = null; },
+    w => { w.live.files.find(f => f.record === w.intent).valid = false; },
+    w => { w.generation.result = sealRecord({ ...w.result, intentDigest: 'e'.repeat(64) }); },
+  ]) {
+    const w = guidanceFixture(); mutate(w);
+    assert.equal(w.original().nextAction.kind, 'inspect-evidence');
+    assert.ok(w.original().missingPrerequisites.length);
+  }
+});
+test('closed admission prevents missing work and paid GET while keeping local-only distinct', () => {
+  const w = guidanceFixture(); w.execution.cancellation = { admissionClosed: true };
+  assert.equal(w.original().nextAction.kind, 'preview-local-only');
+  assert.ok(w.rows().filter(r => r.slot !== w.slot).every(r => r.nextAction.kind === 'inspect-closed-admission'));
+  w.execution.cancellation = null; w.live.spend.admissionClosed = true;
+  assert.equal(w.original().nextAction.kind, 'preview-local-only');
+  const offline = fixture(); offline.execution.trials = []; offline.execution.cancellation = { admissionClosed: true };
+  assert.ok(summarizeComparison(offline.plan, offline.execution).recovery.operations.every(r => r.nextAction.kind === 'inspect-closed-admission'));
+});
+test('missing slots distinguish offline resume, live count and completed-count generation previews', () => {
+  const offline = fixture(); offline.execution.trials = [];
+  assert.ok(summarizeComparison(offline.plan, offline.execution).recovery.operations.every(r => r.nextAction.kind === 'preview-offline-resume'));
+  const w = guidanceFixture(); w.live.slots = [];
+  assert.ok(w.rows().every(r => r.nextAction.kind === 'preview-live-count'));
+  const intent = w.put(`execution/preparations/${w.slot}/count-intent.json`, { kind: 'live-count-intent', operationId: 'op-acme-count' });
+  const result = w.put(`execution/preparations/${w.slot}/count-result.json`, { kind: 'live-provider-result', intentDigest: intent.digest });
+  const local = w.put(`execution/preparations/${w.slot}/count-local.json`, { kind: 'live-local-completion', intentDigest: intent.digest, coordinatorReceipt: { released: true } });
+  w.live.slots.push({ slot: w.slot, builder: {}, count: { state: 'observed', intent, result, local, spend: { complete: true } } });
+  assert.equal(w.original().nextAction.kind, 'preview-live-generation');
+  w.live.slots[0].count.local = null;
+  assert.equal(w.original().nextAction.kind, 'inspect-evidence');
+});
+test('current guidance and rendering leave both frozen report versions and inputs byte-identical', () => {
+  for (const w of [fixture(), guidanceFixture()]) {
+    const historical = w.plan.bundle.schemaVersion === 3 ? summarizeComparisonV2 : summarizeComparisonV1;
+    const before = JSON.stringify({ plan: w.plan, execution: w.execution }), frozen = JSON.stringify(historical(w.plan, w.execution));
+    const current = summarizeComparison(w.plan, w.execution), { recovery, ...legacy } = current;
+    const rendered = renderComparison(current);
+    assert.equal(JSON.stringify(legacy), frozen);
+    assert.equal(JSON.stringify(historical(w.plan, w.execution)), frozen);
+    assert.equal(JSON.stringify({ plan: w.plan, execution: w.execution }), before);
+    assert.equal(recovery.authorizesMutation, false);
+    for (const row of recovery.operations) {
+      assert.equal(row.authorizesMutation, false);
+      assert.ok(rendered.includes(row.nextAction.description));
+      for (const e of row.evidence) assert.ok(rendered.includes(e.digest));
+    }
+  }
+});
+
+test('count uncertainty requires original admission and exact retained completion provenance', () => {
+  const w = guidanceFixture();
+  const intent = w.put(`execution/preparations/${w.slot}/count-intent.json`, { kind: 'live-count-intent', operationId: 'op-acme-count' });
+  const admission = w.put(`execution/preparations/${w.slot}/count-admission.json`, { kind: 'live-request-admission', intentDigest: intent.digest });
+  const count = { state: 'uncertain', intent, admission, spend: { complete: false, heldMicroUsd: 10 } };
+  w.live.slots = [{ slot: w.slot, count, builder: {} }];
+  const row = () => w.rows().find(r => r.slot === w.slot && r.operationKind === 'count');
+  assert.equal(row().nextAction.kind, 'preview-local-only');
+  assert.ok(row().requiredChecks.includes('exact-original-completion-for-previously-released-count'));
+  const local = w.put(`execution/preparations/${w.slot}/count-local.json`, { kind: 'live-local-completion', intentDigest: intent.digest, coordinatorReceipt: { released: true } });
+  count.local = local; assert.equal(row().nextAction.kind, 'preview-local-only');
+  count.local = sealRecord({ ...local, intentDigest: 'f'.repeat(64) });
+  assert.equal(row().nextAction.kind, 'inspect-evidence');
+  assert.ok(row().missingPrerequisites.includes('exact-original-local-completion'));
+  delete count.local; delete count.admission;
+  assert.equal(row().nextAction.kind, 'inspect-evidence', 'missing lease is never evidence of non-dispatch');
 });

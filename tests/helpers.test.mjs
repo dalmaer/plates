@@ -9,6 +9,8 @@ import { fileURLToPath } from 'node:url';
 import { run, testsRan, GH_VERBS, cleanEnv } from './helpers/run.mjs';
 
 const TESTS = dirname(fileURLToPath(import.meta.url));
+const sourceTests = async () => (await Promise.all(['', 'installed/'].map(async prefix =>
+  (await readdir(join(TESTS, prefix))).filter(n => n.endsWith('.test.mjs')).map(n => prefix + n)))).flat();
 
 test('through the helper, a project whose one test throws fails, and one that passes reports its test', async t => {
   const dir = await mkdtemp(join(tmpdir(), 'plates-helpers-'));
@@ -27,7 +29,7 @@ test('through the helper, a project whose one test throws fails, and one that pa
 });
 
 test('no test spawns node or npm except through the helper', async () => {
-  const files = (await readdir(TESTS)).filter(n => n.endsWith('.test.mjs'));
+  const files = await sourceTests();
   const offenders = [];
   for (const f of files) {
     const text = await readFile(join(TESTS, f), 'utf8');
@@ -56,7 +58,7 @@ test('plates\'s gh-reading verbs never run without PLATES_GH: the helper refuses
     assert.throws(() => run(process.execPath, [bin, verb, '--json'], { env }), new RegExp(`plates ${verb} reads GitHub: run it with PLATES_GH set`));
   }
   const offenders = [];
-  for (const f of (await readdir(TESTS)).filter(n => n.endsWith('.test.mjs'))) {
+  for (const f of await sourceTests()) {
     const text = await readFile(join(TESTS, f), 'utf8');
     const runs = new RegExp(`\\b(plates|BIN)\\b[^\\n]*['"](${GH_VERBS.join('|')})['"]`).test(text) || /names\(\)/.test(text);
     if (runs && !/PLATES_GH/.test(text)) offenders.push(f);
