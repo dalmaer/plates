@@ -546,6 +546,19 @@
       "ownerAttended": true,
       "rollback": "A failure inside the transaction rolls back by itself. After commit, nothing needs undoing: a rollback build never asks for more than thirty minutes, so the wider session bound goes unused until the phase 154 build is deployed again.",
       "proof": "The applied version: file name and SHA-256. The commit result, docs/evidence/2026-10-31-web-long-sessions-hosted-proof.sql's result (grants unchanged, a synthetic 365-day session created and rolled back, longer attempts and records refused), and one sign-in on the deployed build with its session cookie's Max-Age."
+    },
+    {
+      "id": "every-plate-listed",
+      "phase": 163,
+      "kind": "decision",
+      "what": "After deploying a build with phase 163, the owner opens Home: every manifest plate is listed, a plate the App cannot read says so with its fix, and a plate without the phases practice says its plan is not tracked here instead of listing phase errors.",
+      "prerequisites": [
+        151,
+        163
+      ],
+      "ownerAttended": true,
+      "rollback": "Redeploy the previous build; access and project reads return to the earlier behaviour, and nothing was written.",
+      "proof": "The deployed revision, and the owner's answer recorded in docs/evidence/2026-11-02-workspace-reads-each-plate.md: which plates were listed, and which said unavailable or not tracked."
     }
   ],
   "open": [
