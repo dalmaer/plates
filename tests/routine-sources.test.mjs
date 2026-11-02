@@ -191,8 +191,12 @@ test('SQLite refuses generated columns and kills native query work before cleani
   c.db.exec("DROP TABLE automations; CREATE TABLE automations(seed INTEGER,id TEXT GENERATED ALWAYS AS (hex(zeroblob(seed))), status TEXT,rrule TEXT,target_thread_id TEXT); INSERT INTO automations(seed,status,rrule) VALUES(100000000,'ACTIVE','FREQ=DAILY')");
   let began=false;const generated=await inspect(registry,{sqliteQueryStarted:()=>{began=true;}});assert.ok(hasGap(generated,'unsupported_format'));assert.equal(began,false,'generated columns are refused before a query can evaluate them');
   c.db.exec("DROP TABLE automations; CREATE TABLE automations(id TEXT,status TEXT,rrule TEXT,target_thread_id TEXT); WITH RECURSIVE rows(n) AS (VALUES(1000000) UNION ALL SELECT n-1 FROM rows WHERE n>1) INSERT INTO automations SELECT CAST(n AS TEXT),'ACTIVE','FREQ=DAILY',NULL FROM rows; PRAGMA wal_checkpoint(TRUNCATE)");
+  // Exercise the existing deadline only once native work has started. A wall-clock
+  // 100ms budget can otherwise expire during child startup on a busy CI runner.
+  // The separate 1ms test above still checks the real startup-inclusive deadline.
+  t.mock.timers.enable({apis:['setTimeout']});
   const start=Date.now();began=false;
-  const timed=await inspect(registry,{sqliteTimeoutMs:100,sqliteQueryStarted:()=>{began=true;}});
+  const timed=await inspect(registry,{sqliteTimeoutMs:100,sqliteQueryStarted:()=>{began=true;t.mock.timers.tick(100);}});
   assert.equal(began,true,'deadline exercised after query began, not just during process startup');assert.ok(hasGap(timed,'read_timeout'));assert.ok(Date.now()-start<1500,'native query must be killed without waiting for SQLite completion');
 });
 
