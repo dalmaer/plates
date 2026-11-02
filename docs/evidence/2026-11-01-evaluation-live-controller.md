@@ -276,3 +276,25 @@ Three additional negative controls cover baseline behavior, singular recovery
 target binding and request identity. Evidence:
 `/tmp/phase119-generation-refusal-handoff.md` and
 `/tmp/phase119-generation-refusal-installed-proof.md`.
+
+## Current recovery guidance
+
+Current comparison reports now project per-operation identity, evidence, missing
+prerequisites and a concrete inspection or preview action. They distinguish
+consumed recovery, missing work, original-response GET, local-only recovery,
+closed admission, terminal refusal and unavailable evidence. Every action remains
+non-authorizing. No retained V1/V2 report or immutable receipt is rewritten.
+
+Offline inspection retains validated control observations for reporting, with
+malformed, foreign, unsafe and orphan records explicit as coverage gaps. Live
+generation refusal guidance revalidates original provenance rather than trusting
+a cached reason. Original operations and reserved money remain separate from
+acceptance and any new action.
+
+The integrated focused proof passed 118 tests with one opt-in Docker skip.
+Disk-backed tests cover interrupted controls, closed admission, malformed and
+unsafe directories, original GET/local-only evidence, and orphan operation
+prefixes. Controlled mutations of recovery choice, consumed allowance and
+refusal validation each fail their assertion. Commands and logs are retained in
+`/tmp/phase119-recovery-actions-handoff.md` and
+`/tmp/phase119-recovery-actions-merge-handoff.md`.
