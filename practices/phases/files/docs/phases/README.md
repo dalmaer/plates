@@ -5,6 +5,15 @@ numbered file owns its status; [`../ROADMAP.md`](../ROADMAP.md) is generated
 from these files and [`../goals.json`](../goals.json), and CI fails when it
 is stale.
 
+## Integration increments
+
+A phase owns an outcome, not a long-lived branch. Before building, record the
+first independently safe merge, its compatibility constraints, proof and recovery.
+Land checked increments throughout the phase; do not wait for full feature
+exposure. Keep remaining acceptance unchecked and name the next increment.
+Merged, deployed/installed, enabled and verified are separate observations, not
+new phase statuses. Consult the project philosophy named by its working guide.
+
 ## Status vocabulary
 
 | Status | Claim |

@@ -106,7 +106,8 @@ jobs:
       (github.event_name == 'push' &&
         github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) ||
       github.event_name == 'schedule'
-    runs-on: ubuntu-latest
+    # Keep drop-sudo protection working: openai/codex-action#188 on Ubuntu 26.04.
+    runs-on: ubuntu-24.04
     # The agent's own step is bounded by the budget (5 to 60 minutes); this
     # bounds the whole run.
     timeout-minutes: 75
@@ -368,6 +369,9 @@ jobs:
           ref: ${{ steps.which.outputs.sha }}
           persist-credentials: false
 
+      - name: Telemetry
+        if: steps.which.outputs.review == 'true'
+        run: echo "telemetry off (.plates/plates.json names no telemetry endpoint)"
       # The agent, time-boxed to the budget: the step of the provider the
       # config names (each step's if:). Claude has read-only tools and the
       # job's read-only token (gh pr diff and gh pr view read with it); Codex

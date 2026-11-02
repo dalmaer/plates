@@ -23,7 +23,7 @@ The current source-owned `plates.json` manifest resolves the entire scope:
 | dalmaer/plates | ~/code/plates | check (ordinary + stalls + generated guards), typecheck |
 | dalmaer/duo | ~/code/duo | test, typecheck, roadmap, build |
 | dalmaer/cajones | ~/code/cajones/ritmo | syntax, tests, roadmap, PWA via check:all |
-| dalmaer/ledger | ~/code/ledger | check:all; both clocks, voice, types, build, generated/perf/data checks |
+| dalmaer/ledger | ~/code/ledger | check:all; normal-clock suites, voice, types, build, generated/perf/data checks; separate test:later for both 400-day suites |
 | dglazkov/isocan | ~/code/isocan | complete CI shard union, anti-skip switches, types, graders, metrics, roadmap and local configured gate |
 
 Cajones's repository root is `ritmo`, not a new repository named ritmo.
@@ -50,6 +50,28 @@ isocan's selected release artifacts contain profiles, not equivalent gate
 proof. Freshness changes alone therefore save zero eligible runs. The email
 case's 2,789-test gate demonstrates why focused renderer feedback should precede
 an exact integrated checkpoint; it does not authorize omitting that checkpoint.
+
+### Ledger coverage reconciliation — 27 October 2026
+
+The table above describes commands, not an attestation that one invocation
+covers every clock. Inspected Ledger source at
+`c1b59b1c37fda36af5741ae9bc80e93f5c8ff733`: `package.json`, `AGENTS.md`, and
+`.github/workflows/test.yml`. The earlier audit's two-clock requirement remains
+an equivalence requirement; it is not what the local `check:all` currently runs.
+
+| Surface | Actual coverage |
+| --- | --- |
+| Local `check:code` (included in `check:all`) | Normal-clock core/CLI/ingest/jobs and web suites, voice diagnostic, both typechecks and web build |
+| Local `test:later` (separate) | Core/CLI/ingest/jobs and web suites with `LEDGE_CLOCK_SHIFT_DAYS=400` and the shift-clock import |
+| Code-scoped CI `test.yml` | `test`, `later` and `web` depend on `scope`; normal and shifted core/web suites, types, production-order web build, generated views and private ledger-data check |
+| CI/local coverage gaps | CI does not invoke the voice diagnostic or perf-budget check; local `check:all` does not invoke `test:later`. Documentation-only CI is a narrower scope. |
+
+Thus neither a green CI workflow nor local `check:all` alone demonstrates the
+entire union required by this spec. Keep clocks, scope, stage union, dependency
+and data inputs explicit in any future equivalence manifest. This correction
+changes no consumer gate or checks. A shorter nightly or local duration after
+coverage changes is a different workload, not an equivalent-workload speedup;
+compare timings only after matching those inputs and retaining failures.
 
 ## Non-negotiable boundaries
 

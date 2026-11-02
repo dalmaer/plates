@@ -1,6 +1,6 @@
 {
   "name": "plates",
-  "version": "0.8.35",
+  "version": "0.8.38",
   "private": true,
   "description": "Keep projects moving with shared practices, bounded automation, and evidence-backed care.",
   "type": "module",
@@ -34,10 +34,12 @@
     "render": "node scripts/render.mjs --self",
     "render:check": "node scripts/render.mjs --self --check",
     "inbox:check": "node bin/plates.mjs learn render --check",
-    "check": "node scripts/plates/test-ledger.mjs --run \"npm test && npm run roadmap:check && npm run render:check && npm run inbox:check\"",
+    "check": "node scripts/plates/test-ledger.mjs --run \"npm test && npm run test:installed && npm run roadmap:check && npm run render:check && npm run inbox:check\"",
     "typecheck": "tsc --project tsconfig.json",
     "keel": "node bin/plates.mjs",
-    "check:focused": "node scripts/check-focused.mjs"
+    "check:focused": "node scripts/check-focused.mjs",
+    "test:installed:node": "node --import ./tests/helpers/hermetic.mjs --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/plates/test-ledger.mjs --test-reporter-destination=stdout --test-concurrency=1 tests/installed/evaluation-live-cli.test.mjs tests/installed/evaluation-live-deadlines.test.mjs tests/installed/evaluation-live-transfer.test.mjs tests/installed/validation-request-budget.test.mjs tests/installed/evaluation-credential-pipe.test.mjs",
+    "test:installed": "node scripts/check-installed.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.11",

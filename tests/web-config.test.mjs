@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { NAMES } from '../lib/names.mjs';
-import { webEnv, operationHeader, readOperationMarker, operationMarker } from '../lib/web/name-transition.mjs';
+import { webEnv, operationHeader, readOperationMarker, operationMarker, reviewedMarker } from '../lib/web/name-transition.mjs';
 import { configFromEnv } from '../lib/web/config.mjs';
 import { harness } from './helpers/web-http.mjs';
 
@@ -24,12 +24,17 @@ test('service starts under either complete environment and refuses conflicting c
 });
 for (const legacy of ['Keel-Operation', 'Keel-Update-Operation']) test(`operation aliases: ${legacy}`, () => {
   const row = NAMES.find(r => r.keel === legacy), id = 'a'.repeat(64);
-  assert.equal(row.state, 'held', 'operation marker activation needs the verified deployed baseline');
-  assert.equal(operationMarker(id, legacy), `${row.keel}: ${id}`);
+  // Phase127 activation: writers move to Plates; both aliases stay readable for rollback.
+  assert.equal(row.state, 'dual', 'operation marker writers follow the reviewed phase127 row');
+  assert.equal(operationMarker(id, legacy), `${row.plates}: ${id}`);
   for (const name of [row.plates, row.keel]) {
     assert.equal(operationHeader(new Headers({ [name]: id }), legacy), id);
     assert.equal(readOperationMarker(`Acme\n\n${name}: ${id}`, legacy), id);
+    // A preview reviewed on either release keeps its own marker spelling at apply.
+    assert.equal(reviewedMarker(`Acme\n\n${name}: ${id}`, id, legacy), `${name}: ${id}`);
   }
+  for (const message of [`Acme\n\n${row.plates}: ${'b'.repeat(64)}`, `${row.plates}: ${id}\nAcme`, 'Acme'])
+    assert.throws(() => reviewedMarker(message, id, legacy), /invalid_preview/);
   assert.equal(readOperationMarker(`${row.plates}: ${id}\n${row.keel}: ${id}`, legacy), id);
   assert.throws(() => operationHeader(new Headers({ [row.plates]: id, [row.keel]: 'other' }), legacy), /conflicting_names/);
   assert.throws(() => readOperationMarker(`${row.plates}: ${id}\n${row.keel}: other`, legacy), /conflicting_names/);

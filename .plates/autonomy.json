@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "repository": "dalmaer/plates",
+  "mode": "delivery",
+  "push": [],
+  "merge": [
+    "main"
+  ],
+  "pushPrefixes": [
+    "claude/",
+    "codex/",
+    "work/"
+  ]
+}

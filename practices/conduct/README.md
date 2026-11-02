@@ -6,7 +6,9 @@ verification repeated at every level until it costs more than it catches
 apart (lesson 1).
 
 **The rule.** The conductor briefs a builder per phase, verifies the named
-proof itself, writes the record and commits the phase whole. The skill lives
+proof itself, writes the record and lands independently safe increments throughout
+the phase. The first safe merge is planned before building; a phase is complete
+only when all its acceptance is proven. The skill lives
 once, at `.agents/skills/spin/SKILL.md`; Claude Code reaches it through the
 committed symlink `.claude/skills/spin`.
 
