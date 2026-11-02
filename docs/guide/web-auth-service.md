@@ -68,6 +68,29 @@ Set these only in the production deployment's secret store:
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only PostgREST authentication; Marketplace name supported directly |
 | `PLATES_SESSION_ENCRYPTION_KEY` | Base64 encoding of 32 cryptographically random bytes for AES-256-GCM |
 
+### Existing Keel deployments
+
+Use `PLATES_` names for new setups. The service accepts the corresponding
+`KEEL_` names for `GITHUB_CLIENT_SECRET`, `SESSION_ENCRYPTION_KEY` and
+`WEB_CONFIG` during the name transition. If both names are present, their
+values must match: conflicting values are rejected before service startup.
+An empty or invalid canonical value fails validation rather than silently
+falling back. The alias reader never includes credential values in its errors.
+
+For an existing deployment that retains `KEEL_` secret names, those names are
+supported compatibility bindings. A name-only migration must supply the
+**same values** from an approved retained source, then redeploy and verify
+before retiring the old bindings. Do not print secrets or commit them.
+The deployment's current bindings and the availability of retained values
+must be verified separately; this guide does not establish either fact.
+
+Changing a value is a separate credential rotation. In particular, the session
+encryption key also protects durable private records: replacing it without a
+planned data migration would make existing ciphertext unreadable. Renaming the
+product does not require a new GitHub App or a new encryption key.
+
+### Initial setup
+
 Generate the encryption key directly into the approved secret store without
 printing it or saving it in Git. Neither the anon key nor a frontend key can
 replace the service role credential. Environment bindings are explicit: the
