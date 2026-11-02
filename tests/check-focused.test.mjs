@@ -95,7 +95,7 @@ test('CLI exposes an inspectable plan, rejects omission flags, and package alias
   const pkg = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8'));
   assert.equal(pkg.scripts['check:focused'], 'node scripts/check-focused.mjs');
   assert.match(pkg.scripts.check, /test-ledger\.mjs --run/);
-  assert.match(pkg.scripts.check, /npm test && npm run roadmap:check && npm run render:check && npm run inbox:check/);
+  assert.match(pkg.scripts.check, /npm test && npm run test:installed && npm run roadmap:check && npm run render:check && npm run inbox:check/);
 });
 
 

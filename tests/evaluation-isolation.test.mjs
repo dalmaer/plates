@@ -134,6 +134,20 @@ test('observed evaluator provenance hashes fixed executing sources and Node sepa
   assert.ok(!Object.hasOwn(observed, 'harnessCommit'));
 });
 
+test('installed evaluation modules and curated evaluator data all participate in controller identity', async () => {
+  const modules = (await readdir(new URL('../lib/', import.meta.url)))
+    .filter(name => name.startsWith('evaluation-') && name.endsWith('.mjs'));
+  const data = await readdir(new URL('../lib/evaluation-corpus/', import.meta.url), { recursive: true, withFileTypes: true });
+  const corpusRoot = new URL('../lib/evaluation-corpus/', import.meta.url);
+  const files = data.filter(entry => entry.isFile()).map(entry => {
+    const absolute = join(entry.parentPath, entry.name);
+    const root = decodeURIComponent(corpusRoot.pathname);
+    return 'evaluation-corpus/' + absolute.slice(root.length);
+  });
+  for (const path of [...modules, ...files]) assert.ok(CONTROLLER_SOURCES.includes(path), `unbound installed evaluation source: ${path}`);
+  assert.equal(new Set(CONTROLLER_SOURCES).size, CONTROLLER_SOURCES.length, 'each source is observed once');
+});
+
 test('changed installed controller bytes invalidate loaded identity and fresh approval fingerprint', async t => {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'acme-controller-')));
   t.after(() => rm(root, { recursive: true, force: true }));

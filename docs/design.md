@@ -355,6 +355,12 @@ and explicit export: `--case` selects the curated case, `--repository` pins its
 local source, and `--destination` names the reviewed private export directory.
 It grants no evaluation execution, provider access or promotion authority.
 
+The local evaluation runtime also owns `--credential-fd`: a reference to an
+inherited, bounded credential FIFO for an explicitly approved count, generation
+or original-ID recovery operation. It is not a credential store or a new grant.
+Local-only recovery rejects it, and hosted execution remains unavailable. Provider
+transport stays separate from the independent acceptance authority.
+
 ### What Plates owns, verb by verb
 
 - **Practice and installation:** `plates init`, `plates adopt`,

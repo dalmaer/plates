@@ -2,7 +2,7 @@ import './helpers/hermetic.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { createEvaluationProvider, EVALUATION_PROVIDER_LIMITS as limits } from '../lib/evaluation-provider.mjs';
+import { createEvaluationProvider, evaluationRequestCompletion, prepareEvaluationProviderPacket, EVALUATION_PROVIDER_LIMITS as limits } from '../lib/evaluation-provider.mjs';
 
 // Synthetic Acme inputs only. Every adapter instance receives a fake fetcher.
 const key = 'acme-synthetic-provider-credential-only';
@@ -53,6 +53,7 @@ test('live count/start/inspect bind the public packet, model, scope and standard
     assert.equal(call.organization, scope.organization); assert.equal(call.project, scope.project);
   }
   assert.equal(count.packetDigest, createHash('sha256').update(JSON.stringify(countedBody)).digest('hex'));
+  assert.deepEqual(prepareEvaluationProviderPacket({ model, packet: input().packet }), { body: countedBody, packetDigest: count.packetDigest });
   assert.equal(started.packetDigest, count.packetDigest);
   assert.deepEqual(count.model, model); assert.deepEqual(started.model, model);
   assert.equal(count.inputTokens, 100); assert.equal(count.requestedServiceTier, 'default');
@@ -239,4 +240,114 @@ test('live reader accepts 4096 progressing chunks but refuses the next chunk bel
     }
     assert.equal(calls, 1); assert.equal(cancelled, true);
   }
+});
+
+test('pure provider packet preparation preserves the fixed wire identity and snapshots inputs', () => {
+  const original = { model: { requested: 'acme-alias', resolved: 'acme-resolved' }, packet: { instructions: 'Acme instructions.', input: 'Acme input.' } };
+  const prepared = prepareEvaluationProviderPacket(original);
+  assert.equal(JSON.stringify(prepared.body), '{"model":"acme-resolved","instructions":"Acme instructions.","input":"Acme input."}');
+  // Independent fixed vector, not computed by the helper under test.
+  assert.equal(prepared.packetDigest, '48bab5a7295308deadc6c2a073f63e3c7617e46509343202cfd1b5d8a1b1c930');
+  original.model.requested = 'acme-other-alias';
+  assert.equal(prepareEvaluationProviderPacket(original).packetDigest, prepared.packetDigest);
+  original.model.resolved = 'acme-other-resolved';
+  assert.notEqual(prepareEvaluationProviderPacket(original).packetDigest, prepared.packetDigest);
+  original.packet.input = 'Acme changed';
+  assert.equal(prepared.body.input, 'Acme input.');
+  assert.ok(Object.isFrozen(prepared) && Object.isFrozen(prepared.body));
+  assert.throws(() => { prepared.body.model = 'changed'; }, TypeError);
+});
+
+test('pure provider packet preparation rejects unsupported shape, Unicode and exact byte overflow', () => {
+  const valid = { model: { ...model }, packet: { instructions: 'Acme', input: 'x' } };
+  for (const changed of [
+    { ...valid, key }, { ...valid, scope }, { ...valid, model: 'acme' },
+    { ...valid, model: { requested: 'acme', resolved: null } },
+    { ...valid, model: { ...model, other: 'acme' } },
+    ...['', ' ', 'x\0y', '\ud800', '\udfff'].map(s => ({ ...valid, packet: { instructions: 'Acme', input: s } })),
+    { ...valid, packet: { ...valid.packet, other: 'acme' } },
+  ]) assert.throws(() => prepareEvaluationProviderPacket(changed), safeFailure('evaluation_provider_input', 'not-dispatched'));
+  const overhead = Buffer.byteLength(JSON.stringify({ instructions: 'Acme', input: '' }));
+  const exact = { ...valid, packet: { instructions: 'Acme', input: 'x'.repeat(limits.packetBytes - overhead) } };
+  assert.equal(Buffer.byteLength(JSON.stringify(exact.packet)), limits.packetBytes);
+  assert.ok(prepareEvaluationProviderPacket(exact).packetDigest);
+  assert.throws(() => prepareEvaluationProviderPacket({ ...exact, packet: { ...exact.packet, input: exact.packet.input + 'x' } }), safeFailure('evaluation_provider_input', 'not-dispatched'));
+  const throwing = { model: { ...model }, get packet() { throw Error('Acme private canary'); } };
+  assert.throws(() => prepareEvaluationProviderPacket(throwing), e => e.message === 'evaluation_provider_input' && e.cause === undefined && !e.stack.includes('Acme private canary'));
+});
+
+test('shared packet validation refuses malformed Unicode before count or generation dispatch', async () => {
+  let calls = 0;
+  const adapter = provider(async () => { calls++; return json(response()); });
+  for (const operation of ['count', 'start']) {
+    const request = { ...input(), packet: { instructions: 'Acme', input: '\ud800' }, ...(operation === 'start' ? { maxOutputTokens: 50 } : {}) };
+    await assert.rejects(adapter[operation](request), safeFailure('evaluation_provider_input', 'not-dispatched'));
+  }
+  assert.equal(calls, 0);
+});
+
+const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+const begin = (adapter, operationId, extra = {}) => adapter.beginEvaluationRequest({ operationId,
+  operation: 'count', input: input(), timeoutMs: 40, ...extra });
+const pending = promise => Promise.race([promise.then(() => false), pause(15).then(() => true)]);
+test('local completion is opaque and bound, and operationId never reaches the wire', async () => {
+  let calls = 0;
+  const adapter = provider(async (url, options) => {
+    calls++; assert.equal(JSON.stringify({url,...options}).includes('acme-completion'), false);
+    return json({object:'response.input_tokens',input_tokens:3});
+  });
+  const request = begin(adapter, 'acme-completion');
+  assert.equal((await request.result).inputTokens, 3);
+  const witness = await request.localCompletion;
+  assert.deepEqual(evaluationRequestCompletion(witness, 'acme-completion'), {state:'transport-closed'});
+  assert.throws(()=>evaluationRequestCompletion({...witness},'acme-completion'), /evaluation_provider_input/);
+  assert.throws(()=>evaluationRequestCompletion(witness,'acme-other'), /evaluation_provider_input/);
+  assert.throws(()=>begin(adapter,'acme-completion'),/evaluation_provider_input/);
+  assert.equal(calls,1);
+});
+test('timed-out result keeps local completion pending until the actual late fetch and body close', async () => {
+  let deliver, cancelDone, calls = 0;
+  const adapter = provider(() => { calls++; return new Promise(resolve=>{deliver=resolve;}); });
+  const request = begin(adapter,'acme-late-fetch');
+  await assert.rejects(request.result,safeFailure('evaluation_provider_timeout'));
+  assert.equal(await pending(request.localCompletion),true);
+  deliver({body:{cancel:()=>new Promise(resolve=>{cancelDone=resolve;})}});
+  await pause(1);
+  assert.equal(await pending(request.localCompletion),true);
+  cancelDone();
+  assert.deepEqual(evaluationRequestCompletion(await request.localCompletion,'acme-late-fetch'),{state:'transport-closed'});
+  assert.equal(calls,1);
+});
+test('pending body read or failed cancellation cannot issue a local close witness', async()=>{
+  let rejectRead;
+  const adapter=provider(async()=>({ok:true,headers:[],body:{getReader:()=>({
+    read:()=>new Promise((_,reject)=>{rejectRead=reject;}),cancel:async()=>{throw Error('Acme cancellation unavailable');}
+  })}}));
+  const request=begin(adapter,'acme-body-unknown');
+  await assert.rejects(request.result,safeFailure('evaluation_provider_timeout'));
+  assert.equal(await pending(request.localCompletion),true);
+  rejectRead(Error('Acme read aborted'));
+  assert.equal(await pending(request.localCompletion),true);
+});
+test('HTTP refusal can close local handles while result still retains uncertain dispatch',async()=>{
+  const request=begin(provider(async()=>json({}, {status:429})),'acme-http-close');
+  await assert.rejects(request.result,safeFailure('evaluation_provider_throttled'));
+  assert.deepEqual(evaluationRequestCompletion(await request.localCompletion,'acme-http-close'),{state:'transport-closed'});
+});
+test('validation and pre-aborted requests produce not-started evidence without transport',async()=>{
+  let calls=0;const adapter=provider(async()=>{calls++;throw Error('Acme forbidden call');});
+  const abort=new AbortController();abort.abort();
+  for(const [id,extra,code] of [['acme-not-started',{input:{}},'evaluation_provider_input'],
+    ['acme-pre-aborted',{signal:abort.signal},'evaluation_provider_timeout']]){
+    const request=begin(adapter,id,extra);
+    await assert.rejects(request.result,safeFailure(code,'not-dispatched'));
+    assert.deepEqual(evaluationRequestCompletion(await request.localCompletion,id),{state:'not-started'});
+  }
+  assert.equal(calls,0);
+});
+test('explicit abort ends the public result promptly but cannot assert closure of an unfinished fetch',async()=>{
+  const request=begin(provider(()=>new Promise(()=>{})),'acme-explicit-abort');
+  request.abort();
+  await assert.rejects(request.result,safeFailure('evaluation_provider_timeout'));
+  assert.equal(await pending(request.localCompletion),true);
 });

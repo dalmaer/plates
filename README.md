@@ -388,7 +388,7 @@ then gives the commands and every flag by the reason you'd pass it.
 | [Delivery](docs/guide/delivery.md) | two changes in a row should publish once, and deploys should follow tested commits, not `main` |
 | [When something is red](docs/guide/when-something-is-red.md) | a night, an update, a doctor or a climb did not go green |
 | [Project canvas](docs/guide/project-canvas.md) | you want a source-linked view of the project's lifecycle and improvement |
-| [Harness evaluation records](docs/guide/harness-evaluations.md) | you want to inspect historical cases, freeze inputs, compare offline trials and recover interrupted work |
+| [Harness evaluation records](docs/guide/harness-evaluations.md) | you want to inspect historical cases, freeze inputs, compare trials and inspect bounded live execution and recovery |
 | [Session handoff trials](docs/guide/session-handoff-trials.md) | you want to measure and tune session handoffs within a bounded experiment |
 | [Loose ends and the retro](docs/guide/loose-ends-and-retro.md) | you are picking work back up, or a phase just finished |
 | [Model choice and project planning](docs/guide/web-model-routing.md) | you want to review a private model policy, approve exact project text and bounded cost, or follow an original attempt and saved-summary continuation |
@@ -522,6 +522,12 @@ npm ci --ignore-scripts  # development-only type tooling
 npm run typecheck        # checked JSDoc, no emitted JavaScript
 ```
 
+The source gate runs the parallel `npm test` suite, then the mandatory installed
+CLI, Docker recovery deadline, live transfer, request budget and credential-pipe
+checks at concurrency one, then the roadmap, render and inbox guards. Each
+test stage keeps its own receipt; an earlier failure leaves later stages not run.
+See [validation preflight](docs/development/validation-preflight.md#installed-deadline-checks).
+
 In Claude Code, `/spin` walks the phases.
 
 The CLI still runs directly from its `.mjs` source with zero runtime
@@ -557,9 +563,14 @@ criteria and binds terminal trials to immutable reports before recording evaluat
 results. Phase 123 adds read-only review packages, explicit local package records,
 unmeasured follow-up observations and dormant exact-review/merge verification.
 Unknown costs and offline scripted execution remain inconclusive. See the
-[learning guide](docs/guide/lessons-and-learning.md). Live provider execution, enforced
-spend, per-case environment mapping and verified installed delivery remain missing;
-real supported screening and promotion are unavailable. No approver policy is
+[learning guide](docs/guide/lessons-and-learning.md). Explicit one-slot live
+count/generation and original-operation recovery now use per-case environments,
+independent acceptance and retained spend evidence. Installed synthetic tests
+verify this path; they do not establish real agent efficacy. The credential FIFO
+is currently supported on macOS only. Real instruction-treatment screening still needs explicit guidance routing (v1
+supplies context as file data), curated baseline/candidate context, attributable
+pricing and exact owner approval; live
+aggregate resume and hosted activation remain unavailable. No promotion policy is
 activated and no paid evaluations are approved. The
 [capability map](docs/research/2026-10-23-evaluation-capabilities.md) separates
 existing mechanisms from the proposed extensions.
