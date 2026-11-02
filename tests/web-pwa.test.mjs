@@ -159,10 +159,10 @@ test('the app installs and caches only its shell', async () => {
   for (const [path, cookie] of [['/signin', undefined], ['/', signed.cookie], ['/projects/studio', signed.cookie]]) {
     const html = await (await h.service(h.request(path, { cookie }))).text();
     assert.match(html, /<link rel="manifest" href="\/manifest.webmanifest">/, path);
-    assert.match(html, /<link rel="apple-touch-icon" href="\/assets\/apple-touch-icon.png">/, path);
+    assert.match(html, /<link rel="apple-touch-icon" href="\/assets\/apple-touch-icon\.[0-9a-f]{12}\.png">/, path);
     assert.match(html, /<meta name="apple-mobile-web-app-capable" content="yes">/, path);
     assert.ok(html.includes(`<meta name="plates-shell" content="${version}">`), path);
-    if (cookie) assert.match(html, /<script type="module" src="\/assets\/pwa-client.mjs"><\/script><\/body>/, path);
+    if (cookie) assert.match(html, /<script type="module" src="\/assets\/pwa-client\.[0-9a-f]{12}\.mjs"><\/script><\/body>/, path);
     else assert.doesNotMatch(html, /<script/, 'a script-free page stays script-free');
     assert.equal((html.match(/rel="manifest"/g) || []).length, 1, path);
   }
@@ -179,7 +179,11 @@ test('the app installs and caches only its shell', async () => {
   runWorker(source, worker.scope);
   await worker.dispatch('install');
   assert.deepEqual([...caches.stores.keys()], [`plates-shell-${version}`]);
-  assert.deepEqual([...caches.stores.get(`plates-shell-${version}`).keys()].sort(), [...SHELL].sort());
+  // The worker precaches the shell by digest URL (phase 165).
+  const shell = createPwa().shell;
+  assert.equal(createPwa().version, version, 'the served worker is the default shell');
+  assert.equal(shell.length, SHELL.length);
+  assert.deepEqual([...caches.stores.get(`plates-shell-${version}`).keys()].sort(), [...shell].sort());
   assert.ok(seen.every(entry => entry.credentials === 'omit'), 'the shell is fetched without the session cookie');
   await worker.dispatch('activate');
   assert.deepEqual(worker.posted, [{ type: 'plates-shell', version }]);
@@ -189,16 +193,19 @@ test('the app installs and caches only its shell', async () => {
   network.up = false;
   const fallback = await worker.dispatch('fetch', { request: navigate('/projects/studio') });
   assert.match(await fallback.text(), /You are offline/);
-  const css = await worker.dispatch('fetch', { request: { url: `${origin}/assets/plates.css`, method: 'GET', mode: 'no-cors' } });
+  const css = await worker.dispatch('fetch', { request: { url: `${origin}${shell.find(path => path.startsWith('/assets/plates.'))}`, method: 'GET', mode: 'no-cors' } });
   assert.equal(css.status, 200, 'shell assets come from the cache while offline');
-  assert.equal(caches.writes.length, SHELL.length, 'nothing was written after install');
+  assert.equal(caches.writes.length, shell.length, 'nothing was written after install');
 
   // A changed shell is a new version: the new worker deletes the old cache and
   // tells open pages, which refresh only once they are online again.
   const next = createPwa({ css: 'body{color:#245c48}' });
   assert.notEqual(next.version, version);
   network.up = true;
-  const upgraded = workerScope({ origin, caches, fetch });
+  // The new worker comes with its own deployment, which serves its new digest URLs.
+  const deployed = async request => { const hit = next.assets.lookup(new URL(request.url).pathname);
+    return hit?.immutable ? new Response(hit.entry.body, { headers: { 'Content-Type': hit.entry.type } }) : fetch(request); };
+  const upgraded = workerScope({ origin, caches, fetch: deployed });
   runWorker(next.worker, upgraded.scope);
   await upgraded.dispatch('install'); await upgraded.dispatch('activate');
   assert.deepEqual([...caches.stores.keys()], [`plates-shell-${next.version}`]);
