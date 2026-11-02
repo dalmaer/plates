@@ -9,6 +9,10 @@ import { harness } from './helpers/web-http.mjs';
 import { createWebService } from '../lib/web/server.mjs';
 import { createPwa, shellWorker, SHELL } from '../lib/web/pwa.mjs';
 import { shellRefresh, startPwa } from '../lib/web/pwa-client.mjs';
+import * as safetyClient from '../lib/web/safety-client.mjs';
+const { startSafety } = safetyClient;
+// Read at call time, so this file loads (and its tests fail) without the export.
+const hasUnsavedEdits = document => safetyClient.hasUnsavedEdits(document);
 import { encryptPayload, vapidAuthorization, vapidKeys, publicKeyObject, validSubscription } from '../lib/web/push.mjs';
 import { createPushStore } from '../lib/web/push-store.mjs';
 import { notificationsFor, createPushNotifier, waitingEvents } from '../lib/web/push-notify.mjs';
@@ -40,7 +44,7 @@ function fakeCaches() {
 
 function workerScope({ origin, caches, fetch }) {
   const listeners = {}, posted = [], opened = [], shown = [];
-  const scope = { location: { origin }, caches: caches.api, fetch, skipWaiting: async () => {},
+  const scope = { location: { origin }, caches: caches.api, fetch, skipWaiting: async () => {}, setTimeout, clearTimeout,
     addEventListener: (name, handler) => { listeners[name] = handler; },
     clients: { claim: async () => {}, matchAll: async () => [{ url: `${origin}/daily`, postMessage: message => posted.push(JSON.parse(JSON.stringify(message))), focus: async () => {} }], openWindow: async url => { opened.push(url); } },
     registration: { showNotification: async (title, options) => { shown.push({ title, options }); } } };
@@ -488,4 +492,221 @@ test('a signed-in page offers notifications and subscribes with the session CSRF
   assert.equal(permissionAsked, 1, 'turning off asks nothing');
   assert.deepEqual(requests.at(-1), { path: '/api/push/subscription', method: 'DELETE', body: { csrf: 'Acme-csrf', endpoint: phone.subscription.endpoint } });
   assert.equal(button.textContent, 'Turn on notifications');
+});
+
+// ---- phase 164: an app update never costs unsaved work
+
+// A small page: elements that hold attributes, children, text and listeners.
+function fakePage({ version, safety = true }) {
+  const element = tag => {
+    const node = { tag, attributes: {}, children: [], listeners: {}, textContent: '', type: '', disabled: false,
+      setAttribute(name, value) { node.attributes[name] = value; }, hasAttribute: name => Object.hasOwn(node.attributes, name),
+      addEventListener(name, handler) { node.listeners[name] = handler; }, removeEventListener() {},
+      append(...nodes) { node.children.push(...nodes); }, prepend(...nodes) { node.children.unshift(...nodes); },
+      querySelector: selector => selector === '[data-safety-status]' ? node.children.find(child => child.hasAttribute?.('data-safety-status')) ?? null : null };
+    return node;
+  };
+  const main = element('main'), listeners = {};
+  const document = { visibilityState: 'visible', body: element('body'), createElement: element, activeElement: null,
+    addEventListener: (name, handler) => { listeners[name] = handler; }, removeEventListener() {},
+    querySelector: selector => {
+      if (selector === 'meta[name="plates-shell"]') return { getAttribute: () => version };
+      if (selector === 'main') return main;
+      if (selector === '[data-safety-status]' || selector.includes('/assets/safety-client.mjs')) return safety ? main.querySelector('[data-safety-status]') : null;
+      return null;
+    } };
+  return { document, main, listeners };
+}
+
+function fakeClient({ version, online = true }) {
+  const windowListeners = {}, workerListeners = {}, sent = [], counts = { reloads: 0, updates: 0 };
+  const registration = { update: async () => { counts.updates++; } };
+  const navigator = { onLine: online, serviceWorker: { addEventListener: (name, handler) => { workerListeners[name] = handler; },
+    register: async () => registration, controller: { postMessage: message => sent.push(message) } } };
+  const window = { navigator, addEventListener: (name, handler) => { windowListeners[name] = handler; }, removeEventListener() {},
+    location: { pathname: '/projects/studio/daily', search: '', reload: () => { counts.reloads++; }, assign() {} } };
+  return { window, navigator, windowListeners, workerListeners, sent, counts };
+}
+
+const tick = () => new Promise(resolve => setImmediate(resolve));
+
+test('a new shell never reloads over unsaved edits', async () => {
+  const oldVersion = 'a'.repeat(32), newVersion = 'b'.repeat(32);
+  const safety = () => import('../lib/web/safety-client.mjs');
+  // A page with an editor holding unsaved text.
+  const editing = fakePage({ version: oldVersion }), browser = fakeClient({ version: oldVersion });
+  let dirty = true;
+  const guard = startSafety({ root: editing.main, document: editing.document, window: browser.window, readDirty: () => dirty });
+  assert.equal(hasUnsavedEdits(editing.document), true);
+  const client = startPwa({ window: browser.window, document: editing.document, navigator: browser.navigator, safety });
+  await client.ready;
+  browser.workerListeners.message({ data: { type: 'plates-shell', version: newVersion } });
+  browser.workerListeners.message({ data: { type: 'plates-shell', version: newVersion } });
+  await tick(); await tick();
+  assert.equal(browser.counts.reloads, 0, 'unsaved edits are never reloaded away');
+  const notices = editing.main.children.filter(child => child.hasAttribute('data-shell-notice'));
+  assert.equal(notices.length, 1, 'one notice, in the page');
+  const [notice] = notices;
+  assert.equal(notice.attributes.role, 'status');
+  assert.equal(notice.textContent.trim(), 'A new version is ready. Reload when you have saved.');
+  const [button] = notice.children;
+  assert.deepEqual([button.tag, button.type, button.textContent], ['button', 'button', 'Reload']);
+  // The owner saves, then chooses to reload.
+  dirty = false;
+  assert.equal(browser.counts.reloads, 0, 'saving alone does not reload');
+  button.listeners.click();
+  assert.equal(browser.counts.reloads, 1);
+
+  // A stopped guard no longer counts; a guard that cannot answer counts as unsaved.
+  dirty = true; guard.stop();
+  assert.equal(hasUnsavedEdits(editing.document), false);
+  const unsure = fakePage({ version: oldVersion });
+  startSafety({ root: unsure.main, document: unsure.document, window: browser.window, readDirty: () => { throw new Error('unknown'); } });
+  assert.equal(hasUnsavedEdits(unsure.document), true);
+
+  // A page whose editor has nothing unsaved refreshes as before.
+  const clean = fakePage({ version: oldVersion }), other = fakeClient({ version: oldVersion });
+  startSafety({ root: clean.main, document: clean.document, window: other.window, readDirty: () => false });
+  await startPwa({ window: other.window, document: clean.document, navigator: other.navigator, safety }).ready;
+  other.workerListeners.message({ data: { type: 'plates-shell', version: newVersion } });
+  await tick(); await tick();
+  assert.equal(other.counts.reloads, 1);
+  assert.equal(clean.main.children.some(child => child.hasAttribute('data-shell-notice')), false);
+
+  // A page without editors never loads the safety client and reloads at once.
+  const plain = fakePage({ version: oldVersion, safety: false }), third = fakeClient({ version: oldVersion });
+  let loaded = 0;
+  await startPwa({ window: third.window, document: plain.document, navigator: third.navigator, safety: () => { loaded++; return safety(); } }).ready;
+  third.workerListeners.message({ data: { type: 'plates-shell', version: newVersion } });
+  assert.deepEqual([third.counts.reloads, loaded], [1, 0]);
+});
+
+test('navigation preloads and gives up on a stalled network', async () => {
+  const origin = 'https://plates.acme.test', caches = fakeCaches(), calls = [];
+  let mode = 'up';
+  const pending = [];
+  const fetch = async request => {
+    calls.push(request.url);
+    if (mode === 'stall') return new Promise(resolve => pending.push(() => resolve(new Response('<p>Acme secret merger</p>', { headers: { 'content-type': 'text/html' } }))));
+    return new Response(request.url.endsWith('/offline') ? 'You are offline' : 'shell');
+  };
+  const worker = workerScope({ origin, caches, fetch });
+  let enabled = 0;
+  worker.scope.registration.navigationPreload = { enable: async () => { enabled++; } };
+  const { route } = shellWorker(worker.scope, { version: 'c'.repeat(32), shell: ['/offline'], offline: '/offline', timeout: 30 });
+  await worker.dispatch('install'); await worker.dispatch('activate');
+  assert.equal(enabled, 1, 'activate turns on navigation preload');
+  const writes = caches.writes.length; calls.length = 0;
+  const navigate = path => ({ url: `${origin}${path}`, method: 'GET', mode: 'navigate' });
+
+  // The preload response is used; the worker does not fetch the page again.
+  const preloaded = await worker.dispatch('fetch', { request: navigate('/projects/studio'), preloadResponse: Promise.resolve(new Response('preloaded page')) });
+  assert.equal(await preloaded.text(), 'preloaded page');
+  assert.deepEqual(calls, []);
+  // No preload (unsupported, or not enabled yet): fetch as before. route() alone still works.
+  assert.equal(await (await worker.dispatch('fetch', { request: navigate('/'), preloadResponse: Promise.resolve(undefined) })).text(), 'shell');
+  assert.equal(await (await route(navigate('/daily'))).text(), 'shell');
+  assert.equal(calls.length, 2);
+
+  // A stalled connection gets the offline page after the bounded wait.
+  mode = 'stall';
+  const started = Date.now();
+  const stalled = await worker.dispatch('fetch', { request: navigate('/projects/studio') });
+  assert.match(await stalled.text(), /You are offline/);
+  assert.ok(Date.now() - started >= 25, 'it waited for the timeout');
+  const stalledPreload = await worker.dispatch('fetch', { request: navigate('/projects/studio'), preloadResponse: new Promise(() => {}) });
+  assert.match(await stalledPreload.text(), /You are offline/);
+  // The late response arrives and is dropped: nothing is ever stored.
+  for (const resolve of pending) resolve();
+  await tick(); await tick();
+  assert.equal(caches.writes.length, writes, 'no navigation response was written to the cache');
+  const stored = await Promise.all([...caches.stores.get(`plates-shell-${'c'.repeat(32)}`).values()].map(response => response.clone().text()));
+  assert.ok(stored.every(text => !/Acme secret merger/.test(text)));
+
+  // The served worker carries the 30 second default, above the server's 25 second source reads.
+  const served = createPwa({ css: 'body{}' }).worker;
+  const real = workerScope({ origin, caches: fakeCaches(), fetch });
+  const timers = [];
+  real.scope.setTimeout = (handler, ms) => { timers.push(ms); return 0; };
+  runWorker(served, real.scope);
+  mode = 'up';
+  await real.dispatch('fetch', { request: navigate('/') });
+  assert.deepEqual(timers, [30000]);
+});
+
+test('a returning app checks for a new shell', async () => {
+  const version = 'a'.repeat(32), page = fakePage({ version, safety: false }), browser = fakeClient({ version });
+  const client = startPwa({ window: browser.window, document: page.document, navigator: browser.navigator });
+  await client.ready;
+  browser.sent.length = 0;
+  page.document.visibilityState = 'hidden';
+  page.listeners.visibilitychange();
+  await tick(); await tick();
+  assert.deepEqual([browser.counts.updates, browser.sent.length], [0, 0], 'going to the background checks nothing');
+  page.document.visibilityState = 'visible';
+  page.listeners.visibilitychange();
+  await tick(); await tick();
+  assert.equal(browser.counts.updates, 1, 'the worker registration is updated');
+  assert.deepEqual(browser.sent, [{ type: 'plates-shell?' }], 'and the worker is asked for its version');
+  // A newer worker answers: the page refreshes as on reconnect.
+  browser.workerListeners.message({ data: { type: 'plates-shell', version: 'b'.repeat(32) } });
+  assert.equal(browser.counts.reloads, 1);
+});
+
+test('a rotated push subscription keeps notifications coming', async t => {
+  const h = harness(), database = await pushDatabase(t), origin = h.config.origin;
+  const fetcher = async (url, options) => new URL(url).pathname === '/rest/v1/rpc/plates_push_rpc' ? database.handle(url, options) : h.fetcher(url, options);
+  const service = createWebService(h.config, { fetcher, now: () => h.state.now });
+  const store = createPushStore(h.config, fetcher);
+  const phone = device('https://web.push.apple.com/QAcmePhoneOld'), rotated = device('https://web.push.apple.com/QAcmePhoneNew');
+  const tablet = device('https://fcm.googleapis.com/fcm/send/acme-tablet');
+  await store.subscribe(1, phone.subscription); await store.subscribe(1, tablet.subscription);
+  const rotate = (body, { origin: from = origin, cookie } = {}) => service(new Request(`${origin}/api/push/subscription/rotate`, { method: 'POST',
+    headers: { 'content-type': 'application/json', origin: from, ...(cookie ? { cookie } : {}) }, body: JSON.stringify(body) }));
+
+  // The browser rotates the phone's subscription while no page is open. The
+  // worker re-subscribes with the old options and posts the new one.
+  const posted = [];
+  const workerFetch = async (url, options = {}) => {
+    posted.push({ url, method: options.method, credentials: options.credentials });
+    return service(new Request(url, { method: options.method, headers: { ...options.headers, origin }, body: options.body }));
+  };
+  const worker = workerScope({ origin, caches: fakeCaches(), fetch: workerFetch });
+  const oldOptions = { userVisibleOnly: true, applicationServerKey: new Uint8Array(65).buffer };
+  let subscribedWith = null;
+  worker.scope.registration.pushManager = { subscribe: async options => { subscribedWith = options; return { endpoint: rotated.subscription.endpoint, toJSON: () => rotated.subscription }; } };
+  shellWorker(worker.scope, { version: 'a'.repeat(32), shell: [], offline: '/offline' });
+  await worker.dispatch('pushsubscriptionchange', { oldSubscription: { endpoint: phone.subscription.endpoint, options: oldOptions }, newSubscription: null });
+  assert.equal(subscribedWith, oldOptions, 're-subscribed with the old options');
+  assert.deepEqual(posted, [{ url: `${origin}/api/push/subscription/rotate`, method: 'POST', credentials: 'same-origin' }]);
+  // Only the phone's own record changed: the tablet is untouched.
+  assert.deepEqual((await store.list(1)).map(s => s.endpoint).sort(), [rotated.subscription.endpoint, tablet.subscription.endpoint].sort());
+
+  // An unknown old endpoint is refused and creates nothing.
+  const stranger = device('https://web.push.apple.com/QAcmeStranger'), other = device('https://web.push.apple.com/QAcmeOther');
+  const unknown = await rotate({ oldEndpoint: stranger.subscription.endpoint, subscription: other.subscription });
+  assert.equal(unknown.status, 404);
+  // The old endpoint, once replaced, is no longer an authority either.
+  assert.equal((await rotate({ oldEndpoint: phone.subscription.endpoint, subscription: other.subscription })).status, 404);
+  assert.equal((await database.db.query('SELECT count(*)::int n FROM plates_push.subscriptions')).rows[0].n, 2);
+  // Another origin, a malformed body or an invalid new subscription is refused.
+  assert.equal((await rotate({ oldEndpoint: tablet.subscription.endpoint, subscription: other.subscription }, { origin: 'https://evil.test' })).status, 403);
+  assert.equal((await rotate({ oldEndpoint: tablet.subscription.endpoint, subscription: other.subscription, extra: 1 })).status, 400);
+  assert.equal((await rotate({ oldEndpoint: tablet.subscription.endpoint, subscription: { ...other.subscription, endpoint: 'https://evil.test/push' } })).status, 400);
+  assert.deepEqual((await store.list(1)).map(s => s.endpoint).sort(), [rotated.subscription.endpoint, tablet.subscription.endpoint].sort());
+
+  // With the owner's session, the owner's own record rotates the same way.
+  const signed = await h.login();
+  const withSession = await rotate({ oldEndpoint: tablet.subscription.endpoint, subscription: other.subscription }, { cookie: signed.cookie });
+  assert.equal(withSession.status, 200, await withSession.clone().text());
+  assert.deepEqual(await withSession.json(), { rotated: true, devices: 2 });
+  assert.deepEqual((await store.list(1)).map(s => s.endpoint).sort(), [rotated.subscription.endpoint, other.subscription.endpoint].sort());
+  // A new notification reaches the rotated device, not the old endpoint.
+  const delivered = [];
+  const notifier = createPushNotifier(h.config, { store, now: () => Date.UTC(2026, 10, 2), fetcher: async (url, options) => {
+    if (url.startsWith(h.config.storageUrl)) return database.handle(url, options);
+    delivered.push(url); return new Response(null, { status: 201 });
+  } });
+  await notifier.notify(1, [{ kind: 'night', state: 'red', project: 'studio', date: '2026-11-01' }]);
+  assert.deepEqual(delivered.sort(), [rotated.subscription.endpoint, other.subscription.endpoint].sort());
 });
