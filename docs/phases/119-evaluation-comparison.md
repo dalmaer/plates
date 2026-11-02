@@ -5,8 +5,8 @@ goal: G5
 spec: 2
 depends: [118]
 review: wait
-note: "Offline comparison and original-operation recovery proved; live provider adapter, enforced spend and approved screening remain pending."
-evidence: ["evidence/2026-10-23-evaluation-comparison.md"]
+note: "Offline comparison and one-slot live orchestration have synthetic proof; curated inputs, exact spend approval and real paired screening remain."
+evidence: ["evidence/2026-10-23-evaluation-comparison.md", "evidence/2026-11-01-evaluation-recovery.md", "evidence/2026-11-01-evaluation-live-components.md", "evidence/2026-11-01-evaluation-input-partition.md", "evidence/2026-11-01-evaluation-public-packet.md", "evidence/2026-11-01-evaluation-live-controller.md"]
 ---
 
 # Compare paired harness trials and resume interrupted comparisons
@@ -62,13 +62,18 @@ experiments, hosted activation and fleet schedules are not changed by this phase
 
 ## Next action
 
-The offline runner and report are implemented. Select an isolation-capable live
-provider/runtime and implement its enforced spending gateway before preparing
-the exact owner-approved screening quote. This is an implementation gap as well
-as an approval boundary, so this phase is not marked `owes: walk`.
-Continue the independent historical corpus and lesson-record work in phases
-120–123 against the proven offline contracts; do not infer live efficacy from
-their fixture results.
+The owner selected the actual coding-agent harness on 2026-11-01: run its tool
+and review loop, not a static-instruction or single-generation substitute. Map
+the existing runtime adapters onto isolated evaluation execution, with explicit
+versioned instruction/skill activation, pinned public current/candidate context,
+independent acceptance, total comparison bounds and original-operation recovery.
+Preserve the one-generation runtime and its evidence as infrastructure proof only.
+Resolve model/runtime identity, attributable pricing and a versioned retained
+live-screening reader before preparing the compatibility/control comparison's
+exact owner transfer/spend approval. Retain five paired observations per case,
+all failures and unknowns. No paid trial is authorized by the runtime choice.
+Phases 120–123 are merged; their real evaluated lesson/promotion outcome still
+depends on this comparison, not merely on their record machinery.
 
 
 ## Trajectory
@@ -77,3 +82,14 @@ their fixture results.
 - **2026-10-23** — Whole-comparison storage and recovery reservations are needed before admission. New plans can explicitly reserve up to 64 MiB; old frozen ceilings remain unchanged. Preparation reduces each admitted execution deadline, and uncertain operations never refund capacity.
 - **2026-10-23** — Independent proof found image objects must be compared structurally after receipt deserialization. The real twenty-slot walk retained all target/control outcomes and unknown costs; its known scripted patch remains inconclusive about agent improvement.
 - **2026-10-23** — Live provider execution is not supplied by an offline scripted adapter. Preserve the code/activation gap explicitly while continuing later work that depends only on the implemented offline contracts.
+
+- **2026-11-01** — Admission refusal is distinct from an uncertain reservation.
+  A proven pre-insertion capacity refusal receives a bound immutable receipt;
+  the frozen slot stays consumed while other missing work can be prepared.
+  Missing or contradictory evidence still blocks recovery. Comparison views
+  expose evidence gaps and next actions without granting retry authority.
+
+- **2026-11-01** — The installed recovery walk exposed a valid prior local
+  transport release with unknown remote cost. Recovery now preserves that exact
+  retained settlement instead of fabricating owner death or refunding money;
+  missing original completion evidence remains a gap.

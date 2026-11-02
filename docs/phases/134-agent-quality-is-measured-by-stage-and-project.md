@@ -1,13 +1,11 @@
 ---
 status: partial
-owes: walk
-waits: owner
 since: 2026-10-30
 goal: G5
 spec: 2
 depends: [117]
 review: wait
-note: "Local hooks, adjudication and weekly collection are complete and validated; the build and validation steps below are satisfied. Draft publication and separate local-only scheduling await approval; broader installation and human calibration remain."
+note: "Passive foundation integrated as a bounded increment; local execution remains unexposed pending execution-boundary review. Human calibration, installation and scheduling remain separate."
 evidence: ["evidence/2026-10-30-agent-quality.md"]
 ---
 
@@ -28,7 +26,7 @@ Implement the [agent quality contract](../specs/agent-quality.md), derived from 
 - [x] CLI baseline, collection and weekly report integration preserve existing evaluations and require no model run: `tests/agent-quality.test.mjs`.
 - [x] Repository focused conventions and integrated checks pass on the completed lifecycle integration: `npm run check`; `npm run typecheck`.
 - [x] A real metadata baseline documents sources and gaps: `node bin/plates.mjs retro quality baseline --json`.
-- [x] Local execution and review adapters preserve real stage boundaries and exact checkpoint identities, including failures and explicit unknown provenance: `node --test tests/agent-quality-execution.test.mjs`.
+- [ ] Local execution activation remains deferred; retained prototype and private review adapter fixtures preserve real stage boundaries and exact checkpoint identities, including failures and explicit unknown provenance: `node --test tests/agent-quality-execution.test.mjs`.
 - [x] Pending annotations and adjudication keep human judgments separate from model declarations and never backdate difficulty: `node --test tests/agent-quality-lifecycle.test.mjs tests/agent-quality-report.test.mjs`.
 - [x] Weekly exact-approved collection ingests local observations and retains an immutable private report without scheduling or model spend: `node --test tests/agent-quality.test.mjs`.
 - [ ] ⚑ by hand: reviewed code is merged and installed, existing reporting observes real episodes, and human adjudication is reconciled before comparative recommendations.
@@ -54,4 +52,18 @@ Paid paired/crossover replay remains disabled pending an explicit currency budge
 
 ## Next action
 
-Complete local lifecycle adapters, adjudication and collecting weekly reports; verify an ordinary task capture and independent review before the integrated gate. Draft publication and a separate local-only weekly schedule await owner approval; the existing Loop routine stays unchanged.
+Review the passive increment independently and validate hosted integration. Then
+walk explicit lifecycle and privately bound review observations with human
+adjudication. Resolve an adopted execution boundary separately before exposing
+any command runner. Installation and a local weekly schedule need their own scope;
+the existing Loop routine remains unchanged.
+
+## 2 November 2026 integration boundary
+
+Retain the original phase evidence as historical validation of its source. The
+current increment preserves main's live writer, FIFO, recovery and corpus code;
+only the shared scope/frozen-reader exports and `.quality` sibling are added to
+its evaluation ledger. The CLI rejects `retro quality run`, and conduct guidance
+only asks for actual observations. Phase acceptance remains partial. Optional
+usage-record normalization from the later consolidation branch is deferred to
+that compatible extension, with one quality ledger and no competing copy.

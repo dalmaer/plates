@@ -369,6 +369,9 @@ jobs:
           ref: ${{ steps.which.outputs.sha }}
           persist-credentials: false
 
+      - name: Telemetry
+        if: steps.which.outputs.review == 'true'
+        run: echo "telemetry off (.plates/plates.json names no telemetry endpoint)"
       # The agent, time-boxed to the budget: the step of the provider the
       # config names (each step's if:). Claude has read-only tools and the
       # job's read-only token (gh pr diff and gh pr view read with it); Codex

@@ -13,3 +13,21 @@ export function acmeEvaluationPlan() {
   const comparison = sealRecord({ ...base('comparison', 'acme-comparison'), repository: 'Acme/widget', authority: { kind: 'phase', ref: '117' }, baseline: ref(baseline), candidate: ref(candidate), cases: [ref(task)], pairs: Array.from({ length: 6 }, (_, i) => ({ id: `acme-pair-${i}`, case: ref(task), order: i % 2 ? 'BA' : 'AB' })), seed: 117, stopping: 'all-planned-or-safety', replacements: 0, allowance: { minutes: 24, currencyUsd: null }, retention: { days: 30, maxBytes: 1048576, maxEvents: 100 }, drift: 'unknown-is-incomparable', promotion: { automatic: false, criteria: null } });
   return { schemaVersion: 2, kind: 'harness', cases: [task], configurations: [baseline, candidate], materials: [material], comparison };
 }
+
+// Explicit new authoring, never a migration of a frozen comparison.
+export function acmeCaseEnvironments(original = acmeEvaluationPlan()) {
+  const b = structuredClone(original), ref = r => ({ kind: r.kind, id: r.id, digest: r.digest });
+  if (b.cases.length === 1) b.cases.push({ ...b.cases[0], id: 'acme-control', taskClass: 'control' });
+  b.schemaVersion = 3;
+  b.cases = b.cases.map((c, i) => sealRecord({ ...c, environment: { ...c.environment,
+    image: 'sha256:' + String(i + 1).repeat(64), dependencyLock: String(i + 3).repeat(64), installer: String(i + 5).repeat(64) } }));
+  b.configurations = b.configurations.map(c => {
+    const { environment, ...body } = c;
+    return sealRecord({ ...body, schemaVersion: 3, environments: [...b.cases].sort((a, b) => a.id < b.id ? -1 : 1)
+      .map(task => ({ case: ref(task), environment: structuredClone(task.environment) })) });
+  });
+  b.comparison = sealRecord({ ...b.comparison, id: 'acme-mapped-comparison', baseline: ref(b.configurations[0]), candidate: ref(b.configurations[1]),
+    cases: b.cases.map(ref), pairs: b.cases.flatMap((c, j) => Array.from({ length: 5 }, (_, i) => ({ id: `acme-env-${j}-${i}`, case: ref(c), order: i % 2 ? 'BA' : 'AB' }))),
+    allowance: { ...b.comparison.allowance, minutes: 48 } });
+  return b;
+}

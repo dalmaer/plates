@@ -1,5 +1,11 @@
 # Evidence: phase 134 — private agent quality observations
 
+> Historical evidence for the 30 October source. The 2 November integration keeps
+> passive records, lifecycle events, review observations and reports, but refuses
+> `retro quality run` pending execution-boundary review. Commands and results below
+> describe that earlier prototype, not current activation or current-head validation.
+> Phase 134 remains partial; the current integration's checks are recorded separately.
+
 - Date: 2026-10-30
 - Phase: [134](../phases/134-agent-quality-is-measured-by-stage-and-project.md)
 - Revision: 9596eba797103096bb9591eaafef287f9c727eaa plus the phase working tree.

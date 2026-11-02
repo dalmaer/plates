@@ -169,3 +169,22 @@ these workload wrappers or full suites by default.
 Synthetic admitted/unadmitted pairs can show preserved results and contention
 behavior. They do not establish pipeline savings. No default change is justified
 without the separate paired fixed-head workload evidence required by the spec.
+
+## Installed deadline checks
+
+The source gate runs the installed live-evaluation CLI checks as a mandatory
+sequential stage after the parallel Node suite. These checks exercise the real
+fixed recovery deadline; placing them among 32 concurrent file processes can
+consume that allowance before the original-ID GET starts. On 2026-11-01, fresh
+canonical inventory reads removed redundant graph/spend replay, but the loaded
+GET still refused while focused checks passed. Preserve those failures as
+operational evidence, not a reason to extend production deadlines or retry tests.
+
+The ordinary `npm test` remains a literal Node command. The installed stage uses
+its own literal command, hermetic preload, reporters and file-scoped receipt plan,
+at concurrency one. It runs once; any failure fails `npm run check`. A preceding
+failed stage leaves it not run, never passed. Guards must prove the selected files
+are disjoint, their union covers both source test directories and the installed
+checks, and the installed stage cannot disappear from the configured gate.
+Separate suite receipts remain separately scoped; this change does not establish
+combined machine-verified coverage or change any validation-reuse policy.

@@ -37,13 +37,24 @@ async function waitForMarker(path, decode, timeout = 15000) {
   return value;
 }
 const waitForText = (path, expected) => waitForMarker(path, text => text === expected ? text : undefined);
-async function waitForRunningLease(stateDir, owned, timeout = 15000) {
-  // Publishing childPid precedes the mutation's guard removal. Signals in
-  // these tests belong after that mutation, not in its crash window.
+async function withFixtureGuard(stateDir, check, timeout = 15000) {
+  const guard = join(stateDir, 'coordination');
   await until(async () => {
+    try { await mkdir(guard, { mode: 0o700 }); }
+    catch (error) { if (error.code === 'EEXIST') return false; throw error; }
+    // Only our successful mkdir grants cleanup ownership. Production writers
+    // cannot publish while this empty fixture guard exists; never steal theirs.
+    try { return await check(); }
+    finally { await rmdir(guard); }
+  }, timeout);
+}
+async function waitForRunningLease(stateDir, owned, timeout = 15000) {
+  await withFixtureGuard(stateDir, async () => {
     const state = await inspectBudget({ stateDir });
-    return state.coordinationBusy === false && state.leases.some(row =>
-      row.state === 'running' && row.pid === owned.wrapper && row.childPid === owned.child);
+    assert.equal(state.coordinationBusy, true);
+    assert.equal(state.coordinationOwner, null);
+    return state.leases.some(row => row.state === 'running'
+      && (owned.wrapper === undefined || row.pid === owned.wrapper) && row.childPid === owned.child);
   }, timeout);
 }
 
@@ -148,17 +159,37 @@ test('confirmed success and failure preserve argv, environment and exit status w
 test('shared state enforces contention across separate repositories and Git worktrees without altering defaults', async t => {
   const f = await fixture(t), ready = join(f.dir, 'ready'), release = join(f.dir, 'release');
   const held = [process.execPath, '-e', `const fs=require('fs');fs.writeFileSync(${JSON.stringify(ready)},'ready');const timer=setInterval(()=>{if(fs.existsSync(${JSON.stringify(release)})){clearInterval(timer)}},10)`];
+  const originalOpen = fileOperations.open;
+  let active = true, activeReads = 0;
+  const observer = t.mock.method(fileOperations, 'open', async (...args) => {
+    const file = await Reflect.apply(originalOpen, fileOperations, args);
+    if (active && args[0] === join(f.stateDir, 'state.json') && !(args[1] & constants.O_CREAT)) {
+      activeReads++;
+      const actualStat = file.stat.bind(file);
+      t.mock.method(file, 'stat', async (...values) => Object.assign(await actualStat(...values), { nlink: 0 }));
+    }
+    return file;
+  });
+  syncBuiltinESMExports();
   const first = runAsync(process.execPath, f.args('run', 0, ['--timeout-ms', '30000'], held));
   try {
     await waitForText(ready, 'ready');
-    await until(async () => { const state = await inspectBudget({ stateDir: f.stateDir }); return !state.coordinationBusy && state.leases.some(row => row.state === 'running' && Number.isInteger(row.childPid) && row.childPid > 1); });
     const denied = run(process.execPath, f.args('run', 1)); assert.equal(denied.status, 2); assert.match(denied.stderr, /capacity_busy/);
     const worktree = join(f.dir, 'anvil-worktree'); git(f.roots[0], ['worktree', 'add', '-qb', 'acme-worktree', worktree]);
     const args = f.args('run'); args[args.indexOf('--root') + 1] = worktree;
     const alsoDenied = run(process.execPath, args); assert.equal(alsoDenied.status, 2); assert.match(alsoDenied.stderr, /capacity_busy/);
-    const during = await inspectBudget({ stateDir: f.stateDir, capacity: 1 }); assert.equal(during.used, 1); assert.equal(during.leases.length, 1); assert.equal(during.leases[0].root, f.roots[0]);
-  } finally { await writeFile(release, 'Acme released'); await first; }
+  } finally {
+    try { await writeFile(release, 'Acme released'); await first; }
+    finally { active = false; observer.mock.restore(); syncBuiltinESMExports(); }
+  }
+  assert.equal(activeReads, 0, 'active contention is proven by actual denied admissions, not parent snapshots');
   const done = await first; assert.equal(done.status, 0, done.stderr);
+  const settled = await inspectBudget({ stateDir: f.stateDir, capacity: 1 });
+  assert.equal(settled.used, 0); assert.deepEqual(settled.leases, []);
+  assert.equal(settled.coordinationBusy, false); assert.equal(settled.history.length, 1);
+  assert.equal(settled.history[0].id, JSON.parse(done.stdout).id);
+  assert.equal(settled.history[0].root, f.roots[0]); assert.equal(settled.history[0].repo, f.repos[0]);
+  assert.equal(settled.history[0].released, true); assert.equal(settled.history[0].childStatus, 0);
   const next = run(process.execPath, f.args('run', 1)); assert.equal(next.status, 0, next.stderr);
   assert.equal((await inspectBudget({ stateDir: f.stateDir, capacity: 1 })).history.length, 2);
 });
@@ -247,10 +278,9 @@ test('weighted admission keeps spare capacity usable and refuses only excess wor
   const pending = runAsync(process.execPath, argsFor(0, 2, held));
   try {
     await waitForText(ready, 'ready');
-    await until(async () => { const state = await inspectBudget({ stateDir: f.stateDir }); return !state.coordinationBusy && state.leases.some(row => row.state === 'running' && Number.isInteger(row.childPid) && row.childPid > 1); });
     const excess = run(process.execPath, argsFor(1, 2)); assert.equal(excess.status, 2); assert.match(excess.stderr, /capacity_busy/);
     const spare = run(process.execPath, argsFor(1, 1)); assert.equal(spare.status, 0, spare.stderr);
-    assert.equal((await inspectBudget({ stateDir: f.stateDir })).used, 2);
+    await withFixtureGuard(f.stateDir, async () => { assert.equal((await inspectBudget({ stateDir: f.stateDir })).used, 2); return true; });
   } finally { await writeFile(release, 'go'); await pending; }
   assert.equal((await pending).status, 0); assert.equal((await inspectBudget({ stateDir: f.stateDir })).used, 0);
 });
@@ -266,7 +296,7 @@ test('owned completion waits for a healthy competing writer and never steals a s
     let childPid;
     try {
       childPid = await waitForMarker(ready, decodePid);
-      await until(async () => { const state = await inspectBudget({ stateDir: f.stateDir }); return !state.coordinationBusy && state.leases.some(row => row.state === 'running' && row.childPid === childPid); });
+      await waitForRunningLease(f.stateDir, { child: childPid });
       await mkdir(guard, { mode: 0o700 }); await writeFile(ownerPath, ownerBytes, { mode: 0o600 });
       await writeFile(release, 'go'); await waitForText(exited, 'exiting');
       await until(() => { try { process.kill(childPid, 0); return false; } catch (error) { return error.code === 'ESRCH'; } });
@@ -515,7 +545,7 @@ test('history filled while a command runs cannot block its confirmed completion 
   let original;
   try {
     const childPid = await waitForMarker(ready, decodePid);
-    await until(async () => { const state = await inspectBudget({ stateDir: f.stateDir }); return !state.coordinationBusy && state.leases.some(row => row.state === 'running' && row.childPid === childPid); });
+    await waitForRunningLease(f.stateDir, { child: childPid });
     const path = join(f.stateDir, 'state.json'), state = JSON.parse(await readFile(path, 'utf8'));
     state.history[0].padding = '';
     state.history[0].padding = 'x'.repeat(1024 * 1024 - 1 - Buffer.byteLength(JSON.stringify(state, null, 2) + '\n'));
@@ -657,7 +687,31 @@ test('running lease handshake waits for coordination guard removal', async t => 
   assert.equal(observed.coordinationBusy, true); assert.deepEqual(observed.leases, [lease]);
   await assert.rejects(waitForRunningLease(f.stateDir, owned, 100), /Acme condition did not complete within its bound/);
   await rmdir(guard);
-  await waitForRunningLease(f.stateDir, owned);
+  const originalOpen = fileOperations.open;
+  let detachedReads = 0;
+  const observer = t.mock.method(fileOperations, 'open', async (...args) => {
+    const file = await Reflect.apply(originalOpen, fileOperations, args);
+    if (args[0] === path && !(args[1] & constants.O_CREAT)) {
+      try { await stat(guard); }
+      catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+        // Real open, real replacement, real unlinked inode: any unguarded
+        // barrier read deterministically encounters the publication race.
+        const replacement = path + '.Acme-replacement';
+        await writeFile(replacement, await readFile(path), { mode: 0o600 });
+        await rename(replacement, path); detachedReads++;
+      }
+    }
+    return file;
+  });
+  syncBuiltinESMExports();
+  try {
+    await assert.rejects(inspectBudget({ stateDir: f.stateDir }), { code: 'unsafe_input_file' });
+    assert.equal(detachedReads, 1, 'calibrate the unsafe unguarded observation');
+    await waitForRunningLease(f.stateDir, owned);
+    assert.equal(detachedReads, 1, 'the barrier reads only while owning its guard');
+  } finally { observer.mock.restore(); syncBuiltinESMExports(); }
+  await assert.rejects(stat(guard), { code: 'ENOENT' });
   assert.deepEqual((await inspectBudget({ stateDir: f.stateDir })).leases, [lease]);
 });
 

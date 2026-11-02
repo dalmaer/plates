@@ -7,6 +7,10 @@ the bounded work you allow, and brings you the decisions that need you. The
 **All plates** view shows your authorized projects; your **workspace** holds
 shared configuration and access.
 
+Read [the Plates philosophy](docs/philosophy.md) for the principles behind the
+project and its incremental path toward small, safe changes on main and deliberate
+feature exposure.
+
 Plates was previously named Keel. Existing executable calls remain supported
 through the `keel` alias; canonical configuration is `.plates/plates.json`.
 See [the rename and compatibility guide](docs/guide/plates-rename.md) before
@@ -388,7 +392,7 @@ then gives the commands and every flag by the reason you'd pass it.
 | [Delivery](docs/guide/delivery.md) | two changes in a row should publish once, and deploys should follow tested commits, not `main` |
 | [When something is red](docs/guide/when-something-is-red.md) | a night, an update, a doctor or a climb did not go green |
 | [Project canvas](docs/guide/project-canvas.md) | you want a source-linked view of the project's lifecycle and improvement |
-| [Harness evaluation records](docs/guide/harness-evaluations.md) | you want to freeze evaluation inputs, compare offline trials and recover interrupted work |
+| [Harness evaluation records](docs/guide/harness-evaluations.md) | you want to inspect historical cases, freeze inputs, compare trials and inspect bounded live execution and recovery |
 | [Agent quality](docs/guide/agent-quality.md) | you want private stage and project scorecards, evidence gaps and weekly observations |
 | [Session handoff trials](docs/guide/session-handoff-trials.md) | you want to measure and tune session handoffs within a bounded experiment |
 | [Loose ends and the retro](docs/guide/loose-ends-and-retro.md) | you are picking work back up, or a phase just finished |
@@ -513,6 +517,11 @@ a minimal fixture and the exact preview/approval/recovery commands.
 
 ## Working on plates itself
 
+The [Discord conversation pilot](docs/development/discord-pilot.md) is a source-only
+experiment with separate agent sessions, bounded peer handoffs and disabled
+Discord/Codex/Claude adapters. Mocked contract checks are local; the guide records
+the remaining authentication, isolated-host and activation gates.
+
 Plates is built with its own practice. [AGENTS.md](AGENTS.md) is the working
 guide, [docs/design.md](docs/design.md) is the argument, and
 [docs/ROADMAP.md](docs/ROADMAP.md) is where it stands.
@@ -523,6 +532,12 @@ npm run check    # tests, roadmap, rendered practices and inbox views
 npm ci --ignore-scripts  # development-only type tooling
 npm run typecheck        # checked JSDoc, no emitted JavaScript
 ```
+
+The source gate runs the parallel `npm test` suite, then the mandatory installed
+CLI, Docker recovery deadline, live transfer, request budget and credential-pipe
+checks at concurrency one, then the roadmap, render and inbox guards. Each
+test stage keeps its own receipt; an earlier failure leaves later stages not run.
+See [validation preflight](docs/development/validation-preflight.md#installed-deadline-checks).
 
 In Claude Code, `/spin` walks the phases.
 
@@ -548,9 +563,26 @@ paired task trials, independent acceptance and reviewed lesson promotion.
 plan/freeze/inspect records. Phase 118 adds an explicit offline Docker run with
 shared host admission and independent artifact acceptance. Phase 119 adds frozen
 paired execution, comparison reports and explicit original-operation recovery.
-Live provider execution, enforced spend and measured lesson promotion remain
-unimplemented; offline outcomes do not establish agent improvement. No paid
-evaluations are approved. The
+Phase 120 adds bounded inspection/export of six historical development cases
+with separate builder inputs, evaluator data and curator provenance. Use
+`plates retro evaluations corpus inspect --json` to inspect coverage; exports
+require an exact approved preview and a new private destination. Held-out
+coverage remains zero. Phase 121 adds selected-source verification and immutable
+lesson/proposal versions through `plates learn evaluate`; plan binding verifies
+actual material bytes without running a trial. Phase 122 registers frozen screening
+criteria and binds terminal trials to immutable reports before recording evaluated
+results. Phase 123 adds read-only review packages, explicit local package records,
+unmeasured follow-up observations and dormant exact-review/merge verification.
+Unknown costs and offline scripted execution remain inconclusive. See the
+[learning guide](docs/guide/lessons-and-learning.md). Explicit one-slot live
+count/generation and original-operation recovery now use per-case environments,
+independent acceptance and retained spend evidence. Installed synthetic tests
+verify this path; they do not establish real agent efficacy. The credential FIFO
+is currently supported on macOS only. Real instruction-treatment screening still needs explicit guidance routing (v1
+supplies context as file data), curated baseline/candidate context, attributable
+pricing and exact owner approval; live
+aggregate resume and hosted activation remain unavailable. No promotion policy is
+activated and no paid evaluations are approved. The
 [capability map](docs/research/2026-10-23-evaluation-capabilities.md) separates
 existing mechanisms from the proposed extensions.
 

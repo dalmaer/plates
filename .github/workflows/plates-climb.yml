@@ -92,9 +92,10 @@ jobs:
       day: ${{ steps.pick.outputs.day }}
       started: ${{ steps.clock.outputs.started }}
       baseline_started: ${{ steps.baseline.outputs.started }}
-      baseline_ended: ${{ steps.baseline.outputs.ended }}
+      baseline_ended: ${{ steps.admission.outputs.ended }}
       agent_seconds: ${{ steps.execution.outputs.seconds }}
-      execution: ${{ steps.execution.outputs.state || steps.preflight.outputs.state }}
+      execution: ${{ steps.execution.outputs.state || steps.admission.outputs.state || steps.preflight.outputs.state }}
+      admission_line: ${{ steps.admission.outputs.line }}
       # Tonight's plan (phase 76): whether pick ran one, and whether it has an item to tick.
       plan_used: ${{ steps.pick.outputs.plan_used }}
       plan_ticks: ${{ steps.pick.outputs.plan_ticks }}
@@ -319,8 +320,11 @@ jobs:
 
       - name: Baseline
         id: baseline
+        # Actions bounds the step even when local descendant cleanup is unknown.
+        timeout-minutes: ${{ fromJSON(steps.pick.outputs.minutes) }}
         if: steps.pick.outputs.job != ''
         env:
+          MINUTES: ${{ steps.pick.outputs.minutes }}
           JOB: ${{ steps.pick.outputs.job }}
           BRANCH: ${{ steps.pick.outputs.branch }}
         run: |
@@ -328,10 +332,25 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -q -c "$BRANCH"
           echo "started=$(date +%s)" >> "$GITHUB_OUTPUT"
-          status=0
-          node scripts/plates/climb.mjs measure "$JOB" --baseline || status=$?
-          echo "ended=$(date +%s)" >> "$GITHUB_OUTPUT"
-          exit "$status"
+          node scripts/plates/climb.mjs measure "$JOB" --baseline --minutes "$MINUTES" --json > "$RUNNER_TEMP/baseline-output.json"
+
+      - name: Finalize baseline admission
+        id: admission
+        if: always() && steps.pick.outputs.job != '' && steps.preflight.outputs.state == 'runner-ready'
+        timeout-minutes: 1
+        env:
+          JOB: ${{ steps.pick.outputs.job }}
+          OUTCOME: ${{ steps.baseline.outcome }}
+        run: |
+          node --input-type=module -e '
+            import { appendFileSync, copyFileSync } from "node:fs";
+            import { finalizeBaseline } from "./scripts/plates/climb.mjs";
+            const r = await finalizeBaseline({ root: process.cwd(), job: process.env.JOB, outcome: process.env.OUTCOME });
+            copyFileSync(".plates/climb/admission.json", process.env.RUNNER_TEMP + "/climb-admission.json");
+            appendFileSync(process.env.GITHUB_OUTPUT, `state=${r.state}\nline=${r.line}\nended=${Math.floor(Date.now()/1000)}\n`);
+            appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${r.line}\n`);
+            console.log(r.line);
+          '
 
       # A loop night pulls Loop first where plates-loop.yml is not installed
       # (pull --no-prove: the agent proposes, not a model in the pull);
@@ -357,7 +376,7 @@ jobs:
       # branch as the steps above left it (fetched, so it shares no file with
       # .git's objects), and ignored by both, so no add ever carries it.
       - name: Give Codex its git dir
-        if: steps.pick.outputs.job != '' && steps.on.outputs.agent == 'codex'
+        if: steps.pick.outputs.job != '' && steps.admission.outputs.state == 'admitted' && steps.on.outputs.agent == 'codex'
         env:
           BRANCH: ${{ steps.pick.outputs.branch }}
         run: |
@@ -379,7 +398,7 @@ jobs:
       # The brief: the protocol, the job, and the pick, as one prompt.
       - name: Brief
         id: brief
-        if: steps.pick.outputs.job != ''
+        if: steps.pick.outputs.job != '' && steps.admission.outputs.state == 'admitted'
         env:
           AGENT: ${{ steps.on.outputs.agent }}
           BRANCH: ${{ steps.pick.outputs.branch }}
@@ -397,6 +416,9 @@ jobs:
             echo "## Tonight (climb.mjs pick)"
             echo
             cat "$RUNNER_TEMP/pick.json"
+            echo
+            echo "Pre-agent baseline wall time is separate from the picked agent allowance. Admission estimates reserve editing/guard time and do not guarantee completion."
+            cat "$RUNNER_TEMP/climb-admission.json"
           } > "$RUNNER_TEMP/prompt.md"
           if [ -f "$RUNNER_TEMP/plates/scripts/plates/autonomy-context.mjs" ] && [ -f "$RUNNER_TEMP/plates/scripts/plates/autonomy-policy.mjs" ]; then
             node "$RUNNER_TEMP/plates/scripts/plates/autonomy-context.mjs" --root "$PWD" --repository "$GITHUB_REPOSITORY" --revision "$GITHUB_SHA" --role builder >> "$RUNNER_TEMP/prompt.md"
@@ -419,12 +441,15 @@ jobs:
             echo "started=$(date +%s)"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Telemetry
+        if: steps.pick.outputs.job != '' && steps.admission.outputs.state == 'admitted'
+        run: echo "telemetry off (.plates/plates.json names no telemetry endpoint)"
       # The agent, time-boxed to the budget. Its tools cannot push or merge,
       # it measures only through climb.mjs, and the token it is given reads.
       # A timeout is not red: what it kept before the box closed is judged.
       - name: Climb
         id: climb
-        if: steps.pick.outputs.job != '' && steps.on.outputs.agent == 'claude'
+        if: steps.pick.outputs.job != '' && steps.admission.outputs.state == 'admitted' && steps.on.outputs.agent == 'claude'
         continue-on-error: true
         timeout-minutes: ${{ fromJSON(steps.pick.outputs.minutes) }}
         uses: anthropics/claude-code-action@v1
@@ -437,7 +462,7 @@ jobs:
             --allowedTools "Read,Edit,Write,Glob,Grep,Bash(node scripts/plates/climb.mjs *),Bash(node scripts/loop.mjs list*),Bash(node scripts/loop.mjs propose *),Bash(npm test*),Bash(npm run *),Bash(git status*),Bash(git diff*),Bash(git log*),Bash(git show*),Bash(git add *),Bash(git commit *),Bash(git switch *),Bash(git worktree *)"
       - name: Climb
         id: climb_codex
-        if: steps.pick.outputs.job != '' && steps.on.outputs.agent == 'codex'
+        if: steps.pick.outputs.job != '' && steps.admission.outputs.state == 'admitted' && steps.on.outputs.agent == 'codex'
         continue-on-error: true
         timeout-minutes: ${{ fromJSON(steps.pick.outputs.minutes) }}
         uses: openai/codex-action@v1
@@ -461,7 +486,7 @@ jobs:
       # permission denials. Missing, invalid or oversized evidence stays blocked.
       - name: Did the agent run?
         id: execution
-        if: steps.pick.outputs.job != ''
+        if: steps.pick.outputs.job != '' && steps.admission.outputs.state == 'admitted'
         env:
           AGENT: ${{ steps.on.outputs.agent }}
           OUTCOME: ${{ steps.on.outputs.agent == 'codex' && steps.climb_codex.outcome || steps.climb.outcome }}
@@ -492,7 +517,7 @@ jobs:
       # hooks and fsmonitor off. A head not on top of the run's commit is
       # refused, as the judge would; the night's commits leave as a bundle from plates's repo.
       - name: Take Codex's commits, objects only
-        if: always() && steps.pick.outputs.job != '' && steps.on.outputs.agent == 'codex'
+        if: always() && steps.pick.outputs.job != '' && steps.admission.outputs.state == 'admitted' && steps.on.outputs.agent == 'codex'
         env:
           BRANCH: ${{ steps.pick.outputs.branch }}
         run: |
@@ -557,7 +582,7 @@ jobs:
         env:
           START: ${{ steps.clock.outputs.started }}
           BASELINE_START: ${{ steps.baseline.outputs.started }}
-          BASELINE_END: ${{ steps.baseline.outputs.ended }}
+          BASELINE_END: ${{ steps.admission.outputs.ended }}
           AGENT_SECONDS: ${{ steps.execution.outputs.seconds }}
           BRIEF_STARTED: ${{ steps.brief.outputs.started }}
         run: |
@@ -577,7 +602,7 @@ jobs:
         run: |
           out="$RUNNER_TEMP/handoff"
           mkdir -p "$out/record" "$out/test-runs"
-          for f in climb-preflight.json climb-execution.json climb-durations.json; do
+          for f in climb-preflight.json climb-execution.json climb-durations.json climb-admission.json; do
             if [ -f "$RUNNER_TEMP/$f" ]; then cp "$RUNNER_TEMP/$f" "$out/"; fi
           done
           # Codex's commits are in its git dir, handed on above as objects; .git holds Claude's.
@@ -606,7 +631,7 @@ jobs:
   # with no setup token, which is why this job cannot write either.
   judge:
     needs: agent
-    if: needs.agent.outputs.job != ''
+    if: needs.agent.outputs.job != '' && needs.agent.outputs.execution == 'executed'
     runs-on: ubuntu-latest
     timeout-minutes: 240
     permissions:
@@ -970,6 +995,7 @@ jobs:
         env:
           DAY: ${{ needs.agent.outputs.day }}
           EXECUTION: ${{ needs.agent.outputs.execution }}
+          ADMISSION_LINE: ${{ needs.agent.outputs.admission_line }}
           COMPLETION: ${{ needs.judge.outputs.state }}
           JUDGED: ${{ needs.judge.result }}
           LINE: ${{ needs.judge.outputs.line }}
@@ -984,7 +1010,7 @@ jobs:
             const [pick, out] = process.argv.slice(1);
             const { plan } = JSON.parse(readFileSync(pick, "utf8"));
             const e = process.env;
-            const failed = e.EXECUTION === "blocked" ? "blocked: runner preflight or execution evidence refused the climb; inspect the retained sanitized receipt" : ["no-candidate", "incomplete"].includes(e.COMPLETION) ? `${e.COMPLETION}: ${e.LINE || "the agent produced no judged attempt"}` : e.JUDGED !== "success" ? `the climb did not finish: its judge ended ${e.JUDGED || "unrun"}` : e.OPENED === "failure" ? "the judge kept a change, and its pull request could not be opened" : `no pull request: ${e.LINE || "the night kept nothing"}`;
+            const failed = e.EXECUTION === "blocked" ? (e.ADMISSION_LINE?.startsWith("blocked:") ? e.ADMISSION_LINE : "blocked: runner preflight or execution evidence refused the climb; inspect the retained sanitized receipt") : ["no-candidate", "incomplete"].includes(e.COMPLETION) ? `${e.COMPLETION}: ${e.LINE || "the agent produced no judged attempt"}` : e.JUDGED !== "success" ? `the climb did not finish: its judge ended ${e.JUDGED || "unrun"}` : e.OPENED === "failure" ? "the judge kept a change, and its pull request could not be opened" : `no pull request: ${e.LINE || "the night kept nothing"}`;
             const ticks = passTicks({ item: plan.item, admitted: plan.admitted, others: plan.skipped, prUrl: e.PR ? `${e.GITHUB_SERVER_URL || "https://github.com"}/${e.REPO}/pull/${e.PR}` : null, done: e.LINE, failed, runUrl: e.RUN });
             if (!e.PR && e.JUDGED === "success" && e.COMPLETION === "no-improvement" && e.OPENED !== "failure" && e.EXECUTION === "executed") {
               const last = ticks.at(-1);

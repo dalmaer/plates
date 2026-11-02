@@ -5,7 +5,7 @@ owes: walk
 goal: G2
 spec: 2
 depends: [124]
-note: "Compatibility baseline and tested cutover source complete; 20 cookie, operation-marker and public RPC writer rows remain held. Owner-verified deployment, database migration and separately reviewed row activation still required."
+note: "The 20 cookie, operation-marker and public RPC writer rows are dual: the hosted build writes plates names and reads both. Main 827852b is deployed as the rollback baseline and migration 014 is applied (2026-10-31). The owner's browser session/login/OAuth upgrade-and-rollback check and the evidence of both callers serving remain."
 evidence: ["evidence/2026-10-24-hosted-name-transition.md"]
 issue: 243
 ---
@@ -70,10 +70,11 @@ By hand: ⚑ the owner applies the migration, and checks both builds and their o
 
 ## Next action
 
-Owner: deploy and verify the compatibility-reader baseline, pin its revision as the rollback target, measure the hosted schema/grants/dependency impact, then approve/apply migration 014 and verify both hosted callers. Only after those observations may a separate reviewed source change move the exact 20 held cookie/operation-marker/public-RPC writer rows to dual. Complete the real browser upgrade/rollback walk and record the observed revisions. Do not infer hosted acceptance from the source PR or its merge.
+Owner: sign in on the writer build and confirm the session carries over; if anything breaks, promote the pinned baseline deployment (main 827852b) rather than an older legacy-only release. Record the baseline and writer deployments, the browser checks and 014's answers under both names in the evidence.
 
 ## Trajectory
 
 - **2026-10-24** — In-flight login/OAuth cookies do not return browser expiry. Preserve and consume their original flows through dual readers; only authenticated session aliases can use the recorded absolute expiry. Fresh flows clear the alternate alias consistently.
 - **2026-10-24** — Recovery markers need the same rollback boundary as cookies. Cookie, operation-marker and public RPC writer rows stay held in the compatibility baseline; candidate source copies exercise the later exact-row transition without creating runtime activation authority.
 - **2026-10-24** — The forwarding migration is exercised in real PostgreSQL via development-only PGlite. Production callers remain on old RPC names before migration; no failed or uncertain mutation is retried under another alias.
+- **2026-10-31** — Main 827852b (dual readers, held writers) went to production as the rollback baseline and migration 014 was applied with its hosted proof. At the owner's request the writer rows then moved to dual in a reviewed change, before the owner's signed-in browser check of the baseline. Building it found that apply recomputed the operation marker instead of keeping the reviewed preview's line, so a preview reviewed on one release and applied on the other committed unreviewed bytes and stranded its receipt; apply now keeps the reviewed line. The reverse direction (a plates-written preview applied on the held baseline) can only be fixed in the baseline and is bounded by the 15-minute preview expiry.

@@ -157,3 +157,14 @@ test('replay proposal binds evidence but cannot dispatch or reserve a budget', a
   assert.deepEqual(proposal.workflows.map(x => [x.implementer, x.reviewer, x.reviser]), [['claude', 'codex', 'claude'], ['codex', 'claude', 'codex']]);
   assert.match(proposal.inputDigest, /^[a-f0-9]{64}$/);
 });
+
+test('public quality runner refuses before reading execution inputs or dispatching', async () => {
+  const args = ['run', '--record', '/absent-quality-execution.json', '--yes', '--digest', 'a'.repeat(64), '--json'];
+  await assert.rejects(qualityCommand({ args, appRoot, cwd: appRoot }), /quality run is unavailable pending execution-boundary review/);
+  const result = run(process.execPath, [BIN, 'retro', 'quality', ...args], { cwd: appRoot });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stdout + result.stderr, /quality run is unavailable pending execution-boundary review/);
+  const help = run(process.execPath, [BIN, 'retro', '--help']);
+  assert.equal(help.status, 0);
+  assert.doesNotMatch(help.stdout, /quality <[^>]*\|run[>|]/);
+});

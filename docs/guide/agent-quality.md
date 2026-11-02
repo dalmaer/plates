@@ -74,7 +74,7 @@ are provenance, not authentication of a human evaluator or proof of correctness.
 Use the [lifecycle and adjudication workflow](agent-quality-lifecycle.md) to enroll
 ordinary work, capture stage boundaries and append independent judgments.
 The [local observer guide](agent-quality-adapters.md) gives the private binding,
-ordinary command wrapper and existing-review hook configuration.
+privately bound review-hook configuration and the deferred execution boundary.
 `retro quality pending --manifest ... --state ... --json` shows actionable
 annotations, waiting follow-up and historical gaps separately. Current app
 sessions are not discovered automatically; capture requires the explicit local

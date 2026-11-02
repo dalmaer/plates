@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "baseline": "037e13b4f78c061405cef899b528badb536584ad",
+  "selection": "parent-selected-receipt-authorization-family",
+  "modelExecution": "not-authorized",
+  "tasks": [
+    {
+      "id": "task-a",
+      "prompt": "# Task A \u2014 Project operation receipt authorization\n\nA private project operation receipt can remain visible when its caller loses\nworkspace membership while the receipt read is in flight. Reproduce and close\nthat disclosure window for API and HTML receipt reads. Keep authorized recovery\nof the same original operation working and do not redispatch source writes.\n\nUse this repository's existing synthetic providers for testing. Add meaningful\nregression coverage, verify it fails on the original code, then run the affected\nchecks required by the repository. Report changed files, test commands and actual\nresults. Do not contact external providers, use personal credentials, enable\nroutines, deploy, publish or change global configuration.\n\nThis is a bounded local production-code task on the frozen Plates baseline\n`037e13b4f78c061405cef899b528badb536584ad`.\n\nFor this bounded evaluation, leave every existing `tests/helpers/**/*.mjs` file\nbyte-for-byte unchanged and add no files under that helper directory. You may add\nindependent test files and edit production code for the requested defect. The\nexternal evaluator verifies fixture integrity before importing candidate code.\n",
+      "tests": [
+        "tests/web-operations.test.mjs"
+      ]
+    },
+    {
+      "id": "task-b",
+      "prompt": "A private lesson-copy operation receipt can remain visible when its caller loses\naccess to the source project while the receipt read is in flight, even though\nworkspace membership remains. Reproduce and close that disclosure window for API\nand HTML receipt reads. Keep permitted recovery of the original operation working;\nGET requests must not create another private copy or source write. Add meaningful\nregression coverage, verify it fails on the original code, then run affected\nrepository checks. Report actual results and remaining limits. Use only local\nsynthetic providers; no credentials, external writes, deployment or global changes.\n\nFor this bounded evaluation, leave every existing `tests/helpers/**/*.mjs` file\nbyte-for-byte unchanged and add no helper-directory files. Independent tests and\nproduction changes for the requested defect are allowed.\n",
+      "tests": [
+        "tests/web-migration.test.mjs"
+      ]
+    }
+  ],
+  "evaluatorSHA256": "f1d9281846f47e42eb6bb5f7e7528d7e2d027ad80ab6ad4666f57b56d9305004",
+  "fixturePolicy": "All 59 existing helper modules immutable; no additions, removals or aliases; evaluator refuses before candidate imports."
+}

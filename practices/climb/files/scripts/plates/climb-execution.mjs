@@ -76,6 +76,7 @@ export function durations({ started, baselineStarted, baselineEnded, agentSecond
 }
 
 export function completion({ kept }, night) {
+  if (night?.admission?.state === 'blocked') return 'blocked';
   if (kept > 0) return 'candidate';
   if (night?.settlements?.length) return 'incomplete';
   const attempts = night?.tried ?? [];

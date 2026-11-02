@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 1,
+  "kind": "evaluation-input-classification",
+  "revision": 1,
+  "catalogDigest": "3bcad7b4c9e55e526b430ac32b65eb68fc491d6141eb410d6a57342e09318fa8",
+  "cases": [
+    {
+      "case": {
+        "kind": "case",
+        "id": "package-entry",
+        "digest": "e910b788b63c600b96783fc96f221d53ba22c83448cc50217300ae61ee7a959c"
+      },
+      "startingCommit": "edfc56476dd4b7880d8bba83a13436b5a3887a5a",
+      "sources": [
+        {
+          "path": "lib/rename.mjs",
+          "mode": "100644",
+          "blob": "f633a284982ddf7ddf706a208e62a43f0bf1647b",
+          "byteDigest": "7025b21355f6cb8daf2b5632f80eb44c50c75eaef900df8f6950b97310a1d14e",
+          "bytes": 58866,
+          "role": "public"
+        }
+      ],
+      "evaluatorFiles": [
+        {
+          "path": "probes/package-entry.mjs",
+          "material": {
+            "kind": "material",
+            "id": "package-entry-mjs",
+            "digest": "144257feb57a68b45f29bf56c3dc1c42f527782a6d265ea29755f8838da6356a"
+          },
+          "byteDigest": "bd18c08f63acc5878f8a2abf54fc4fdcd3f046a9ea5b937adf772577e1833c56",
+          "bytes": 1820
+        },
+        {
+          "path": "probes/rename-support.mjs",
+          "material": {
+            "kind": "material",
+            "id": "rename-support-mjs",
+            "digest": "9a1e3515287b3f44d5eee16a4b811a068fdbb2afb5eecf4c798430ee1e49b705"
+          },
+          "byteDigest": "57ed7f19e76633c8655835a5d19ebf63d9d6736d6015ad012cf077c4cd252525",
+          "bytes": 2341
+        }
+      ],
+      "acceptance": {
+        "material": {
+          "kind": "material",
+          "id": "package-entry-acceptance",
+          "digest": "63126afd415c34e5d96b268f9c2cfea4c836e1efd40df18be67fcc40b57eb254"
+        },
+        "byteDigest": "5fb29e1e7cf7733adc0afb8a6ee0bdcd75fbb6b259ef02234c987a51ec3dfe70",
+        "bytes": 187
+      },
+      "requirements": {
+        "role": "public",
+        "byteDigest": "37bd10052ae15d6ed591881bfb78dfb9ff90a79739de8e95be61beae1bb299f5",
+        "bytes": 206
+      }
+    },
+    {
+      "case": {
+        "kind": "case",
+        "id": "workspace-command-doc",
+        "digest": "693939cc813548d33b9adc44845c930f22d6b27e97b98bfa75934641bf2ac078"
+      },
+      "startingCommit": "331df4591a361ad973c35884c3a4fdaa061c69a8",
+      "sources": [
+        {
+          "path": "README.md",
+          "mode": "100644",
+          "blob": "e55b9aefdde4d82d6228b6df45ecc8b16d583214",
+          "byteDigest": "ad90dfbe23f60f009eca9e61a7cbbe79bb70b9c065931c2bb066a40ec8b12fc4",
+          "bytes": 22288,
+          "role": "public"
+        },
+        {
+          "path": "lib/cli.mjs",
+          "mode": "100644",
+          "blob": "01a4b8c262fe0aaa9d6b87634a4ea0dcf9420e57",
+          "byteDigest": "4ea32c0800c5da6dc9e12a3aaf916fc765a1dfd91fa2d757112e9b445f6f59a8",
+          "bytes": 63516,
+          "role": "public"
+        }
+      ],
+      "evaluatorFiles": [
+        {
+          "path": "probes/workspace-command-doc.mjs",
+          "material": {
+            "kind": "material",
+            "id": "workspace-command-doc-mjs",
+            "digest": "dc9fbbfef61fd53b49da7cd6af5fafd511d76081ca96c1ac954bb38ac7e403b9"
+          },
+          "byteDigest": "33a7317dab0fa534b13e20a414b54ca4334d2abc502b9830c24ecfc109e4dd83",
+          "bytes": 1024
+        },
+        {
+          "path": "probes/workspace-original.txt",
+          "material": {
+            "kind": "material",
+            "id": "workspace-original-txt",
+            "digest": "be66adbc40d19471aac3c0d84054484856d47311097b70e7a08fc2939ab00602"
+          },
+          "byteDigest": "ad90dfbe23f60f009eca9e61a7cbbe79bb70b9c065931c2bb066a40ec8b12fc4",
+          "bytes": 22288
+        }
+      ],
+      "acceptance": {
+        "material": {
+          "kind": "material",
+          "id": "workspace-command-doc-acceptance",
+          "digest": "72a762bf0465dd16802683af26d95e11ab6771a42df115386a1d5e7931941502"
+        },
+        "byteDigest": "40cdcc6ddf316e2ed908e041e14efbfba816ee20175d849e2ff1253a325249ac",
+        "bytes": 213
+      },
+      "requirements": {
+        "role": "public",
+        "byteDigest": "eb2e335f6e55b52e48bd2aa0f11e70c61c50e61510103c89303d0a6356d029a9",
+        "bytes": 194
+      }
+    }
+  ],
+  "publicMaterials": []
+}

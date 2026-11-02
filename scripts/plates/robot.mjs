@@ -610,12 +610,30 @@ export async function publishRobot({ root, repo, baseSha, plan, headSha, message
   }
   return { prNumber: pr.number, prUrl: pr.html_url, headSha };
 }
+// Phase 148: the robot-state marker is the robot's end-of-attempt record. It says how
+// the attempt ended in a session-trial finish's terms (verified false: the agent or
+// judge failed; rework 1: a new build on a reviewed PR) and carries the lesson status
+// the agent's final report ends with. The status is the agent's own claim, kept as
+// written; plates reads and validates it plates-side (lib/lesson-status.mjs).
+const LESSON_LINE = /^Lesson status: (\{[^\n]*\})[ \t]*$/gm;
+/** The lesson status the agent's final report ends with (its last `Lesson status: {...}` line), or undefined. */
+export function robotLessonStatus(message) {
+  const line = [...String(message ?? '').matchAll(LESSON_LINE)].at(-1)?.[1];
+  if (!line || line.length > 2048) return undefined;
+  try { const value = JSON.parse(line); return value && typeof value === 'object' && !Array.isArray(value) ? value : undefined; } catch { return undefined; }
+}
+function robotAttemptEnd(plan, result, message) {
+  const lessonStatus = robotLessonStatus(message);
+  return { verified: result.state !== 'failed', rework: result.state === 'published' && plan.previousHead ? 1 : 0, ...(lessonStatus === undefined ? {} : { lessonStatus }) };
+}
+// The agent's words can end a marker comment: escape what would (JSON.parse restores it).
+const markerJson = value => JSON.stringify(value).replace(/[<>&]/g, c => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
 export async function robotComment({ plan, result, message = '', github = robotGithub, now = new Date() }) {
   if (!robotRepo(plan.repo) || !robotId(plan.issueNumber)) return;
   const comments = await robotPages(github, `/repos/${plan.repo}/issues/${plan.issueNumber}/comments`);
   const marker = noteMarker(plan,result);
   if (comments.some(c => isBot(c.user) && markerAtStart(c.body,'marker:keel:robot-note',markerComments(marker,'marker:keel:robot-note').matches[0].payload))) return {posted:false,already:true};
-  const state = ['published','failed','question'].includes(result.state) ? markerComment('marker:keel:robot-state',JSON.stringify({ repo: plan.repo, issueNumber: plan.issueNumber, issueHash: plan.issueHash, cursor: plan.cursor, instanceId: plan.instanceId ?? `issue-${plan.issueNumber}`, headSha: result.headSha ?? plan.previousHead ?? null, completedAt: new Date(now).toISOString(), previousCompletedAt: plan.previousCompletedAt ?? null }))+'\n' : '';
+  const state = ['published','failed','question'].includes(result.state) ? markerComment('marker:keel:robot-state',markerJson({ repo: plan.repo, issueNumber: plan.issueNumber, issueHash: plan.issueHash, cursor: plan.cursor, instanceId: plan.instanceId ?? `issue-${plan.issueNumber}`, headSha: result.headSha ?? plan.previousHead ?? null, completedAt: new Date(now).toISOString(), previousCompletedAt: plan.previousCompletedAt ?? null, ...robotAttemptEnd(plan,result,message) }))+'\n' : '';
   const body = `${marker}\n${state}${hash64(plan.decisionDigest) ? `Decision digest used: ${plan.decisionDigest}\n\n` : ''}${result.prUrl ? `PR: ${result.prUrl}\n\n` : ''}${robotText(result.reason ?? result.state)}\n\n${robotText(message)}`;
   const response = await github({method:'POST', path:`/repos/${plan.repo}/issues/${plan.issueNumber}/comments`, body:{body}});
   if (response.status !== 201) throw new Error('issue response could not be confirmed');

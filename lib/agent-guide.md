@@ -629,6 +629,10 @@ plates lessons --since v1.2 --json  # practice commits from a ref, not from adop
 plates learn                         # gather: open `lesson` issues + every pinned source; new proposals only
 plates learn propose <slug|issue#> --outcome lesson|practice|decline|link --note "<one line>" --read "<read citing a path or sha>" [--link <n>] [--yes]
 plates learn decide <slug|issue#> accepted|declined [--note "<why>"] [--shape "…" --cost "…" --guard "…"] [--yes]   # the person's verb, never the agent's
+plates learn evaluate inspect <slug> --json
+plates learn evaluate propose|plan|decide <slug> --input <absolute-request.json> [--manifest <absolute-file> --state <absolute-dir>] [--yes --digest <digest>] --json
+plates learn evaluate package <slug> --manifest <absolute-file> --state <absolute-dir> --json
+plates learn evaluate follow-up <slug> --input <absolute-request.json> --manifest <absolute-file> --state <absolute-dir> [--yes --digest <digest>] --json
 plates learn render [--check]        # docs/INBOX.md and docs/patterns.md, generated; npm run check runs --check
 plates learn distill                 # the worksheet: rows, families, open proposals, rows since the last pass
 plates learn distill propose --kind family --name "…" --rule "…" --guard "…" --rows 39,40 --read "…"
@@ -638,6 +642,8 @@ plates learn distill propose --kind standardise --family "<name>" --check "<what
 ```
 
 - Runs on plates only (`"plates": "self"`); elsewhere exit 2.
+- Evaluated records use strict versioned requests with explicit local phase `decisionTarget`; capture/propose/revise, plan binding and rejection/supersession preview exact bytes (exit 3), then apply with `--yes --digest`. Inspect is local. Original operations recover by identity; uncertain locks/pending files require inspection. Tagged records refuse legacy mutation. Plan also accepts `register-screening` with `{proposalRef,planLinkRef}` before execution for nonnull frozen criteria. Decide accepts `evaluate` with `{proposalRef,evaluationPlanRef}` after every planned slot is terminal; it verifies actual delivery and retains an immutable private report before appending evaluated history (legacy status proposed). Offline scripted results are inconclusive efficacy; no promotion, model call or publication occurs. Evaluated revision requires a genuinely changed hypothesis or candidate. Recover an unlinked report with its original request, never a replacement UUID. See `docs/guide/lessons-and-learning.md`.
+- Package returns deterministic public JSON/Markdown and exact artifact metadata without writing or publishing it. Decide accepts `record-package` with `{proposalRef,evaluationRef}`. `ready`, `promote`, `request-rollback` and `observe-rollback` retain strict references and refuse missing evidence; current provider/routing gaps prevent readiness. Approval requires separately configured default-branch GitHub account IDs and an exact reviewed two-parent merge, never caller flags. Follow-up records selected sources and attributed commentary with unmeasured exposure and null outcome-rate/resource changes; it does not poll or reopen. See `docs/specs/lesson-promotion.md` for exact request fields.
 - Issues are read from the inbox: config `inbox`, else plates's `repo`.
   Gather reads `gh issue list -R <inbox> --label lesson --state open`
   and each `practices/*/practice.json` `source` against its upstream head. A
@@ -1433,8 +1439,15 @@ schedule: an agent climbs one number under `.agents/climb/PROTOCOL.md`, and
   (`plan.skipped` says why for each other); its `budget.minutes` lowers
   `minutes`, never raises it. Refused or another night's: as without.
   `sandbox --plan f` also refuses any path its `willNotTouch` covers.
-- `measure <job> [--runs k] [--baseline]` — median and spread; `--baseline`
-  opens `.plates/climb/night.json`.
+- `measure <job> [--runs k] [--baseline] [--minutes n]` — median and spread;
+  `--baseline` opens `.plates/climb/night.json` and checks timed comparison
+  feasibility after the first probe. `--minutes` lowers the configured allowance
+  to the picked plan budget. Wall time, not benchmark output, estimates twelve
+  default comparison executions; half the allowance is reserved for editing and
+  full validation. An infeasible probe records `admission.state: blocked`, its
+  reason and next action; the workflow skips model execution. This estimate is
+  not a completion guarantee. Baseline wall time precedes the agent allowance;
+  the unchanged full gate and paired comparison still establish correctness.
 - `compare [--base r] [--candidate r] [--rounds n] [--decide] [--final]` —
   alternated rounds (two or more) in temp worktrees; keep only when every
   round beats the margin. `--decide` judges HEAD: keep amends its numbers
@@ -2008,7 +2021,7 @@ worksheet above remains read-only. See `plates --agent-help canvas` for publishi
 
 ### Bounded session trials (explicit records)
 
-`plates retro quality baseline|collect|inspect|report|weekly|replay-plan|lifecycle|pending|run [--json]`
+`plates retro quality baseline|collect|inspect|report|weekly|replay-plan|lifecycle|pending [--json]`
 adds private metadata observations and stage/project scorecards. Baseline is a
 read-only bounded local Git audit: optional repeated `--repository <dir>` and
 `--limit <1..200>` (20 total by default). Optional `--pr-metadata <file>` entries
@@ -2024,14 +2037,22 @@ those observations and retains the resulting private report. No repository scan
 occurs unless requested. Scheduling remains a separate action.
 Lifecycle takes `--record <event.json>` and exact preview approval for begin,
 start, finish, task/PR linking, annotation, adjudication and follow-up events. Pending shows
-missing human judgments, provenance and delayed outcomes. Run takes a reviewed
-`--record <execution.json>` and exact approval to capture an ordinary local
-command's stage boundaries through an explicitly enabled private binding.
+missing human judgments, provenance and delayed outcomes. The retained local
+execution prototype is not exposed: `retro quality run` refuses pending a separate
+execution-boundary review. An explicit private binding can capture metadata from
+ordinary review reads; it grants no execution authority.
 Provider details are declarations; undisclosed model versions stay unknown.
 Replay-plan describes the balanced A/B and reviewer crossover design with spend
 disabled; it cannot dispatch a trial. Existing schema-2 freeze/compare remains
 the experiment authority. See `docs/guide/agent-quality.md` for the full workflow,
 privacy, unknowns and retention boundaries.
+
+`plates retro evaluations corpus inspect|export --json` lists six exposed development
+cases (held-out: zero). Export takes `--case <id> --repository <absolute-dir>
+--destination <absolute-dir>`; preview exits 3, then `--yes --digest <digest>` writes
+a new private destination outside Git. Existing/partial exports refuse overwrite.
+Only the enumerated builder inventory enters isolated delivery; curator fixes and
+private acceptance remain outside it. Export never runs a trial or grants spend.
 
 `plates retro evaluations plan|freeze|inspect|run|resume|reconcile|cancel|compare --manifest <absolute-file>
 --state <absolute-dir> [--bundle <file>] [--experiment <id>] [--execution <absolute-json>] [--json]` freezes
@@ -2103,6 +2124,10 @@ Any overrun blocks further admissions and positive audit/apply, while finish sti
 ```json
 {"runId":"run1","totalMinutes":10,"costUsd":null,"costSource":null,"accepted":true,"verified":true,"policyApplied":true,"lostDecisions":0,"duplicateActions":0,"regressions":0,"rework":0,"contextPeakTokens":null,"sourceRevision":"acme-result","acceptanceEvidence":"docs/evidence/acme-result.md#acceptance","evidence":["docs/evidence/acme-full-workflow.md"]}
 ```
+
+A failed (`accepted` or `verified` false) or reworked (`rework` >0) finish also
+needs `lessonStatus`: `{"status":"captured","link":"<lesson, proposal or inbox item>"}`,
+`{"status":"known","lesson":"<lesson id>"}` or `{"status":"none"}` (phase 148).
 
 `totalMinutes` is finite >0. Cost is null with null source, or finite >=0 with
 an explicit measured source pointer. `accepted`, `verified`, `policyApplied`
