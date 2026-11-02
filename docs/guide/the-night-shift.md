@@ -307,6 +307,25 @@ plates goodnight --yes                             # "that's the plan": write it
   tonight. A finding no longer accepted stops `--yes` before anything is
   written; an issue not confirmed is exit 1, and `--yes` again recovers it.
 
+### Bounded overnight decisions (planned extension)
+
+[The philosophy](../philosophy.md#overnight-autonomy-leaves-a-reviewable-morning)
+and [phase 162](../phases/162-overnight-decisions-remain-bounded-and-reviewable.md)
+extend the existing plan and morning flow. They do not change today's strict plan
+schema, deterministic measurement, opted-in builder lanes, budgets, `willNotTouch`,
+build limit, `readyBy`, or review/merge authority. No new runtime mode or approval
+hook behavior is installed by this guidance.
+
+An unattended builder should resolve reversible choices within granted scope,
+park actions dependent on missing permission and continue independent work. The
+planned journal links alternatives, confidence, expected versus measured
+consequences, validation, affected commits/flags and recovery to existing records.
+The morning should show completed work separately from ranked decisions to revisit,
+with keep/adjust/revert follow-up and clear blocked/uncertain outcomes. Phase 150
+already supports evidence, expectations and due checks; its CLI-to-workflow
+coverage gap remains explicit. Reuse those records rather than create a second
+source of decision authority.
+
 ### The morning
 
 When the night is over, one message says what it did (phase 77). GitHub

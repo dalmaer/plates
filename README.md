@@ -7,6 +7,10 @@ the bounded work you allow, and brings you the decisions that need you. The
 **All plates** view shows your authorized projects; your **workspace** holds
 shared configuration and access.
 
+Read [the Plates philosophy](docs/philosophy.md) for the principles behind the
+project and its incremental path toward small, safe changes on main and deliberate
+feature exposure.
+
 Plates was previously named Keel. Existing executable calls remain supported
 through the `keel` alias; canonical configuration is `.plates/plates.json`.
 See [the rename and compatibility guide](docs/guide/plates-rename.md) before

@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**64 of 148 phases built; 63 owe a walk.** Built means implemented and checked; planned is not available.
+**65 of 154 phases built; 63 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -13,7 +13,7 @@ Goals are outcomes, not dates. Counts are derived; superseded work is retired, n
 
 Every rule plates will ship is already holding on plates: phases own status, the roadmap is checked, lessons are shapes, and the conductor can walk the plan.
 
-13/24 built; 10 owe a walk.
+14/25 built; 10 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -41,6 +41,7 @@ Every rule plates will ship is already holding on plates: phases own status, the
 | [91. An idea becomes work without losing the owner choices](phases/91-ideas-become-plans-with-attributed-choices.md) | built | 2026-10-20 | [90](phases/90-builders-receive-current-decisions.md) | Local and packed proof complete; PR #208 merged on 2026-10-21. Merge is source state, not additional acceptance evidence. |
 | [132. Select project risk tolerance without inventing permission](phases/132-risk-tolerance-is-explicit-and-scoped.md) | built | 2026-10-27 | — | Low/Medium/High project intent is explicit in CLI, briefs and Home; host permission control remains unavailable. |
 | [133. A review that makes progress gets one more set of rounds; one that repeats stops](phases/133-a-review-that-makes-progress-gets-one-more-set.md) | built | 2026-10-27 | [71](phases/71-a-review-that-keeps-going-is-brought-to-the.md) | Owner asked on 2026-10-27: at the round limit, judge the rounds; progress gets one more set, repetition stops. |
+| [157. The philosophy guides small safe increments](phases/157-philosophy-guides-small-safe-increments.md) | built | 2026-11-02 | — | Philosophy and context implemented; corrected source passed the full gate and typecheck. Publication and consumer adoption remain separate; future runtime phases are unbuilt. |
 
 - **0 done when:** A fresh clone of plates passes `npm run check` on GitHub Actions, and `/conduct plates` can read the next phase and its next action from the repo alone.
 - **1 done when:** Plates's own practice files are rendered from `practices/<name>/`, and re-rendering them onto plates changes no bytes.
@@ -66,6 +67,7 @@ Every rule plates will ship is already holding on plates: phases own status, the
 - **91 done when:** A locally reviewed shaping record produces non-overwriting phase drafts or robot rubric previews with attributed decisions, named proof and valid dependencies, while changed inputs invalidate approval.
 - **132 done when:** An owner can inspect and explicitly select Low, Medium or High project risk tolerance, see its exact action scope in supported briefs and Project Home, and understand which authority still needs verification.
 - **133 done when:** At its round limit (`"review": {"rounds": N}`, 3 unset), `plates review` and the board judge the first N rounds from the read they already make. A review whose rounds made progress gets its limit extended once, to 2N. A review that repeats stops at N and says why. There is never a second extension.
+- **157 done when:** A canonical philosophy preserves Plates' wider mission and guides planning and spin toward small independently safe merges without claiming unbuilt rollout capabilities.
 
 ## G1 — Start a project in one command
 
@@ -91,7 +93,7 @@ From an empty directory, plates init produces a repo whose check passes, whose r
 
 Existing projects come under plates without losing what is theirs, and a practice change reaches every one of them as a reviewed pull request.
 
-13/31 built; 13 owe a walk.
+13/32 built; 13 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -126,6 +128,7 @@ Existing projects come under plates without losing what is theirs, and a practic
 | [129. Plates, then the fleet, move tonight, each proven by a night run dispatched by hand](phases/129-plates-then-the-fleet-move-tonight.md) | partial | 2026-10-25 | [128](phases/128-what-the-owner-holds-moves-with-the-owner-s-yes.md) | Release v0.8.34 and Plates label receipt are published. PRs #271 and #273 merged; private Ledger reads and corrected night 40256668332 passed, with exact-main CI reused. Migration verification still lacks the improve observation packet. Six consumer PRs remain prepared, not installed; current-night and durable legacy refs are retained. · [#245](https://github.com/dalmaer/plates/issues/245) |
 | [130. Plates stops reading keel's names](phases/130-plates-stops-reading-keel-s-names.md) | planned | 2026-10-23 | [129](phases/129-plates-then-the-fleet-move-tonight.md) | Specified 2026-10-23 (docs/specs/name-transition.md). Retirement: once plates names shows nothing live under a keel name across the fleet, the fallback reads go in one release, and the name table forbids every keel name except the compatibility entry points. · [#246](https://github.com/dalmaer/plates/issues/246) |
 | [131. Compatible updates have a short installation path](phases/131-compatible-updates-have-a-short-installation-path.md) | partial, walk owed | 2026-10-25 | [111](phases/111-focused-feedback-starts-with-capability-and-resource-checks.md), [116](phases/116-each-plate-verifies-itself-and-the-fleet-checks-coverage.md), [128](phases/128-what-the-owner-holds-moves-with-the-owner-s-yes.md) | Implementation merged in PR 276; full gate, typecheck and exact-head review passed. Only a real compatible installation walk remains. |
+| [161. Proven rollout practice reaches the set of plates](phases/161-proven-rollout-practice-reaches-the-set-of-plates.md) | planned | 2026-11-02 | [160](phases/160-one-real-rollout-proves-exposure-and-recovery.md) | Planned from the philosophy; implementation and operational proof are not claimed. |
 
 - **4 done when:** `plates adopt` on duo and on cajones produces a pull request a person merges, after which each project's own check passes and its `.plates/plates.json` names the practice version.
 - **5 done when:** `plates doctor` reports every managed file and block whose bytes differ from what plates wrote, and for each offers eject, restore, or send-as-lesson — never reverting on its own.
@@ -158,6 +161,7 @@ Existing projects come under plates without losing what is theirs, and a practic
 - **129 done when:** In one evening, plates and then ledger, duo, cajones, isocan and dtv each run on the transitioned release. Each passes a checklist on a night run dispatched by hand (`workflow_dispatch`): - a full night and morning ran; - fresh names written by the enumerated Plates-managed producers use plates names, while required old-prefix continuations retain their original identity; - every old-name PR and plan still in flight was read and drained; - `plates names` for that project shows nothing left except what the owner chose to keep.
 - **130 done when:** `plates names` shows no active legacy dependency anywhere in the fleet; retained aliases have verified replacements and are listed separately for explicit retirement approval. In one release, each eligible live-state `dual` row becomes `retired`: its live fallback read is removed, its forwarder dropped, and its old variable deleted with the owner's yes. The name scan in `tests/names.test.mjs` then fails on any keel token outside explicitly listed compatibility entry points and historical metadata readers.
 - **131 done when:** An authorized compatible update reaches a verified installation through one source-bound prepare/review/install/recover path, without waiting for optimization or broad nightly acceptance, while unsafe changes, stale authority and incomplete installation evidence still refuse completion.
+- **161 done when:** A reviewed reusable practice helps representative projects integrate small increments and expose them deliberately, with observed speed and stability and honest coverage gaps.
 
 ## G3 — Lessons come home
 
@@ -195,7 +199,7 @@ A lesson learned in any project, or a practice improved upstream, reaches plates
 
 Without anyone remembering, each project is measured nightly, dependencies move in reviewed lanes, and anything red reaches a person.
 
-9/29 built; 17 owe a walk.
+9/30 built; 17 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -228,6 +232,7 @@ Without anyone remembering, each project is measured nightly, dependencies move 
 | [114. Complete consumer attestations support exact-head reuse](phases/114-complete-consumer-attestations-support-exact-head-reuse.md) | partial | 2026-10-23 | [112](phases/112-ledger-validates-core-and-web-independently.md), [113](phases/113-isocan-stalled-installation-leaves-bounded-evidence.md) | Source shadow validator has focused proof; integrated checkpoint/review and real consumer producers remain pending. No gate or reuse defaults changed. |
 | [116. Each plate verifies itself and the fleet checks coverage](phases/116-each-plate-verifies-itself-and-the-fleet-checks-coverage.md) | built | 2026-10-23 | [15](phases/15-projects-run-on-their-own.md), [26](phases/26-reconciliation.md), [70](phases/70-a-phase-being-built-is-claimed-and-plates-next.md) | Each plate owns verification; the fleet reads revision-bound evidence without rerunning project gates. |
 | [155. Climb admits useful measured work before spending its night](phases/155-climb-admits-useful-measured-work-before.md) | partial, walk owed | 2026-11-01 | [35](phases/35-a-project-can-send-an-agent-to-climb-one-number.md), [43](phases/43-each-budgeted-pass-shows-what-it-used.md) | Local admission, interruption and regression proof pass; observe the next scheduled run after reviewed installation. |
+| [162. Overnight decisions stay within bounds and can be corrected in the morning](phases/162-overnight-decisions-remain-bounded-and-reviewable.md) | designed | 2026-11-02 | [157](phases/157-philosophy-guides-small-safe-increments.md), [73](phases/73-a-night-has-a-plan-written-before-it-runs-and.md), [90](phases/90-builders-receive-current-decisions.md) | Design and safe increments specified against existing Night Watch and decision records; implementation, real-night proof and any hook integration remain unbuilt. |
 
 - **10 done when:** Plates and one adopted project each run `plates-night.yml` nightly for a week, each night leaving at most one open machine PR, with Renovate's lanes active and a red run reaching the owner by email.
 - **11 done when:** `plates improve` writes `docs/health/<date>.md` with deterministic measures and one proposal, changes nothing else, and its self-test fails on a fixture built to be unhealthy.
@@ -258,12 +263,13 @@ Without anyone remembering, each project is measured nightly, dependencies move 
 - **114 done when:** Consumer configured-gate reuse is accepted only from complete exact-head equivalent stage evidence and adversarial invalidation tests reject unsupported reuse.
 - **116 done when:** Each project's existing nightly report carries revision-bound verification and claim findings, and Plates identifies missing, stale or mismatched fleet evidence without executing consumer gates or changing acceptance.
 - **155 done when:** A timed climb refuses an infeasible measurement after its first probe, retains the reason without starting a model, and admits a focused comparison under the existing budget while preserving full validation.
+- **162 done when:** Within the existing night plan, an authorized builder resolves reversible choices, parks permission-dependent actions while continuing independent work, and gives the morning an evidence-linked ranked account of decisions, effects and safe corrections.
 
 ## G5 — Plates knows whether it helps
 
 Plates can show, with numbers across the fleet, whether projects it manages ship more and break less, and what conducting costs.
 
-7/14 built; 3 owe a walk.
+7/15 built; 3 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -281,6 +287,7 @@ Plates can show, with numbers across the fleet, whether projects it manages ship
 | [118. Evaluate one historical artifact behind an independent boundary](phases/118-evaluation-isolation.md) | built | 2026-10-23 | [117](phases/117-evaluation-records.md) | Offline isolated execution, historical compatibility verdicts and adversarial boundary proved; no paid agent efficacy claim. |
 | [119. Compare paired harness trials and resume interrupted comparisons](phases/119-evaluation-comparison.md) | partial | 2026-10-23 | [118](phases/118-evaluation-isolation.md) | Offline comparison and one-slot live orchestration have synthetic proof; curated inputs, exact spend approval and real paired screening remain. |
 | [120. Freeze six historically grounded development cases](phases/120-evaluation-corpus.md) | built | 2026-10-24 | [119](phases/119-evaluation-comparison.md) | Six historical development cases merged with offline proof; held-out coverage and measured agent benefit remain unverified. |
+| [158. Integration delays and work in progress are visible](phases/158-integration-delays-are-visible.md) | planned | 2026-11-02 | [157](phases/157-philosophy-guides-small-safe-increments.md) | Planned from the philosophy; implementation and operational proof are not claimed. |
 
 - **12 done when:** `plates fleet` lists every managed project with its practice version, last health page, CI state and unsent lessons, from `plates.json` and `gh`, in under ten seconds.
 - **13 done when:** A dated research page compares the fleet before and after adoption on measures fixed in advance (red-streak length, time from lesson to guard, phases moved per week, conduct cost per phase) and says plainly what it found.
@@ -296,12 +303,13 @@ Plates can show, with numbers across the fleet, whether projects it manages ship
 - **118 done when:** One historical compatibility case runs through a fresh isolated builder and independently controlled acceptance, retaining an artifact-bound verdict.
 - **119 done when:** A frozen paired comparison preserves all attempts, enforces total allowance and reports per-case outcomes, costs, uncertainty and safe recovery.
 - **120 done when:** All six historical case definitions retain source provenance, independent acceptance and explicit development versus held-out exposure.
+- **158 done when:** An owner can distinguish active work from branch, review, CI and integration waiting with source coverage and a concrete next action.
 
 ## G6 — A change reaches production once, checked
 
 Each change is verified in parallel and published one at a time; production moves only to a tested commit and is checked by the commit it serves; no change runs the expensive path twice.
 
-0/5 built; 2 owe a walk.
+0/7 built; 2 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -310,12 +318,16 @@ Each change is verified in parallel and published one at a time; production move
 | [81. Production is checked by the commit it serves](phases/81-production-is-checked-by-the-commit-it-serves.md) | partial | 2026-10-17 | [80](phases/80-changes-are-verified-in-parallel-and-published.md) | Partial 2026-10-17: the delivery practice's verify.mjs checks production serves the commit or a descendant and passes its smoke checks, says whether a commit is already live, and records each result on plates-verify, where a failure is the owner's on the board and a line in the next morning brief. The owner's read of a real failure waits. · [#164](https://github.com/dalmaer/plates/issues/164) |
 | [82. Promotion is a guarded gesture](phases/82-promotion-is-a-guarded-gesture.md) | partial, walk owed | 2026-10-16 | [81](phases/81-production-is-checked-by-the-commit-it-serves.md) | Partial 2026-10-17: plates promote (the delivery practice's promote.mjs) moves delivery.promote only to a commit on the tested ref with phase 79's gate result, previews first, moves with --yes under a lease, and verifies production after; --back passes only on exactly the commit. No workflow runs it. The owner's one real promotion of isocan waits. · [#165](https://github.com/dalmaer/plates/issues/165) |
 | [83. Agent sessions hand a change off as ready, and one integrator runs the expensive path](phases/83-agent-sessions-hand-a-change-off-as-ready-and.md) | partial, walk owed | 2026-10-17 | [80](phases/80-changes-are-verified-in-parallel-and-published.md), [70](phases/70-a-phase-being-built-is-claimed-and-plates-next.md) | Partial 2026-10-17: plates ready hands a change off with its fast checks only; plates integrate, under the claims/integrate lock, gates every ready change once and pushes once, accumulating by halves on a failure so an interaction is found. The owner's two-sessions walk waits. · [#166](https://github.com/dalmaer/plates/issues/166) |
+| [159. Current candidates land through a bounded integration lane](phases/159-current-candidates-land-through-a-bounded-lane.md) | planned | 2026-11-02 | [158](phases/158-integration-delays-are-visible.md), [83](phases/83-agent-sessions-hand-a-change-off-as-ready-and.md), [111](phases/111-focused-feedback-starts-with-capability-and-resource-checks.md) | Planned from the philosophy; implementation and operational proof are not claimed. |
+| [160. One real rollout proves exposure and recovery](phases/160-one-real-rollout-proves-exposure-and-recovery.md) | planned | 2026-11-02 | [159](phases/159-current-candidates-land-through-a-bounded-lane.md) | Planned from the philosophy; implementation and operational proof are not claimed. |
 
 - **79 done when:** Each commit's gate runs once in CI and its result and test-ledger runs are kept; every plates pass (night, loop, climb, tend, robot judges) and the pre-push hook reuse an exact, clean result for the commit they would test and run the gate only when there is none; and a change that touches only documentation skips the suite.
 - **80 done when:** Many commits test at once, but one queued publisher advances a tested ref (`green` by default) only for the newest commit whose gate passed, skips any commit a later one has already passed, and refuses a ref that has diverged; deploys follow the tested ref, never `main`; and every installed workflow cancels superseded test runs and never cancels a deploy, which a workflow test checks.
 - **81 done when:** A deploy is skipped when production already serves the commit or a descendant; after a deploy, plates waits until production reports the deployed commit (or a descendant) at the project's version endpoint and passes its smoke checks; and a failure reaches the owner once, in the morning issue and on the board.
 - **82 done when:** `plates promote [<commit>]` moves a project's production ref only to a commit on its tested ref, previews first, verifies production serves it afterwards (phase 81), and `plates promote --back <commit>` rolls back the same way; it is always a person's command and nothing runs it automatically.
 - **83 done when:** A session that finishes a change runs only its fast checks and marks it ready instead of running the full gate and pushing; one integrator, holding a claim-based lock, takes every ready change as a batch, runs the full gate once on the combined tree and pushes it; and a failing batch is split until the change that broke it is found and sent back, while the rest land.
+- **159 done when:** Ready increments reach the existing integration lane within a measured service budget or receive a durable blocked reason and next action, and only a validated current combined candidate can land.
+- **160 done when:** One real component has separately evidenced merge, installation/deployment, enablement and verification facts, with a bounded ramp and demonstrated recovery.
 
 ## G7 — Operate every Plates project from a private web workspace
 

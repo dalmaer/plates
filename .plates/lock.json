@@ -51,7 +51,7 @@
     },
     ".agents/skills/spin/SKILL.md": {
       "practice": "conduct",
-      "sha256": "5898f09c8f4821fac4cde69b90973e73a901d9d50615631d663a1f717fb3c6c3"
+      "sha256": "603676046a25f58adfae7a2d0cc765db5995765ade9f38d2767ff87b0a8ca026"
     },
     ".claude/skills/conduct": {
       "practice": "conduct",
@@ -111,7 +111,7 @@
     },
     "AGENTS.md#conduct": {
       "practice": "conduct",
-      "sha256": "57f54981abe826376b2ed07dc7367ec321c4260c43e662cb4b075800f63ef78a"
+      "sha256": "639ee8ac582eaed67c22eb3ad154806605437a873c55c5108835f84d38c16d57"
     },
     "AGENTS.md#evidence": {
       "practice": "evidence",
@@ -135,7 +135,7 @@
     },
     "docs/phases/README.md": {
       "practice": "phases",
-      "sha256": "15cbb3c0153e54aecbf476b4691c7c5641b04c355fadecd9eba8f708a45f13a4"
+      "sha256": "b0472f30c88d4abe66ba94a7b1f4e81b0aa35df80831adc2e2be5762a433f726"
     },
     "docs/plates-lessons.md": {
       "practice": "lessons",
@@ -151,7 +151,7 @@
     },
     "docs/templates/phase.md": {
       "practice": "phases",
-      "sha256": "e675b4a07a289eff12f26d491de9fb674628e54b77992a390459551ffe6e7f27"
+      "sha256": "cdeab6ef0bce8ab9fb7946d2a5d0c688e2d0eef2b9b0e70eabb85e21c211b499"
     },
     "renovate.json": {
       "practice": "renovate",
