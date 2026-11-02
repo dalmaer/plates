@@ -33,8 +33,8 @@ Verbs (`--json` for data):
 - `plates loose-ends` — unfinished work
 - `plates issue new --agent` — rubric issue preview; `--yes` creates it
 - `plates review <repo>#<n>` — comments; `--wait`; `--close`
-- `plates board` — whose turn: a local page; `--fresh`
-- `plates routines inspect|usage|record-usage|recommend` — scoped observations and capture
+- `plates board` — local page; `--fresh`
+- `plates routines inspect|usage|record-usage|recommend` — observations
 - `plates promote [<commit>]` — tested commit to prod; `--back`
 - `plates walk done|decide` — settle a walk or proposal
 - `plates canvas` — snapshot, render, connect, sync, live, night
