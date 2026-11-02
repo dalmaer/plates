@@ -161,13 +161,18 @@ test('tokens meet contrast over the wash in both themes', () => {
     const textSurfaces = ['paper', 'surface', 'surface-raised', 'surface-solid', 'field'];
     for (const text of ['ink', 'muted', 'action', 'green', 'danger', 'ok']) check(text, textSurfaces, 4.5);
     for (const edge of ['line-strong', 'ring']) check(edge, ['field', 'surface'], 3);
+    // Phase 169: Home's state tints. Warning text reads on the page and on its
+    // own tint; every tint carries ink and muted text.
+    check('warn', [...textSurfaces, 'warn-tint'], 4.5);
+    for (const text of ['ink', 'muted']) check(text, ['warn-tint', 'ok-tint', 'sunken'], 4.5);
+    for (const tint of ['warn-tint', 'ok-tint', 'sunken']) if (color(tint)[3] !== 1) failures.push(`${themeName}: --${tint} is translucent`);
     // Button text sits on the solid action colour (and on danger).
     for (const fill of ['action', 'danger']) {
       const ratio = contrast(color('on-action'), color(fill));
       if (color(fill)[3] !== 1 || ratio < 4.5) failures.push(`${themeName}: --on-action on --${fill} is ${ratio.toFixed(2)}:1, needs 4.5:1 on a solid fill`);
     }
     // Text is never translucent; only surfaces are.
-    for (const text of ['ink', 'muted', 'action', 'on-action', 'danger', 'ok']) if (color(text)[3] !== 1) failures.push(`${themeName}: --${text} is translucent`);
+    for (const text of ['ink', 'muted', 'action', 'on-action', 'danger', 'ok', 'warn']) if (color(text)[3] !== 1) failures.push(`${themeName}: --${text} is translucent`);
     assert.equal(token('green'), token('action')); assert.equal(token('card'), token('surface'));
   }
   // Phase 167 held two light pairs short over the wash until it was drawn.
@@ -280,4 +285,30 @@ test('glass falls back to solid surfaces', () => {
   assert.ok(all.some(rule => rule.context === '@media(forced-colors:active)' && rule.selector === 'body::before' && /display:none/.test(rule.body)), 'forced colours: no wash');
   // Glass reaches the shell only through tokens.
   for (const selector of ['header', '.panel']) assert.ok(all.some(rule => rule.context === '' && rule.selector === selector && /background:var\(--surface\)/.test(rule.body) && /backdrop-filter:var\(--glass-filter\)/.test(rule.body)), `${selector} is glass`);
+});
+
+// ---- home uses only tokens ----------------------------------------------------
+// Phase 169: Home, the project page and the shell styles in views.mjs take
+// every colour from the design layer. No hex, rgb(a), hsl(a), oklch or other
+// colour function in the source, and no named colour in a CSS value.
+const NAMED_COLOURS = new Set('aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray green greenyellow grey honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen'.split(' '));
+test('home uses only tokens', async () => {
+  const source = readFileSync(new URL('../lib/web/views.mjs', import.meta.url), 'utf8'), found = [];
+  for (const [literal] of source.matchAll(/(?<![&\w-])#[0-9a-f]{3,8}(?![\w-])/gi)) found.push(literal);
+  for (const [literal] of source.matchAll(/\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^)]*\)/gi)) found.push(literal);
+  // Named colours, read from the CSS values the module ships.
+  const { styles } = await import('../lib/web/views.mjs');
+  for (const rule of rules(styles)) for (const [, property, value] of rule.body.matchAll(/(?:^|;)\s*([a-z-]+)\s*:([^;]*)/g)) {
+    for (const word of value.toLowerCase().replace(/--[a-z0-9-]+/g, '').match(/[a-z][a-z-]*/g) ?? []) if (NAMED_COLOURS.has(word)) found.push(`${rule.selector}{${property}:${value.trim()}}`);
+  }
+  assert.deepEqual(found, [], 'views.mjs takes every colour from a token');
+  // Home's long lists opt into the design layer's solid card; the blur is capped.
+  const home = homeView(access, snapshot());
+  for (const card of ['attention-card', 'change-card', 'project-card', 'coverage']) assert.match(home, new RegExp(`class="${card}\\b[^"]*\\bp-card\\b`), `${card} is a .p-card`);
+  assert.match(home, /class="badge p-badge/, 'state labels are .p-badge');
+  assert.equal(home.match(/<(?:input|select)\b[^>]*\sclass="p-field"/g)?.length, 2, 'toolbar fields are .p-field');
+  const { components } = await import('../lib/web/design.mjs');
+  const card = rules(components).find(rule => rule.selector === '.p-card');
+  assert.match(card.body, /background:var\(--surface-solid\)/, '.p-card is solid'); assert.doesNotMatch(card.body, /backdrop-filter/, '.p-card never blurs');
+  for (const rule of rules(styles)) if (/attention-card|change-card|project-card|\.cards li/.test(rule.selector)) assert.doesNotMatch(rule.body, /backdrop-filter/, `${rule.selector} does not blur`);
 });

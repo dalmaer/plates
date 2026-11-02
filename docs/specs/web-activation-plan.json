@@ -598,6 +598,19 @@
       "ownerAttended": true,
       "rollback": "Redeploy the previous build; the theme choice is a per-device preference and nothing else was written.",
       "proof": "The deployed revision and the owner answer (same family, too alike, or too different and where), recorded in docs/evidence/2026-11-02-blue-and-white-glass.md."
+    },
+    {
+      "id": "home-calmer",
+      "phase": 169,
+      "kind": "decision",
+      "what": "After deploying a build with phase 169, the owner reads Home on a phone, top first and then one long scroll, and says whether it is calmer and still clear what needs them.",
+      "prerequisites": [
+        151,
+        169
+      ],
+      "ownerAttended": true,
+      "rollback": "Redeploy the previous build; only styles and added class names changed, and nothing was written.",
+      "proof": "The deployed revision and the owner answer (better, or worse and where), recorded in docs/evidence/2026-11-02-home-design-layer.md."
     }
   ],
   "open": [
