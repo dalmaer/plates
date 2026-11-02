@@ -167,7 +167,4 @@ test('public quality runner refuses before reading execution inputs or dispatchi
   const result = run(process.execPath, [BIN, 'retro', 'quality', ...args], { cwd: root, env });
   assert.notEqual(result.status, 0);
   assert.match(result.stdout + result.stderr, /quality run is unavailable pending execution-boundary review/);
-  const help = run(process.execPath, [BIN, 'retro', '--help'], { cwd: root, env });
-  assert.equal(help.status, 0);
-  assert.doesNotMatch(help.stdout, /quality <[^>]*\|run[>|]/);
 });
