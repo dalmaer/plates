@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**64 of 154 phases built; 63 owe a walk.** Built means implemented and checked; planned is not available.
+**65 of 154 phases built; 63 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -13,7 +13,7 @@ Goals are outcomes, not dates. Counts are derived; superseded work is retired, n
 
 Every rule plates will ship is already holding on plates: phases own status, the roadmap is checked, lessons are shapes, and the conductor can walk the plan.
 
-13/25 built; 10 owe a walk.
+14/25 built; 10 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -41,7 +41,7 @@ Every rule plates will ship is already holding on plates: phases own status, the
 | [91. An idea becomes work without losing the owner choices](phases/91-ideas-become-plans-with-attributed-choices.md) | built | 2026-10-20 | [90](phases/90-builders-receive-current-decisions.md) | Local and packed proof complete; PR #208 merged on 2026-10-21. Merge is source state, not additional acceptance evidence. |
 | [132. Select project risk tolerance without inventing permission](phases/132-risk-tolerance-is-explicit-and-scoped.md) | built | 2026-10-27 | — | Low/Medium/High project intent is explicit in CLI, briefs and Home; host permission control remains unavailable. |
 | [133. A review that makes progress gets one more set of rounds; one that repeats stops](phases/133-a-review-that-makes-progress-gets-one-more-set.md) | built | 2026-10-27 | [71](phases/71-a-review-that-keeps-going-is-brought-to-the.md) | Owner asked on 2026-10-27: at the round limit, judge the rounds; progress gets one more set, repetition stops. |
-| [157. The philosophy guides small safe increments](phases/157-philosophy-guides-small-safe-increments.md) | partial | 2026-11-02 | — | Philosophy and context implemented locally; full validation is blocked by source-export deadline failures. Future runtime phases remain planned; no publication or adoption claimed. |
+| [157. The philosophy guides small safe increments](phases/157-philosophy-guides-small-safe-increments.md) | built | 2026-11-02 | — | Philosophy and context implemented; corrected source passed the full gate and typecheck. Publication and consumer adoption remain separate; future runtime phases are unbuilt. |
 
 - **0 done when:** A fresh clone of plates passes `npm run check` on GitHub Actions, and `/conduct plates` can read the next phase and its next action from the repo alone.
 - **1 done when:** Plates's own practice files are rendered from `practices/<name>/`, and re-rendering them onto plates changes no bytes.

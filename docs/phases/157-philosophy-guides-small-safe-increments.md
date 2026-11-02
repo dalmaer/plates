@@ -1,10 +1,10 @@
 ---
-status: partial
+status: built
 since: 2026-11-02
 goal: G0
 spec: 2
 depends: []
-note: "Philosophy and context implemented locally; full validation is blocked by source-export deadline failures. Future runtime phases remain planned; no publication or adoption claimed."
+note: "Philosophy and context implemented; corrected source passed the full gate and typecheck. Publication and consumer adoption remain separate; future runtime phases are unbuilt."
 evidence: ["evidence/2026-11-02-plates-philosophy.md"]
 ---
 
@@ -39,7 +39,7 @@ effects are created. Later implementation belongs to phases 158–162.
 - [x] A canonical philosophy preserves Plates' wider mission and guides planning and spin toward small independently safe merges without claiming unbuilt rollout capabilities. Check: `git diff --check` plus review of `docs/philosophy.md`, `AGENTS.md` and the planning/spin guides.
 - [x] Managed phase templates and conductor instructions agree with their source; they name the first safe merge and retain unfinished acceptance and existing authority Check: `npm run render:check` and `npm run check:focused -- tests/roadmap.test.mjs`.
 - [x] The roadmap contains distinct dependent phases for visibility, integration, one rollout pilot, evidence-based generalization and bounded overnight decision review Check: `npm run roadmap:check`.
-- [ ] The documentation/process candidate passes required repository checks Check: `npm run check` and `npm run typecheck`.
+- [x] The documentation/process candidate passes required repository checks Check: `npm run check` and `npm run typecheck`.
 
 ## Proof
 
@@ -61,4 +61,4 @@ This phase does not decide a flag vendor or deploy target.
 
 ## Next action
 
-Resolve the full-gate source-export deadline failures and obtain a passing integrated checkpoint, then review this local practice change before publication. Phase 158 remains the next implementation increment.
+Review and publish this source change through the existing practice-change path. Consumer propagation must resolve the recorded release-review gap first. Phase 158 is the next implementation increment; it is not authorized by this documentation rollout.

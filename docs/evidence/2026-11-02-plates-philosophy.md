@@ -74,3 +74,41 @@ runtime flag system or queue enforcement. No push, PR, merge, release, deploymen
 paid run, consumer installation or live rollout was performed. Phases 158–161
 remain planned; phase 162 is designed but unbuilt. Existing phase walks stay
 outstanding; a new plan cannot accept them. Use the normal reviewed practice-change path before publication.
+
+## Subsequent validation checkpoint, 2026-11-02
+
+The branch was refreshed onto main `7c14705a` and the corrected candidate
+`ced156b68d4422b87cabcf6cce05cd4461d21741` passed the unchanged `npm run check`
+and `npm run typecheck`, both exit 0. The main suite ran 4,190 tests: 4,178
+passed, zero failed, twelve skipped by the existing suite. The installed-package
+gate, roadmap, render and inbox checks passed as part of that same invocation.
+The logs are `/tmp/plates-philosophy-full-ced156b6.log` and
+`/tmp/plates-philosophy-typecheck-ced156b6.log`. Earlier failed and interrupted
+attempts above remain evidence; this pass does not relabel them as successes.
+
+Before that checkpoint, the corrected focused conventions/roadmap/practice suite
+passed 176 tests, installed-package checks passed 45 tests, and typecheck passed.
+The three export-deadline cases each passed once serially on the untouched
+`63a48c7d` baseline and once on the candidate. Those diagnostics alone did not
+prove the earlier full failure harmless; the later complete gate supplies the
+new integrated evidence. The final record update still requires its own applicable
+validation and exact-head publication checks.
+
+Phase 157's source acceptance is now built. Release, installation, operational
+verification and lived-in use remain separate. The user subsequently authorized
+push, testing, merge and propagation; that authorization does not implement
+phases 158–162 or waive existing release gates.
+
+Read-only rollout inspection found ten configured managed plates, including
+Plates itself. Existing local variants, ejected workflows and update PRs must
+be preserved. Family-hub is a possible canary, subject to its exact update diff
+and configured checks; no consumer has been changed.
+
+The existing release-review gate, evaluated read-only against the prior main
+practice changes since v0.8.38, returned twelve failures: those commits have no
+merged pull request. The remaining practice commit, 92b64bdb, passed its review
+check. The full result is retained at
+`/tmp/plates-philosophy-existing-release-review.json`. This blocks the normal
+release/consumer propagation path independently of this source PR; no review
+override, release tag or consumer update was performed. Source publication can
+continue independently, with fresh review and exact-head CI.
