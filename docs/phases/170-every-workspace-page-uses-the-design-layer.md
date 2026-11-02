@@ -1,11 +1,11 @@
 ---
-status: planned
+status: built
 since: 2026-11-02
 goal: G7
 spec: 2
 depends: [169]
-note: "Owner, 2026-11-02: plates and Ledger 'should feel like they are in the same family'. Ledger's materials (glass surfaces, background wash, radius, motion, theme toggle) with plates's own colour: blue and white, cobalt on porcelain. Owner approved reusing Ledger's token values and a blocking theme script."
-evidence: []
+note: "Built: every per-page sheet is layout only on tokens, the journal cards match Home, and the recovery page stands alone on inlined tokens."
+evidence: ["evidence/2026-11-02-pages-design-layer.md"]
 ---
 
 # Every workspace page uses the design layer
@@ -22,8 +22,8 @@ Run, daily, fleet, job, change, connection, model, walk, decision, night and rec
 
 ## Acceptance
 
-- [ ] No per-page stylesheet sets a colour, background or radius literal: `tests/web-design.test.mjs: "page stylesheets hold layout only"`
-- [ ] The recovery page renders with its own sheet when `plates.css` is missing: `tests/web-design.test.mjs: "recovery stands alone"`
+- [x] No per-page stylesheet sets a colour, background or radius literal: `tests/web-design.test.mjs: "page stylesheets hold layout only"`
+- [x] The recovery page renders with its own sheet when `plates.css` is missing: `tests/web-design.test.mjs: "recovery stands alone"`
 
 ## Real surfaces
 
@@ -39,4 +39,9 @@ Automated: `node --test tests/web-design.test.mjs tests/web-*.test.mjs`; `npm ru
 
 ## Next action
 
-Build it after phase 169.
+None.
+
+## Trajectory
+
+- **2026-11-02** — The journal dialog needed a scrim token. `--scrim` was added with a stand-off pair: a solid dialog stands 3:1 off the scrimmed page, by its fill in light and by its edge in dark. Evidence: tests/web-design.test.mjs.
+- **2026-11-02** — Small chip radii grew from 6–8px to the 10px `--r-sm`, a visible but intended change. No new radius tokens.
