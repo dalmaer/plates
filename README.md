@@ -515,6 +515,11 @@ a minimal fixture and the exact preview/approval/recovery commands.
 
 ## Working on plates itself
 
+The [Discord conversation pilot](docs/development/discord-pilot.md) is a source-only
+experiment with separate agent sessions, bounded peer handoffs and disabled
+Discord/Codex/Claude adapters. Mocked contract checks are local; the guide records
+the remaining authentication, isolated-host and activation gates.
+
 Plates is built with its own practice. [AGENTS.md](AGENTS.md) is the working
 guide, [docs/design.md](docs/design.md) is the argument, and
 [docs/ROADMAP.md](docs/ROADMAP.md) is where it stands.

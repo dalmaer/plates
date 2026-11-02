@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "enabled": false,
+  "policy": {
+    "mode": "offline",
+    "liveEnabled": false,
+    "guildId": "10000000000000001",
+    "channelIds": [
+      "10000000000000002"
+    ],
+    "ownerIds": [
+      "10000000000000003"
+    ],
+    "userIds": [],
+    "bots": [
+      {
+        "id": "10000000000000005",
+        "runtime": "codex"
+      },
+      {
+        "id": "10000000000000006",
+        "runtime": "claude"
+      }
+    ],
+    "limits": {
+      "maxHandoffs": 2,
+      "turnTimeoutMs": 1000,
+      "taskTimeoutMs": 600000,
+      "turnTokens": 8000,
+      "taskTokens": 64000,
+      "totalTokens": 128000,
+      "turnMicros": 10000,
+      "taskMicros": 80000,
+      "totalMicros": 160000,
+      "maxQueue": 8,
+      "maxTasks": 1,
+      "maxMessages": 100
+    },
+    "trial": {
+      "threadId": "10000000000000007",
+      "maxTurns": 3,
+      "durationMs": 180000,
+      "idleMs": 10000,
+      "inputChars": 800,
+      "replyChars": 600,
+      "outputTokens": 2048
+    }
+  },
+  "stateDirectory": null,
+  "discordSecrets": {
+    "codex": "secret:ajaxian.discord.codex.bot-token",
+    "claude": "secret:ajaxian.discord.claude.bot-token"
+  },
+  "authSecrets": {
+    "codex": "secret:ajaxian.openai.api-key",
+    "claude": "secret:ajaxian.anthropic.api-key"
+  },
+  "runtimes": {
+    "codex": {
+      "model": null,
+      "accountScope": null,
+      "authMode": null,
+      "version": null,
+      "cwd": null,
+      "microUsdPerToken": null
+    },
+    "claude": {
+      "model": null,
+      "accountScope": null,
+      "authMode": null,
+      "version": null,
+      "cwd": null,
+      "microUsdPerToken": null
+    }
+  },
+  "hostPolicy": {
+    "mode": "dedicated-agent-runtimes",
+    "isolation": "separate-containers",
+    "tools": "conversation",
+    "budget": "admission-estimates"
+  }
+}
