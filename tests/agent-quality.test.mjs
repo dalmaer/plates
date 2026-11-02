@@ -158,13 +158,16 @@ test('replay proposal binds evidence but cannot dispatch or reserve a budget', a
   assert.match(proposal.inputDigest, /^[a-f0-9]{64}$/);
 });
 
-test('public quality runner refuses before reading execution inputs or dispatching', async () => {
+test('public quality runner refuses before reading execution inputs or dispatching', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'acme-quality-refusal-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const env = { ...process.env, PLATES_CLAUDE_DIR: join(root, 'synthetic-transcripts') };
   const args = ['run', '--record', '/absent-quality-execution.json', '--yes', '--digest', 'a'.repeat(64), '--json'];
   await assert.rejects(qualityCommand({ args, appRoot, cwd: appRoot }), /quality run is unavailable pending execution-boundary review/);
-  const result = run(process.execPath, [BIN, 'retro', 'quality', ...args], { cwd: appRoot });
+  const result = run(process.execPath, [BIN, 'retro', 'quality', ...args], { cwd: root, env });
   assert.notEqual(result.status, 0);
   assert.match(result.stdout + result.stderr, /quality run is unavailable pending execution-boundary review/);
-  const help = run(process.execPath, [BIN, 'retro', '--help']);
+  const help = run(process.execPath, [BIN, 'retro', '--help'], { cwd: root, env });
   assert.equal(help.status, 0);
   assert.doesNotMatch(help.stdout, /quality <[^>]*\|run[>|]/);
 });
