@@ -1,11 +1,11 @@
 ---
-status: planned
+status: built
 since: 2026-11-02
 goal: G7
 spec: 2
 depends: [151]
-note: "Owner, 2026-11-02: plates and Ledger 'should feel like they are in the same family'. Ledger's materials (glass surfaces, background wash, radius, motion, theme toggle) with plates's own colour: blue and white, cobalt on porcelain. Owner approved reusing Ledger's token values and a blocking theme script."
-evidence: []
+note: "Built: one CSS-only design layer feeds plates.css once (tokens, components, shell); markup and computed styles unchanged; contrast proven over every surface, with muted over the light wash held for phase 168."
+evidence: ["evidence/2026-11-02-one-design-layer.md"]
 ---
 
 # Plates has one design layer
@@ -27,9 +27,9 @@ The hosted workspace's colours, radii, spacing, shadows, type and motion come fr
 
 ## Acceptance
 
-- [ ] Every selector appears once in `/assets/plates.css`: `tests/web-design.test.mjs: "the shell stylesheet includes each layer once"`
-- [ ] Text, field borders and the ring meet contrast over every surface in both themes: `tests/web-design.test.mjs: "tokens meet contrast over the wash in both themes"`
-- [ ] Pages render byte-identical HTML before and after: `tests/web-design.test.mjs: "the design layer changes no page markup"`
+- [x] Every selector appears once in `/assets/plates.css`: `tests/web-design.test.mjs: "the shell stylesheet includes each layer once"`
+- [x] Text, field borders and the ring meet contrast over every surface in both themes; the only pair short over the wash, which no page draws yet, is named and held for phase 168: `tests/web-design.test.mjs: "tokens meet contrast over the wash in both themes"`
+- [x] Pages render byte-identical HTML before and after: `tests/web-design.test.mjs: "the design layer changes no page markup"`
 
 ## Real surfaces
 
@@ -41,8 +41,14 @@ Automated: `node --test tests/web-design.test.mjs tests/web-home.test.mjs tests/
 
 ## Deliberately open
 
+- **Settled 2026-11-02 (build): today's muted over the wash.** Today's `--muted` (#52655e) reads 4.23:1 and 4.39:1 over the light wash stops, short of 4.5:1. Changing it here would be visible, and no page draws the wash until phase 168. So the test names exactly this pair as known, and phase 168, which draws the wash, must clear it.
 - **Exact token values.** Ledger's surface, radius, blur and motion values are reused. Plates's own blue and white palette is settled here by the contrast test, then judged by the owner in phase 168.
 
 ## Next action
 
-Build it: add `lib/web/design.mjs` and the new contrast test.
+None.
+
+## Trajectory
+
+- **2026-11-02** — Today's muted grey falls short of 4.5:1 over Ledger's light wash (4.23 and 4.39). The wash is not drawn until 168, so 167 names the pair as known and 168 must clear it. Evidence: tests/web-design.test.mjs KNOWN_UNTIL_168.
+- **2026-11-02** — Journal styles now ship only in plates.css, because Home renders journal cards with it alone. change.css is a stub that phase 171 can drop. Evidence: computed-style parity across 42 page, theme and width combinations.

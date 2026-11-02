@@ -63,18 +63,7 @@ test('empty/fallback pages, account controls, keyboard affordances and reduced-m
   assert.match(styles,/@media\(max-width:400px\)/); assert.match(styles,/prefers-reduced-motion:reduce/);
 });
 
-test('system light and dark palettes keep normal text, muted context and source links legible', () => {
-  assert.match(styles,/@media\(prefers-color-scheme:dark\)/);
-  const roots=[...styles.matchAll(/:root\{([^}]+)\}/g)].map(match=>Object.fromEntries([...match[1].matchAll(/--([a-z-]+):([^;}]+)/g)].map(([,key,value])=>[key,value])));
-  assert.equal(roots.length,2);
-  const luminance=hex=>{ if(hex.length===4) hex='#'+[...hex.slice(1)].map(c=>c+c).join(''); const rgb=hex.slice(1).match(/../g).map(byte=>parseInt(byte,16)/255).map(c=>c<=.04045?c/12.92:((c+.055)/1.055)**2.4); return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722; };
-  for(const palette of roots) for(const foreground of ['ink','muted','green']) {
-    for(const background of ['paper','card']) {
-      const a=luminance(palette[foreground]),b=luminance(palette[background]);
-      assert.ok((Math.max(a,b)+.05)/(Math.min(a,b)+.05)>=4.5,`${foreground} on ${background} meets normal text contrast`);
-    }
-  }
-});
+// Palette contrast, in both themes and over the wash, is tests/web-design.test.mjs.
 
 test('uncached projects show loading, never unavailable or empty action counts', () => {
   const data=snapshot();

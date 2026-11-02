@@ -32,6 +32,7 @@ Every workspace page sits on a porcelain-and-cobalt wash, under a glass header w
 
 ## Acceptance
 
+- [ ] No text pair is short of contrast over the drawn wash, and phase 167's known list is empty: `tests/web-design.test.mjs: "tokens meet contrast over the wash in both themes"`
 - [ ] No page carries an inline script or style, and the theme script loads before the stylesheet: `tests/web-design.test.mjs: "the theme applies before paint without inline code"`
 - [ ] Each fallback (no blur, reduced transparency, forced colours) yields opaque, readable surfaces: `tests/web-design.test.mjs: "glass falls back to solid surfaces"`
 - [ ] ⚑ by hand: the owner opens the workspace on a phone and a laptop, in light and dark, and says whether plates and Ledger feel like one family.
