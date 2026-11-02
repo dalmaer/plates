@@ -417,6 +417,9 @@ transport stays separate from the independent acceptance authority.
   `plates promote`, `plates issue`, `plates loose-ends`.
 - **Workspace and canvas:** `plates canvas`, `plates workspace`,
   `plates board`.
+- **Local observations:** `plates routines`.
+  Routines owns bounded local observations and exact-digest private usage capture;
+  it never starts a worker, authorizes funding or authenticates provider claims.
 - **Policy: autonomy, capacity, doors:** `plates autonomy`. Capacity and door
   policy have no verb of their own.
 

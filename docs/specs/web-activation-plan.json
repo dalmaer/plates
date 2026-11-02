@@ -5,14 +5,14 @@
   "record": "docs/phases/151-the-hosted-workspace-is-the-owners-daily-driver.md",
   "readAt": "2026-10-30",
   "runtimeBaseline": "24.22.1",
-  "summary": "Every hosted step still needed to switch on what goal G7 has built and proven locally, in the order to run them in one owner-attended session. Read from phases 94–108 (status, note, Next action, Your part, Real surfaces), the web specs and guides they cite, and the migrations in lib/web/migrations. Nothing here has been run; this is the plan, not its proof.",
+  "summary": "Every hosted step still needed to switch on what goal G7 has built and proven locally, in the order to run them in one owner-attended session. Read from phases 94\u2013108 (status, note, Next action, Your part, Real surfaces), the web specs and guides they cite, and the migrations in lib/web/migrations. Nothing here has been run; this is the plan, not its proof.",
   "rules": [
     "Run the steps in order. Stop at the first step whose proof does not hold, run that step's rollback, and record what was observed.",
     "The owner signs in to Vercel, Supabase and GitHub when a step needs it; the conductor runs the step and records its hosted proof. No credential is typed into chat, Git, a log or browser storage.",
     "A permission grant, a migration or a configuration date never enables a feature by itself: each feature has its own gate, and a gate's verified date is an operator assertion of a proof already recorded.",
     "Migrations run in file order, once, each in one transaction. A Git revert cannot undo a committed migration: rolling back means turning its feature's gate off and leaving the tables in place.",
     "After every configuration change, redeploy and compare the serving revision from /api/deployment with the deployment Vercel says receives production traffic.",
-    "Walks (97–102, 104, 105, 107, 108) come after activation, from the workspace itself, on desktop and phone. They are the owner's, not steps of this plan."
+    "Walks (97\u2013102, 104, 105, 107, 108) come after activation, from the workspace itself, on desktop and phone. They are the owner's, not steps of this plan."
   ],
   "applied": [
     {
@@ -519,6 +519,19 @@
       "proof": "The owner's dated selection, recorded privately per the fleet trial worksheet."
     },
     {
+      "id": "migration-015-personal-funding",
+      "phase": 138,
+      "kind": "migration",
+      "migration": "015-personal-funding.sql",
+      "what": "Only after explicit owner approval, apply 015-personal-funding.sql unchanged in filename order. Keep personalFunding.enabled false; applying SQL is not activation. Record the source SHA-256 and serving revision.",
+      "prerequisites": [
+        138
+      ],
+      "ownerAttended": true,
+      "rollback": "Keep or set personalFunding.enabled false and restore the prior application deployment. Leave committed SQL and private records intact; a Git revert does not undo migration or external effects.",
+      "proof": "Run docs/evidence/2026-11-02-015-personal-funding-hosted-proof.sql in the owner SQL session; retain its PASS row, migration SHA-256 and before/after row counts. Local PGlite coverage is not hosted acceptance. Record separate actor/isolation and restore walks before enabling the feature. Record the applied version: file name and SHA-256."
+    },
+    {
       "id": "migration-015",
       "phase": 152,
       "kind": "migration",
@@ -585,11 +598,37 @@
       "ownerAttended": true,
       "rollback": "Redeploy the previous build; logical asset paths never stopped answering, so open pages keep working.",
       "proof": "The deployed revision, the curl -sI header lines, and the second load's cache column, recorded in docs/evidence/2026-11-02-cached-assets.md."
+    },
+    {
+      "id": "migration-016-private-lessons",
+      "phase": 138,
+      "kind": "migration",
+      "migration": "016-private-lessons.sql",
+      "what": "Only after explicit owner approval, apply 016-private-lessons.sql unchanged in filename order. Keep lessons.enabled false; applying SQL is not activation. Record the source SHA-256 and serving revision.",
+      "prerequisites": [
+        138
+      ],
+      "ownerAttended": true,
+      "rollback": "Keep or set lessons.enabled false and restore the prior application deployment. Leave committed SQL and private records intact; a Git revert does not undo migration or external effects.",
+      "proof": "Run docs/evidence/2026-11-02-016-private-lessons-hosted-proof.sql in the owner SQL session; retain its PASS row, migration SHA-256 and before/after row counts. Local PGlite coverage is not hosted acceptance. Record separate actor/isolation and restore walks before enabling the feature. Record the applied version: file name and SHA-256."
+    },
+    {
+      "id": "migration-017-host-observations",
+      "phase": 137,
+      "kind": "migration",
+      "migration": "017-host-observations.sql",
+      "what": "Only after explicit owner approval, apply 017-host-observations.sql unchanged in filename order. Keep hostObservations.enabled false; applying SQL is not activation. Record the source SHA-256 and serving revision.",
+      "prerequisites": [
+        137
+      ],
+      "ownerAttended": true,
+      "rollback": "Keep or set hostObservations.enabled false and restore the prior application deployment. Leave committed SQL and private records intact; a Git revert does not undo migration or external effects.",
+      "proof": "Run docs/evidence/2026-11-02-017-host-observations-hosted-proof.sql in the owner SQL session; retain its PASS row, migration SHA-256 and before/after row counts. Local PGlite coverage is not hosted acceptance. Record separate actor/isolation and restore walks before enabling the feature. Record the applied version: file name and SHA-256."
     }
   ],
   "open": [
     "Backup destination (phase 94) is still the owner's choice; the second step asks it, and every migration waits for it.",
-    "Hosted proof SQL exists for every migration step: 004 and 005 have theirs from phases 97–98, and 006–016 each have docs/evidence/2026-10-31-web-<topic>-hosted-proof.sql, which tests/web-hosted-proofs.test.mjs runs on PGlite after migrations 001..N. SQL cannot check the applied file's SHA-256, so each step still compares it with source. PGlite cannot stand in for Supabase's real roles, grants or connection pooling: there anon, authenticated and service_role are plain roles and each two-tab race replays serially on one connection, so the races' lock waits are first observed in the session.",
+    "Hosted proof SQL exists for every migration step: 004 and 005 have theirs from phases 97\u201398, and 006\u2013016 each have docs/evidence/2026-10-31-web-<topic>-hosted-proof.sql, which tests/web-hosted-proofs.test.mjs runs on PGlite after migrations 001..N. SQL cannot check the applied file's SHA-256, so each step still compares it with source. PGlite cannot stand in for Supabase's real roles, grants or connection pooling: there anon, authenticated and service_role are plain roles and each two-tab race replays serially on one connection, so the races' lock waits are first observed in the session.",
     "Connections (103) are optional. Declining them skips their steps and model routing (106), and the plan records that choice rather than a gap.",
     "G9's owner-facing pieces (phases 144, 145, 150) are planned, so they have no step yet; a step for an unbuilt phase is refused."
   ]

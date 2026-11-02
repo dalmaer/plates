@@ -135,3 +135,10 @@ branch. Current session recovery, content-addressed browser assets, installed
 test gates and the refusal of public quality execution are retained. This
 checkpoint does not establish a fresh full-gate pass, independent complete-head
 review, live enrollment or human acceptance. Those remain merge/activation work.
+
+The follow-up declaration/proof check passed 47 local tests with no skips,
+including all migration proof scripts and deliberate privilege-mutation
+controls. The new scripts check catalog privileges and bounded synthetic RPC
+isolation; live roles, concurrent lock waits, transport enrollment and provider
+acceptance still require their separate owner-attended proofs. No hosted SQL
+was applied and no feature gate was enabled. Full CI remains separate.

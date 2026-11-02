@@ -46,12 +46,18 @@ const PROOFS = [
   { migration: '014-plates-names.sql', proof: '2026-10-31-web-plates-names-hosted-proof.sql',
     wrong: 'grant execute on function public.plates_job_rpc(text,text,text,jsonb) to authenticated',
     refused: /a browser role can execute plates_job_rpc/ },
+  { migration: '015-personal-funding.sql', proof: '2026-11-02-015-personal-funding-hosted-proof.sql',
+    wrong: 'grant execute on function keel_private.funding_metadata_valid(jsonb) to service_role', refused: /service_role can execute private funding helper/ },
   { migration: '015-push.sql', proof: '2026-10-31-web-push-hosted-proof.sql',
     wrong: 'grant usage on schema plates_push to anon',
     refused: /a browser role can use schema plates_push/ },
   { migration: '016-long-sessions.sql', proof: '2026-10-31-web-long-sessions-hosted-proof.sql',
     wrong: 'grant execute on function public.plates_web_rpc(text,text,text,text,text,text,integer,bigint) to authenticated',
     refused: /a browser role can execute plates_web_rpc/ },
+  { migration: '016-private-lessons.sql', proof: '2026-11-02-016-private-lessons-hosted-proof.sql',
+    wrong: 'grant execute on function public.plates_private_lesson_rpc(text,text,text,text,jsonb) to authenticated', refused: /a browser role can execute plates_private_lesson_rpc/ },
+  { migration: '017-host-observations.sql', proof: '2026-11-02-017-host-observations-hosted-proof.sql',
+    wrong: 'grant execute on function public.plates_host_observation_rpc(text,text,text,text,jsonb) to authenticated', refused: /a browser role can execute plates_host_observation_rpc/ },
 ];
 
 const RACE = '/* TWO-CONNECTION RACE';
