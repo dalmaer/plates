@@ -15,6 +15,8 @@ export const REQUIRED_CONVENTIONS = Object.freeze([
   'tests/skill.test.mjs',
   'tests/guide-consumers.test.mjs',
   'tests/web-operation-coverage.test.mjs',
+  // A G7 phase that owes a walk needs an activation step: caught here, not first in the full gate (2026-11-02).
+  'tests/web-activation-plan.test.mjs',
   'tests/check-focused.test.mjs',
 ]);
 const PATH = /^tests\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-][A-Za-z0-9_.-]*\.test\.mjs$/;

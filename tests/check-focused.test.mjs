@@ -10,7 +10,7 @@ import { run } from './helpers/run.mjs';
 import { focusedPlan, runFocusedPlan } from '../scripts/check-focused.mjs';
 
 const ROOT = resolve('.');
-const REQUIRED = ['tests/helpers.test.mjs', 'tests/docs.test.mjs', 'tests/guides.test.mjs', 'tests/cli.test.mjs', 'tests/adopt.test.mjs', 'tests/skill.test.mjs', 'tests/guide-consumers.test.mjs', 'tests/web-operation-coverage.test.mjs', 'tests/check-focused.test.mjs'];
+const REQUIRED = ['tests/helpers.test.mjs', 'tests/docs.test.mjs', 'tests/guides.test.mjs', 'tests/cli.test.mjs', 'tests/adopt.test.mjs', 'tests/skill.test.mjs', 'tests/guide-consumers.test.mjs', 'tests/web-operation-coverage.test.mjs', 'tests/web-activation-plan.test.mjs', 'tests/check-focused.test.mjs'];
 async function acme(t) {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'plates-focused-acme-')));
   t.after(() => rm(root, { recursive: true, force: true }));
