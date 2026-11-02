@@ -85,6 +85,10 @@
       "practice": "reconciliation",
       "sha256": "9d7a241c9a57a984e93b8e75db67c58036e766d45d074ef071fa95a931b3d9bb"
     },
+    ".github/workflows/plates-loop.yml": {
+      "practice": "loop",
+      "sha256": "845cf24caef126d72a487e06929da20abc0a77b1a06eb431491944b02fc62dab"
+    },
     ".github/workflows/plates-morning.yml": {
       "practice": "night",
       "sha256": "2077fcbedb12818a1c122e95933a975491c237c307a476f18ad0cb8dfe8e32fe"
@@ -121,6 +125,10 @@
       "practice": "lessons",
       "sha256": "4bb984fe7f889d244d6c9a450c8e06cfb1cfbaa67a8ee4e0066fd3702697334e"
     },
+    "AGENTS.md#loop": {
+      "practice": "loop",
+      "sha256": "78859d74b034f6ae952c9761d3cd2d98b03d0d1e8657c3bcfdfb5d571ee6861d"
+    },
     "AGENTS.md#night": {
       "practice": "night",
       "sha256": "58df090e15953042f6865e73deda3a0935b5caeadc56ee38303966da111ca561"
@@ -156,6 +164,10 @@
     "renovate.json": {
       "practice": "renovate",
       "sha256": "fd83325f1ef12226434ecfa9668efaafc166ada353184071a418d145507231c2"
+    },
+    "scripts/loop.mjs": {
+      "practice": "loop",
+      "sha256": "dcf8dfa6276430d184218cb312f1d2e994854429e891af964ba2b9c207c060fd"
     },
     "scripts/plates/canvas-recovery.mjs": {
       "practice": "night",

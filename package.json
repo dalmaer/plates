@@ -34,10 +34,11 @@
     "render": "node scripts/render.mjs --self",
     "render:check": "node scripts/render.mjs --self --check",
     "inbox:check": "node bin/plates.mjs learn render --check",
-    "check": "node scripts/plates/test-ledger.mjs --run \"npm test && npm run roadmap:check && npm run render:check && npm run inbox:check\"",
+    "check": "node scripts/plates/test-ledger.mjs --run \"npm test && npm run roadmap:check && npm run render:check && npm run inbox:check && npm run loop:check\"",
     "typecheck": "tsc --project tsconfig.json",
     "keel": "node bin/plates.mjs",
-    "check:focused": "node scripts/check-focused.mjs"
+    "check:focused": "node scripts/check-focused.mjs",
+    "loop:check": "node scripts/loop.mjs render --check"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.11",

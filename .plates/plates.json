@@ -23,10 +23,11 @@
     "night",
     "claude",
     "renovate",
-    "reconciliation",
+    "loop",
     "climb",
     "cross-review",
-    "personas"
+    "personas",
+    "reconciliation"
   ],
   "agents": {
     "claude": {},
@@ -107,5 +108,11 @@
       ],
       "enabled": true
     }
+  },
+  "ejected": [
+    "tests/loop.test.mjs"
+  ],
+  "loop": {
+    "prove": false
   }
 }
