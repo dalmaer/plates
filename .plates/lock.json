@@ -51,7 +51,7 @@
     },
     ".agents/skills/spin/SKILL.md": {
       "practice": "conduct",
-      "sha256": "603676046a25f58adfae7a2d0cc765db5995765ade9f38d2767ff87b0a8ca026"
+      "sha256": "70606f1abb07d2fe14afea6048175d926014a68d1a4a711a57816d99b00767a1"
     },
     ".claude/skills/conduct": {
       "practice": "conduct",
@@ -67,7 +67,7 @@
     },
     ".github/workflows/check.yml": {
       "practice": "ci",
-      "sha256": "de5e6d963a7dfb2328bc1b79a2644fa79b0785fb754c95e698dc501af2428f30"
+      "sha256": "997e697726a31c07f6c989dc98bbe30cba1476d9b5ecf430a792ff0d35a1f4b1"
     },
     ".github/workflows/claude.yml": {
       "practice": "claude",
@@ -91,11 +91,11 @@
     },
     ".github/workflows/plates-night.yml": {
       "practice": "night",
-      "sha256": "b0fd008172619401ad13784a5ba399464e00e4800a79048171821bfc463b281d"
+      "sha256": "f2b457d28b6716a60c5f0ea2f54aefb205ae918be14dbdc89beedfa0d9241dfe"
     },
     ".github/workflows/plates-robot-route.yml": {
       "practice": "climb",
-      "sha256": "716902ac79827a632013461d8905ba338e65305d1f923a2c0f8c31c3ada44341"
+      "sha256": "8cd2c61ee42aa19fd38a0771f690d8fce17d70eb07d8cd4aa78c107b94807ff3"
     },
     ".github/workflows/plates-robot.yml": {
       "practice": "climb",
