@@ -112,3 +112,23 @@ check. The full result is retained at
 release/consumer propagation path independently of this source PR; no review
 override, release tag or consumer update was performed. Source publication can
 continue independently, with fresh review and exact-head CI.
+
+## Retrospective review, 2026-11-02
+
+PR 318's hosted Claude review (review 5732462975) explicitly covered only a
+subset: it excluded this evidence file, other guides, phase records 157–162
+and the lock file. Its pre-merge result must not be described as a complete
+review of all 25 changed files. The required local and exact-head CI checks
+were separate evidence.
+
+A later independent read-only review of all 25 files, reported to this session
+on 2026-11-02, reported verifying the lock hashes, rendered copies and roadmap.
+It found one low-severity inconsistency: the spin guide's “What you'll see”
+section still promised a commit per phase. This follow-up changes that section
+to describe independently safe increment commits, their evidence, unchecked
+remaining acceptance and partial-phase continuation. This review is retrospective
+evidence, not a replacement or expansion of the original pre-merge review.
+
+The follow-up's own validation and review results belong to its publication
+record. It makes no runtime or release-policy change. The historical release
+provenance blocker and outstanding consumer rollout remain unchanged.

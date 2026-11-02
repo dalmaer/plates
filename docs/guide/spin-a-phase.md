@@ -177,12 +177,15 @@ plates, or send your edit home ([Lessons and learning](lessons-and-learning.md))
 
 ## What you'll see
 
-A commit per phase on `main`, titled `phase <N>: <heading>`, whose body says
-what was built, what the proof showed, what changed course, the gate's
-result line and the wall time. Between phases, a short report. At a stop,
-the phase set to `partial` with a note naming what waits on whom, and the
-ask in its Next action, so a later session can pick it up from the docs
-alone. The final report lists every ask in one place, each with its price.
+Commits for independently safe increments on `main`, titled
+`phase <N>: <heading>`, whose bodies say what was built, what the proof showed,
+what changed course, the gate's result line and the wall time. A phase can span
+several commits. Each increment records its evidence. While acceptance remains
+unfinished, keep its boxes unchecked and the phase `partial`, and name the next
+increment. Between phases, a short report. At a stop, the phase's note names what waits
+on whom and its Next action carries the ask, so a later session can pick it up
+from the docs alone. The final report lists every ask in one place, each with
+its price.
 
 A phase whose proof needs the commit itself (a fresh clone, CI on the pushed
 commit) stays `partial` in its own commit, and moves to `built` in the next
