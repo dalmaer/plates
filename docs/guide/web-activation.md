@@ -181,6 +181,10 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
    - Needs first: phase 151.
    - Rollback: Redeploy the previous build; the theme choice is a per-device preference and nothing else was written.
    - Proof to record: The deployed revision and the owner answer (same family, too alike, or too different and where), recorded in docs/evidence/2026-11-02-blue-and-white-glass.md.
+44. **home-calmer** (phase 169, decision, owner attends). After deploying a build with phase 169, the owner reads Home on a phone, top first and then one long scroll, and says whether it is calmer and still clear what needs them.
+   - Needs first: phase 151.
+   - Rollback: Redeploy the previous build; only styles and added class names changed, and nothing was written.
+   - Proof to record: The deployed revision and the owner answer (better, or worse and where), recorded in docs/evidence/2026-11-02-home-design-layer.md.
 
 ## Still open
 

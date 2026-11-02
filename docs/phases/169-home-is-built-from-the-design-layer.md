@@ -1,11 +1,12 @@
 ---
-status: planned
+status: partial
+owes: walk
 since: 2026-11-02
 goal: G7
 spec: 2
 depends: [168]
-note: "Owner, 2026-11-02: plates and Ledger 'should feel like they are in the same family'. Ledger's materials (glass surfaces, background wash, radius, motion, theme toggle) with plates's own colour: blue and white, cobalt on porcelain. Owner approved reusing Ledger's token values and a blocking theme script."
-evidence: []
+note: "Built and proven by test: views.mjs takes every colour from a token, Home cards, labels and fields use the shared components, and long lists stay solid. The owner's look on a phone remains."
+evidence: ["evidence/2026-11-02-home-design-layer.md"]
 ---
 
 # Home is built from the design layer
@@ -24,8 +25,8 @@ Home's sections, cards, badges and toolbar use the shared components. `views.mjs
 
 ## Acceptance
 
-- [ ] `lib/web/views.mjs` holds no hex, rgb or oklch literal: `tests/web-design.test.mjs: "home uses only tokens"`
-- [ ] Home's existing behaviour tests pass unchanged: `tests/web-home.test.mjs`
+- [x] `lib/web/views.mjs` holds no hex, rgb or oklch literal: `tests/web-design.test.mjs: "home uses only tokens"`
+- [x] Home's existing behaviour tests pass unchanged: `tests/web-home.test.mjs`
 - [ ] ⚑ by hand: the owner reads Home on a phone and says whether it is calmer and still clear.
 
 ## Your part
@@ -49,8 +50,12 @@ By hand: the owner's look on a phone.
 
 ## Deliberately open
 
-- **Which lists stay solid.** Measured on the owner's phone.
+- **Settled 2026-11-02 (build): which lists stay solid.** All of them. `.p-card` is solid, only the header and panels blur, and `.p-card.p-glass` is the opt-in. The owner's phone walk can still ask for more glass.
 
 ## Next action
 
-Build it after phase 168.
+Walk it: the owner reads Home on a phone after the deploy (activation step home-calmer).
+
+## Trajectory
+
+- **2026-11-02** — Home needed four state tokens (warn, warn-tint, ok-tint, sunken), each with contrast pairs in both themes. Dark tints moved from olive and brown into the blue family. Evidence: tests/web-design.test.mjs.
