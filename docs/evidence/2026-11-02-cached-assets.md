@@ -26,9 +26,9 @@ Some pages need fixtures the basic harness lacks: walks, decisions, model and co
 
 | Did | Expected | Observed | Proves / does not prove |
 | --- | --- | --- | --- |
-| `curl -sI` a digest asset on the deployed workspace | `cache-control: public, max-age=31536000, immutable` | Not run: needs the owner's deploy | The live header |
+| GET a digest asset on the deployed workspace (2026-11-02T17:19Z, deployment plates-9igbj2gge, main 4a38b3cf) | `cache-control: public, max-age=31536000, immutable` | `/assets/plates.509b39a97398.css` and `/assets/pwa-client.dfd60a61e938.mjs`: 200, `public, max-age=31536000, immutable`. `/assets/plates.css`: 200, `private, no-store`. `/assets/plates.000000000000.css`: 404. `/`: `private, no-store`. The sign-in page and `/sw.js` reference digest URLs. | The live header. A first check a minute after the deploy saw a mix of the old and new builds while the alias moved; it was repeated once the rollout finished. |
 | Reload a signed-in page with the network panel open | Assets served from cache | Not run | The second-visit cost |
 
 ## Gaps and decision
 
-The live checks wait on the owner's deploy. The phase is partial, `owes: walk`. Edge caching (`s-maxage`) stays deliberately open.
+The live headers hold. The owner's reload with the network panel open remains, so the phase is partial, `owes: walk`. Edge caching (`s-maxage`) stays deliberately open.

@@ -5,7 +5,7 @@ since: 2026-11-02
 goal: G7
 spec: 2
 depends: [152]
-note: "Built and proven by test: one asset table, digest URLs served immutable, logical paths still private, pages and modules reference only digest URLs, and the worker precaches them. The live header read and a cached reload after deploy remain."
+note: "Built and proven by test: one asset table, digest URLs served immutable, logical paths still private, pages and modules reference only digest URLs, and the worker precaches them. Live headers verified on the deployed workspace on 2026-11-02; the owner's cached reload remains."
 evidence: ["evidence/2026-11-02-cached-assets.md"]
 ---
 
@@ -53,7 +53,7 @@ By hand: `curl -sI` on the deployed digest URL, and a browser reload on the netw
 
 ## Next action
 
-After the owner deploys main: `curl -sI` a digest asset on the workspace, and the owner reloads a signed-in page with the network panel open.
+The owner reloads a signed-in page with the network panel open and sees its assets served from cache.
 
 ## Trajectory
 
