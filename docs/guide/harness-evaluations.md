@@ -312,3 +312,11 @@ See the [input partition contract](../specs/harness-input-partition.md).
 This API neither freezes a plan nor executes a trial. A future live caller must
 revalidate the existing frozen ledger and obtain its separate transfer approval;
 there is no new live CLI operation in this component.
+
+`preparePublicPacket` and `convertPublicResult` in
+`lib/evaluation-public-packet.mjs` accept only the partition's branded public view.
+They construct a fixed text-only request and convert bounded UTF-8 replacements to
+the existing base64 artifact envelope. They do not call a provider or execute code.
+The original partition handle must still reconstruct and bound private evaluator
+inputs. See the [packet contract](../specs/harness-public-packet.md); private receipt
+bindings stay local and are not part of the public request.

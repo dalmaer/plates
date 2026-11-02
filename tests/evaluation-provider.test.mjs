@@ -2,7 +2,7 @@ import './helpers/hermetic.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { createEvaluationProvider, EVALUATION_PROVIDER_LIMITS as limits } from '../lib/evaluation-provider.mjs';
+import { createEvaluationProvider, prepareEvaluationProviderPacket, EVALUATION_PROVIDER_LIMITS as limits } from '../lib/evaluation-provider.mjs';
 
 // Synthetic Acme inputs only. Every adapter instance receives a fake fetcher.
 const key = 'acme-synthetic-provider-credential-only';
@@ -53,6 +53,7 @@ test('live count/start/inspect bind the public packet, model, scope and standard
     assert.equal(call.organization, scope.organization); assert.equal(call.project, scope.project);
   }
   assert.equal(count.packetDigest, createHash('sha256').update(JSON.stringify(countedBody)).digest('hex'));
+  assert.deepEqual(prepareEvaluationProviderPacket({ model, packet: input().packet }), { body: countedBody, packetDigest: count.packetDigest });
   assert.equal(started.packetDigest, count.packetDigest);
   assert.deepEqual(count.model, model); assert.deepEqual(started.model, model);
   assert.equal(count.inputTokens, 100); assert.equal(count.requestedServiceTier, 'default');
@@ -239,4 +240,48 @@ test('live reader accepts 4096 progressing chunks but refuses the next chunk bel
     }
     assert.equal(calls, 1); assert.equal(cancelled, true);
   }
+});
+
+test('pure provider packet preparation preserves the fixed wire identity and snapshots inputs', () => {
+  const original = { model: { requested: 'acme-alias', resolved: 'acme-resolved' }, packet: { instructions: 'Acme instructions.', input: 'Acme input.' } };
+  const prepared = prepareEvaluationProviderPacket(original);
+  assert.equal(JSON.stringify(prepared.body), '{"model":"acme-resolved","instructions":"Acme instructions.","input":"Acme input."}');
+  // Independent fixed vector, not computed by the helper under test.
+  assert.equal(prepared.packetDigest, '48bab5a7295308deadc6c2a073f63e3c7617e46509343202cfd1b5d8a1b1c930');
+  original.model.requested = 'acme-other-alias';
+  assert.equal(prepareEvaluationProviderPacket(original).packetDigest, prepared.packetDigest);
+  original.model.resolved = 'acme-other-resolved';
+  assert.notEqual(prepareEvaluationProviderPacket(original).packetDigest, prepared.packetDigest);
+  original.packet.input = 'Acme changed';
+  assert.equal(prepared.body.input, 'Acme input.');
+  assert.ok(Object.isFrozen(prepared) && Object.isFrozen(prepared.body));
+  assert.throws(() => { prepared.body.model = 'changed'; }, TypeError);
+});
+
+test('pure provider packet preparation rejects unsupported shape, Unicode and exact byte overflow', () => {
+  const valid = { model: { ...model }, packet: { instructions: 'Acme', input: 'x' } };
+  for (const changed of [
+    { ...valid, key }, { ...valid, scope }, { ...valid, model: 'acme' },
+    { ...valid, model: { requested: 'acme', resolved: null } },
+    { ...valid, model: { ...model, other: 'acme' } },
+    ...['', ' ', 'x\0y', '\ud800', '\udfff'].map(s => ({ ...valid, packet: { instructions: 'Acme', input: s } })),
+    { ...valid, packet: { ...valid.packet, other: 'acme' } },
+  ]) assert.throws(() => prepareEvaluationProviderPacket(changed), safeFailure('evaluation_provider_input', 'not-dispatched'));
+  const overhead = Buffer.byteLength(JSON.stringify({ instructions: 'Acme', input: '' }));
+  const exact = { ...valid, packet: { instructions: 'Acme', input: 'x'.repeat(limits.packetBytes - overhead) } };
+  assert.equal(Buffer.byteLength(JSON.stringify(exact.packet)), limits.packetBytes);
+  assert.ok(prepareEvaluationProviderPacket(exact).packetDigest);
+  assert.throws(() => prepareEvaluationProviderPacket({ ...exact, packet: { ...exact.packet, input: exact.packet.input + 'x' } }), safeFailure('evaluation_provider_input', 'not-dispatched'));
+  const throwing = { model: { ...model }, get packet() { throw Error('Acme private canary'); } };
+  assert.throws(() => prepareEvaluationProviderPacket(throwing), e => e.message === 'evaluation_provider_input' && e.cause === undefined && !e.stack.includes('Acme private canary'));
+});
+
+test('shared packet validation refuses malformed Unicode before count or generation dispatch', async () => {
+  let calls = 0;
+  const adapter = provider(async () => { calls++; return json(response()); });
+  for (const operation of ['count', 'start']) {
+    const request = { ...input(), packet: { instructions: 'Acme', input: '\ud800' }, ...(operation === 'start' ? { maxOutputTokens: 50 } : {}) };
+    await assert.rejects(adapter[operation](request), safeFailure('evaluation_provider_input', 'not-dispatched'));
+  }
+  assert.equal(calls, 0);
 });

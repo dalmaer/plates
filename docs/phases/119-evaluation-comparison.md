@@ -6,7 +6,7 @@ spec: 2
 depends: [118]
 review: wait
 note: "Offline comparison and recovery proved; live runtime components prepared, with orchestration and approved real screening still pending."
-evidence: ["evidence/2026-10-23-evaluation-comparison.md", "evidence/2026-11-01-evaluation-recovery.md", "evidence/2026-11-01-evaluation-live-components.md", "evidence/2026-11-01-evaluation-input-partition.md"]
+evidence: ["evidence/2026-10-23-evaluation-comparison.md", "evidence/2026-11-01-evaluation-recovery.md", "evidence/2026-11-01-evaluation-live-components.md", "evidence/2026-11-01-evaluation-input-partition.md", "evidence/2026-11-01-evaluation-public-packet.md"]
 ---
 
 # Compare paired harness trials and resume interrupted comparisons
