@@ -1,11 +1,8 @@
 # Phase119 pure public packet and UTF-8 converter — implementation proposal
 
-Prepared read-only against clean `/private/tmp/plates-input-partition`, revision
-`31ab97a763d697c415511f76910c24cd995a65a6`, while the parent input-partition gate runs.
-Only this scratch document is written. No repository changes, tests, network,
-credentials, model calls or execution. This is a proposed contract, not acceptance
-or implementation evidence. The UTF-8 response format remains a parent proposal
-pending adoption; the existing Docker bridge format is not changed.
+Implementation contract adopted on 1 November 2026 for phase 119. This pure
+component does not authorize provider transfer or execution. The existing Docker
+bridge format remains unchanged. Proof and real orchestration remain separate.
 
 Sources inspected: section 4 of `/tmp/phase119-live-descriptor-contract.md`,
 `evaluation-input-partition.mjs`, `evaluation-provider.mjs`, `evaluation-docker.mjs`,
@@ -263,7 +260,7 @@ model UTF-8 response, to runLiveBuilder. No host writes or code execution. Conve
 failure is an output failure, not a provider refund, acceptance verdict or reason
 to call the model again; monetary handling remains outside this slice.
 
-## Focused tests and meaningful negative controls — planned, not run
+## Required focused tests and negative controls
 
 Use synthetic Acme reviewed fixtures to obtain real branded views. Do not create a
 production test-only branding bypass. Prefer existing partition fixture machinery
