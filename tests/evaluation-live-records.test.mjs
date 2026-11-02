@@ -1,6 +1,8 @@
 // Synthetic Acme receipt graphs only. No providers, credentials, Docker or private corpus reads.
 import './helpers/hermetic.mjs';
 import test from 'node:test';
+import { summarizeComparison, summarizeComparisonV2, renderComparison } from '../lib/evaluation-comparison-report.mjs';
+import { inspectLiveExecutions } from '../lib/evaluation-live-inspection.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, realpath, mkdir, rm, chmod, writeFile, symlink, link } from 'node:fs/promises';
 import fs from 'node:fs/promises';
@@ -428,4 +430,68 @@ test('inventory retains stat reread and aggregate byte caps with unknown usage o
   const oversized = join(w.directory, 'execution/Acme-large'); await writeFile(oversized, ''); await fs.truncate(oversized, 67108865);
   const inventory = await inspectLiveInventory(w.directory, w.plan);
   assert.equal(inventory.usage, null); assert.equal(inventory.frozenUsage, null); assert.ok(inventory.gaps.some(g => g.code === 'unavailable'));
+});
+
+async function currentGuidance(w) {
+  const execution = await inspectLiveExecutions(w.directory, w.plan);
+  return summarizeComparison(w.plan, execution);
+}
+test('CURRENT guidance follows the real count inspector through missing lease, local-only and consumed recovery', async t => {
+  const w = await world(t);
+  const countRow = report => report.recovery.operations.find(o => o.slot === w.slot && o.operationKind === 'count');
+  let report = await currentGuidance(w);
+  assert.equal(countRow(report).nextAction.kind, 'inspect-evidence');
+  assert.ok(countRow(report).missingPrerequisites.includes('original-admission-lease'));
+  await w.put(liveReceiptPath(w.admission), w.admission);
+  report = await currentGuidance(w);
+  assert.equal(countRow(report).nextAction.kind, 'preview-local-only');
+  assert.equal(countRow(report).operationId, w.countOp.operationId);
+  assert.ok(countRow(report).evidence.some(e => e.digest === w.admission.digest));
+  const r = localRecovery(w); await w.put(liveReceiptPath(r.intent), r.intent);
+  report = await currentGuidance(w);
+  assert.equal(countRow(report).nextAction.kind, 'inspect-original-recovery');
+  const recovery = report.recovery.operations.find(o => o.operationKind === 'reconcile');
+  assert.ok(recovery.missingPrerequisites.includes('original-recovery-result'));
+  assert.ok(recovery.evidence.some(e => e.digest === r.intent.digest));
+  assert.ok(report.recovery.operations.every(o => o.authorizesMutation === false));
+});
+test('CURRENT real generation guidance binds original GET, preserves V2 bytes and refuses broken evidence', async t => {
+  const w = await world(t), g = await generationWorld(w);
+  const before = await inspectLiveRecords(w.directory, w.plan);
+  assert.deepEqual(before.gaps, []);
+  const execution = await inspectLiveExecutions(w.directory, w.plan), historical = JSON.stringify(summarizeComparisonV2(w.plan, execution));
+  const report = summarizeComparison(w.plan, execution), { recovery, ...legacy } = report;
+  assert.equal(JSON.stringify(legacy), historical);
+  const generation = recovery.operations.find(o => o.slot === w.slot && o.operationKind === 'generation');
+  assert.equal(generation.nextAction.kind, 'preview-provider-get');
+  assert.equal(generation.operationId, g.intent.operationId);
+  assert.ok(generation.evidence.some(e => e.digest === g.result.digest));
+  assert.match(renderComparison(report), /separately approved GET/);
+  assert.deepEqual(await inspectLiveRecords(w.directory, w.plan), before, 'projection and rendering neither modify receipts nor spend');
+  const path = liveReceiptPath(g.result); await rm(join(w.directory, path));
+  await w.put(path, sealRecord({ ...g.result, intentDigest: H }));
+  const broken = await currentGuidance(w);
+  assert.ok(broken.recovery.operations.every(o => !o.nextAction.kind.startsWith('preview-')));
+  assert.ok(broken.recovery.operations.some(o => o.missingPrerequisites.includes('valid-original-evidence')));
+  assert.ok(broken.recovery.operations.every(o => o.evidence.every(e => e.record !== 'execution/unknown')), 'live gaps retain their actual paths');
+});
+test('CURRENT builder prefix without provider ID names local-only original evidence, not missing live work', async t => {
+  const w = await world(t), builder = await generationPrefix(w), report = await currentGuidance(w);
+  const row = report.recovery.operations.find(o => o.slot === w.slot && o.operationKind === 'generation');
+  assert.equal(row.nextAction.kind, 'preview-local-only');
+  assert.equal(row.operationId, builder.intent.id);
+  assert.ok(row.evidence.some(e => e.digest === builder.intent.digest));
+  assert.ok(report.recovery.operations.filter(o => o.slot !== w.slot).every(o => !o.nextAction.kind.startsWith('preview-')), 'original uncertainty blocks other missing work');
+});
+
+test('CURRENT orphan spend prefix preserves known operation identity without proposing missing work', async t => {
+  const w = await world(t);
+  await rm(join(w.directory, liveReceiptPath(w.intent)));
+  await rm(join(w.directory, liveReceiptPath(w.packetRecord)));
+  const report = await currentGuidance(w), rows = report.recovery.operations.filter(o => o.slot === w.slot);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].operationId, w.countOp.operationId);
+  assert.equal(rows[0].nextAction.kind, 'inspect-evidence');
+  assert.ok(rows[0].missingPrerequisites.includes('original-intent'));
+  assert.ok(rows[0].evidence.some(e => e.record === w.spendHome + '/reservation.json'));
 });

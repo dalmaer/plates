@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, realpath, rm, writeFile, readFile, mkdir, lstat, readdir } from 'node:fs/promises';
+import { mkdtemp, realpath, rm, writeFile, readFile, mkdir, lstat, readdir, chmod, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { once } from 'node:events';
@@ -10,6 +10,7 @@ import { reserveExternalBudget, inspectBudgetTarget, inspectBudget, reconcileExt
 import { storeImmutable } from '../lib/session-ledger-io.mjs';
 import { evaluations } from '../lib/evaluation-ledger.mjs';
 import { evaluationWorld, evaluationController } from './helpers/evaluation-execution.mjs';
+import { summarizeComparison, summarizeComparisonV1 } from '../lib/evaluation-comparison-report.mjs';
 import { sealRecord, fingerprint } from '../lib/evaluation-records.mjs';
 import { executionInput, admittedDeadline } from '../lib/evaluation-execution-input.mjs';
 import { preflightDocker } from '../lib/evaluation-docker.mjs';
@@ -349,6 +350,15 @@ test('a cancel interrupted after its intent still closes admission', async t => 
   const retry = await evaluations({ ...options, yes: true, digest: preview.digest });
   assert.equal(retry.recovered, true);
   await assert.rejects(evaluations(resume), /admission closed/);
+  const compared = await evaluations({ ...w.options, action: 'compare', experiment: w.b.comparison.id });
+  assert.equal(compared.report.recovery.admissionClosed, true);
+  assert.match(compared.report.recovery.nextAction, /Admission is closed/);
+  assert.ok(compared.report.recovery.operations.every(o => !o.nextAction.kind.startsWith('preview-')));
+  const current = await inspectExecutions(join(w.options.state, 'session-trials', w.b.comparison.id), (await JSON.parse(await readFile(join(w.options.state, 'session-trials', w.b.comparison.id, 'state.json'), 'utf8'))).plan);
+  assert.equal(current.cancellation, null, 'intent presence is not a validated cancellation receipt');
+  assert.equal(current.recoveryControl.admissionClosed, true);
+  assert.equal(current.recoveryControl.cancelIntent.kind, 'evaluation-recovery-reservation');
+
 });
 
 
@@ -525,5 +535,69 @@ test('capacity refusal authority cannot be imitated by structured error fields',
   for (const error of [Object.assign(new Error(code), { code }), { code, message: code },
     { code, authority: 'external-admission-refusal-v1', admitted: false }, null, undefined]) {
     assert.equal(isExternalCapacityRefusal(error), false);
+  }
+});
+
+async function inspectionBytes(dir) {
+  const entries = [];
+  async function walk(path, relative = '') {
+    for (const name of (await readdir(path)).sort()) {
+      const full = join(path, name), key = relative + name, stat = await lstat(full);
+      entries.push([key, stat.mode, stat.isSymbolicLink() ? 'link' : stat.isFile() ? (await readFile(full)).toString('base64') : 'directory']);
+      if (stat.isDirectory()) await walk(full, key + '/');
+    }
+  }
+  await walk(dir); return entries;
+}
+test('CURRENT offline inspection retains original recovery control without historical projection or read effects', async t => {
+  const w = await reservedSlot(t), options = { ...w.options, action: 'reconcile', experiment: w.b.comparison.id };
+  let current = await inspectExecutions(w.dir, w.plan);
+  assert.equal(current.recoveryControl.coverage, 'complete');
+  assert.equal(current.recoveryControl.reconcileIntentPresent, false);
+  const original = summarizeComparison(w.plan, current).recovery.operations.find(o => o.slot === w.intent.slot);
+  assert.equal(original.nextAction.kind, 'preview-offline-reconcile');
+  const preview = await evaluations(options); await evaluations({ ...options, yes: true, digest: preview.digest });
+  const outcome = join(w.dir, 'execution/control', `reconcile-${preview.digest}.json`);
+  current = await inspectExecutions(w.dir, w.plan);
+  assert.equal(current.recoveryControl.reconcileResult.inputDigest, preview.digest);
+  await rm(outcome); // Crash leaves the original reservation but no final control receipt.
+  const before = await inspectionBytes(w.dir), budgetBefore = await readFile(join(w.admission.stateDir, 'state.json'));
+  current = await inspectExecutions(w.dir, w.plan);
+  const legacy = { ...current }; delete legacy.recoveryControl;
+  assert.equal(JSON.stringify(summarizeComparisonV1(w.plan, current)), JSON.stringify(summarizeComparisonV1(w.plan, legacy)));
+  const compared = await evaluations({ ...w.options, action: 'compare', experiment: w.b.comparison.id });
+  const recovery = compared.report.recovery.operations.find(o => o.operationKind === 'reconcile');
+  assert.equal(recovery.nextAction.kind, 'inspect-original-recovery');
+  assert.ok(recovery.missingPrerequisites.includes('original-recovery-result'));
+  assert.ok(recovery.evidence.some(e => e.record === 'execution/control/reconcile-intent.json' && e.digest === current.recoveryControl.reconcileIntent.digest));
+  assert.ok(compared.report.recovery.operations.every(o => o.authorizesMutation === false));
+  assert.deepEqual(await inspectionBytes(w.dir), before);
+  assert.deepEqual(await readFile(join(w.admission.stateDir, 'state.json')), budgetBefore);
+});
+test('CURRENT controls expose invalid foreign unsafe and ambiguous evidence without preview authority', async t => {
+  for (const variant of ['malformed-intent', 'foreign-intent', 'wrong-action', 'ambiguous-result', 'orphan-result', 'unsafe-link', 'unsafe-mode']) {
+    const w = await reservedSlot(t), options = { ...w.options, action: 'reconcile', experiment: w.b.comparison.id };
+    const preview = await evaluations(options); await evaluations({ ...options, yes: true, digest: preview.digest });
+    const control = join(w.dir, 'execution/control'), intentPath = join(control, 'reconcile-intent.json');
+    const intent = JSON.parse(await readFile(intentPath, 'utf8'));
+    if (variant === 'malformed-intent') { await rm(intentPath); await writeFile(intentPath, '{', { mode: 0o400 }); }
+    if (variant === 'foreign-intent' || variant === 'wrong-action') {
+      await rm(intentPath); await storeImmutable(intentPath, sealRecord({ ...intent, ...(variant === 'foreign-intent' ? { planDigest: 'f'.repeat(64) } : { action: 'cancel' }) }));
+    }
+    if (variant === 'ambiguous-result') {
+      const result = JSON.parse(await readFile(join(control, `reconcile-${preview.digest}.json`), 'utf8'));
+      await storeImmutable(join(control, `reconcile-${'e'.repeat(64)}.json`), sealRecord({ ...result, inputDigest: 'e'.repeat(64) }));
+    }
+    if (variant === 'orphan-result') await rm(intentPath);
+    if (variant === 'unsafe-link') { await rm(control, { recursive: true }); await symlink('/Acme/unavailable-control', control); }
+    if (variant === 'unsafe-mode') await chmod(control, 0o777);
+    const before = await inspectionBytes(w.dir), current = await inspectExecutions(w.dir, w.plan);
+    assert.equal(current.recoveryControl.coverage, 'unavailable', variant);
+    assert.ok(current.recoveryControl.gaps.length, variant);
+    assert.equal(current.recoveryControl.reconcileResult, null, variant);
+    const recovery = summarizeComparison(w.plan, current).recovery;
+    assert.ok(recovery.operations.every(o => !o.nextAction.kind.startsWith('preview-')), variant);
+    assert.ok(recovery.operations.some(o => o.missingPrerequisites.includes('validated-recovery-control-evidence')), variant);
+    assert.deepEqual(await inspectionBytes(w.dir), before, variant);
   }
 });
