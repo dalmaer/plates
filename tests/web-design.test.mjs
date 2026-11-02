@@ -9,6 +9,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { homeView, projectView, signinView } from '../lib/web/views.mjs';
 import { decisionView } from '../lib/web/decision-views.mjs';
+import { recoveryView } from '../lib/web/recovery-view.mjs';
+import { tokens as designTokens } from '../lib/web/design.mjs';
 import { changeIndexView } from '../lib/web/change-views.mjs';
 import { changesHarness, token } from './helpers/web-changes.mjs';
 // Only modules that exist before the design layer are imported statically, so
@@ -85,7 +87,8 @@ test('the shell stylesheet includes each layer once', async () => {
   assert.equal(plates, shellLayers().map(([, css]) => css).join(''), 'plates.css is exactly its layers');
   for (const [name, css] of layers) {
     assert.equal(plates.split(css).length - 1, 1, `${name} appears once in plates.css`);
-    for (const [path, entry] of table.entries) if (entry.type.startsWith('text/css') && !['/assets/plates.css', '/assets/keel.css'].includes(path)) assert.ok(!entry.body.includes(css), `${name} is not repeated in ${path}`);
+    // Phase 170: recovery.css inlines the tokens on purpose; it stands alone.
+    for (const [path, entry] of table.entries) if (entry.type.startsWith('text/css') && !['/assets/plates.css', '/assets/keel.css'].includes(path) && !(name === 'tokens' && path === '/assets/recovery.css')) assert.ok(!entry.body.includes(css), `${name} is not repeated in ${path}`);
   }
   // Components are defined but adopted by no view yet: every selector is a .p- class.
   for (const rule of rules(components)) for (const part of rule.selector.split(',')) assert.match(part.trim(), /^(?:[a-z]+)?\.p-[a-z]/, `${part} only matches opted-in markup`);
@@ -167,6 +170,11 @@ test('tokens meet contrast over the wash in both themes', () => {
     check('warn', [...textSurfaces, 'warn-tint'], 4.5);
     for (const text of ['ink', 'muted']) check(text, ['warn-tint', 'ok-tint', 'sunken'], 4.5);
     for (const tint of ['warn-tint', 'ok-tint', 'sunken']) if (color(tint)[3] !== 1) failures.push(`${themeName}: --${tint} is translucent`);
+    // Phase 170: a solid dialog stands 3:1 off the scrimmed page, by its fill
+    // or by its --line-strong edge.
+    const dimmed = over(color('scrim'), paper), dialog = color('surface-solid');
+    const standOff = Math.max(contrast(dialog, dimmed), contrast(over(color('line-strong'), dialog), dimmed));
+    if (dialog[3] !== 1 || standOff < 3) failures.push(`${themeName}: a dialog stands ${standOff.toFixed(2)}:1 off --scrim, needs 3:1`);
     // Button text sits on the solid action colour (and on danger).
     for (const fill of ['action', 'danger']) {
       const ratio = contrast(color('on-action'), color(fill));
@@ -318,16 +326,22 @@ test('glass falls back to solid surfaces', () => {
 // every colour from the design layer. No hex, rgb(a), hsl(a), oklch or other
 // colour function in the source, and no named colour in a CSS value.
 const NAMED_COLOURS = new Set('aliceblue antiquewhite aqua aquamarine azure beige bisque black blanchedalmond blue blueviolet brown burlywood cadetblue chartreuse chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan darkgoldenrod darkgray darkgreen darkgrey darkkhaki darkmagenta darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen darkslateblue darkslategray darkslategrey darkturquoise darkviolet deeppink deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen fuchsia gainsboro ghostwhite gold goldenrod gray green greenyellow grey honeydew hotpink indianred indigo ivory khaki lavender lavenderblush lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid mediumpurple mediumseagreen mediumslateblue mediumspringgreen mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin navajowhite navy oldlace olive olivedrab orange orangered orchid palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen'.split(' '));
-test('home uses only tokens', async () => {
-  const source = readFileSync(new URL('../lib/web/views.mjs', import.meta.url), 'utf8'), found = [];
+// Colour literals in source text (hex, colour functions) and named colours
+// read from the CSS values it ships (phase 169; phase 170 reuses it).
+const declarationsOf = rule => [...rule.body.matchAll(/(?:^|;)\s*([a-z-]+)\s*:([^;]*)/g)].map(([, property, value]) => [property, value.trim()]);
+function colourLiterals(source, css = source) {
+  const found = [];
   for (const [literal] of source.matchAll(/(?<![&\w-])#[0-9a-f]{3,8}(?![\w-])/gi)) found.push(literal);
   for (const [literal] of source.matchAll(/\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\([^)]*\)/gi)) found.push(literal);
-  // Named colours, read from the CSS values the module ships.
-  const { styles } = await import('../lib/web/views.mjs');
-  for (const rule of rules(styles)) for (const [, property, value] of rule.body.matchAll(/(?:^|;)\s*([a-z-]+)\s*:([^;]*)/g)) {
-    for (const word of value.toLowerCase().replace(/--[a-z0-9-]+/g, '').match(/[a-z][a-z-]*/g) ?? []) if (NAMED_COLOURS.has(word)) found.push(`${rule.selector}{${property}:${value.trim()}}`);
+  for (const rule of rules(css)) for (const [property, value] of declarationsOf(rule)) {
+    for (const word of value.toLowerCase().replace(/--[a-z0-9-]+/g, '').match(/[a-z][a-z-]*/g) ?? []) if (NAMED_COLOURS.has(word)) found.push(`${rule.selector}{${property}:${value}}`);
   }
-  assert.deepEqual(found, [], 'views.mjs takes every colour from a token');
+  return found;
+}
+test('home uses only tokens', async () => {
+  const source = readFileSync(new URL('../lib/web/views.mjs', import.meta.url), 'utf8');
+  const { styles } = await import('../lib/web/views.mjs');
+  assert.deepEqual(colourLiterals(source, styles), [], 'views.mjs takes every colour from a token');
   // Home's long lists opt into the design layer's solid card; the blur is capped.
   const home = homeView(access, snapshot());
   for (const card of ['attention-card', 'change-card', 'project-card', 'coverage']) assert.match(home, new RegExp(`class="${card}\\b[^"]*\\bp-card\\b`), `${card} is a .p-card`);
@@ -337,4 +351,61 @@ test('home uses only tokens', async () => {
   const card = rules(components).find(rule => rule.selector === '.p-card');
   assert.match(card.body, /background:var\(--surface-solid\)/, '.p-card is solid'); assert.doesNotMatch(card.body, /backdrop-filter/, '.p-card never blurs');
   for (const rule of rules(styles)) if (/attention-card|change-card|project-card|\.cards li/.test(rule.selector)) assert.doesNotMatch(rule.body, /backdrop-filter/, `${rule.selector} does not blur`);
+});
+
+// ---- page stylesheets hold layout only ---------------------------------------
+// Phase 170: every per-page sheet keeps layout only. Colours, backgrounds,
+// radii and shadows come from the design layer, so no colour literal and no
+// background, radius or box-shadow value other than a token (or none, 0,
+// transparent, inherit). plates.css is the design layer and the shell; the
+// recovery sheet's inlined token block is the design layer too.
+const PAINT = /^(?:background(?:-color|-image)?|border(?:-(?:top|bottom|start|end)-(?:left|right|start|end))?-radius|box-shadow)$/;
+const PAINT_VALUE = /^(?:var\(--[a-z0-9-]+\)|none|transparent|inherit|0)$/;
+function paintLiterals(css) {
+  const found = colourLiterals(css);
+  for (const rule of rules(css)) for (const [property, value] of declarationsOf(rule)) if (PAINT.test(property) && !PAINT_VALUE.test(value)) found.push(`${rule.selector}{${property}:${value}}`);
+  return found;
+}
+
+test('page stylesheets hold layout only', () => {
+  const table = assets.buildAssetTable(assets.defaultSources()), sheets = new Map();
+  for (const [path, entry] of table.entries) {
+    if (!entry.type.startsWith('text/css') || ['/assets/plates.css', '/assets/keel.css'].includes(path)) continue;
+    if (path === '/assets/recovery.css') {
+      assert.ok(entry.body.startsWith(designTokens), 'recovery.css opens with the design tokens');
+      sheets.set(path, entry.body.slice(designTokens.length));
+    } else sheets.set(path, entry.body);
+  }
+  // Page styles that ship inside plates.css (the journal, capabilities).
+  for (const [name, css] of assets.shellLayers()) if (!['tokens', 'components', 'shell', 'navigation'].includes(name)) sheets.set(`plates.css ${name} layer`, css);
+  for (const page of ['run', 'daily', 'fleet', 'job', 'connection', 'model', 'walk', 'decision', 'night', 'recovery']) assert.ok(sheets.get(`/assets/${page}.css`)?.length, `${page}.css is served`);
+  assert.ok(sheets.get('plates.css journal layer')?.length, 'the journal styles are scanned');
+  const failures = [...sheets].flatMap(([path, css]) => paintLiterals(css).map(literal => `${path}: ${literal}`));
+  assert.deepEqual(failures, [], 'page stylesheets take every colour, background, radius and shadow from a token');
+  // The journal cards match Home: the 14px radius and the solid card.
+  const journal = rules(sheets.get('plates.css journal layer')).find(rule => rule.selector === '.journal-card');
+  assert.match(journal.body, /border-radius:var\(--r\)/); assert.match(journal.body, /background:var\(--surface-solid\)/);
+});
+
+// ---- recovery stands alone ------------------------------------------------------
+// Phase 170: recovery is the page shown when the app is broken. It links only
+// its own sheet, which inlines the tokens at build time, so it renders when
+// plates.css is missing. No theme script: the system scheme decides.
+test('recovery stands alone', () => {
+  const pwa = createPwa(), model = { recovery: { state: 'quarantined', startedAt: '2026-10-21T16:00:00.000Z', reconciledAt: null, epoch: 'acme-epoch' }, revision: { value: 'a'.repeat(40) }, cliVersion: '0.8.35', nodeVersion: 'v22.0.0', observedAt: '2026-10-21T16:00:00.000Z' };
+  const html = pwa.assets.rewrite(pwa.decorate(recoveryView(model, { csrf: 'fake-csrf-acme' })));
+  const sheets = [...html.matchAll(/<link rel="stylesheet" href="([^"]+)"/g)].map(([, href]) => href);
+  assert.deepEqual(sheets, [pwa.assets.url('/assets/recovery.css')], 'recovery links only its own sheet');
+  assert.doesNotMatch(html, /\/assets\/(?:plates|keel)\./, 'recovery does not link plates.css');
+  assert.doesNotMatch(html, /<script/, 'recovery runs no script');
+  const css = pwa.assets.entries.get('/assets/recovery.css').body;
+  assert.ok(css.startsWith(designTokens), 'recovery.css inlines the design tokens');
+  const layout = css.slice(designTokens.length), { light, dark } = themeTokens(css);
+  const used = new Set([...css.matchAll(/var\(--([a-z0-9-]+)\)/g)].map(([, name]) => name));
+  for (const name of ['ink', 'paper', 'action', 'on-action', 'line-strong', 'ring', 'r-sm', 'r']) assert.ok(layout.includes(`var(--${name})`), `the recovery layout uses --${name}`);
+  for (const [themeName, theme] of Object.entries({ light, dark })) for (const name of used) assert.ok(theme[name], `${themeName}: recovery.css defines --${name}`);
+  for (const theme of [light, dark]) {
+    const color = name => parseColor(resolver(theme)(name));
+    assert.ok(contrast(color('ink'), color('paper')) >= 4.5 && contrast(color('on-action'), color('action')) >= 4.5, 'recovery text reads in both themes');
+  }
 });
