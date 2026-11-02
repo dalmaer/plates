@@ -310,6 +310,19 @@ Recover the original report operation after an interrupted inbox link; never cre
 a replacement. Promotion and follow-up require their own verification interfaces. See the
 [learning guide](docs/guide/lessons-and-learning.md).
 
+## Agent quality observations
+
+`plates retro quality` reads bounded local metadata and stores explicit task
+observations in the existing private evaluation workspace. Preserve source IDs,
+checkpoints, original failures and unknown usage. Historical commits are candidate
+episode mappings, not verified task outcomes; agent identity is never inferred
+from author names or writing style. Human adjudication and actual acceptance
+evidence remain separate from CI and merge status. Report planning, coding,
+review, iteration and proportionality independently, with project/specialty
+coverage. Reuse an existing reporting routine for weekly reports; this command
+does not schedule model work or change routing. See
+[the agent quality guide](docs/guide/agent-quality.md).
+
 ## Session handoff trials
 
 Use `plates retro sessions` for an explicitly configured handoff experiment and
@@ -479,3 +492,24 @@ summary continuation retains the task ceiling and completed work. Metadata acces
 is not inference capacity, and model advice is not owner acceptance. See the
 [model planning guide](docs/guide/web-model-routing.md). Activation and live spend
 remain separately approved; no subscription credentials are copied.
+
+## Consolidated routine observations and usage
+
+Use explicit source registries and initialized private quality state. Routine
+inspection reads metadata only, never source prompts, transcripts or credentials;
+unreadable or unsupported sources remain gaps. Full task/PR usage extends the
+existing agent-quality episode ledger, preserving immutable attempts and source
+receipts, provider token/cache semantics, missing totals and nonadditive shared
+work. Personal remaining capacity is a separate authorized observation, never
+inferred from historical tokens or pooled across contributors/sets. Existing
+board and history views use sanitized projections; hosted local observations
+remain unavailable without an authenticated adapter. See the
+[routine observations guide](docs/guide/routine-observations.md). These read paths
+grant no model execution, provider access, publication or cutover authority.
+
+Personal recommendations preserve current actor, workspace, plate and numeric
+repository scope. Local input cannot attest its own account/connection authority;
+hosted advice requires a current authenticated adapter and renewed access checks.
+Keep provider windows separate, explain missing or stale capacity and relevant
+quality coverage, and leave selection to the person. A recommendation neither
+reserves allowance nor guarantees that a task fits it.

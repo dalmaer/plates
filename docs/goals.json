@@ -1,11 +1,52 @@
 [
-  { "id": "G0", "title": "Plates runs on its own practice", "outcome": "Every rule plates will ship is already holding on plates: phases own status, the roadmap is checked, lessons are shapes, and the conductor can walk the plan." },
-  { "id": "G1", "title": "Start a project in one command", "outcome": "From an empty directory, plates init produces a repo whose check passes, whose roadmap renders, and that an agent can conduct the same day." },
-  { "id": "G2", "title": "The fleet stays current", "outcome": "Existing projects come under plates without losing what is theirs, and a practice change reaches every one of them as a reviewed pull request." },
-  { "id": "G3", "title": "Lessons come home", "outcome": "A lesson learned in any project, or a practice improved upstream, reaches plates, is decided by a person, and ships to the rest of the fleet." },
-  { "id": "G4", "title": "The night shift keeps it working", "outcome": "Without anyone remembering, each project is measured nightly, dependencies move in reviewed lanes, and anything red reaches a person." },
-  { "id": "G5", "title": "Plates knows whether it helps", "outcome": "Plates can show, with numbers across the fleet, whether projects it manages ship more and break less, and what conducting costs." },
-  { "id": "G6", "title": "A change reaches production once, checked", "outcome": "Each change is verified in parallel and published one at a time; production moves only to a tested commit and is checked by the commit it serves; no change runs the expensive path twice." },
-  { "id": "G7", "title": "Operate every Plates project from a private web workspace", "outcome": "From mobile and desktop, an authenticated owner operates every authorized Plates project: decisions, guided tests, visual changes, routine history and execution, fleet lessons and updates, scoped credentials and policy-bound model capacity, with source-backed evidence and private data." },
-  { "id": "G9", "title": "Plates owns the judgment layer and rents the rest", "outcome": "Plates stays small where it is distinctive (practice, evidence and proof, lessons, health and the policy for risk, doors and capacity) and adopts mature open parts for telemetry, host permissions, session execution and live monitoring, behind boundaries an agent can extend without breaking." }
+  {
+    "id": "G0",
+    "title": "Plates runs on its own practice",
+    "outcome": "Every rule plates will ship is already holding on plates: phases own status, the roadmap is checked, lessons are shapes, and the conductor can walk the plan."
+  },
+  {
+    "id": "G1",
+    "title": "Start a project in one command",
+    "outcome": "From an empty directory, plates init produces a repo whose check passes, whose roadmap renders, and that an agent can conduct the same day."
+  },
+  {
+    "id": "G2",
+    "title": "The fleet stays current",
+    "outcome": "Existing projects come under plates without losing what is theirs, and a practice change reaches every one of them as a reviewed pull request."
+  },
+  {
+    "id": "G3",
+    "title": "Lessons come home",
+    "outcome": "A lesson learned in any project, or a practice improved upstream, reaches plates, is decided by a person, and ships to the rest of the fleet."
+  },
+  {
+    "id": "G4",
+    "title": "The night shift keeps it working",
+    "outcome": "Without anyone remembering, each project is measured nightly, dependencies move in reviewed lanes, and anything red reaches a person."
+  },
+  {
+    "id": "G5",
+    "title": "Plates knows whether it helps",
+    "outcome": "Plates can show, with numbers across the fleet, whether projects it manages ship more and break less, and what conducting costs."
+  },
+  {
+    "id": "G6",
+    "title": "A change reaches production once, checked",
+    "outcome": "Each change is verified in parallel and published one at a time; production moves only to a tested commit and is checked by the commit it serves; no change runs the expensive path twice."
+  },
+  {
+    "id": "G7",
+    "title": "Operate every Plates project from a private web workspace",
+    "outcome": "From mobile and desktop, an authenticated owner operates every authorized Plates project: decisions, guided tests, visual changes, routine history and execution, fleet lessons and updates, scoped credentials and policy-bound model capacity, with source-backed evidence and private data."
+  },
+  {
+    "id": "G8",
+    "title": "A project set and its routines share one operating surface",
+    "outcome": "Plates provides one management experience from project sets to each plate, its work, runs, reviews, health and lessons, with personal or organizational capacity kept distinct from shared project policy and safe, reversible consolidation of Switchboard capabilities."
+  },
+  {
+    "id": "G9",
+    "title": "Plates owns the judgment layer and rents the rest",
+    "outcome": "Plates stays small where it is distinctive (practice, evidence and proof, lessons, health and the policy for risk, doors and capacity) and adopts mature open parts for telemetry, host permissions, session execution and live monitoring, behind boundaries an agent can extend without breaking."
+  }
 ]

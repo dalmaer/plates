@@ -1,4 +1,4 @@
-// Phase 151: each migration still to be applied to the hosted database (006–016)
+// Phase 151: each migration still to be applied to the hosted database (006–019)
 // has a hosted proof SQL ready to paste into the Supabase SQL editor. Here each
 // proof runs on a fresh PGlite with migrations 001..N applied, exactly as the
 // owner would run it after step N: the single-connection part must pass and leave
@@ -52,6 +52,12 @@ const PROOFS = [
   { migration: '016-long-sessions.sql', proof: '2026-10-31-web-long-sessions-hosted-proof.sql',
     wrong: 'grant execute on function public.plates_web_rpc(text,text,text,text,text,text,integer,bigint) to authenticated',
     refused: /a browser role can execute plates_web_rpc/ },
+  { migration: '017-private-lessons.sql', proof: '2026-11-02-017-private-lessons-hosted-proof.sql',
+    wrong: 'grant execute on function public.plates_private_lesson_rpc(text,text,text,text,jsonb) to authenticated', refused: /a browser role can execute plates_private_lesson_rpc/ },
+  { migration: '018-host-observations.sql', proof: '2026-11-02-018-host-observations-hosted-proof.sql',
+    wrong: 'grant execute on function public.plates_host_observation_rpc(text,text,text,text,jsonb) to authenticated', refused: /a browser role can execute plates_host_observation_rpc/ },
+  { migration: '019-personal-funding.sql', proof: '2026-11-02-019-personal-funding-hosted-proof.sql',
+    wrong: 'grant execute on function keel_private.funding_metadata_valid(jsonb) to service_role', refused: /service_role can execute private funding helper/ },
 ];
 
 const RACE = '/* TWO-CONNECTION RACE';
@@ -137,4 +143,47 @@ test('a hosted proof notices a wrong fact', async t => {
       } finally { await db.close(); }
     });
   }
+});
+
+// 019 replaces live public RPCs and adds a trigger, so it carries a SQL rollback.
+// Applied after 019, the rollback must give back exactly the pre-019 functions,
+// drop the trigger and its function, keep every row, and let 019 apply again.
+test('the 019 personal funding rollback restores the pre-019 functions', async () => {
+  const rollback = await readFile(new URL('2026-11-02-019-personal-funding-rollback.sql', EVIDENCE), 'utf8');
+  const plan = JSON.parse(await readFile(new URL('docs/specs/web-activation-plan.json', ROOT), 'utf8'));
+  assert.ok(plan.steps.find(s => s.migration === '019-personal-funding.sql').rollback.includes('docs/evidence/2026-11-02-019-personal-funding-rollback.sql'), 'its plan step names the rollback');
+  const db = await database('018-host-observations.sql');
+  const migration = await readFile(new URL('019-personal-funding.sql', MIGRATIONS), 'utf8');
+  const state = async () => (await db.query(`SELECT proname, pg_get_functiondef(oid) def, proacl::text acl FROM pg_proc
+    WHERE pronamespace='public'::regnamespace AND proname ~ '^(keel|plates)_(connection_rpc|model_rpc|model_credential_read)$' ORDER BY 1`)).rows;
+  const guard = async () => (await db.query(`SELECT (SELECT count(*)::int FROM pg_trigger WHERE tgname='personal_attempt_guard') t,
+    (SELECT count(*)::int FROM pg_proc WHERE pronamespace='keel_private'::regnamespace AND proname='personal_attempt_guard') f`)).rows[0];
+  try {
+    const before = await state();
+    assert.equal(before.length, 6, 'plates_ implementations and keel_ forwarders');
+    const put = `SELECT public.plates_connection_rpc('put','${'a1'.repeat(32)}','${'b2'.repeat(32)}',0,'${'c3'.repeat(32)}','${'d4'.repeat(32)}',7,'acme-ciphertext-0123456789','{"ok":true}'::jsonb) v`;
+    await db.query(put);
+    await db.exec(migration);
+    assert.notDeepEqual(await state(), before, '019 replaces the public implementations');
+    assert.deepEqual(await guard(), { t: 1, f: 1 });
+    const rows = (await db.query('SELECT count(*)::int n FROM keel_private.connection_credentials')).rows[0].n;
+    // A personal row blocks the rollback and changes nothing.
+    await db.exec(`UPDATE keel_private.connection_credentials SET funding_metadata='{}'::jsonb`);
+    await assert.rejects(db.exec(rollback), /personal funding rows remain/);
+    await db.exec('ROLLBACK');
+    await db.exec(`UPDATE keel_private.connection_credentials SET funding_metadata=null`);
+    assert.deepEqual(await guard(), { t: 1, f: 1 });
+    for (let run = 0; run < 2; run++) {
+      assert.equal(result(await db.exec(rollback)), 'PASS 019-personal-funding rollback');
+      assert.deepEqual(await state(), before, 'definitions and grants match pre-019');
+      assert.deepEqual(await guard(), { t: 0, f: 0 });
+      assert.equal((await db.query('SELECT count(*)::int n FROM keel_private.connection_credentials')).rows[0].n, rows, 'rows stay');
+      assert.equal((await db.query(`SELECT count(*)::int n FROM information_schema.columns WHERE table_schema='keel_private' AND column_name IN ('funding_metadata','funding_value','funding_request','funding')`)).rows[0].n, 4, 'columns stay');
+    }
+    // 019 applies again over its saved copies, and rolls back again.
+    await db.exec(migration);
+    assert.deepEqual(await guard(), { t: 1, f: 1 });
+    assert.equal(result(await db.exec(rollback)), 'PASS 019-personal-funding rollback');
+    assert.deepEqual(await state(), before);
+  } finally { await db.close(); }
 });

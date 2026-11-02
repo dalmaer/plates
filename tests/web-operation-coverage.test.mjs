@@ -221,6 +221,34 @@ test('harness evaluation forms declare versioned local live stages without enabl
   for (const path of ['lib/evaluation-ledger.mjs', 'lib/evaluation-records.mjs', 'lib/evaluation-comparison.mjs', 'lib/evaluation-comparison-report.mjs', 'lib/session-ledger-io.mjs']) assert.ok(paths.includes(path));
 });
 
+test('quality metadata forms cover each option and remain CLI-only with hosted mutations enabled', () => {
+  const row = catalogue(enabled).rows.find(entry => entry.id === 'cli.retro');
+  assert.equal(row.readiness.state, 'unsupported');
+  assert.equal(row.adapter, null); assert.equal(row.route, null);
+  const forms = row.cli[0].forms.filter(form => form.subcommand?.startsWith('quality '));
+  assert.deepEqual(forms.map(form => form.subcommand), ['quality baseline', 'quality collect', 'quality inspect', 'quality report', 'quality weekly', 'quality replay-plan', 'quality lifecycle', 'quality pending']);
+  const expected = {
+    baseline: ['--json', '--repository', '--pr-metadata', '--limit'],
+    collect: ['--json', '--manifest', '--state', '--bundle', '--yes', '--digest'],
+    inspect: ['--json', '--manifest', '--state'],
+    report: ['--json', '--manifest', '--state', '--previous', '--reference-mix'],
+    weekly: ['--json', '--manifest', '--state', '--previous', '--reference-mix', '--repository', '--pr-metadata', '--limit', '--bundle', '--yes', '--digest'],
+    'replay-plan': ['--json', '--manifest', '--state', '--previous', '--reference-mix'],
+    lifecycle: ['--json', '--manifest', '--state', '--record', '--yes', '--digest'],
+    pending: ['--json', '--manifest', '--state'],
+  };
+  for (const form of forms) {
+    assert.deepEqual(form.arguments.map(arg => arg.token), expected[form.subcommand.slice(8)]);
+    assert.match(form.constraints, /CLI-only/);
+    for (const argument of form.arguments) {
+      assert.equal(argument.treatment, argument.token === '--json' ? 'presentation-only' : 'limited');
+      assert.equal(argument.repeat, ['--repository', '--pr-metadata'].includes(argument.token) ? 'allowed' : 'forbidden');
+    }
+  }
+  const paths = reviewedOperationSources().files.map(file => file.path);
+  for (const path of ['lib/agent-quality.mjs', 'lib/agent-quality-records.mjs', 'lib/agent-quality-ledger.mjs', 'lib/agent-quality-report.mjs', 'lib/evaluation-ledger.mjs', 'lib/evaluation-comparison-report.mjs', 'lib/session-ledger-io.mjs', 'lib/web/workspace.mjs']) assert.ok(paths.includes(path), path);
+});
+
 test('harness live declarations retain separate approval, credential and original-operation recovery boundaries', () => {
   const forms = cliData.find(entry => entry.command === 'retro').forms;
   const constraints = action => forms.find(form => form.subcommand === `evaluations ${action}`).constraints;
@@ -276,4 +304,14 @@ test('the reviewed adoption handoff stays source-bound without enabling a capabi
   const result = await auditOperationCoverage({ root: directory, registeredKeys: keys });
   assert.equal(result.ok, false);
   assert.ok(result.findings.some(item => item.code === 'parser_source_changed' && item.path === 'lib/adopt.mjs'));
+});
+
+test('consolidated observation and capture forms stay CLI-only with explicit verification and no quality execution',()=>{
+  const rows=catalogue(enabled).rows,record=rows.find(r=>r.id==='cli.routines');assert.equal(record.adapter,null);assert.equal(record.readiness.state,'unsupported');
+  assert.deepEqual(record.cli[0].forms.map(f=>f.subcommand),['inspect','usage','record-usage','recommend']);
+  assert.ok(record.cli[0].forms.find(f=>f.subcommand==='usage').arguments.some(a=>a.token==='--verify-repository'&&a.arity===0));
+  assert.match(record.cli[0].forms.find(f=>f.subcommand==='recommend').constraints,/authority/);
+  const capture=record.cli[0].forms.find(f=>f.subcommand==='record-usage');assert.match(capture.constraints,/exact.*digest/);
+  const quality=rows.find(r=>r.id==='cli.retro').cli[0].forms.filter(f=>f.subcommand?.startsWith('quality '));assert.equal(quality.length,8);assert.ok(quality.every(f=>f.subcommand!=='quality run'));
+  assert.ok(reviewedOperationSources().rejectedSyntax.some(r=>r.syntax==='plates retro quality run'));
 });

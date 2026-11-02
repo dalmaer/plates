@@ -148,6 +148,8 @@ test('a keel name the table does not list fails, naming where', async t => {
     const line = lines.find(line => line.includes(row.token) && (!lineHash || hash(line) === lineHash));
     assert.ok(line !== undefined, `stale exception: ${path} ${row.token}`);
     assert.ok(scanText(path, `${line} keel-foo/`).some(problem => problem.endsWith('unlisted name keel-foo')));
+    // The dynamic legacy RPC prefix is accepted only in its reviewed expression.
+    if (row.token === 'keel_' && lineHash) assert.ok(scanText(path, `${line} `).some(problem => problem.endsWith(`unlisted name ${row.token}`)));
   }
   for (const token of ['KEEL_NEW_SECRET', 'keel_new_rpc', 'keel:unknown-label', 'keel_private.unknown_table', '__Host-keel-unknown', 'keel-night-unknown']) {
     assert.deepEqual(scanText('lib/acme.mjs', token), [`lib/acme.mjs:1: unlisted name ${token}`]);
@@ -161,7 +163,8 @@ test('name lookups preserve implemented phase125/126 and reviewed phase127 trans
   for (const id of ["variable:KEEL_MILESTONES_OFFLINE", "variable:KEEL_CANVAS_PERSISTENCE", "variable:KEEL_CANVAS_RECOVERY", "variable:KEEL_CANVAS_OUTPUT", "variable:KEEL_ISOCAN", "variable:KEEL_CI_OFFLINE", "variable:KEEL_FLEET_PRACTICE", "variable:KEEL_NPM", "variable:KEEL_GIT", "variable:KEEL_CLAUDE_DIR", "variable:KEEL_PROVE_MUTANT_MS", "variable:KEEL_PROVE_IGNORED_BYTES", "variable:KEEL_REVIEW_POLL_MS", "variable:KEEL_CACHE", "variable:KEEL_PREVIOUS_PRACTICES", "variable:KEEL_SELF_UPDATED", "variable:KEEL_CLIMB_CLOCK", "variable:KEEL_CLI", "variable:KEEL_NOW", "variable:KEEL_STITCH", "variable:KEEL_DRAIN_WAIT_MS", "variable:KEEL_QUOTA_FLOOR", "variable:KEEL_STALLS_SHAPE", "variable:KEEL_PROVIDER", "variable:KEEL_SESSION", "variable:KEEL_MACHINE", "variable:KEEL_RUN_START", "variable:KEEL_GATE_INVOCATION", "variable:KEEL_USUAL", "variable:KEEL_GATE_ACTIVE", "variable:KEEL_SUITE_PLAN", "variable:KEEL_PUBLISHER"]) runtime128.add(id);
   // Phase124 retained139; later source added these three before the32 env rows.
   for (const id of ['fence:keel-time-proposal','marker:keel:review-after','marker:keel:review-after-pending']) assert.ok(nameRow(id));
-  assert.equal(NAMES.length, 139 + 3 + 32);
+  // Migrations 017–019 add 14 identities under the still-held private schema.
+  assert.equal(NAMES.length, 139 + 3 + 32 + 14);
   const hostedEnv = new Set(['web:KEEL_WEB_ORIGIN', 'web:KEEL_WEB_OPERATION', 'web:KEEL_WEB_CONFIG', 'web:KEEL_CONNECTION_ENCRYPTION_KEY', 'web:KEEL_GITHUB_CLIENT_SECRET', 'web:KEEL_SESSION_ENCRYPTION_KEY']);
   // Phase127's reviewed activation: exactly these cookie, operation-marker and public RPC writers.
   const writers127 = new Set(['web:__Host-keel-session', 'web:__Host-keel-login', 'web:__Host-keel-oauth', 'web:Keel-Operation', 'web:Keel-Update-Operation',

@@ -6,6 +6,49 @@ A routine's workflow path is project-local, so changing projects clears that
 selector and any source-bound pagination. All controls are read-only: refreshing
 history does not run, retry, cancel or reconcile work.
 
+## Inspect a project set
+
+When the service has configured project sets, choose **Project sets** in Home,
+Routines or Activity. Home shows the selected plates' existing work and reviews;
+Routines and Activity retain the set when changing the visible window or outcome.
+Opening a plate or an original attempt leaves the set filter and keeps that
+record's project identity. **All plates** clears the filter. Other destinations
+currently use their existing project or workspace scope; set-wide Learning and
+personal capacity are subsequent work, not implied by this selector.
+
+Sets group existing authorized plates. They do not add repository access, share
+personal accounts or pool allowances. A set with no accessible members is
+unavailable, and its hidden member names are not listed. History visits at most
+three selected members per request. Its continuation is bound to visible
+membership, repository pins and workspace source; if those change, restart the
+read. Home retains the set while polling and labels missing source coverage.
+Workspace-wide migration receipts are excluded with an explicit coverage gap
+because their complete project attribution is unavailable; inspect All plates
+for those original receipts. Existing project receipt links remain unchanged.
+The GitHub request allowance on Home is API-read capacity, not model quota or
+historical token usage.
+
+For a local/test instance, the optional `projectSets` field in the existing web
+service configuration is a bounded, read-only registry. Version 1 configurations
+without it behave as before. It is not a new workspace manifest or an editable
+set service. For example, alongside existing `projectRepoIds` pins:
+
+```json
+{
+  "projectSets": [
+    { "id": "active", "name": "Acme active", "projects": ["studio", "api"] }
+  ]
+}
+```
+
+Every member must already have a numeric repository pin in `projectRepoIds`.
+There are at most 50 unique set IDs, each with 1–100 unique member IDs and a
+nonempty display name of at most 120 characters. IDs follow the existing project
+slug format. Live configuration and deployment remain separately approved;
+this source change neither creates a set in production nor reads Switchboard.
+This first slice is tracked in the
+[project-set phase](../phases/137-a-project-set-shows-its-routines.md).
+
 ## Inspect a routine
 
 Routines show the observed workflow definition and provider enabled state beside

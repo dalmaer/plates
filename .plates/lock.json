@@ -51,7 +51,7 @@
     },
     ".agents/skills/spin/SKILL.md": {
       "practice": "conduct",
-      "sha256": "70606f1abb07d2fe14afea6048175d926014a68d1a4a711a57816d99b00767a1"
+      "sha256": "e1521475a67aeabc8a39a12bc574328bb229ba4f130c34c139b673ad79d1dd4a"
     },
     ".claude/skills/conduct": {
       "practice": "conduct",
@@ -239,7 +239,7 @@
     },
     "scripts/plates/names.mjs": {
       "practice": "night",
-      "sha256": "85bd78c0d678239a9fbdb621ca16e0d961491b0a673a3642a4eb9cb343439fc0"
+      "sha256": "c7351cd25a802df79daef894d8fe838916dbde368ec8d9125db0cc528151e500"
     },
     "scripts/plates/night-plan.mjs": {
       "practice": "night",

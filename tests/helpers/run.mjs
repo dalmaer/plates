@@ -38,6 +38,7 @@ export function run(cmd, args = [], { cwd, env, input, timeout } = {}) {
   if (/(^|[/\\])bin[/\\]plates\.mjs$/.test(String(args[0] ?? '')) && ['loose-ends', 'retro'].includes(args[1]) && !(env ?? process.env).PLATES_CLAUDE_DIR) {
     throw new Error(`plates ${args[1]} reads transcripts: run it with PLATES_CLAUDE_DIR set (synthetic ones), never ~/.claude`);
   }
+  if (/(^|[/\\])bin[/\\]plates\.mjs$/.test(String(args[0] ?? '')) && args[1] === 'routines' && args.includes('--verify-repository') && !(env ?? process.env).PLATES_GH) throw new Error('routines repository verification requires synthetic PLATES_GH');
   const r = spawnSync(cmd, args, { cwd, input, timeout, encoding: 'utf8', env: cleanEnv(env ?? process.env), maxBuffer: 64 * 1024 * 1024 });
   if (r.error) throw r.error;
   return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };

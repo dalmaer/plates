@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { request } from 'node:http';
-import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -551,7 +551,8 @@ test('the stat tiles\' counts equal the JSON\'s', async () => {
     // The embedded script compiles (the renderer is the same function the server used).
     const script = /<script nonce="n0nce">([\s\S]*?)<\/script>/.exec(html)[1];
     assert.doesNotThrow(() => new vm.Script(script));
-    assert.match(script, /function boardView\(\)/);
+    assert.match(script, /function boardView\(recommendationRenderer\)/);
+    assert.match(script, /function recommendationView\(/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -1200,4 +1201,34 @@ test('board recognizes each update namespace as one draft repair',async t=>{
   const data=await board({root},{...deps(root),fleet:async()=>({rows})});
   const items=data.items.filter(i=>i.kind==='update');assert.equal(items.length,1);assert.equal(items[0].waits,'broken');
  }
+});
+
+test('board startup reads actual explicit sources and strips private metadata before JSON and HTML', async () => {
+  const root=await acme();
+  try {
+    const canonical=await realpath(root),file=join(canonical,'private-source.json'),registry=join(canonical,'private-registry.json'),binding=join(canonical,'private-binding.json');
+    await writeFile(file,JSON.stringify([{name:'PRIVATE-NATIVE-TITLE',where:'PRIVATE-LOCATION',schedule:'PRIVATE-PROMPT',confirmedAt:'2026-10-01'}]));
+    await writeFile(registry,JSON.stringify({version:1,workspaceId:'acme',actorId:'PRIVATE-ACTOR',sources:[{id:'acme-declared',kind:'declared',label:'Acme declared check',scope:{projectId:'studio',hostId:'PRIVATE-HOST',accountId:'PRIVATE-ACCOUNT'},file}]}));
+    await writeFile(binding,JSON.stringify({version:1,registry,usage:null}));
+    const before=await readFile(file),data=await board({root},{...deps(root),observationBinding:binding,appRoot:PLATES});
+    assert.equal(data.management.routines.length,1);assert.deepEqual(data.management.actions,[]);assert.match(boardText(data),/Routine observations/);
+    assert.doesNotMatch(JSON.stringify(data.management),/PRIVATE|private-source|private-registry|private-binding/);
+    const html=pageHtml(data,'acme-token');assert.match(html,/Acme declared check/);assert.doesNotMatch(html,/PRIVATE|private-source|private-registry|private-binding/);assert.deepEqual(await readFile(file),before);
+    const {usageProjection}=await import('../lib/management-projection.mjs');
+    data.management.usage=usageProjection({scope:{projects:['acme/widget'],pr:{repositoryId:102,number:7},visibility:'project',actorId:'PRIVATE-ACTOR'},repositoryVerification:'unverified',coverage:{state:'partial',expectedAttempts:2,observedAttempts:1,gaps:[]},totals:{tokens:{knownSubtotal:100,total:null,complete:false},costs:[{currency:'USD',kind:'estimate',knownSubtotal:1,total:null,complete:false}]},attempts:[{id:'attempt',stage:'review',status:'failed',provider:'acme',model:'acme-v1',modelVersion:'1',usageState:'missing'}]});
+    const withUsage=pageHtml(data,'acme-token');assert.match(withUsage,/Billing not independently verified/);assert.match(withUsage,/USD estimate: Unknown total/);assert.match(withUsage,/review · failed · acme \/ acme-v1/);assert.match(withUsage,/Repository binding: unverified/);assert.match(withUsage,/acme\/widget · PR #7 \(repository 102\) · project visibility/);assert.doesNotMatch(withUsage,/PRIVATE-ACTOR/);
+  } finally {await rm(root,{recursive:true,force:true});}
+});
+
+test('board v2 renders actual local recommendation claims without account authority or action controls',async()=>{
+  const root=await acme();
+  try {
+    const canonical=await realpath(root),manifest=join(canonical,'recommend-inputs/workspace.json'),state=join(canonical,'recommend-state'),input=join(canonical,'recommend-input.json'),binding=join(canonical,'recommend-board.json');
+    const {initializeWorkspace}=await import('../lib/web/workspace.mjs'),{recommendationFixture}=await import('./helpers/recommendation-surfaces.mjs');
+    await mkdir(join(canonical,'recommend-inputs'));await writeFile(manifest,JSON.stringify({version:1,id:'acme',name:'Acme',repo:'acme/private',projects:[{id:'widget',repo:'acme/widget'}]}));await initializeWorkspace({manifest,state,appRoot:PLATES});
+    const {qualityBundle,...claims}=recommendationFixture({now:new Date().toISOString()}).input;await writeFile(input,JSON.stringify({version:1,...claims}));await writeFile(binding,JSON.stringify({version:2,registry:null,usage:null,recommendation:{input,manifest,state}}));
+    const data=await board({root},{...deps(root),appRoot:PLATES,observationBinding:binding});assert.equal(data.management.recommendation.authorization,'unverified');assert.deepEqual(data.management.recommendation.actions,[]);
+    const html=pageHtml(data,'acme-token');assert.match(html,/Your agent choices/);assert.match(html,/Local claims only/);assert.match(html,/No authenticated current capacity/);assert.doesNotMatch(html,/PRIVATE-ACCOUNT|PRIVATE-CONNECTION|PRIVATE-POOL|PRIVATE-CHOICE/);
+    const scripts=[...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)].map(m=>m[1]);assert.ok(scripts.some(code=>code.includes('function recommendationView')),'same renderer is available to browser refresh');
+  }finally{await rm(root,{recursive:true,force:true});}
 });

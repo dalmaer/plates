@@ -1,0 +1,53 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdir, writeFile, readFile, readdir, symlink } from 'node:fs/promises';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { fixture } from './helpers/routine-sources.mjs';
+import { run } from './helpers/run.mjs';
+import { initializeWorkspace } from '../lib/web/workspace.mjs';
+import { qualityOperation } from '../lib/agent-quality-ledger.mjs';
+import { sealUsageObservation } from '../lib/agent-quality-usage-records.mjs';
+import { fingerprint } from '../lib/evaluation-records.mjs';
+import { acmeQualityBundle, QUALITY_TIME, QUALITY_HASH } from './helpers/agent-quality.mjs';
+import { managementObservations, readUsageBinding } from '../lib/management-observations.mjs';
+import { parseRoutineArgs } from '../lib/routine-command.mjs';
+const appRoot=fileURLToPath(new URL('..',import.meta.url)),bin=join(appRoot,'bin/plates.mjs');
+const cli=(args,root,env={})=>run(process.execPath,[bin,...args,'--json'],{cwd:root,env:{...process.env,PLATES_CLAUDE_DIR:join(root,'empty-claude'),...env}});
+
+test('actual registry CLI reads selected files without source writes and strips private source identity',async t=>{
+  const f=await fixture(t),file=await f.json('declared.json',[{name:'PRIVATE-TITLE',where:'PRIVATE-HOST',schedule:'PRIVATE-PROMPT',notes:'PRIVATE-NOTES',confirmedAt:'2026-10-29'}]);
+  const registry=await f.json('registry.json',f.registry([f.source('declared',{file})])),before=await readFile(file);
+  const result=cli(['routines','inspect','--registry',registry],f.root);assert.equal(result.status,0,result.stderr+result.stdout);
+  const data=JSON.parse(result.stdout);assert.equal(data.routines.length,1);assert.equal(data.coverage.state,'partial');assert.deepEqual(data.actions,[]);
+  assert.doesNotMatch(result.stdout,/PRIVATE|acme-account|acme-host|alice|declared.json|registry.json/);assert.deepEqual(await readFile(file),before);
+  const binding=await f.json('binding.json',{version:1,registry,usage:null});assert.deepEqual((await managementObservations(binding,{now:data.observedAt})).routines,data.routines);
+  await symlink(registry,join(f.root,'alias.json'));assert.equal(cli(['routines','inspect','--registry',join(f.root,'alias.json')],f.root).status,2);
+  for(const args of [[],['inspect'],['inspect','--registry',registry,'--registry',registry],['inspect','--registry',registry,'--actor','bob'],['usage','--manifest','relative']])assert.throws(()=>parseRoutineArgs(args));
+  const denied=cli(['retro','quality','run','--record',file],f.root);assert.equal(denied.status,2);assert.match(denied.stdout,/not exposed/);
+});
+
+test('actual capture CLI previews, applies exact digest, retries and reports same canonical ledger',async t=>{
+  const f=await fixture(t);await mkdir(join(f.root,'inputs'));
+  const opts={appRoot,manifest:join(f.root,'inputs/workspace.json'),state:join(f.root,'state'),now:QUALITY_TIME};
+  await writeFile(opts.manifest,JSON.stringify({version:1,id:'acme',name:'Acme',repo:'Acme/private',projects:[{id:'widget',repo:'Acme/widget'}]}));await initializeWorkspace(opts);
+  const inputBundle=acmeQualityBundle(),p=await qualityOperation({...opts,action:'collect',inputBundle});await qualityOperation({...opts,action:'collect',inputBundle,yes:true,digest:p.digest});
+  const observation=sealUsageObservation({schemaVersion:1,revision:1,previousDigest:null,attemptId:'acme-code',actorId:'alice',funding:{kind:'person',principalId:'alice',accountId:'PRIVATE-ACCOUNT'},provider:'acme',model:'acme-model',modelVersion:'1',source:{id:fingerprint('request'),kind:'provider-response',evidenceDigest:QUALITY_HASH},observedAt:QUALITY_TIME,counter:{mode:'request',sessionId:fingerprint('session'),segmentId:fingerprint('segment'),requestIds:[fingerprint('request')],includesChildren:'no'},tokens:{input:80,output:20,cacheRead:30,cacheWrite:10,reasoning:5,tokens:100},semantics:{version:1,cacheRead:'included-input',cacheWrite:'included-input',reasoning:'included-output'},cost:{currency:'USD',kind:'observed',amount:1,basisDigest:QUALITY_HASH,priceDate:null},attribution:{repositoryId:102,prs:[{number:1,weight:1}],commits:[],evidenceDigest:QUALITY_HASH},visibility:'project'});
+  const record=await f.json('usage.json',observation),args=['routines','record-usage','--manifest',opts.manifest,'--state',opts.state,'--project','Acme/widget','--episode','acme-task','--record',record];
+  const batches=join(opts.state,'session-trials/.quality/batches'),before=await readdir(batches);
+  const preview=cli(args,f.root);assert.equal(preview.status,3,preview.stdout+preview.stderr);assert.deepEqual(await readdir(batches),before);const digest=JSON.parse(preview.stdout).digest;
+  const bad=cli([...args,'--yes','--digest','0'.repeat(64)],f.root);assert.equal(bad.status,2);assert.deepEqual(await readdir(batches),before);
+  const applied=cli([...args,'--yes','--digest',digest],f.root);assert.equal(applied.status,0,applied.stdout+applied.stderr);assert.equal(JSON.parse(applied.stdout).status,'collected');
+  const after=await readdir(batches),retry=cli([...args,'--yes','--digest',digest],f.root);assert.equal(retry.status,0,retry.stdout);assert.equal(JSON.parse(retry.stdout).recovered,true);assert.deepEqual(await readdir(batches),after);
+  const report=cli(['routines','usage','--manifest',opts.manifest,'--state',opts.state,'--project','acme/widget'],f.root);assert.equal(report.status,0,report.stdout);const data=JSON.parse(report.stdout);assert.equal(data.usage.totals.tokens.total,100);assert.equal(data.usage.billingVerified,false);assert.deepEqual(data.usage.scope,{projects:['acme/widget'],pr:null,visibility:'project'});assert.doesNotMatch(report.stdout,/PRIVATE-ACCOUNT|"alice"/);
+  const pr=JSON.parse(cli(['routines','usage','--manifest',opts.manifest,'--state',opts.state,'--project','acme/widget','--pr','102:1'],f.root).stdout);assert.equal(pr.usage.totals.tokens.total,null);assert.deepEqual(pr.usage.scope,{projects:['acme/widget'],pr:{repositoryId:102,number:1},visibility:'project'});assert.ok(pr.usage.coverage.gaps.includes('repository-binding-unverified'));
+  const gh=join(f.root,'acme-gh');
+  await writeFile(gh,`#!${process.execPath}\nif(JSON.stringify(process.argv.slice(2))!==JSON.stringify(['api','--include','--method','GET','/repos/acme/widget']))process.exit(2);console.log('HTTP/2 200 OK\\r\\nContent-Type: application/json\\r\\n\\r\\n'+JSON.stringify({id:102,full_name:'acme/widget'}));`,{mode:0o755});
+  const verified=cli(['routines','usage','--manifest',opts.manifest,'--state',opts.state,'--project','acme/widget','--pr','102:1','--verify-repository'],f.root,{PLATES_GH:gh});assert.equal(verified.status,0,verified.stdout+verified.stderr);assert.equal(JSON.parse(verified.stdout).usage.totals.tokens.total,100);assert.equal(JSON.parse(verified.stdout).usage.repositoryVerification,'verified');
+  const boardBinding=await f.json('board-usage.json',{version:1,registry:null,usage:{manifest:opts.manifest,state:opts.state,projects:['acme/widget'],pr:null,actorId:null,shared:true}});
+  const boardUsage=await managementObservations(boardBinding,{appRoot});assert.equal(boardUsage.usage.totals.tokens.total,100);assert.deepEqual(boardUsage.usage.scope,{projects:['acme/widget'],pr:null,visibility:'project'});assert.doesNotMatch(JSON.stringify(boardUsage),/PRIVATE-ACCOUNT|usage.json|workspace.json/);
+  const binding={manifest:opts.manifest,state:opts.state,projects:['acme/widget'],pr:{repositoryId:102,number:1},actorId:null,shared:true};
+  for(const github of [async()=>({status:200,data:{id:999,full_name:'acme/widget'}}),async()=>({status:200,data:{id:102,full_name:'acme/other'}}),async()=>({status:404}),async()=>{throw Object.assign(Error('PRIVATE timeout'),{code:'ETIMEDOUT'});}])await assert.rejects(readUsageBinding(binding,{appRoot,verifyRepository:true,github}));
+  assert.throws(()=>parseRoutineArgs(['usage','--manifest',opts.manifest,'--state',opts.state,'--project','acme/widget','--verify-repository']));
+  const invalid=await f.json('invalid.json',{...observation,prompt:'PRIVATE PROMPT'});assert.equal(cli(args.map(v=>v===record?invalid:v),f.root).status,2);assert.deepEqual(await readdir(batches),after);
+});

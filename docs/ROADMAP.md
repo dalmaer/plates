@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**65 of 159 phases built; 66 owe a walk.** Built means implemented and checked; planned is not available.
+**65 of 165 phases built; 66 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -269,7 +269,7 @@ Without anyone remembering, each project is measured nightly, dependencies move 
 
 Plates can show, with numbers across the fleet, whether projects it manages ship more and break less, and what conducting costs.
 
-7/15 built; 3 owe a walk.
+7/16 built; 3 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -287,6 +287,7 @@ Plates can show, with numbers across the fleet, whether projects it manages ship
 | [118. Evaluate one historical artifact behind an independent boundary](phases/118-evaluation-isolation.md) | built | 2026-10-23 | [117](phases/117-evaluation-records.md) | Offline isolated execution, historical compatibility verdicts and adversarial boundary proved; no paid agent efficacy claim. |
 | [119. Compare paired harness trials and resume interrupted comparisons](phases/119-evaluation-comparison.md) | partial | 2026-10-23 | [118](phases/118-evaluation-isolation.md) | Offline comparison and one-slot live orchestration have synthetic proof; curated inputs, exact spend approval and real paired screening remain. |
 | [120. Freeze six historically grounded development cases](phases/120-evaluation-corpus.md) | built | 2026-10-24 | [119](phases/119-evaluation-comparison.md) | Six historical development cases merged with offline proof; held-out coverage and measured agent benefit remain unverified. |
+| [134. Agent quality is measured by stage and project](phases/134-agent-quality-is-measured-by-stage-and-project.md) | partial | 2026-10-30 | [117](phases/117-evaluation-records.md) | Passive foundation integrated as a bounded increment; local execution remains unexposed pending execution-boundary review. Human calibration, installation and scheduling remain separate. |
 | [158. Integration delays and work in progress are visible](phases/158-integration-delays-are-visible.md) | planned | 2026-11-02 | [157](phases/157-philosophy-guides-small-safe-increments.md) | Planned from the philosophy; implementation and operational proof are not claimed. |
 
 - **12 done when:** `plates fleet` lists every managed project with its practice version, last health page, CI state and unsent lessons, from `plates.json` and `gh`, in under ten seconds.
@@ -303,6 +304,7 @@ Plates can show, with numbers across the fleet, whether projects it manages ship
 - **118 done when:** One historical compatibility case runs through a fresh isolated builder and independently controlled acceptance, retaining an artifact-bound verdict.
 - **119 done when:** A frozen paired comparison preserves all attempts, enforces total allowance and reports per-case outcomes, costs, uncertainty and safe recovery.
 - **120 done when:** All six historical case definitions retain source provenance, independent acceptance and explicit development versus held-out exposure.
+- **134 done when:** Private task observations produce reproducible stage and project scorecards, retain failures and unknowns, and support weekly passive reports without model spend or automatic routing.
 - **158 done when:** An owner can distinguish active work from branch, review, CI and integration waiting with source coverage and a concrete next action.
 
 ## G6 — A change reaches production once, checked
@@ -388,6 +390,26 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 - **164 done when:** A deploy that changes the shell never reloads a page that has unsaved edits. That page shows "A new version is ready. Reload when you have saved." and reloads only when the owner chooses. A page with nothing unsaved refreshes as before. Navigations start their network request while the worker boots (navigation preload). On a stalled connection, the offline page appears after a bounded wait. An installed app returning to the foreground checks for a new worker. A push subscription the browser rotates is re-registered, so notifications keep arriving.
 - **165 done when:** Every public asset the workspace serves (`/assets/*` CSS, browser modules and icons) is referenced by a URL that carries its content digest. That URL is served `public, max-age=31536000, immutable`. After the first visit, a page load fetches only its HTML and its data. A changed asset gets a new URL, so a page and its assets always come from the same deployment. An old URL still answers with its old bytes when it is the current asset, and with 404 otherwise. HTML, API responses and anything private stay `private, no-store`.
 - **166 done when:** The hosted home and `plates home` show the same four sections, in this order, with the same items and counts: 1. **Needs you.** One ranked list of everything waiting on the owner. Each row has one verb: - **Decide**: decisions and health proposals. - **Try it**: walks that are ready. - **Fix**: a failed night, a red default branch, a PR stopped at its review-round limit, and a plate whose source the owner must repair. Items waiting on time or on agents leave the home page and move to the project's page. 2. **Since you last looked.** What happened across the fleet since the owner's last visit, in plain sentences grouped by plate: merges, releases, phases built, night results, fleet updates installed. 3. **What should happen next?** Pick a plate, write the ask, and send it to tonight's plan (the default) or to an agent issue now. Both go through the existing previews and approvals. What is already queued is listed. 4. **Your plates.** A compact strip, one status each: "N for you", "broken" or "all clear". Problems reading sources collapse into one line with the details behind it.
+
+## G8 — A project set and its routines share one operating surface
+
+Plates provides one management experience from project sets to each plate, its work, runs, reviews, health and lessons, with personal or organizational capacity kept distinct from shared project policy and safe, reversible consolidation of Switchboard capabilities.
+
+0/5 built.
+
+| Phase | Status | Since | Depends on | Why it stands here |
+| --- | --- | --- | --- | --- |
+| [137. A project set shows its routines and what actually ran](phases/137-a-project-set-shows-its-routines.md) | partial | 2026-10-30 | [93](phases/93-workspace-data-stays-outside-public-code.md), [102](phases/102-routines-have-a-complete-observed-history.md) | Local set visibility/readers and observation-only bridge implemented; live enrollment/source walks and remaining navigation/terminology work are unverified. |
+| [138. People bring their own capacity to shared work](phases/138-people-bring-their-own-capacity-to-shared-work.md) | partial | 2026-10-30 | [137](phases/137-a-project-set-shows-its-routines.md), [103](phases/103-connections-expose-scoped-model-capacity.md), [106](phases/106-model-routing-respects-capacity-and-policy.md) | Local usage/advice, explicit personal funding admission and reviewed private lesson copies implemented; real multi-person/provider activation, subscription execution and organization grants remain unsupported or unverified. |
+| [139. A routine has one explicit Plates policy](phases/139-a-routine-has-one-plates-policy.md) | partial | 2026-10-30 | [138](phases/138-people-bring-their-own-capacity-to-shared-work.md) | Local authored policy and deterministic read-only import preview implemented; durable import apply/recovery, authenticated ownership and a verified frozen source boundary remain unimplemented. |
+| [140. Routines run with accountable effects](phases/140-routines-run-with-accountable-effects.md) | designed | 2026-10-30 | [139](phases/139-a-routine-has-one-plates-policy.md), [104](phases/104-web-operations-run-through-durable-workers.md), [106](phases/106-model-routing-respects-capacity-and-policy.md) | One bounded execution/effect path specified for manual, scheduled and event work; unsupported cloud/BenOS capabilities and live activation remain gated. |
+| [141. A routine changes owner without losing or repeating work](phases/141-a-routine-changes-owner-without-losing-work.md) | designed | 2026-10-30 | [140](phases/140-routines-run-with-accountable-effects.md) | Per-routine comparison, reversible single-writer cutover and explicit retirement specified; no incumbent disabled and no Switchboard state deleted. |
+
+- **137 done when:** An authorized owner can inspect the routines and observed runs associated with a project set or their private workspace in Plates, with source provenance, missing coverage and placement reasons, without visiting a separate Switchboard application or changing an executor.
+- **138 done when:** Two people can collaborate on one plate using separately authorized personal or organizational accounts, see permitted shared work and lessons, and understand which account funds each run without pooling, double-counting or exposing private allowances across project sets.
+- **139 done when:** An owner can review a routine's purpose, scope, trigger, placement, allowed effects and bounds as one Plates policy and import selected legacy history into dormant private state with an exact, recoverable receipt.
+- **140 done when:** A selected Plates routine runs through one policy-bound durable operation regardless of trigger, with an explicit outcome and separately reviewed effects, and crashes or uncertain delivery never silently duplicate work or free its allowance.
+- **141 done when:** An owner can move a selected routine from its incumbent executor to Plates after complete outcome/effect parity, retain recoverable original history, and reverse the transition without replaying work delivered after the snapshot.
 
 ## G9 — Plates owns the judgment layer and rents the rest
 

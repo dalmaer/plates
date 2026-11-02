@@ -1,6 +1,6 @@
 # plates — agent cold start
 
-Read `.plates/plates.json`’s `guide` or AGENTS.md.
+Read the configured guide or AGENTS.md.
 
 Verbs (`--json` for data):
 
@@ -19,7 +19,7 @@ Verbs (`--json` for data):
 - `plates update` — PR or `--local`
 - `plates lessons` — send lessons and drift home; exit 3
 - `plates learn` — lessons → proposals and decisions
-- `plates improve` — measures, bounds, one proposal; `--report` a page
+- `plates improve` — measures and proposal; `--report` a page
 - `plates persona run` — measure a project's own goals
 - `plates time` — gate/test medians and failures
 - `plates test <file> --stalls` — wall-clock tests
@@ -29,15 +29,16 @@ Verbs (`--json` for data):
 - `plates morning` — brief; `--send`
 - `plates production` — status, collect, spec, verify
 - `plates fleet` — fleet practice, health, CI
-- `plates fleet update` — PRs for projects behind; exit 3
+- `plates fleet update` — update PRs; exit 3
 - `plates loose-ends` — unfinished work
 - `plates issue new --agent` — rubric issue preview; `--yes` creates it
 - `plates review <repo>#<n>` — comments; `--wait`; `--close`
-- `plates board` — whose turn: a local page; `--fresh`
+- `plates board` — local page; `--fresh`
+- `plates routines inspect|usage|record-usage|recommend` — observations
 - `plates promote [<commit>]` — tested commit to prod; `--back`
 - `plates walk done|decide` — settle a walk or proposal
 - `plates canvas` — snapshot, render, connect, sync, live, night
-- `plates retro` — worksheet; `capture` records; `sessions` trials
+- `plates retro` — worksheet, capture, quality, session trials
 - `plates workspace inspect|init` — explicit external storage
 - `plates shape check|render|plan` — reviewed drafts
 - `plates feedback` — capture, list, propose, resolve
@@ -52,15 +53,15 @@ Verbs (`--json` for data):
 Rules:
 
 - Status lives in each `docs/phases/NN-*.md` front matter. Never edit
-  `docs/ROADMAP.md`; it is generated.
+  `docs/ROADMAP.md` (generated).
 - `built` and `lived-in` need an evidence file. Never invent evidence.
-- Render rewrites managed files and blocks; seeded files are the project's.
+- Render rewrites managed files; seeded files are the project's.
 - ⚑ steps (creating repos, secrets, Pages, issues elsewhere, scheduled model
   spend) wait for the owner's yes.
 
 Exits: 0 ok; 1 failure; 2 usage; 3 needs owner's yes. JSON errors: `{"error": "..."}` on stdout.
 
-Topics: `autonomy` `names` `json` `goals` `render` `init` `adopt` `doctor` `update` `lessons` `learn` `improve` `persona` `time` `test` `drain` `night` `loop` `climb` `fleet` `loose-ends` `issue` `review` `board` `retro` `canvas` `install` `coming` `reconciliation` `prove` `evidence` `production` `decision` `shape` `workspace` `feedback`.
+Topics: `autonomy` `names` `json` `goals` `render` `init` `adopt` `doctor` `update` `lessons` `learn` `improve` `persona` `time` `test` `drain` `night` `loop` `climb` `fleet` `loose-ends` `issue` `review` `board` `retro` `canvas` `install` `coming` `reconciliation` `prove` `evidence` `production` `decision` `shape` `workspace` `feedback` `routines`.
 
 <!-- topic: json | the output contract every verb keeps -->
 
@@ -1975,6 +1976,118 @@ merge ancestry, explicit clean state and matching observed test selection before
 reporting inside, outside or unavailable, never improvement
 inferred from merge. Commands in proposals are display data, not executed.
 
+<!-- topic: routines | explicit local observation and full task/PR usage -->
+
+`plates routines inspect --registry <absolute-file> [--json]` reads only the
+explicitly selected source registry. No home-directory discovery, scheduler
+writes, model execution or credentials are involved. Unreadable and unsupported
+sources remain coverage gaps. Names are configured metadata; task/transcript text,
+source paths and native account/session IDs are excluded from the projection.
+
+`plates routines usage --manifest <absolute-file> --state <absolute-dir>
+--project <owner/repo> [--pr <repository-id:number>] [--verify-repository] [--actor <id>] [--json]`
+reads the initialized canonical agent-quality ledger. Without `--actor`, only
+shared permitted measurements are projected. Actor selection is local context,
+not hosted authorization. Usage covers the recorded task/PR lifecycle, including
+failed attempts, independently of Activity's date filter. Null totals are unknown;
+known subtotals and shared nonadditive attribution remain distinct from remaining
+provider quota. Local PR totals remain unknown without independently verified
+numeric repository bindings. Explicit `--verify-repository` makes one bounded
+authenticated GitHub repository GET and requires its ID and name to match the
+selected PR. No supplied binding file counts as verification. Inspection starts
+no work.
+
+`plates routines record-usage --manifest <absolute-file> --state <absolute-dir>
+--project <owner/repo> --episode <id> --record <absolute-file> [--yes --digest <sha256>] [--json]`
+previews a sealed metadata observation (exit 3). Exact approval appends to the
+same private ledger; uncertain retries recover the original receipt. Supplied
+provider labels are not authenticated billing proof. No provider is called.
+
+`plates board --observations <absolute-file>` reads an explicit startup binding
+with `version:1`, `registry` (absolute registry file or null) and `usage` (binding
+or null). A usage binding carries manifest/state paths, project repository list,
+optional canonical PR object, actorId and shared boolean. Browser URLs cannot
+change these paths or identity. Existing board refresh and token protection apply.
+Inspection JSON is `{schema, observedAt, routines, attempts, reports, usage,
+coverage, actions:[]}`. Routine names are configured labels with opaque identity;
+usage retains metric known subtotals, nullable totals, coverage, stage/model
+metadata, provenance and repository verification. Capture JSON returns status,
+digest, added/duplicate counts and recovery status. No projection exposes source
+paths or funding/account identity. See `docs/guide/routine-observations.md` for
+exact source schemas and gaps.
+
+`plates routines recommend --input <absolute-file> --manifest <absolute-file>
+--state <absolute-dir> [--json]` reads version-1 candidate claims and the canonical
+initialized AQ ledger. Input cannot contain authority or a qualityBundle.
+Local files do not authenticate accounts or quotas: availability and suggestions
+remain unavailable. Output explains personal scope, task stage, model/build,
+matching quality samples/uncertainty, historical cost and latency separately.
+No command executes or reserves work. Historical usage never implies quota.
+
+Board binding version 2 adds `recommendation: {input, manifest, state}` (or null)
+to the existing registry/usage fields; version 1 remains supported. It renders a
+separate personal panel. Hosted personal recommendations appear only on explicit
+project views through a trusted injected adapter, never as set-level quota sums.
+The default adapter is unavailable. Current actor/project/policy/connection checks
+and capacity must remain fresh through the final response (at most five minutes).
+See the routine-observations guide for input and activation limits.
+
+<!-- topic: routines | explicit local observation and full task/PR usage -->
+
+`plates routines inspect --registry <absolute-file> [--json]` reads only the
+explicitly selected source registry. No home-directory discovery, scheduler
+writes, model execution or credentials are involved. Unreadable and unsupported
+sources remain coverage gaps. Names are configured metadata; task/transcript text,
+source paths and native account/session IDs are excluded from the projection.
+
+`plates routines usage --manifest <absolute-file> --state <absolute-dir>
+--project <owner/repo> [--pr <repository-id:number>] [--verify-repository] [--actor <id>] [--json]`
+reads the initialized canonical agent-quality ledger. Without `--actor`, only
+shared permitted measurements are projected. Actor selection is local context,
+not hosted authorization. Usage covers the recorded task/PR lifecycle, including
+failed attempts, independently of Activity's date filter. Null totals are unknown;
+known subtotals and shared nonadditive attribution remain distinct from remaining
+provider quota. Local PR totals remain unknown without independently verified
+numeric repository bindings. Explicit `--verify-repository` makes one bounded
+authenticated GitHub repository GET and requires its ID and name to match the
+selected PR. No supplied binding file counts as verification. Inspection starts
+no work.
+
+`plates routines record-usage --manifest <absolute-file> --state <absolute-dir>
+--project <owner/repo> --episode <id> --record <absolute-file> [--yes --digest <sha256>] [--json]`
+previews a sealed metadata observation (exit 3). Exact approval appends to the
+same private ledger; uncertain retries recover the original receipt. Supplied
+provider labels are not authenticated billing proof. No provider is called.
+
+`plates board --observations <absolute-file>` reads an explicit startup binding
+with `version:1`, `registry` (absolute registry file or null) and `usage` (binding
+or null). A usage binding carries manifest/state paths, project repository list,
+optional canonical PR object, actorId and shared boolean. Browser URLs cannot
+change these paths or identity. Existing board refresh and token protection apply.
+Inspection JSON is `{schema, observedAt, routines, attempts, reports, usage,
+coverage, actions:[]}`. Routine names are configured labels with opaque identity;
+usage retains metric known subtotals, nullable totals, coverage, stage/model
+metadata, provenance and repository verification. Capture JSON returns status,
+digest, added/duplicate counts and recovery status. No projection exposes source
+paths or funding/account identity. See `docs/guide/routine-observations.md` for
+exact source schemas and gaps.
+
+`plates routines recommend --input <absolute-file> --manifest <absolute-file>
+--state <absolute-dir> [--json]` reads version-1 candidate claims and the canonical
+initialized AQ ledger. Input cannot contain authority or a qualityBundle.
+Local files do not authenticate accounts or quotas: availability and suggestions
+remain unavailable. Output explains personal scope, task stage, model/build,
+matching quality samples/uncertainty, historical cost and latency separately.
+No command executes or reserves work. Historical usage never implies quota.
+
+Board binding version 2 adds `recommendation: {input, manifest, state}` (or null)
+to the existing registry/usage fields; version 1 remains supported. It renders a
+separate personal panel. Hosted personal recommendations appear only on explicit
+project views through a trusted injected adapter, never as set-level quota sums.
+The default adapter is unavailable. Current actor/project/policy/connection checks
+and capacity must remain fresh through the final response (at most five minutes).
+See the routine-observations guide for input and activation limits.
+
 <!-- topic: retro | the worksheet for a retro after a phase that did real work -->
 
 `plates retro [--worksheet] [--since <commit>] [--session <id>]` is the last
@@ -2020,6 +2133,32 @@ worksheet above remains read-only. See `plates --agent-help canvas` for publishi
 
 
 ### Bounded session trials (explicit records)
+
+`plates retro quality baseline|collect|inspect|report|weekly|replay-plan|lifecycle|pending [--json]`
+adds private metadata observations and stage/project scorecards. Baseline is a
+read-only bounded local Git audit: optional repeated `--repository <dir>` and
+`--limit <1..200>` (20 total by default). Optional `--pr-metadata <file>` entries
+match repository order and accept only minimal GitHub PR metadata. Neither a
+commit nor a merged PR establishes a task episode, agent identity or acceptance.
+Collect takes `--manifest <file> --state <dir> --bundle <file>` in an initialized
+external workspace; preview exits 3 and `--yes --digest <exact-preview>` appends
+immutable observations. Inspect, report, pending and replay-plan use the same
+manifest/state and are read-only. Reports accept `--previous <report.json>` and
+`--reference-mix <mix.json>`. Weekly previews collection of an optional local
+`--bundle` and explicitly requested repository metadata. `--yes --digest` ingests
+those observations and retains the resulting private report. No repository scan
+occurs unless requested. Scheduling remains a separate action.
+Lifecycle takes `--record <event.json>` and exact preview approval for begin,
+start, finish, task/PR linking, annotation, adjudication and follow-up events. Pending shows
+missing human judgments, provenance and delayed outcomes. The retained local
+execution prototype is not exposed: `retro quality run` refuses pending a separate
+execution-boundary review. An explicit private binding can capture metadata from
+ordinary review reads; it grants no execution authority.
+Provider details are declarations; undisclosed model versions stay unknown.
+Replay-plan describes the balanced A/B and reviewer crossover design with spend
+disabled; it cannot dispatch a trial. Existing schema-2 freeze/compare remains
+the experiment authority. See `docs/guide/agent-quality.md` for the full workflow,
+privacy, unknowns and retention boundaries.
 
 `plates retro evaluations corpus inspect|export --json` lists six exposed development
 cases (held-out: zero). Export takes `--case <id> --repository <absolute-dir>
