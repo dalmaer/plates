@@ -572,6 +572,19 @@
       "ownerAttended": true,
       "rollback": "Redeploy the previous build; the earlier worker replaces this one through the same upgrade path, and pages reload on a new shell as before.",
       "proof": "The two deployed revisions, and the owner's answer recorded in docs/evidence/2026-11-02-app-update-unsaved-work.md: whether the draft was kept and the notice shown."
+    },
+    {
+      "id": "immutable-assets-live",
+      "phase": 165,
+      "kind": "decision",
+      "what": "After deploying a build with phase 165, the conductor reads one digest asset's headers on the workspace with curl -sI (Cache-Control: public, max-age=31536000, immutable) and the owner reloads a signed-in page with the browser's network panel open: its assets come from cache.",
+      "prerequisites": [
+        152,
+        165
+      ],
+      "ownerAttended": true,
+      "rollback": "Redeploy the previous build; logical asset paths never stopped answering, so open pages keep working.",
+      "proof": "The deployed revision, the curl -sI header lines, and the second load's cache column, recorded in docs/evidence/2026-11-02-cached-assets.md."
     }
   ],
   "open": [

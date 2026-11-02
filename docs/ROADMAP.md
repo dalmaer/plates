@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**65 of 159 phases built; 65 owe a walk.** Built means implemented and checked; planned is not available.
+**65 of 159 phases built; 66 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -333,7 +333,7 @@ Each change is verified in parallel and published one at a time; production move
 
 From mobile and desktop, an authenticated owner operates every authorized Plates project: decisions, guided tests, visual changes, routine history and execution, fleet lessons and updates, scoped credentials and policy-bound model capacity, with source-backed evidence and private data.
 
-4/25 built; 17 owe a walk.
+4/25 built; 18 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -360,7 +360,7 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 | [156. The CLI and the web show the same work: plates board retires into the hosted home](phases/156-the-cli-and-the-web-show-the-same-work-plates.md) | planned | 2026-11-01 | [96](phases/96-home-explains-every-project.md) | Owner, 2026-11-01: retire plates board now that the hosted home exists, find a place in the web app for what only the board showed, and follow the principle of isomorphism between the CLI and the web. |
 | [163. The workspace reads each plate the way its CLI does](phases/163-the-workspace-reads-each-plate-the-way-its-cli.md) | partial, walk owed | 2026-11-02 | [151](phases/151-the-hosted-workspace-is-the-owners-daily-driver.md) | Built and proven by test: phases are read only under the phases practice, phase failures collapse to one line, and unreadable manifest plates are listed with their fix. The owner's look after deploy remains. |
 | [164. An app update never costs unsaved work](phases/164-an-app-update-never-costs-unsaved-work.md) | partial, walk owed | 2026-11-02 | [152](phases/152-plates-is-an-app-on-the-owners-phone.md) | Built and proven by test: no reload over unsaved edits, navigation preload with a 30-second offline fallback, a foreground update check, and push subscription rotation. The owner's walk across a real deploy remains. |
-| [165. Workspace pages load from cache after the first visit](phases/165-workspace-pages-load-from-cache-after-the-first.md) | planned | 2026-11-02 | [152](phases/152-plates-is-an-app-on-the-owners-phone.md) | From the 2026-11-02 PWA audit: every asset (CSS, page modules, icons) is served private, no-store, with no ETag, through the one serverless function, on every page load. |
+| [165. Workspace pages load from cache after the first visit](phases/165-workspace-pages-load-from-cache-after-the-first.md) | partial, walk owed | 2026-11-02 | [152](phases/152-plates-is-an-app-on-the-owners-phone.md) | Built and proven by test: one asset table, digest URLs served immutable, logical paths still private, pages and modules reference only digest URLs, and the worker precaches them. The live header read and a cached reload after deploy remain. |
 | [166. Home says what needs you, what happened and what is next](phases/166-home-says-what-needs-you-what-happened-and-what.md) | planned | 2026-11-02 | [151](phases/151-the-hosted-workspace-is-the-owners-daily-driver.md) | Owner, 2026-11-02: 'When I login I find it hard to know what to do.' Home should say what needs attention, what happened recently, and let the owner ask for work next. Builds on phase 156's one read model (PR #316, not yet merged). |
 
 - **93 done when:** An explicitly configured external workspace can be inspected and initialized from the installed CLI without writing private data into application or project Git trees.

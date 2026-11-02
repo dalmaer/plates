@@ -1,11 +1,12 @@
 ---
-status: planned
+status: partial
+owes: walk
 since: 2026-11-02
 goal: G7
 spec: 2
 depends: [152]
-note: "From the 2026-11-02 PWA audit: every asset (CSS, page modules, icons) is served private, no-store, with no ETag, through the one serverless function, on every page load."
-evidence: []
+note: "Built and proven by test: one asset table, digest URLs served immutable, logical paths still private, pages and modules reference only digest URLs, and the worker precaches them. The live header read and a cached reload after deploy remain."
+evidence: ["evidence/2026-11-02-cached-assets.md"]
 ---
 
 # Workspace pages load from cache after the first visit
@@ -32,10 +33,10 @@ One merge. It's compatible: the logical paths keep working, and digest URLs are 
 
 ## Acceptance
 
-- [ ] Every asset reference in every rendered page, and every dynamic import in served modules, is a digest URL that the server answers with `public, max-age=31536000, immutable` and the right bytes: `tests/web-assets.test.mjs: "every page references immutable digest assets"`
-- [ ] A digest URL that is not current answers 404, and a changed asset gets a new URL: `tests/web-assets.test.mjs: "a digest names exactly one asset"`
-- [ ] HTML, API and private routes stay `private, no-store`: `tests/web-assets.test.mjs: "nothing private becomes cacheable"`
-- [ ] Live: after deploy, `curl -sI` of a digest asset on the workspace shows the immutable header, and a second page load in a browser serves its assets from cache (DevTools network), by the conductor.
+- [x] Every asset reference in every rendered page, and every dynamic import in served modules, is a digest URL that the server answers with `public, max-age=31536000, immutable` and the right bytes: `tests/web-assets.test.mjs: "every page references immutable digest assets"`
+- [x] A digest URL that is not current answers 404, and a changed asset gets a new URL: `tests/web-assets.test.mjs: "a digest names exactly one asset"`
+- [x] HTML, API and private routes stay `private, no-store`: `tests/web-assets.test.mjs: "nothing private becomes cacheable"`
+- [ ] ⚑ by hand: the conductor, after the owner deploys: a curl -sI of a digest asset on the workspace shows the immutable header, and a second signed-in page load serves its assets from cache (network panel).
 
 ## Real surfaces
 
@@ -52,4 +53,9 @@ By hand: `curl -sI` on the deployed digest URL, and a browser reload on the netw
 
 ## Next action
 
-Build the asset table, the digest references and the three tests.
+After the owner deploys main: `curl -sI` a digest asset on the workspace, and the owner reloads a signed-in page with the network panel open.
+
+## Trajectory
+
+- **2026-11-02** — Pages are rewritten to digest URLs at `respond()`, the one place every page passes through, not by a helper in each view. Browser-shared views render no asset references in the browser, so there is no second rendering path. lib/web/server.mjs.
+- **2026-11-02** — A digest that is no longer current answers 404, not other bytes. A tab opened before a deploy that lazily imports a module after it now fails that import instead of mixing versions; phase 164's new-version notice is the path back. lib/web/assets.mjs.

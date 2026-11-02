@@ -31,3 +31,9 @@ The no-practice test compares blob reads against a control with the phases pract
 ## Gaps and decision
 
 The GitHub API surface (the reader against the owner's real installation) and the owner's look are not walked. That waits on the owner deploying main. The phase is partial, `owes: walk`.
+
+## Integration
+
+Landed on main at `3d3cd0fa` by `plates integrate` (2026-11-02): one gate run, `npm run check` exit 0, with phases 163 and 164 integrated together. Two earlier runs did not land:
+- The first gate found that both phases lacked an activation-plan step (since added). Three evaluation tests also timed out under load there; they passed alone, 3/3 in 48 s.
+- The second gate passed, but main moved during it (#285).
