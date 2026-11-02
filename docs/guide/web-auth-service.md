@@ -46,9 +46,12 @@ These are synthetic identities. Read actual IDs from GitHub when configuring an
 instance; never copy the example IDs into production. `projectRepoIds` pins each
 manifest project ID to an approved numeric repository ID. A deleted repository
 recreated at the same name does not inherit access. Rename/transfer mismatches
-fail closed until the manifest and approved bindings are reconciled. Projects
-outside the explicit manifest, installation, pins or current user access are
-omitted; direct requests are denied. No ambient checkout or CLI fleet is read.
+fail closed until the manifest and approved bindings are reconciled. A manifest
+project missing from the installation or the pins is listed on Home as
+unavailable, with the step that fixes it, and is never read; its direct requests
+are denied. Projects outside the manifest are omitted. A project whose
+configuration does not list the phases practice has no plates phases read from
+it, as in the CLI. No ambient checkout or CLI fleet is read.
 
 The GitHub App must use selected repositories, with Metadata read and Contents
 read. Set its callback to the exact configured origin plus
