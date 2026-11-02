@@ -106,3 +106,14 @@ test('automatic first-render eligibility excludes partial data and any real card
   data.decisions=[]; data.projects[0].walks=[action('first-walk','walk')]; assert.equal(isLoadingOnly(data),false);
   data.projects=[]; assert.equal(isLoadingOnly(data),false);
 });
+test('card text renders source markdown, never raw markers or markup', () => {
+  const data=snapshot();
+  data.decisions[0].why='**`phases_stuck`** (outside) — move *phase 0* and set `since:`. <img src=x onerror=alert(1)> **`a<b`**';
+  data.decisions[0].next='Inspect **the source** first.';
+  const html=renderHomeSnapshot(data), card=html.match(/<article class="attention-card decision"[\s\S]*?<\/article>/)[0];
+  assert.match(card,/<strong><code>phases_stuck<\/code><\/strong> \(outside\)/);
+  assert.match(card,/<em>phase 0<\/em>/); assert.match(card,/<code>since:<\/code>/);
+  assert.match(card,/<strong><code>a&lt;b<\/code><\/strong>/); assert.match(card,/&lt;img src=x onerror=alert\(1\)&gt;/);
+  assert.match(card,/<strong>Next<\/strong> Inspect <strong>the source<\/strong> first\./);
+  assert.doesNotMatch(card.replace(/<[^>]+>/g,''),/\*\*|`/);
+});
