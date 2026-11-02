@@ -88,6 +88,19 @@ test('stale preview and stale review input refuse before child dispatch', async 
   assert.equal((await w.inspect()).bundle.episodes[0].attempts.length, 1);
 });
 
+test('the command child receives an allowlisted environment without parent credentials', async t => {
+  const saved = { GH_TOKEN: process.env.GH_TOKEN, OPENAI_API_KEY: process.env.OPENAI_API_KEY };
+  t.after(() => { for (const [k, v] of Object.entries(saved)) if (v === undefined) delete process.env[k]; else process.env[k] = v; });
+  process.env.GH_TOKEN = 'acme-gh-token'; process.env.OPENAI_API_KEY = 'acme-openai-key';
+  const w = await world(t), out = join(w.inputs, 'env.json');
+  w.record.command.args = ['-e', `require("fs").writeFileSync(${JSON.stringify(out)}, JSON.stringify(process.env))`]; await w.write();
+  const p = await w.call(), r = await w.call({ yes: true, digest: p.digest });
+  assert.equal(r.status, 'completed');
+  const env = JSON.parse(await readFile(out, 'utf8'));
+  assert.equal(env.GH_TOKEN, undefined); assert.equal(env.OPENAI_API_KEY, undefined);
+  assert.equal(env.PLATES_QUALITY_BINDING, w.bindingFile); assert.equal(env.PATH, process.env.PATH);
+});
+
 test('failed and timed-out commands remain attempts with unknown charges and no acceptance', async t => {
   for (const [id, code, expected] of [['acme-failed', 'process.exit(9)', 'failed'], ['acme-timeout', 'setInterval(()=>{},100)', 'timeout']]) {
     const w = await world(t); w.record.id = id; w.record.command.args = ['-e', code]; w.record.command.timeoutSeconds = 1; await w.write();
