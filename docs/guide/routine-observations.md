@@ -159,17 +159,17 @@ credentials, enrollment, grants, reservations or active routing in this slice.
 The consolidation branch now contains additional opt-in service code. These
 features remain disabled by default and have not been deployed or activated.
 
-- `hostObservations` and migration 017 provide an observation-only enrollment,
+- `hostObservations` and migration 018 provide an observation-only enrollment,
   exact apply/revoke and bounded authenticated report endpoint. Current owner,
   workspace, project and restore checks remain required. Wire reports exclude
   task text, paths, personal account details and quota; an enrolled host is not
   proof of provider state. Existing Routines/Activity consumes the projection.
-- `personalFunding` and migration 015 bind explicit personal ownership and
+- `personalFunding` and migration 019 bind explicit personal ownership and
   funding choice to the existing encrypted connection store and model admission.
   Legacy rows are not converted. The supported bounded OpenAI API path requires
   a trusted capacity source; personal subscription execution and organization
   allocation remain unsupported. Set membership never creates extra allowance.
-- `lessons` and migration 016 add private originals and exact redacted copies to
+- `lessons` and migration 017 add private originals and exact redacted copies to
   existing Learning. Explicit recipients must already pass existing owner and
   workspace rules and current access to every destination project. A changed
   set cannot widen an earlier copy. Revocation stops future catalogue reads;

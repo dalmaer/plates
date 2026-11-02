@@ -163,7 +163,7 @@ test('name lookups preserve implemented phase125/126 and reviewed phase127 trans
   for (const id of ["variable:KEEL_MILESTONES_OFFLINE", "variable:KEEL_CANVAS_PERSISTENCE", "variable:KEEL_CANVAS_RECOVERY", "variable:KEEL_CANVAS_OUTPUT", "variable:KEEL_ISOCAN", "variable:KEEL_CI_OFFLINE", "variable:KEEL_FLEET_PRACTICE", "variable:KEEL_NPM", "variable:KEEL_GIT", "variable:KEEL_CLAUDE_DIR", "variable:KEEL_PROVE_MUTANT_MS", "variable:KEEL_PROVE_IGNORED_BYTES", "variable:KEEL_REVIEW_POLL_MS", "variable:KEEL_CACHE", "variable:KEEL_PREVIOUS_PRACTICES", "variable:KEEL_SELF_UPDATED", "variable:KEEL_CLIMB_CLOCK", "variable:KEEL_CLI", "variable:KEEL_NOW", "variable:KEEL_STITCH", "variable:KEEL_DRAIN_WAIT_MS", "variable:KEEL_QUOTA_FLOOR", "variable:KEEL_STALLS_SHAPE", "variable:KEEL_PROVIDER", "variable:KEEL_SESSION", "variable:KEEL_MACHINE", "variable:KEEL_RUN_START", "variable:KEEL_GATE_INVOCATION", "variable:KEEL_USUAL", "variable:KEEL_GATE_ACTIVE", "variable:KEEL_SUITE_PLAN", "variable:KEEL_PUBLISHER"]) runtime128.add(id);
   // Phase124 retained139; later source added these three before the32 env rows.
   for (const id of ['fence:keel-time-proposal','marker:keel:review-after','marker:keel:review-after-pending']) assert.ok(nameRow(id));
-  // Migrations 015–017 add 14 identities under the still-held private schema.
+  // Migrations 017–019 add 14 identities under the still-held private schema.
   assert.equal(NAMES.length, 139 + 3 + 32 + 14);
   const hostedEnv = new Set(['web:KEEL_WEB_ORIGIN', 'web:KEEL_WEB_OPERATION', 'web:KEEL_WEB_CONFIG', 'web:KEEL_CONNECTION_ENCRYPTION_KEY', 'web:KEEL_GITHUB_CLIENT_SECRET', 'web:KEEL_SESSION_ENCRYPTION_KEY']);
   // Phase127's reviewed activation: exactly these cookie, operation-marker and public RPC writers.

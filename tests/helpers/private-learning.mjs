@@ -8,7 +8,7 @@ export {token};
 export async function privateLearningHarness(t) {
  const h=learningHarness(),db=new PGlite();t.after(()=>db.close());
  await db.exec('CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;');
- await db.exec(await readFile(new URL('../../lib/web/migrations/016-private-lessons.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../../lib/web/migrations/017-private-lessons.sql',import.meta.url),'utf8'));
  h.config.ownerIds.push(2,3);h.state.members=[1,2,3];
  const config={...h.config,lessons:{enabled:true,verifiedAt:'2026-10-20T00:00:00.000Z',restoreReconciledAt:'2026-10-20T00:00:00.000Z'},projectSets:[{id:'first',name:'First set',projects:['studio']},{id:'second',name:'Second set',projects:['studio']}]};
  const state={loseCommit:false,calls:[]};

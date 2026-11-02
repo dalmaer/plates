@@ -1,7 +1,7 @@
--- Hosted proof for lib/web/migrations/015-personal-funding.sql (phase 138).
+-- Hosted proof for lib/web/migrations/019-personal-funding.sql (phase 138).
 -- Prepared for an owner-attended SQL session; never run remotely by this task.
 -- Leaves behind: nothing. Synthetic Acme rows roll back inside the proof.
--- Expected result: PASS 015-personal-funding hosted proof. A failed condition raises an exception.
+-- Expected result: PASS 019-personal-funding hosted proof. A failed condition raises an exception.
 -- Record the migration SHA-256 separately before applying it. Local PGlite checks
 -- privileges, catalog and isolated RPC behavior; it cannot attest hosted grants,
 -- two-connection locking, wrapping keys, transport identity or live providers.
@@ -18,4 +18,4 @@ begin
  if keel_private.funding_metadata_valid(null) or keel_private.funding_check(null,null,1,i,k) then raise exception 'invalid funding accepted'; end if;
  if keel_private.funding_key('["Acme",1]'::jsonb) is distinct from encode(sha256(convert_to('["Acme",1]','UTF8')),'hex') then raise exception 'funding tuple identity mismatch'; end if;
 end $proof$;
-select 'PASS 015-personal-funding hosted proof' as result;
+select 'PASS 019-personal-funding hosted proof' as result;

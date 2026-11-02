@@ -38,6 +38,12 @@ host upload client and selected-source walk remain work. General routine executi
 BenOS event/effect adapters, comparison/cutover/rollback and retirement remain
 unimplemented, rather than being described as permission blockers.
 
+> **2026-11-02 note:** the three migrations recorded here as 015–017 were renumbered
+> after main shipped `015-push.sql` and `016-long-sessions.sql`. They are now
+> `017-private-lessons.sql`, `018-host-observations.sql` and `019-personal-funding.sql`
+> (personal funding last, because it replaces live public RPCs). The record above
+> describes the files under their names at the time.
+
 ## Review and focused proof
 
 Builders ran affected files only. The conductor and independent reviewers read

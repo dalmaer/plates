@@ -21,7 +21,7 @@ async function world(t){
  await syncClock();
  async function advanceTime(ms){h.state.now+=ms;await syncClock();}
  const directory=new URL('../lib/web/migrations/',import.meta.url);
- for(const file of (await readdir(directory)).filter(f=>f.endsWith('.sql')&&Number(f.slice(0,3))<=15).sort())await db.exec((await readFile(new URL(file,directory),'utf8')).replaceAll('clock_timestamp()','public.acme_test_now()'));
+ for(const file of (await readdir(directory)).filter(f=>f.endsWith('.sql')&&Number(f.slice(0,3))<=19).sort())await db.exec((await readFile(new URL(file,directory),'utf8')).replaceAll('clock_timestamp()','public.acme_test_now()'));
  const config={...h.config,projectRepoIds:{...h.config.projectRepoIds,other:103},personalFunding:{enabled:true,verifiedAt:stamp(h.state.now-1000),restoreReconciledAt:stamp(h.state.now-1000),brokerScope:fundingBroker(h.config)}};
  const calls=[];let loseNext=false,capacityTtl=60000,beforeBegin=null;
  async function fetcher(url,options={}){

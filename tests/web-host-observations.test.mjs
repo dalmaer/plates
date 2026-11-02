@@ -12,7 +12,7 @@ const SOURCE=hostSourceBinding('acme-local-host','acme-selected-source','codex')
 async function fixture(t) {
   const db=new PGlite();t.after(()=>db.close());
   await db.exec('create role anon;create role authenticated;create role service_role;');
-  await db.exec(await readFile(new URL('../lib/web/migrations/017-host-observations.sql',import.meta.url),'utf8'));
+  await db.exec(await readFile(new URL('../lib/web/migrations/018-host-observations.sql',import.meta.url),'utf8'));
   const h=await runsUiHarness({projectCount:1});h.state.now=Date.now();
   const proof=new Date(h.state.now-1000).toISOString();h.config.hostObservations={enabled:true,verifiedAt:proof,restoreReconciledAt:proof};
   const calls=[],controls={lostApply:false,after:null,afterUpstream:null};

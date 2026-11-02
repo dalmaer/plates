@@ -1,7 +1,7 @@
--- Hosted proof for lib/web/migrations/016-private-lessons.sql (phase 138).
+-- Hosted proof for lib/web/migrations/017-private-lessons.sql (phase 138).
 -- Prepared for an owner-attended SQL session; never run remotely by this task.
 -- Leaves behind: nothing. Synthetic Acme rows roll back inside the proof.
--- Expected result: PASS 016-private-lessons hosted proof. A failed condition raises an exception.
+-- Expected result: PASS 017-private-lessons hosted proof. A failed condition raises an exception.
 -- Record the migration SHA-256 separately before applying it. Local PGlite checks
 -- privileges, catalog and isolated RPC behavior; it cannot attest hosted grants,
 -- two-connection locking, wrapping keys, transport identity or live providers.
@@ -32,4 +32,4 @@ begin
   raise exception 'Acme proof rollback';
  exception when raise_exception then if SQLERRM<>'Acme proof rollback' then raise; end if; end;
 end $proof$;
-select 'PASS 016-private-lessons hosted proof' as result;
+select 'PASS 017-private-lessons hosted proof' as result;
