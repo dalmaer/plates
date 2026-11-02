@@ -298,3 +298,21 @@ prefixes. Controlled mutations of recovery choice, consumed allowance and
 refusal validation each fail their assertion. Commands and logs are retained in
 `/tmp/phase119-recovery-actions-handoff.md` and
 `/tmp/phase119-recovery-actions-merge-handoff.md`.
+
+## Current guidance review corrections
+
+Independent source review identified cancellation attribution and pre-provider
+operation identity gaps. Reproduction narrowed the first claim: funded storage
+already closes admission through the spend reader; the actual gaps were missing
+cancellation evidence references and unknown closure without spend storage. The
+initial incorrect fixture assumption and corrected failing baseline are retained.
+
+Current live inspection now projects validated canonical cancellation coverage;
+missing/foreign controls stay gaps. Generation-prefix guidance derives the same
+original operation identity used by recovery, rather than the builder receipt ID.
+A disk-backed descriptor test passes actual preparation without provider or
+subprocess effects. The conductor's `plates prove` reports VERIFIED: baseline
+assertions fail and corrected code passes. Focused proof passed 122 tests with one
+opt-in Docker skip. Historical report projections remain unchanged. Exact logs
+and controls: `/tmp/phase119-actions-review-fix-handoff.md`; causal proof JSON:
+`/tmp/phase119-actions-review-fix-prove.json`.

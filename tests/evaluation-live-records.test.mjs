@@ -6,6 +6,8 @@ import { inspectLiveExecutions } from '../lib/evaluation-live-inspection.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, realpath, mkdir, rm, chmod, writeFile, symlink, link } from 'node:fs/promises';
 import fs from 'node:fs/promises';
+import childProcess from 'node:child_process';
+import { prepareLiveRecovery } from '../lib/evaluation-live-reconcile.mjs';
 import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -479,7 +481,7 @@ test('CURRENT builder prefix without provider ID names local-only original evide
   const w = await world(t), builder = await generationPrefix(w), report = await currentGuidance(w);
   const row = report.recovery.operations.find(o => o.slot === w.slot && o.operationKind === 'generation');
   assert.equal(row.nextAction.kind, 'preview-local-only');
-  assert.equal(row.operationId, builder.intent.id);
+  assert.equal(row.operationId, w.generationOp.operationId);
   assert.ok(row.evidence.some(e => e.digest === builder.intent.digest));
   assert.ok(report.recovery.operations.filter(o => o.slot !== w.slot).every(o => !o.nextAction.kind.startsWith('preview-')), 'original uncertainty blocks other missing work');
 });
@@ -626,4 +628,99 @@ test('CURRENT real generation refusal guidance consumes only the refused slot wi
   assert.deepEqual(invalid.recovery.refusedSlots, []);
   assert.equal(invalid.recovery.operations.find(o => o.slot === w.slot && o.operationKind === 'generation').nextAction.kind, 'inspect-evidence');
   assert.equal(invalid.attempts[0].terminal, false);
+});
+
+
+function cancellationRecord(w, intentOnly) {
+  return sealRecord({ schemaVersion: 2, kind: intentOnly ? 'evaluation-recovery-reservation' : 'evaluation-cancel',
+    id: w.plan.bundle.comparison.id, createdAt: T, planDigest: w.plan.digest, inputDigest: H,
+    ...(intentOnly ? { action: 'cancel', maximumSeconds: w.plan.bundle.comparison.pairs.length * 20,
+      policy: { attemptsPerAction: 1, operationDeadlineMs: 1000, reservedSecondsPerSlot: 20 } } : { admissionClosed: true }) });
+}
+test('CURRENT actual live cancellation closes missing work and paid GET while preserving local-only guidance', async t => {
+  for (const intentOnly of [true, false]) for (const generationStarted of [false, true]) {
+    const w = await world(t);
+    if (generationStarted) await generationWorld(w); else await completeCount(w);
+    const historicalBeforeCancel = JSON.stringify(summarizeComparisonV2(w.plan, await inspectLiveExecutions(w.directory, w.plan)));
+    const path = 'execution/control/' + (intentOnly ? 'cancel-intent.json' : 'cancel.json'), receipt = cancellationRecord(w, intentOnly);
+    await w.put(path, receipt);
+    const before = await inspectLiveRecords(w.directory, w.plan);
+    assert.deepEqual(before.gaps, []); // Funded spend inspection also observes cancel paths; diagnostics must retain their actual provenance.
+    const execution = await inspectLiveExecutions(w.directory, w.plan), report = summarizeComparison(w.plan, execution);
+    assert.equal(report.recovery.admissionClosed, true);
+    assert.match(report.recovery.nextAction, /Admission is closed/);
+    const previews = report.recovery.operations.filter(o => o.nextAction.kind.startsWith('preview-'));
+    assert.ok(previews.every(o => o.nextAction.kind === 'preview-local-only'));
+    const selected = report.recovery.operations.find(o => o.slot === w.slot && o.operationKind === 'generation');
+    assert.equal(selected.nextAction.kind, generationStarted ? 'preview-local-only' : 'inspect-closed-admission');
+    assert.ok(selected.evidence.some(e => e.record === path && e.digest === receipt.digest));
+    assert.equal(execution.cancellation, undefined, 'intent presence does not invent a validated cancellation field');
+    const { recovery, ...historical } = report;
+    assert.equal(JSON.stringify(historical), JSON.stringify(summarizeComparisonV2(w.plan, execution)));
+    assert.equal(JSON.stringify(historical), historicalBeforeCancel, 'cancellation diagnostics do not rewrite the historical projection');
+    assert.deepEqual(await inspectLiveRecords(w.directory, w.plan), before);
+  }
+});
+test('CURRENT actual live malformed and foreign cancellation retains explicit control coverage gaps', async t => {
+  for (const variant of ['malformed', 'foreign-plan', 'foreign-id', 'wrong-kind', 'wrong-action', 'mismatched-input']) {
+    const w = await world(t); await generationWorld(w);
+    const path = 'execution/control/cancel-intent.json', original = cancellationRecord(w, true);
+    if (variant === 'malformed') {
+      await mkdir(join(w.directory, 'execution/control'), { mode: 0o700 });
+      await writeFile(join(w.directory, path), '{', { mode: 0o400 });
+    } else await w.put(path, sealRecord({ ...original, ...(variant === 'foreign-plan' ? { planDigest: 'e'.repeat(64) }
+      : variant === 'foreign-id' ? { id: 'acme-foreign' } : variant === 'wrong-kind' ? { kind: 'evaluation-control' }
+      : variant === 'wrong-action' ? { action: 'reconcile' } : {}) }));
+    if (variant === 'mismatched-input') await w.put('execution/control/cancel.json', sealRecord({ ...cancellationRecord(w, false), inputDigest: 'e'.repeat(64) }));
+    const before = await inspectLiveRecords(w.directory, w.plan), execution = await inspectLiveExecutions(w.directory, w.plan);
+    assert.equal(execution.recoveryControl.coverage, 'unavailable', variant);
+    assert.ok(execution.recoveryControl.gaps.length, variant);
+    const report = summarizeComparison(w.plan, execution);
+    assert.equal(report.recovery.admissionClosed, true, 'known cancel path conservatively closes advice');
+    assert.ok(report.recovery.operations.every(o => !o.nextAction.kind.startsWith('preview-')), variant);
+    assert.ok(report.recovery.operations.some(o => o.missingPrerequisites.includes('validated-recovery-control-evidence')), variant);
+    assert.deepEqual(await inspectLiveRecords(w.directory, w.plan), before);
+  }
+});
+test('CURRENT pre-provider generation guidance supplies the original recovery descriptor identity without effects', async t => {
+  const w = await world(t), builder = await generationPrefix(w), live = await inspectLiveRecords(w.directory, w.plan);
+  assert.deepEqual(live.gaps, []);
+  const row = (await currentGuidance(w)).recovery.operations.find(o => o.slot === w.slot && o.operationKind === 'generation');
+  const descriptor = parseLiveDescriptor(Buffer.from(JSON.stringify({ schemaVersion: 2, stage: 'recovery', mode: 'local-only', planDigest: w.plan.digest,
+    targets: [{ pairId: w.descriptor.pairId, arm: 'baseline', operationKind: 'generation', operationId: row.operationId,
+      originalIntentDigest: builder.intent.digest, admissionReceiptDigest: builder.lease.digest }] })), { plan: w.plan });
+  const state = { plan: w.plan, live, retention: { fits: true }, lock: null, closed: false, snapshot: H };
+  const loaded = { descriptor, descriptorPath: '/Acme/recovery.json', descriptorHash: fingerprint(descriptor) };
+  const originals = Object.fromEntries(['spawn', 'spawnSync', 'execFile', 'execFileSync'].map(k => [k, childProcess[k]])), originalFetch = globalThis.fetch;
+  let effects = 0;
+  const deny = () => { effects++; throw new Error('Acme unexpected effect'); };
+  for (const k of Object.keys(originals)) childProcess[k] = deny;
+  globalThis.fetch = deny; syncBuiltinESMExports();
+  try {
+    const prepared = await prepareLiveRecovery({}, state, loaded, Date.now());
+    assert.equal(prepared.reconcileTarget.operationId, w.generationOp.operationId);
+    assert.equal(row.operationId, w.generationOp.operationId);
+    assert.notEqual(row.operationId, builder.intent.id);
+    assert.equal(prepared.reconcileTarget.originalIntentDigest, builder.intent.digest);
+    const wrong = structuredClone(loaded); wrong.descriptor.targets[0].operationId = builder.intent.id;
+    await assert.rejects(prepareLiveRecovery({}, state, wrong, Date.now()), /original local binding mismatch/);
+    assert.equal(effects, 0);
+  } finally {
+    Object.assign(childProcess, originals); globalThis.fetch = originalFetch; syncBuiltinESMExports();
+  }
+  assert.deepEqual(await inspectLiveRecords(w.directory, w.plan), live);
+});
+
+test('CURRENT live cancellation without spend storage has explicit scanner-derived closure coverage', async t => {
+  const w = await world(t);
+  await rm(join(w.directory, 'spend'), { recursive: true });
+  await rm(join(w.directory, 'execution/preparations'), { recursive: true });
+  const receipt = cancellationRecord(w, true), path = 'execution/control/cancel-intent.json'; await w.put(path, receipt);
+  const execution = await inspectLiveExecutions(w.directory, w.plan);
+  assert.equal(execution.live.spend, null);
+  const report = summarizeComparison(w.plan, execution);
+  assert.equal(report.recovery.admissionClosed, true);
+  assert.match(report.recovery.nextAction, /Admission is closed/);
+  assert.ok(report.recovery.operations.every(o => !o.nextAction.kind.startsWith('preview-')));
+  assert.ok(report.recovery.operations.every(o => o.evidence.some(e => e.record === path && e.digest === receipt.digest)));
 });

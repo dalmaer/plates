@@ -62,17 +62,18 @@ experiments, hosted activation and fleet schedules are not changed by this phase
 
 ## Next action
 
-Add explicitly reviewed, versioned guidance routing: v1 currently supplies context
-as public file data, not harness instructions or skill activation. Preserve v1
-records and case/acceptance boundaries. Then curate the exact current-harness and
-narrow candidate public context, resolve model/runtime identity and attributable
-pricing, and add a versioned report projection of ledger-priced usage (including
-failed operations and unknown holds; estimates remain distinct from invoices).
-Prepare the compatibility and control comparison for exact owner transfer/spend approval. Retain five pairs
-per case and report uncertainty; the installed synthetic one-slot walk establishes
-machinery only. Live aggregate resume remains unsupported. Phases 120–123 are
-merged; their real evaluated lesson/promotion outcome still depends on this
-comparison, not merely on their record machinery.
+The owner selected the actual coding-agent harness on 2026-11-01: run its tool
+and review loop, not a static-instruction or single-generation substitute. Map
+the existing runtime adapters onto isolated evaluation execution, with explicit
+versioned instruction/skill activation, pinned public current/candidate context,
+independent acceptance, total comparison bounds and original-operation recovery.
+Preserve the one-generation runtime and its evidence as infrastructure proof only.
+Resolve model/runtime identity, attributable pricing and a versioned retained
+live-screening reader before preparing the compatibility/control comparison's
+exact owner transfer/spend approval. Retain five paired observations per case,
+all failures and unknowns. No paid trial is authorized by the runtime choice.
+Phases 120–123 are merged; their real evaluated lesson/promotion outcome still
+depends on this comparison, not merely on their record machinery.
 
 
 ## Trajectory
