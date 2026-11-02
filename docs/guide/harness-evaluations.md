@@ -324,6 +324,23 @@ The original partition handle must still reconstruct and bound private evaluator
 inputs. See the [packet contract](../specs/harness-public-packet.md); private receipt
 bindings stay local and are not part of the public request.
 
+Current comparison JSON includes `recovery.operations`, one diagnostic for each
+retained operation or missing slot. Each names its slot/operation identity,
+original evidence paths and digests, observed reason, `nextAction`,
+`missingPrerequisites`, and `requiredChecks`. The text view shows the same steps.
+Every diagnostic has `authorizesMutation: false`; a suggested preview still needs
+fresh workspace, source, ownership, retention and budget checks and its separate
+approval. Missing evidence is not permission to retry or remove state.
+
+Guidance distinguishes original-response GET from local-only recovery, consumed
+reconciliation allowance, proven admission refusal, closed admission and missing
+live count/generation versus offline work. A refused slot stays consumed; local
+termination never proves remote completion, refunds unknown spend or accepts an
+artifact. When inspection does not expose a required control or ownership fact,
+the diagnostic retains it as a prerequisite rather than assuming it absent.
+Historical V1/V2 report projections retain their original bytes; these current
+inspection diagnostics are not new durable receipts or acceptance evidence.
+
 ## One-slot live controller
 
 New schema3 configurations may explicitly select `host-gateway-v1` in both arms,

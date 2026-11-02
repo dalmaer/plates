@@ -276,3 +276,43 @@ Three additional negative controls cover baseline behavior, singular recovery
 target binding and request identity. Evidence:
 `/tmp/phase119-generation-refusal-handoff.md` and
 `/tmp/phase119-generation-refusal-installed-proof.md`.
+
+## Current recovery guidance
+
+Current comparison reports now project per-operation identity, evidence, missing
+prerequisites and a concrete inspection or preview action. They distinguish
+consumed recovery, missing work, original-response GET, local-only recovery,
+closed admission, terminal refusal and unavailable evidence. Every action remains
+non-authorizing. No retained V1/V2 report or immutable receipt is rewritten.
+
+Offline inspection retains validated control observations for reporting, with
+malformed, foreign, unsafe and orphan records explicit as coverage gaps. Live
+generation refusal guidance revalidates original provenance rather than trusting
+a cached reason. Original operations and reserved money remain separate from
+acceptance and any new action.
+
+The integrated focused proof passed 118 tests with one opt-in Docker skip.
+Disk-backed tests cover interrupted controls, closed admission, malformed and
+unsafe directories, original GET/local-only evidence, and orphan operation
+prefixes. Controlled mutations of recovery choice, consumed allowance and
+refusal validation each fail their assertion. Commands and logs are retained in
+`/tmp/phase119-recovery-actions-handoff.md` and
+`/tmp/phase119-recovery-actions-merge-handoff.md`.
+
+## Current guidance review corrections
+
+Independent source review identified cancellation attribution and pre-provider
+operation identity gaps. Reproduction narrowed the first claim: funded storage
+already closes admission through the spend reader; the actual gaps were missing
+cancellation evidence references and unknown closure without spend storage. The
+initial incorrect fixture assumption and corrected failing baseline are retained.
+
+Current live inspection now projects validated canonical cancellation coverage;
+missing/foreign controls stay gaps. Generation-prefix guidance derives the same
+original operation identity used by recovery, rather than the builder receipt ID.
+A disk-backed descriptor test passes actual preparation without provider or
+subprocess effects. The conductor's `plates prove` reports VERIFIED: baseline
+assertions fail and corrected code passes. Focused proof passed 122 tests with one
+opt-in Docker skip. Historical report projections remain unchanged. Exact logs
+and controls: `/tmp/phase119-actions-review-fix-handoff.md`; causal proof JSON:
+`/tmp/phase119-actions-review-fix-prove.json`.
