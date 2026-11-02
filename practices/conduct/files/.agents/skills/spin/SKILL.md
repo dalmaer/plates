@@ -609,3 +609,11 @@ runs plates's default plan, and that is fine.
   or tested by someone else.
 - The shell's cwd was reset between commands. Use absolute paths in every
   command you give a subagent.
+- A scratch worktree got a `node_modules` symlink to the owner's checkout, and
+  then `npm ci` followed the link and emptied the owner's `node_modules`.
+  Install in each worktree on its own; never install or delete through a
+  symlink (`ls -ld node_modules` first).
+- Each new test imported the builder's new export by name, so without the fix
+  the file could not load and `plates prove` said INCONCLUSIVE for every one.
+  Read a new export at call time (a namespace import), so the test fails
+  rather than refusing to run.

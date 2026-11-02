@@ -452,15 +452,18 @@ test('only a tree the gate passed is pushable without gating it again', () => {
   assert.equal(pushable('t-left', new Set()), false);
 });
 
-test('main moving while the batch is gated: nothing is overwritten, nothing lands, every change stays ready', async t => {
+test('main that keeps moving while the batch is gated: after MAX_MOVES nothing is overwritten, nothing lands, every change stays ready', async t => {
+  const { MAX_MOVES } = await import('../lib/integrate.mjs');
   const { a, b, origin, env } = await acme(t);
   await change(a, 'claude/anvil', { 'anvil-two.txt': 'two anvils\n' }, env('m1'));
   const { gate } = fakeGate();
-  // Someone else's push to main lands during the gate run.
+  let runs = 0;
+  // Someone else's push to main lands during every gate run.
   const moving = async dir => {
+    runs++;
     git(b, 'fetch', '-q', 'origin');
     git(b, 'checkout', '-q', '-B', 'other', 'origin/main');
-    await writeFile(join(b, 'other.txt'), 'pushed meanwhile\n');
+    await writeFile(join(b, 'other.txt'), `pushed meanwhile ${runs}\n`);
     git(b, 'add', '-A');
     git(b, 'commit', '-q', '-m', 'acme: meanwhile');
     git(b, 'push', '-q', 'origin', 'HEAD:main');
@@ -473,6 +476,7 @@ test('main moving while the batch is gated: nothing is overwritten, nothing land
   assert.equal(git(origin, 'rev-parse', 'main'), theirs(), 'their push is not overwritten');
   assert.deepEqual(remoteRefs(origin, 'ready/'), ['ready/claude/anvil']);
   assert.deepEqual(remoteRefs(origin, LOCK), [], 'the lock is released on the way out');
+  assert.equal(runs, 1 + MAX_MOVES, 'gated again on each new main, up to the bound');
 });
 
 test('plates integrate through the CLI: the project\'s own check is the gate, in a worktree; the checkout is untouched and the lock released', async t => {
@@ -500,4 +504,32 @@ test('plates integrate through the CLI: the project\'s own check is the gate, in
   assert.equal(held.status, 1);
   assert.equal(JSON.parse(held.stdout).refused, true);
   assert.equal(await gateRuns(), out.gates);
+});
+
+// 2026-11-02: main moved while a batch was gated (another PR merged), so nothing landed and the
+// owner ran plates integrate again by hand. The batch is now gated again on the new main.
+test('when main moves during the gate, the batch is gated again on the new main and lands', async t => {
+  const { a, b, origin, env, pushes } = await acme(t);
+  await change(a, 'claude/phase', { 'phase.txt': 'phase\n' }, env('m1'));
+  const { gate } = fakeGate();
+  let n = 0;
+  const racing = async dir => {
+    // Only the first gate run races: a merge lands on main from elsewhere.
+    if (++n === 1) {
+      git(b, 'fetch', '-q', 'origin'); git(b, 'checkout', '-q', '-B', 'merged', 'origin/main');
+      await writeFile(join(b, 'merged.txt'), 'merged elsewhere\n');
+      git(b, 'add', 'merged.txt'); git(b, 'commit', '-q', '-m', 'merged elsewhere'); git(b, 'push', '-q', 'origin', 'merged:main');
+    }
+    return gate(dir);
+  };
+  const r = await integrate({ root: a }, { env: env('m1'), gate: racing });
+  assert.equal(r.data.ok, true);
+  assert.equal(r.data.moved, 1);
+  assert.equal(r.data.gates, 1, 'the landed round gated once, on the new main');
+  assert.equal(n, 2, 'two gate runs in all: the raced one and the one on the new main');
+  assert.match(r.text, /moved while the batch was gated, so it was gated again/);
+  assert.ok(onMain(origin, 'phase.txt')); assert.ok(onMain(origin, 'merged.txt'));
+  assert.deepEqual(remoteRefs(origin, 'ready/'), []);
+  assert.deepEqual(remoteRefs(origin, LOCK), []);
+  assert.equal((await pushes()).length, 2, 'the elsewhere merge and the batch');
 });
