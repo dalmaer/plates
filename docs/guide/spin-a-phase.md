@@ -12,7 +12,8 @@ you do something else, and to stop only when it needs you.
 The **conductor pattern** splits the work in two. The session that runs
 `/spin` is the conductor: it does not build. It briefs a builder (a
 subagent) on one phase, then verifies the phase's named proof itself, writes
-the record, runs the gate once, and commits the phase whole. Each part
+the record and lands small, independently safe increments throughout the phase,
+with one authoritative gate per integrated candidate. Each part
 exists because of a failure that was paid for:
 
 - **The conductor runs the proof itself.** A builder once reported "suite
@@ -26,9 +27,10 @@ exists because of a failure that was paid for:
 - **Point, don't paste.** The brief names files and headings; the builder
   reads them. A brief that pastes the phase and the design is read twice
   and ages the moment a doc changes.
-- **One commit per phase, with its record.** Status, evidence, trajectory and
-  code land together, so the history says what was claimed and what proved
-  it, in one place.
+- **One safe increment, with its record.** Plan the first safe merge before
+  building. Status, evidence and code travel together; incomplete acceptance
+  stays unchecked. The phase can span several merges while exposure ramps.
+  For Plates itself, [the philosophy](../philosophy.md) is the planning context.
 - **Built needs evidence.** The evidence file says what was run, with exit
   codes, and what was not. Never an expectation written as an observation.
 
@@ -64,7 +66,9 @@ around: a phase built twice, and a review that never ends.
    does not exist, so of two sessions claiming at once exactly one gets it,
    and the other is told who holds it: take another phase, or stop. An open
    PR whose branch names the phase counts as a claim too.
-3. **Build and prove it**, as above, on `<provider>/phase-<n>`.
+3. **Build and prove the first safe increment**, as above, on
+   `<provider>/phase-<n>`. Repeat for later increments, refreshing from main;
+   keep the phase claim until completion or an explicit handoff.
 4. **Open the PR; it is reviewed.** With the cross-review practice on,
    Claude reviews what Codex wrote, and Codex what Claude wrote. Each comment
    is validated against the code, then answered: fixed, tracked in an issue,
@@ -77,8 +81,11 @@ around: a phase built twice, and a review that never ends.
    unanswered, and reports. The choice is yours: merge with the rest
    tracked (after fixing what is a security hole, overwrites your files or
    skips an approval), split the PR, or close it.
-6. **Merge.** A person merges; plates never does. The claim ends when the
-   phase is built on the default branch.
+6. **Integrate each safe increment.** Follow the project's existing authority
+   and review rules: `plates ready`/`plates integrate` provide the combined-tree
+   path; PR changes use the required reviewed merge path. A robot PR still needs
+   a person to merge it. This workflow grants no new merge authority. The claim
+   ends when the phase is complete on the default branch, not at its first merge.
 7. **Your walk.** A phase whose building is done and whose ⚑ box is your
    read shows on the board as yours.
 

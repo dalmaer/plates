@@ -8,6 +8,11 @@ is the evidence it was drawn from.
 For commands and flags, use the [task guides](../README.md#guides) or
 `plates --agent-help <topic>`. Dated decisions below retain their original context.
 
+The current principles are in [the Plates philosophy](philosophy.md). In
+particular, phases describe outcomes while independently safe increments reach
+main throughout the phase. Historical decisions below retain their dated context;
+the philosophy and current phase contracts describe the intended direction.
+
 ## The problem, in one paragraph
 
 Four projects run the same way of working: isocan, ledger, duo and cajones (ritmo).
