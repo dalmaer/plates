@@ -272,10 +272,12 @@ No real provider, Docker or installed-CLI run is required for this pure slice.
    structured/JSON clone, detached projection and proxy rejected. Mutating projected
    copies cannot change a later packet/conversion. Remove only projectPublicInput
    verification in a temporary copy: forged-view assertion must fail.
-2. Disclosure: private source/probe/acceptance content AND unique private IDs/path
+2. Disclosure: uniquely private source/probe/acceptance canaries AND unique private IDs/path
    canaries absent from both wire strings and preparer's output. Private canaries
    remain available to evaluator reconstruction. Public context/overlay order and
-   exact source bytes preserved. Public-identical private-classification revision
+   exact source bytes preserved. Include a shared-bytes control: explicitly reviewed
+   public README bytes may also occur in private evaluator support and must remain
+   unchanged in the public packet. Do not filter public content by private-byte equality. Public-identical private-classification revision
    changes local partition binding but not provider packet. No filtered whole-plan
    serialization: only public-view input is reachable by construction.
 3. Hash identity: fixed independent expected vector for provider's existing wire
