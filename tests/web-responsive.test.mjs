@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {navigation,editorDraftControls} from '../lib/web/navigation.mjs';
+import {navigation,navigationFooter,editorDraftControls} from '../lib/web/navigation.mjs';
 import {startNavigation} from '../lib/web/navigation-client.mjs';
 import {dailyShell,renderPlanEditor} from '../lib/web/daily-views.mjs';
 import {modelTaskForm,modelPolicyEditor} from '../lib/web/model-views.mjs';
@@ -15,7 +15,7 @@ test('shared navigation exposes selected scope, current destination and protecte
   assert.match(html,/href="\/projects\/studio\/activity" aria-current="page"/);
   assert.match(html,/data-project-lens="lab" href="\/projects\/lab\/activity\?days=7&amp;status=failed"/);
   assert.match(html,/<summary>More<\/summary>/);
-  assert.match(html,/action="\/api\/auth\/logout"/);assert.match(html,/name="csrf" value="Acme-csrf"/);
+  const footer=navigationFooter(access);assert.doesNotMatch(html,/auth\/logout/);assert.match(footer,/action="\/api\/auth\/logout"/);assert.match(footer,/name="csrf" value="Acme-csrf"/);
   assert.match(html,/href="\/setup"/);assert.match(html,/href="\/projects\/studio\/capabilities"/);
   assert.doesNotMatch(html,/href="[^"]*page=3/);
 });
