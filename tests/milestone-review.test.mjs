@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 import { run } from './helpers/run.mjs';
 import { milestoneConfig, milestone, issue, response } from './helpers/milestones.mjs';
 import { projectMilestones, readMilestones } from '../practices/night/files/scripts/plates/milestones.mjs';
-import { board, looseItems } from '../lib/board.mjs';
+import { workItems as board, looseItems } from '../lib/work-items.mjs';
 import { phaseZero } from '../lib/init.mjs';
 import { render } from '../lib/practices.mjs';
 
@@ -80,7 +80,7 @@ test('actual CLI consumer boundaries reject unsupported sources and invalid owne
   const commands = [ ['next'], ['status'], ['phase', 'list'], ['goal', 'list'], ['goal', 'show', 'G0'],
     ['phase', 'new', 'Acme', '--goal', 'G0'], ['goal', 'add', 'Acme', '--outcome', 'Land'],
     ['goal', 'retire', 'G0', '--reason', 'Acme'], ['walk', 'done', '1', '--note', 'Acme'],
-    ['render'], ['doctor'], ['adopt', '--dry-run'], ['board'], ['loose-ends'] ];
+    ['render'], ['doctor'], ['adopt', '--dry-run'], ['home'], ['loose-ends'] ];
   for (const phases of [ { source: 'milestone' }, { source: null }, { source: '' }, { source: false }, { source: [] }, { source: {} }, { source: 0 }, { source: 'files', ownerLabel: null }, { source: 'milestones', ownerLabel: '' }, null, [] ]) {
     const config = { ...milestoneConfig, phases };
     await f.setConfig(config);

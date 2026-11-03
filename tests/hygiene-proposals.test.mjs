@@ -12,7 +12,7 @@ import {execFileSync} from 'node:child_process';
 import {makeHygieneProposal,formatHygieneProposal,parseHygieneProposal,readHygieneProposals,hygieneRobotTargetReason} from '../practices/night/files/scripts/plates/hygiene-proposals.mjs';
 import {writeHealthReport} from '../practices/night/files/scripts/plates/time-proposals.mjs';
 import {decideHygieneProposal} from '../lib/hygiene-proposal-actions.mjs';
-import {walkDecide,proposalOf,board} from '../lib/board.mjs';
+import {walkDecide,proposalOf,workItems as board} from '../lib/work-items.mjs';
 const repo='acme/anvils',path='docs/health/2026-10-11.md',at='2026-10-11T12:00:00Z';
 const git=(root,...args)=>execFileSync('git',['-C',root,...args],{encoding:'utf8'}).trim();
 async function fixture(t,{robot={on:true,budgetMinutes:60}}={}) {

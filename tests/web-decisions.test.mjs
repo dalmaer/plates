@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { decisionHarness,healthTarget,shapingTarget,token } from './helpers/web-decisions.mjs';
 import { createDecisions } from '../lib/web/decisions.mjs';
-import { decideLegacyProposal } from '../lib/board.mjs';
+import { decideLegacyProposal } from '../lib/work-items.mjs';
 const service=h=>createDecisions(h.config,{fetcher:h.fetcher,now:()=>h.state.now});
 test('legacy health preview uses the exact CLI transform, explicit choice and complete public outbound message',async()=>{
  const h=decisionHarness(),d=service(h),detail=await d.detail(h.access,token,h.project,healthTarget);

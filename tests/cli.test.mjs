@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { verbs, FLAGS, GUIDE, COLD_START_LIMIT, parseGuide, surfaceGaps, announced } from '../lib/cli.mjs';
 import { acmeRepo } from './helpers/prove.mjs';
 import { nightOf } from '../lib/night-plan.mjs';
+import { phaseFile } from './helpers/web-projects.mjs';
 
 const PLATES = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BIN = join(PLATES, 'bin', 'plates.mjs');
@@ -207,7 +208,8 @@ Measure the count.
       // phase claim, ready and integrate need a remote to push to, and this copy has none: exit 2, as JSON
       // (tests/claim.test.mjs and tests/integrate.test.mjs cover the verbs). promote needs the delivery practice,
       // which plates's copy has not taken: exit 2, as JSON (tests/promote.test.mjs covers the verb).
-      assert.equal(r.code, name === 'names' ? 1 : name === 'issue' ? 3 : ['migrate', 'phase claim', 'ready', 'integrate', 'promote', 'decision', 'shape', 'workspace', 'feedback'].includes(name) ? 2 : 0, `${name}: ${r.err}${r.out}`);
+      // board is retired: it names plates home and exits 2, as JSON.
+      assert.equal(r.code, name === 'names' ? 1 : name === 'issue' ? 3 : ['migrate', 'phase claim', 'ready', 'integrate', 'promote', 'decision', 'shape', 'workspace', 'feedback', 'board'].includes(name) ? 2 : 0, `${name}: ${r.err}${r.out}`);
       assert.doesNotThrow(() => JSON.parse(r.out), `${name} --json did not parse: ${r.out}`);
       assert.equal(r.err, '', `${name} wrote to stderr`);
       if (name === 'names') { const data = JSON.parse(r.out); assert.equal(data.mode, 'preview'); assert.ok(data.projects.some(project => project.state === 'unavailable')); assert.equal(data.readOnly, true); }
@@ -344,4 +346,46 @@ test('migrate rejects unpaired malformed and duplicate approval flags before res
     await assert.rejects(verbs.get('migrate').run(args, { get cwd() { touched = true; throw new Error('migration context must not be accessed'); } }), error => error.exitCode === 2, args.join(' '));
     assert.equal(touched, false, args.join(' '));
   }
+});
+
+test('plates home without a network names each GitHub source unavailable and still renders the local ones', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'plates-home-offline-'));
+  try {
+    const root = join(dir, 'studio');
+    await mkdir(join(root, '.plates'), { recursive: true }); await mkdir(join(root, 'docs', 'phases'), { recursive: true });
+    await writeFile(join(root, '.plates', 'plates.json'), JSON.stringify({ name: 'Acme Studio', repo: 'acme/studio' }));
+    await writeFile(join(root, 'docs', 'goals.json'), JSON.stringify([{ id: 'G1', title: 'Acme', outcome: 'Acme works.' }]));
+    await writeFile(join(root, 'docs', 'phases', '01-acme.md'), phaseFile(1, { next: '⚑ Choose the Acme policy.' }));
+    const env = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_AUTHOR_NAME: 'Acme', GIT_AUTHOR_EMAIL: 'a@example.com', GIT_COMMITTER_NAME: 'Acme', GIT_COMMITTER_EMAIL: 'a@example.com',
+      PLATES_GH: join(dir, 'no-gh-here'), PLATES_CACHE: join(dir, 'cache'), PLATES_STATE: join(dir, 'state') };
+    for (const args of [['init', '-q', '-b', 'main'], ['add', '-A'], ['commit', '-q', '-m', 'Acme']]) execFileSync('git', ['-C', root, ...args], { env });
+    const r = plates(['home', '--json'], root, BIN, env);
+    assert.equal(r.code, 0, r.err);
+    const data = JSON.parse(r.out);
+    assert.equal(data.decisions.length, 1, 'the checkout\'s own sources render');
+    assert.match(data.coverage.gaps.find(g => g.source === 'reviews').reason, /could not be read|not read/);
+    assert.equal(data.sections.find(s => s.id === 'local').command, 'plates loose-ends');
+    const text = plates(['home'], root, BIN, env);
+    assert.equal(text.code, 0); assert.match(text.out, /^Decisions that need you \(at least 1\)$/m); assert.match(text.out, /reviews: /);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('plates board is retired and names plates home', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'plates-board-retired-'));
+  try {
+    const env = { ...process.env, PLATES_GH: join(dir, 'no-gh-here'), PLATES_CACHE: join(dir, 'cache') };
+    // A server would hold the process open until the timeout: the verb returns at once, having read and served nothing.
+    for (const args of [['board'], ['board', '--open'], ['board', '--port', '0']]) {
+      const r = run(process.execPath, [BIN, ...args], { cwd: PLATES, env, timeout: 20_000 });
+      assert.equal(r.status, 2, `${args.join(' ')} exits 2`);
+      assert.match(r.stdout + r.stderr, /plates board is retired: run plates home/);
+      assert.doesNotMatch(r.stdout + r.stderr, /127\.0\.0\.1|Serving on/);
+    }
+    const json = run(process.execPath, [BIN, 'board', '--json'], { cwd: PLATES, env, timeout: 20_000 });
+    assert.equal(json.status, 2);
+    assert.deepEqual([JSON.parse(json.stdout).ok, JSON.parse(json.stdout).replacement], [false, 'plates home']);
+    // The board's renderer and server are gone; the item model stays.
+    await assert.rejects(readFile(join(PLATES, 'lib', 'board.mjs')), /ENOENT/);
+    assert.match(await readFile(join(PLATES, 'lib', 'work-items.mjs'), 'utf8'), /export async function workItems/);
+  } finally { await rm(dir, { recursive: true, force: true }); }
 });

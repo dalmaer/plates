@@ -11,7 +11,7 @@ export function cleanEnv(env = process.env) {
 }
 
 /** plates's verbs that read GitHub through gh: a test runs them only with PLATES_GH set (a stub, or a path that fails). */
-export const GH_VERBS = ['fleet', 'lessons', 'learn', 'loose-ends', 'review', 'board', 'morning', 'promote'];
+export const GH_VERBS = ['fleet', 'lessons', 'learn', 'loose-ends', 'review', 'home', 'morning', 'promote'];
 
 /** Spawn `cmd` (use process.execPath for node) and return { status, stdout, stderr }. */
 export function run(cmd, args = [], { cwd, env, input, timeout } = {}) {

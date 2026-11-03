@@ -20,7 +20,11 @@ numbered database migrations in order, including
 [003-home-retry.sql](../../lib/web/migrations/003-home-retry.sql).
 Use the same approved private database and server-only secret bindings. Home
 needs no additional GitHub permission beyond the selected-repository Metadata
-and Contents reads. Its caches are encrypted outside Git; quota counters and
+and Contents reads. With Pull requests read on the installation, **Reviews
+waiting on you** lists each plate's pull requests at their review-round limit
+(with the verdict, "stopped: repeating" or "extended: progress", and the merge
+rule's counts: fix first, track, unsorted) and those with findings left
+unanswered; without it, the section is a gap that says so. Its caches are encrypted outside Git; quota counters and
 refresh cursors use opaque keys. Public, anon and authenticated database roles
 cannot call the private RPCs or read their tables.
 
@@ -28,6 +32,27 @@ Each protected request rechecks current membership and repository access before
 reading cache data. Sign-out or denied access clears the private view. An
 unavailable source keeps its previous observation and timestamp with a visible
 warning; missing evidence is never counted as zero.
+
+## The same Home in a terminal
+
+Home and `plates home` are one read model with two renderers (phase 156).
+`plates home` reads each plate from its checkout's default branch with the
+hosted home's own reader and bounds, and reads reviews through `gh`; `plates
+home --json` has `/api/home`'s shape, without the web's cache and allowance
+fields. Use `--project <id>` for one plate's lens. For the same sources, both
+show the same items, sections and counts.
+`plates board` and its 127.0.0.1 page are retired: `plates board` prints
+`plates home` and exits 2, so a script that called `plates board --json` moves
+to `plates home --json`.
+
+What only one form can read is a row in both, under **Read elsewhere**, with
+the reason and the command that reads it, and never missing from one. Local
+work (chats, worktrees and sessions on your machine) is read by
+`plates loose-ends` and shown in `plates home`; Home shows it as unavailable,
+"on your machine". Lessons waiting live in the private `plates-inbox`, which
+the App cannot read yet, so both forms name `plates learn`. The fleet's CI,
+stale claims, production verify, the robot, decision checks, feedback and
+earlier health proposals are read in the terminal and named on the web.
 
 ## Read freshness and coverage
 

@@ -9,7 +9,7 @@ import {finalize,brief} from '../practices/night/files/scripts/plates/morning.mj
 import {publishDefault} from '../practices/night/files/scripts/plates/night-plan.mjs';
 import {namesPreimage,namesDigest,formatVerification} from '../practices/night/files/scripts/plates/verification.mjs';
 import {mergeHealthPage} from '../practices/night/files/scripts/plates/time-proposals.mjs';
-import {board} from '../lib/board.mjs';
+import {workItems as board} from '../lib/work-items.mjs';
 const date='2026-10-05',context={repositoryId:7},env={CI:'true',PLATES_GH:'/usr/bin/false'};
 const git=(root,...args)=>{const r=run('git',args,{cwd:root});assert.equal(r.status,0,r.stderr);return r.stdout.trim();};
 const plan=()=>({schema:1,date,shapedBy:'default',readyBy:null,willNotTouch:[],settledToday:[],leftOpen:[],items:[]});
@@ -33,7 +33,7 @@ test('immutable preimage capture separates exact bytes, absence, dirty bytes and
  assert.equal(namesPreimage(join(root,'..'),'missing.json',null),null);
  assert.equal(namesPreimage(root,path,text,{commitSha:'f'.repeat(40)}),null);
 });
-test('actual night to morning to board preserves verified history and pairs complete plan bytes',async t=>{
+test('actual night to morning to home preserves verified history and pairs complete plan bytes',async t=>{
  const root=await fixture(t);await mkdir(join(root,'.plates/night'),{recursive:true});await writeFile(join(root,'.plates/night/plan.json'),JSON.stringify(plan()));
  const first=await improve({root,report:true,date},options);const page=`docs/health/${date}.md`,record=`docs/night/${date}.json`;
  const oldRecord=formatVerification(first.data.verification),proposal='## Proposal\n\nAcme retained keel:historical-label\n';

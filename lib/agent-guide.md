@@ -33,7 +33,7 @@ Verbs (`--json` for data):
 - `plates loose-ends` — unfinished work
 - `plates issue new --agent` — rubric issue preview; `--yes` creates it
 - `plates review <repo>#<n>` — comments; `--wait`; `--close`
-- `plates board` — whose turn: a local page; `--fresh`
+- `plates home|board` — what needs you; `board` retired
 - `plates promote [<commit>]` — tested commit to prod; `--back`
 - `plates walk done|decide` — settle a walk or proposal
 - `plates canvas` — snapshot, render, connect, sync, live, night
@@ -60,7 +60,7 @@ Rules:
 
 Exits: 0 ok; 1 failure; 2 usage; 3 needs owner's yes. JSON errors: `{"error": "..."}` on stdout.
 
-Topics: `autonomy` `names` `json` `goals` `render` `init` `adopt` `doctor` `update` `lessons` `learn` `improve` `persona` `time` `test` `drain` `night` `loop` `climb` `fleet` `loose-ends` `issue` `review` `board` `retro` `canvas` `install` `coming` `reconciliation` `prove` `evidence` `production` `decision` `shape` `workspace` `feedback`.
+Topics: `autonomy` `names` `json` `goals` `render` `init` `adopt` `doctor` `update` `lessons` `learn` `improve` `persona` `time` `test` `drain` `night` `loop` `climb` `fleet` `loose-ends` `issue` `review` `home` `walk` `retro` `canvas` `install` `coming` `reconciliation` `prove` `evidence` `production` `decision` `shape` `workspace` `feedback`.
 
 <!-- topic: json | the output contract every verb keeps -->
 
@@ -986,7 +986,7 @@ recorded), 2 config or usage, each error naming its key (doctor:
 `delivery-config`). `live <sha>`: one read, `{live, serving, why}`, exit 0 yes,
 1 no (unreadable is no). `--record` pushes the result to `keel-verify:verify.json`
 (newest first, 30 kept, every failure for 72 h and each site's latest always, lease; other files on the branch kept; a non-record there, or a branch with no verify.json, is left alone, exit 1). With
-delivery on, `plates board` lists production's (site = `delivery.site`) failed
+delivery on, `plates home` lists production's (site = `delivery.site`) failed
 latest verify as the owner's (source `verify`; a preview's pass never clears
 it) and the morning brief puts each failure of the day before the night
 first under "Your next"; an unreadable record is said, never silence.
@@ -1247,7 +1247,7 @@ it under "Tonight's plan". The design is
   the owner asks) shows the opening and changes nothing: settled today (PRs
   merged, phases moved, Loop findings decided since the plan branch's last
   commit as last fetched, or the last 24 hours, whichever is later), left open
-  (open PRs; from `plates board`, unanswered reviews and the "yours" items; a
+  (open PRs; from the item model, unanswered reviews and the "yours" items; a
   source feeding them it cannot read, or read only in part, is a `not read:`
   line, kept in the plan's leftOpen; the inbox outside plates itself, which does
   not apply, is quiet), tonight's plan (the draft
@@ -1859,61 +1859,35 @@ are no findings): a failed post records nothing and is reviewed again. Read
 and answer it with `plates review <repo>@<sha>` (a sha covered only by a
 start was not reviewed: exit 1, saying so).
 
-<!-- topic: board | whose turn it is: the owner's board, and the verbs that settle its items -->
+<!-- topic: home | the hosted home in a terminal: one read model, two renderers -->
 
-The local board also projects private feedback as `feedback`: coverage state,
-pending count, at most 30 metadata rows and an omitted count. Rows expose IDs,
-revisions, states, gap counts and safe resolution links only. Pending and
-unavailable rows come first. Raw observations and retained results never enter
-this projection; `feedback` help describes the local review commands.
+`plates home [--project <id>] [--fresh] [--json]` renders the hosted home's
+read model from this checkout and gh (plates phase 156): the fleet lens at
+plates's home (each managed plate from a checkout beside it; one without a
+checkout is `unavailable`, saying so), or one plate with `--project`. Each
+plate is read from its default branch (`origin/HEAD` as last fetched, else
+`HEAD`) by the hosted home's own reader, under the same bounds, so `--json`
+is `/api/home`'s content: `{schema, generatedAt, coverage: {state, gaps},
+projects, decisions, walks, reviews, waiting, changes, sections}`, without the
+web's transport fields (`cursor`, `cursorState`, `quota`). `reviews` are PRs
+waiting on you: at their round limit (`review: {number, rounds, limit,
+verdict: "stopped: repeating"|"extended: progress"|null, open, mergeRule:
+{fixFirst, track, unsorted}}`) or with findings unanswered; someone else's
+are in `waiting`. `sections` names what only one form reads, each `{id,
+title, state: read|unavailable, reason, command, count, items}`: `lessons`
+(neither form yet: "plates-inbox is not readable by the App yet", `plates
+learn`), `local` (loose ends, "on your machine", `plates loose-ends`),
+`feedback`, `fleet`, `claims`, `verify`, `robot`, `checks` and
+`health-history`, read here and unavailable on the web with the reason. A
+source that cannot be read (no network, no gh) is a gap with its reason;
+the local sources still render. Exit 0.
 
-`plates board --json` → `{ok, root, name, today, counts: {owner, broken, agent,
-time, external}, items: [{waits, kind, title, why, read, link, source,
-actions: [{id, label, verb, args, note?}]}], sources: [{source, state: ok|partial|n/a,
-count?, why?}], fleet: [{repo, practice, health, ci} | {repo, unreadable}] | null,
-github: {readAt, cost, queries, remaining, resetAt}}`. GitHub reads (reviews,
-loose-ends', the fleet) are kept 10 minutes in plates's cache: the page's 60 s
-refresh asks GitHub nothing inside that; its Refresh button and `--fresh` read
-again. `github` is the oldest kept read shown, the GraphQL points this build
-spent, and what is left; the page's footer says it. Reviews are an optional
-read: under the quota floor (1000 points left; `PLATES_QUOTA_FLOOR`) the source
-is `n/a`, "saving your GitHub quota (N left until HH:MM)".
-Sources: `roadmap` (a walk owed → `owner`/`time`/`external` by the phase's
-`waits:`; buildable phases → `agent`; a phase dated `after:` a day to come →
-`time`), `loose-ends` ("⚑ yours", a session's question, a phase's ⚑ next
-action → `owner`; the rest by kind), `reviews` (unanswered comments on open
-PRs, home and the fleet → `broken`; a PR at its review-round limit → `owner`
-in place of that, "<repo>#<n>: review round 3 of 3, 2 open findings", with
-`rounds`, `limit`, `open`; the limit is each repo's own: home's from its
-config, a fleet repo's from the fleet read's `review`, at no further read.
-One that could not be read is a gap in the source's `why`, "review-round
-limit not read, so none is applied: <repo>: <why>", and that repo's PRs stay
-listed by their unanswered comments, never held to an assumed three), `health` (the newest page's undecided
-proposal → `owner`), `inbox` (lessons proposed → `owner`), `fleet` (home only:
-the strip; red CI → `broken`; a draft PR on a `keel/update-` branch →
-`broken`, kind `update`, "<repo>: plates update <version> fails <name>'s
-check", linking the PR, and not listed again by loose-ends), `claims` (only
-with a git remote: a `claims/phase-<n>` branch with no push for seven days →
-`owner`, kind `claim`, no action: release it by hand or leave it; read as
-last fetched, `--fresh` fetches). A source that cannot be read is `n/a` with
-why, never missing. An action's `note` is `required` or `optional`: the verb
-takes it as `--note` (walk done, learn decide) or as the why (walk decide).
-Milestone-source items link to GitHub and offer no local phase mutation.
-Source closure never contributes to the local built count.
-A walk item carries `yourPart` (the phase's `## Your part`: `{ask, why, look,
-choices, takes, then, ready, table, box}`, `parts` when several; null when
-the phase has none, and the page marks it "needs plain words"), `ready` and
-`ask`. A part with `**Ready when:**` is not ready: the item waits on `time`
-(`external` when the phase says so), `why` "Ready when: …", no actions. A
-ready part's actions are one per choice, `walk done <n> --choice "<c>"`,
-note optional, each with `choice` and its `then` (and `keepsOpen` for a
-choice that leaves the walk open).
+<!-- topic: walk | settle the owner's turn: walk done and walk decide -->
 
-`plates board` (no `--json`) serves the same as one page on 127.0.0.1 (a free
-port, or `--port`), with a per-launch token in the URL that every request and
-action needs; `--open` opens the browser. An action runs one of the board's
-own offers through the CLI (`walk done`, `walk decide`, `learn decide`) and
-shows its output. The agent's queue is still `plates next`.
+`plates board` is retired (phase 156): it prints `plates home` and exits 2,
+starting no server. `plates home --json` is the read (topic `home`); a walk
+item there carries the phase's `## Your part` in `details` (`ask`, `why`,
+`look`, `then`, `takes`, `choices`), and these verbs settle it.
 
 `plates walk done <phase> --note "<what you saw>" | --choice "<c>" [--box <n>]` → `{ok, phase,
 file, box, walked, choice, then, evidence, created, status, left, files, diff, note}`:

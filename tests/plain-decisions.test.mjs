@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { page, propose, improve, MEASURES } from '../practices/night/files/scripts/plates/improve.mjs';
 import { parsePlain, plainProposal, measureRow, freshness, fixedSince, PLAIN_LABELS } from '../practices/night/files/scripts/plates/plain-proposal.mjs';
-import { proposalOf, decideLegacyProposal } from '../lib/board.mjs';
+import { proposalOf, decideLegacyProposal } from '../lib/work-items.mjs';
 import { snapshot } from '../lib/canvas-snapshot.mjs';
 import { createDecisions } from '../lib/web/decisions.mjs';
 import { decisionHarness, token } from './helpers/web-decisions.mjs';

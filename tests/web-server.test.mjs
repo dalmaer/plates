@@ -74,7 +74,7 @@ test('migration restricts public roles and deployment routes all requests throug
   assert.deepEqual(deployment.rewrites, [{ source: '/(.*)', destination: '/api' }]);
   const excluded = deployment.functions['api/index.mjs'].excludeFiles;
   for (const path of ['tests/fixtures/improve/unhealthy/.agents/skills/conduct', 'docs/lessons.md', '.plates/plates.json']) assert.ok(matchesGlob(path, excluded), path);
-  for (const path of ['lib/web/home-client.mjs', 'lib/web/views.mjs', 'lib/board.mjs', 'practices/phases/files/scripts/roadmap.mjs']) assert.ok(!matchesGlob(path, excluded), path);
+  for (const path of ['lib/web/home-client.mjs', 'lib/web/views.mjs', 'lib/work-items.mjs', 'practices/phases/files/scripts/roadmap.mjs']) assert.ok(!matchesGlob(path, excluded), path);
 });
 
 test('service enforces the supported runtime boundary', () => {
