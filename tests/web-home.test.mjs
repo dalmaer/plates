@@ -106,3 +106,35 @@ test('card text renders source markdown, never raw markers or markup', () => {
   assert.match(card,/<strong>Next<\/strong> Inspect <strong>the source<\/strong> first\./);
   assert.doesNotMatch(card.replace(/<[^>]+>/g,''),/\*\*|`/);
 });
+
+test('lessons waiting and reviews at their limit have a home section', async () => {
+  const { projectReviews } = await import('../lib/web/projects.mjs'), { homeSnapshot, homeSections } = await import('../lib/work-items.mjs');
+  const plate = (id, name) => ({ ...snapshot().projects[0], id, repo: `acme/${id}`, name, reviewSource: { repo: `acme/${id}`, reviewers: [], rounds: 3 }, decisions: [], walks: [], waiting: [], changes: [], reviews: [] });
+  // Phase 133's verdicts and the merge rule's counts, read once per plate.
+  const reads = {
+    'acme/studio': { prs: [], rounds: [{ number: 12, title: 'Acme glue', url: 'https://github.com/acme/studio/pull/12', author: 'acme-owner', rounds: 3, open: 3, fixFirst: 1, track: 1, unsorted: 1,
+      findings: [{ round: 1, path: 'a.js', line: 1, severity: 2 }, { round: 2, path: 'a.js', line: 3, severity: 2 }, { round: 3, path: 'b.js', line: 1, severity: 3 }] }] },
+    'acme/api': { prs: [{ number: 4, title: 'Acme hooks', state: 'open', url: 'https://github.com/acme/api/pull/4', author: 'app/claude', unanswered: 2, oldest: '2026-10-01' }], rounds: [{ number: 13, title: 'Acme tunnel', url: 'https://github.com/acme/api/pull/13', author: 'acme-owner', rounds: 6, open: 0, fixFirst: 0, track: 2, unsorted: 0,
+      findings: [{ round: 1, path: 'a.js', line: 1, severity: 1 }, { round: 1, path: 'b.js', line: 1, severity: 2 }, { round: 2, path: 'c.js', line: 1, severity: 2 }, { round: 3, path: 'd.js', line: 1, severity: 3 },
+        { round: 4, path: 'a.js', line: 1, severity: 3 }, { round: 5, path: 'a.js', line: 1, severity: 3 }, { round: 6, path: 'a.js', line: 1, severity: 3 }] }] },
+  };
+  const read = async source => reads[source.repo];
+  const projects = [await projectReviews(plate('studio', 'Acme Studio'), { login: 'acme-owner', read }), await projectReviews(plate('api', 'Acme API'), { login: 'acme-owner', read })];
+  const data = { ...snapshot(), ...homeSnapshot(projects, { sections: homeSections() }) };
+  assert.deepEqual(data.reviews.map(r => [r.projectId, r.review.number, r.review.verdict]), [['api', 13, 'extended: progress'], ['api', 4, null], ['studio', 12, 'stopped: repeating']]);
+  assert.deepEqual(data.reviews.find(r => r.review.number === 12).review.mergeRule, { fixFirst: 1, track: 1, unsorted: 1 });
+  // Fleet-wide: every plate's reviews, with the verdict and the counts; and the lessons row with its reason and command.
+  const fleet = renderHomeSnapshot(data);
+  assert.match(fleet, />Reviews waiting on you<\/h2>/);
+  assert.match(fleet, /Round 3 of 3 · Stopped: repeating · 1 fix first · 1 track · 1 unsorted/);
+  assert.match(fleet, /Round 6 of 6 · Extended: progress · 0 fix first · 2 track · 0 unsorted/);
+  assert.match(fleet, /data-home-section="lessons"><strong>Lessons waiting<\/strong> <span class="meta">Unavailable here · plates-inbox is not readable by the App yet<\/span><p class="meta">Read it with <code>plates learn<\/code>/);
+  // Per plate: only that plate's reviews, and the lessons row still named.
+  const studio = renderHomeSnapshot(data, { projectId: 'studio' });
+  assert.match(studio, /Stopped: repeating/); assert.doesNotMatch(studio, /Extended: progress|Acme hooks/);
+  assert.match(studio, /data-home-section="lessons"/);
+  // Without the App's Pull requests read, reviews are a named gap, never an empty "nothing waiting".
+  const unread = await projectReviews(plate('studio', 'Acme Studio'), { read: null, unavailable: 'The Plates GitHub App has no Pull requests read permission on this plate.' });
+  assert.deepEqual(unread.reviews, []); assert.equal(unread.state, 'partial');
+  assert.match(renderHomeSnapshot({ ...snapshot(), ...homeSnapshot([unread]) }), /reviews: The Plates GitHub App has no Pull requests read permission on this plate\./);
+});
