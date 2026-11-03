@@ -193,6 +193,10 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
    - Needs first: phase 94.
    - Rollback: A failure inside the transaction rolls back by itself. After commit, drop the plates_home schema; nothing else reads it, every item put off returns to Needs you, and Home says Not now is unavailable.
    - Proof to record: The applied version: file name and SHA-256; docs/evidence/2026-11-03-web-not-now-hosted-proof.sql's result (the schema, its grants and the RPC run as the service role); one authenticated Not now answer and its response status, and the item counted as put off on Home.
+47. **answers-from-home** (phase 173, decision, owner attends). After deploying a build with phase 173 and applying migration 017, the owner answers one walk and one health proposal from Home on the phone and puts one item off with Not now, and says whether each landed.
+   - Needs first: phase 151.
+   - Rollback: Redeploy the previous build; each answer is an ordinary commit that can be reverted, and Not now rows are per owner and can be deleted.
+   - Proof to record: The deployed revision, the commits the answers wrote, and the owner answer, recorded in docs/evidence/2026-11-03-every-item-answerable.md.
 
 ## Still open
 
