@@ -638,6 +638,19 @@
       "ownerAttended": true,
       "rollback": "A failure inside the transaction rolls back by itself. After commit, drop the plates_home schema; nothing else reads it, every item put off returns to Needs you, and Home says Not now is unavailable.",
       "proof": "The applied version: file name and SHA-256; docs/evidence/2026-11-03-web-not-now-hosted-proof.sql's result (the schema, its grants and the RPC run as the service role); one authenticated Not now answer and its response status, and the item counted as put off on Home."
+    },
+    {
+      "id": "answers-from-home",
+      "phase": 173,
+      "kind": "decision",
+      "what": "After deploying a build with phase 173 and applying migration 017, the owner answers one walk and one health proposal from Home on the phone and puts one item off with Not now, and says whether each landed.",
+      "prerequisites": [
+        151,
+        173
+      ],
+      "ownerAttended": true,
+      "rollback": "Redeploy the previous build; each answer is an ordinary commit that can be reverted, and Not now rows are per owner and can be deleted.",
+      "proof": "The deployed revision, the commits the answers wrote, and the owner answer, recorded in docs/evidence/2026-11-03-every-item-answerable.md."
     }
   ],
   "open": [
