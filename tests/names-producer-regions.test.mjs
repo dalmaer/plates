@@ -33,7 +33,7 @@ test('immutable preimage capture separates exact bytes, absence, dirty bytes and
  assert.equal(namesPreimage(join(root,'..'),'missing.json',null),null);
  assert.equal(namesPreimage(root,path,text,{commitSha:'f'.repeat(40)}),null);
 });
-test('actual night to morning to board preserves verified history and pairs complete plan bytes',async t=>{
+test('actual night to morning to home preserves verified history and pairs complete plan bytes',async t=>{
  const root=await fixture(t);await mkdir(join(root,'.plates/night'),{recursive:true});await writeFile(join(root,'.plates/night/plan.json'),JSON.stringify(plan()));
  const first=await improve({root,report:true,date},options);const page=`docs/health/${date}.md`,record=`docs/night/${date}.json`;
  const oldRecord=formatVerification(first.data.verification),proposal='## Proposal\n\nAcme retained keel:historical-label\n';

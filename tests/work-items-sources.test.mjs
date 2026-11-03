@@ -1,16 +1,15 @@
-// plates board and plates walk (phase 51): a synthetic Acme project and fleet,
-// every source injected (no network: the reviews and the fleet are stubs).
+// The item model's local sources (lib/work-items.mjs; the board's, phase 51) and
+// plates walk: a synthetic Acme project and fleet, every source injected (no
+// network: the reviews and the fleet are stubs).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { request } from 'node:http';
 import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as boardModule from '../lib/work-items.mjs';
 import { workItems as board, reviewItems, walkDone, walkDecide } from '../lib/work-items.mjs';
-import { boardText, serve, pageHtml, boardView } from '../lib/board.mjs';
 import vm from 'node:vm';
 import { timeSummary } from '../lib/time.mjs';
 import { formatProposal } from '../lib/learn.mjs';
@@ -224,7 +223,6 @@ test('a PR past its review-round limit is the owner\'s item, with the round coun
     assert.ok(titles(data, 'owner').includes('acme/app#7: review round 3 of 3, 3 open findings'));
     assert.ok(!titles(data, 'broken').some(t => t.startsWith('acme/app#7')));
     assert.equal(seen.find(x => x.repo === 'acme/app').rounds, 3, 'three when the project names none');
-    assert.match(boardText(data), /acme\/app#7: review round 3 of 3, 3 open findings/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -352,7 +350,6 @@ test('a draft plates update PR is broken, linking the PR; other drafts are not, 
     assert.equal(data.items.filter(i => i.link === pr).length, 1, 'listed once: the fleet\'s broken item, not loose-ends\' PR as well');
     assert.deepEqual(titles(data, 'broken').sort(), ['acme/app#7: 2 review comments unanswered', 'acme/site: CI red on main', "acme/site: plates update v0.8.21 fails site's check"]);
     assert.equal(data.counts.broken, 3);
-    assert.match(boardText(data), /acme\/site: plates update v0\.8\.21 fails site's check\n {6}a draft PR[^\n]*\n {6}read: gh pr view 12 -R acme\/site/);
     // Machine PRs the fleet could not read: nothing is invented.
     const blind = await board({ root }, { ...deps(root), fleet: async () => ({ rows: [{ ...site, machinePrs: { unreadable: 'saving your GitHub quota' } }] }) });
     assert.equal(blind.items.filter(i => i.kind === 'update').length, 0);
@@ -478,203 +475,10 @@ test('non-time accept and decline survive same-day managed health refresh withou
   });
 });
 
-const http = (port, { method = 'GET', path = '/', headers = {}, body } = {}) => new Promise((done, fail) => {
-  const req = request({ host: '127.0.0.1', port, method, path, headers: { host: `127.0.0.1:${port}`, ...headers } }, res => {
-    let text = '';
-    res.on('data', c => { text += c; });
-    res.on('end', () => done({ status: res.statusCode, text, headers: res.headers }));
-  });
-  req.on('error', fail);
-  req.end(body);
-});
-
-const synthetic = {
-  ok: true, name: 'Acme', today: TODAY, counts: { owner: 2, broken: 1, agent: 2, time: 2, external: 0 },
-  items: [
-    { waits: 'owner', kind: 'walk', title: 'phase 1: The <owner> walks it', why: 'walk owed', read: 'docs/phases/01-walk.md', link: 'https://github.com/acme/app/blob/main/docs/phases/01-walk.md', source: 'roadmap', phase: 1,
-      actions: [{ id: '0.0', label: 'Done — looks good', verb: 'walk done', args: ['1', '--note', 'Looks good.'] }, { id: '0.1', label: 'Done, with a note', verb: 'walk done', args: ['1'], note: 'required' }] },
-    { waits: 'owner', kind: 'proposal', title: 'health proposal', why: 'w', read: 'docs/health/x.md', link: 'javascript:alert(1)', source: 'health',
-      actions: [{ id: '1.0', label: 'Decline', verb: 'walk decide', args: ['--proposal', 'docs/health/x.md', '--decline'], note: 'required' }] },
-    { waits: 'broken', kind: 'ci', title: 'acme/site: CI red', why: 'w', read: null, link: 'https://github.com/acme/site/actions', source: 'fleet', actions: [] },
-    { waits: 'agent', kind: 'phase', title: 'phase 4: Build the anvil', why: 'w', read: null, link: null, source: 'roadmap', phase: 4, next: 'Build it.', actions: [] },
-    { waits: 'agent', kind: 'branch', title: 'acme/app: acme-wip', why: 'w', read: 'git log', link: null, source: 'loose-ends', actions: [] },
-    { waits: 'time', kind: 'dated', title: 'phase 3: Not before November', why: 'not buildable before 2026-11-01', after: '2026-11-01', read: null, link: null, source: 'roadmap', phase: 3, actions: [] },
-    { waits: 'time', kind: 'walk', title: 'phase 2: Seven nights', why: 'walk owed (waits on time): Monday 10:18 UTC', read: null, link: null, source: 'roadmap', phase: 2, actions: [] },
-  ],
-  sources: [{ source: 'reviews', state: 'n/a', why: 'gh: offline' }],
-  fleet: [{ repo: 'acme/site', practice: '0.8.21 current', health: '2026-10-07', ci: 'red' }],
-  phases: { 1: { id: 1, title: 'The owner walks it', file: 'docs/phases/01-walk.md', link: null, goal: 'G0', status: 'partial', since: '2026-10-01', owes: 'walk', waits: 'owner', after: null, done: 'The anvil lands.', next: '⚑ The owner drops one.',
-    boxes: [{ n: 1, text: 'Built. `tests/anvil.test.mjs`', checked: true, walk: false }, { n: 2, text: '⚑ by hand: the owner drops one.', checked: false, walk: true }], trajectory: ['**2026-10-01** — Acme started.'], evidence: [] } },
-  roadmap: { built: 1, total: 4, owed: 1, headline: '1 of 4 built; 1 owes a walk', goals: [{ id: 'G0', title: 'Anvils', built: 1, total: 4, owed: 1 }] },
-};
-const sectionAny = (html, waits) => new RegExp(`<section class="col[^"]*" data-waits="${waits}"[\\s\\S]*?</section>`).exec(html)?.[0] ?? '';
-const tiles = html => Object.fromEntries([...html.matchAll(/data-filter="(\w+)"[^>]*><span class="tile-n">(\d+)<\/span>/g)].map(m => [m[1], Number(m[2])]));
-
-test('the page renders every column from the board\'s JSON, escaped', () => {
-  const html = pageHtml(synthetic, 'tok', 'n0nce');
-  for (const [w, t] of [['owner', 'Yours'], ['broken', 'Broken'], ['agent', 'The agent&#39;s'], ['waiting', 'Waiting']]) assert.match(sectionAny(html, w), new RegExp(`<h2 id="h-${w}">${t} <span class="n">`), t);
-  assert.match(sectionAny(html, 'owner'), /<h3>Walks to do <span class="n">1<\/span><\/h3>/, 'yours, grouped by kind');
-  assert.match(sectionAny(html, 'owner'), /<h3>Decisions <span class="n">1<\/span><\/h3>/);
-  assert.match(sectionAny(html, 'owner'), /phase 1: The &lt;owner&gt; walks it/);
-  assert.match(sectionAny(html, 'owner'), /<button type="button" class="btn primary" data-action="0\.0"/, 'the primary action is a real button');
-  assert.match(sectionAny(html, 'owner'), /data-note-for="0\.1" data-required="1"/, 'a note opens an inline textarea, not a prompt()');
-  assert.match(html, /<textarea/);
-  assert.doesNotMatch(html, /prompt\(/);
-  assert.match(sectionAny(html, 'broken'), /class="card bad"[\s\S]*acme\/site: CI red[\s\S]*>Open the runs</, 'broken, red, with its link');
-  const agent = sectionAny(html, 'agent');
-  assert.match(agent, /<li class="row is-next"[^>]*data-phase="4"[\s\S]*Build the anvil[\s\S]*<span class="pill accent">next<\/span>[\s\S]*Build it\./, 'the first phase is next, with its next action');
-  assert.match(agent, /Loose ends[\s\S]*acme\/app: acme-wip/);
-  const waiting = sectionAny(html, 'waiting');
-  assert.match(waiting, /<h3>On a date<\/h3>[\s\S]*2026-11-01[\s\S]*Not before November[\s\S]*<h3>On something else<\/h3>[\s\S]*Seven nights[\s\S]*Monday 10:18 UTC/);
-  assert.match(html, /1 of 4 built; 1 owes a walk/, 'roadmap headline');
-  assert.match(html, /<rect class="fill" width="25"/, 'built/total as a bar');
-  assert.match(html, /<li class="fleet-card"><a href="https:\/\/github\.com\/acme\/site"[\s\S]*?<span class="dot ci-red"/, 'the fleet strip: a card per project, CI as a dot');
-  assert.match(html, /<b>reviews<\/b>: n\/a — gh: offline/, 'an n/a source is shown');
-  assert.doesNotMatch(html, /href="javascript:/, 'only https links');
-  assert.match(html, /prefers-color-scheme: dark/);
-  assert.match(html, /width=device-width/);
-  assert.doesNotMatch(html, /<script src=|<link [^>]*href="http|@import/, 'self-contained: no CDN');
-  assert.match(html, /<main id="board">/, 'landmarks');
-  assert.match(html, /aria-live="polite"/, 'action results are announced');
-  assert.match(html, /<input id="q" type="search"/, 'a search box');
-  for (const k of ["e.key === '/'", "e.key === 'j'", "e.key === 'k'", "e.key === 'Enter'", "e.key === 'r'", "e.key === '?'"]) assert.ok(html.includes(k), `key ${k}`);
-});
-
-test('the stat tiles\' counts equal the JSON\'s', async () => {
+test('plates walk runs from the CLI', async () => {
   const root = await acme();
   try {
-    const data = await board({ root }, deps(root));
-    const html = pageHtml(data, 'tok', 'n0nce');
-    assert.deepEqual(tiles(html), { owner: data.counts.owner, broken: data.counts.broken, agent: data.counts.agent, waiting: data.counts.time + data.counts.external });
-    // The page's data is the JSON itself, for the drill-down and the refresh.
-    const inline = JSON.parse(/<script type="application\/json" id="board-data" nonce="n0nce">([\s\S]*?)<\/script>/.exec(html)[1]);
-    assert.deepEqual(inline.counts, data.counts);
-    // The embedded script compiles (the renderer is the same function the server used).
-    const script = /<script nonce="n0nce">([\s\S]*?)<\/script>/.exec(html)[1];
-    assert.doesNotThrow(() => new vm.Script(script));
-    assert.match(script, /function boardView\(\)/);
-  } finally { await rm(root, { recursive: true, force: true }); }
-});
-
-test('the drill-down: each phase\'s boxes with walk flags, its next action, trajectory and evidence; progress per goal', async () => {
-  const root = await acme();
-  try {
-    const data = await board({ root }, deps(root));
-    for (const f of ['ok', 'root', 'name', 'today', 'counts', 'items', 'sources', 'fleet']) assert.ok(f in data, `${f} kept`);
-    const six = data.phases[6];
-    assert.deepEqual(six.boxes, [
-      { n: 1, text: 'Built. `tests/anvil.test.mjs`', checked: true, walk: false },
-      { n: 2, text: '⚑ by hand: the owner reads one.', checked: false, walk: true },
-      { n: 3, text: '⚑ by hand: the owner reads two.', checked: false, walk: true }]);
-    assert.equal(six.status, 'partial');
-    assert.equal(six.owes, 'walk');
-    assert.equal(six.waits, 'owner');
-    assert.equal(six.done, 'The anvil lands.');
-    assert.equal(six.goal, 'G0');
-    assert.deepEqual(six.trajectory, ['**2026-10-01** — Acme started.']);
-    assert.deepEqual(data.phases[1].evidence, [{ path: 'docs/evidence/acme-1.md', link: 'https://github.com/acme/app/blob/main/docs/evidence/acme-1.md' }]);
-    assert.equal(data.phases[2].waits, 'time');
-    assert.equal(data.phases[3].after, '2026-11-01');
-    assert.equal(data.items.find(i => i.phase === 3).after, '2026-11-01', 'a dated item carries its date');
-    assert.equal(data.phases[0].status, 'built', 'every phase, built ones too');
-    assert.deepEqual(data.roadmap, { built: 1, total: 10, owed: 5, headline: '1 of 10 built; 5 owe a walk', goals: [{ id: 'G0', title: 'Anvils', built: 1, total: 10, owed: 5 }] });
-    const drill = boardView().drill(six);
-    assert.match(drill, /<h2 id="drill-title">Two walks<\/h2>/);
-    assert.equal((drill.match(/<li class="open walk">/g) ?? []).length, 2, 'the walk boxes marked');
-    assert.match(drill, /<li class="checked"><span class="box" role="img" aria-label="checked">/);
-    assert.match(drill, /<code>tests\/anvil\.test\.mjs<\/code>/);
-    assert.match(drill, /Acceptance <span class="n">1\/3<\/span>/);
-  } finally { await rm(root, { recursive: true, force: true }); }
-});
-
-test('the server binds 127.0.0.1 only, refuses a request without the launch token, and runs actions through the verbs', async () => {
-  const calls = [];
-  const s = await serve({ root: '/acme' }, { board: async () => structuredClone(synthetic), run: async argv => { calls.push(argv); return { code: 0, out: 'ok\n', err: '' }; } });
-  try {
-    assert.equal(s.address, '127.0.0.1');
-    assert.match(s.url, new RegExp(`^http://127\\.0\\.0\\.1:${s.port}/\\?token=[0-9a-f]{48}$`));
-    assert.equal((await http(s.port)).status, 403, 'the page needs the token');
-    assert.equal((await http(s.port, { path: '/?token=nope' })).status, 403);
-    const page = await http(s.port, { path: `/?token=${s.token}` });
-    assert.equal(page.status, 200);
-    for (const c of ['Yours', 'Broken', 'The agent&#39;s', 'Waiting']) assert.match(page.text, new RegExp(`<h2 id="h-[a-z]+">${c} `));
-    const post = (id, extra = {}, headers = { 'x-plates-token': s.token }) => http(s.port, { method: 'POST', path: '/action', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify({ id, ...extra }) });
-    assert.equal((await post('0.0', {}, {})).status, 403, 'no token: refused');
-    assert.equal((await post('0.0', {}, { 'x-plates-token': 'x'.repeat(48) })).status, 403, 'a wrong token: refused');
-    assert.equal((await post('0.0', {}, { 'x-plates-token': s.token, origin: 'http://evil.test' })).status, 403, 'another origin: refused');
-    assert.equal((await http(s.port, { path: `/?token=${s.token}`, headers: { host: `evil.test:${s.port}` } })).status, 403, 'another host (DNS rebinding): refused');
-    assert.deepEqual(calls, [], 'nothing ran');
-    const ok = await post('0.0');
-    assert.equal(ok.status, 200);
-    assert.deepEqual(JSON.parse(ok.text), { code: 0, out: 'ok\n', err: '', argv: ['plates', 'walk', 'done', '1', '--note', 'Looks good.'], note: 'left as a diff: commit it when the gate passes' });
-    assert.equal((await post('0.1')).status, 400, 'a note required, none given');
-    await post('0.1', { note: 'Saw it land.' });
-    await post('1.0', { note: 'Not now.' });
-    assert.equal((await post('9.9')).status, 404, 'only an action the board offered');
-    assert.deepEqual(calls, [['walk', 'done', '1', '--note', 'Looks good.'], ['walk', 'done', '1', '--note', 'Saw it land.'], ['walk', 'decide', '--proposal', 'docs/health/x.md', '--decline', 'Not now.']]);
-  } finally { await s.close(); }
-});
-
-test('the page carries a strict CSP, and every inline script and style carries its nonce', async () => {
-  const s = await serve({ root: '/acme' }, { board: async () => structuredClone(synthetic), run: async () => ({ code: 0, out: '', err: '' }) });
-  try {
-    const page = await http(s.port, { path: `/?token=${s.token}` });
-    const policy = page.headers['content-security-policy'];
-    const nonce = /script-src 'nonce-([A-Za-z0-9+/=]+)'/.exec(policy)?.[1];
-    assert.ok(nonce, `a script nonce in ${policy}`);
-    assert.match(policy, /default-src 'none'/);
-    assert.match(policy, new RegExp(`style-src 'nonce-${nonce.replace(/[+/=]/g, '\\$&')}'`));
-    assert.match(policy, /connect-src 'self'/);
-    assert.match(policy, /frame-ancestors 'none'/);
-    assert.doesNotMatch(policy, /unsafe-inline|unsafe-eval|https?:/, 'nothing loosened, nothing from elsewhere');
-    const tags = [...page.text.matchAll(/<(script|style)\b([^>]*)>/g)];
-    assert.ok(tags.length >= 3, 'the style, the data and the script');
-    for (const [tag, , attrs] of tags) assert.ok(attrs.includes(`nonce="${nonce}"`), `${tag} carries the nonce`);
-    assert.doesNotMatch(page.text, /\son[a-z]+="/, 'no inline event handlers (the CSP would block them)');
-    assert.doesNotMatch(page.text, /\sstyle="/, 'no style attributes (the CSP would block them)');
-    const again = await http(s.port, { path: `/?token=${s.token}` });
-    assert.notEqual(/nonce-([^']+)'/.exec(again.headers['content-security-policy'])[1], nonce, 'a fresh nonce on every load');
-    assert.match((await http(s.port, { path: `/board.json?token=${s.token}` })).headers['content-security-policy'], /default-src 'none'/);
-  } finally { await s.close(); }
-});
-
-test('the page refreshes from /board.json with the token as a header, and an action meant for a moved id is refused', async () => {
-  const calls = [];
-  const s = await serve({ root: '/acme' }, { board: async () => structuredClone(synthetic), run: async argv => { calls.push(argv); return { code: 0, out: 'phase 1: box 2 checked.\n\ndiff --git a/x b/x\n', err: '' }; } });
-  try {
-    assert.equal((await http(s.port, { path: '/board.json' })).status, 403, 'no token');
-    assert.equal((await http(s.port, { path: '/board.json', headers: { 'x-plates-token': 'x'.repeat(48) } })).status, 403, 'a wrong token');
-    assert.equal((await http(s.port, { path: '/', headers: { 'x-plates-token': s.token } })).status, 403, 'the page itself needs the URL\'s token');
-    const fresh = await http(s.port, { path: '/board.json', headers: { 'x-plates-token': s.token } });
-    assert.equal(fresh.status, 200);
-    assert.deepEqual(JSON.parse(fresh.text).counts, synthetic.counts);
-    const post = body => http(s.port, { method: 'POST', path: '/action', headers: { 'content-type': 'application/json', 'x-plates-token': s.token }, body: JSON.stringify(body) });
-    const moved = await post({ id: '0.0', expect: 'walk decide --proposal docs/health/x.md --decline' });
-    assert.equal(moved.status, 409);
-    assert.match(JSON.parse(moved.text).error, /board changed/);
-    assert.deepEqual(calls, [], 'nothing ran');
-    // The verb's output comes back for the card to show: the result, then the diff.
-    const ok = await post({ id: '0.0', expect: 'walk done 1 --note Looks good.' });
-    assert.equal(ok.status, 200);
-    const j = JSON.parse(ok.text);
-    assert.equal(j.code, 0);
-    assert.match(j.out, /box 2 checked[\s\S]*diff --git/);
-    assert.equal(j.note, 'left as a diff: commit it when the gate passes');
-    assert.deepEqual(calls, [['walk', 'done', '1', '--note', 'Looks good.']]);
-  } finally { await s.close(); }
-});
-
-test('plates board --json and plates walk run from the CLI'
-, async () => {
-  const root = await acme();
-  try {
-    const gh = join(root, 'no-gh');
-    const env = { ...process.env, PLATES_GH: gh, PLATES_CLAUDE_DIR: join(root, 'no-claude'), PLATES_FLEET_PRACTICE: '0.8.21' };
-    const r = run(process.execPath, [join(PLATES, 'bin', 'plates.mjs'), 'board', '--json'], { cwd: root, env });
-    assert.equal(r.status, 0, r.stderr);
-    const data = JSON.parse(r.stdout);
-    assert.ok(titles(data, 'owner').includes('phase 1: The owner walks it'));
-    assert.equal(data.sources.find(s => s.source === 'reviews').state, 'n/a', 'gh missing: n/a, with why');
+    const env = { ...process.env, PLATES_GH: join(root, 'no-gh'), PLATES_CLAUDE_DIR: join(root, 'no-claude'), PLATES_FLEET_PRACTICE: '0.8.21' };
     const bad = run(process.execPath, [join(PLATES, 'bin', 'plates.mjs'), 'walk', 'done', '7', '--box', '2', '--note', 'x', '--json'], { cwd: root, env });
     assert.equal(bad.status, 2);
     assert.match(JSON.parse(bad.stdout).error, /not a walk/);
@@ -722,25 +526,9 @@ test('a ready walk with a Your part leads with its Ask and offers one button per
     assert.deepEqual(walk.actions.map(a => [a.label, a.args.join(' '), a.note]), [
       ['Keep it', '10 --choice Keep it', 'optional'], ['Drop it', '10 --choice Drop it', 'optional'], ['Not enough data yet', '10 --choice Not enough data yet', 'optional']]);
     assert.equal(walk.actions[1].then, 'the conductor drafts a phase that retires it.', 'each choice carries its own Then');
-    const html = pageHtml(data, 'tok', 'n0nce');
-    const card = new RegExp(`<article class="card yp"[^>]*data-phase="10"[\\s\\S]*?</article>`).exec(html)?.[0] ?? '';
-    assert.match(card, /<p class="yp-label"><button type="button" class="title-btn" data-drill="10"[^>]*>Phase 10 · The anvil rule<\/button><\/p>\s*<h4 class="card-title ask">Decide whether to keep the anvil rule\.<\/h4>/, 'the Ask is the headline; the phase a small label that opens the drill-down');
-    assert.match(card, /<p class="why">It settles whether Acme keeps paying for it\.<\/p>/);
-    assert.match(card, /<table class="yp-table">[\s\S]*<th scope="row">Anvils dropped<\/th><td>3<\/td><td>5<\/td>/, 'the table is drawn');
-    assert.match(card, /<a href="https:\/\/github\.com\/acme\/app\/blob\/main\/docs\/evidence\/acme-1\.md"/);
-    assert.match(card, /<p class="takes">Takes 5 minutes<\/p>/);
-    const buttons = [...card.matchAll(/<button type="button" class="(btn[^"]*)" data-action="[^"]+" data-expect="([^"]+)" data-choice="([^"]+)"/g)].map(m => [m[1], m[2], m[3]]);
-    assert.deepEqual(buttons, [['btn primary', 'walk done 10 --choice Keep it', 'Keep it'], ['btn', 'walk done 10 --choice Drop it', 'Drop it'], ['btn', 'walk done 10 --choice Not enough data yet', 'Not enough data yet']], 'one button per choice, the first primary');
-    assert.match(card, /data-choice="Not enough data yet" data-keeps-open="1"/, 'a choice that keeps the walk open says so');
     assert.equal(walk.actions[2].keepsOpen, true);
-    assert.match(card, /data-then="the conductor drafts a phase that retires it\."/, 'what happens after a choice, shown once it is made');
-    assert.match(card, /data-choice-note[^>]*>with a note<\/button>/);
-    assert.doesNotMatch(card, /needs plain words/);
     // A walk with no Your part: today's card, with the marker.
-    const plain = new RegExp(`<article class="card"[^>]*data-phase="1"[\\s\\S]*?</article>`).exec(html)?.[0] ?? '';
-    assert.match(plain, /phase 1: The owner walks it<\/button> <span class="pill warn"[^>]*>needs plain words<\/span>/);
     assert.equal(data.items.find(i => i.phase === 1).yourPart, null);
-    assert.match(boardText(data), /Decide whether to keep the anvil rule\.\n {6}phase 10: The anvil rule — It settles[\s\S]*?\$ plates walk done 10 --choice "Keep it" \[--note "…"\]/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -753,9 +541,6 @@ test('a walk whose Your part says Ready when waits, with that reason, and is nev
     assert.equal(later.why, 'Ready when: the anvil has cooled (Monday).');
     assert.deepEqual(later.actions, []);
     assert.ok(!titles(data, 'owner').includes('phase 11: The cooled anvil'));
-    const waiting = sectionAny(pageHtml(data, 'tok', 'n0nce'), 'waiting');
-    assert.match(waiting, /The cooled anvil[\s\S]*?Decide whether to keep the anvil rule\.[\s\S]*?Ready when: the anvil has cooled \(Monday\)\./, 'listed under Waiting with its ask and its reason');
-    assert.doesNotMatch(sectionAny(pageHtml(data, 'tok', 'n0nce'), 'owner'), /The cooled anvil/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -793,24 +578,6 @@ test('plates walk done --choice records the choice and its note, and refuses a c
     const bad = run(process.execPath, [join(PLATES, 'bin', 'plates.mjs'), 'walk', 'done', '11', '--choice', 'Melt it', '--json'], { cwd: root, env });
     assert.equal(bad.status, 2);
     assert.match(JSON.parse(bad.stdout).error, /not one of phase 11's choices/);
-  } finally { await rm(root, { recursive: true, force: true }); }
-});
-
-test('the board runs a choice through walk done, with the note written beside it', async () => {
-  const calls = [];
-  const root = await acmeAsks();
-  try {
-    const data = await board({ root }, deps(root));
-    const s = await serve({ root }, { board: async () => structuredClone(data), run: async argv => { calls.push(argv); return { code: 0, out: 'ok\n', err: '' }; } });
-    try {
-      await http(s.port, { path: `/?token=${s.token}` });
-      const a = data.items.find(i => i.phase === 10).actions[1];
-      const post = body => http(s.port, { method: 'POST', path: '/action', headers: { 'content-type': 'application/json', 'x-plates-token': s.token }, body: JSON.stringify(body) });
-      assert.equal((await post({ id: a.id, expect: 'walk done 10 --choice Keep it' })).status, 409, 'a button meant for another choice');
-      assert.equal((await post({ id: a.id, expect: 'walk done 10 --choice Drop it' })).status, 200);
-      assert.equal((await post({ id: a.id, expect: 'walk done 10 --choice Drop it', note: 'Too slow.' })).status, 200);
-      assert.deepEqual(calls, [['walk', 'done', '10', '--choice', 'Drop it'], ['walk', 'done', '10', '--choice', 'Drop it', '--note', 'Too slow.']]);
-    } finally { await s.close(); }
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -867,20 +634,6 @@ test('the board keeps its GitHub reads 10 minutes: the 60 s refresh asks GitHub 
     // --fresh (the Refresh button): read again.
     await board({ root }, { ...live, fresh: true });
     assert.equal(await gh.reads(), reads * 2);
-    // Through the page's server: /board.json (the auto refresh) keeps, ?fresh=1 (the button) reads.
-    const s = await serve({ root }, live);
-    try {
-      const auto = await http(s.port, { path: '/board.json', headers: { 'x-plates-token': s.token } });
-      assert.equal(auto.status, 200);
-      assert.equal(await gh.reads(), reads * 2);
-      const html = await http(s.port, { path: `/?token=${s.token}` });
-      assert.match(html.text, /<p class="github-read">GitHub read (just now|\d+ min ago) · 0 points this refresh · 4000 left until \d\d:\d\d<\/p>/);
-      await http(s.port, { path: '/board.json?fresh=1', headers: { 'x-plates-token': s.token } });
-      assert.equal(await gh.reads(), reads * 3);
-    } finally { await s.close(); }
-    assert.match(pageHtml(first, 'tok', 'n'), /GitHub read just now · 6 points this refresh · 4000 left until/);
-    // The page's script: the button asks fresh, the timer does not.
-    assert.match(pageHtml(first, 'tok', 'n'), /fetch\(auto \? '\/board\.json' : '\/board\.json\?fresh=1'/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
@@ -925,62 +678,16 @@ test('under the quota floor the board\'s reviews are n/a, saving the quota, and 
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-test('week strip shows gate timing and missing coverage without substituting test duration', () => {
-  const data = { ...structuredClone(synthetic), timing: { weeks: [
-    { week: '2026-09-28', lanes: [{ kind: 'tests', gateMs: null, tests: [{ median: 99999 }] }] },
-    { week: '2026-10-05', lanes: [{ kind: 'gate', machine: 'linux-x64-4cpu', gateMs: 1234 }, { kind: 'gate', machine: 'missing', gateMs: null }, { kind: 'gate', machine: 'invalid', gateMs: -10 }] },
-  ], coverage: { note: 'Retained observations only; missing weeks are unavailable.' } } };
-  const html = pageHtml(data, 'acme-token');
-  assert.match(html, /Gate wall time by week/);
-  assert.match(html, /1234 ms/);
-  assert.match(html, /missing: Unavailable/);
-  assert.match(html, /invalid: Unavailable/);
-  assert.doesNotMatch(html, /(?:missing|invalid): (?:0|-10) ms/);
-  assert.match(html, /Unavailable/);
-  assert.doesNotMatch(html, /99999 ms/);
-  assert.match(html, /missing weeks are unavailable/);
-});
-
-test('round3: board gate timing discloses successful and unsuccessful counts', () => {
-  const data = { ...structuredClone(synthetic), timing: { weeks: [
-    { week: '2026-10-05', lanes: [
-      { kind: 'gate', machine: 'acme-mixed', gateMs: 2000, successful: 2, unsuccessful: 3 },
-      { kind: 'gate', machine: 'acme-failed', gateMs: null, successful: 0, unsuccessful: 4 },
-      { kind: 'gate', machine: 'acme-unknown', gateMs: null },
-    ] },
-  ], coverage: { note: 'Acme retained gates.' } } };
-  const html = pageHtml(data, 'acme-token');
-  assert.match(html, /acme-mixed: 2000 ms \(2 successful, 3 unsuccessful\)/);
-  assert.match(html, /acme-failed: Unavailable \(0 successful, 4 unsuccessful\)/);
-  assert.match(html, /acme-unknown: Unavailable \(Unavailable successful, Unavailable unsuccessful\)/);
-  assert.match(html, /Medians use successful gates only/);
-});
-
-test('round4: board distinguishes same-machine gate configs commands and sources', () => {
-  const gate = (config, commandHash, gateSource, ms) => ({ date: '2026-10-09T00:00:00Z', kind: 'gate', dir: '.', machine: { os: 'linux', arch: 'x64', cpus: 4 }, tests: [], status: 0, config, commandHash, gateSource, ms });
-  const data = { ...structuredClone(synthetic), timing: timeSummary([
-    gate('acme-full', 'acme-full-hash', 'configured-gate', 2000), gate('acme-subset', 'acme-subset-hash', 'explicit-command', 100),
-    gate('acme-<escaped>', 'acme-<hash>', 'acme-<source>', 300),
-  ], { weeks: 1, now: Date.parse('2026-10-10') }) };
-  const html = pageHtml(data, 'acme-token');
-  assert.match(html, /linux-x64-4cpu: 2000 ms[^;]+config=acme-full command=acme-full-hash source=configured-gate/);
-  assert.match(html, /linux-x64-4cpu: 100 ms[^;]+config=acme-subset command=acme-subset-hash source=explicit-command/);
-  assert.match(html, /config=acme-&lt;escaped&gt; command=acme-&lt;hash&gt; source=acme-&lt;source&gt;/);
-  assert.doesNotMatch(html, /acme-<(?:escaped|hash|source)>/);
-});
-
 test('board exposes robot OFF exhausted invalid and unavailable usage without enabling work', async t => {
   const root = await acme(); t.after(() => rm(root, { recursive: true, force: true }));
   const off = await board({ root }, deps(root));
   assert.equal(off.robot.policy.enabled, false); assert.equal(off.robot.budget.state, 'off');
-  assert.match(boardText(off), /robot OFF/); assert.match(pageHtml(off, 'acme-token'), /robot OFF/);
   for (const state of ['exhausted', 'unknown', 'invalid', 'available']) {
     const got = await board({ root }, { ...deps(root), robotStatus: async () => ({ policy: { valid: state !== 'invalid', enabled: true, weeklyMinutes: 10 }, budget: { state, remainingSeconds: state === 'available' ? 300 : null, reasons: ['Acme usage unavailable'], complete: state === 'available' } }) });
     assert.equal(got.robot.budget.state, state);
     if (state !== 'available') {
       const item = got.items.find(i => i.source === 'robot'); assert.equal(item.waits, state === 'exhausted' ? 'time' : 'broken'); assert.deepEqual(item.actions, []);
-      assert.match(boardText(got), new RegExp(`robot ${state}`));
-    } else assert.match(boardText(got), /300s left for build and review/);
+    }
   }
 });
 
@@ -1009,7 +716,6 @@ test('board robot budget caches attempt reads and accounts REST refreshes separa
   assert.equal(first.github.rest.requests, 5); assert.equal(first.github.rest.remaining, 4000);
   assert.equal(first.github.cost, 0, 'REST is not GraphQL points');
   assert.equal(first.github.readAt, now.toISOString());
-  assert.match(boardText(first), /REST: 5 requests/); assert.match(pageHtml(first, 'acme'), /REST: 5 requests/);
   const again = await board({ root }, { ...live, now: new Date(+now + 60_000) });
   assert.equal(calls, 5); assert.equal(again.github.rest.requests, 0);
   assert.equal(again.github.readAt, first.github.readAt);
@@ -1085,7 +791,6 @@ test('a claim idle for seven days is the owner\'s item; a fresher one, one with 
   assert.match(mine[0].why, /^claims\/phase-4 since 2026-10-12, no push since 2026-10-12\. Release it \(git push origin --delete claims\/phase-4\) or leave it: plates never releases another session's claim\.$/);
   assert.deepEqual(mine[0].actions, [], 'the board offers no button: the owner releases it by hand, or leaves it');
   assert.ok(titles(data, 'owner').includes(mine[0].title));
-  assert.match(boardText(data), /phase 4: claimed by claude on acme-laptop, idle 8 days/);
   assert.deepEqual(data.sources.find(s => s.source === 'claims'), { source: 'claims', state: 'ok', count: 1 });
   // A day later phase 7 is idle seven days too; phase 9's push still counts.
   assert.deepEqual(claimsOf(await read({ now: new Date(+now + 86_400_000) })).map(i => i.phase), [4, 7]);
@@ -1109,7 +814,7 @@ test('a claim idle for seven days is the owner\'s item; a fresher one, one with 
 test('milestone board details are read-only links and escape remote markup, with incomplete coverage visible', async t => {
   const { projectMilestones } = await import('../practices/night/files/scripts/plates/milestones.mjs');
   const { milestoneConfig, milestone, issue, response } = await import('./helpers/milestones.mjs');
-  const { boardView } = await import('../lib/board.mjs'), { roadmapItems } = await import('../lib/work-items.mjs');
+  const { roadmapItems } = await import('../lib/work-items.mjs');
   const root = await acme(); t.after(() => rm(root, { recursive: true, force: true }));
   await writeFile(join(root, '.plates/plates.json'), JSON.stringify(milestoneConfig));
   const m = milestone(1, 'OPEN', [issue(1, 'OPEN', ['keel:owner'])]);
@@ -1126,12 +831,6 @@ test('milestone board details are read-only links and escape remote markup, with
   assert.equal(data.items[0].link, m.issues.nodes[0].url);
   assert.equal(data.phases[2].status, 'closed');
   assert.match(data.progress.headline, /coverage incomplete/);
-  const html = boardView().drill(data.phases[1]);
-  assert.doesNotMatch(html, /<script>|<img/);
-  assert.match(html, /&lt;script&gt;/);
-  assert.match(html, /not verified acceptance/);
-  assert.match(html, /Due/);
-  assert.match(html, /https:\/\/github.com\/acme\/anvils\/milestone\/1/);
   await assert.rejects(walkDone({ root, phase: 1, note: 'Acme saw it' }), /read-only/);
 });
 
@@ -1153,7 +852,6 @@ test('a failed verify of production is the owner\'s item on the board; a passed 
   assert.deepEqual([item.waits, item.kind, item.title, item.link], ['owner', 'verify', 'production failed its verify for a1b2c3d', failed.run]);
   assert.equal(item.why, `Production failed its verify for \`a1b2c3d\` at ${at} (https://anvils.acme.example): ${failed.failures.join('; ')}. ${failed.run}`);
   assert.ok(titles(data, 'owner').includes(item.title));
-  assert.match(boardText(data), /production failed its verify for a1b2c3d/);
   assert.deepEqual(data.sources.at(-1), { source: 'verify', state: 'ok', count: 1, why: `the latest verify (${at}, a1b2c3d) failed` });
   // A later pass clears it.
   data = await board({ root }, { ...deps(root), verify: async () => ({ results: [passed, failed] }) });

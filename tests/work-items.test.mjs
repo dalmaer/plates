@@ -26,9 +26,8 @@ async function sources(...roots) {
 const importsBoard = text => /(?:from\s*|import\s*\(\s*)['"][^'"]*\bboard\.mjs['"]/.test(text);
 
 test('one item model: no module imports the retired board', async () => {
-  // The board's renderer is the one module still allowed to exist beside the model; the CLI's
-  // `board` verb loads it until the verb retires. Nothing else reads items through it.
-  const allowed = new Set(['lib/board.mjs', 'lib/cli.mjs']);
+  // plates board retired (it names plates home and exits 2), and lib/board.mjs with it: nothing may import it.
+  const allowed = new Set();
   const offenders = [];
   for (const path of await sources('lib', 'bin', 'scripts', 'practices')) {
     if (allowed.has(path)) continue;

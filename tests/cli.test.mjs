@@ -208,7 +208,8 @@ Measure the count.
       // phase claim, ready and integrate need a remote to push to, and this copy has none: exit 2, as JSON
       // (tests/claim.test.mjs and tests/integrate.test.mjs cover the verbs). promote needs the delivery practice,
       // which plates's copy has not taken: exit 2, as JSON (tests/promote.test.mjs covers the verb).
-      assert.equal(r.code, name === 'names' ? 1 : name === 'issue' ? 3 : ['migrate', 'phase claim', 'ready', 'integrate', 'promote', 'decision', 'shape', 'workspace', 'feedback'].includes(name) ? 2 : 0, `${name}: ${r.err}${r.out}`);
+      // board is retired: it names plates home and exits 2, as JSON.
+      assert.equal(r.code, name === 'names' ? 1 : name === 'issue' ? 3 : ['migrate', 'phase claim', 'ready', 'integrate', 'promote', 'decision', 'shape', 'workspace', 'feedback', 'board'].includes(name) ? 2 : 0, `${name}: ${r.err}${r.out}`);
       assert.doesNotThrow(() => JSON.parse(r.out), `${name} --json did not parse: ${r.out}`);
       assert.equal(r.err, '', `${name} wrote to stderr`);
       if (name === 'names') { const data = JSON.parse(r.out); assert.equal(data.mode, 'preview'); assert.ok(data.projects.some(project => project.state === 'unavailable')); assert.equal(data.readOnly, true); }
@@ -366,5 +367,25 @@ test('plates home without a network names each GitHub source unavailable and sti
     assert.equal(data.sections.find(s => s.id === 'local').command, 'plates loose-ends');
     const text = plates(['home'], root, BIN, env);
     assert.equal(text.code, 0); assert.match(text.out, /^Decisions that need you \(at least 1\)$/m); assert.match(text.out, /reviews: /);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('plates board is retired and names plates home', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'plates-board-retired-'));
+  try {
+    const env = { ...process.env, PLATES_GH: join(dir, 'no-gh-here'), PLATES_CACHE: join(dir, 'cache') };
+    // A server would hold the process open until the timeout: the verb returns at once, having read and served nothing.
+    for (const args of [['board'], ['board', '--open'], ['board', '--port', '0']]) {
+      const r = run(process.execPath, [BIN, ...args], { cwd: PLATES, env, timeout: 20_000 });
+      assert.equal(r.status, 2, `${args.join(' ')} exits 2`);
+      assert.match(r.stdout + r.stderr, /plates board is retired: run plates home/);
+      assert.doesNotMatch(r.stdout + r.stderr, /127\.0\.0\.1|Serving on/);
+    }
+    const json = run(process.execPath, [BIN, 'board', '--json'], { cwd: PLATES, env, timeout: 20_000 });
+    assert.equal(json.status, 2);
+    assert.deepEqual([JSON.parse(json.stdout).ok, JSON.parse(json.stdout).replacement], [false, 'plates home']);
+    // The board's renderer and server are gone; the item model stays.
+    await assert.rejects(readFile(join(PLATES, 'lib', 'board.mjs')), /ENOENT/);
+    assert.match(await readFile(join(PLATES, 'lib', 'work-items.mjs'), 'utf8'), /export async function workItems/);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });

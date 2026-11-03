@@ -80,7 +80,7 @@ test('actual CLI consumer boundaries reject unsupported sources and invalid owne
   const commands = [ ['next'], ['status'], ['phase', 'list'], ['goal', 'list'], ['goal', 'show', 'G0'],
     ['phase', 'new', 'Acme', '--goal', 'G0'], ['goal', 'add', 'Acme', '--outcome', 'Land'],
     ['goal', 'retire', 'G0', '--reason', 'Acme'], ['walk', 'done', '1', '--note', 'Acme'],
-    ['render'], ['doctor'], ['adopt', '--dry-run'], ['board'], ['loose-ends'] ];
+    ['render'], ['doctor'], ['adopt', '--dry-run'], ['home'], ['loose-ends'] ];
   for (const phases of [ { source: 'milestone' }, { source: null }, { source: '' }, { source: false }, { source: [] }, { source: {} }, { source: 0 }, { source: 'files', ownerLabel: null }, { source: 'milestones', ownerLabel: '' }, null, [] ]) {
     const config = { ...milestoneConfig, phases };
     await f.setConfig(config);

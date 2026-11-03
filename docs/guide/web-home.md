@@ -41,6 +41,9 @@ hosted home's own reader and bounds, and reads reviews through `gh`; `plates
 home --json` has `/api/home`'s shape, without the web's cache and allowance
 fields. Use `--project <id>` for one plate's lens. For the same sources, both
 show the same items, sections and counts.
+`plates board` and its 127.0.0.1 page are retired: `plates board` prints
+`plates home` and exits 2, so a script that called `plates board --json` moves
+to `plates home --json`.
 
 What only one form can read is a row in both, under **Read elsewhere**, with
 the reason and the command that reads it, and never missing from one. Local

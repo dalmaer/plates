@@ -151,7 +151,7 @@ const hasOrigin = root => git(root, ['remote', 'get-url', 'origin']).status === 
  * read from there too (healthAround).
  */
 export async function finalPlan({ root, date, namesEvidence = false, consumer = 'morning-brief' }) {
-  const context=namesEvidenceContext(namesEvidence), observation=namesObservation(consumer==='morning-final'?'finalization':consumer==='board'?'board':'brief',context);
+  const context=namesEvidenceContext(namesEvidence), observation=namesObservation(consumer==='morning-final'?'finalization':consumer==='home'?'home':'brief',context);
   const traces=[];
   const places = [];
   const remote = hasOrigin(root);
@@ -366,7 +366,7 @@ export function verifyResults(text) {
  * failures"); { results: [] } when there is no branch yet.
  */
 export function readVerify(root, {namesEvidence=false,consumer='morning-brief'}={}) {
-  const context=namesEvidenceContext(namesEvidence), observation=namesObservation(consumer==='board'?'board':'brief',context);
+  const context=namesEvidenceContext(namesEvidence), observation=namesObservation(consumer==='home'?'home':'brief',context);
   const traces=readNames('git ref:keel-verify').map(branch=>({ref:`refs/heads/${branch}`,path:VERIFY_FILE,commitSha:null,blobSha:null,sha256:null,state:'unavailable',absence:null}));
   let results=[], unread;
   try {

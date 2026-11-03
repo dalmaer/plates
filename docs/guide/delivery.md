@@ -181,9 +181,9 @@ node scripts/plates/verify.mjs live <sha> [--json]
 commit, the outcome, the time, the site, what production served, each failure
 and the Actions run), with a lease; a file there that is not a verify record
 is never replaced, nor is a `keel-verify` branch with no `verify.json`; every other file on the branch is kept. With the delivery practice on, the night's morning brief
-and `plates board` read it:
+and `plates home` read it:
 
-- **The board**: when the latest verify failed, an owner's item, "production
+- **Home** (`plates home`, in its Production verify row): when the latest verify failed, an owner's item, "production
   failed its verify for `<sha>`", with each failure and the run. A later pass
   clears it. Only production's results count (their site is `delivery.site`):
   a preview's pass (`--site`) never clears production's failure. A record that

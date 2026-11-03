@@ -32,7 +32,7 @@
 // --record adds the
 // result to the branch keel-verify (verify.json, newest first, the last 30
 // and every failure of the last 72 hours, and each site's latest always),
-// where plates board and the morning brief read it.
+// where plates home and the morning brief read it.
 //
 // live <sha>: one read of the version path: does production already serve
 // that commit or a descendant? A deploy step skips itself on yes:

@@ -56,7 +56,7 @@ status (redirects not followed). It passes only on what it saw, and fails
 naming each check. `verify.mjs live <sha>` (one read; exit 0 yes, 1 no) lets
 a deploy step skip a commit production already has. `--record` adds the
 result to the branch `keel-verify` (`verify.json`); a failed latest verify is
-an owner's item on `plates board`, and each failure of the day before a night
+an owner's item on `plates home`, and each failure of the day before a night
 is a line in that night's morning brief.
 
 **Promotion is a guarded gesture** (phase 82, design item 5, after isocan's
