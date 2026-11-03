@@ -189,6 +189,10 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
    - Needs first: phase 151.
    - Rollback: Redeploy the previous build; the hosted home only reads, and nothing was written.
    - Proof to record: The deployed revision and the owner answer (nothing missing, or what is missing), recorded in docs/evidence/2026-11-03-one-home-model.md.
+46. **migration-017** (phase 173, migration, owner attends). Apply 017-not-now.sql (the plates_home schema: one sealed Not now record per owner and item, its return date, and plates_not_now_rpc) before or with the build with phase 173, so Not now on Home is kept. Nothing reads it before that build, so it is safe under either; until it is applied the phase 173 build hides nothing, says Not now is unavailable, and refuses a Not now answer with a bounded 503.
+   - Needs first: phase 94.
+   - Rollback: A failure inside the transaction rolls back by itself. After commit, drop the plates_home schema; nothing else reads it, every item put off returns to Needs you, and Home says Not now is unavailable.
+   - Proof to record: The applied version: file name and SHA-256; docs/evidence/2026-11-03-web-not-now-hosted-proof.sql's result (the schema, its grants and the RPC run as the service role); one authenticated Not now answer and its response status, and the item counted as put off on Home.
 
 ## Still open
 
