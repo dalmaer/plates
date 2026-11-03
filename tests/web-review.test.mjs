@@ -203,3 +203,15 @@ test('/review renders the first card before any script, behind Home\'s auth, wit
   const empty = reviewView({ workspace: { name: 'Acme' }, csrf: 'x' }, { ...reviewSnapshot(), docket: [] });
   assert.match(empty, /Nothing needs you/); assert.doesNotMatch(empty, /data-answer/);
 });
+
+test('Home starts the session from one panel at its top, or says nothing needs you', async () => {
+  const { homeView, renderReviewStart } = await import('../lib/web/views.mjs');
+  const access = { workspace: { id: 'acme', name: 'Acme' }, userId: 1, projects: [{ id: 'studio', repo: 'acme/studio', name: 'Acme Studio' }], sourceRevision: 'a'.repeat(40), csrf: 'x' };
+  const html = homeView(access, reviewSnapshot());
+  assert.match(html, /<p class="review-start p-card"><strong>4 for you<\/strong><a class="button" href="\/review"[^>]*>Start review<\/a><\/p>/);
+  assert.ok(html.indexOf('review-start') < html.indexOf('home-toolbar'), 'before the toolbar: the first thing under the heading');
+  assert.match(renderReviewStart(reviewSnapshot(), { projectId: 'studio' }), /href="\/projects\/studio\/review"/);
+  const none = renderReviewStart({ ...reviewSnapshot(), docket: [] });
+  assert.match(none, /Nothing needs you/); assert.doesNotMatch(none, /<a |<button/, 'no button when nothing waits');
+  assert.match(renderReviewStart({ ...reviewSnapshot(), coverage: { state: 'partial', gaps: [] } }), /At least 4 for you/, 'an incomplete read says at least');
+});
