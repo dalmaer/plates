@@ -1905,8 +1905,8 @@ missing why or an answer not written here: exit 2.
 `docket: [{key, list, section?, kind, label, group, minutes, estimate, quick,
 since, sets}]` (phases 174, 175) is Needs you in the model's order: `group`
 `unblock` first (stale claims, ⚑ steps, reviews at their limit, a session's
-question), then `decide` (proposals, lessons, checks, a walk with choices of a
-minute or less), then `walk`; the oldest `since` first within each. `minutes`
+question), then `decide` (proposals, lessons, checks, a review with findings
+unanswered, a walk with choices of a minute or less), then `walk`; the oldest `since` first within each. `minutes`
 is the Your part's **Takes** line (`estimate: "takes"`) or the kind's default
 (`"kind"`); `quick` is 2 minutes or less. `sets` is what the answer sets
 moving: `{kind: "phase", phase, title}` (a ⚑ step's own phase, or a phase its

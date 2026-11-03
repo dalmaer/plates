@@ -199,7 +199,8 @@ function docketFixture() {
       { id: 'studio:phase:6:walk', projectId: 'studio', kind: 'walk', itemKind: 'walk', ref: '6', phase: '6', since: '2026-09-01', ready: true, title: 'A week of use', details: null, sets: [] },
       { id: 'studio:phase:8:walk', projectId: 'studio', kind: 'walk', itemKind: 'walk', ref: '8', phase: '8', ready: false, title: 'Not ready yet', details: null },
     ],
-    reviews: [{ id: 'studio:review:7', projectId: 'studio', kind: 'review', itemKind: 'review', ref: '7', title: 'acme/studio#7: review round 3 of 3', review: { number: 7 } }], waiting: [] };
+    reviews: [{ id: 'studio:review:7', projectId: 'studio', kind: 'review', itemKind: 'review', ref: '7', title: 'acme/studio#7: review round 3 of 3', review: { number: 7, rounds: 3, limit: 3 } },
+      { id: 'studio:review:8', projectId: 'studio', kind: 'review', itemKind: 'review', ref: '8', title: 'acme/studio#8: 1 review comment unanswered', review: { number: 8, rounds: 1, limit: 3 } }], waiting: [] };
   const sections = [{ id: 'claims', title: 'Stale claims', command: 'plates home', state: 'read', reason: null, count: 1,
     items: [{ kind: 'claim', waits: 'owner', title: 'phase 2: claimed, idle 9 days', plate: 'studio', ref: 'claims/phase-2', phase: 2, since: '2026-10-10' }] }];
   return { project, sections };
@@ -213,10 +214,13 @@ test('the docket starts with what blocks agents', async () => {
   // then quick decisions (a proposal dated by its page, the minute walk with choices, the newer proposal), then walks that need a device or time (oldest first).
   assert.deepEqual(web.map(e => [e.key, e.group]), [
     ['studio:claim:claims/phase-2', 'unblock'], ['studio:step:5', 'unblock'], ['studio:review:7', 'unblock'],
-    ['studio:proposal:docs/health/2026-10-20.md', 'decide'], ['studio:walk:4', 'decide'], ['studio:proposal:docs/health/2026-10-30.md', 'decide'],
+    ['studio:proposal:docs/health/2026-10-20.md', 'decide'], ['studio:walk:4', 'decide'], ['studio:proposal:docs/health/2026-10-30.md', 'decide'], ['studio:review:8', 'decide'],
     ['studio:walk:6', 'walk'], ['studio:walk:3', 'walk'],
   ]);
   assert.ok(!web.some(e => e.key === 'studio:walk:8'), 'a walk that is not ready is not in the docket');
+  // Only a PR at its review-round limit blocks: #7 (round 3 of 3) does, #8 (round 1 of 3, findings unanswered) is a decision.
+  const group = key => web.find(e => e.key === key)?.group;
+  assert.equal(group('studio:review:7'), 'unblock'); assert.equal(group('studio:review:8'), 'decide');
   // The same in both forms: the order, the estimates and what each sets moving are the model's, not a form's.
   assert.deepEqual(cli, web);
   // The forms' readers walk it in that order (the browser's own reader, and the terminal's).
@@ -245,11 +249,11 @@ test('every item says how long it takes', async () => {
     assert.equal(takesMinutes(text), minutes, String(text));
   // The Start panel's total is their sum, in both forms.
   const total = snapshot.docket.reduce((n, e) => n + e.minutes, 0), quick = snapshot.docket.filter(e => e.quick).length;
-  assert.equal(total, 10 + 1 + 10 + 1 + 5 + 5 + 2 + 2);
+  assert.equal(total, 10 + 1 + 10 + 1 + 5 + 5 + 5 + 2 + 2);
   const { renderReviewStart } = await import('../lib/web/review-views.mjs');
-  assert.match(renderReviewStart(snapshot), new RegExp(`<strong>8 for you · about ${total} min</strong>`));
+  assert.match(renderReviewStart(snapshot), new RegExp(`<strong>9 for you · about ${total} min</strong>`));
   const { homeText } = await import('../lib/home.mjs');
-  assert.match(homeText({ ...snapshot, generatedAt: '2026-11-03T12:00:00Z' }), new RegExp(`^8 for you · about ${total} min — plates home --review \\(--quick: the ${quick} quick ones\\)$`, 'm'));
+  assert.match(homeText({ ...snapshot, generatedAt: '2026-11-03T12:00:00Z' }), new RegExp(`^9 for you · about ${total} min — plates home --review \\(--quick: the ${quick} quick ones\\)$`, 'm'));
 });
 
 test('what an answer sets moving comes from the phase files and the claim', () => {
