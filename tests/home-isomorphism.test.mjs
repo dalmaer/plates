@@ -69,16 +69,18 @@ else { console.error('fake gh: offline'); process.exit(1); }
   await chmod(gh, 0o755);
   const web = await createHomeReader(h.config, { fetcher, now: () => Date.now() })({ ...h.access, login: 'acme-owner', pullRequestsRead: reviews }, token);
   const run = runNode(process.execPath, [bin, 'home', '--json'], { cwd: root, timeout: 120_000,
-    env: { ...gitEnv, PLATES_GH: gh, PLATES_CACHE: join(dir, 'cache'), PLATES_STATE: join(dir, 'state') } });
+    env: { ...gitEnv, PLATES_GH: gh, PLATES_CACHE: join(dir, 'cache'), PLATES_STATE: join(dir, 'state'), XDG_STATE_HOME: join(dir, 'state') } });
   assert.equal(run.status, 0, run.stderr);
   return { web, cli: JSON.parse(run.stdout), dir, done: () => rm(dir, { recursive: true, force: true }) };
 }
 
 // What a reader adds about its own read, not the sources: when it read, and the App's numeric repository id.
+// Which writers a form can run (an answer's `unavailable`) is that form's, not the sources' (phase 173).
+const formless = item => item.answers ? { ...item, answers: item.answers.map(({ unavailable, ...a }) => a) } : item;
 const content = snapshot => ({
   coverage: snapshot.coverage,
   projects: snapshot.projects.map(({ readAt, repoId, ...project }) => project),
-  ...Object.fromEntries(['decisions', 'walks', 'reviews', 'waiting', 'changes'].map(key => [key, snapshot[key]])),
+  ...Object.fromEntries(['decisions', 'walks', 'reviews', 'waiting', 'changes'].map(key => [key, snapshot[key].map(formless)])),
 });
 
 test('the CLI and the web render one read model', async () => {
@@ -93,10 +95,38 @@ test('the CLI and the web render one read model', async () => {
     assert.deepEqual(cli.coverage, web.coverage, 'the same coverage');
     // Same sections, same counts: the terminal says each count the HTML says.
     const html = renderHomeSnapshot(s.web), text = runNode(process.execPath, [bin, 'home'], { cwd: join(s.dir, 'studio'),
-      env: { ...gitEnv, PLATES_GH: join(s.dir, 'gh'), PLATES_CACHE: join(s.dir, 'cache'), PLATES_STATE: join(s.dir, 'state') } }).stdout;
+      env: { ...gitEnv, PLATES_GH: join(s.dir, 'gh'), PLATES_CACHE: join(s.dir, 'cache'), PLATES_STATE: join(s.dir, 'state'), XDG_STATE_HOME: join(s.dir, 'state') } }).stdout;
     for (const [title, n] of [['Decisions that need you', web.decisions.length], ['Ready to test', web.walks.filter(w => w.ready).length], ['Reviews waiting on you', web.reviews.length], ['In progress / waiting', web.waiting.length]]) {
       assert.match(html, new RegExp(`>${title}</h2>`)); assert.match(text, new RegExp(`^${title.replace('/', '\\/')} \\((at least )?${n}\\)$`, 'm'), `${title}: ${n} in the terminal`);
     }
+  } finally { await s.done(); }
+});
+
+const HEALTH = { 'docs/health/2026-11-01.md': '# Acme health, 2026-11-01\n\n## Proposal\n\n**`dependency_age`** — Update the Acme anvil library.\n' };
+
+test('answers are one model', async () => {
+  const s = await sources({ files: HEALTH });
+  try {
+    const needs = form => ['decisions', 'walks', 'reviews'].flatMap(key => form[key]);
+    assert.ok(needs(s.web).some(i => i.itemKind === 'walk') && needs(s.web).some(i => i.itemKind === 'proposal') && needs(s.web).some(i => i.itemKind === 'review'), 'the fixture has walks, a proposal and a review');
+    assert.deepEqual(needs(s.cli).map(formless), needs(s.web).map(formless), 'the same keys and answers, item by item');
+    for (const form of [s.web, s.cli]) for (const item of needs(form)) {
+      assert.match(item.key, /^studio:(walk|proposal|review|step):\S/, `${item.id}: a stable key`);
+      assert.ok(item.answers.length > 1, `${item.key}: answers beyond Not now`);
+      assert.ok(item.answers.some(a => a.writer === 'not now'), `${item.key}: Not now`);
+      for (const a of item.answers) {
+        assert.ok(['always', 'decline', 'never'].includes(a.needsWhy), `${item.key} ${a.id}: needsWhy`);
+        if (a.unavailable) { assert.ok(a.unavailable.reason); assert.match(a.unavailable.command, /^(plates home --answer \S+ \S+|gh |plates feedback)/); }
+      }
+    }
+    // The terminal runs every writer it has; the web lists the ones it cannot run, with the reason and the command.
+    const walk = form => needs(form).find(i => i.itemKind === 'walk');
+    assert.ok(walk(s.cli).answers.every(a => !a.unavailable), 'the CLI writes a walk');
+    assert.ok(walk(s.web).answers.filter(a => a.writer === 'walk done').every(a => a.unavailable?.command.startsWith(`plates home --answer ${walk(s.web).key} `)));
+    assert.ok(!walk(s.web).answers.find(a => a.writer === 'not now').unavailable, 'Not now has a store on the web');
+    const decline = needs(s.cli).find(i => i.itemKind === 'proposal').answers.find(a => a.id === 'decline');
+    assert.deepEqual([decline.needsWhy, decline.writer], ['decline', 'walk decide']);
+    assert.deepEqual([s.cli.putOff.count, s.web.putOff.count], [0, 0]);
   } finally { await s.done(); }
 });
 
