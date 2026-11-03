@@ -9,7 +9,7 @@ import {finalize,brief} from '../practices/night/files/scripts/plates/morning.mj
 import {publishDefault} from '../practices/night/files/scripts/plates/night-plan.mjs';
 import {namesPreimage,namesDigest,formatVerification} from '../practices/night/files/scripts/plates/verification.mjs';
 import {mergeHealthPage} from '../practices/night/files/scripts/plates/time-proposals.mjs';
-import {board} from '../lib/board.mjs';
+import {workItems as board} from '../lib/work-items.mjs';
 const date='2026-10-05',context={repositoryId:7},env={CI:'true',PLATES_GH:'/usr/bin/false'};
 const git=(root,...args)=>{const r=run('git',args,{cwd:root});assert.equal(r.status,0,r.stderr);return r.stdout.trim();};
 const plan=()=>({schema:1,date,shapedBy:'default',readyBy:null,willNotTouch:[],settledToday:[],leftOpen:[],items:[]});

@@ -5,7 +5,8 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { run } from './helpers/run.mjs';
 import { feedbackFixture, feedbackWords, feedbackBytes } from './helpers/feedback.mjs';
-import { feedbackSummary, boardView, boardText, board } from '../lib/board.mjs';
+import { feedbackSummary, workItems as board } from '../lib/work-items.mjs';
+import { boardView, boardText } from '../lib/board.mjs';
 
 const BIN = resolve('bin/plates.mjs');
 function cli(f, args, bin = BIN) {

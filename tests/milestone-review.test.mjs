@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 import { run } from './helpers/run.mjs';
 import { milestoneConfig, milestone, issue, response } from './helpers/milestones.mjs';
 import { projectMilestones, readMilestones } from '../practices/night/files/scripts/plates/milestones.mjs';
-import { board, looseItems } from '../lib/board.mjs';
+import { workItems as board, looseItems } from '../lib/work-items.mjs';
 import { phaseZero } from '../lib/init.mjs';
 import { render } from '../lib/practices.mjs';
 

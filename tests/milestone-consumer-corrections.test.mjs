@@ -9,7 +9,7 @@ import { readMilestones } from '../practices/night/files/scripts/plates/mileston
 import { rememberQuota, lastQuota } from '../lib/quota.mjs';
 import { rateSpend } from '../practices/night/files/scripts/plates/lib.mjs';
 import { MEASURES, measure, propose, page } from '../practices/night/files/scripts/plates/improve.mjs';
-import { looseItems } from '../lib/board.mjs';
+import { looseItems } from '../lib/work-items.mjs';
 
 const cli = resolve('bin/plates.mjs');
 async function fixture(t) {

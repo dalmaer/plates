@@ -8,8 +8,9 @@ import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import * as boardModule from '../lib/board.mjs';
-import { board, boardText, reviewItems, walkDone, walkDecide, serve, pageHtml, boardView } from '../lib/board.mjs';
+import * as boardModule from '../lib/work-items.mjs';
+import { workItems as board, reviewItems, walkDone, walkDecide } from '../lib/work-items.mjs';
+import { boardText, serve, pageHtml, boardView } from '../lib/board.mjs';
 import vm from 'node:vm';
 import { timeSummary } from '../lib/time.mjs';
 import { formatProposal } from '../lib/learn.mjs';
@@ -1108,7 +1109,7 @@ test('a claim idle for seven days is the owner\'s item; a fresher one, one with 
 test('milestone board details are read-only links and escape remote markup, with incomplete coverage visible', async t => {
   const { projectMilestones } = await import('../practices/night/files/scripts/plates/milestones.mjs');
   const { milestoneConfig, milestone, issue, response } = await import('./helpers/milestones.mjs');
-  const { boardView, roadmapItems } = await import('../lib/board.mjs');
+  const { boardView } = await import('../lib/board.mjs'), { roadmapItems } = await import('../lib/work-items.mjs');
   const root = await acme(); t.after(() => rm(root, { recursive: true, force: true }));
   await writeFile(join(root, '.plates/plates.json'), JSON.stringify(milestoneConfig));
   const m = milestone(1, 'OPEN', [issue(1, 'OPEN', ['keel:owner'])]);

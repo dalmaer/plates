@@ -9,7 +9,7 @@ import {
   collectDecisions, readArrivals, checksFor, decisionItems, outcomeProblem, recordOutcome, loopProblems, checksByMonth, checkReading,
   DecisionLoopError, PROSE_KINDS, CHECK_GRACE_DAYS,
 } from '../lib/decision-loop.mjs';
-import { board, decideLegacyProposal } from '../lib/board.mjs';
+import { workItems as board, decideLegacyProposal } from '../lib/work-items.mjs';
 import { parseProposal, formatProposal } from '../lib/learn.mjs';
 import { measure, MEASURES, proposalText, readBounds } from '../lib/improve.mjs';
 import { morning, renderBrief } from '../lib/morning.mjs';
