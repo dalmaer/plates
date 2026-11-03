@@ -16,6 +16,8 @@ import { tokens as designTokens } from '../lib/web/design.mjs';
 import * as designLayer from '../lib/web/design.mjs';
 import { changeIndexView } from '../lib/web/change-views.mjs';
 import { changesHarness, token } from './helpers/web-changes.mjs';
+import { reviewView } from '../lib/web/review-views.mjs';
+import { reviewSnapshot } from './helpers/review-fixture.mjs';
 // Only modules that exist before the design layer are imported statically, so
 // each test loads at the phase's base and fails there by assertion.
 import * as assets from '../lib/web/assets.mjs';
@@ -52,6 +54,9 @@ async function pages() {
     signin: signinView('fake-csrf-acme', '/projects/studio'),
     decision: decisionView(decision(), access),
     changes: changeIndexView({ ...model, items: [model.change] }, access),
+    // Phase 174: the review session's first card, and its end when nothing waits.
+    review: reviewView(access, reviewSnapshot(), null),
+    reviewEmpty: reviewView(access, { ...reviewSnapshot(), docket: [] }, project),
   };
 }
 
