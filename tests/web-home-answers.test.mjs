@@ -8,6 +8,14 @@ import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
 import { projectHarness } from './helpers/web-projects.mjs';
 import { createWebService } from '../lib/web/server.mjs';
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { decisionHarness } from './helpers/web-decisions.mjs';
+import { phaseFile } from './helpers/web-projects.mjs';
+import { run } from './helpers/run.mjs';
 
 async function notNowDatabase(t) {
   const db = new PGlite(); t.after(() => db.close());
@@ -46,7 +54,7 @@ test('an owner answers a home item on the web, and Not now keeps it put off unti
   assert.ok(walk, 'the walk is in Needs you');
   // The web lists the walk's writer it cannot run, with why and the terminal command; Not now it writes.
   const choice = walk.answers.find(a => a.writer === 'walk done');
-  assert.match(choice.unavailable.reason, /guided walk/); assert.match(choice.unavailable.command, /^plates home --answer studio:walk:2 /);
+  assert.match(choice.unavailable.reason, /decision writes/, 'without decisionWrites the walk writer is off'); assert.match(choice.unavailable.command, /^plates home --answer studio:walk:2 /);
   assert.ok(!walk.answers.find(a => a.id === 'not-now').unavailable);
   assert.equal(first.putOff.count, 0);
 
@@ -90,4 +98,72 @@ test('before 017 is applied, Home hides nothing and says Not now is unavailable'
   assert.equal(model.coverage.gaps.some(g => g.source === 'not now'), false, 'the owner\'s records are not a project source');
   const r = await web(json(h, { key: 'studio:walk:2', answer: 'not-now', csrf: signed.session.csrf }, signed.cookie));
   assert.equal(r.status, 503, 'a Not now answer is refused, bounded');
+});
+
+// The same Acme plate twice: the web's fake App (with its commit API) and a git checkout for the CLI.
+const WALK_FILES = {
+  '.plates/plates.json': JSON.stringify({ name: 'Acme Studio', repo: 'acme/studio', practices: ['phases'] }),
+  'docs/goals.json': JSON.stringify([{ id: 'G1', title: 'A dependable studio', outcome: 'People publish confidently.' }]),
+  'docs/phases/01-first.md': phaseFile(1, { status: 'built' }),
+  'docs/phases/02-walk.md': phaseFile(2, { status: 'partial', owes: true }),
+  'docs/evidence/acme.md': '# Acme evidence\nA dated observation.\n',
+};
+const PLATES = fileURLToPath(new URL('..', import.meta.url));
+
+function walkWeb() {
+  const h = decisionHarness();
+  for (const key of Object.keys(h.source.files)) delete h.source.files[key];
+  Object.assign(h.source.files, WALK_FILES);
+  h.source.commits.push({ sha: h.source.head, parents: [], commit: { tree: { sha: 'c'.repeat(40) }, message: 'Acme', committer: { date: '2026-10-20T12:00:00Z' } }, files: [] });
+  return h;
+}
+async function walkCli(t) {
+  const dir = await mkdtemp(join(tmpdir(), 'plates-walk-answer-')); t.after(() => rm(dir, { recursive: true, force: true }));
+  const root = join(dir, 'studio');
+  for (const [path, text] of Object.entries(WALK_FILES)) { await mkdir(dirname(join(root, path)), { recursive: true }); await writeFile(join(root, path), text); }
+  const env = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_AUTHOR_NAME: 'Acme', GIT_AUTHOR_EMAIL: 'a@example.com', GIT_COMMITTER_NAME: 'Acme', GIT_COMMITTER_EMAIL: 'a@example.com',
+    PLATES_GH: join(dir, 'no-gh'), PLATES_CACHE: join(dir, 'cache'), XDG_STATE_HOME: join(dir, 'state') };
+  assert.equal(run(process.execPath, [join(PLATES, 'scripts', 'roadmap.mjs'), '--write'], { cwd: root, env }).status, 0);
+  for (const args of [['init', '-q', '-b', 'main'], ['add', '-A'], ['commit', '-q', '-m', 'Acme']]) execFileSync('git', ['-C', root, ...args], { env });
+  return { root, env };
+}
+const postJson = (h, path, body, cookie) => new Request(`${h.config.origin}${path}`, { method: 'POST', headers: { cookie, 'content-type': 'application/json', origin: h.config.origin }, body: JSON.stringify(body) });
+
+test('a walk answered on the web writes what plates home --answer writes in the CLI', async t => {
+  const h = walkWeb(), web = createWebService(h.config, { fetcher: h.fetcher, now: () => h.state.now }), signed = await h.login();
+  const home = await (await web(h.request('/api/home', { cookie: signed.cookie }))).json();
+  const walk = home.walks.find(w => w.key === 'studio:walk:2');
+  const choice = walk.answers.find(a => a.id.startsWith('choice-'));
+  assert.ok(!choice.unavailable, 'with decisionWrites the web writes a walk');
+  const answered = await web(postJson(h, '/api/home/answer', { key: walk.key, answer: choice.id, why: 'Tried it on the Acme phone.', csrf: signed.session.csrf }, signed.cookie));
+  assert.equal(answered.status, 200);
+  const { state, preview } = await answered.json();
+  assert.equal(state, 'preview');
+  assert.deepEqual(preview.files.map(f => f.path).sort(), ['docs/ROADMAP.md', 'docs/phases/02-walk.md', `docs/evidence/${new Date(h.state.now).toISOString().slice(0, 10)}-phase-2-walk.md`].sort());
+  assert.equal(h.source.writes.filter(Boolean).length, 0, 'a preview writes nothing');
+  const applied = await web(postJson(h, '/api/projects/studio/decisions/apply', { previewId: preview.id, publicAcknowledgement: preview.digest, csrf: signed.session.csrf }, signed.cookie));
+  assert.equal((await applied.json()).state, 'committed');
+  // The CLI, on the same files: the same phase and evidence bytes.
+  const cli = await walkCli(t);
+  const r = run(process.execPath, [join(PLATES, 'bin', 'plates.mjs'), 'home', '--answer', walk.key, choice.id, '--why', 'Tried it on the Acme phone.', '--yes', '--json'], { cwd: cli.root, env: cli.env });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const { readFile: readText } = await import('node:fs/promises');
+  for (const path of preview.files.map(f => f.path).filter(p => p !== 'docs/ROADMAP.md')) assert.equal(h.source.files[path], await readText(join(cli.root, path), 'utf8'), `${path}: the same bytes in both forms`);
+  assert.match(h.source.files['docs/phases/02-walk.md'], /^- \[x\]/m, 'the box is checked');
+});
+
+test('a web walk answer is refused at apply when the box text changed since its preview', async () => {
+  const h = walkWeb(), web = createWebService(h.config, { fetcher: h.fetcher, now: () => h.state.now }), signed = await h.login();
+  const home = await (await web(h.request('/api/home', { cookie: signed.cookie }))).json();
+  const walk = home.walks.find(w => w.key === 'studio:walk:2'), choice = walk.answers.find(a => a.id.startsWith('choice-'));
+  const { preview } = await (await web(postJson(h, '/api/home/answer', { key: walk.key, answer: choice.id, csrf: signed.session.csrf }, signed.cookie))).json();
+  // Someone edits the walk box's text on the default branch.
+  h.source.files['docs/phases/02-walk.md'] = h.source.files['docs/phases/02-walk.md'].replace(/^(- \[ \] .*)$/m, '$1 Also on a tablet.');
+  h.source.head = 'e'.repeat(40);
+  const applied = await (await web(postJson(h, '/api/projects/studio/decisions/apply', { previewId: preview.id, publicAcknowledgement: preview.digest, csrf: signed.session.csrf }, signed.cookie))).json();
+  assert.equal(applied.state, 'refused');
+  assert.equal(h.source.writes.filter(Boolean).length, 0, 'nothing written');
+  // A choice the walk does not list is refused like the CLI's.
+  const bad = await web(postJson(h, '/api/home/answer', { key: walk.key, answer: 'choice-nope', csrf: signed.session.csrf }, signed.cookie));
+  assert.equal(bad.status, 404);
 });
