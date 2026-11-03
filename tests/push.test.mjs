@@ -58,9 +58,12 @@ test('new docket items notify once and open the session', async t => {
   const p = projectHarness(), data = await database(t), phone = device('https://web.push.apple.com/QAcmeDocket');
   p.state.now = at(3, 17);
   const delivered = [];
+  let lost = false;
   const fetcher = async (url, options) => {
     const path = new URL(url).pathname;
     if (['/rest/v1/rpc/plates_push_rpc', '/rest/v1/rpc/plates_not_now_rpc'].includes(path)) return data.handle(url, options);
+    // A plate with no readable value this read: the cache holds only a failed refresh (as after its value expired).
+    if (lost && /home_cache_rpc$/.test(path)) return Response.json({ value: null, version: 1, readAt: null, leaseAcquired: false, refreshing: false, lastError: 'source_unavailable', nextAttempt: null });
     if (url === phone.subscription.endpoint) { delivered.push({ topic: options.headers.Topic, ...JSON.parse(decrypt(options.body, phone)) }); return new Response(null, { status: 201 }); }
     return p.fetcher(url, options);
   };
@@ -125,9 +128,26 @@ test('new docket items notify once and open the session', async t => {
   assert.deepEqual(await createDocketState(config, fetcher).read(1), { count: 3, date: '2026-11-05' });
   assert.deepEqual((await home()).putOff, { count: 0, items: [], unavailable: null }, 'Home puts nothing off because of it');
 
+  // A plate whose refresh fails is not zero items: the lower count is not recorded, so when it recovers nothing is "new".
+  p.state.now = at(6, 17); p.source.fail = true; p.source.revision = '9'.repeat(40);
+  const failed = await home();
+  assert.notEqual(failed.projects.find(x => x.id === 'studio').state, 'complete', 'the refresh failed');
+  assert.deepEqual(await createDocketState(config, fetcher).read(1), { count: 3, date: '2026-11-05' }, 'the baseline is kept');
+  p.source.fail = false; p.source.revision = '8'.repeat(40); p.state.now = at(6, 18);
+  assert.equal((await home()).docket.length, 3, 'recovered');
+  assert.equal(delivered.length, 3, 'no false "new for you" after a recovery');
+  // The same with no value at all: the plate counts as unavailable, not as zero items.
+  p.state.now = at(7, 9); lost = true;
+  const gone = await home();
+  assert.equal(gone.projects.find(x => x.id === 'studio').state, 'unavailable'); assert.equal(gone.docket.length, 0);
+  assert.deepEqual(await createDocketState(config, fetcher).read(1), { count: 3, date: '2026-11-05' }, 'an unreadable plate never lowers the baseline');
+  lost = false; p.source.revision = '7'.repeat(40); p.state.now = at(7, 17);
+  assert.equal((await home()).docket.length, 3);
+  assert.equal(delivered.length, 3, 'its recovery is not "3 new for you"');
+
   // Without quiet hours set, the workspace never sends it, and its record is untouched.
   const unset = createWebService(p.config, { fetcher, now: () => p.state.now });
-  addStep(7); p.state.now = at(6, 17);
+  addStep(7); p.state.now = at(8, 17);
   signed = await p.login();
   const response = await unset(new Request(`${config.origin}/api/home?fresh=1`, { headers: { cookie: signed.cookie } }));
   assert.equal(response.status, 200);
