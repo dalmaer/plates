@@ -34,6 +34,8 @@ process.on('exit', () => rmSync(dir, { recursive: true, force: true }));
 process.env.GIT_CONFIG_GLOBAL = global;
 // plates's cache (review receipts, the board's kept GitHub reads): never the developer's own ~/.cache/plates.
 process.env.PLATES_CACHE = join(dir, 'plates-cache');
+// plates's per-user state (Not now, phase 173): never the developer's own ~/.local/state/plates.
+process.env.XDG_STATE_HOME = join(dir, 'state');
 // Adoption's optional Actions history never reaches the network in hermetic tests.
 process.env.PLATES_CI_OFFLINE = '1';
 process.env.PLATES_MILESTONES_OFFLINE = '1';
