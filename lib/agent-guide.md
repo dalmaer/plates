@@ -1861,7 +1861,7 @@ start was not reviewed: exit 1, saying so).
 
 <!-- topic: home | the hosted home in a terminal: one read model, two renderers -->
 
-`plates home [--project <id>] [--fresh] [--json] | --answer <item-key> <answer-id> [--why] [--until] [--yes]` renders the hosted home's
+`plates home [--project <id>] [--fresh] [--json] | --answer <item-key> <answer-id> [--why] [--until] [--yes] | --review [--project <id>]` renders the hosted home's
 read model from this checkout and gh (plates phase 156): the fleet lens at
 plates's home (each managed plate from a checkout beside it; one without a
 checkout is `unavailable`, saying so), or one plate with `--project`. Each
@@ -1901,6 +1901,16 @@ stale (no push for seven days; else exit 1, nothing released) and records who
 and why in that phase's Trajectory, left as a diff. `hand` files an agent
 issue through `plates issue new --agent`'s preview and approval. Usage, a
 missing why or an answer not written here: exit 2.
+
+`docket: [{key, list, section?, kind, label}]` (phase 174) is Needs you in
+the model's order (decisions, ready walks, reviews, then section rows), the
+order the web's `/review` session and `plates home --review [--project <id>]`
+walk. `--review` reads stdin a line at a time: a number answers, `w` adds a
+why, `n` is Not now (Enter for seven days, or a date), `q` quits. Each answer
+is previewed through `--answer`'s writer and written only after `y`; a refused
+write comes back once at the end with its reason. It prints the end summary
+(`--json`: `{schema, docket, settled, putOff, again, quit}`, with the cards on
+stderr). Exit 0.
 
 <!-- topic: walk | settle the owner's turn: walk done and walk decide -->
 

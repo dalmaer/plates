@@ -182,3 +182,61 @@ test('past the phase-file bound, the newest phases are read and the gap says so'
   assert.equal(value.planning.total, 5, 'phases 8–12 read, 1–7 not');
   assert.ok(value.walks.some(walk => walk.phase === '12'), 'the newest phase\'s walk survives the bound');
 });
+
+// Phase 174: the review session walks the docket, one card at a time. The web's
+// /review reads it from /api/home (docketItems, the browser's own reader); the
+// terminal's plates home --review walks it from plates home's model. Here every
+// card is put off and the write declined, so the CLI shows every card and writes nothing.
+test('a review session walks one docket in both forms', async () => {
+  const s = await sources({ files: HEALTH });
+  try {
+    const { docketItems } = await import('../lib/web/review-views.mjs');
+    const web = docketItems(s.web), cli = docketItems(s.cli);
+    assert.ok(web.length >= 3 && new Set(web.map(e => e.kind)).size >= 3, 'the fixture docket has several kinds');
+    // Every item in Needs you is one card, in the model's order (decisions, ready walks, reviews).
+    const needs = form => [...form.decisions, ...form.walks.filter(w => w.ready !== false), ...form.reviews].filter(i => i.key).map(i => i.key);
+    assert.deepEqual(web.map(e => e.key), needs(s.web), 'the web session holds every item in Needs you, in order');
+    // The web reads no section rows; the terminal's local sections follow the shared lists.
+    assert.ok(web.every(e => e.list !== 'sections'));
+    assert.deepEqual(cli.filter(e => e.list !== 'sections').map(e => [e.key, e.kind, e.label]), web.map(e => [e.key, e.kind, e.label]), 'the same items in the same order');
+    const html = (await import('../lib/web/review-views.mjs')).reviewView({ workspace: { name: 'Acme' }, csrf: 'x' }, s.web);
+    assert.match(html, new RegExp(`data-review-card="${web[0].key}"`), 'the web\'s first card is the docket\'s first');
+    const lines = cli.flatMap(() => ['n', '', 'n']).join('\n') + '\n';
+    const run = runNode(process.execPath, [bin, 'home', '--review', '--json'], { cwd: join(s.dir, 'studio'), input: lines, timeout: 240_000,
+      env: { ...gitEnv, PLATES_GH: join(s.dir, 'gh'), PLATES_CACHE: join(s.dir, 'cache'), PLATES_STATE: join(s.dir, 'state'), XDG_STATE_HOME: join(s.dir, 'state') } });
+    assert.equal(run.status, 0, run.stderr);
+    const out = JSON.parse(run.stdout);
+    assert.deepEqual(out.docket, cli.map(e => e.key), 'the terminal walks the model\'s docket');
+    const shown = [...run.stderr.matchAll(/^\[(\d+) of (\d+)\]/gm)].map(m => Number(m[1]));
+    assert.deepEqual(shown, cli.map((_, i) => i + 1), 'one card each, in order');
+    assert.equal((run.stderr.match(/Write it\? \[y\/N\]/g) ?? []).length, cli.length, 'it asks before each write');
+    assert.deepEqual([out.settled, out.putOff, out.again], [[], [], []], 'declined: nothing written');
+  } finally { await s.done(); }
+});
+
+test('the terminal session writes only after a yes, asks for a why, and brings a refusal back', async () => {
+  const { homeReview } = await import('../lib/home-review.mjs');
+  const { reviewSnapshot } = await import('./helpers/review-fixture.mjs');
+  const model = reviewSnapshot({ decisionWrites: true });
+  const calls = [], writes = [];
+  let refusals = 0;
+  const answer = async (args) => {
+    calls.push(args);
+    if (args.answerId === 'choice-verified' && args.yes && refusals++ < 2) throw new Error('studio:walk:3 is not open: nothing written');
+    if (args.yes) writes.push([args.key, args.answerId, args.why ?? null, args.until ?? null]);
+    return args.yes ? { data: { until: args.until ?? '2026-11-10' }, text: `wrote ${args.answerId}`, exitCode: 0 } : { text: `would write ${args.answerId}`, exitCode: 3 };
+  };
+  // proposal: decline asks for a why, then yes; step: Not now, a date, no; walk: refused; claim: Keep, yes; the walk again: refused.
+  const lines = ['2', 'not this quarter', 'y', 'n', '2026-11-20', 'n', '1', 'y', '2', 'y', '1', 'y'];
+  const input = (async function* () { yield* lines; })();
+  let out = '';
+  const r = await homeReview({ root: '/acme', input, write: t => { out += t; } }, { home: async () => model, answer, now: () => Date.parse('2026-11-03T12:00:00Z') });
+  assert.deepEqual(writes, [['studio:proposal:docs/health/2026-11-01.md', 'decline', 'not this quarter', null], ['studio:claim:claims/phase-7', 'not-now', null, null]], 'only what was confirmed is written');
+  assert.ok(calls.filter(c => !c.yes).length >= 3, 'each answer is previewed first');
+  assert.match(out, /why \(a decline says why\)> /); assert.match(out, /Not written; it stays in Needs you/);
+  assert.match(out, /^\[5 of 5\] Acme Studio · Walk/m, 'the refused walk comes back at the end');
+  assert.match(out, /Needs another look: studio:walk:3 is not open/);
+  assert.deepEqual(r.data.docket, model.docket.map(e => e.key));
+  assert.equal(r.data.settled.length, 1); assert.equal(r.data.putOff.length, 1); assert.equal(r.data.again.length, 1); assert.match(r.data.again[0].reason, /not open/);
+  assert.match(r.text, /1 settled · 1 put off · 1 needs another look/); assert.match(r.text, /^Needs another look$/m);
+});
