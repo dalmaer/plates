@@ -16,6 +16,9 @@ import { tokens as designTokens } from '../lib/web/design.mjs';
 import * as designLayer from '../lib/web/design.mjs';
 import { changeIndexView } from '../lib/web/change-views.mjs';
 import { changesHarness, token } from './helpers/web-changes.mjs';
+import { reviewView } from '../lib/web/review-views.mjs';
+import { reviewSnapshot } from './helpers/review-fixture.mjs';
+import { itemKey, docketOf } from '../lib/work-items.mjs';
 // Only modules that exist before the design layer are imported statically, so
 // each test loads at the phase's base and fails there by assertion.
 import * as assets from '../lib/web/assets.mjs';
@@ -37,10 +40,12 @@ const project = { id: 'studio', repo: 'acme/studio', name: 'Acme Studio' };
 const action = (id, kind) => ({ id, projectId: 'studio', projectName: 'Acme Studio', kind, title: `Acme ${kind} ${id}`, why: 'Source asks for an owner observation.', next: 'Read the current source.', link: 'https://github.com/acme/studio/blob/main/docs/phases/1.md', phase: '1', ready: true, details: { ask: 'Does publishing work?', why: 'A human uses the real surface.', look: 'Open the preview.', then: 'Record what happened.', takes: 'About five minutes', choices: ['Verified', 'Needs changes', 'Cannot check yet'] } });
 function snapshot() {
   const decision = action('decision-one', 'decision'), walk = action('walk-one', 'walk'), waiting = action('wait-one', 'waiting');
+  // Phase 174: Needs you carries its keys and the docket, so Home's Start panel counts them.
+  for (const item of [decision, walk]) item.key = itemKey(item);
   const change = { id: 'change-one', projectId: 'studio', projectName: 'Acme Studio', title: 'Publish from a phone', date: '2026-10-21', revision: 'b'.repeat(40), link: 'https://github.com/acme/studio/commit/abc', kind: 'commit', media: null, previewUrl: null, acceptance: 'not established' };
   return { schema: 1, cursor: 'a'.repeat(64), cursorState: 'initial', generatedAt: '2026-10-21T16:00:00.000Z', coverage: { state: 'complete', gaps: [] },
     projects: [{ id: 'studio', repoId: 100, repo: 'acme/studio', name: 'Acme Studio', tagline: 'Publishing, made reliable.', stack: ['node', 'web'], version: '0.8.32', revision: 'b'.repeat(40), readAt: '2026-10-21T15:59:00.000Z', state: 'complete', gaps: [], planning: { source: 'files', built: 8, total: 12, livedIn: 3, headline: 'Make publishing reliable on every screen', goals: [], next: 'Review publishing on a phone' }, decisions: [decision], walks: [walk], waiting: [waiting], changes: [change] }],
-    decisions: [decision], walks: [walk], waiting: [waiting], changes: [change], quota: { remaining: 150, resetAt: '2026-10-21T17:00:00.000Z', state: 'known' } };
+    decisions: [decision], walks: [walk], waiting: [waiting], changes: [change], docket: docketOf({ decisions: [decision], walks: [walk] }), quota: { remaining: 150, resetAt: '2026-10-21T17:00:00.000Z', state: 'known' } };
 }
 const decision = () => ({ schema: 1, project, source: { path: 'docs/reviews/2026-10-21.md', head: 'c'.repeat(40), blob: 'd'.repeat(40), branch: 'main', visibility: 'public', link: 'https://github.com/acme/studio/blob/main/docs/reviews/2026-10-21.md' }, target: { kind: 'shaping', path: 'docs/shaping/next.json', question: 'scope' },
   question: { title: 'Which Acme scope should we build?', body: 'The owner chooses.', choices: [], recommendation: { text: 'Build the broader scope.', evidence: ['docs/evidence/acme.md'], alternatives: ['Keep this release small.'] } } });
@@ -52,6 +57,9 @@ async function pages() {
     signin: signinView('fake-csrf-acme', '/projects/studio'),
     decision: decisionView(decision(), access),
     changes: changeIndexView({ ...model, items: [model.change] }, access),
+    // Phase 174: the review session's first card, and its end when nothing waits.
+    review: reviewView(access, reviewSnapshot(), null),
+    reviewEmpty: reviewView(access, { ...reviewSnapshot(), docket: [] }, project),
   };
 }
 

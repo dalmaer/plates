@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { KINDS, kindOf, looseItems, fleetOf, reviewItems } from '../lib/work-items.mjs';
+import { KINDS, kindOf, looseItems, fleetOf, reviewItems, WRITERS, itemKey, answersFor, homeSnapshot, notNowRecord } from '../lib/work-items.mjs';
 
 const repo = fileURLToPath(new URL('..', import.meta.url));
 
@@ -64,4 +64,122 @@ test('every item kind is defined once, in the model', () => {
 test('review items carry their kind from the model', async () => {
   const r = await reviewItems([{ repo: 'acme/studio', rounds: 3 }], { me: 'acme', read: async () => ({ prs: [{ number: 2, title: 'Acme', state: 'open', url: 'https://github.com/acme/studio/pull/2', author: 'acme', unanswered: 1, oldest: '2026-11-01' }], rounds: [] }) });
   assert.equal(r.items.length, 1); assert.equal(kindOf(r.items[0]).label, 'Review');
+});
+
+// Phase 173: every item waiting on the owner can be answered where it is shown.
+// Kinds that never wait on the owner: each one is named here on purpose, so a new kind must either say its answers or be added to this list.
+const NEVER_THE_OWNERS = ['dated', 'ci', 'update', 'robot', 'files', 'branch', 'worktree', 'pr', 'gap'];
+// A kind whose only writer plates cannot run from home, with the reason (phase 173's table names it).
+const ANSWERED_ELSEWHERE = { feedback: 'a resolution needs an authored record file and its digest approval' };
+
+test('every owner item can be answered', () => {
+  for (const [kind, def] of Object.entries(KINDS)) {
+    if (NEVER_THE_OWNERS.includes(kind)) { assert.equal(def.answers, null, `${kind} never waits on the owner`); continue; }
+    assert.equal(typeof def.answers, 'function', `${kind} can wait on the owner, so KINDS names its answers`);
+  }
+  // A kind added without answers, and not named as never the owner's, fails here.
+  assert.ok(Object.keys(KINDS).every(kind => NEVER_THE_OWNERS.includes(kind) || KINDS[kind].answers), 'no owner kind without answers');
+  // One synthetic owner item of every kind that has answers, as each source raises it.
+  const owner = [
+    { projectId: 'studio', itemKind: 'walk', ref: '2', details: { choices: ['Works', 'Close, but (say what)', 'Not yet'] } },
+    { projectId: 'studio', itemKind: 'walk', ref: '5', details: null },
+    { projectId: 'studio', itemKind: 'step', ref: '1' },
+    { projectId: 'studio', itemKind: 'proposal', ref: 'docs/health/2026-11-01.md', decisionTarget: { kind: 'health', path: 'docs/health/2026-11-01.md' } },
+    { projectId: 'studio', itemKind: 'review', ref: '7' },
+    ...looseItems({ projects: [{ repo: 'acme/studio', dir: '/acme/studio', items: [
+      { kind: 'session', title: 'Acme chat', ending: 'question', id: 'aa1' }, { kind: 'repo', title: 'acme/tidy', id: 'aa2' }, { kind: 'phase', title: 'phase 1', move: '⚑ yours', id: 'aa3' },
+      { kind: 'lessons', title: 'lessons', id: 'aa4' }, { kind: 'health', title: 'health', id: 'aa5' }, { kind: 'inbox', title: 'inbox', id: 'aa6' },
+    ] }] }).map(it => ({ ...it, plate: 'studio', ref: it.id })),
+    { plate: 'studio', kind: 'lesson', ref: 'acme-lesson', waits: 'owner' }, { plate: 'studio', kind: 'claim', ref: 'claims/phase-3', phase: 3, waits: 'owner' },
+    { plate: 'studio', kind: 'check', ref: 'd1', waits: 'owner' }, { plate: 'studio', kind: 'verify', ref: 'v1', waits: 'owner' }, { plate: 'studio', kind: 'feedback', ref: 'f'.repeat(64), waits: 'owner' },
+  ];
+  const kinds = new Set(owner.map(i => i.itemKind ?? i.kind));
+  for (const kind of Object.keys(KINDS).filter(k => !NEVER_THE_OWNERS.includes(k))) assert.ok(kinds.has(kind), `the fixture has an owner ${kind}`);
+  for (const item of owner) {
+    const key = itemKey(item);
+    assert.ok(key, `${item.kind ?? item.itemKind} has a stable key`);
+    for (const form of [{ form: 'cli' }, { form: 'web', decisionWrites: true }]) {
+      const answers = answersFor(item, form);
+      assert.ok(answers.length >= 2, `${key}: answers beyond Not now`);
+      assert.equal(new Set(answers.map(a => a.id)).size, answers.length, `${key}: answer ids are unique`);
+      assert.equal(answers.filter(a => a.writer === 'not now').length, 1, `${key}: one Not now`);
+      for (const a of answers) {
+        assert.ok(Object.hasOwn(WRITERS, a.writer), `${key} ${a.id}: its writer ${a.writer} is a known write path`);
+        assert.ok(['always', 'decline', 'never'].includes(a.needsWhy));
+        assert.deepEqual(Object.keys(a).filter(k => !['id', 'label', 'needsWhy', 'writer', 'recommended', 'unavailable'].includes(k)), [], `${key} ${a.id}: the answer shape`);
+        if (a.unavailable) assert.ok(a.unavailable.reason && a.unavailable.command, `${key} ${a.id}: unavailable says why and how`);
+      }
+    }
+    // In the terminal, no item's only answer is "go and do this somewhere else".
+    const real = answersFor(item, { form: 'cli' }).filter(a => a.writer !== 'not now' && !a.unavailable);
+    if (Object.hasOwn(ANSWERED_ELSEWHERE, item.kind)) assert.equal(real.length, 0, 'named as answered elsewhere');
+    else assert.ok(real.length, `${key}: an answer the terminal writes`);
+  }
+  const walk = answersFor(owner[0]);
+  assert.deepEqual(walk.map(a => [a.id, a.needsWhy]), [['choice-works', 'never'], ['choice-close-but-say-what', 'always'], ['choice-not-yet', 'never'], ['not-now', 'never']]);
+  assert.deepEqual(answersFor(owner[1]).map(a => [a.id, a.writer, a.needsWhy]), [['done', 'walk done', 'always'], ['not-now', 'not now', 'never']], 'a walk without choices: Done, with what you saw, or Not yet');
+  assert.equal(answersFor(owner[1]).at(-1).label, 'Not yet');
+  // An item no owner waits on has no answers.
+  assert.deepEqual(answersFor({ plate: 'studio', kind: 'branch', ref: 'b' }), []);
+});
+
+test('not now hides an item until its date and counts it', () => {
+  const project = { id: 'studio', gaps: [], changes: [], state: 'complete',
+    decisions: [{ id: 'studio:phase:1:decision', projectId: 'studio', kind: 'decision', itemKind: 'step', ref: '1', title: 'Choose the policy' }],
+    walks: [{ id: 'studio:phase:2:walk', projectId: 'studio', kind: 'walk', itemKind: 'walk', ref: '2', ready: true, title: 'Try it', details: null }], reviews: [], waiting: [] };
+  const sections = [{ id: 'claims', title: 'Stale claims', command: 'plates home', state: 'read', reason: null, count: 1,
+    items: [{ kind: 'claim', waits: 'owner', title: 'phase 3: claimed, idle 9 days', plate: 'studio', ref: 'claims/phase-3', phase: 3 }] }];
+  const snoozed = { 'studio:walk:2': { until: '2026-11-10', reason: 'after the trip' }, 'studio:claim:claims/phase-3': { until: '2026-11-05' } };
+  const before = homeSnapshot([structuredClone(project)], { sections: structuredClone(sections), snoozed, today: '2026-11-04' });
+  assert.deepEqual(before.walks, [], 'the walk is put off');
+  assert.equal(before.decisions.length, 1, 'what was not put off stays');
+  assert.deepEqual(before.sections[0].items, [], 'a section row is put off too');
+  assert.equal(before.sections[0].count, 0, 'and its count says so');
+  assert.equal(before.putOff.count, 2, 'counted, never silently gone');
+  assert.deepEqual(before.putOff.items.map(p => [p.key, p.until, p.reason ?? null]), [['studio:claim:claims/phase-3', '2026-11-05', null], ['studio:walk:2', '2026-11-10', 'after the trip']]);
+  assert.ok(before.putOff.items.every(p => p.item.answers.length), 'a put-off item keeps its answers');
+  // On its date it returns.
+  const on = homeSnapshot([structuredClone(project)], { sections: structuredClone(sections), snoozed, today: '2026-11-05' });
+  assert.equal(on.sections[0].items.length, 1, 'the claim is back on its date');
+  assert.equal(on.walks.length, 0); assert.equal(on.putOff.count, 1);
+  const after = homeSnapshot([structuredClone(project)], { sections: structuredClone(sections), snoozed, today: '2026-11-10' });
+  assert.deepEqual([after.walks.length, after.putOff.count], [1, 0], 'both back');
+  // The record itself: a date after today, one line of reason; seven days when no date is given.
+  assert.deepEqual(notNowRecord({ today: '2026-11-03' }), { until: '2026-11-10' });
+  assert.throws(() => notNowRecord({ until: '2026-11-03', today: '2026-11-03' }), /after today/);
+  assert.throws(() => notNowRecord({ until: 'soon', today: '2026-11-03' }), /YYYY-MM-DD/);
+  // Records that cannot be read hide nothing, and say so.
+  const unread = homeSnapshot([structuredClone(project)], { sections: structuredClone(sections), notNowGap: 'unreadable', today: '2026-11-04' });
+  assert.deepEqual([unread.walks.length, unread.putOff.count, unread.putOff.unavailable], [1, 0, 'unreadable']);
+});
+
+test('a decline needs a why', async t => {
+  const { homeAnswer } = await import('../lib/home-answer.mjs');
+  const { createHomeAnswers } = await import('../lib/web/home-answers.mjs');
+  const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const proposal = { id: 'studio:health:docs/health/2026-11-01.md', projectId: 'studio', projectName: 'Acme Studio', kind: 'decision', itemKind: 'proposal',
+    ref: 'docs/health/2026-11-01.md', title: 'Review dependency_age proposal', decisionTarget: { kind: 'health', path: 'docs/health/2026-11-01.md' } };
+  const model = can => homeSnapshot([{ id: 'studio', repo: 'acme/studio', gaps: [], changes: [], state: 'complete', decisions: [structuredClone(proposal)], walks: [], reviews: [], waiting: [] }], { sections: [], can, today: '2026-11-03' });
+  // The terminal: refused before anything is read or written.
+  const root = await mkdtemp(join(tmpdir(), 'plates-decline-')); t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, '.plates'), { recursive: true });
+  await writeFile(join(root, '.plates', 'plates.json'), JSON.stringify({ name: 'Acme Studio', repo: 'acme/studio' }));
+  const answer = (answerId, why) => homeAnswer({ root, key: 'studio:proposal:docs/health/2026-11-01.md', answerId, why }, { home: async () => model({ form: 'cli' }), now: () => Date.parse('2026-11-03T12:00:00Z') });
+  for (const why of [undefined, '', '   ']) await assert.rejects(answer('decline', why), e => e.exitCode === 2 && /Decline needs a why/.test(e.message), `CLI, why ${JSON.stringify(why)}`);
+  // The web: the same answer, refused the same way, and nothing reaches the decision writer.
+  const previews = [];
+  const decisions = { preview: async (...args) => { previews.push(args); return { id: 'p1' }; } };
+  const web = createHomeAnswers({}, { readHome: async () => model({ form: 'web', decisionWrites: true }), decisions, notNow: { put: async () => assert.fail('no Not now write') } });
+  const access = { userId: 1, projects: [{ id: 'studio', repoId: 102, repo: 'acme/studio' }] };
+  for (const why of [undefined, '', '   ']) await assert.rejects(web(access, 'token', { key: 'studio:proposal:docs/health/2026-11-01.md', answer: 'decline', ...(why === undefined ? {} : { why }) }), e => e.code === 'why_required' && e.status === 400, `web, why ${JSON.stringify(why)}`);
+  assert.equal(previews.length, 0, 'nothing reached the writer');
+  // With a why, the web hands it to the existing decision preview; accepting needs none.
+  const declined = await web(access, 'token', { key: 'studio:proposal:docs/health/2026-11-01.md', answer: 'decline', why: 'Renovate takes these' });
+  assert.equal(declined.state, 'preview');
+  assert.deepEqual(previews[0].slice(2), [access.projects[0], { target: proposal.decisionTarget, choice: 'decline', reason: 'Renovate takes these' }]);
+  assert.equal((await web(access, 'token', { key: 'studio:proposal:docs/health/2026-11-01.md', answer: 'accept' })).state, 'preview');
+  // Without decision writes, the web lists the answer as unavailable and refuses it.
+  const off = createHomeAnswers({}, { readHome: async () => model({ form: 'web', decisionWrites: false }), decisions });
+  await assert.rejects(off(access, 'token', { key: 'studio:proposal:docs/health/2026-11-01.md', answer: 'decline', why: 'x' }), e => e.code === 'answer_unavailable');
 });

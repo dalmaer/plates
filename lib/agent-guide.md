@@ -1861,7 +1861,7 @@ start was not reviewed: exit 1, saying so).
 
 <!-- topic: home | the hosted home in a terminal: one read model, two renderers -->
 
-`plates home [--project <id>] [--fresh] [--json]` renders the hosted home's
+`plates home [--project <id>] [--fresh] [--json] | --answer <item-key> <answer-id> [--why] [--until] [--yes] | --review [--project <id>]` renders the hosted home's
 read model from this checkout and gh (plates phase 156): the fleet lens at
 plates's home (each managed plate from a checkout beside it; one without a
 checkout is `unavailable`, saying so), or one plate with `--project`. Each
@@ -1881,6 +1881,36 @@ learn`), `local` (loose ends, "on your machine", `plates loose-ends`),
 `health-history`, read here and unavailable on the web with the reason. A
 source that cannot be read (no network, no gh) is a gap with its reason;
 the local sources still render. Exit 0.
+
+Every item in Needs you (phase 173: `decisions`, ready `walks`, `reviews`, and
+section rows waiting on the owner) carries `key` (`plate:kind:id`, defined
+once by `itemKey`) and `answers: [{id, label, recommended?, needsWhy:
+always|decline|never, writer, unavailable?: {reason, command}}]`; `writer`
+names the existing write path (walk done, walk decide, learn decide,
+loose-ends mark, lessons send, claim release, agent issue, not now). An
+answer a form cannot run is listed with why and the command. `putOff: {count,
+items: [{key, list, until, reason?, item}], unavailable}` holds what the owner
+put off: it leaves Needs you until its date, then returns.
+`plates home --answer <item-key> <answer-id> [--why "<line>"] [--until
+YYYY-MM-DD] [--yes]` settles one through its writer: a preview (exit 3) until
+`--yes` (exit 0). A why is required where `needsWhy` is not `never` (a
+decline included); `--until` goes with `not-now` (default seven days), kept
+in `$XDG_STATE_HOME/plates/snoozed.json` (else `~/.local/state/plates/`),
+never in a project. `release` deletes another session's claim only when it is
+stale (no push for seven days; else exit 1, nothing released) and records who
+and why in that phase's Trajectory, left as a diff. `hand` files an agent
+issue through `plates issue new --agent`'s preview and approval. Usage, a
+missing why or an answer not written here: exit 2.
+
+`docket: [{key, list, section?, kind, label}]` (phase 174) is Needs you in
+the model's order (decisions, ready walks, reviews, then section rows), the
+order the web's `/review` session and `plates home --review [--project <id>]`
+walk. `--review` reads stdin a line at a time: a number answers, `w` adds a
+why, `n` is Not now (Enter for seven days, or a date), `q` quits. Each answer
+is previewed through `--answer`'s writer and written only after `y`; a refused
+write comes back once at the end with its reason. It prints the end summary
+(`--json`: `{schema, docket, settled, putOff, again, quit}`, with the cards on
+stderr). Exit 0.
 
 <!-- topic: walk | settle the owner's turn: walk done and walk decide -->
 

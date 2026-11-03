@@ -624,6 +624,47 @@
       "ownerAttended": true,
       "rollback": "Redeploy the previous build; the hosted home only reads, and nothing was written.",
       "proof": "The deployed revision and the owner answer (nothing missing, or what is missing), recorded in docs/evidence/2026-11-03-one-home-model.md."
+    },
+    {
+      "id": "migration-017",
+      "phase": 173,
+      "kind": "migration",
+      "migration": "017-not-now.sql",
+      "what": "Apply 017-not-now.sql (the plates_home schema: one sealed Not now record per owner and item, its return date, and plates_not_now_rpc) before or with the build with phase 173, so Not now on Home is kept. Nothing reads it before that build, so it is safe under either; until it is applied the phase 173 build hides nothing, says Not now is unavailable, and refuses a Not now answer with a bounded 503.",
+      "prerequisites": [
+        94,
+        173
+      ],
+      "ownerAttended": true,
+      "rollback": "A failure inside the transaction rolls back by itself. After commit, drop the plates_home schema; nothing else reads it, every item put off returns to Needs you, and Home says Not now is unavailable.",
+      "proof": "The applied version: file name and SHA-256; docs/evidence/2026-11-03-web-not-now-hosted-proof.sql's result (the schema, its grants and the RPC run as the service role); one authenticated Not now answer and its response status, and the item counted as put off on Home."
+    },
+    {
+      "id": "answers-from-home",
+      "phase": 173,
+      "kind": "decision",
+      "what": "After deploying a build with phase 173 and applying migration 017, the owner answers one walk and one health proposal from Home on the phone and puts one item off with Not now, and says whether each landed.",
+      "prerequisites": [
+        151,
+        173
+      ],
+      "ownerAttended": true,
+      "rollback": "Redeploy the previous build; each answer is an ordinary commit that can be reverted, and Not now rows are per owner and can be deleted.",
+      "proof": "The deployed revision, the commits the answers wrote, and the owner answer, recorded in docs/evidence/2026-11-03-every-item-answerable.md."
+    },
+    {
+      "id": "review-session",
+      "phase": 174,
+      "kind": "decision",
+      "what": "After deploying a build with phases 173 and 174 and applying migration 017, the owner taps Start review on Home on the phone, goes through the items waiting, and says whether this is how they want to keep plates moving.",
+      "prerequisites": [
+        151,
+        173,
+        174
+      ],
+      "ownerAttended": true,
+      "rollback": "Redeploy the previous build; each answer is an ordinary commit that can be reverted, and Not now rows are per owner and can be deleted.",
+      "proof": "The deployed revision, the commits the session wrote, and the owner answer (this is it, close but what, or not the right shape), recorded in docs/evidence/2026-11-03-review-session.md."
     }
   ],
   "open": [

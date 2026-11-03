@@ -134,3 +134,27 @@ test('an irreversible door waits for the owner', () => {
     assert.ok(r.notes.some(n => /irreversible operations always wait for the owner/.test(n)), level);
   }
 });
+
+// Phases 173 and 174: plates home answers items through other verbs' writers
+// (--answer, --review). A verb that reaches a writer declares that writer's
+// doors: home's operations hold every operation its answers' writers perform.
+test('home declares the doors of every writer its answers reach', async () => {
+  const { WRITERS } = await import('../lib/work-items.mjs');
+  // Each writer home runs, and the operations it performs: the verb whose writer it is, or its own act.
+  const reaches = {
+    'walk done': VERB_OPERATIONS.walk, 'walk decide': VERB_OPERATIONS.walk, 'learn decide': VERB_OPERATIONS.learn,
+    'loose-ends mark': VERB_OPERATIONS['loose-ends'], 'lessons send': VERB_OPERATIONS.lessons, 'agent issue': VERB_OPERATIONS.issue,
+    // A stale claim's release deletes its branch and records who and why in the phase's Trajectory.
+    'claim release': ['delete', 'local edit'],
+    // Not now is the owner's private state, outside every project.
+    'not now': ['local edit'],
+  };
+  // The three writers plates never runs, in either form (lib/work-items.mjs ELSEWHERE).
+  const never = ['repo delete', 'pr merge', 'feedback resolve'];
+  assert.deepEqual(Object.keys(WRITERS).filter(w => !never.includes(w)).sort(), Object.keys(reaches).sort(), 'every writer home runs is classified here');
+  for (const [writer, ops] of Object.entries(reaches)) {
+    assert.ok(ops.length, `${writer} performs something`);
+    for (const operation of ops) assert.ok(VERB_OPERATIONS.home.includes(operation), `plates home runs ${writer}, so it declares ${operation}`);
+  }
+  for (const operation of VERB_OPERATIONS.home) assert.ok(Object.values(reaches).some(ops => ops.includes(operation)), `${operation} is reached by one of home's writers`);
+});

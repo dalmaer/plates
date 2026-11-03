@@ -36,6 +36,14 @@ Free-form phase prose is not a runnable script. Missing authored steps, result
 identity or bytes produces a useful authoring/coverage gap. Do not synthesize
 expected behavior, a successful observation or an estimate of time required.
 
+A phase walk with no authored guided walk has a separate writer, Home's walk
+answer (phase 173, `lib/web/phase-walks.mjs`). It records only the owner's own
+choice and/or note, through the CLI's `walkWritePlan`, exactly as `plates walk
+done` does, under `decisionWrites` and the same preview and apply route. It
+claims no step, result or environment observation, so nothing here is
+synthesized. A phase that has a `docs/walks/<id>.json` keeps this guided walk,
+and that writer refuses it, so the two never race.
+
 ## Private drafts and feedback
 
 Use an encrypted hosted adapter to phase 92's pure capture, event, replay and

@@ -69,3 +69,44 @@ test('actual catalogue routes return the reviewed model, reject private query in
     const asset=await h.service(h.request('/assets/'+path));assert.equal(asset.status,200,path);assert.match(asset.headers.get('content-type'),/javascript/);
   }
 });
+
+// Phase 174: the review card on a 390px phone. The answers sit in the bottom
+// bar (sticky to the bottom, above the safe area), two to a row in columns that
+// shrink to fit, every control at least 44px high (the answers 52px), and long
+// text wraps instead of widening the page. Read from the served stylesheets.
+test('the review card fits a phone', async () => {
+  const { reviewView, renderReviewCard, docketItems } = await import('../lib/web/review-views.mjs');
+  const { reviewSnapshot } = await import('./helpers/review-fixture.mjs');
+  const { buildAssetTable, defaultSources } = await import('../lib/web/assets.mjs');
+  const table = buildAssetTable(defaultSources()), css = path => table.entries.get(path).body;
+  const rule = (sheet, selector) => { const m = new RegExp(`(?:^|[}\\n])${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\{([^}]*)\\}`).exec(sheet); return m?.[1] ?? null; };
+  const review = css('/assets/review.css'), plates = css('/assets/plates.css');
+  const walk = docketItems(reviewSnapshot()).find(e => e.kind === 'walk');
+  assert.equal(walk.item.details.choices.length, 4); assert.ok(walk.item.details.ask.length > 200, 'a long ask');
+  const html = renderReviewCard(walk, { index: 2, total: 4 });
+  // The answers are in the bottom bar, after the card; four choices, then Add why and Not now.
+  const bar = html.slice(html.indexOf('data-review-bar'));
+  assert.ok(html.indexOf('data-review-bar') > html.indexOf('</article>'), 'the bar follows the card');
+  assert.equal((bar.match(/data-answer="/g) ?? []).length, 4, 'all four choices are in the bar');
+  assert.match(bar, /data-review-add-why/); assert.match(bar, /data-review-not-now/);
+  assert.match(rule(review, '.review-bar'), /position:sticky;bottom:0/); assert.match(rule(review, '.review-bar'), /env\(safe-area-inset-bottom\)/);
+  assert.match(rule(review, '.review'), /env\(safe-area-inset-top\)/); assert.match(rule(review, '.review'), /min-height:100dvh/);
+  assert.match(rule(review, '.review-answers,.review-more,.review-later'), /grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/, 'two to a row, columns that shrink');
+  // Every control in the card: the answers .p-lg (52px), the rest the design layer's 44px button and field.
+  assert.match(plates, /:where\(\.p-lg\)\{min-height:52px/);
+  assert.match(plates, /:where\(button,\.button,\.p-button\)\{[^}]*min-height:44px/); assert.match(plates, /:where\(input:not\(\[type=checkbox\],\[type=radio\]\),select,textarea,\.p-field\)\{[^}]*min-height:44px/);
+  for (const [, tag, attrs] of html.matchAll(/<(button|input)\b([^>]*)>/g)) {
+    if (/type="hidden"/.test(attrs)) continue;
+    if (/data-answer=/.test(attrs)) assert.match(attrs, /class="p-lg/, `${attrs}: a 52px answer`);
+    assert.doesNotMatch(attrs, /style=/, 'no inline sizes');
+    assert.ok(tag === 'button' || /class="p-field"/.test(attrs), `${attrs}: a design-layer control`);
+  }
+  assert.match(rule(review, '.review-look'), /min-height:44px/, 'the look-at link is a 44px target');
+  // Nothing overflows 390px: long text wraps, buttons wrap their labels, no fixed width past the screen.
+  assert.match(rule(review, '.review-card'), /overflow-wrap:anywhere/); assert.match(rule(review, '.review-answers>*,.review-more>*'), /white-space:normal/);
+  for (const [, px] of review.matchAll(/(?:^|[;{])(?:min-)?width:(\d+)px/g)) assert.ok(Number(px) <= 358, `a ${px}px width fits inside 390px less its gutters`);
+  assert.match(rule(review, '.review'), /padding:[^;]* 16px 0/, '16px gutters');
+  // The page is the session alone: the shell's header and footer are not on it.
+  const page = reviewView({ workspace: { name: 'Acme' }, csrf: 'x' }, reviewSnapshot());
+  assert.match(page, /viewport-fit=cover/); assert.doesNotMatch(page, /data-navigation|data-page-footer/);
+});

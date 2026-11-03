@@ -52,6 +52,9 @@ const PROOFS = [
   { migration: '016-long-sessions.sql', proof: '2026-10-31-web-long-sessions-hosted-proof.sql',
     wrong: 'grant execute on function public.plates_web_rpc(text,text,text,text,text,text,integer,bigint) to authenticated',
     refused: /a browser role can execute plates_web_rpc/ },
+  { migration: '017-not-now.sql', proof: '2026-11-03-web-not-now-hosted-proof.sql',
+    wrong: 'grant usage on schema plates_home to anon',
+    refused: /a browser role can use schema plates_home/ },
 ];
 
 const RACE = '/* TWO-CONNECTION RACE';
@@ -86,7 +89,7 @@ async function database(upTo) {
 /** Row counts of every private table: a proof must leave each unchanged. */
 async function rows(db) {
   const tables = (await db.query(`SELECT format('%I.%I', schemaname, tablename) AS t FROM pg_tables
-    WHERE schemaname IN ('keel_private','plates_push') ORDER BY 1`)).rows.map(r => r.t);
+    WHERE schemaname IN ('keel_private','plates_push','plates_home') ORDER BY 1`)).rows.map(r => r.t);
   const out = {};
   for (const t of tables) out[t] = (await db.query(`SELECT count(*)::int AS n FROM ${t}`)).rows[0].n;
   return out;

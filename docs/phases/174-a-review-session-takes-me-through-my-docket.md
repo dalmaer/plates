@@ -1,11 +1,12 @@
 ---
-status: planned
+status: partial
+owes: walk
 since: 2026-11-03
 goal: G7
 spec: 2
 depends: [173]
-note: "Owner, 2026-11-03: 'launch into a review session that feels like launching a ledger study session. I get full screen review items where I act on them… big buttons at the bottom… let me go through each item on the docket. The job is for me to jump in and keep plates spinning!!'"
-evidence: []
+note: "Built and proven by test: /review shows each Needs-you item as one full-screen card with big answers, a 5-second Undo, Add why and Not now, writes through phase 173's writers, brings failures back, and ends on what it settled; Home has a Start panel; plates home --review walks the same docket. The owner's session on the phone remains."
+evidence: ["evidence/2026-11-03-review-session.md"]
 ---
 
 # A review session takes me through my docket, one item at a time
@@ -37,11 +38,11 @@ From Home, one tap starts a full-screen session that shows each item waiting on 
 
 ## Acceptance
 
-- [ ] The session shows every item in "Needs you", one per card, in the model's order, and the CLI session shows the same items in the same order: `tests/home-isomorphism.test.mjs: "a review session walks one docket in both forms"`
-- [ ] An answer is written after the Undo window, Undo inside it writes nothing, and a failed write returns as a card at the end with its reason: `tests/web-review.test.mjs: "an answer is sent after its undo window, and a failure comes back"`
-- [ ] An answer that needs a why cannot be sent without one: `tests/web-review.test.mjs: "an answer that needs a why waits for it"`
-- [ ] At 390px the answers sit in the bottom bar, every control is at least 44px high, and nothing overflows: `tests/web-responsive.test.mjs: "the review card fits a phone"`
-- [ ] The end screen lists each write with its link, and what it set moving: `tests/web-review.test.mjs: "the session ends on what it settled"`
+- [x] The session shows every item in "Needs you", one per card, in the model's order, and the CLI session shows the same items in the same order: `tests/home-isomorphism.test.mjs: "a review session walks one docket in both forms"`
+- [x] An answer is written after the Undo window, Undo inside it writes nothing, and a failed write returns as a card at the end with its reason: `tests/web-review.test.mjs: "an answer is sent after its undo window, and a failure comes back"`
+- [x] An answer that needs a why cannot be sent without one: `tests/web-review.test.mjs: "an answer that needs a why waits for it"`
+- [x] At 390px the answers sit in the bottom bar, every control is at least 44px high, and nothing overflows: `tests/web-responsive.test.mjs: "the review card fits a phone"`
+- [x] The end screen lists each write with its link (what it set moving is phase 175's): `tests/web-review.test.mjs: "the session ends on what it settled"`
 - [ ] ⚑ by hand: the owner runs a real session on the phone.
 
 ## Your part
@@ -70,4 +71,10 @@ By hand: the owner's session on the phone. "Not the right shape" changes the des
 
 ## Next action
 
-After phase 173: build increment 1, the session view at `/review`.
+Deploy phases 173 and 174 with migration 017 applied, then the owner runs a real session on the phone.
+
+## Trajectory
+
+- **2026-11-03** — The card's "if you do nothing" line has no field in the item model, so it is left out until a phase's Your part carries one. Evidence: lib/web/review-views.mjs.
+- **2026-11-03** — Phase 171's CSS budget had 2.7 KB left, so the toast and progress bar ship once in review.css as design-layer parts; 28 bytes of budget remain. Evidence: tests/web-design.test.mjs "the design layer does not grow the stylesheets".
+- **2026-11-03** — Escape, fixed here: the shell's link colour made any `<a class="button">` label the colour of its fill, so error pages' buttons were unreadable. Evidence: 396d1c78.
