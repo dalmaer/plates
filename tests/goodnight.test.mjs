@@ -142,7 +142,7 @@ test('plates goodnight shows settled today, left open, the default plan and up t
   assert.deepEqual(d.settled.phases.map(p => [p.phase, p.from, p.to]), [[1, 'planned', 'built']]);
   assert.deepEqual(d.settled.findings.map(x => [x.slug, x.decision]), [['heavy-anvils', 'declined']]);
   assert.match(d.since.from, /the last 24 hours/, 'no plan pushed yet: the last 24 hours');
-  // Left open: the open PR, the board's unanswered review and its "yours" item (not the agent's).
+  // Left open: the open PR, home's unanswered review and its "yours" item (not the agent's).
   assert.deepEqual(d.leftOpen.prs.map(p => [p.number, p.draft]), [[42, true]]);
   assert.deepEqual(d.leftOpen.reviews.map(x => x.title), ['acme/anvils#42: 2 review comments unanswered']);
   assert.deepEqual(d.leftOpen.yours.map(x => x.title), ['phase 2: Acme anvils ring']);
@@ -170,7 +170,7 @@ test('plates goodnight shows settled today, left open, the default plan and up t
   assert.equal(SUGGESTIONS, 3);
   assert.ok(!cut.some(s => s.id === 'climb-test-time'));
 
-  // Through the CLI, with the real board: the same opening; what the board cannot read is said, never empty.
+  // Through the CLI, with the real item model: the same opening; what home cannot read is said, never empty.
   const cli = f.plates(['goodnight', '--json']);
   assert.equal(cli.code, 0, cli.err + cli.out);
   const c = cli.json();
@@ -349,7 +349,7 @@ test('a board source read only in part is a gap in the opening and in the plan\'
   const r = await goodnight({ root: f.root, args: [], env: f.env }, { board: partial });
   assert.deepEqual(r.data.leftOpen.gaps, [
     'unanswered reviews: partly read, only what was read is listed (not read: acme/hammers: HTTP 502)',
-    'the board\'s loose-ends: partly read, only what was read is listed (acme/tongs: gh timed out)',
+    'home\'s loose-ends: partly read, only what was read is listed (acme/tongs: gh timed out)',
   ], 'a descriptive why on a source read in full is not a gap');
   assert.match(r.text, /not read: unanswered reviews: partly read, only what was read is listed \(not read: acme\/hammers: HTTP 502\)/);
   // Reviews read in full but with repos skipped past the cap: a gap too.
@@ -404,14 +404,14 @@ test('any source that feeds the owner\'s items and could not be read is a gap; a
   });
   const r = await goodnight({ root: f.root, args: [], env: f.env }, { board: failing });
   assert.deepEqual(r.data.leftOpen.gaps, [
-    'the board\'s health: EACCES: permission denied, scandir \'docs/health\'',
-    'the board\'s claims: git fetch origin failed: could not read from remote',
+    'home\'s health: EACCES: permission denied, scandir \'docs/health\'',
+    'home\'s claims: git fetch origin failed: could not read from remote',
   ], 'the inbox outside plates, the fleet and the robot are quiet');
-  assert.match(r.text, /Left open\n(?:.*\n)*?  not read: the board's health: EACCES/);
+  assert.match(r.text, /Left open\n(?:.*\n)*?  not read: home's health: EACCES/);
   assert.doesNotMatch(r.text, /Left open\n  nothing\n/, 'never "nothing" when a source was not read');
   // --yes keeps the gap for the morning.
   const yes = await goodnight({ root: f.root, args: ['--yes'], env: f.env }, { board: failing });
-  assert.ok(yes.data.plan.leftOpen.includes('not read: the board\'s health: EACCES: permission denied, scandir \'docs/health\''), yes.data.plan.leftOpen.join('\n'));
+  assert.ok(yes.data.plan.leftOpen.includes('not read: home\'s health: EACCES: permission denied, scandir \'docs/health\''), yes.data.plan.leftOpen.join('\n'));
   // The inbox is quiet only where board() says it does not apply: on plates itself its n/a is a failure.
   const { expectedNa, OWNER_SOURCES } = await import('../lib/goodnight.mjs');
   const inbox = { source: 'inbox', state: 'n/a', why: 'ENOENT' };
