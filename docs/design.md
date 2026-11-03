@@ -390,7 +390,7 @@ transport stays separate from the independent acceptance authority.
   `plates phase claim`, `plates ready`, `plates integrate`, `plates drain`,
   `plates promote`, `plates issue`, `plates loose-ends`.
 - **Workspace and canvas:** `plates canvas`, `plates workspace`,
-  `plates home`.
+  `plates home`, `plates board`.
 - **Policy: autonomy, capacity, doors:** `plates autonomy`. Capacity and door
   policy have no verb of their own.
 

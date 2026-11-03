@@ -130,7 +130,7 @@ test('both templates parse every actual shell block and keep observation opt-in 
  const text=await readFile(canonical('morning'),'utf8');
  assert.match(text,/needs: \[names-origin, decide, finalize, send\]/);
  assert.match(text,/NIGHT="\$ORIGIN_BRANCH"/);
- assert.match(await block('morning','Observe the actual board'),/board --names-evidence --fresh --json/);
+ assert.match(await block('morning','Observe the actual home'),/ home --names-evidence --fresh --json/);
  assert.match(text,/needs\.decide\.outputs\.sent != 'true' \|\| \(github.event_name == 'workflow_dispatch' && inputs.names_evidence == true\)/);
 });
 

@@ -280,7 +280,9 @@ export function reachesBack(text) {
     if(!guarded)return false;
     if(body.startsWith('      - name: Check out the exact observation source\n'))return line.trim()==='repository: dalmaer/plates'&&body.includes('ref: ${{ inputs.names_source_sha }}\n')&&body.includes('persist-credentials: false\n          submodules: false\n          lfs: false');
     if(body.startsWith('      - name: Resolve the exact originating night\n'))return line.trim()==='if(identity?.repository.fullName!=="dalmaer/plates"||identity.commitSha!==process.env.NAMES_SOURCE_SHA)throw Error("Night observer source mismatch");';
-    if(body.startsWith('      - name: Observe the actual board\n'))return line.trim()==='node --import "$RUNNER_TEMP/names-loader.mjs" "$PLATES_NAMES_RUNTIME_ROOT/bin/plates.mjs" board --names-evidence --fresh --json > "$RUNNER_TEMP/names-board.json"';
+    // The opt-in names observation runs the exact reviewed observer runtime's read of plan and verify history. Phase 156 moved it
+    // from the retired plates board to plates home: the same guard, the same runtime and one exact line, with only the verb renamed.
+    if(body.startsWith('      - name: Observe the actual home\n'))return line.trim()==='node --import "$RUNNER_TEMP/names-loader.mjs" "$PLATES_NAMES_RUNTIME_ROOT/bin/plates.mjs" home --names-evidence --fresh --json > "$RUNNER_TEMP/names-home.json"';
     if(body.startsWith('      - name: Collect managed-name observations\n'))return /^const result=await collectNamesRun\(\{root:process.cwd\(\),kind:"(?:night|morning)",directory,inputs,originatingNight,installedRuntime:\{root:runtime,repo:"dalmaer\/plates",entrypoint:"(?:lib\/names-verify|bin\/plates)\.mjs"\}\},namesGithub\(process.env\)\);$/.test(line.trim());
     return false;
   };
