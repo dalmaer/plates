@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**68 of 165 phases built; 68 owe a walk.** Built means implemented and checked; planned is not available.
+**68 of 169 phases built; 68 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -333,7 +333,7 @@ Each change is verified in parallel and published one at a time; production move
 
 From mobile and desktop, an authenticated owner operates every authorized Plates project: decisions, guided tests, visual changes, routine history and execution, fleet lessons and updates, scoped credentials and policy-bound model capacity, with source-backed evidence and private data.
 
-7/31 built; 20 owe a walk.
+7/35 built; 20 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -368,6 +368,10 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 | [170. Every workspace page uses the design layer](phases/170-every-workspace-page-uses-the-design-layer.md) | built | 2026-11-02 | [169](phases/169-home-is-built-from-the-design-layer.md) | Built: every per-page sheet is layout only on tokens, the journal cards match Home, and the recovery page stands alone on inlined tokens. |
 | [171. One rule per control](phases/171-one-rule-per-control.md) | built | 2026-11-02 | [170](phases/170-every-workspace-page-uses-the-design-layer.md) | Built: controls are styled once in the design layer (45 duplicated rules to 0), served CSS 81,780 to 79,063 bytes, and the phone toolbar select and fleet header fixed. |
 | [172. The look is captured for review](phases/172-the-look-is-captured-for-review.md) | planned | 2026-11-02 | [171](phases/171-one-rule-per-control.md) | Owner, 2026-11-02: plates and Ledger 'should feel like they are in the same family'. Ledger's materials (glass surfaces, background wash, radius, motion, theme toggle) with plates's own colour: blue and white, cobalt on porcelain. Owner approved reusing Ledger's token values and a blocking theme script. |
+| [173. Every item waiting on me can be answered where I see it](phases/173-every-item-waiting-on-the-owner-can-be-answered.md) | planned | 2026-11-03 | [156](phases/156-the-cli-and-the-web-show-the-same-work-plates.md) | Owner, 2026-11-03: 'I want this to be a dashboard that shows me what to do… launch into a review session… big buttons at the bottom… accept? Add why.' Of the 27 items waiting on the owner that day, only the 6 walks with listed choices could be answered in one step. |
+| [174. A review session takes me through my docket, one item at a time](phases/174-a-review-session-takes-me-through-my-docket.md) | planned | 2026-11-03 | [173](phases/173-every-item-waiting-on-the-owner-can-be-answered.md) | Owner, 2026-11-03: 'launch into a review session that feels like launching a ledger study session. I get full screen review items where I act on them… big buttons at the bottom… let me go through each item on the docket. The job is for me to jump in and keep plates spinning!!' |
+| [175. The docket puts what blocks agents first, and a notification opens it](phases/175-the-docket-puts-what-blocks-agents-first.md) | planned | 2026-11-03 | [174](phases/174-a-review-session-takes-me-through-my-docket.md), [152](phases/152-plates-is-an-app-on-the-owners-phone.md) | Owner, 2026-11-03: 'The job is for me to jump in and keep plates spinning.' The session should start with what agents are waiting on, say how long it takes, and be one tap away from a notification. |
+| [176. A pull request that is ready can be merged from the docket](phases/176-a-ready-pull-request-can-be-merged-from-the-docket.md) | planned | 2026-11-03 | [174](phases/174-a-review-session-takes-me-through-my-docket.md) | Merging is the owner's step on fleet repos. Today it means copying a gh command into a terminal; the review session should offer it as one card. |
 
 - **93 done when:** An explicitly configured external workspace can be inspected and initialized from the installed CLI without writing private data into application or project Git trees.
 - **94 done when:** The owner has an approved deployment recipe and verified private workspace repository, host and selected-repository GitHub App binding, with credentials stored only in the deployment secret store.
@@ -400,6 +404,10 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 - **170 done when:** Run, daily, fleet, job, change, connection, model, walk, decision, night and recovery pages draw their colours, radii and controls from the design layer. Their own stylesheets keep only layout.
 - **171 done when:** Inputs, selects, textareas and buttons are styled in exactly one place. Before this phase, 27 select rules sit in 9 modules, 40 input and textarea rules in 10, and 34 button rules in 12.
 - **172 done when:** A local script captures each workspace page type in light and dark at phone and laptop widths. A visual change can then be reviewed from pictures instead of words.
+- **173 done when:** Every item in "Needs you" (phase 156's item model, `lib/work-items.mjs`) carries a list of answers, and each answer has one writer behind it, the same in `plates home` and the hosted workspace. No item's only answer is "go and do this somewhere else".
+- **174 done when:** From Home, one tap starts a full-screen session that shows each item waiting on the owner as one card, answered with big buttons at the bottom, and ends on a summary of what was settled and what it set moving. `plates home --review` walks the same items, in the same order, in a terminal.
+- **175 done when:** The docket is ordered by what the owner's answer sets moving, each item says about how long it takes, the session can be cut short ("the quick ones"), and a push notification about new items opens straight into the session.
+- **176 done when:** A PR whose checks are green and whose reviews are answered appears in the docket as one card, and **Merge** merges it through the GitHub App, with the same rule the merge follows today. `plates home --answer <pr> merge` does the same from a terminal.
 
 ## G9 — Plates owns the judgment layer and rents the rest
 
