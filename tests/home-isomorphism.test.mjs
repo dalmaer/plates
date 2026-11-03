@@ -11,7 +11,8 @@ import { join, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { run as runNode } from './helpers/run.mjs';
 import { fileURLToPath } from 'node:url';
-import { projectHarness } from './helpers/web-projects.mjs';
+import { projectHarness, phaseFile } from './helpers/web-projects.mjs';
+import { createHash } from 'node:crypto';
 import { createHomeReader } from '../lib/web/home.mjs';
 import { renderHomeSnapshot } from '../lib/web/views.mjs';
 import { HOME_SECTIONS } from '../lib/work-items.mjs';
@@ -31,8 +32,9 @@ const reviewRepository = { open: { pageInfo: { hasNextPage: false }, nodes: [{ k
 const rate = { cost: 1, remaining: 4000, resetAt: new Date(Date.now() + 3600_000).toISOString() };
 
 /** The same sources, twice: the web's fake App API and a git checkout with a fake gh. */
-async function sources({ reviews = true } = {}) {
+async function sources({ reviews = true, files = {} } = {}) {
   const h = projectHarness();
+  Object.assign(h.source.files, files);
   h.source.files['.plates/plates.json'] = JSON.stringify({ name: 'Acme Studio', repo: 'acme/studio', tagline: 'Publish useful things.', practice: '0.8.32', stack: ['node'], phases: { shape: 'files' } });
   const dir = await mkdtemp(join(tmpdir(), 'plates-home-iso-')), root = join(dir, 'studio');
   for (const [path, content] of Object.entries(h.source.files)) { await mkdir(dirname(join(root, path)), { recursive: true }); await writeFile(join(root, path), content); }
@@ -44,6 +46,13 @@ async function sources({ reviews = true } = {}) {
     if (new URL(url).pathname === '/graphql') {
       h.source.requests.push({ url, options });
       const { query } = JSON.parse(options.body);
+      // Blob texts by oid, batched under aliases: answered from the same files the tree lists.
+      const blobs = [...query.matchAll(/(\w+): object\(oid: "([0-9a-f]{40})"\)/g)];
+      if (blobs.length) {
+        const byOid = new Map(Object.values(h.source.files).map(text => [createHash('sha1').update(`blob ${Buffer.byteLength(text)}\0`).update(text).digest('hex'), text]));
+        const repository = Object.fromEntries(blobs.map(([, alias, oid]) => { const text = byOid.get(oid); return [alias, text === undefined ? null : { oid, byteSize: Buffer.byteLength(text), isBinary: false, isTruncated: false, text }]; }));
+        return Response.json({ data: { rateLimit: rate, repository } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
+      }
       return Response.json({ data: { rateLimit: rate, ...(query.includes('PlatesReviewWindow') ? { repository: reviewRepository } : {}) } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
     }
     return h.fetcher(url, options);
@@ -112,4 +121,34 @@ test('a local-only source is named in both forms, never missing from one', async
     assert.match(html, /data-home-section="local"[\s\S]*?on your machine[\s\S]*?plates loose-ends/);
     assert.match(html, /data-home-section="lessons"[\s\S]*?plates-inbox is not readable by the App yet[\s\S]*?plates learn/);
   } finally { await s.done(); }
+});
+
+test('a plate past 160 phase files shows its newest phase\'s walk in both forms', async () => {
+  // Phases 5–170 built and the newest, 171, owing a walk: the walks a 160-file read bound used to drop.
+  const files = {};
+  for (let id = 5; id <= 170; id++) files[`docs/phases/${String(id).padStart(3, '0')}-acme.md`] = phaseFile(id, { status: 'built' });
+  files['docs/phases/171-acme-newest.md'] = phaseFile(171, { status: 'partial', owes: true });
+  const s = await sources({ files });
+  try {
+    for (const form of [s.web, s.cli]) {
+      assert.ok(form.walks.some(walk => walk.phase === '171' && walk.ready), 'the newest phase\'s walk is shown');
+      assert.equal(form.projects[0].planning.total, 171, 'every phase file is read');
+      assert.ok(!form.coverage.gaps.some(gap => gap.source === 'planning'), 'no planning gap');
+    }
+    assert.deepEqual(content(s.cli).walks, content(s.web).walks);
+  } finally { await s.done(); }
+});
+
+test('past the phase-file bound, the newest phases are read and the gap says so', async () => {
+  const { projectFromSource, PROJECT_LIMITS } = await import('../lib/web/projects.mjs');
+  const files = { ...projectHarness().source.files };
+  for (let id = 5; id <= 12; id++) files[`docs/phases/${String(id).padStart(2, '0')}-acme.md`] = phaseFile(id, { status: id === 12 ? 'partial' : 'built', owes: id === 12 });
+  const oid = text => createHash('sha1').update(`blob ${Buffer.byteLength(text)}\0`).update(text).digest('hex');
+  const tree = Object.entries(files).map(([path, text]) => ({ path, type: 'blob', mode: '100644', sha: oid(text), size: Buffer.byteLength(text) }));
+  const byOid = new Map(Object.values(files).map(text => [oid(text), Buffer.from(text)]));
+  const value = await projectFromSource({ project: { id: 'studio', repoId: 102, repo: 'acme/studio' }, head: { sha: 'b'.repeat(40), message: MESSAGE, date: DATE },
+    tree, readBlob: entry => byOid.get(entry.sha), limits: { ...PROJECT_LIMITS, phaseFiles: 5 } });
+  assert.match(value.gaps.find(g => g.source === 'planning').reason, /exceeds the 5-file read bound; the newest 5 of 12 are read/);
+  assert.equal(value.planning.total, 5, 'phases 8–12 read, 1–7 not');
+  assert.ok(value.walks.some(walk => walk.phase === '12'), 'the newest phase\'s walk survives the bound');
 });
