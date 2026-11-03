@@ -197,6 +197,10 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
    - Needs first: phase 151.
    - Rollback: Redeploy the previous build; each answer is an ordinary commit that can be reverted, and Not now rows are per owner and can be deleted.
    - Proof to record: The deployed revision, the commits the answers wrote, and the owner answer, recorded in docs/evidence/2026-11-03-every-item-answerable.md.
+48. **review-session** (phase 174, decision, owner attends). After deploying a build with phases 173 and 174 and applying migration 017, the owner taps Start review on Home on the phone, goes through the items waiting, and says whether this is how they want to keep plates moving.
+   - Needs first: phases 151, 173.
+   - Rollback: Redeploy the previous build; each answer is an ordinary commit that can be reverted, and Not now rows are per owner and can be deleted.
+   - Proof to record: The deployed revision, the commits the session wrote, and the owner answer (this is it, close but what, or not the right shape), recorded in docs/evidence/2026-11-03-review-session.md.
 
 ## Still open
 
