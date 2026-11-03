@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**68 of 169 phases built; 71 owe a walk.** Built means implemented and checked; planned is not available.
+**68 of 169 phases built; 72 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -333,7 +333,7 @@ Each change is verified in parallel and published one at a time; production move
 
 From mobile and desktop, an authenticated owner operates every authorized Plates project: decisions, guided tests, visual changes, routine history and execution, fleet lessons and updates, scoped credentials and policy-bound model capacity, with source-backed evidence and private data.
 
-7/35 built; 23 owe a walk.
+7/35 built; 24 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -370,7 +370,7 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 | [172. The look is captured for review](phases/172-the-look-is-captured-for-review.md) | planned | 2026-11-02 | [171](phases/171-one-rule-per-control.md) | Owner, 2026-11-02: plates and Ledger 'should feel like they are in the same family'. Ledger's materials (glass surfaces, background wash, radius, motion, theme toggle) with plates's own colour: blue and white, cobalt on porcelain. Owner approved reusing Ledger's token values and a blocking theme script. |
 | [173. Every item waiting on me can be answered where I see it](phases/173-every-item-waiting-on-the-owner-can-be-answered.md) | partial, walk owed | 2026-11-03 | [156](phases/156-the-cli-and-the-web-show-the-same-work-plates.md) | Built and proven by test: every item in Needs you carries answers with one writer, the same in plates home and the hosted home; Not now; a decline needs a why; stale claims released with who and why; walks answered on the web write what plates walk done writes. Waits on deploy and migration 017 on the hosted store. |
 | [174. A review session takes me through my docket, one item at a time](phases/174-a-review-session-takes-me-through-my-docket.md) | partial, walk owed | 2026-11-03 | [173](phases/173-every-item-waiting-on-the-owner-can-be-answered.md) | Built and proven by test: /review shows each Needs-you item as one full-screen card with big answers, a 5-second Undo, Add why and Not now, writes through phase 173's writers, brings failures back, and ends on what it settled; Home has a Start panel; plates home --review walks the same docket. The owner's session on the phone remains. |
-| [175. The docket puts what blocks agents first, and a notification opens it](phases/175-the-docket-puts-what-blocks-agents-first.md) | planned | 2026-11-03 | [174](phases/174-a-review-session-takes-me-through-my-docket.md), [152](phases/152-plates-is-an-app-on-the-owners-phone.md) | Owner, 2026-11-03: 'The job is for me to jump in and keep plates spinning.' The session should start with what agents are waiting on, say how long it takes, and be one tap away from a notification. |
+| [175. The docket puts what blocks agents first, and a notification opens it](phases/175-the-docket-puts-what-blocks-agents-first.md) | partial, walk owed | 2026-11-03 | [174](phases/174-a-review-session-takes-me-through-my-docket.md), [152](phases/152-plates-is-an-app-on-the-owners-phone.md) | Built and proven by test: the docket orders blockers, quick decisions, then walks in one model for both forms; estimates and their total; a quick-ones session; what each answer sets moving; and a once-a-day push that opens /review outside quiet hours. Needs quietHours configured and the owner's walk on the phone. |
 | [176. A pull request that is ready can be merged from the docket](phases/176-a-ready-pull-request-can-be-merged-from-the-docket.md) | planned | 2026-11-03 | [174](phases/174-a-review-session-takes-me-through-my-docket.md) | Merging is the owner's step on fleet repos. Today it means copying a gh command into a terminal; the review session should offer it as one card. |
 
 - **93 done when:** An explicitly configured external workspace can be inspected and initialized from the installed CLI without writing private data into application or project Git trees.

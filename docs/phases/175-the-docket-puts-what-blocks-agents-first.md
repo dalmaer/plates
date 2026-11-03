@@ -1,11 +1,12 @@
 ---
-status: planned
+status: partial
+owes: walk
 since: 2026-11-03
 goal: G7
 spec: 2
 depends: [174, 152]
-note: "Owner, 2026-11-03: 'The job is for me to jump in and keep plates spinning.' The session should start with what agents are waiting on, say how long it takes, and be one tap away from a notification."
-evidence: []
+note: "Built and proven by test: the docket orders blockers, quick decisions, then walks in one model for both forms; estimates and their total; a quick-ones session; what each answer sets moving; and a once-a-day push that opens /review outside quiet hours. Needs quietHours configured and the owner's walk on the phone."
+evidence: ["evidence/2026-11-03-docket-order-and-notify.md"]
 ---
 
 # The docket puts what blocks agents first, and a notification opens it
@@ -36,10 +37,10 @@ The docket is ordered by what the owner's answer sets moving, each item says abo
 
 ## Acceptance
 
-- [ ] Items an agent is blocked on come first, then quick decisions, then walks, the same in both forms: `tests/work-items.test.mjs: "the docket starts with what blocks agents"`
-- [ ] Every item has an estimate, and the Start panel's total is their sum: `tests/work-items.test.mjs: "every item says how long it takes"`
-- [ ] The quick-ones session holds only items of 2 minutes or less: `tests/web-review.test.mjs: "a quick session holds only quick items"`
-- [ ] A notification for new items is sent at most once a day, never in quiet hours, and opens `/review`: `tests/push.test.mjs: "new docket items notify once and open the session"`
+- [x] Items an agent is blocked on come first, then quick decisions, then walks, the same in both forms: `tests/work-items.test.mjs: "the docket starts with what blocks agents"`
+- [x] Every item has an estimate, and the Start panel's total is their sum: `tests/work-items.test.mjs: "every item says how long it takes"`
+- [x] The quick-ones session holds only items of 2 minutes or less: `tests/web-review.test.mjs: "a quick session holds only quick items"`
+- [x] A notification for new items is sent at most once a day, never in quiet hours, and opens `/review`: `tests/push.test.mjs: "new docket items notify once and open the session"`
 - [ ] ⚑ by hand: the owner gets the notification on the phone and lands in the session.
 
 ## Your part
@@ -67,4 +68,9 @@ By hand: the owner's notification walk.
 
 ## Next action
 
-After phase 174: order and estimates in the model, increment 1.
+The owner adds quietHours (timeZone, from, to) to PLATES_WEB_CONFIG, deploys, and taps the "N new for you" notification on the phone.
+
+## Trajectory
+
+- **2026-11-03** — Built twice in a paired trial: a plain brief and one with ponytail's smallest-change rules. The ponytail build was 40% less product code and 14% fewer tokens, but a blind review preferred the plain build: the smaller one defaulted quiet hours to UTC, dropped terminal parity and merged plates' moves. One trial. Evidence: docs/evidence/2026-11-03-docket-order-and-notify.md.
+- **2026-11-03** — Nothing is pushed until quietHours is configured, because phase 152 had no quiet hours and a UTC default would wake a US owner. Evidence: tests/push.test.mjs "new docket items notify once and open the session".

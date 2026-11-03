@@ -53,6 +53,16 @@ are denied. Projects outside the manifest are omitted. A project whose
 configuration does not list the phases practice has no plates phases read from
 it, as in the CLI. No ambient checkout or CLI fleet is read.
 
+The optional `quietHours` object, `{ "timeZone": "America/Los_Angeles",
+"from": "21:00", "to": "08:00" }` (an IANA time zone and two different `HH:MM`
+times; the window may cross midnight), is the owner's quiet hours for the
+"N new for you" notification (phase 175). Nothing is sent until it is set:
+without it the workspace never sends that notification. With it, the
+notification goes to the devices the owner subscribed (migration 015), at most
+once a day in that time zone, never inside the window, and opens `/review`; its
+last count is kept in the Not now store (migration 017). A malformed value
+refuses to start the service.
+
 The GitHub App must use selected repositories, with Metadata read and Contents
 read. Set its callback to the exact configured origin plus
 `/api/auth/callback`. Enable expiring user tokens. This phase uses GitHub App

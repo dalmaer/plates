@@ -1902,15 +1902,22 @@ and why in that phase's Trajectory, left as a diff. `hand` files an agent
 issue through `plates issue new --agent`'s preview and approval. Usage, a
 missing why or an answer not written here: exit 2.
 
-`docket: [{key, list, section?, kind, label}]` (phase 174) is Needs you in
-the model's order (decisions, ready walks, reviews, then section rows), the
-order the web's `/review` session and `plates home --review [--project <id>]`
-walk. `--review` reads stdin a line at a time: a number answers, `w` adds a
+`docket: [{key, list, section?, kind, label, group, minutes, estimate, quick,
+since, sets}]` (phases 174, 175) is Needs you in the model's order: `group`
+`unblock` first (stale claims, ⚑ steps, reviews at their limit, a session's
+question), then `decide` (proposals, lessons, checks, a review with findings
+unanswered, a walk with choices of a minute or less), then `walk`; the oldest `since` first within each. `minutes`
+is the Your part's **Takes** line (`estimate: "takes"`) or the kind's default
+(`"kind"`); `quick` is 2 minutes or less. `sets` is what the answer sets
+moving: `{kind: "phase", phase, title}` (a ⚑ step's own phase, or a phase its
+`depends:` gates) or `{kind: "claim", branch, phase}`. It is the order the
+web's `/review` session and `plates home --review [--quick] [--project <id>]`
+walk; `--quick` (the web's `/review?quick=1`) walks only the quick ones. `--review` reads stdin a line at a time: a number answers, `w` adds a
 why, `n` is Not now (Enter for seven days, or a date), `q` quits. Each answer
 is previewed through `--answer`'s writer and written only after `y`; a refused
 write comes back once at the end with its reason. It prints the end summary
-(`--json`: `{schema, docket, settled, putOff, again, quit}`, with the cards on
-stderr). Exit 0.
+(`--json`: `{schema, docket, settled, putOff, again, quit}`, each settled
+entry with its `sets`, with the cards on stderr). Exit 0.
 
 <!-- topic: walk | settle the owner's turn: walk done and walk decide -->
 
