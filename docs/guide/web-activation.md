@@ -185,6 +185,10 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
    - Needs first: phase 151.
    - Rollback: Redeploy the previous build; only styles and added class names changed, and nothing was written.
    - Proof to record: The deployed revision and the owner answer (better, or worse and where), recorded in docs/evidence/2026-11-02-home-design-layer.md.
+45. **one-home-model** (phase 156, decision, owner attends). After deploying a build with phase 156, the owner opens the hosted home with the fleet authorized and plates home in a terminal side by side, and says whether each section and count matches and whether anything plates board showed is missing.
+   - Needs first: phase 151.
+   - Rollback: Redeploy the previous build; the hosted home only reads, and nothing was written.
+   - Proof to record: The deployed revision and the owner answer (nothing missing, or what is missing), recorded in docs/evidence/2026-11-03-one-home-model.md.
 
 ## Still open
 
