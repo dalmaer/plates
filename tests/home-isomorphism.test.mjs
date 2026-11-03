@@ -193,9 +193,11 @@ test('a review session walks one docket in both forms', async () => {
     const { docketItems } = await import('../lib/web/review-views.mjs');
     const web = docketItems(s.web), cli = docketItems(s.cli);
     assert.ok(web.length >= 3 && new Set(web.map(e => e.kind)).size >= 3, 'the fixture docket has several kinds');
-    // Every item in Needs you is one card, in the model's order (decisions, ready walks, reviews).
+    // Every item in Needs you is one card, in the model's order (phase 175: what an agent waits on, quick decisions, walks).
     const needs = form => [...form.decisions, ...form.walks.filter(w => w.ready !== false), ...form.reviews].filter(i => i.key).map(i => i.key);
-    assert.deepEqual(web.map(e => e.key), needs(s.web), 'the web session holds every item in Needs you, in order');
+    assert.deepEqual(web.map(e => e.key).sort(), needs(s.web).sort(), 'the web session holds every item in Needs you');
+    const rank = { unblock: 0, decide: 1, walk: 2 };
+    assert.ok(web.every((e, i) => i === 0 || rank[web[i - 1].group] <= rank[e.group]), 'grouped in the model\'s order');
     // The web reads no section rows; the terminal's local sections follow the shared lists.
     assert.ok(web.every(e => e.list !== 'sections'));
     assert.deepEqual(cli.filter(e => e.list !== 'sections').map(e => [e.key, e.kind, e.label]), web.map(e => [e.key, e.kind, e.label]), 'the same items in the same order');
@@ -226,12 +228,13 @@ test('the terminal session writes only after a yes, asks for a why, and brings a
     if (args.yes) writes.push([args.key, args.answerId, args.why ?? null, args.until ?? null]);
     return args.yes ? { data: { until: args.until ?? '2026-11-10' }, text: `wrote ${args.answerId}`, exitCode: 0 } : { text: `would write ${args.answerId}`, exitCode: 3 };
   };
-  // proposal: decline asks for a why, then yes; step: Not now, a date, no; walk: refused; claim: Keep, yes; the walk again: refused.
-  const lines = ['2', 'not this quarter', 'y', 'n', '2026-11-20', 'n', '1', 'y', '2', 'y', '1', 'y'];
+  // step: Not now, a date, no; claim: Keep, yes; proposal: decline asks for a why, then yes; walk: refused; the walk again: refused.
+  // The docket's order (phase 175): the step, the claim, the proposal, the walk.
+  const lines = ['n', '2026-11-20', 'n', '2', 'y', '2', 'not this quarter', 'y', '1', 'y', '1', 'y'];
   const input = (async function* () { yield* lines; })();
   let out = '';
   const r = await homeReview({ root: '/acme', input, write: t => { out += t; } }, { home: async () => model, answer, now: () => Date.parse('2026-11-03T12:00:00Z') });
-  assert.deepEqual(writes, [['studio:proposal:docs/health/2026-11-01.md', 'decline', 'not this quarter', null], ['studio:claim:claims/phase-7', 'not-now', null, null]], 'only what was confirmed is written');
+  assert.deepEqual(writes, [['studio:claim:claims/phase-7', 'not-now', null, null], ['studio:proposal:docs/health/2026-11-01.md', 'decline', 'not this quarter', null]], 'only what was confirmed is written');
   assert.ok(calls.filter(c => !c.yes).length >= 3, 'each answer is previewed first');
   assert.match(out, /why \(a decline says why\)> /); assert.match(out, /Not written; it stays in Needs you/);
   assert.match(out, /^\[5 of 5\] Acme Studio · Walk/m, 'the refused walk comes back at the end');

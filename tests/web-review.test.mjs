@@ -135,7 +135,8 @@ test('a held preview is applied through its route, and an uncertain apply is nev
 });
 
 test('an answer that needs a why waits for it', async () => {
-  const items = docketItems(reviewSnapshot()), c = clock(), sent = [];
+  // The proposal's card first (the docket puts the step and the claim before it, phase 175).
+  const docket = docketItems(reviewSnapshot()), items = [docket.find(e => e.kind === 'proposal'), ...docket.filter(e => e.kind !== 'proposal')], c = clock(), sent = [];
   const session = createReviewSession({ items, send: async hold => { sent.push(hold); return { state: 'settled' }; }, timers: c.timers });
   const proposal = session.current().entry.item;
   assert.equal(proposal.answers.find(a => a.id === 'decline').needsWhy, 'decline');
@@ -163,10 +164,12 @@ test('an answer that needs a why waits for it', async () => {
 
 test('the session ends on what it settled', async () => {
   const items = docketItems(reviewSnapshot()), c = clock();
-  const results = { 0: { state: 'settled', link: 'https://github.com/acme/studio/commit/abc123' }, 1: { state: 'put-off', until: '2026-11-10' }, 2: { state: 'failed', reason: 'The source changed since the preview, so nothing was written.' }, 3: { state: 'put-off', until: '2026-11-10' } };
+  // The docket's order (phase 175): the step and the claim (what an agent waits on), the proposal, then the walk.
+  assert.deepEqual(items.map(e => e.kind), ['step', 'claim', 'proposal', 'walk']);
+  const results = { 0: { state: 'put-off', until: '2026-11-10' }, 1: { state: 'put-off', until: '2026-11-10' }, 2: { state: 'settled', link: 'https://github.com/acme/studio/commit/abc123' }, 3: { state: 'failed', reason: 'The source changed since the preview, so nothing was written.' } };
   let n = 0;
   const session = createReviewSession({ items, send: async () => results[n++], timers: c.timers });
-  session.choose('accept'); session.choose('not-now'); session.choose('choice-verified'); assert.equal(session.choose('release', { why: 'the branch is abandoned' }).error, 'unavailable', 'a claim is released from the checkout'); session.choose('not-now');
+  session.choose('not-now'); assert.equal(session.choose('release', { why: 'the branch is abandoned' }).error, 'unavailable', 'a claim is released from the checkout'); session.choose('not-now'); session.choose('accept'); session.choose('choice-verified');
   await c.tick(); await settledOf(session);
   // The failed walk comes back once; closing ends the session with it listed, its reason kept.
   assert.equal(session.current()?.entry.kind, 'walk'); session.close();
@@ -177,7 +180,7 @@ test('the session ends on what it settled', async () => {
   assert.match(html, /<h2>Put off<\/h2><ul><li>Phase 5: approve the night lane: put off until 2026-11-10<\/li><li>Stale claim: phase 7: put off until 2026-11-10<\/li>/);
   assert.match(html, /<h2>Needs another look<\/h2><ul><li><strong>On your phone, open the Acme studio preview[^<]*<strong>missing<\/strong>[^<]*<\/strong>: The source changed since the preview/);
   assert.ok(html.indexOf('Needs another look</h2>') < html.indexOf('Settled</h2>'), 'what needs another look comes first');
-  // What an answer set moving is phase 175's: the model does not know it yet, so the end says nothing it cannot back.
+  // Nothing settled here sets anything moving (the proposal names nothing), so the end claims nothing.
   assert.doesNotMatch(html, /set moving|unblock/i);
   assert.match(html, /href="\/" data-review-home>Back to Home/);
 });
@@ -208,10 +211,59 @@ test('Home starts the session from one panel at its top, or says nothing needs y
   const { homeView, renderReviewStart } = await import('../lib/web/views.mjs');
   const access = { workspace: { id: 'acme', name: 'Acme' }, userId: 1, projects: [{ id: 'studio', repo: 'acme/studio', name: 'Acme Studio' }], sourceRevision: 'a'.repeat(40), csrf: 'x' };
   const html = homeView(access, reviewSnapshot());
-  assert.match(html, /<p class="review-start p-card"><strong>4 for you<\/strong><a class="button" href="\/review"[^>]*>Start review<\/a><\/p>/);
+  // Phase 175: how many, about how long (the sum of the model's estimates: 5 + 1 + 2 + 10), and the quick ones beside everything.
+  assert.match(html, /<p class="review-start p-card"><strong>4 for you · about 18 min<\/strong><span><a class="button" href="\/review"[^>]*>Everything<\/a> <a class="button quiet" href="\/review\?quick=1">Quick ones \(2\)<\/a><\/span><\/p>/);
+  // Only one kind waiting (all quick, or none quick): one Start review.
+  const quickOnly = reviewSnapshot(); quickOnly.docket = quickOnly.docket.filter(e => e.quick);
+  assert.match(renderReviewStart(quickOnly), /<strong>2 for you · about 3 min<\/strong><a class="button" href="\/review"[^>]*>Start review<\/a><\/p>/);
   assert.ok(html.indexOf('review-start') < html.indexOf('home-toolbar'), 'before the toolbar: the first thing under the heading');
   assert.match(renderReviewStart(reviewSnapshot(), { projectId: 'studio' }), /href="\/projects\/studio\/review"/);
   const none = renderReviewStart({ ...reviewSnapshot(), docket: [] });
   assert.match(none, /Nothing needs you/); assert.doesNotMatch(none, /<a |<button/, 'no button when nothing waits');
-  assert.match(renderReviewStart({ ...reviewSnapshot(), coverage: { state: 'partial', gaps: [] } }), /At least 4 for you/, 'an incomplete read says at least');
+  assert.match(renderReviewStart({ ...reviewSnapshot(), coverage: { state: 'partial', gaps: [] } }), /At least 4 for you · about 18 min/, 'an incomplete read says at least');
+});
+
+// Phase 175: a session cut short to the quick ones (2 minutes or less each), in both forms.
+test('a quick session holds only quick items', async t => {
+  const snapshot = reviewSnapshot();
+  const all = docketItems(snapshot), quick = docketItems(snapshot, { quick: true });
+  assert.deepEqual(quick.map(e => e.key), all.filter(e => e.minutes <= 2).map(e => e.key), 'every quick item, in the docket\'s order');
+  assert.deepEqual(quick.map(e => e.kind), ['claim', 'proposal']);
+  assert.ok(quick.length && quick.length < all.length && quick.every(e => e.quick && e.minutes <= 2), 'only items of 2 minutes or less');
+  // The page: the first quick card, its count, and the client reads the same filter.
+  const html = reviewView({ workspace: { name: 'Acme' }, csrf: 'x' }, snapshot, null, { quick: true });
+  assert.match(html, /data-count="2" data-quick="1"/); assert.match(html, new RegExp(`data-review-card="${quick[0].key}"`)); assert.match(html, />1 of 2</);
+  assert.match(renderReviewCard(quick[0], { index: 0, total: 2 }), /<span class="p-badge">about 1 min<\/span>/, 'the card says how long');
+  const session = createReviewSession({ items: quick, send: async () => ({ state: 'settled' }), timers: clock().timers });
+  assert.equal(session.total, 2);
+  // The hosted route takes ?quick=1 and nothing else.
+  const s = await hosted(t); await s.home();
+  const r = await s.web(s.h.request('/review?quick=1', { cookie: s.signed.cookie })); assert.equal(r.status, 200);
+  assert.match(await r.text(), /data-quick="1"/);
+  for (const bad of ['/review?quick=0', '/review?quick=1&fresh=1', '/review?all=1']) assert.equal((await s.web(s.h.request(bad, { cookie: s.signed.cookie }))).status, 400, bad);
+  const { describeRoute } = await import('../lib/web/navigation-routes.mjs');
+  assert.ok(describeRoute('/review?quick=1') && describeRoute('/projects/studio/review?quick=1')); assert.equal(describeRoute('/review?quick=2'), null);
+  // The terminal: plates home --review --quick walks the same quick ones.
+  const { homeReview } = await import('../lib/home-review.mjs');
+  let out = '';
+  const cli = await homeReview({ root: '/acme', quick: true, input: (async function* () { yield 'q'; })(), write: x => { out += x; } }, { home: async () => snapshot, answer: async () => assert.fail('nothing written') });
+  assert.deepEqual(cli.data.docket, quick.map(e => e.key)); assert.match(out, /^\[1 of 2\] studio · Stale claim · about 1 min$/m);
+});
+
+test('what an answer sets moving is on its card, and the end totals it', async () => {
+  const snapshot = reviewSnapshot(), items = docketItems(snapshot);
+  const claim = items.find(e => e.kind === 'claim'), walk = items.find(e => e.kind === 'walk'), proposal = items.find(e => e.kind === 'proposal');
+  assert.match(renderReviewCard(claim), /<p class="review-quiet" data-review-sets>Sets moving: claims\/phase-7 freed<\/p>/);
+  assert.doesNotMatch(renderReviewCard(proposal), /Sets moving/, 'nothing the model cannot back');
+  const gated = { ...walk, sets: [{ kind: 'phase', phase: '9', title: 'Share to the team' }] };
+  assert.match(renderReviewCard(gated), /Sets moving: phase 9 \(Share to the team\)/);
+  const c = clock();
+  const session = createReviewSession({ items: [gated, proposal], send: async () => ({ state: 'settled', link: 'https://github.com/acme/studio/commit/abc123' }), timers: c.timers });
+  session.choose('choice-verified'); session.choose('accept'); await c.tick(); await settledOf(session);
+  const html = renderReviewEnd({ settled: session.settled, putOff: [], again: [], home: '/' });
+  assert.match(html, /<h2>Set moving<\/h2><ul><li>1 phase can start: phase 9 \(Share to the team\)<\/li><\/ul>/);
+  // The terminal's end says the same.
+  const { reviewEndText } = await import('../lib/home-review.mjs');
+  const text = reviewEndText({ settled: [{ key: claim.key, title: 'Stale claim', label: 'Release', sets: claim.sets }, { key: gated.key, title: 'Publish', label: 'Verified', sets: gated.sets }], putOff: [], again: [], shown: 2 });
+  assert.match(text, /^Set moving\n  1 phase can start · 1 claim freed: claims\/phase-7 freed · phase 9 \(Share to the team\)$/m);
 });

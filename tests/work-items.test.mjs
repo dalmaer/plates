@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { KINDS, kindOf, looseItems, fleetOf, reviewItems, WRITERS, itemKey, answersFor, homeSnapshot, notNowRecord } from '../lib/work-items.mjs';
+import { KINDS, kindOf, looseItems, fleetOf, reviewItems, WRITERS, itemKey, answersFor, homeSnapshot, notNowRecord, takesMinutes, DEFAULT_MINUTES, QUICK_MINUTES, phaseSets } from '../lib/work-items.mjs';
 
 const repo = fileURLToPath(new URL('..', import.meta.url));
 
@@ -182,4 +182,87 @@ test('a decline needs a why', async t => {
   // Without decision writes, the web lists the answer as unavailable and refuses it.
   const off = createHomeAnswers({}, { readHome: async () => model({ form: 'web', decisionWrites: false }), decisions });
   await assert.rejects(off(access, 'token', { key: 'studio:proposal:docs/health/2026-11-01.md', answer: 'decline', why: 'x' }), e => e.code === 'answer_unavailable');
+});
+
+// Phase 175: the docket's order, estimates and what each answer sets moving, in the model.
+// A synthetic Acme fleet: one plate's decisions and walks, a review, and a stale claim row.
+function docketFixture() {
+  const project = { id: 'studio', projectName: 'Acme Studio', gaps: [], changes: [], state: 'complete',
+    decisions: [
+      { id: 'studio:health:docs/health/2026-10-30.md', projectId: 'studio', kind: 'decision', itemKind: 'proposal', ref: 'docs/health/2026-10-30.md', title: 'Update anvils', decisionTarget: { kind: 'health', path: 'docs/health/2026-10-30.md' } },
+      { id: 'studio:health:docs/health/2026-10-20.md', projectId: 'studio', kind: 'decision', itemKind: 'proposal', ref: 'docs/health/2026-10-20.md', title: 'Retire the old sprocket', decisionTarget: { kind: 'health', path: 'docs/health/2026-10-20.md' } },
+      { id: 'studio:phase:5:decision', projectId: 'studio', kind: 'decision', itemKind: 'step', ref: '5', phase: '5', since: '2026-11-01', title: 'Approve the night lane', sets: [{ kind: 'phase', phase: '5', title: 'The night lane' }] },
+    ],
+    walks: [
+      { id: 'studio:phase:3:walk', projectId: 'studio', kind: 'walk', itemKind: 'walk', ref: '3', phase: '3', since: '2026-10-01', ready: true, title: 'Publish from a phone', details: { takes: 'About 10 minutes', choices: ['Verified', 'Needs changes'] }, sets: [{ kind: 'phase', phase: '9', title: 'Share to the team' }] },
+      { id: 'studio:phase:4:walk', projectId: 'studio', kind: 'walk', itemKind: 'walk', ref: '4', phase: '4', since: '2026-10-25', ready: true, title: 'Is the badge right?', details: { takes: 'A minute.', choices: ['Yes', 'No'] }, sets: [] },
+      { id: 'studio:phase:6:walk', projectId: 'studio', kind: 'walk', itemKind: 'walk', ref: '6', phase: '6', since: '2026-09-01', ready: true, title: 'A week of use', details: null, sets: [] },
+      { id: 'studio:phase:8:walk', projectId: 'studio', kind: 'walk', itemKind: 'walk', ref: '8', phase: '8', ready: false, title: 'Not ready yet', details: null },
+    ],
+    reviews: [{ id: 'studio:review:7', projectId: 'studio', kind: 'review', itemKind: 'review', ref: '7', title: 'acme/studio#7: review round 3 of 3', review: { number: 7 } }], waiting: [] };
+  const sections = [{ id: 'claims', title: 'Stale claims', command: 'plates home', state: 'read', reason: null, count: 1,
+    items: [{ kind: 'claim', waits: 'owner', title: 'phase 2: claimed, idle 9 days', plate: 'studio', ref: 'claims/phase-2', phase: 2, since: '2026-10-10' }] }];
+  return { project, sections };
+}
+
+test('the docket starts with what blocks agents', async () => {
+  const { project, sections } = docketFixture();
+  const docket = can => homeSnapshot([structuredClone(project)], { sections: structuredClone(sections), can, today: '2026-11-03' }).docket;
+  const web = docket({ form: 'web', decisionWrites: true }), cli = docket({ form: 'cli' });
+  // What an agent or the night waits on (the claim, the review at its limit, the step: oldest first, the undated review last of them),
+  // then quick decisions (a proposal dated by its page, the minute walk with choices, the newer proposal), then walks that need a device or time (oldest first).
+  assert.deepEqual(web.map(e => [e.key, e.group]), [
+    ['studio:claim:claims/phase-2', 'unblock'], ['studio:step:5', 'unblock'], ['studio:review:7', 'unblock'],
+    ['studio:proposal:docs/health/2026-10-20.md', 'decide'], ['studio:walk:4', 'decide'], ['studio:proposal:docs/health/2026-10-30.md', 'decide'],
+    ['studio:walk:6', 'walk'], ['studio:walk:3', 'walk'],
+  ]);
+  assert.ok(!web.some(e => e.key === 'studio:walk:8'), 'a walk that is not ready is not in the docket');
+  // The same in both forms: the order, the estimates and what each sets moving are the model's, not a form's.
+  assert.deepEqual(cli, web);
+  // The forms' readers walk it in that order (the browser's own reader, and the terminal's).
+  const { docketItems } = await import('../lib/web/review-views.mjs');
+  const snapshot = homeSnapshot([structuredClone(project)], { sections: structuredClone(sections), today: '2026-11-03' });
+  assert.deepEqual(docketItems(snapshot).map(e => e.key), web.map(e => e.key));
+});
+
+test('every item says how long it takes', async () => {
+  const { project, sections } = docketFixture();
+  const snapshot = homeSnapshot([structuredClone(project)], { sections: structuredClone(sections), today: '2026-11-03' });
+  for (const e of snapshot.docket) assert.ok(Number.isSafeInteger(e.minutes) && e.minutes >= 1, `${e.key} has an estimate`);
+  const by = Object.fromEntries(snapshot.docket.map(e => [e.key, [e.minutes, e.estimate, e.quick]]));
+  // From the Your part's Takes line where there is one; else the kind's default.
+  assert.deepEqual(by['studio:walk:3'], [10, 'takes', false]);
+  assert.deepEqual(by['studio:walk:4'], [1, 'takes', true]);
+  assert.deepEqual(by['studio:walk:6'], [DEFAULT_MINUTES.walk, 'kind', false]);
+  assert.deepEqual(by['studio:claim:claims/phase-2'], [DEFAULT_MINUTES.claim, 'kind', true]);
+  assert.deepEqual(by['studio:proposal:docs/health/2026-10-20.md'], [DEFAULT_MINUTES.proposal, 'kind', true]);
+  assert.ok(snapshot.docket.every(e => e.quick === (e.minutes <= QUICK_MINUTES)));
+  // Every owner kind has a default, so no item goes without one.
+  for (const [kind, def] of Object.entries(KINDS)) if (def.answers) assert.ok(Number.isSafeInteger(DEFAULT_MINUTES[kind]), `${kind} has a default estimate`);
+  // Takes lines as the fleet writes them.
+  for (const [text, minutes] of [['About 10 minutes.', 10], ['2 minutes to install; two weeks of use.', 2], ['About five minutes once review and checks finish.', 5],
+    ['About 1–2 hours for the session; then a week of normal use.', 120], ['A minute, the next day.', 1], ['30 seconds', 1], ['One setup or testing session; record the actual duration.', null], [undefined, null]])
+    assert.equal(takesMinutes(text), minutes, String(text));
+  // The Start panel's total is their sum, in both forms.
+  const total = snapshot.docket.reduce((n, e) => n + e.minutes, 0), quick = snapshot.docket.filter(e => e.quick).length;
+  assert.equal(total, 10 + 1 + 10 + 1 + 5 + 5 + 2 + 2);
+  const { renderReviewStart } = await import('../lib/web/review-views.mjs');
+  assert.match(renderReviewStart(snapshot), new RegExp(`<strong>8 for you · about ${total} min</strong>`));
+  const { homeText } = await import('../lib/home.mjs');
+  assert.match(homeText({ ...snapshot, generatedAt: '2026-11-03T12:00:00Z' }), new RegExp(`^8 for you · about ${total} min — plates home --review \\(--quick: the ${quick} quick ones\\)$`, 'm'));
+});
+
+test('what an answer sets moving comes from the phase files and the claim', () => {
+  const p = (id, status, depends = [], more = {}) => ({ id, status, depends, title: `Phase ${id}`, ...more });
+  // 3 is partial (not yet satisfying depends); 4 waits only on 3; 5 also on 9, not yet built; 6 is built; 7 only owes a walk.
+  const phases = [p(3, 'partial'), p(4, 'planned', [3]), p(5, 'planned', [3, 9]), p(9, 'planned'), p(6, 'built', [3]), p(7, 'partial', [], { owes: 'walk' }), p(8, 'planned', [7])];
+  assert.deepEqual(phaseSets(phases[0], phases, 'walk'), [{ kind: 'phase', phase: '4', title: 'Phase 4' }], 'only a phase this one gates, with every other dependency met');
+  assert.deepEqual(phaseSets(phases[0], phases, 'step'), [{ kind: 'phase', phase: '3', title: 'Phase 3' }, { kind: 'phase', phase: '4', title: 'Phase 4' }], 'a ⚑ step frees its own phase too');
+  assert.deepEqual(phaseSets(phases[5], phases, 'walk'), [], 'a phase that owes only a walk already satisfies depends: answering it starts nothing new');
+  const { project, sections } = docketFixture();
+  const docket = homeSnapshot([project], { sections, today: '2026-11-03' }).docket;
+  const sets = Object.fromEntries(docket.map(e => [e.key, e.sets]));
+  assert.deepEqual(sets['studio:claim:claims/phase-2'], [{ kind: 'claim', branch: 'claims/phase-2', phase: '2' }]);
+  assert.deepEqual(sets['studio:walk:3'], [{ kind: 'phase', phase: '9', title: 'Share to the team' }]);
+  assert.deepEqual(sets['studio:proposal:docs/health/2026-10-20.md'], [], 'otherwise nothing');
 });
