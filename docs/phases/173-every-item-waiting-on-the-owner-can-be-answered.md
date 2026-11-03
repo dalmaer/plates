@@ -24,7 +24,15 @@ On 2026-11-03 the owner had 27 items waiting: 10 walks (6 with listed choices), 
 | Walk without choices | Done (with what you saw) / Not yet | `plates walk done --note` (exists) |
 | Health proposal | Accept / Decline, why required to decline | `plates walk decide` (exists; web through phase 97) |
 | Stale claim | Release / Keep | `plates phase claim --release` on the owner's behalf, recorded with who and why |
-| Step, phase, session, repo, lessons | per kind, decided while building; at least Done, and Hand to an agent | Hand to an agent files an agent issue through `plates issue new --agent` and its existing preview |
+| Step (a ⚑ next action on a plate's roadmap) | Done (why required: what you did) / Hand to an agent (why required) | Done: `plates loose-ends mark <id> drop --reason` (its loose end `phase:<n>`, which plates loose-ends lists for a partial phase; home stops listing the step once the mark is on the default branch); Hand: `plates issue new --agent`'s preview, then `--yes` |
+| Phase (a ⚑ step in another plate, from loose ends) | Done / Hand to an agent, as a step | `plates loose-ends mark` drop / `plates issue new --agent` |
+| Session that ended on a question | Done (why required: what you answered) / Hand to an agent | `plates loose-ends mark` drop / `plates issue new --agent` |
+| Repo made but not in plates.json | Not a plate (why required) / Add it to plates.json / Delete it | `plates loose-ends mark` drop / an agent issue to add it / unavailable in both forms: deleting a repo is the owner's own act (`gh repo delete`) |
+| Lessons not yet sent home | Send them home / Don't send (why required) | `plates lessons` (`--dry-run`, then `--yes`) / `plates loose-ends mark` drop |
+| Review at its round limit, or findings unanswered | Hand to an agent / Merge | `plates issue new --agent` / unavailable: merging from home is phase 176 |
+| Health page or inbox from loose ends; decision check; failed production verify | Done (loose ends) / Hand to an agent | `plates loose-ends mark` drop / `plates issue new --agent` |
+| Lesson in the inbox | Accept / Decline, why required to decline | `plates learn decide` (exists) |
+| Private feedback | Resolve | unavailable from home in both forms: a resolution needs an authored record and its digest (`plates feedback resolve <id> --record <file>`); Not now is the answer home gives |
 | Any item | Not now (until a date, with an optional reason) | a per-owner snooze record, never written into the project |
 
 - **The answers belong to the model**, not the view: `lib/work-items.mjs` names each item's answers with id, label, whether a reason is required, and the writer. `plates home --json` and `/api/home` both carry them.
@@ -62,7 +70,9 @@ By hand: none in this phase; the owner's walk is phase 174's.
 ## Deliberately open
 
 - **The answers for repo, session, phase and lessons items.** Each needs a look at what the item really asks; settled while building increment 4, written into the table above.
+  Settled 2026-11-03: read from the owner's real home that day (24 ⚑ phase steps, 4 new repos, 2 sessions on a question, 1 lessons row, from `plates home --json` and the board sample), the rows above. Every answer names an existing writer; the web lists the ones it cannot run (walk done, loose-ends marks, lessons, claims, agent issues: no App Issues write) with the reason and the `plates home --answer` command.
 - **Where Not now lives in the CLI.** Proposed: the plates state directory, outside every project. Settled with increment 2.
+  Settled 2026-11-03: plates kept no per-user state outside projects (only its cache, `$XDG_CACHE_HOME/plates`, which may be cleared), so Not now is `$XDG_STATE_HOME/plates/snoozed.json`, else `~/.local/state/plates/snoozed.json`; on the web, the `plates_home.not_now` store (migration 017), sealed per owner.
 
 ## Next action
 

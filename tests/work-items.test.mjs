@@ -152,3 +152,34 @@ test('not now hides an item until its date and counts it', () => {
   const unread = homeSnapshot([structuredClone(project)], { sections: structuredClone(sections), notNowGap: 'unreadable', today: '2026-11-04' });
   assert.deepEqual([unread.walks.length, unread.putOff.count, unread.putOff.unavailable], [1, 0, 'unreadable']);
 });
+
+test('a decline needs a why', async t => {
+  const { homeAnswer } = await import('../lib/home-answer.mjs');
+  const { createHomeAnswers } = await import('../lib/web/home-answers.mjs');
+  const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const proposal = { id: 'studio:health:docs/health/2026-11-01.md', projectId: 'studio', projectName: 'Acme Studio', kind: 'decision', itemKind: 'proposal',
+    ref: 'docs/health/2026-11-01.md', title: 'Review dependency_age proposal', decisionTarget: { kind: 'health', path: 'docs/health/2026-11-01.md' } };
+  const model = can => homeSnapshot([{ id: 'studio', repo: 'acme/studio', gaps: [], changes: [], state: 'complete', decisions: [structuredClone(proposal)], walks: [], reviews: [], waiting: [] }], { sections: [], can, today: '2026-11-03' });
+  // The terminal: refused before anything is read or written.
+  const root = await mkdtemp(join(tmpdir(), 'plates-decline-')); t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, '.plates'), { recursive: true });
+  await writeFile(join(root, '.plates', 'plates.json'), JSON.stringify({ name: 'Acme Studio', repo: 'acme/studio' }));
+  const answer = (answerId, why) => homeAnswer({ root, key: 'studio:proposal:docs/health/2026-11-01.md', answerId, why }, { home: async () => model({ form: 'cli' }), now: () => Date.parse('2026-11-03T12:00:00Z') });
+  for (const why of [undefined, '', '   ']) await assert.rejects(answer('decline', why), e => e.exitCode === 2 && /Decline needs a why/.test(e.message), `CLI, why ${JSON.stringify(why)}`);
+  // The web: the same answer, refused the same way, and nothing reaches the decision writer.
+  const previews = [];
+  const decisions = { preview: async (...args) => { previews.push(args); return { id: 'p1' }; } };
+  const web = createHomeAnswers({}, { readHome: async () => model({ form: 'web', decisionWrites: true }), decisions, notNow: { put: async () => assert.fail('no Not now write') } });
+  const access = { userId: 1, projects: [{ id: 'studio', repoId: 102, repo: 'acme/studio' }] };
+  for (const why of [undefined, '', '   ']) await assert.rejects(web(access, 'token', { key: 'studio:proposal:docs/health/2026-11-01.md', answer: 'decline', ...(why === undefined ? {} : { why }) }), e => e.code === 'why_required' && e.status === 400, `web, why ${JSON.stringify(why)}`);
+  assert.equal(previews.length, 0, 'nothing reached the writer');
+  // With a why, the web hands it to the existing decision preview; accepting needs none.
+  const declined = await web(access, 'token', { key: 'studio:proposal:docs/health/2026-11-01.md', answer: 'decline', why: 'Renovate takes these' });
+  assert.equal(declined.state, 'preview');
+  assert.deepEqual(previews[0].slice(2), [access.projects[0], { target: proposal.decisionTarget, choice: 'decline', reason: 'Renovate takes these' }]);
+  assert.equal((await web(access, 'token', { key: 'studio:proposal:docs/health/2026-11-01.md', answer: 'accept' })).state, 'preview');
+  // Without decision writes, the web lists the answer as unavailable and refuses it.
+  const off = createHomeAnswers({}, { readHome: async () => model({ form: 'web', decisionWrites: false }), decisions });
+  await assert.rejects(off(access, 'token', { key: 'studio:proposal:docs/health/2026-11-01.md', answer: 'decline', why: 'x' }), e => e.code === 'answer_unavailable');
+});
