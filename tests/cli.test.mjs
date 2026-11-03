@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { verbs, FLAGS, GUIDE, COLD_START_LIMIT, parseGuide, surfaceGaps, announced } from '../lib/cli.mjs';
 import { acmeRepo } from './helpers/prove.mjs';
 import { nightOf } from '../lib/night-plan.mjs';
+import { phaseFile } from './helpers/web-projects.mjs';
 
 const PLATES = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BIN = join(PLATES, 'bin', 'plates.mjs');
@@ -344,4 +345,26 @@ test('migrate rejects unpaired malformed and duplicate approval flags before res
     await assert.rejects(verbs.get('migrate').run(args, { get cwd() { touched = true; throw new Error('migration context must not be accessed'); } }), error => error.exitCode === 2, args.join(' '));
     assert.equal(touched, false, args.join(' '));
   }
+});
+
+test('plates home without a network names each GitHub source unavailable and still renders the local ones', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'plates-home-offline-'));
+  try {
+    const root = join(dir, 'studio');
+    await mkdir(join(root, '.plates'), { recursive: true }); await mkdir(join(root, 'docs', 'phases'), { recursive: true });
+    await writeFile(join(root, '.plates', 'plates.json'), JSON.stringify({ name: 'Acme Studio', repo: 'acme/studio' }));
+    await writeFile(join(root, 'docs', 'goals.json'), JSON.stringify([{ id: 'G1', title: 'Acme', outcome: 'Acme works.' }]));
+    await writeFile(join(root, 'docs', 'phases', '01-acme.md'), phaseFile(1, { next: '⚑ Choose the Acme policy.' }));
+    const env = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_AUTHOR_NAME: 'Acme', GIT_AUTHOR_EMAIL: 'a@example.com', GIT_COMMITTER_NAME: 'Acme', GIT_COMMITTER_EMAIL: 'a@example.com',
+      PLATES_GH: join(dir, 'no-gh-here'), PLATES_CACHE: join(dir, 'cache'), PLATES_STATE: join(dir, 'state') };
+    for (const args of [['init', '-q', '-b', 'main'], ['add', '-A'], ['commit', '-q', '-m', 'Acme']]) execFileSync('git', ['-C', root, ...args], { env });
+    const r = plates(['home', '--json'], root, BIN, env);
+    assert.equal(r.code, 0, r.err);
+    const data = JSON.parse(r.out);
+    assert.equal(data.decisions.length, 1, 'the checkout\'s own sources render');
+    assert.match(data.coverage.gaps.find(g => g.source === 'reviews').reason, /could not be read|not read/);
+    assert.equal(data.sections.find(s => s.id === 'local').command, 'plates loose-ends');
+    const text = plates(['home'], root, BIN, env);
+    assert.equal(text.code, 0); assert.match(text.out, /^Decisions that need you \(at least 1\)$/m); assert.match(text.out, /reviews: /);
+  } finally { await rm(dir, { recursive: true, force: true }); }
 });

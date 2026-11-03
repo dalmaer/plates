@@ -33,7 +33,7 @@ Verbs (`--json` for data):
 - `plates loose-ends` — unfinished work
 - `plates issue new --agent` — rubric issue preview; `--yes` creates it
 - `plates review <repo>#<n>` — comments; `--wait`; `--close`
-- `plates board` — whose turn: a local page; `--fresh`
+- `plates home|board` — what needs you; `board` a page
 - `plates promote [<commit>]` — tested commit to prod; `--back`
 - `plates walk done|decide` — settle a walk or proposal
 - `plates canvas` — snapshot, render, connect, sync, live, night
@@ -60,7 +60,7 @@ Rules:
 
 Exits: 0 ok; 1 failure; 2 usage; 3 needs owner's yes. JSON errors: `{"error": "..."}` on stdout.
 
-Topics: `autonomy` `names` `json` `goals` `render` `init` `adopt` `doctor` `update` `lessons` `learn` `improve` `persona` `time` `test` `drain` `night` `loop` `climb` `fleet` `loose-ends` `issue` `review` `board` `retro` `canvas` `install` `coming` `reconciliation` `prove` `evidence` `production` `decision` `shape` `workspace` `feedback`.
+Topics: `autonomy` `names` `json` `goals` `render` `init` `adopt` `doctor` `update` `lessons` `learn` `improve` `persona` `time` `test` `drain` `night` `loop` `climb` `fleet` `loose-ends` `issue` `review` `home` `board` `retro` `canvas` `install` `coming` `reconciliation` `prove` `evidence` `production` `decision` `shape` `workspace` `feedback`.
 
 <!-- topic: json | the output contract every verb keeps -->
 
@@ -1858,6 +1858,29 @@ where its own diff holds the line and opens one issue, `plates review after
 are no findings): a failed post records nothing and is reviewed again. Read
 and answer it with `plates review <repo>@<sha>` (a sha covered only by a
 start was not reviewed: exit 1, saying so).
+
+<!-- topic: home | the hosted home in a terminal: one read model, two renderers -->
+
+`plates home [--project <id>] [--fresh] [--json]` renders the hosted home's
+read model from this checkout and gh (plates phase 156): the fleet lens at
+plates's home (each managed plate from a checkout beside it; one without a
+checkout is `unavailable`, saying so), or one plate with `--project`. Each
+plate is read from its default branch (`origin/HEAD` as last fetched, else
+`HEAD`) by the hosted home's own reader, under the same bounds, so `--json`
+is `/api/home`'s content: `{schema, generatedAt, coverage: {state, gaps},
+projects, decisions, walks, reviews, waiting, changes, sections}`, without the
+web's transport fields (`cursor`, `cursorState`, `quota`). `reviews` are PRs
+waiting on you: at their round limit (`review: {number, rounds, limit,
+verdict: "stopped: repeating"|"extended: progress"|null, open, mergeRule:
+{fixFirst, track, unsorted}}`) or with findings unanswered; someone else's
+are in `waiting`. `sections` names what only one form reads, each `{id,
+title, state: read|unavailable, reason, command, count, items}`: `lessons`
+(neither form yet: "plates-inbox is not readable by the App yet", `plates
+learn`), `local` (loose ends, "on your machine", `plates loose-ends`),
+`feedback`, `fleet`, `claims`, `verify`, `robot`, `checks` and
+`health-history`, read here and unavailable on the web with the reason. A
+source that cannot be read (no network, no gh) is a gap with its reason;
+the local sources still render. Exit 0.
 
 <!-- topic: board | whose turn it is: the owner's board, and the verbs that settle its items -->
 
