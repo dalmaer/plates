@@ -4,7 +4,7 @@ attempt: {"accepted":true,"verified":true,"rework":0,"lessonStatus":{"status":"n
 # Evidence: phase 166 — Home says what needs you, what happened and what is next
 
 - Date: 2026-11-04
-- Phase: 166, increments 1 and 2
+- Phase: 166, increments 1 to 3
 - Revision: 114ea38c on origin/main e3dc75b4, and this record
 - Claim being checked: one four-section model (Needs you, Since you last looked, What should happen next?, Your plates) in lib/work-items.mjs; `plates home --json` and `/api/home` carry the same sections, items and counts; Needs you holds only the owner's turn, ranked fix, decide, try; the hosted page's HTML is unchanged in this increment.
 
@@ -21,6 +21,13 @@ attempt: {"accepted":true,"verified":true,"rework":0,"lessonStatus":{"status":"n
 - Builder: all `tests/web-*.test.mjs`, 811 pass, exit 0; `npm run check:focused` over 9 files, 196 pass.
 - Sent back once: the rendered page said "6 to answer" above "Needs you · 7", because a failed night has no answers. Both renderers now count what Needs you counts ("7 need you · about 27 min").
 
+## Increment 3 (cf54694b)
+
+- `node --test --test-name-pattern="an ask is queued only after" tests/web-home.test.mjs`: exit 0, 1 pass (conductor). Against the night-plan harness's fake GitHub: the preview writes nothing; a missing, unknown or stale preview, or a wrong public digest, is refused and writes nothing; an approved ask makes exactly one write, equal to what `plates goodnight add --title <ask> --kind triage` shapes.
+- Conductor read the new route in lib/web/server.mjs: signed-in session, the plate in the session's access, csrf compared, input bounded at 4,000 bytes; it calls only the night-plan writer's preview. No route-level test of it yet.
+- Builder: 951 pass across web, home, work-items, cli, feedback-cli and goodnight tests, exit 0.
+- The agent-issue path has no hosted writer (the App has no Issues write), so on the web it gives the filled-in `plates issue new --agent` command; no new write action was added.
+
 ## By hand
 
 | Did | Expected | Observed | Proves / does not prove |
@@ -31,6 +38,6 @@ attempt: {"accepted":true,"verified":true,"rework":0,"lessonStatus":{"status":"n
 
 ## Gaps and decision
 
-- Partial: increments 1 and 2 of 4. The ask box and the stored visit are increments 3 and 4.
+- Partial: increments 1 to 3 of 4. The stored visit (increment 4) needs a hosted migration.
 - Since does not yet read merges, releases or installed fleet updates; its footer says so.
 - The web cannot read tonight's plan branch or agent issues (the App has no Issues permission); both are named there with a reason and a command.
