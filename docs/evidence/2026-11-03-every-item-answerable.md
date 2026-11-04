@@ -27,3 +27,7 @@
 - A walk with an authored guided walk (`docs/walks/<id>.json`) keeps phase 98's guided flow; none exist today.
 - Feedback items have only Not now in both forms (resolving needs an authored record); a deliberate exception.
 - A step's Done works only for a partial phase, because loose ends lists only those.
+
+## 2026-11-04: migration 017 applied
+
+Applied by Claude in the owner's Supabase SQL editor (project plates-workspace), at the owner's request. Before: `plates_push.ledger` existed and `plates_home.not_now` did not. The editor held exactly `lib/web/migrations/017-not-now.sql` (sha256 226b15a9…dcb444, read back from the editor before running); Supabase answered "Success. No rows returned". After: `to_regclass('plates_home.not_now')` and `to_regprocedure('public.plates_not_now_rpc(text,text,text,text,date)')` both resolve, and `anon` has no execute on the function. Production serves 80d8920, which includes this phase.

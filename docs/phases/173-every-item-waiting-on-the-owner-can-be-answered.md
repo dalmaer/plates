@@ -1,11 +1,11 @@
 ---
 status: partial
 owes: walk
-since: 2026-11-03
+since: 2026-11-04
 goal: G7
 spec: 2
 depends: [156]
-note: "Built and proven by test: every item in Needs you carries answers with one writer, the same in plates home and the hosted home; Not now; a decline needs a why; stale claims released with who and why; walks answered on the web write what plates walk done writes. Waits on deploy and migration 017 on the hosted store."
+note: "Built and proven by test: every item in Needs you carries answers with one writer, the same in plates home and the hosted home; Not now; a decline needs a why; stale claims released with who and why; walks answered on the web write what plates walk done writes. Deployed, and migration 017 applied on the hosted store 2026-11-04; owes the owner's walk on the phone."
 evidence: ["evidence/2026-11-03-every-item-answerable.md"]
 ---
 
@@ -88,7 +88,7 @@ By hand: none in this phase; the owner's walk is phase 174's.
 
 ## Next action
 
-Deploy with migration 017 applied (the owner's ⚑), then answer one walk and one proposal on the deployed workspace and record the commits here.
+The owner's walk on the phone: answer one walk and one health proposal from Home and put one item off with Not now; record the commits here. Deployed (80d8920, 2026-11-04) and migration 017 applied (2026-11-04).
 
 ## Trajectory
 
