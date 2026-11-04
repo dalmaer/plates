@@ -4,7 +4,7 @@ attempt: {"accepted":true,"verified":true,"rework":0,"lessonStatus":{"status":"n
 # Evidence: phase 158 — Integration delays and work in progress are visible
 
 - Date: 2026-11-04
-- Phase: 158, increments 1 and 2
+- Phase: 158, increments 1 to 3
 - Revision: 682df448 on origin/main cff35f78, and this record
 - Claim being checked: a read-only measurement contract (docs/specs/integration-delays.md) and a pure reader (lib/integration-delays.mjs) that turn observations into active, branch, review, CI, integration and deploy states with age and a next action, and keep missing, skewed, unreadable, conflicting and incomplete observations as gaps, never zero.
 
@@ -21,6 +21,12 @@ attempt: {"accepted":true,"verified":true,"rework":0,"lessonStatus":{"status":"n
 - Sent back once: the hosted client treated every 403 as a rate limit and paused all of a user's source reads, so an App permission missing for the new reads would have degraded the whole hosted home. Now a waits read's permission 403 is a named gap ("the App cannot read repository activity: Contents read needed") and a rate-limit 403 still saves quota. `plates prove tests/integration-observations.test.mjs --fix lib/web/projects.mjs`: VERIFIED (red without the fix, green with it).
 - Builder: `npm run check:focused` over 8 files, exit 0, 219 pass; `npm run typecheck` exit 0.
 
+## Increment 3 (4fad118d)
+
+- `node --test tests/integration-baseline.test.mjs`: exit 0, 8 pass (conductor).
+- The baseline, docs/research/2026-11-04-integration-delays-baseline.md with its JSON, read only from dalmaer/plates (gh GETs, git reads) by `node scripts/integration-baseline.mjs --repo dalmaer/plates --json` (builder, exit 0, about 53 s), window 2026-10-03 to 2026-11-04 at main 1dda19ef. Conductor checked it names no other repository.
+- `node bin/plates.mjs time --json` (builder, owner's checkout, read-only): exit 0; it adds the local gate's duration, and has no observation after 2026-10-17.
+
 ## By hand
 
 | Did | Expected | Observed | Proves / does not prove |
@@ -31,5 +37,7 @@ attempt: {"accepted":true,"verified":true,"rework":0,"lessonStatus":{"status":"n
 
 ## Gaps and decision
 
-- Partial: increments 1 and 2 of 3. No dated baseline exists yet (increment 3); the hosted App's Contents and Checks read for these reads is unconfirmed, and a missing one shows as a named gap.
+- Built. Integration's median is 8.4 min (p90 16.5); main CI's weekly median grew from 0.9 to 15.2 min, and integration, the lock and the tested lag follow it; 33% of integrator runs landed nothing; change failure 9.3% with median recovery 25.6 min; 21 escapes.
+- Proposed targets (advisory, not applied): CI and integration 30 min; lock, deploy 1 h; review and branch 24 h; no ready-queue limit, since the queue is nearly always empty and the wait is gate time.
+- Unconfirmed: the hosted App's Contents and Checks read for the waits; a missing one shows as a named gap. Main queue time and reviewer time are not read.
 - The advisory targets (24 h branch and review, 1 h CI, integration, deploy and the lock) are guesses until the baseline.
