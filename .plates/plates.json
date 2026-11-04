@@ -21,6 +21,7 @@
     "conduct",
     "ci",
     "night",
+    "delivery",
     "claude",
     "renovate",
     "reconciliation",
@@ -108,6 +109,32 @@
         "dalmaer/ledger"
       ],
       "enabled": true
+    }
+  },
+  "delivery": {
+    "tested": "green",
+    "gateWorkflow": "check.yml",
+    "site": "https://plates.dionisaledge.com",
+    "version": "/api/version",
+    "smoke": [
+      {
+        "path": "/",
+        "status": 401
+      },
+      {
+        "path": "/api/deployment",
+        "status": 401
+      },
+      {
+        "path": "/review",
+        "status": 401
+      }
+    ],
+    "promote": "vercel:plates",
+    "vercel": {
+      "scope": "dion-almaers-projects",
+      "checkout": "/Users/dionalmaer/.plates/deploy/plates",
+      "globalConfig": "/Users/dionalmaer/Library/Application Support/com.vercel.cli"
     }
   }
 }
