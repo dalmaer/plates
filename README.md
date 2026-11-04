@@ -530,6 +530,7 @@ npm run next     # next phase and action
 npm run check    # tests, roadmap, rendered practices and inbox views
 npm ci --ignore-scripts  # development-only type tooling
 npm run typecheck        # checked JSDoc, no emitted JavaScript
+npm run look             # capture each web page type, light and dark, phone and laptop
 ```
 
 The source gate runs the parallel `npm test` suite, then the mandatory installed
