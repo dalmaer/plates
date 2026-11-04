@@ -563,6 +563,29 @@ test('a failed verify is a line in the next morning brief: each failure of the d
   assert.match(plates(['morning', '--date', NIGHT, '--json'], p.root, { PLATES_GH: p.gh }).json().next[0], /^The verify record \(plates-verify:verify\.json\) could not be read: verify\.json holds no "results" list\./);
 });
 
+// Phase 177: a rollback is a line in the next brief, and one that failed is the first line.
+test('a rollback is a line in the next morning brief, and a failed rollback the first; each in one brief, read from deploys.jsonl', async t => {
+  const { rollbacksFor, rollbackLine, deployResults } = morningModule;
+  const rec = (at, commit, rolledBack) => JSON.stringify({ schema: 1, at, project: 'anvils', commit: commit.repeat(40), action: 'deploy', deployment: { id: `dpl_${commit}` }, target: { id: 'dpl_a' },
+    checks: [{ check: 'revision', ok: true, detail: 'ok' }, { check: 'errors', ok: rolledBack === false, detail: rolledBack === false ? 'none' : '2 errors logged, the first: Acme TypeError' }], ok: rolledBack === false, failed: rolledBack === false ? null : 'errors', rolledBack, serving: { id: rolledBack === 'failed' ? `dpl_${commit}` : 'dpl_a' } });
+  const text = [rec('2026-10-04T20:00:00Z', 'c', true), rec('2026-10-04T21:00:00Z', 'd', 'failed'), rec('2026-10-04T22:00:00Z', 'e', false), rec('2026-10-05T09:00:00Z', 'f', true)].join('\n');
+  const deploys = deployResults(text);
+  assert.deepEqual(rollbacksFor(deploys, NIGHT).map(r => r.commit.slice(0, 1)), ['d', 'c'], 'the day before the night: both, and not the pass');
+  assert.deepEqual(rollbacksFor(deploys, '2026-10-06').map(r => r.commit.slice(0, 1)), ['f'], 'one after the night started is the next brief\'s');
+  const b = renderBrief({ plan: finished(), now: AFTER, health: HEALTH, links: LINKS, verify: { failed: [], rollbacks: rollbacksFor(deploys, NIGHT), unread: null } });
+  assert.match(b.next[0], /^Production's rollback FAILED: errors failed on `ddddddd` \(dpl_d\) at 2026-10-04T21:00:00Z \(2 errors logged, the first: Acme TypeError\)/);
+  assert.equal(b.next[1], 'Production rolled back: errors failed on `ccccccc` (dpl_c) at 2026-10-04T20:00:00Z (2 errors logged, the first: Acme TypeError). It serves dpl_a again, until a deploy passes.');
+  assert.equal(b.next[1], rollbackLine(deploys.find(r => r.commit.startsWith('c'))));
+  // End to end: the brief reads deploys.jsonl beside verify.json on origin's verify branch.
+  const p = await project(t, { config: { ...CONFIG, practices: ['night', 'delivery'] } });
+  const write = (args, input) => execFileSync('git', args, { cwd: p.root, input, encoding: 'utf8' }).trim();
+  const tree = write(['mktree'], `100644 blob ${write(['hash-object', '-w', '--stdin'], JSON.stringify({ results: [] }))}\tverify.json\n100644 blob ${write(['hash-object', '-w', '--stdin'], text)}\tdeploys.jsonl\n`);
+  write(['push', '-q', 'origin', `${write(['commit-tree', tree, '-m', 'plates promote'])}:refs/heads/plates-verify`]);
+  const r = plates(['morning', '--date', NIGHT, '--json'], p.root, { PLATES_GH: p.gh });
+  assert.equal(r.code, 0, r.err + r.out);
+  assert.deepEqual(r.json().next.slice(0, 2), b.next.slice(0, 2));
+});
+
 // PR #182 review: a preview's pass counted as production having passed since.
 test('in the brief, "passed since" is the same site\'s pass only, and a preview\'s failure is said as the preview\'s', () => {
   const { verifyFailuresFor, verifyLine } = morningModule;

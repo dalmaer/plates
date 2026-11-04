@@ -1011,6 +1011,22 @@ the hand `git push` that restores it; nothing else
 moves. Already there (a retry): `action: verify`, nothing pushed, still verified. It refuses to run in GitHub
 Actions; no shipped workflow runs it. Only the owner runs it on a real project.
 
+A Vercel target (`delivery.promote: "vercel:<project>"`, `delivery.vercel:
+{ scope, checkout }`, phase 177) deploys instead of moving a ref
+(`scripts/plates/vercel.mjs`): it reads the deployment serving production
+first (unreadable: refused, `no rollback target`), refuses a commit adding a
+file under `delivery.migrations` (default `lib/web/migrations`) since the last
+passing deploy unless `--migrated <file>` (no base: `--migrations-from
+<commit>`), deploys exactly the commit from the checkout with
+`PLATES_DEPLOY_REVISION`, then checks `revision`, `smoke` and `errors`
+(`--watch <s>`, default 120). JSON: `action` (`deploy`/`verify`/`back`),
+`target`, `deployment`, `checks: [{ check, ok, detail }]`, `ok`, `failed`,
+`rolledBack` (false, true, `"failed"`), `serving`, `record`, `next`. Exit 0
+passed and recorded, 1 refused, failed (rolled back or not) or unrecorded, 3
+preview. `--back` with no commit acts at once: the newest passing deploy older
+than the one serving. Each deploy is a line in `deploys.jsonl` on the verify
+branch.
+
 ### Repository hygiene
 
 `plates improve` and its installed night measure `stale_worktrees`,

@@ -1,11 +1,12 @@
 ---
-status: planned
+status: partial
+owes: walk
 since: 2026-11-03
 goal: G6
 spec: 2
 depends: [82]
-note: "The owner wants every landing deployed, an error rolled back without them, and 'roll back' to be one word. Today each deploy waits for a typed 'deploy plates' and nothing watches it afterwards."
-evidence: []
+note: "Built and proven by test against a fake Vercel: a Vercel target reads its rollback target first, deploys the tested commit, checks revision, smoke and errors, and rolls itself back; --back alone returns to the last good deploy; the owner's grant opens exactly plates promote. Owes plates adopting delivery, a real pass and a real rollback, and the owner's grant."
+evidence: ["evidence/2026-11-03-deploy-checks-itself.md"]
 ---
 
 # A deploy checks itself and rolls itself back
@@ -43,12 +44,12 @@ The owner, 2026-11-03: "you do the deploy, and most of the time it all just work
 
 ## Acceptance
 
-- [ ] Nothing deploys when the serving deployment cannot be read: `tests/promote-vercel.test.mjs: "no rollback target, no deploy"`
-- [ ] A failed revision, smoke or error-watch check rolls back to the recorded deployment and verifies it: `tests/promote-vercel.test.mjs: "each failed check rolls back to the recorded deployment"`
-- [ ] A failed rollback reaches the top of the owner's docket: `tests/work-items.test.mjs: "a failed rollback is the first thing the owner sees"`
-- [ ] `plates promote --back` with no commit returns to the last deployment that passed: `tests/promote-vercel.test.mjs: "back means the last good deployment"`
-- [ ] The grant renders a rule allowing exactly the two commands, and without it deployment stays closed at every level: `tests/autonomy-hosts.test.mjs: "a promote grant opens exactly plates promote"`
-- [ ] A commit waiting on an unapplied migration is refused with its name: `tests/promote-vercel.test.mjs: "a deploy waits for its migration"`
+- [x] Nothing deploys when the serving deployment cannot be read: `tests/promote-vercel.test.mjs: "no rollback target, no deploy"`
+- [x] A failed revision, smoke or error-watch check rolls back to the recorded deployment and verifies it: `tests/promote-vercel.test.mjs: "each failed check rolls back to the recorded deployment"`
+- [x] A failed rollback reaches the top of the owner's docket: `tests/work-items.test.mjs: "a failed rollback is the first thing the owner sees"`
+- [x] `plates promote --back` with no commit returns to the last deployment that passed: `tests/promote-vercel.test.mjs: "back means the last good deployment"`
+- [x] The grant renders a rule allowing exactly the two commands, and without it deployment stays closed at every level: `tests/autonomy-hosts.test.mjs: "a promote grant opens exactly plates promote"`
+- [x] A commit waiting on an unapplied migration is refused with its name: `tests/promote-vercel.test.mjs: "a deploy waits for its migration"`
 - [ ] ⚑ by hand: on plates' own workspace, one deploy passes its checks, and one deliberate failure rolls itself back.
 
 ## Your part
@@ -74,10 +75,17 @@ By hand: the passing deploy and the deliberate rollback on plates' workspace, wi
 
 ## Deliberately open
 
-- **The version path.** Proposed: `/api/version`, public, returning only `{ commit }`. The commit is already public in the repo; it reads no project record, so phase 81's rule against public health checks of private records holds.
-- **How the error watch reads logs.** Proposed: `vercel logs --level error --since`, with the window's start at the new deployment's ready time, so errors from the old one do not count.
+- **The version path.** Settled 2026-11-03 by the build: `/api/version`, public and no-store, returns only `{ commit }`, from `PLATES_DEPLOY_REVISION` when a CLI deploy has no `VERCEL_GIT_COMMIT_SHA`.
+- **How the error watch reads logs.** Settled 2026-11-03 by the build: `vercel logs --deployment <id> --level error --since <ready> --json`, read every 10 seconds across the window; unreadable logs fail the watch.
 - **The tested ref on plates.** Proposed: `green`, published by the delivery practice's publisher after `check.yml` passes on main, as the practice is designed; not main itself.
 
 ## Next action
 
-The Vercel target and the automatic rollback, against an injected client (increment 1).
+Increment 4: plates adopts delivery with `vercel:plates`; its first deploy passes `--migrations-from`, since production reports no commit yet. Then a real pass and a deliberate rollback, and the owner's grant and walk.
+
+## Trajectory
+
+- **2026-11-03** — A CLI deploy has no `VERCEL_GIT_COMMIT_SHA`, so production could not say what it serves; the deploy now passes `PLATES_DEPLOY_REVISION` per deployment, and `/api/version` reports it. tests/web-deployment.test.mjs.
+- **2026-11-03** — The deploy uses `--skip-domain` and then `vercel promote`, because after a `vercel rollback` Vercel stops assigning production to new deploys; promoting explicitly keeps later deploys from stranding. practices/delivery/files/scripts/plates/vercel.mjs.
+- **2026-11-03** — `--back` with no commit acts without `--yes` and steps one passing deploy further back each time: "roll back" is one word for the owner. tests/promote-vercel.test.mjs "back means the last good deployment".
+- **2026-11-03** — Every Vercel CLI flag the client uses was checked against `vercel --help` (CLI 59.23.2); the JSON field names of `inspect` and `logs --json` are not yet checked against real output, which increment 4 does.

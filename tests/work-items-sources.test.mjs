@@ -877,6 +877,23 @@ test('a failed verify of production is the owner\'s item on the board; a passed 
 
 });
 
+// Phase 177: the deploy records beside the verify record; a failed rollback is the board's first item.
+test('a rollback since the last passing deploy is the owner\'s on the board, and a failed rollback is first', async t => {
+  const root = await acme({ git: true });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(join(root, '.plates/plates.json'), JSON.stringify({ name: 'Acme', repo: 'acme/app', plates: 'self', inbox: 'acme/inbox', practices: ['night', 'delivery'] }));
+  const passed = { sha: 'a'.repeat(40), ok: true, at: '2026-10-07T22:00:00Z', site: null, serving: 'a'.repeat(40), failures: [], run: null };
+  const deploy = (at, commit, rolledBack) => ({ at, project: 'anvils', commit: commit.repeat(40), action: 'deploy', ok: rolledBack === false, deployment: { id: `dpl_${commit}`, url: null }, target: { id: 'dpl_a', url: null }, serving: { id: 'dpl_a', url: null },
+    checks: [{ check: 'smoke', ok: rolledBack === false, detail: 'GET /: expected 200, got 500' }], failed: rolledBack === false ? null : 'smoke', rolledBack });
+  let data = await board({ root }, { ...deps(root), verify: async () => ({ results: [passed], deploys: [deploy('2026-10-07T21:00:00Z', 'd', 'failed'), deploy('2026-10-07T20:00:00Z', 'c', true)] }) });
+  assert.deepEqual(data.items.slice(0, 1).map(i => [i.kind, i.urgent, i.title]), [['rollback', true, "Production's rollback failed: smoke failed on ddddddd"]], 'the failed rollback is above everything');
+  assert.ok(data.items.some(i => i.title === 'Production rolled back: smoke failed on ccccccc'));
+  assert.match(data.sources.find(s => s.source === 'verify').why, /passed; 2 rollbacks since the last deploy that passed$/);
+  // A deploy that passed since closes them.
+  data = await board({ root }, { ...deps(root), verify: async () => ({ results: [passed], deploys: [deploy('2026-10-07T23:00:00Z', 'e', false), deploy('2026-10-07T21:00:00Z', 'd', 'failed')] }) });
+  assert.deepEqual(data.items.filter(i => i.kind === 'rollback'), []);
+});
+
 // PR #182 review: a passing preview (verify.mjs --site … --record) after a production failure cleared production's item.
 test('a preview\'s pass never clears production\'s failed verify on the board; only production\'s own pass does', async t => {
   const root = await acme({ git: true });
