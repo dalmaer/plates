@@ -694,6 +694,19 @@
       "ownerAttended": true,
       "rollback": "Remove quietHours from PLATES_WEB_CONFIG: nothing is sent without it. Redeploying the previous build also stops it.",
       "proof": "The deployed revision, the push delivery record, and the owner answer (fast enough, too many nudges, or too slow to get in), recorded in docs/evidence/2026-11-03-docket-order-and-notify.md."
+    },
+    {
+      "id": "look-captures",
+      "phase": 172,
+      "kind": "decision",
+      "what": "With one design change pending, the owner runs npm run look, opens the printed folder, and reviews the change from its captures in light and dark at phone and laptop widths instead of opening the app; then says whether the captures are useful or not worth keeping.",
+      "prerequisites": [
+        171,
+        172
+      ],
+      "ownerAttended": true,
+      "rollback": "Nothing to roll back: the script runs locally against fixture data, writes images only to a temporary folder outside the repo, and changes nothing deployed.",
+      "proof": "The owner's answer (useful, or not worth it), and which design change was reviewed, recorded in docs/evidence/2026-11-04-look-captured.md."
     }
   ],
   "open": [

@@ -1,11 +1,12 @@
 ---
-status: planned
-since: 2026-11-02
+status: partial
+owes: walk
+since: 2026-11-04
 goal: G7
 spec: 2
 depends: [171]
-note: "Owner, 2026-11-02: plates and Ledger 'should feel like they are in the same family'. Ledger's materials (glass surfaces, background wash, radius, motion, theme toggle) with plates's own colour: blue and white, cobalt on porcelain. Owner approved reusing Ledger's token values and a blocking theme script."
-evidence: []
+note: "Built: npm run look captures every page type in light and dark at phone and laptop widths from fixture data. Owes the owner's review of one design change from its captures."
+evidence: ["evidence/2026-11-04-look-captured.md"]
 ---
 
 # The look is captured for review
@@ -22,7 +23,7 @@ A local script captures each workspace page type in light and dark at phone and 
 
 ## Acceptance
 
-- [ ] The script produces one image per page type, theme and width from fixture data: `tests/web-design.test.mjs: "captures cover every page type"`
+- [x] The script produces one image per page type, theme and width from fixture data: `tests/web-design.test.mjs: "captures cover every page type"`
 - [ ] ⚑ by hand: the owner uses the captures to review one design change.
 
 ## Your part
@@ -50,4 +51,7 @@ By hand: the owner reviews one change from its captures.
 
 ## Next action
 
-Build it after phase 171.
+The owner's review: run `npm run look`, open the printed folder for one pending design change, and choose Useful or Not worth it.
+
+## Trajectory
+- **2026-11-04** — The golden's fixture pages moved into a shared helper the capture also reads, so the two cannot disagree about which pages exist; and the captures showed the Changes page's date filter hiding older changes in a fresh browser. docs/evidence/2026-11-04-look-captured.md.

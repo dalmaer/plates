@@ -12,6 +12,22 @@ of your private projects or proof of production activation. Navigation is being
 unified in phase107; each evidence record names the revision and limits of its
 capture. A phone-sized browser capture does not replace a physical-device walk.
 
+## Capture the look locally
+
+To review a visual change from pictures instead of words, run `npm run look`.
+It renders each workspace page type from the same synthetic Acme fixtures as the
+markup golden (`tests/helpers/web-design-pages.mjs`) and captures it in light and
+dark at phone (390 px) and laptop (1280 px) widths. It uses an installed Chrome or
+Chromium in headless mode; set `PLATES_CHROME` to choose one. It exits 2 when no
+browser is found. The PNGs go to a new temporary folder outside the repository.
+The script prints that folder and each path, and the images never enter git.
+
+Nothing is compared automatically: you, or a reviewer, look at the images.
+Run it before and after a design change and compare the two folders.
+`npm run look -- --plan` lists what would be captured without starting a
+browser. The script reads fixtures only. It never contacts the hosted instance
+or reads a real project.
+
 ## Test and explore a change
 
 A change explains the outcome, links to a preview and offers a guided walk. Its
