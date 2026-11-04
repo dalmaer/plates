@@ -87,11 +87,15 @@
     },
     ".github/workflows/plates-morning.yml": {
       "practice": "night",
-      "sha256": "13206b908b5527120d4fc978977095addf5b1f24ef2cfa89c7fb9f92db53029e"
+      "sha256": "66e51b69aa63e54d849951a29fcf9d73e73ca1b37cb96d07dd36e9122649a275"
     },
     ".github/workflows/plates-night.yml": {
       "practice": "night",
       "sha256": "f2b457d28b6716a60c5f0ea2f54aefb205ae918be14dbdc89beedfa0d9241dfe"
+    },
+    ".github/workflows/plates-publish.yml": {
+      "practice": "delivery",
+      "sha256": "839405ff17252096b6709ddb0956ab07efb558b226983d68f6d5c837661d6e5c"
     },
     ".github/workflows/plates-robot-route.yml": {
       "practice": "climb",
@@ -135,7 +139,7 @@
     },
     "docs/phases/README.md": {
       "practice": "phases",
-      "sha256": "b0472f30c88d4abe66ba94a7b1f4e81b0aa35df80831adc2e2be5762a433f726"
+      "sha256": "79ad68e7b0ef488f9e38855806dd99f8506216a874b8f07d0b428796f7df0eec"
     },
     "docs/plates-lessons.md": {
       "practice": "lessons",
@@ -189,6 +193,10 @@
       "practice": "reconciliation",
       "sha256": "16d09fee3ff52e64665d57582cf3fa90a932a2b2212620ad99c27e203804c206"
     },
+    "scripts/plates/delivery.mjs": {
+      "practice": "delivery",
+      "sha256": "1dae0e51adeb9830f8fd6b906c867a240e83cfc110596e935429922eb7f99c39"
+    },
     "scripts/plates/distill.mjs": {
       "practice": "climb",
       "sha256": "09d39157b3d7f17fd2110ed9ca99cdee8c7b66d363eb8b14f4936a603ba852fe"
@@ -227,7 +235,7 @@
     },
     "scripts/plates/morning.mjs": {
       "practice": "night",
-      "sha256": "ccddc9658179a5ac9f8414689414f6ec9d64821219b085b5901f56b353ed3a8f"
+      "sha256": "54bba5c8f87fa33b42eeeb2aebb8554bbf8a18da1c9f644c04a36eadc7049aa7"
     },
     "scripts/plates/names-environment.d.mts": {
       "practice": "night",
@@ -276,6 +284,14 @@
     "scripts/plates/production.mjs": {
       "practice": "night",
       "sha256": "d903d9555c040775bf0c270c6e47f604f8757a2c1a0afa7add9556c7f22488d1"
+    },
+    "scripts/plates/promote.mjs": {
+      "practice": "delivery",
+      "sha256": "8d06f6f2c3ecf214653627b6ab0b9fcbbaaa6a37e92b493491cf36072c0bb8cc"
+    },
+    "scripts/plates/publish.mjs": {
+      "practice": "delivery",
+      "sha256": "b343acb69dfdb15cc761da82e9e001e3acc61a6b81869064e4949eae33fe3258"
     },
     "scripts/plates/quota.mjs": {
       "practice": "night",
@@ -341,9 +357,17 @@
       "practice": "night",
       "sha256": "a490eaef57bf84cd6331fd4fa8a96f85dcbae5e5b8b5a1e32364d17213b6b21d"
     },
+    "scripts/plates/vercel.mjs": {
+      "practice": "delivery",
+      "sha256": "a03bcd00b5f15bd06d6aaaa8ac504154d0aef1618e448b3945442b09301474a2"
+    },
     "scripts/plates/verification.mjs": {
       "practice": "night",
       "sha256": "6428b9bb959e198f05e89bf2d4c284efa7196b9785e977cdc8ce991e7277f4f7"
+    },
+    "scripts/plates/verify.mjs": {
+      "practice": "delivery",
+      "sha256": "ce04f740798a7df89d9fc1dce10e6a48bbf688d2dc52fea411bf7173a20189e5"
     },
     "scripts/plates/workflows.mjs": {
       "practice": "ci",

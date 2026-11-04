@@ -291,4 +291,6 @@ export async function run(args, { root = process.cwd(), env = process.env, fetch
   return { data, text: vercel ? (await import('./vercel.mjs')).promoteVercelText(r) : promoteText(r), exitCode };
 }
 
-if (isMain(import.meta)) await main(args => run(args));
+// Not awaited: a Vercel target imports vercel.mjs, which imports this module, and a dynamic
+// import of a module that imports one still in its top-level await never settles (exit 13).
+if (isMain(import.meta)) main(args => run(args));
