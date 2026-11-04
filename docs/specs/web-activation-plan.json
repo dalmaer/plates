@@ -640,6 +640,20 @@
       "proof": "The applied version: file name and SHA-256; docs/evidence/2026-11-03-web-not-now-hosted-proof.sql's result (the schema, its grants and the RPC run as the service role); one authenticated Not now answer and its response status, and the item counted as put off on Home."
     },
     {
+      "id": "migration-018",
+      "phase": 166,
+      "kind": "migration",
+      "migration": "018-last-looked.sql",
+      "what": "Apply 018-last-looked.sql (plates_home.last_looked: per owner, an opaque digest and the last Home load of this visit and of the one before, and plates_last_looked_rpc) after the build with phase 166's increment 4, so Since you last looked starts at the owner's previous visit. The build goes first and is safe without it: until 018 is applied Home uses the last seven days and says once in its footer that visits are not stored yet.",
+      "prerequisites": [
+        94,
+        166
+      ],
+      "ownerAttended": true,
+      "rollback": "A failure inside the transaction rolls back by itself. After commit, drop the table plates_home.last_looked and the function public.plates_last_looked_rpc(text,text); Home goes back to the last seven days and says visits are not stored. Leave the plates_home schema: 017's Not now records live in it.",
+      "proof": "The applied version: file name and SHA-256; docs/evidence/2026-11-04-web-last-looked-hosted-proof.sql's result (the table, its grants and the RPC run as the service role); one authenticated Home load, then a second after thirty minutes, and Since you last looked naming the first visit's time."
+    },
+    {
       "id": "answers-from-home",
       "phase": 173,
       "kind": "decision",
