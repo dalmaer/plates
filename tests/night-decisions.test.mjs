@@ -1,7 +1,8 @@
-// Phase 162, increment 1: the overnight decision envelope (lib/night-decisions.mjs).
+// Phase 162: the overnight decision envelope (lib/night-decisions.mjs) and its journal (lib/night-journal.mjs).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, realpath, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, realpath, mkdir, writeFile, rm, readFile, symlink, appendFile } from 'node:fs/promises';
+import { run } from './helpers/run.mjs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import {
@@ -10,6 +11,7 @@ import {
 } from '../lib/night-decisions.mjs';
 import { validatePlan, defaultPlan, PLAN_FIELDS, ITEM_FIELDS } from '../lib/night-plan.mjs';
 import { collectDecisions, loopProblems, OUTCOMES } from '../lib/decision-loop.mjs';
+import { appendEnvelope, readJournal, parseJournal, resumeStep, revisionProblem, keyOf, journalOf, JournalError } from '../lib/night-journal.mjs';
 
 const SRC = 'a'.repeat(40), FIX = 'b'.repeat(40);
 const clone = v => structuredClone(v);
@@ -233,4 +235,118 @@ test('overnight mode cannot manufacture authority or bypass a hook', async () =>
   // The module only validates and reads: it exports no verb that runs, writes or routes.
   const mod = await import('../lib/night-decisions.mjs');
   assert.deepEqual(Object.keys(mod).filter(k => typeof mod[k] === 'function' && !/^[A-Z]/.test(k)).sort(), ['assertEnvelope', 'contextProblems', 'isUnknown', 'readEnvelope', 'unknown', 'validateEnvelope']);
+});
+
+// ---- the journal (increment 2) -------------------------------------------------
+
+const AT = '2026-11-04T08:00:00Z';
+const withPlan = t => acme(t, { '.plates/night/plan.json': `${JSON.stringify(acmePlan(), null, 2)}\n` });
+// The anvil build as the runner saw it: dispatched, then its outcome unknown.
+const dispatched = action => {
+  const e = chosen();
+  e.state = { ...e.state, action, receipts: ['receipt:op-acme-0001-a1'] };
+  if (action !== 'completed') e.change = { ...e.change, effects: [] };
+  return e;
+};
+
+test('the journal appends beside the working plan, reads old shapes and keeps gaps', async t => {
+  const root = await withPlan(t);
+  assert.equal((await readJournal({ root, night: '2026-11-04' })).state, 'absent', 'no journal is absent, not empty coverage');
+  const w = await appendEnvelope({ root, envelope: parked(), at: AT });
+  assert.deepEqual([w.written, w.key], [true, 'decision:acme-anvil-colour'], 'nothing dispatched: keyed by the decision');
+  assert.equal(w.path, join(root, journalOf('2026-11-04')));
+  assert.equal(await readFile(join(root, '.plates/night/.gitignore'), 'utf8'), '*\n', 'the night directory ignores itself: never committed');
+  assert.equal((run('git', ['init', '-q'], { cwd: root })).status, 0);
+  assert.equal((run('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: root })).stdout.includes('decisions'), false);
+
+  // Bound to the plan and to phase 150's current records.
+  await assert.rejects(appendEnvelope({ root, envelope: { ...chosen(), planItem: 'anvil-polish' }, at: AT }), /not an item of the 2026-11-04 plan/);
+  await assert.rejects(appendEnvelope({ root, envelope: { ...chosen(), night: '2026-11-05' }, at: AT }), /no working plan for the night of 2026-11-05/);
+  const settled = chosen(); settled.choice.affects = ['docs/decisions/anvils.md#colour'];
+  await assert.rejects(appendEnvelope({ root, envelope: settled, at: AT, decisions: [{ ref: 'docs/decisions/anvils.md#colour', decision: 'accepted' }] }), /cannot override it/);
+  await assert.rejects(appendEnvelope({ root, envelope: { ...chosen(), approvedBy: 'owner' }, at: AT }), /never carries approval/);
+
+  // An older line (no schema, fields missing) reads with its unknowns; a torn line is a gap, not "no decision".
+  const old = { id: 'acme-old', night: '2026-11-04', planItem: 'anvil-drops', choice: { question: 'Retry?', selected: null }, state: { decision: 'parked', parked: { missing: ['evidence'], dependents: [], next: 'measure first' }, action: 'not-started', receipts: [] } };
+  await appendFile(join(root, journalOf('2026-11-04')), `${JSON.stringify({ journal: 1, key: 'decision:acme-old', at: AT, envelope: old })}\n`);
+  let j = await readJournal({ root, night: '2026-11-04' });
+  assert.deepEqual([j.state, j.decisions.map(d => d.id), j.gaps], ['read', ['acme-anvil-colour', 'acme-old'], []]);
+  assert.ok(j.decisions[1].unknowns.includes('sourceRevision') && isUnknown(j.decisions[1].latest.change.effects));
+  await appendFile(join(root, journalOf('2026-11-04')), '{"journal":1,"key":"op');
+  j = await readJournal({ root, night: '2026-11-04' });
+  assert.deepEqual(j.gaps, [{ at: 'line 3', reason: 'not JSON (a torn or foreign line)' }]);
+  assert.equal(j.decisions.length, 2, 'the readable lines stay read');
+  await assert.rejects(appendEnvelope({ root, envelope: chosen(), at: AT }), /unreadable lines \(line 3\); inspect them/, 'never appends past a gap');
+
+  // Destinations: a committed path inside the checkout is refused; a link is refused.
+  await assert.rejects(appendEnvelope({ root, envelope: chosen(), at: AT, dir: join(root, 'docs/night') }), /lives only in the self-ignoring \.plates\/night\//);
+  const other = await withPlan(t);
+  const elsewhere = await realpath(await mkdtemp(join(tmpdir(), 'acme-private-')));
+  t.after(() => rm(elsewhere, { recursive: true, force: true }));
+  await symlink(elsewhere, join(other, '.plates/night/decisions'));
+  await assert.rejects(appendEnvelope({ root: other, envelope: chosen(), at: AT }), /not a plain directory/);
+  const priv = await appendEnvelope({ root: other, envelope: chosen(), at: AT, dir: join(elsewhere, 'state') });
+  assert.equal(priv.path, join(elsewhere, 'state', '2026-11-04.jsonl'), 'an approved private destination outside the checkout');
+});
+
+test('resume inspects the original uncertain operation without redispatch', async t => {
+  const root = await withPlan(t);
+  const night = '2026-11-04';
+  const running = dispatched('running');
+  assert.equal((await appendEnvelope({ root, envelope: running, at: AT })).written, true);
+  // A retry of the same write is one fact, not two.
+  assert.deepEqual((await appendEnvelope({ root, envelope: dispatched('running'), at: '2026-11-04T08:01:00Z' })).why, 'duplicate');
+  const uncertain = dispatched('uncertain');
+  await appendEnvelope({ root, envelope: uncertain, at: '2026-11-04T08:30:00Z' });
+
+  // The resume reads the journal and is told to inspect the original operation, never to dispatch.
+  let j = await readJournal({ root, night });
+  const latest = j.decisions.find(d => d.id === 'acme-retry-limit');
+  assert.equal(latest.revisions, 2);
+  assert.equal(latest.latest.state.action, 'uncertain', 'uncertain is not completed and not failed');
+  const step = resumeStep(latest.latest);
+  assert.deepEqual([step.step, step.operation, step.attempts, step.receipts], ['inspect', 'op-acme-0001', ['op-acme-0001-a1'], ['receipt:op-acme-0001-a1']]);
+  assert.match(step.why, /never redispatch/);
+
+  // A redispatch is refused: a new attempt, or a new operation id, while the outcome is unknown.
+  const again = dispatched('running'); again.operation = { id: 'op-acme-0001', attempts: ['op-acme-0001-a1', 'op-acme-0001-a2'] };
+  await assert.rejects(appendEnvelope({ root, envelope: again, at: AT }), /is uncertain: inspect its original receipt \(receipt:op-acme-0001-a1\); never dispatch another attempt/);
+  const fresh = dispatched('running'); fresh.operation = { id: 'op-acme-0002', attempts: ['op-acme-0002-a1'] };
+  await assert.rejects(appendEnvelope({ root, envelope: fresh, at: AT }), /operation op-acme-0001 is the original identity; a resume inspects it/);
+  const backToRunning = dispatched('running');
+  await assert.rejects(appendEnvelope({ root, envelope: backToRunning, at: AT }), /an uncertain operation resolves to completed or failed/);
+  // Nor may the choice be rewritten in place, or a receipt dropped.
+  const rewritten = dispatched('completed'); rewritten.choice = { ...rewritten.choice, selected: 'retry once' };
+  await assert.rejects(appendEnvelope({ root, envelope: rewritten, at: AT }), /choice cannot change in place/);
+  const dropped = dispatched('completed'); dropped.state.receipts = ['receipt:other'];
+  await assert.rejects(appendEnvelope({ root, envelope: dropped, at: AT }), /receipts are append-only/);
+  // Another decision cannot claim the same operation.
+  const twin = dispatched('running'); twin.id = 'acme-twin';
+  await assert.rejects(appendEnvelope({ root, envelope: twin, at: AT }), /operation:op-acme-0001 is already the operation of acme-retry-limit/);
+
+  // Inspection resolves it from the original receipt: completed, with its effect; earlier lines stay.
+  await appendEnvelope({ root, envelope: dispatched('completed'), at: '2026-11-04T09:00:00Z' });
+  j = await readJournal({ root, night });
+  const done = j.decisions.find(d => d.id === 'acme-retry-limit');
+  assert.deepEqual([done.revisions, done.history, done.latest.state.action, resumeStep(done.latest).step], [3, [1, 2, 3], 'completed', 'done']);
+  assert.equal(j.entries.length, 3, 'append-only, and a duplicate write adds no line');
+  const twiceLine = `${JSON.stringify({ journal: 1, key: 'operation:op-acme-0001', at: AT, envelope: dispatched('running') })}\n`;
+  assert.equal(parseJournal(twiceLine + twiceLine).decisions[0].revisions, 1, 'a line repeated by a torn retry is one fact');
+  const text = await readFile(join(root, journalOf(night)), 'utf8');
+  assert.deepEqual(parseJournal(text, { night }).decisions.map(d => d.latest.state.action), ['completed']);
+  await assert.rejects(appendEnvelope({ root, envelope: { ...dispatched('completed'), operation: { id: 'op-acme-0001', attempts: ['op-acme-0001-a1', 'op-acme-0001-a2'] } }, at: AT }), /a completed action is final/);
+
+  // A known failure may be retried as exactly one new attempt of the same operation; a parked choice is not resumable.
+  const failed = dispatched('failed');
+  assert.equal(revisionProblem(dispatched('running'), failed), null);
+  const retry = dispatched('running'); retry.operation = { id: 'op-acme-0001', attempts: ['op-acme-0001-a1', 'op-acme-0001-a2'] };
+  assert.equal(revisionProblem(failed, retry), null);
+  const twice = dispatched('running'); twice.operation = { id: 'op-acme-0001', attempts: ['op-acme-0001-a1', 'op-acme-0001-a2', 'op-acme-0001-a3'] };
+  assert.match(revisionProblem(failed, twice), /exactly one new attempt/);
+  assert.equal(resumeStep(failed).step, 'retry-allowed');
+  assert.equal(resumeStep(parked()).step, 'parked');
+  assert.equal(keyOf(parked()), 'decision:acme-anvil-colour');
+  // Concurrency: a held lock is reported, never broken.
+  await writeFile(join(root, `${journalOf(night)}.lock`), '');
+  await assert.rejects(appendEnvelope({ root, envelope: parked(), at: AT }), JournalError);
 });
