@@ -162,10 +162,18 @@ permitted to make is unavailable with the reason:
 
 - Pull requests read (`pullRequestsRead`);
 - Checks read (`checksRead`);
-- activity, which is read with the Contents read the App already has.
+- Contents read, which the App already has, for activity and every other
+  read. GitHub's "Permissions required for GitHub Apps" (read 2026-11-04)
+  lists `GET /repos/{o}/{r}/activity`, `git/matching-refs` and `compare`
+  under Contents (read).
 
-Saving quota stops the waits' reads, and the plate is shown without them.
-Signing out still fails the plate.
+The hosted `get` takes `forbidden: true` for the waits' reads. A 403 that
+has quota left, no Retry-After and no rate-limit message is a permission
+refusal: it throws `not_permitted` and becomes that read's gap, "the App
+cannot read <what>: <permission> needed". There is no budget change, no
+deferral, and the other sources are still read. Every other 403 is a limit,
+as for every other caller. Saving quota stops the waits' reads, and the
+plate is shown without them. Signing out still fails the plate.
 
 **What the builder records.**
 

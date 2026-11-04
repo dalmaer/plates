@@ -138,3 +138,44 @@ test('home: a stale lock and a red main are Fixes in Needs you; the rest stays o
   assert.equal(unread.home.sections.find(s => s.id === 'needs-you').known, true);
   assert.equal(unread.home.sections.find(s => s.id === 'plates').items[0].waits.line, 'gh is offline');
 });
+
+// The hosted reader (lib/web/projects.mjs get): a 403 that refuses a permission is not a rate limit. The waits'
+// read turns it into a named gap with the permission needed; budget, deferral and every other source are untouched.
+test('hosted: a permission 403 on a waits read is a named gap; a rate-limit 403 still saves quota', async () => {
+  const { createProjectReader, waitsPermission } = await import('../lib/web/projects.mjs');
+  const { projectHarness } = await import('./helpers/web-projects.mjs');
+  const run = async (refusal) => {
+    const h = projectHarness();
+    h.source.files['.plates/plates.json'] = JSON.stringify({ name: 'Acme Studio', practice: '0.8.32', stack: ['node'], phases: { shape: 'files' }, practices: ['phases', 'delivery'], delivery: { promote: 'vercel:studio' } });
+    const answers = waitsFixture('acme/studio', Date.now());
+    const headers = extra => ({ 'content-type': 'application/json', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600), ...extra });
+    const fetcher = async (url, options) => {
+      const u = new URL(url), key = `${u.pathname}${u.search}`;
+      if (key === '/repos/acme/studio/activity?per_page=100') return new Response(JSON.stringify({ message: refusal.message }), { status: 403, headers: headers(refusal.headers) });
+      if (Object.hasOwn(answers, key)) return Response.json(answers[key], { headers: headers({ 'x-ratelimit-remaining': '4000' }) });
+      return h.fetcher(url, options);
+    };
+    const deferred = [], budget = { requests: 0 };
+    const store = { reserve: async () => ({ allowed: true }), observe: async () => {}, defer: async (_, until) => { deferred.push(until); } };
+    const read = createProjectReader({ fetcher, store, userId: 1, token: 't', budget });
+    const value = await read({ id: 'studio', repoId: 102, repo: 'acme/studio' }, null, { waits: { pulls: true, checks: true } });
+    return { value, deferred, budget };
+  };
+  const denied = await run({ message: 'Resource not accessible by integration', headers: { 'x-ratelimit-remaining': '4000' } });
+  assert.equal(denied.value.waits.state, 'read', 'the waits are still read');
+  assert.ok(denied.value.waits.gaps.items.some(g => g.why === 'repository activity could not be read: the App cannot read repository activity: Contents read needed'), JSON.stringify(denied.value.waits.gaps.items));
+  assert.deepEqual(denied.deferred, [], 'no deferral');
+  assert.equal(denied.budget.blockedUntil, undefined, 'no pause');
+  assert.equal(denied.value.waits.coverage.prs.state, 'read', 'every other source still read');
+  assert.ok(denied.value.waits.items.some(i => i.branch === 'claude/phase-7' && i.state === 'integration'));
+  assert.equal(waitsPermission('/repos/a/b/commits/x/check-runs?per_page=50'), 'check runs: Checks read needed');
+  // A real limit: no quota left, or Retry-After, or a secondary limit's message, pauses as before.
+  for (const refusal of [{ message: 'API rate limit exceeded', headers: { 'x-ratelimit-remaining': '0' } }, { message: 'Slow down', headers: { 'x-ratelimit-remaining': '4000', 'retry-after': '60' } },
+    { message: 'You have exceeded a secondary rate limit', headers: { 'x-ratelimit-remaining': '4000' } }]) {
+    const limited = await run(refusal);
+    assert.equal(limited.value.waits.state, 'unavailable', refusal.message);
+    assert.equal(limited.value.waits.reason, 'Saving GitHub quota; waits are not read.');
+    assert.equal(limited.deferred.length, 1, `${refusal.message}: deferred as before`);
+    assert.ok(limited.budget.blockedUntil > Date.now(), `${refusal.message}: paused`);
+  }
+});

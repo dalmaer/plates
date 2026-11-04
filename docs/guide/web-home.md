@@ -126,9 +126,20 @@ Everything else waits on agents or on time, and stays on the plate's page.
 Your plates counts it as "in flight".
 
 Both forms run the same bounded GitHub GETs: `gh api` in the terminal, the
-App on the web. A read the App is not permitted to make is a named gap, never
-an empty list. Missing Checks or Pull requests read is one example, and
-quota saving is another. When waits cannot be read, Needs you's count says
+App on the web. GitHub's "Permissions required for GitHub Apps" (read
+2026-11-04) gives each read's App permission:
+
+- **Contents (read):** refs, commits, compares, the verify branch's tree and
+  blobs, and repository activity (`GET /repos/{o}/{r}/activity`).
+- **Checks (read):** check runs.
+- **Pull requests (read):** open PRs.
+
+A read the App is not permitted to make is a named gap, for example "the App
+cannot read check runs: Checks read needed", never an empty list. GitHub
+refuses such a read with a 403 that is not a rate limit: quota is left, there
+is no Retry-After, and the message does not mention a rate limit. That 403
+pauses nothing else. A 403 with no quota left, with Retry-After, or with a
+rate-limit message still saves quota, and then the waits are not read. When waits cannot be read, Needs you's count says
 "known". Plates without the delivery practice show no waits. The thresholds
 are advisory, and nothing is deleted, released or integrated for you. See
 [the measurement contract](../specs/integration-delays.md).
