@@ -267,3 +267,30 @@ test('what an answer sets moving is on its card, and the end totals it', async (
   const text = reviewEndText({ settled: [{ key: claim.key, title: 'Stale claim', label: 'Release', sets: claim.sets }, { key: gated.key, title: 'Publish', label: 'Verified', sets: gated.sets }], putOff: [], again: [], shown: 2 });
   assert.match(text, /^Set moving\n  1 phase can start · 1 claim freed: claims\/phase-7 freed · phase 9 \(Share to the team\)$/m);
 });
+
+test('the arrows flip through the cards, and a card flipped past comes round again', async () => {
+  const items = docketItems(reviewSnapshot()), c = clock(), keys = items.map(e => e.key);
+  const session = createReviewSession({ items, send: async () => ({ state: 'put-off', until: '2026-11-10' }), timers: c.timers });
+  const at = () => session.current()?.entry.key;
+  // → flips forward without answering, and stops at the last card.
+  assert.equal(session.forward(), true); assert.equal(at(), keys[1]);
+  assert.equal(session.forward(), true); assert.equal(session.forward(), true); assert.equal(at(), keys[3]);
+  assert.equal(session.forward(), false, 'nothing past the last card'); assert.equal(at(), keys[3]);
+  // ← flips back over unanswered cards.
+  assert.equal(session.back(), true); assert.equal(at(), keys[2]);
+  // Answering moves on to the next card not yet answered, never one already answered.
+  session.choose('not-now'); assert.equal(at(), keys[3]);
+  session.back(); assert.equal(at(), keys[2], '← on a held answer undoes it and shows its card');
+  session.choose('not-now'); session.choose('not-now');
+  // At the end, the cards flipped past come round, in order.
+  assert.equal(at(), keys[0], 'the first card flipped past comes back');
+  assert.equal(session.forward(), true); assert.equal(at(), keys[1]);
+  session.choose('not-now'); assert.equal(at(), keys[0]);
+  // Ending here leaves it skipped: listed at the end as still on Home, not counted as settled.
+  session.close(); await c.tick(); await settledOf(session);
+  assert.equal(session.done(), true);
+  assert.deepEqual(session.skipped.map(s => s.key), [keys[0]]);
+  const html = renderReviewEnd({ settled: session.settled, putOff: session.putOff, again: session.again, skipped: session.skipped, home: '/' });
+  assert.match(html, /0 settled · 3 put off · 1 skipped/);
+  assert.match(html, /<h2>Skipped<\/h2><ul><li>[^<]+: still waiting on Home<\/li><\/ul>/);
+});
