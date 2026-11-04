@@ -76,9 +76,10 @@ By hand: the owner's look on the phone.
 
 ## Next action
 
-Increment 2: the hosted home renders the four sections from the model, and the old sections are removed.
+Increment 3: the ask box, with both write paths behind their existing previews and approvals.
 
 ## Trajectory
 
 - **2026-11-04** — A plate that could not be read is "not read", a fourth status beside broken, N for you and all clear: calling it either of the others would be false. tests/home-isomorphism.test.mjs "the four home sections are one model".
 - **2026-11-04** — On the owner's fleet, Needs you holds 35 items and no fix: every item is a decision or a walk, so the ranking's first tier is empty today. docs/evidence/2026-11-04-home-four-sections.md.
+- **2026-11-04** — On the web, an item's answers open the review session rather than becoming buttons on Home, so there is one answer flow; and the Start panel counts what Needs you counts, since a row with no answers made the two disagree. tests/web-home.test.mjs.
