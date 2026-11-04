@@ -18,14 +18,15 @@
 
 | Did | Expected | Observed | Proves / does not prove |
 | --- | --- | --- | --- |
-| Plates adopts delivery with `vercel:plates`; one real deploy | passes revision, smoke, errors; one deploy record | Not run (increment 4) | The real CLI's JSON shapes |
-| A deliberate failure on a throwaway commit | rolls back to the recorded deployment, which serves | Not run (increment 4) | The real rollback |
+| Plates adopts delivery with `vercel:plates` (7f18410, landed bb01577); `plates promote --yes` on green 80d8920, 2026-11-04 07:10Z | passes revision, smoke, errors; one deploy record | exit 0: dpl_AcY4Kc84QqYWCUE7snMMQH6gcSkg; revision exactly 80d8920, 3 smoke checks, no error in 120s (11 log reads); recorded on plates-verify 0c9b354; `/api/version` reports 80d8920 and `/`, `/api/deployment`, `/review` answer 401 | The real CLI's deploy, promote and logs shapes; a log read with no errors, not one with an error |
+| A deliberate failure: 80d8920 with the `/` smoke check set to expect 418 in an uncommitted local config, so no broken code shipped | rolls back to the recorded deployment, which serves | exit 1: revision ok, smoke failed (expected 418, got 401) on dpl_AzVo2JGZY5YwP7yBNpCy4r9pohXA; rolled back to dpl_DpX63tP2SqwNSSW6f8qNXQHodUUZ (4bab17b); `inspect` named it at once, and `/api/version` reported 4bab17b within seconds; recorded on plates-verify 3bc94c4 | The real rollback |
+| Before both: the first real `--yes` on bb01577 | — | exit 1: Vercel refused `--meta plates-commit` before building; production stayed on dpl_DpX…, recorded on plates-verify 3b8ff10 | A refused build moves nothing |
 | The owner adds the grant and its rule to Claude Code settings | an agent's `plates promote --yes` runs without a typed approval; `vercel deploy` is still refused | Not run | The ⚑ grant |
 
 ## Gaps and decision
 
-- Partial, owes increment 4 and the owner's walk.
-- `inspect --json` and `logs --json` field names are parsed defensively, not yet checked against real output.
+- Partial, owes the owner's grant and walk; increment 4 is walked.
+- `inspect --json` checked against real output (no ready time; the watch starts when the deploy returns). `logs --json` was read with no error entries, so the shape of a real error entry is still unseen.
 - No CLI verb prints the grant's settings preview yet; it is `renderHostControls(...).promote`.
 - An agent could write `delivery.grant` into `.plates/plates.json`; it opens nothing until the owner adds the rule to their Claude Code settings, which agents cannot edit.
 - Found beside the phase: `.plates/lock.json` holds a stale hash for `scripts/plates/morning.mjs`, so `npm run render` refuses it; `lib/web/capability-source-data.mjs` digests are updated by hand for each reviewed file.
