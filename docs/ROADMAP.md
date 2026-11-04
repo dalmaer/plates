@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**68 of 169 phases built; 72 owe a walk.** Built means implemented and checked; planned is not available.
+**68 of 170 phases built; 72 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -309,7 +309,7 @@ Plates can show, with numbers across the fleet, whether projects it manages ship
 
 Each change is verified in parallel and published one at a time; production moves only to a tested commit and is checked by the commit it serves; no change runs the expensive path twice.
 
-0/7 built; 2 owe a walk.
+0/8 built; 2 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -320,6 +320,7 @@ Each change is verified in parallel and published one at a time; production move
 | [83. Agent sessions hand a change off as ready, and one integrator runs the expensive path](phases/83-agent-sessions-hand-a-change-off-as-ready-and.md) | partial, walk owed | 2026-10-17 | [80](phases/80-changes-are-verified-in-parallel-and-published.md), [70](phases/70-a-phase-being-built-is-claimed-and-plates-next.md) | Partial 2026-10-17: plates ready hands a change off with its fast checks only; plates integrate, under the claims/integrate lock, gates every ready change once and pushes once, accumulating by halves on a failure so an interaction is found. The owner's two-sessions walk waits. · [#166](https://github.com/dalmaer/plates/issues/166) |
 | [159. Current candidates land through a bounded integration lane](phases/159-current-candidates-land-through-a-bounded-lane.md) | planned | 2026-11-02 | [158](phases/158-integration-delays-are-visible.md), [83](phases/83-agent-sessions-hand-a-change-off-as-ready-and.md), [111](phases/111-focused-feedback-starts-with-capability-and-resource-checks.md) | Planned from the philosophy; implementation and operational proof are not claimed. |
 | [160. One real rollout proves exposure and recovery](phases/160-one-real-rollout-proves-exposure-and-recovery.md) | planned | 2026-11-02 | [159](phases/159-current-candidates-land-through-a-bounded-lane.md) | Planned from the philosophy; implementation and operational proof are not claimed. |
+| [177. A deploy checks itself and rolls itself back](phases/177-a-deploy-checks-itself-and-rolls-itself-back.md) | planned | 2026-11-03 | [82](phases/82-promotion-is-a-guarded-gesture.md) | The owner wants every landing deployed, an error rolled back without them, and 'roll back' to be one word. Today each deploy waits for a typed 'deploy plates' and nothing watches it afterwards. |
 
 - **79 done when:** Each commit's gate runs once in CI and its result and test-ledger runs are kept; every plates pass (night, loop, climb, tend, robot judges) and the pre-push hook reuse an exact, clean result for the commit they would test and run the gate only when there is none; and a change that touches only documentation skips the suite.
 - **80 done when:** Many commits test at once, but one queued publisher advances a tested ref (`green` by default) only for the newest commit whose gate passed, skips any commit a later one has already passed, and refuses a ref that has diverged; deploys follow the tested ref, never `main`; and every installed workflow cancels superseded test runs and never cancels a deploy, which a workflow test checks.
@@ -328,6 +329,7 @@ Each change is verified in parallel and published one at a time; production move
 - **83 done when:** A session that finishes a change runs only its fast checks and marks it ready instead of running the full gate and pushing; one integrator, holding a claim-based lock, takes every ready change as a batch, runs the full gate once on the combined tree and pushes it; and a failing batch is split until the change that broke it is found and sent back, while the rest land.
 - **159 done when:** Ready increments reach the existing integration lane within a measured service budget or receive a durable blocked reason and next action, and only a validated current combined candidate can land.
 - **160 done when:** One real component has separately evidenced merge, installation/deployment, enablement and verification facts, with a bounded ramp and demonstrated recovery.
+- **177 done when:** `plates promote --yes` on a project whose `"delivery".promote` is a Vercel project records the deployment serving production, deploys the tested commit, checks the new one (revision, smoke paths, a short error watch), and rolls back to the recorded deployment on any failure without being asked. `plates promote --back` returns to the last good deployment in one command. An owner grant for one named target lets an agent run exactly that command after each landing without a fresh typed approval, and nothing else in production.
 
 ## G7 — Operate every Plates project from a private web workspace
 
