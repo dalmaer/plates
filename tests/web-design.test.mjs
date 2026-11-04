@@ -7,18 +7,15 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
-import { homeView, projectView, signinView } from '../lib/web/views.mjs';
-import { decisionView } from '../lib/web/decision-views.mjs';
+import { homeView } from '../lib/web/views.mjs';
 import { recoveryView } from '../lib/web/recovery-view.mjs';
 import { tokens as designTokens } from '../lib/web/design.mjs';
 // Phase 171 reads design.controls through the namespace, so this file still
 // loads (and fails by assertion) where the export does not exist yet.
 import * as designLayer from '../lib/web/design.mjs';
-import { changeIndexView } from '../lib/web/change-views.mjs';
-import { changesHarness, token } from './helpers/web-changes.mjs';
-import { reviewView } from '../lib/web/review-views.mjs';
-import { reviewSnapshot } from './helpers/review-fixture.mjs';
-import { itemKey, docketOf, homeSnapshot } from '../lib/work-items.mjs';
+// The page set and its Acme inputs, shared with the look capture (phase 172).
+import { access, snapshot, pages } from './helpers/web-design-pages.mjs';
+import { run } from './helpers/run.mjs';
 // Only modules that exist before the design layer are imported statically, so
 // each test loads at the phase's base and fails there by assertion.
 import * as assets from '../lib/web/assets.mjs';
@@ -36,36 +33,6 @@ import * as navigationClient from '../lib/web/navigation-client.mjs';
 // to the page footer; phase 166: home and a plate's page are the four
 // sections, and the Start panel says "N need you", Needs you's count).
 const GOLDEN = new URL('./fixtures/web-design/markup.json', import.meta.url);
-const access = { workspace: { id: 'acme', name: 'Acme workspace' }, userId: 1, projects: [{ id: 'studio', repo: 'acme/studio', name: 'Acme Studio' }], sourceRevision: 'a'.repeat(40), csrf: 'fake-csrf-acme' };
-const project = { id: 'studio', repo: 'acme/studio', name: 'Acme Studio' };
-const action = (id, kind) => ({ id, projectId: 'studio', projectName: 'Acme Studio', kind, title: `Acme ${kind} ${id}`, why: 'Source asks for an owner observation.', next: 'Read the current source.', link: 'https://github.com/acme/studio/blob/main/docs/phases/1.md', phase: '1', ready: true, details: { ask: 'Does publishing work?', why: 'A human uses the real surface.', look: 'Open the preview.', then: 'Record what happened.', takes: 'About five minutes', choices: ['Verified', 'Needs changes', 'Cannot check yet'] } });
-function snapshot() {
-  const decision = action('decision-one', 'decision'), walk = action('walk-one', 'walk'), waiting = action('wait-one', 'waiting');
-  // Phase 174: Needs you carries its keys and the docket, so Home's Start panel counts them.
-  for (const item of [decision, walk]) item.key = itemKey(item);
-  const change = { id: 'change-one', projectId: 'studio', projectName: 'Acme Studio', title: 'Publish from a phone', date: '2026-10-21', revision: 'b'.repeat(40), link: 'https://github.com/acme/studio/commit/abc', kind: 'commit', media: null, previewUrl: null, acceptance: 'not established' };
-  const value = { schema: 1, cursor: 'a'.repeat(64), cursorState: 'initial', generatedAt: '2026-10-21T16:00:00.000Z', coverage: { state: 'complete', gaps: [] },
-    projects: [{ id: 'studio', repoId: 100, repo: 'acme/studio', name: 'Acme Studio', tagline: 'Publishing, made reliable.', stack: ['node', 'web'], version: '0.8.32', revision: 'b'.repeat(40), readAt: '2026-10-21T15:59:00.000Z', state: 'complete', gaps: [], planning: { source: 'files', built: 8, total: 12, livedIn: 3, headline: 'Make publishing reliable on every screen', goals: [], next: 'Review publishing on a phone' }, decisions: [decision], walks: [walk], waiting: [waiting], changes: [change] }],
-    decisions: [decision], walks: [walk], waiting: [waiting], changes: [change], docket: docketOf({ decisions: [decision], walks: [walk] }), quota: { remaining: 150, resetAt: '2026-10-21T17:00:00.000Z', state: 'known' } };
-  // Phase 166: home's four sections, as the server's model builds them from this plate.
-  value.home = homeSnapshot([{ ...value.projects[0], decisions: [decision], walks: [walk], waiting: [waiting], changes: [change], reviews: [] }], { can: { form: 'web' }, today: '2026-10-21' }).home;
-  return value;
-}
-const decision = () => ({ schema: 1, project, source: { path: 'docs/reviews/2026-10-21.md', head: 'c'.repeat(40), blob: 'd'.repeat(40), branch: 'main', visibility: 'public', link: 'https://github.com/acme/studio/blob/main/docs/reviews/2026-10-21.md' }, target: { kind: 'shaping', path: 'docs/shaping/next.json', question: 'scope' },
-  question: { title: 'Which Acme scope should we build?', body: 'The owner chooses.', choices: [], recommendation: { text: 'Build the broader scope.', evidence: ['docs/evidence/acme.md'], alternatives: ['Keep this release small.'] } } });
-async function pages() {
-  const h = changesHarness(), model = await h.changes.detail(h.access, token, h.project, 'acme-search');
-  return {
-    home: homeView(access, snapshot()),
-    project: projectView(project, access, snapshot()),
-    signin: signinView('fake-csrf-acme', '/projects/studio'),
-    decision: decisionView(decision(), access),
-    changes: changeIndexView({ ...model, items: [model.change] }, access),
-    // Phase 174: the review session's first card, and its end when nothing waits.
-    review: reviewView(access, reviewSnapshot(), null),
-    reviewEmpty: reviewView(access, { ...reviewSnapshot(), docket: [] }, project),
-  };
-}
 
 test('the design layer changes no page markup', async () => {
   const rendered = await pages();
@@ -506,4 +473,28 @@ test('recovery stands alone', () => {
     const color = name => parseColor(resolver(theme)(name));
     assert.ok(contrast(color('ink'), color('paper')) >= 4.5 && contrast(color('on-action'), color('action')) >= 4.5, 'recovery text reads in both themes');
   }
+});
+
+// ---- the look is captured for review (phase 172) -----------------------------
+// scripts/look.mjs captures every page type in the markup golden, in light and
+// dark, at phone and laptop widths. The plan is tested, not Chrome: no browser
+// starts here, and an absent browser is a clear exit 2.
+test('captures cover every page type', async () => {
+  const look = await import('../scripts/look.mjs').catch(() => null);
+  assert.ok(look, 'scripts/look.mjs exists');
+  const golden = Object.keys(JSON.parse(readFileSync(GOLDEN, 'utf8')));
+  const script = new URL('../scripts/look.mjs', import.meta.url).pathname;
+  const planned = run(process.execPath, [script, '--plan', '--json'], { env: { ...process.env, PLATES_CHROME: '/nonexistent/acme-chrome' } });
+  assert.equal(planned.status, 0, planned.stderr);
+  const { plan } = JSON.parse(planned.stdout);
+  assert.deepEqual(plan, look.capturePlan(golden), 'the script plans from the golden page set');
+  const want = golden.flatMap(page => ['light', 'dark'].flatMap(theme => [390, 1280].map(width => `${page}|${theme}|${width}`)));
+  assert.deepEqual(plan.map(shot => `${shot.page}|${shot.theme}|${shot.width}`).sort(), want.sort(), 'one image per page type, theme and width');
+  assert.equal(new Set(plan.map(shot => shot.file)).size, plan.length, 'each image has its own file');
+  for (const shot of plan) assert.match(shot.file, /^[A-Za-z]+-(?:light|dark)-(?:phone|laptop)\.png$/);
+  const missing = run(process.execPath, [script], { env: { ...process.env, PLATES_CHROME: '/nonexistent/acme-chrome' } });
+  assert.equal(missing.status, 2, 'no browser is exit 2, not a crash');
+  assert.match(missing.stderr, /PLATES_CHROME is \/nonexistent\/acme-chrome, which does not exist/);
+  assert.equal(missing.stdout, '', 'nothing was captured');
+  assert.equal(JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).scripts.look, 'node scripts/look.mjs');
 });
