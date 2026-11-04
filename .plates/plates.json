@@ -135,6 +135,10 @@
       "scope": "dion-almaers-projects",
       "checkout": "/Users/dionalmaer/.plates/deploy/plates",
       "globalConfig": "/Users/dionalmaer/Library/Application Support/com.vercel.cli"
+    },
+    "grant": {
+      "agentPromote": true,
+      "since": "2026-11-04"
     }
   }
 }
