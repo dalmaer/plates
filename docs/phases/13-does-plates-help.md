@@ -1,11 +1,11 @@
 ---
-status: partial
+status: built
 after: 2026-11-01
-since: 2026-10-02
+since: 2026-11-04
 goal: G5
 depends: [12]
-note: "Measures and comparison pre-registered and committed before any adoption (45a52ee). The results page is due no earlier than 2026-11-01 and needs two adopted projects."
-evidence: ["evidence/2026-10-02-does-plates-help.md"]
+note: "The results page (docs/research/2026-11-04-does-plates-help-results.md) computes the six pre-registered measures and finds no effect it can attribute to plates: the control, isocan, was adopted two days into the after window."
+evidence: ["evidence/2026-10-02-does-plates-help.md", "evidence/2026-11-04-does-plates-help-results.md"]
 issue: 31
 ---
 
@@ -25,7 +25,7 @@ each with machine-checkable outcomes, run with and without plates's skills
 ## Acceptance
 
 - [x] Measures and comparison written down, dated, before the data is read.
-- [ ] The page reports a null or negative result as plainly as a positive one.
+- [x] The page reports a null or negative result as plainly as a positive one: docs/research/2026-11-04-does-plates-help-results.md, its opening paragraph.
 
 ## Proof
 
@@ -38,8 +38,11 @@ The research page, its numbers reproducible from the commands it names.
 
 ## Next action
 
-On or after 2026-11-01, with two projects adopted, compute the six measures exactly as `docs/research/2026-10-02-does-plates-help-measures.md` names them, and write the results page.
+None. The golden tasks (Deliberately open) wait for the owner's yes on their token cost.
 
 ## Trajectory
 
 - **2026-10-02** — Pre-registered before any project was adopted, so the commit date is the proof. Only ledger has enough history for a before and after; duo and cajones are after-only, and isocan is the unadopted reference.
+- **2026-11-04** — The control broke: isocan, the unadopted reference, was adopted on 2026-10-05, two days into ledger's after window, so no change in ledger can be told apart from what moved everywhere. The page says so instead of claiming an effect. docs/research/2026-11-04-does-plates-help-results.md.
+- **2026-11-04** — Conduct cost was not 0: plates's own builders ran the whole check 168 times, 107 of them in the week of 2026-10-09, when 10 of 19 briefs named `npm run check`. The rule held in the docs and not in the briefs.
+- **2026-11-04** — ledger's phases carry no `evidence:` front matter, so measure 3's evidence-backed share cannot move there; the measure fits plates's own phases, not every adopter's.
