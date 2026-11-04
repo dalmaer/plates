@@ -9,7 +9,9 @@ Dated 2026-11-04. Phase 158. This contract has two parts:
   `lib/integration-observations.mjs`, and the result in the home model (see
   [Reads and the home model](#reads-and-the-home-model)).
 
-Increment 3 records a dated baseline before anyone proposes a queue budget.
+Increment 3 recorded a dated baseline before any queue budget was proposed:
+[2026-11-04 on plates](../research/2026-11-04-integration-delays-baseline.md),
+from `scripts/integration-baseline.mjs`.
 
 The reader answers one question for each change: is it being worked on, or
 is it waiting? If it is waiting, it names what the change waits on (its branch,
