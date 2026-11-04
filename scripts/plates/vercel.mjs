@@ -117,7 +117,7 @@ export function vercelClient({ bin = 'vercel', scope, globalConfig = null, proje
     },
     /** A production deployment of the checkout, its domains not yet assigned (promote does that), carrying the commit. */
     deploy({ cwd, commit }) {
-      const d = deploymentOf(jsonOf(call(['deploy', '--prod', '--skip-domain', '--yes', '--json', '--env', `${REVISION_ENV}=${commit}`, '--meta', `plates-commit=${commit}`, ...(project ? ['--project', project] : [])], `the deploy of ${short(commit)} failed, and production did not move`, { cwd })));
+      const d = deploymentOf(jsonOf(call(['deploy', '--prod', '--skip-domain', '--yes', '--json', '--env', `${REVISION_ENV}=${commit}`, ...(project ? ['--project', project] : [])], `the deploy of ${short(commit)} failed, and production did not move`, { cwd })));
       if (!d) throw new PromoteError(`the deploy of ${short(commit)} named no deployment id, and production did not move`, 1);
       if (d.state && d.state !== 'READY') throw new PromoteError(`the deploy of ${short(commit)} is ${d.state}, not READY, and production did not move`, 1);
       return d;

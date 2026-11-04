@@ -171,7 +171,8 @@ test('a deploy runs from a clean checkout of exactly the commit, carries the com
   assert.equal(a.vercel.state.prod, 'dpl_2');
   // The deploy: production, domains held until promote, the commit as the deployment's runtime env, from the checkout.
   const deploy = a.vercel.state.calls.find(c => c.args[0] === 'deploy');
-  assert.deepEqual(deploy.args.slice(0, 11), ['deploy', '--prod', '--skip-domain', '--yes', '--json', '--env', `PLATES_DEPLOY_REVISION=${a.B}`, '--meta', `plates-commit=${a.B}`, '--project', 'anvils']);
+  // No --meta: Vercel refuses a meta key it does not know ("should NOT have additional property"), and the commit is in the env.
+  assert.deepEqual(deploy.args.slice(0, 9), ['deploy', '--prod', '--skip-domain', '--yes', '--json', '--env', `PLATES_DEPLOY_REVISION=${a.B}`, '--project', 'anvils']);
   assert.ok(deploy.args.includes('--scope') && deploy.args.includes('acme'));
   assert.equal(deploy.cwd, a.checkout);
   assert.deepEqual((await readdir(a.checkout)).sort(), ['.plates', '.vercel', 'anvil.mjs', 'bellows.mjs', 'lib'], 'exactly B\'s tree, and plates\'s marker in .vercel');
