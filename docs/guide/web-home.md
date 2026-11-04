@@ -4,8 +4,8 @@ Home brings the current project plan into the signed-in workspace, in four
 sections (phase 166): **Needs you**, one ranked list where each row has one
 verb (Fix, then Decide, then Try it, oldest first) and names its answers, with
 Answer opening the review session; **Since you last looked**, what happened, by
-plate; **What should happen next?**, what is queued, with each source the
-hosted home cannot read yet as one quiet line naming its command; and **Your
+plate; **What should happen next?**, the ask box and what is queued, with each
+source the hosted home cannot read yet as one quiet line naming its command; and **Your
 plates**, one status each, with source problems in one line beneath. The
 caveats are one footer line. Open a plate for the same sections through its
 lens, plus what waits on time or agents. Search and the Fix / Decide / Try it
@@ -16,6 +16,26 @@ an item. A phase marked built is a source claim, not proof that this deployment
 or a person’s acceptance has been verified. Decision submission, guided walk
 observations, screenshot galleries, routine execution and fleet updates arrive
 in their own phases. No model call is needed to rank Home.
+
+## Ask for something
+
+In **What should happen next?**, pick a plate, write the ask (one line, up to
+200 characters) and choose where it goes:
+
+- **Tonight's plan** (the default) adds one triage item in lane `night`, the
+  item `plates goodnight add --title "<ask>" --kind triage` adds. Preview shows
+  the exact plan file, its branch and digest; nothing is published until you
+  tick approval and press Publish, which goes through the night-plan
+  publication's own apply (it refuses a preview whose source changed, and a
+  public repository needs its digest acknowledged). Publishing needs the
+  workspace's night-plan writes enabled and Contents write; without them the
+  preview gives the command instead.
+- **An agent issue now** has no hosted writer (the App has no Issues write).
+  The preview gives `plates issue new --agent --title "<ask>" --rubric
+  <rubric.md>` with your ask filled in, to run in the plate's checkout, where
+  it previews and needs `--yes`.
+
+`plates home` lists the same two destinations as their commands.
 
 ## Configure Home
 

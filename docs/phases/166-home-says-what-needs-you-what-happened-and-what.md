@@ -47,7 +47,7 @@ The hosted home and `plates home` show the same four sections, in this order, wi
 - [x] `plates home --json` and `/api/home` return the same four sections, items and counts for the same fixture sources: `tests/home-isomorphism.test.mjs: "the four home sections are one model"`
 - [x] "Needs you" ranks fix, decide and try items, and holds no item waiting on time or agents: `tests/work-items.test.mjs: "needs you holds only the owner's turn"`
 - [ ] "Since you last looked" lists only what happened after the stored visit: `tests/web-home.test.mjs: "since you last looked starts at the last visit"`
-- [ ] The ask box previews both paths and writes nothing without the reviewed digest: `tests/web-home.test.mjs: "an ask is queued only after its preview is approved"`
+- [x] The ask box previews both paths and writes nothing without the reviewed digest: `tests/web-home.test.mjs: "an ask is queued only after its preview is approved"`
 - [ ] ⚑ by hand: the owner opens home on the phone and says whether it is clear what to do next.
 
 ## Your part
@@ -76,10 +76,11 @@ By hand: the owner's look on the phone.
 
 ## Next action
 
-Increment 3: the ask box, with both write paths behind their existing previews and approvals.
+Increment 4: "last looked", a per-user visit time the hosted service stores, with its store migration applied on the hosted instance (the owner's ⚑); then the owner's look on the phone.
 
 ## Trajectory
 
 - **2026-11-04** — A plate that could not be read is "not read", a fourth status beside broken, N for you and all clear: calling it either of the others would be false. tests/home-isomorphism.test.mjs "the four home sections are one model".
 - **2026-11-04** — On the owner's fleet, Needs you holds 35 items and no fix: every item is a decision or a walk, so the ranking's first tier is empty today. docs/evidence/2026-11-04-home-four-sections.md.
 - **2026-11-04** — On the web, an item's answers open the review session rather than becoming buttons on Home, so there is one answer flow; and the Start panel counts what Needs you counts, since a row with no answers made the two disagree. tests/web-home.test.mjs.
+- **2026-11-04** — An agent issue has no hosted writer (the App has no Issues write), so the ask box gives its filled-in CLI command on the web, and an ask to tonight's plan is a triage item, because the hosted night-plan writer refuses other new kinds. tests/web-home.test.mjs "an ask is queued only after its preview is approved".
