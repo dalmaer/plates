@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**68 of 170 phases built; 75 owe a walk.** Built means implemented and checked; planned is not available.
+**69 of 170 phases built; 75 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -269,7 +269,7 @@ Without anyone remembering, each project is measured nightly, dependencies move 
 
 Plates can show, with numbers across the fleet, whether projects it manages ship more and break less, and what conducting costs.
 
-7/15 built; 3 owe a walk.
+8/15 built; 3 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -287,7 +287,7 @@ Plates can show, with numbers across the fleet, whether projects it manages ship
 | [118. Evaluate one historical artifact behind an independent boundary](phases/118-evaluation-isolation.md) | built | 2026-10-23 | [117](phases/117-evaluation-records.md) | Offline isolated execution, historical compatibility verdicts and adversarial boundary proved; no paid agent efficacy claim. |
 | [119. Compare paired harness trials and resume interrupted comparisons](phases/119-evaluation-comparison.md) | partial | 2026-10-23 | [118](phases/118-evaluation-isolation.md) | Offline comparison and one-slot live orchestration have synthetic proof; curated inputs, exact spend approval and real paired screening remain. |
 | [120. Freeze six historically grounded development cases](phases/120-evaluation-corpus.md) | built | 2026-10-24 | [119](phases/119-evaluation-comparison.md) | Six historical development cases merged with offline proof; held-out coverage and measured agent benefit remain unverified. |
-| [158. Integration delays and work in progress are visible](phases/158-integration-delays-are-visible.md) | partial | 2026-11-04 | [157](phases/157-philosophy-guides-small-safe-increments.md) | Increments 1 and 2 built: each plate with the delivery practice shows its changes in flight, where each waits and what to do, the same in plates home and the hosted home. Owes the dated baseline. |
+| [158. Integration delays and work in progress are visible](phases/158-integration-delays-are-visible.md) | built | 2026-11-04 | [157](phases/157-philosophy-guides-small-safe-increments.md) | Each plate with the delivery practice shows its changes in flight, where each waits and what to do, in both homes; a dated baseline on plates (docs/research/2026-11-04-integration-delays-baseline.md) says the wait is gate time, not queueing. |
 
 - **12 done when:** `plates fleet` lists every managed project with its practice version, last health page, CI state and unsent lessons, from `plates.json` and `gh`, in under ten seconds.
 - **13 done when:** A dated research page compares the fleet before and after adoption on measures fixed in advance (red-streak length, time from lesson to guard, phases moved per week, conduct cost per phase) and says plainly what it found.
