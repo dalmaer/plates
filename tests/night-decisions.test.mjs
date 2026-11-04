@@ -203,6 +203,8 @@ test('legacy plans and decision records remain readable', async t => {
   // A current envelope reads back unchanged, with nothing unknown it did not say.
   const cur = readEnvelope(chosen());
   assert.deepEqual([cur.envelope, cur.unknowns, cur.problems], [chosen(), [], []]);
+  const whole = readEnvelope(parked());
+  assert.deepEqual([whole.envelope, whole.unknowns, whole.problems], [parked(), [], []], 'a group marked unknown as a whole reads back as that marker');
   // A newer schema is a gap, not "no decision".
   assert.match(readEnvelope({ ...chosen(), schema: 2 }).gap, /schema 2 is newer than this reader/);
   assert.equal(readEnvelope(null).envelope, null);
