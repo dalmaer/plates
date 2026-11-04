@@ -367,7 +367,7 @@ test('plates home without a network names each GitHub source unavailable and sti
     assert.match(data.coverage.gaps.find(g => g.source === 'reviews').reason, /could not be read|not read/);
     assert.equal(data.sections.find(s => s.id === 'local').command, 'plates loose-ends');
     const text = plates(['home'], root, BIN, env);
-    assert.equal(text.code, 0); assert.match(text.out, /^Decisions that need you \(at least 1\)$/m); assert.match(text.out, /reviews: /);
+    assert.equal(text.code, 0); assert.match(text.out, /^Needs you \(1 known\)$/m); assert.match(text.out, /^ {2}1 source problem: studio/m);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
@@ -438,7 +438,7 @@ test('plates home --answer settles one item', async () => {
     const after = json(['home']);
     assert.ok(!after.data.decisions.some(d => d.key === proposal.key), 'put off');
     assert.deepEqual(after.data.putOff.items.map(p => [p.key, p.until]), [[proposal.key, '2099-01-01']]);
-    assert.match(plates(['home'], root, BIN, env).out, /^Put off \(1\)$/m);
+    assert.match(plates(['home'], root, BIN, env).out, /^ {2}Put off \(1\): /m);
     // A step: Hand to an agent goes through plates issue new --agent's preview (robot OFF: unlabelled), and nothing is filed without --yes.
     const step = after.data.decisions.find(d => d.itemKind === 'step');
     assert.equal(step.key, 'studio:step:4');
