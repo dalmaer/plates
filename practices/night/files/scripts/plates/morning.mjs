@@ -416,6 +416,16 @@ export function openRollbacks(deploys) {
   return (passed < 0 ? sorted : sorted.slice(0, passed)).filter(r => r.rolledBack !== false);
 }
 
+/**
+ * The rollbacks the brief for the night `date` carries: each deploy that rolled
+ * back, or whose rollback failed, recorded in the day before the night started,
+ * so each one reaches one brief, and only one (as verifyFailuresFor). Pure.
+ */
+export function rollbacksFor(deploys, date) {
+  const end = Date.parse(`${date}T${pad(NIGHT_AT.hour)}:${pad(NIGHT_AT.minute)}:00Z`), start = end - 24 * 3600 * 1000;
+  return deploys.filter(r => r.rolledBack !== false && Date.parse(r.at) >= start && Date.parse(r.at) < end);
+}
+
 /** One rollback, as the brief and the owner's docket say it. */
 export function rollbackLine(r) {
   const failed = r.failed ?? 'a check';
@@ -569,8 +579,11 @@ export function renderBrief({ plan, now = new Date(), health = {}, links = {}, v
   const open = plan.items.filter(i => !TERMINAL.includes(i.status));
   const unfinishedHead = r.late ? `## Not finished by ${r.readyBy}` : '## Still going';
   const next = [
+    // A rollback that failed is above everything (phase 177): production may be serving the failed deploy.
+    ...(verify?.rollbacks ?? []).filter(r => r.rolledBack === 'failed').map(rollbackLine),
     ...productionLines(production),
-    // Production first: a failed verify (phase 81), and a verify record that could not be read, never silence.
+    // Production first: a rollback (phase 177), a failed verify (phase 81), and a verify record that could not be read, never silence.
+    ...(verify?.rollbacks ?? []).filter(r => r.rolledBack === true).map(rollbackLine),
     ...(verify?.failed ?? []).map(verifyLine),
     ...(verify?.unread ? [`The verify record (${VERIFY_BRANCH}:${VERIFY_FILE}) could not be read: ${one(verify.unread)}. Whether production passed is unknown.`] : []),
     ...done.filter(i => isPr(i.result?.link)).map(i => `Review and merge ${i.result.link} (\`${i.id}\`): a person merges.`),
@@ -630,7 +643,7 @@ async function briefWithConfig({ root, date, env = process.env, now = new Date()
   if (Array.isArray(config.practices) && config.practices.includes('delivery')) {
     const v = readVerify(root,{namesEvidence});
     verifyObservation=v.observation;
-    verify = { failed: verifyFailuresFor(v.results, night, { production: productionOf(config) }), unread: v.unread ?? null };
+    verify = { failed: verifyFailuresFor(v.results, night, { production: productionOf(config) }), rollbacks: rollbacksFor(v.deploys ?? [], night), unread: v.unread ?? null };
   }
   const production = await productionStatus({root,config,now});
   const given = checksOf(checks);

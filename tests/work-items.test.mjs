@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { KINDS, kindOf, looseItems, fleetOf, reviewItems, WRITERS, itemKey, answersFor, homeSnapshot, notNowRecord, takesMinutes, DEFAULT_MINUTES, QUICK_MINUTES, phaseSets } from '../lib/work-items.mjs';
+import { KINDS, kindOf, looseItems, fleetOf, reviewItems, WRITERS, itemKey, answersFor, homeSnapshot, homeSections, notNowRecord, takesMinutes, DEFAULT_MINUTES, QUICK_MINUTES, phaseSets, rollbackItems } from '../lib/work-items.mjs';
+import { deployResults, openRollbacks, rollbackLine } from '../practices/night/files/scripts/plates/morning.mjs';
 
 const repo = fileURLToPath(new URL('..', import.meta.url));
 
@@ -91,7 +92,7 @@ test('every owner item can be answered', () => {
       { kind: 'lessons', title: 'lessons', id: 'aa4' }, { kind: 'health', title: 'health', id: 'aa5' }, { kind: 'inbox', title: 'inbox', id: 'aa6' },
     ] }] }).map(it => ({ ...it, plate: 'studio', ref: it.id })),
     { plate: 'studio', kind: 'lesson', ref: 'acme-lesson', waits: 'owner' }, { plate: 'studio', kind: 'claim', ref: 'claims/phase-3', phase: 3, waits: 'owner' },
-    { plate: 'studio', kind: 'check', ref: 'd1', waits: 'owner' }, { plate: 'studio', kind: 'verify', ref: 'v1', waits: 'owner' }, { plate: 'studio', kind: 'feedback', ref: 'f'.repeat(64), waits: 'owner' },
+    { plate: 'studio', kind: 'check', ref: 'd1', waits: 'owner' }, { plate: 'studio', kind: 'verify', ref: 'v1', waits: 'owner' }, { plate: 'studio', kind: 'rollback', ref: 'r1', waits: 'owner' }, { plate: 'studio', kind: 'feedback', ref: 'f'.repeat(64), waits: 'owner' },
   ];
   const kinds = new Set(owner.map(i => i.itemKind ?? i.kind));
   for (const kind of Object.keys(KINDS).filter(k => !NEVER_THE_OWNERS.includes(k))) assert.ok(kinds.has(kind), `the fixture has an owner ${kind}`);
@@ -269,4 +270,32 @@ test('what an answer sets moving comes from the phase files and the claim', () =
   assert.deepEqual(sets['studio:claim:claims/phase-2'], [{ kind: 'claim', branch: 'claims/phase-2', phase: '2' }]);
   assert.deepEqual(sets['studio:walk:3'], [{ kind: 'phase', phase: '9', title: 'Share to the team' }]);
   assert.deepEqual(sets['studio:proposal:docs/health/2026-10-20.md'], [], 'otherwise nothing');
+});
+
+// Phase 177: a deploy that rolled itself back is the owner's until a later deploy passes; one whose rollback failed is first.
+test('a failed rollback is the first thing the owner sees', async () => {
+  const sha = c => c.repeat(40);
+  const rec = (at, commit, more) => JSON.stringify({ schema: 1, at, project: 'anvils', commit: sha(commit), action: 'deploy', deployment: { id: `dpl_${commit}`, url: null }, target: { id: 'dpl_a', url: null },
+    checks: [{ check: 'revision', ok: true, detail: 'ok' }, { check: 'smoke', ok: more.ok, detail: more.ok ? '1 matched' : 'GET /: expected 200, got 500' }], ok: more.ok, failed: more.ok ? null : 'smoke', rolledBack: more.rolledBack ?? false, serving: { id: more.serving ?? `dpl_${commit}`, url: null } });
+  // b passed; c rolled back; d's rollback failed. Newest first: d, c, then b, which closes everything before it.
+  const deploys = deployResults([rec('2026-11-02T10:00:00Z', 'b', { ok: true }), rec('2026-11-03T09:00:00Z', 'c', { ok: false, rolledBack: true, serving: 'dpl_b' }), rec('2026-11-03T10:00:00Z', 'd', { ok: false, rolledBack: 'failed', serving: 'dpl_d' })].join('\n'));
+  const items = rollbackItems(deploys, { openRollbacks, rollbackLine });
+  assert.deepEqual(items.map(i => [i.kind, i.waits, i.urgent ?? false, i.title]), [
+    ['rollback', 'owner', true, "Production's rollback failed: smoke failed on ddddddd"],
+    ['rollback', 'owner', false, 'Production rolled back: smoke failed on ccccccc'],
+  ]);
+  assert.match(items[0].why, /^Production's rollback FAILED: smoke failed on `ddddddd` \(dpl_d\) at 2026-11-03T10:00:00Z \(GET \/: expected 200, got 500\), and moving back to dpl_a did not take/);
+  assert.match(items[1].why, /^Production rolled back: smoke failed on `ccccccc` \(dpl_c\) at 2026-11-03T09:00:00Z \(GET \/: expected 200, got 500\)\. It serves dpl_b again, until a deploy passes\.$/);
+  // In the docket, above the claim, the steps and every decision and walk, in both forms; the plain rollback is a quick decision.
+  const { project, sections } = docketFixture();
+  const verify = homeSections({ verify: { items: items.map(i => ({ ...i, plate: 'studio', ref: i.id })), why: 'the latest verify passed' } }).find(r => r.id === 'verify');
+  for (const can of [{ form: 'cli' }, { form: 'web', decisionWrites: true }]) {
+    const docket = homeSnapshot([structuredClone(project)], { sections: [...structuredClone(sections), structuredClone(verify)], can, today: '2026-11-03' }).docket;
+    assert.equal(docket[0].key, `studio:rollback:${items[0].id}`, `${can.form}: the failed rollback is first`);
+    assert.equal(docket[0].urgent, true);
+    assert.equal(docket[1].key, 'studio:claim:claims/phase-2', 'then what blocks agents, as before');
+    assert.equal(docket.find(e => e.key === `studio:rollback:${items[1].id}`).group, 'decide');
+  }
+  // A later deploy that passes closes them all.
+  assert.deepEqual(rollbackItems(deployResults([rec('2026-11-03T09:00:00Z', 'c', { ok: false, rolledBack: true }), rec('2026-11-03T11:00:00Z', 'e', { ok: true })].join('\n')), { openRollbacks, rollbackLine }), []);
 });

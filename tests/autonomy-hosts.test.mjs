@@ -168,3 +168,38 @@ test('drift from the level is reported', async t => {
   const failing = await autonomyHostLints(root, cfg, { github: true, gh: async () => { throw new Error('HTTP 403'); } });
   assert.deepEqual(failing.notes.map(n => n.message), ['not read (HTTP 403); ruleset drift is unknown']);
 });
+
+// Phase 177: the owner's promote grant is deployment's one opening, and it is exactly two commands.
+test('a promote grant opens exactly plates promote', () => {
+  const grant = { agentPromote: true, since: '2026-11-03' };
+  const vercel = { promote: 'vercel:anvils', grant };
+  const PROMOTE = ['Bash(plates promote --yes)', 'Bash(plates promote --back)'];
+  for (const [name, policy] of Object.entries(LEVELS)) {
+    // Without it: deployment is closed at every level, the verb and the hosting CLI denied by name.
+    for (const delivery of [undefined, { promote: 'vercel:anvils' }, { promote: 'none', grant }, { ...vercel, grant: { ...grant, agentPromote: false } }, { ...vercel, grant: { agentPromote: true } }]) {
+      const r = renderHostControls({ policy, repository, delivery });
+      assert.deepEqual(reaches(r.claude.allowedTools, 'deployment'), [], `${name} ${JSON.stringify(delivery)}: nothing reaches deployment`);
+      for (const denied of ['Bash(plates promote*)', 'Bash(node bin/plates.mjs promote*)', 'Bash(vercel*)', 'Bash(npx vercel*)', 'Bash(node scripts/plates/promote.mjs*)']) assert.ok(r.claude.disallowedTools.includes(denied), `${name} denies ${denied}`);
+      assert.equal(r.promote.granted, false);
+      assert.equal(r.scopes.deployment, false);
+    }
+    // With it: exactly the two commands are allowed, and every other deployment command stays denied.
+    const r = renderHostControls({ policy, repository, delivery: vercel });
+    assert.deepEqual(reaches(r.claude.allowedTools, 'deployment'), PROMOTE, `${name}: the grant reaches deployment through exactly two rules`);
+    for (const denied of ['Bash(vercel*)', 'Bash(npx vercel*)', 'Bash(node scripts/plates/promote.mjs*)', 'Bash(node scripts/plates/vercel.mjs*)', 'Bash(npm publish*)', 'Bash(gh release*)', 'Bash(gh workflow run*)']) assert.ok(r.claude.disallowedTools.includes(denied), `${name} still denies ${denied}`);
+    assert.ok(!r.claude.disallowedTools.some(d => /promote\*\)$/.test(d) && !d.includes('scripts/plates')), 'a deny would win over the allow, so the verb\'s own deny is lifted');
+    assert.deepEqual(r.promote, { granted: true, target: 'vercel:anvils', since: '2026-11-03', allow: PROMOTE, settings: { permissions: { allow: PROMOTE } } });
+    assert.equal(r.scopes.deployment, false, 'the level\'s scope is unchanged: the grant is the owner\'s specific approval');
+    assert.ok(r.notes.some(n => /promote grant \(2026-11-03\) opens exactly Bash\(plates promote --yes\) and Bash\(plates promote --back\)/.test(n)));
+    // What is rendered holds no drift; the same rules without the grant, or a broader rule with it, are drift.
+    assert.deepEqual(hostDrift({ policy, repository, delivery: vercel, workflows: [asWorkflow(r)] }).findings, [], name);
+    assert.ok(kinds(hostDrift({ policy, repository, workflows: [asWorkflow(r)] })).includes('claude:deployment'), `${name}: without the grant, the rules are drift`);
+    const broad = { path: '.github/workflows/acme.yml', text: ['jobs:', '  a:', '    steps:', '      - uses: anthropics/claude-code-action@v1', '        with:', '          claude_args: --allowedTools "Bash(plates promote*)"', ''].join('\n') };
+    assert.ok(kinds(hostDrift({ policy, repository, delivery: vercel, workflows: [broad] })).includes('claude:deployment'), `${name}: a broader promote rule is drift even with the grant`);
+  }
+  // A tag target too; and plates on itself, where the verb runs as node bin/plates.mjs.
+  assert.deepEqual(renderHostControls({ policy: LEVELS.high, repository, delivery: { promote: 'tag:prod', grant } }).promote.allow, PROMOTE);
+  assert.deepEqual(renderHostControls({ policy: LEVELS.high, repository, delivery: vercel, self: true }).promote.allow,
+    [...PROMOTE, 'Bash(node bin/plates.mjs promote --yes)', 'Bash(node bin/plates.mjs promote --back)']);
+  for (const rule of [...PROMOTE, 'Bash(node bin/plates.mjs promote --yes)', 'Bash(node scripts/plates/vercel.mjs)', 'Bash(npx vercel deploy)']) assert.deepEqual(ruleReach(rule).scopes, ['deployment'], rule);
+});
