@@ -1,11 +1,11 @@
 ---
 status: partial
 owes: walk
-since: 2026-11-03
+since: 2026-11-04
 goal: G6
 spec: 2
 depends: [82]
-note: "Built and proven by test against a fake Vercel: a Vercel target reads its rollback target first, deploys the tested commit, checks revision, smoke and errors, and rolls itself back; --back alone returns to the last good deploy; the owner's grant opens exactly plates promote. Owes plates adopting delivery, a real pass and a real rollback, and the owner's grant."
+note: "Built and walked on plates itself: a real plates promote --yes deployed 80d8920 and passed revision, smoke and two minutes of error logs, and a deliberate smoke failure rolled itself back to the deployment it had recorded. Owes the owner's grant and walk."
 evidence: ["evidence/2026-11-03-deploy-checks-itself.md"]
 ---
 
@@ -50,7 +50,8 @@ The owner, 2026-11-03: "you do the deploy, and most of the time it all just work
 - [x] `plates promote --back` with no commit returns to the last deployment that passed: `tests/promote-vercel.test.mjs: "back means the last good deployment"`
 - [x] The grant renders a rule allowing exactly the two commands, and without it deployment stays closed at every level: `tests/autonomy-hosts.test.mjs: "a promote grant opens exactly plates promote"`
 - [x] A commit waiting on an unapplied migration is refused with its name: `tests/promote-vercel.test.mjs: "a deploy waits for its migration"`
-- [ ] ⚑ by hand: on plates' own workspace, one deploy passes its checks, and one deliberate failure rolls itself back.
+- [x] ⚑ by hand: on plates' own workspace, one deploy passes its checks, and one deliberate failure rolls itself back.
+- [ ] ⚑ by hand: the owner adds the grant and its two rules to Claude Code settings; an agent's plates promote --yes then runs without a typed approval, and a bare vercel deploy is still refused.
 
 ## Your part
 
@@ -77,11 +78,11 @@ By hand: the passing deploy and the deliberate rollback on plates' workspace, wi
 
 - **The version path.** Settled 2026-11-03 by the build: `/api/version`, public and no-store, returns only `{ commit }`, from `PLATES_DEPLOY_REVISION` when a CLI deploy has no `VERCEL_GIT_COMMIT_SHA`.
 - **How the error watch reads logs.** Settled 2026-11-03 by the build: `vercel logs --deployment <id> --level error --since <ready> --json`, read every 10 seconds across the window; unreadable logs fail the watch.
-- **The tested ref on plates.** Proposed: `green`, published by the delivery practice's publisher after `check.yml` passes on main, as the practice is designed; not main itself.
+- **The tested ref on plates.** Settled 2026-11-04 by adoption: `green`, moved by plates-publish after `check.yml` passes on main (bb01577, then 80d8920).
 
 ## Next action
 
-Increment 4: plates adopts delivery with `vercel:plates`; its first deploy passes `--migrations-from`, since production reports no commit yet. Then a real pass and a deliberate rollback, and the owner's grant and walk.
+The owner's walk: add `"delivery".grant` to `.plates/plates.json` and its two rules to Claude Code settings, then watch the next deploy, and choose from Your part.
 
 ## Trajectory
 
@@ -89,3 +90,7 @@ Increment 4: plates adopts delivery with `vercel:plates`; its first deploy passe
 - **2026-11-03** — The deploy uses `--skip-domain` and then `vercel promote`, because after a `vercel rollback` Vercel stops assigning production to new deploys; promoting explicitly keeps later deploys from stranding. practices/delivery/files/scripts/plates/vercel.mjs.
 - **2026-11-03** — `--back` with no commit acts without `--yes` and steps one passing deploy further back each time: "roll back" is one word for the owner. tests/promote-vercel.test.mjs "back means the last good deployment".
 - **2026-11-03** — Every Vercel CLI flag the client uses was checked against `vercel --help` (CLI 59.23.2); the JSON field names of `inspect` and `logs --json` are not yet checked against real output, which increment 4 does.
+- **2026-11-04** — Escape: run as a command, `plates promote` on a Vercel target exited 13 having done nothing. vercel.mjs imports promote.mjs, whose top-level await on main kept the dynamic import from settling; the module tests never ran it as a process. Fixed at f8d7689; tests/promote-vercel.test.mjs "the installed script runs as a command".
+- **2026-11-04** — Escape: the first real deploy was refused before it built, because Vercel rejects an unknown `--meta` key. Production did not move and the refusal was recorded; the label went (87d6fdc), since the commit already travels in `PLATES_DEPLOY_REVISION`.
+- **2026-11-04** — The first deploy did not need `--migrations-from`: phase 177's own deploy had set `PLATES_DEPLOY_REVISION`, so `/api/version` named 4bab17b and `--migrations-from` was not needed.
+- **2026-11-04** — Real `vercel inspect --json` has `id`, `url`, `readyState` and `createdAt` but no ready time, so the error watch starts when the deploy returns. A read of `/api/version` seconds after the rollback still saw the failed commit; the rollback is confirmed through `inspect`, and the edge followed within seconds. Evidence: docs/evidence/2026-11-03-deploy-checks-itself.md.
