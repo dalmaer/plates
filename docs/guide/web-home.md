@@ -102,6 +102,37 @@ the App cannot read yet, so both forms name `plates learn`. The fleet's CI,
 stale claims, production verify, the robot, decision checks, feedback and
 earlier health proposals are read in the terminal and named on the web.
 
+## Changes in flight
+
+On a plate with the delivery practice, its own page (`plates home --project
+<id>`, and `/projects/<id>` on the web) lists its **changes in flight**
+(phase 158). For each change it shows where it waits: active, its branch,
+review, CI, integration or deploy. Each change also has an age and the next
+action. Below the list, the page shows:
+
+- how far the tested ref trails main;
+- work in progress per builder;
+- the gaps, and when, at which revision and over what activity window the
+  waits were read.
+
+Two waits past their advisory target are the owner's to fix, so they are
+also **Fix** rows in Needs you:
+
+- an integrate lock held too long, which is the owner's to delete and never
+  taken;
+- a red main.
+
+Everything else waits on agents or on time, and stays on the plate's page.
+Your plates counts it as "in flight".
+
+Both forms run the same bounded GitHub GETs: `gh api` in the terminal, the
+App on the web. A read the App is not permitted to make is a named gap, never
+an empty list. Missing Checks or Pull requests read is one example, and
+quota saving is another. When waits cannot be read, Needs you's count says
+"known". Plates without the delivery practice show no waits. The thresholds
+are advisory, and nothing is deleted, released or integrated for you. See
+[the measurement contract](../specs/integration-delays.md).
+
 ## Read freshness and coverage
 
 The initial page uses bounded cache reads. A visible tab immediately requests
