@@ -287,7 +287,7 @@
     },
     "scripts/plates/promote.mjs": {
       "practice": "delivery",
-      "sha256": "b7bbcae084a7bc6a0eb9aeedcfe2e807495e96b3af5c24933d031fce23c2d92f"
+      "sha256": "8d06f6f2c3ecf214653627b6ab0b9fcbbaaa6a37e92b493491cf36072c0bb8cc"
     },
     "scripts/plates/publish.mjs": {
       "practice": "delivery",

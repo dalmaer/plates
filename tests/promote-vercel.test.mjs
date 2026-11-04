@@ -13,6 +13,7 @@ import { join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { scratch, ENV } from './helpers/improve.mjs';
+import { run } from './helpers/run.mjs';
 import { deliveryProblems, deliveryOf } from '../practices/delivery/files/scripts/plates/delivery.mjs';
 import { deployResults, openRollbacks, rollbackLine } from '../practices/night/files/scripts/plates/morning.mjs';
 
@@ -150,6 +151,16 @@ test('no rollback target, no deploy', async t => {
   assert.deepEqual([preview.action, preview.target.id, preview.target.commit, preview.to], ['deploy', 'dpl_1', a.A, a.B]);
   assert.ok(!subs(a).includes('deploy'));
   assert.match(a.v.promoteVercelText(preview), /preview, nothing deployed \(--yes to deploy it\)[\s\S]*any failure rolls back to dpl_1\.$/);
+});
+
+test('the installed script runs as a command: it loads the Vercel client and settles', async t => {
+  // vercel.mjs imports promote.mjs, so while promote.mjs awaited its main at the top
+  // level, its dynamic import of vercel.mjs never settled: node exited 13, having done nothing.
+  const a = await acme(t);
+  const r = run(process.execPath, [join(a.root, 'scripts/plates/promote.mjs'), a.B, '--json'], { cwd: a.root, env: { ...QUIET, PLATES_VERCEL: join(a.root, 'no-vercel') }, timeout: 60_000 });
+  assert.equal(r.status, 1, `${r.stderr}${r.stdout}`);
+  assert.match(JSON.parse(r.stdout).error, /^no rollback target: cannot read the deployment serving 127\.0\.0\.1:\d+: vercel inspect failed/);
+  assert.equal(r.stderr, '');
 });
 
 test('a deploy runs from a clean checkout of exactly the commit, carries the commit, and passes its checks', async t => {
