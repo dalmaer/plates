@@ -16,6 +16,7 @@ import { createHash } from 'node:crypto';
 import { createHomeReader } from '../lib/web/home.mjs';
 import { renderHomeSnapshot } from '../lib/web/views.mjs';
 import { HOME_SECTIONS } from '../lib/work-items.mjs';
+import { waitsFixture } from './helpers/waits.mjs';
 
 const bin = fileURLToPath(new URL('../bin/plates.mjs', import.meta.url));
 const token = 'fake-user-access-token-for-tests';
@@ -32,10 +33,11 @@ const reviewRepository = { open: { pageInfo: { hasNextPage: false }, nodes: [{ k
 const rate = { cost: 1, remaining: 4000, resetAt: new Date(Date.now() + 3600_000).toISOString() };
 
 /** The same sources, twice: the web's fake App API and a git checkout with a fake gh. */
-async function sources({ reviews = true, files = {}, issues = null } = {}) {
+async function sources({ reviews = true, files = {}, issues = null, waits = null } = {}) {
   const h = projectHarness();
   Object.assign(h.source.files, files);
-  h.source.files['.plates/plates.json'] = JSON.stringify({ name: 'Acme Studio', repo: 'acme/studio', tagline: 'Publish useful things.', practice: '0.8.32', stack: ['node'], phases: { shape: 'files' } });
+  h.source.files['.plates/plates.json'] = JSON.stringify({ name: 'Acme Studio', repo: 'acme/studio', tagline: 'Publish useful things.', practice: '0.8.32', stack: ['node'], phases: { shape: 'files' },
+    ...(waits ? { practices: ['phases', 'delivery'], delivery: { tested: 'green', promote: 'vercel:studio' } } : {}) });
   const dir = await mkdtemp(join(tmpdir(), 'plates-home-iso-')), root = join(dir, 'studio');
   for (const [path, content] of Object.entries(h.source.files)) { await mkdir(dirname(join(root, path)), { recursive: true }); await writeFile(join(root, path), content); }
   const git = args => execFileSync('git', ['-C', root, ...args], { env: gitEnv, encoding: 'utf8' }).trim();
@@ -55,6 +57,9 @@ async function sources({ reviews = true, files = {}, issues = null } = {}) {
       }
       return Response.json({ data: { rateLimit: rate, ...(query.includes('PlatesReviewWindow') ? { repository: reviewRepository } : {}) } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
     }
+    // The waits' REST reads (phase 158): the same answers the fake gh gives.
+    const u = new URL(url), key = `${u.pathname}${u.search}`;
+    if (waits && Object.hasOwn(waits, key)) { h.source.requests.push({ url, options }); return Response.json(waits[key], { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } }); }
     return h.fetcher(url, options);
   };
   // The CLI: a gh that answers the same review read, the viewer's login, and nothing else.
@@ -64,11 +69,13 @@ const argv = process.argv.slice(2), q = (argv.find(a => a.startsWith('query=')) 
 if (argv[0] === 'api' && argv[1] === 'user') console.log('acme-owner');
 else if (argv[0] === 'api' && argv[1] === 'graphql' && q.includes('PlatesReviewWindow')) console.log(JSON.stringify({ data: { rateLimit: ${JSON.stringify(rate)}, repository: ${JSON.stringify(reviewRepository)} } }));
 else if (argv[0] === 'api' && argv[1] === 'graphql') console.log(JSON.stringify({ data: { rateLimit: ${JSON.stringify(rate)} } }));
+else if (argv[0] === 'api' && argv[1] === '-X' && argv[2] === 'GET' && Object.hasOwn(${JSON.stringify(waits ?? {})}, '/' + argv[3])) console.log(JSON.stringify(${JSON.stringify(waits ?? {})}['/' + argv[3]]));
+else if (argv[0] === 'api' && argv[1] === '-X') { console.error('gh: Not Found (HTTP 404)'); process.exit(1); }
 else if (argv[0] === 'issue' && argv[1] === 'list' && ${JSON.stringify(!!issues)}) console.log(JSON.stringify(argv.includes('plates:agent') ? ${JSON.stringify(issues ?? [])} : []));
 else { console.error('fake gh: offline'); process.exit(1); }
 `);
   await chmod(gh, 0o755);
-  const web = await createHomeReader(h.config, { fetcher, now: () => Date.now() })({ ...h.access, login: 'acme-owner', pullRequestsRead: reviews }, token);
+  const web = await createHomeReader(h.config, { fetcher, now: () => Date.now() })({ ...h.access, login: 'acme-owner', pullRequestsRead: reviews, checksRead: !!waits }, token);
   const run = runNode(process.execPath, [bin, 'home', '--json'], { cwd: root, timeout: 120_000,
     env: { ...gitEnv, PLATES_GH: gh, PLATES_CACHE: join(dir, 'cache'), PLATES_STATE: join(dir, 'state'), XDG_STATE_HOME: join(dir, 'state') } });
   assert.equal(run.status, 0, run.stderr);
@@ -320,5 +327,36 @@ test('since you last looked, in the terminal, starts at its last run', async () 
     const { readFile } = await import('node:fs/promises');
     const kept = JSON.parse(await readFile(join(s.dir, 'state', 'plates', 'last-looked.json'), 'utf8'));
     assert.deepEqual(Object.keys(kept).sort(), ['at', 'schema']);
+  } finally { await s.done(); }
+});
+
+// Phase 158: a plate's changes in flight are one model too. The same waits answers, through the CLI's gh and the
+// web's App, give the same items, states, next actions and Fixes; only when each read is its own (readAt, ages).
+test('the CLI and the web show the same changes in flight', async () => {
+  const s = await sources({ waits: waitsFixture('acme/studio', Date.now()) });
+  try {
+    const timeless = form => {
+      const w = structuredClone(form.projects[0].waits);
+      for (const i of w.items) { delete i.ageMs; delete i.branchAgeMs; }
+      delete w.now; delete w.source.readAt; delete w.source.window.to; delete w.tested.lagMs;
+      return w;
+    };
+    assert.equal(s.web.projects[0].waits.state, 'read');
+    assert.deepEqual(timeless(s.cli), timeless(s.web), 'the same waits in both forms');
+    assert.deepEqual(s.cli.projects[0].waits.items.map(i => [i.branch, i.state]), [['claude/phase-7', 'integration'], ['claude/phase-4', 'deploy'], ['claude/phase-5', 'ci'], ['codex/phase-9', 'ci']]);
+    const fixes = form => form.home.sections.find(x => x.id === 'needs-you').items.filter(n => n.kind === 'waits').map(n => [n.verb, n.key, n.title]);
+    assert.deepEqual(fixes(s.cli), fixes(s.web));
+    assert.deepEqual(fixes(s.web).map(f => f[1]), ['studio:waits:lock', 'studio:waits:main']);
+    const rows = form => form.home.sections.find(x => x.id === 'plates').items[0].waits.rows.map(r => [r.branch, r.words, r.age, r.next]);
+    assert.deepEqual(rows(s.cli), rows(s.web));
+    // Each renderer prints the model's rows: the plate's page and plates home --project.
+    const html = renderHomeSnapshot(s.web, { projectId: 'studio' });
+    assert.match(html, />Changes in flight<\/h2>[\s\S]*waiting on integration · 2 h · past its target[\s\S]*claude\/phase-7/);
+    const text = runNode(process.execPath, [bin, 'home', '--project', 'studio'], { cwd: join(s.dir, 'studio'), timeout: 120_000,
+      env: { ...gitEnv, PLATES_GH: join(s.dir, 'gh'), PLATES_CACHE: join(s.dir, 'cache'), PLATES_STATE: join(s.dir, 'state'), XDG_STATE_HOME: join(s.dir, 'state') } });
+    assert.equal(text.status, 0, text.stderr);
+    assert.match(text.stdout, /Changes in flight \(4\)\n  waiting on integration · claude\/phase-7 · 2 h · past its target/);
+    for (const r of rows(s.web)) assert.ok(text.stdout.includes(r[3]), `the terminal prints ${r[0]}'s next action`);
+    assert.ok(!renderHomeSnapshot(s.web).includes('>Changes in flight</h2>'), 'home itself lists no waits: the plate\'s page does');
   } finally { await s.done(); }
 });

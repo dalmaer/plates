@@ -4,7 +4,7 @@ attempt: {"accepted":true,"verified":true,"rework":0,"lessonStatus":{"status":"n
 # Evidence: phase 158 — Integration delays and work in progress are visible
 
 - Date: 2026-11-04
-- Phase: 158, increment 1
+- Phase: 158, increments 1 and 2
 - Revision: 682df448 on origin/main cff35f78, and this record
 - Claim being checked: a read-only measurement contract (docs/specs/integration-delays.md) and a pure reader (lib/integration-delays.mjs) that turn observations into active, branch, review, CI, integration and deploy states with age and a next action, and keep missing, skewed, unreadable, conflicting and incomplete observations as gaps, never zero.
 
@@ -15,13 +15,21 @@ attempt: {"accepted":true,"verified":true,"rework":0,"lessonStatus":{"status":"n
 - Builder: `npm run check:focused -- tests/integration-delays.test.mjs tests/integrate.test.mjs tests/work-items.test.mjs`, exit 0, 179 pass.
 - The whole gate, `npm run check`, runs through `plates integrate` after this file is written.
 
+## Increment 2 (07256c3e, 387039d0)
+
+- `node --test tests/integration-observations.test.mjs tests/home-isomorphism.test.mjs`: exit 0, 19 pass (conductor), including "the CLI and the web show the same changes in flight" through real readers (a fake gh for the CLI, a fake App for the web) over one fixture.
+- Sent back once: the hosted client treated every 403 as a rate limit and paused all of a user's source reads, so an App permission missing for the new reads would have degraded the whole hosted home. Now a waits read's permission 403 is a named gap ("the App cannot read repository activity: Contents read needed") and a rate-limit 403 still saves quota. `plates prove tests/integration-observations.test.mjs --fix lib/web/projects.mjs`: VERIFIED (red without the fix, green with it).
+- Builder: `npm run check:focused` over 8 files, exit 0, 219 pass; `npm run typecheck` exit 0.
+
 ## By hand
 
 | Did | Expected | Observed | Proves / does not prove |
 | --- | --- | --- | --- |
 | Read-only probe of dalmaer/plates (builder, gh GETs) | the contract's sources exist | ready/<branch> refs are deleted on landing, so their time survives only in `GET /repos/{o}/{r}/activity`; ready-to-landed for phase 166 was about 10–12 min; an integrate merge's committer date ran about 10 min before its push to main; main CI about 17 min; green 3 commits behind main | the contract fits real data; not the dated baseline (increment 3) |
 
+| `node bin/plates.mjs home --project plates --json`, read-only, scratch state (builder) | waits per change, with gaps | exit 0 in 27 s (waits about 8 s): 8 in flight (5 branch, all stale; 2 deploy; 1 review), none unknown; every source read; 9 gaps (one page of activity back to 06:31Z; 26 changes off main, 12 read); green current; no lock held; codex has 5 open increments (over) | the owner can tell the waits apart on real data; the hosted App's permissions for activity and check runs are not yet confirmed |
+
 ## Gaps and decision
 
-- Partial: increment 1 of 3. Nothing is surfaced to the owner yet (increment 2), and no dated baseline exists (increment 3).
+- Partial: increments 1 and 2 of 3. No dated baseline exists yet (increment 3); the hosted App's Contents and Checks read for these reads is unconfirmed, and a missing one shows as a named gap.
 - The advisory targets (24 h branch and review, 1 h CI, integration, deploy and the lock) are guesses until the baseline.

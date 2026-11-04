@@ -1896,7 +1896,15 @@ learn`), `local` (loose ends, "on your machine", `plates loose-ends`),
 `feedback`, `fleet`, `claims`, `verify`, `robot`, `checks` and
 `health-history`, read here and unavailable on the web with the reason. A
 source that cannot be read (no network, no gh) is a gap with its reason;
-the local sources still render. Exit 0.
+the local sources still render. Exit 0. On a plate with the delivery
+practice, each project carries `waits` (phase 158): `{state: read|unavailable|off,
+reason, source: {repository, revision, readAt, window}, items: [{branch, state:
+active|branch|review|ci|integration|deploy|unknown, since, ageMs, stale, next,
+gaps}], tested, lock, wip, summary, coverage, gaps}`. An unknown wait is `null`,
+never 0, and the thresholds are advisory. Your plates' row carries `inFlight`
+and the rendered `waits` view. A stale integrate lock and a red main are Fix
+rows in Needs you (`<plate>:waits:lock|main`), and every other wait stays
+under `--project`.
 
 Every item in Needs you (phase 173: `decisions`, ready `walks`, `reviews`, and
 section rows waiting on the owner) carries `key` (`plate:kind:id`, defined

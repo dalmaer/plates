@@ -1,11 +1,14 @@
 # Integration delays: the measurement contract
 
-Dated 2026-11-04. Phase 158, increment 1: a read-only contract and a pure
-reader, `lib/integration-delays.mjs` (`delays(observations, { now })`), tested
-on synthetic Acme observations with a fixed clock
-(`tests/integration-delays.test.mjs`). Nothing reads a source yet, and no
-existing output changes. Increment 2 adds an opt-in read and puts the result
-in the home model, the one that both `plates home` and the hosted home read.
+Dated 2026-11-04. Phase 158. This contract has two parts:
+
+- **Increment 1:** a pure reader, `lib/integration-delays.mjs`
+  (`delays(observations, { now })`), tested on synthetic Acme observations
+  with a fixed clock (`tests/integration-delays.test.mjs`).
+- **Increment 2:** the reads that feed it, in
+  `lib/integration-observations.mjs`, and the result in the home model (see
+  [Reads and the home model](#reads-and-the-home-model)).
+
 Increment 3 records a dated baseline before anyone proposes a queue budget.
 
 The reader answers one question for each change: is it being worked on, or
@@ -125,6 +128,83 @@ These numbers are guesses until increment 3's baseline.
 Work in progress is one active increment per builder: a builder with more
 than one `active` or `branch` change is `over`. A change with no named builder
 is a gap (`over: null`), not a pass.
+
+## Reads and the home model
+
+**The switch.** A plate's waits are read when it has the `delivery` practice
+(`waitsSourceOf`). Ready and integrate, the tested ref (`delivery.tested`,
+default `green`) and the deploy records (a `vercel:` promote target) belong
+to that practice. A plate without it would show only gaps, so it shows
+nothing, and no configuration key is added.
+
+**The reads.** `readObservations({ repo, api, can, now, source })` makes REST
+GETs only. Both forms make the same calls: `gh api -X GET` in `plates home`,
+and the App's bounded reader in the hosted home. The calls are:
+
+- the repository;
+- `git/matching-refs/heads/`, one read for every ref;
+- one page of `activity`;
+- `git/commits/<sha>` for each claim, ready mark and the lock;
+- the open `pulls`;
+- `compare/<main>...<branch>` for each change not yet on main;
+- `compare/<tested>...<main>`, for landed changes not yet tested;
+- check runs for PR heads and for main's push tips;
+- the verify branch's tree and `deploys.jsonl` blob, and
+  `compare/<last passing deploy>...<tested>`, for changes tested but not
+  deployed.
+
+**Bounds.** 40 requests, 12 changes not on main, check runs for 8 commits,
+and 15 items kept per plate. Past a bound, the rest is a `partial` gap. The
+terminal keeps the read for 10 minutes under the quota guard (`--fresh`
+reads again). The hosted home reads on each refresh, within the existing
+project request bound and the GitHub allowance. A read the App is not
+permitted to make is unavailable with the reason:
+
+- Pull requests read (`pullRequestsRead`);
+- Checks read (`checksRead`);
+- Contents read, which the App already has, for activity and every other
+  read. GitHub's "Permissions required for GitHub Apps" (read 2026-11-04)
+  lists `GET /repos/{o}/{r}/activity`, `git/matching-refs` and `compare`
+  under Contents (read).
+
+The hosted `get` takes `forbidden: true` for the waits' reads. A 403 that
+has quota left, no Retry-After and no rate-limit message is a permission
+refusal: it throws `not_permitted` and becomes that read's gap, "the App
+cannot read <what>: <permission> needed". There is no budget change, no
+deferral, and the other sources are still read. Every other 403 is a limit,
+as for every other caller. Saving quota stops the waits' reads, and the
+plate is shown without them. Signing out still fails the plate.
+
+**What the builder records.**
+
+- **Landing time:** the time of the activity `push` to main whose tip is the
+  change or a later commit in main's first-parent chain. The commit date is
+  not used.
+- **Ready time of a landed change:** the creation of its `ready/<branch>`
+  ref in activity, with status `landed`.
+- **Main's checks for a landed change:** those of the first push tip at or
+  after it whose runs were not cancelled. A cancelled run was superseded by a
+  later push under the delivery practice's concurrency rule, so it is not a
+  failure. The reader treats a cancelled run as still waiting.
+- **Builder:** the claim's provider, then the ready mark's, then the branch
+  prefix (`claude/`, `codex/`).
+
+**The model.** Each plate's home value carries `waits`, in one of three
+states:
+
+- `read`, with items, counts, tested, lock, wip, summary, coverage, gaps and
+  `source { repository, revision, readAt, window }`;
+- `unavailable`, with the reason;
+- `off`.
+
+Ages are as of the read. Your plates' row carries `inFlight` and the rendered
+`waits` view, and both renderers print only that view. Needs you gets a
+**Fix** for a stale integrate lock and for a red main
+(`<plate>:waits:lock`, `<plate>:waits:main`); every other wait stays on the
+plate's page. If a plate's waits could not be read, Needs you's count says
+"known". `tests/integration-observations.test.mjs` covers the builder, and
+`tests/home-isomorphism.test.mjs` ("the CLI and the web show the same changes
+in flight") covers the two forms.
 
 ## Contract check against plates (read-only, 2026-11-04)
 
