@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { homeSnapshot } from '../lib/work-items.mjs';
 import { decisionView, previewView, operationView, renderDecisionPreview, renderDecisionOperation, decisionStyles } from '../lib/web/decision-views.mjs';
 import { decisionHref, homeView } from '../lib/web/views.mjs';
 import { createDecisionState, decisionTransition, validPreview, mayApplyDecision, operationRecoveryPath, decisionMessage, startDecisionClient } from '../lib/web/decision-client.mjs';
@@ -65,7 +66,9 @@ test('Home decision links require explicit health targets and never infer a writ
   const href=decisionHref({...action,decisionTarget:{kind:'health',path:'docs/reviews/2026-10-21.md'}});
   assert.equal(href,'/projects/studio/decisions?kind=health&path=docs%2Freviews%2F2026-10-21.md');
   for(const target of [{kind:'shaping',path:'docs/question.json'},{kind:'health',path:'../secret'},{kind:'health',path:'/etc/passwd'},{kind:'health',path:'docs\\secret'}]) assert.equal(decisionHref({...action,decisionTarget:target}),null);
-  const html=homeView({...access,projects:[]},{schema:1,cursor:'c'.repeat(64),projects:[],decisions:[{...action,projectName:'Acme',title:'A real question',why:'A person chooses',decisionTarget:{kind:'health',path:'docs/reviews/2026-10-21.md'}}],walks:[],waiting:[],changes:[],coverage:{state:'complete',gaps:[]},quota:{state:'unavailable'}});
+  // Home's Needs you row (phase 166) keeps the link, from the model's own item.
+  const plate={id:'studio',name:'Acme',repo:'acme/studio',state:'complete',gaps:[],changes:[],walks:[],waiting:[],reviews:[],decisions:[{...action,projectName:'Acme',kind:'decision',itemKind:'proposal',ref:'docs/reviews/2026-10-21.md',title:'A real question',why:'A person chooses',decisionTarget:{kind:'health',path:'docs/reviews/2026-10-21.md'}}]};
+  const html=homeView({...access,projects:[]},{schema:1,cursor:'c'.repeat(64),...homeSnapshot([plate]),quota:{state:'unavailable'}});
   assert.match(html,/Review decision →/); assert.match(html,/kind=health&amp;path=/);
 });
 test('preview eligibility requires reserved identity, unexpired approval and a fresh explicit acknowledgement',()=>{

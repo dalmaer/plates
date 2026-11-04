@@ -1,10 +1,10 @@
 # Explore changes and keep captures private
 
-Home's **Recently added** cards lead with what you can do now, a real capture or
-its explicit absence, attributed availability, a try link and the corresponding
+Home's **Since you last looked** names each change in a line that opens its
+page. A change's card leads with what you can do now, a real capture or its
+explicit absence, attributed availability, a try link and the corresponding
 guided walk. Open **Changes** within a project for its journal, or **Private
-media** for original capture receipts. Legacy phase/commit cards remain when no
-change packages are authored.
+media** for original capture receipts.
 
 This is implemented application behavior, not proof that a media bucket has been
 activated or that an owner has verified a real deployment. [Phase 99](../phases/99-recent-changes-are-visible-and-testable.md)

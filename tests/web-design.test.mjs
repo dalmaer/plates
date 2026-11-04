@@ -18,7 +18,7 @@ import { changeIndexView } from '../lib/web/change-views.mjs';
 import { changesHarness, token } from './helpers/web-changes.mjs';
 import { reviewView } from '../lib/web/review-views.mjs';
 import { reviewSnapshot } from './helpers/review-fixture.mjs';
-import { itemKey, docketOf } from '../lib/work-items.mjs';
+import { itemKey, docketOf, homeSnapshot } from '../lib/work-items.mjs';
 // Only modules that exist before the design layer are imported statically, so
 // each test loads at the phase's base and fails there by assertion.
 import * as assets from '../lib/web/assets.mjs';
@@ -33,7 +33,8 @@ import * as navigationClient from '../lib/web/navigation-client.mjs';
 // that changes markup on purpose regenerates it with
 // PLATES_WRITE_MARKUP_GOLDEN=1 and the diff shows in review (phase 168: the
 // navigation's theme toggle, then its walk fix: the toggle and Sign out move
-// to the page footer).
+// to the page footer; phase 166: home and a plate's page are the four
+// sections, and the Start panel says "N to answer").
 const GOLDEN = new URL('./fixtures/web-design/markup.json', import.meta.url);
 const access = { workspace: { id: 'acme', name: 'Acme workspace' }, userId: 1, projects: [{ id: 'studio', repo: 'acme/studio', name: 'Acme Studio' }], sourceRevision: 'a'.repeat(40), csrf: 'fake-csrf-acme' };
 const project = { id: 'studio', repo: 'acme/studio', name: 'Acme Studio' };
@@ -43,9 +44,12 @@ function snapshot() {
   // Phase 174: Needs you carries its keys and the docket, so Home's Start panel counts them.
   for (const item of [decision, walk]) item.key = itemKey(item);
   const change = { id: 'change-one', projectId: 'studio', projectName: 'Acme Studio', title: 'Publish from a phone', date: '2026-10-21', revision: 'b'.repeat(40), link: 'https://github.com/acme/studio/commit/abc', kind: 'commit', media: null, previewUrl: null, acceptance: 'not established' };
-  return { schema: 1, cursor: 'a'.repeat(64), cursorState: 'initial', generatedAt: '2026-10-21T16:00:00.000Z', coverage: { state: 'complete', gaps: [] },
+  const value = { schema: 1, cursor: 'a'.repeat(64), cursorState: 'initial', generatedAt: '2026-10-21T16:00:00.000Z', coverage: { state: 'complete', gaps: [] },
     projects: [{ id: 'studio', repoId: 100, repo: 'acme/studio', name: 'Acme Studio', tagline: 'Publishing, made reliable.', stack: ['node', 'web'], version: '0.8.32', revision: 'b'.repeat(40), readAt: '2026-10-21T15:59:00.000Z', state: 'complete', gaps: [], planning: { source: 'files', built: 8, total: 12, livedIn: 3, headline: 'Make publishing reliable on every screen', goals: [], next: 'Review publishing on a phone' }, decisions: [decision], walks: [walk], waiting: [waiting], changes: [change] }],
     decisions: [decision], walks: [walk], waiting: [waiting], changes: [change], docket: docketOf({ decisions: [decision], walks: [walk] }), quota: { remaining: 150, resetAt: '2026-10-21T17:00:00.000Z', state: 'known' } };
+  // Phase 166: home's four sections, as the server's model builds them from this plate.
+  value.home = homeSnapshot([{ ...value.projects[0], decisions: [decision], walks: [walk], waiting: [waiting], changes: [change], reviews: [] }], { can: { form: 'web' }, today: '2026-10-21' }).home;
+  return value;
 }
 const decision = () => ({ schema: 1, project, source: { path: 'docs/reviews/2026-10-21.md', head: 'c'.repeat(40), blob: 'd'.repeat(40), branch: 'main', visibility: 'public', link: 'https://github.com/acme/studio/blob/main/docs/reviews/2026-10-21.md' }, target: { kind: 'shaping', path: 'docs/shaping/next.json', question: 'scope' },
   question: { title: 'Which Acme scope should we build?', body: 'The owner chooses.', choices: [], recommendation: { text: 'Build the broader scope.', evidence: ['docs/evidence/acme.md'], alternatives: ['Keep this release small.'] } } });
@@ -357,13 +361,14 @@ test('home uses only tokens', async () => {
   assert.deepEqual(colourLiterals(source, styles), [], 'views.mjs takes every colour from a token');
   // Home's long lists opt into the design layer's solid card; the blur is capped.
   const home = homeView(access, snapshot());
-  for (const card of ['attention-card', 'change-card', 'project-card', 'coverage']) assert.match(home, new RegExp(`class="${card}\\b[^"]*\\bp-card\\b`), `${card} is a .p-card`);
-  assert.match(home, /class="badge p-badge/, 'state labels are .p-badge');
+  // Phase 166: the four sections' rows, plate chips and verbs.
+  for (const card of ['need', 'since-plate', 'plate-chip']) assert.match(home, new RegExp(`class="${card}\\b[^"]*\\bp-card\\b`), `${card} is a .p-card`);
+  assert.match(home, /class="verb p-badge/, 'each row\'s verb is a .p-badge');
   assert.equal(home.match(/<(?:input|select)\b[^>]*\sclass="p-field"/g)?.length, 2, 'toolbar fields are .p-field');
   const { components } = await import('../lib/web/design.mjs');
   const card = rules(components).find(rule => rule.selector === '.p-card');
   assert.match(card.body, /background:var\(--surface-solid\)/, '.p-card is solid'); assert.doesNotMatch(card.body, /backdrop-filter/, '.p-card never blurs');
-  for (const rule of rules(styles)) if (/attention-card|change-card|project-card|\.cards li/.test(rule.selector)) assert.doesNotMatch(rule.body, /backdrop-filter/, `${rule.selector} does not blur`);
+  for (const rule of rules(styles)) if (/attention-card|\.need\b|since-plate|plate-chip|\.cards li/.test(rule.selector)) assert.doesNotMatch(rule.body, /backdrop-filter/, `${rule.selector} does not blur`);
 });
 
 // ---- page stylesheets hold layout only ---------------------------------------

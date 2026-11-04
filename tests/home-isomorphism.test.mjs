@@ -94,9 +94,9 @@ test('the CLI and the web render one read model', async () => {
     for (const key of ['decisions', 'walks', 'reviews', 'waiting', 'changes']) assert.deepEqual(cli[key], web[key], `${key}: the same items in both forms`);
     assert.deepEqual(cli.projects, web.projects, 'the same plate, planning and gaps');
     assert.deepEqual(cli.coverage, web.coverage, 'the same coverage');
-    // The hosted page keeps its sections until phase 166's increment 2 renders the four.
+    // The hosted page renders the model's four sections (phase 166), and the terminal the same headings.
     const html = renderHomeSnapshot(s.web);
-    for (const title of ['Decisions that need you', 'Ready to test', 'Reviews waiting on you', 'In progress / waiting']) assert.match(html, new RegExp(`>${title}</h2>`));
+    for (const title of ['Needs you', 'Since you last looked', 'What should happen next?', 'Your plates']) assert.ok(html.includes(`>${title}</h2>`), title);
   } finally { await s.done(); }
 });
 

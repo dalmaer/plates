@@ -9,10 +9,13 @@ import {createWebService} from '../lib/web/server.mjs';
 const hex=c=>c.repeat(64),access={workspace:{id:'acme',name:'Acme'},userId:1,csrf:'fake-acme-csrf'};
 const receipt=()=>({schema:1,id:hex('a'),projectId:'studio',changeId:'acme-search',slotId:'desktop-after',state:'verified',availability:'current',objectCheck:'not-checked',checkedAt:null,hash:hex('b'),mime:'image/png',width:1280,height:800,bytes:900,provenance:{revision:'b'.repeat(40),environment:'Acme staging',viewport:'desktop',viewportWidth:1280,viewportHeight:800,scenario:'Search',capturedAt:'2026-10-21T12:00:00.000Z',caption:'Acme search results',alt:'Two Acme results'},source:{head:'b'.repeat(40)},expiresAt:'2026-11-21T12:00:00.000Z',uploaderId:1,attached:true,attachmentRevision:1,revision:3,deleteDigest:hex('c'),deliveryUrl:`/api/projects/studio/media/${hex('a')}/bytes`});
 async function sourceModel(){const h=changesHarness();return h.changes.detail(h.access,token,h.project,'acme-search');}
-test('actual authored journal result renders on Home with private capture, availability attribution and matching walk',async()=>{
+test('actual authored journal result renders with private capture, availability attribution and matching walk, and Home links it',async()=>{
  const m=await sourceModel(),c=m.change;c.captures[0].capture=receipt();c.captures[0].attachmentState='current';
  const html=renderJournalCard(c);assert.match(html,/Search and open an Acme item/);assert.match(html,/Preview available/);assert.match(html,/Declared by project source; not independently observed/);assert.match(html,/src="\/api\/projects\/studio\/media\/a{64}\/bytes"/);assert.match(html,/alt="Two Acme results"/);assert.match(html,/href="\/projects\/studio\/walks\/acme-search"/);assert.match(html,/Try it/);assert.match(html,/Explore change/);assert.doesNotMatch(html,/supabase|iframe/);
- const home=renderHomeSnapshot({projects:[],changes:[c],coverage:{state:'complete',gaps:[]},quota:{}});assert.match(home,/data-enlarge/);assert.match(home,/Find Acme things/);
+ // Phase 166: Home says the change happened, under Since you last looked, and links its page, where the captures are.
+ const {homeSnapshot}=await import('../lib/work-items.mjs');
+ const home=renderHomeSnapshot({...homeSnapshot([{id:'studio',name:'Acme Studio',repo:'acme/studio',state:'complete',gaps:[],decisions:[],walks:[],reviews:[],waiting:[],changes:[{...c,date:new Date().toISOString()}]}]),quota:{}});
+ assert.match(home,new RegExp(`Changed: ${c.title.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')} <a href="${c.detailUrl}">See the change →</a>`));assert.doesNotMatch(home,/<img/);
 });
 test('empty, stale, expired and integrity gaps remain distinct and never display an unrelated image',async()=>{
  const m=await sourceModel();for(const [state,label]of [['stale','earlier requirements'],['expired','Capture expired'],['tampered','integrity'],['not-configured','not configured'],['unavailable','Capture unavailable'],['missing','Stored capture is missing'],['pending','Original capture operation is pending']]){
