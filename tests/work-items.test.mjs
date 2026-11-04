@@ -254,7 +254,7 @@ test('every item says how long it takes', async () => {
   const { renderReviewStart } = await import('../lib/web/review-views.mjs');
   assert.match(renderReviewStart(snapshot), new RegExp(`<strong>9 for you · about ${total} min</strong>`));
   const { homeText } = await import('../lib/home.mjs');
-  assert.match(homeText({ ...snapshot, generatedAt: '2026-11-03T12:00:00Z' }), new RegExp(`^9 for you · about ${total} min — plates home --review \\(--quick: the ${quick} quick ones\\)$`, 'm'));
+  assert.match(homeText({ ...snapshot, generatedAt: '2026-11-03T12:00:00Z' }), new RegExp(`^ {2}9 to answer · about ${total} min — plates home --review \\(--quick: the ${quick} quick ones\\)$`, 'm'));
 });
 
 test('what an answer sets moving comes from the phase files and the claim', () => {
@@ -298,4 +298,37 @@ test('a failed rollback is the first thing the owner sees', async () => {
   }
   // A later deploy that passes closes them all.
   assert.deepEqual(rollbackItems(deployResults([rec('2026-11-03T09:00:00Z', 'c', { ok: false, rolledBack: true }), rec('2026-11-03T11:00:00Z', 'e', { ok: true })].join('\n')), { openRollbacks, rollbackLine }), []);
+});
+
+// Phase 166: home's first section is one ranked list of the owner's turn, one verb a row.
+test("needs you holds only the owner's turn", () => {
+  const { project, sections } = docketFixture();
+  const plate = { ...structuredClone(project), name: 'Acme Studio', repo: 'acme/studio', revision: 'c'.repeat(40),
+    waiting: [{ id: 'studio:phase:10:waiting', projectId: 'studio', kind: 'waiting', itemKind: 'dated', ref: '10', title: 'Not before December', ready: false }],
+    // The newest night record has a failed item; a plate file that does not validate is the owner's to repair; a read bound is neither.
+    daily: { state: 'read', date: '2026-11-02', from: 'docs/night/2026-11-02.json', counts: { planned: 0, running: 0, done: 2, failed: 1, skipped: 0, 'left-alone': 0 }, readiness: { why: 'every build item is terminal' } },
+    gaps: [{ source: 'evidence', reason: 'Phase 4 names evidence absent from this revision.' }, { source: 'GitHub operations', reason: 'Issues are not covered.' }] };
+  const rows = [...structuredClone(sections), { id: 'fleet', title: 'Fleet', command: 'plates fleet', state: 'read', reason: null, count: 2, items: [
+    { kind: 'ci', waits: 'broken', title: 'acme/studio: CI red on main', plate: 'studio', ref: 'ci', read: 'gh run list -R acme/studio' },
+    { kind: 'pr', waits: 'agent', title: 'acme/studio: the agent\'s PR', plate: 'studio', ref: 'pr' }] }];
+  const four = can => homeSnapshot([structuredClone(plate)], { sections: structuredClone(rows), can, today: '2026-11-03' }).home;
+  const home = four({ form: 'cli' }), needs = home.sections.find(s => s.id === 'needs-you');
+  assert.deepEqual(home.sections.map(s => s.title), ['Needs you', 'Since you last looked', 'What should happen next?', 'Your plates']);
+  // Fix, then decide, then try; the oldest first within each, undated after.
+  assert.deepEqual(needs.items.map(i => [i.verb, i.kind, i.key]), [
+    ['fix', 'night', 'studio:night:2026-11-02'], ['fix', 'review', 'studio:review:7'], ['fix', 'ci', null], ['fix', 'repair', 'studio:repair:source'],
+    ['decide', 'claim', 'studio:claim:claims/phase-2'], ['decide', 'proposal', 'studio:proposal:docs/health/2026-10-20.md'], ['decide', 'proposal', 'studio:proposal:docs/health/2026-10-30.md'], ['decide', 'step', 'studio:step:5'], ['decide', 'review', 'studio:review:8'],
+    ['try', 'walk', 'studio:walk:6'], ['try', 'walk', 'studio:walk:3'], ['try', 'walk', 'studio:walk:4'],
+  ]);
+  assert.deepEqual([...new Set(needs.items.map(i => i.label))], ['Fix', 'Decide', 'Try it']);
+  // Nothing waiting on time or agents: not the dated phase, the walk that is not ready, nor the agent's PR. They stay on the plate's page.
+  for (const title of ['Not before December', 'Not ready yet', "acme/studio: the agent's PR"]) assert.ok(!needs.items.some(i => i.title === title), title);
+  const strip = home.sections.find(s => s.id === 'plates').items[0];
+  assert.deepEqual([strip.status, strip.count, strip.waiting], ['broken', needs.items.length, 2]);
+  // Scope notes are not missing reads: the counts are not "known", and no source problem is listed above Needs you or under Your plates.
+  assert.equal(needs.known, false); assert.equal(home.sections.find(s => s.id === 'plates').problems.count, 0);
+  // Every answerable row keeps phase 173's answers; the same list in both forms.
+  assert.ok(needs.items.filter(i => i.key && !['night', 'repair'].includes(i.kind) && i.kind !== 'ci').every(i => i.answers.length > 0));
+  const formless = h => h.sections[0].items.map(({ answers, ...i }) => i);
+  assert.deepEqual(formless(four({ form: 'web', decisionWrites: true })), formless(home));
 });

@@ -45,10 +45,25 @@ show the same items, sections and counts.
 `plates home` and exits 2, so a script that called `plates board --json` moves
 to `plates home --json`.
 
-What only one form can read is a row in both, under **Read elsewhere**, with
+`plates home` shows home's four sections, in order (phase 166): **Needs you**,
+one ranked list where each row has one verb (Fix, then Decide, then Try it,
+oldest first); **Since you last looked**, what happened per plate since your
+last `plates home` (the time of that run is kept in the plates state directory,
+`$XDG_STATE_HOME/plates/last-looked.json`, else `~/.local/state/plates/`; no
+project content); **What should happen next?**, what is already queued
+(tonight's plan and open agent issues); and **Your plates**, one status each,
+with source problems collapsed into one line. A count says "known" only when a
+source could not be read, and the other caveats are one footer line. What waits
+on time or on agents is under `plates home --project <id>`. `--json` carries
+the four as `home`, and `/api/home` carries the same `home`; the hosted page
+keeps its current sections until it renders the four, and until it stores
+your visits it uses the last seven days.
+
+What only one form can read is a row in both (on the web under **Read elsewhere**), with
 the reason and the command that reads it, and never missing from one. Local
 work (chats, worktrees and sessions on your machine) is read by
-`plates loose-ends` and shown in `plates home`; Home shows it as unavailable,
+`plates loose-ends` and shown in `plates home` (its rows under
+`--project <id>`, its items waiting on you in Needs you); Home shows it as unavailable,
 "on your machine". Lessons waiting live in the private `plates-inbox`, which
 the App cannot read yet, so both forms name `plates learn`. The fleet's CI,
 stale claims, production verify, the robot, decision checks, feedback and

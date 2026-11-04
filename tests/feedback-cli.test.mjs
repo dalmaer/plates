@@ -9,8 +9,8 @@ import { feedbackSummary, workItems as board } from '../lib/work-items.mjs';
 import { homeText, feedbackRows } from '../lib/home.mjs';
 import { homeSnapshot, homeSections } from '../lib/work-items.mjs';
 import { renderHomeSnapshot } from '../lib/web/views.mjs';
-// Both home forms, with feedback as the item model gives it: the terminal's row items, the web's named row.
-const forms = feedback => { const data = { schema: 1, generatedAt: '2026-10-21T00:00:00Z', ...homeSnapshot([], { sections: homeSections({ feedback: { items: feedbackRows(feedback), count: feedback.pending } }) }) }; return { text: homeText(data), html: renderHomeSnapshot(data) }; };
+// Both home forms, with feedback as the item model gives it: the terminal's row items (a plate's lens lists them, phase 166), the web's named row.
+const forms = feedback => { const data = { schema: 1, generatedAt: '2026-10-21T00:00:00Z', ...homeSnapshot([], { sections: homeSections({ feedback: { items: feedbackRows(feedback), count: feedback.pending } }) }) }; return { text: homeText(data, { projectId: 'studio' }), html: renderHomeSnapshot(data) }; };
 
 const BIN = resolve('bin/plates.mjs');
 function cli(f, args, bin = BIN) {

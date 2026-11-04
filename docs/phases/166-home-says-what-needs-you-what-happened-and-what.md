@@ -1,11 +1,11 @@
 ---
-status: planned
-since: 2026-11-02
+status: partial
+since: 2026-11-04
 goal: G7
 spec: 2
 depends: [151, 156]
 note: "Owner, 2026-11-02: 'When I login I find it hard to know what to do.' Home should say what needs attention, what happened recently, and let the owner ask for work next. Builds on phase 156's one read model."
-evidence: []
+evidence: ["evidence/2026-11-04-home-four-sections.md"]
 ---
 
 # Home says what needs you, what happened and what is next
@@ -44,8 +44,8 @@ The hosted home and `plates home` show the same four sections, in this order, wi
 
 ## Acceptance
 
-- [ ] `plates home --json` and `/api/home` return the same four sections, items and counts for the same fixture sources: `tests/home-isomorphism.test.mjs: "the four home sections are one model"`
-- [ ] "Needs you" ranks fix, decide and try items, and holds no item waiting on time or agents: `tests/work-items.test.mjs: "needs you holds only the owner's turn"`
+- [x] `plates home --json` and `/api/home` return the same four sections, items and counts for the same fixture sources: `tests/home-isomorphism.test.mjs: "the four home sections are one model"`
+- [x] "Needs you" ranks fix, decide and try items, and holds no item waiting on time or agents: `tests/work-items.test.mjs: "needs you holds only the owner's turn"`
 - [ ] "Since you last looked" lists only what happened after the stored visit: `tests/web-home.test.mjs: "since you last looked starts at the last visit"`
 - [ ] The ask box previews both paths and writes nothing without the reviewed digest: `tests/web-home.test.mjs: "an ask is queued only after its preview is approved"`
 - [ ] ⚑ by hand: the owner opens home on the phone and says whether it is clear what to do next.
@@ -76,4 +76,9 @@ By hand: the owner's look on the phone.
 
 ## Next action
 
-Land phase 156's model move. Then build increment 1.
+Increment 2: the hosted home renders the four sections from the model, and the old sections are removed.
+
+## Trajectory
+
+- **2026-11-04** — A plate that could not be read is "not read", a fourth status beside broken, N for you and all clear: calling it either of the others would be false. tests/home-isomorphism.test.mjs "the four home sections are one model".
+- **2026-11-04** — On the owner's fleet, Needs you holds 35 items and no fix: every item is a decision or a walk, so the ranking's first tier is empty today. docs/evidence/2026-11-04-home-four-sections.md.

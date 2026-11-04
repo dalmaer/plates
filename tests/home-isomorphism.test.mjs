@@ -32,7 +32,7 @@ const reviewRepository = { open: { pageInfo: { hasNextPage: false }, nodes: [{ k
 const rate = { cost: 1, remaining: 4000, resetAt: new Date(Date.now() + 3600_000).toISOString() };
 
 /** The same sources, twice: the web's fake App API and a git checkout with a fake gh. */
-async function sources({ reviews = true, files = {} } = {}) {
+async function sources({ reviews = true, files = {}, issues = null } = {}) {
   const h = projectHarness();
   Object.assign(h.source.files, files);
   h.source.files['.plates/plates.json'] = JSON.stringify({ name: 'Acme Studio', repo: 'acme/studio', tagline: 'Publish useful things.', practice: '0.8.32', stack: ['node'], phases: { shape: 'files' } });
@@ -64,6 +64,7 @@ const argv = process.argv.slice(2), q = (argv.find(a => a.startsWith('query=')) 
 if (argv[0] === 'api' && argv[1] === 'user') console.log('acme-owner');
 else if (argv[0] === 'api' && argv[1] === 'graphql' && q.includes('PlatesReviewWindow')) console.log(JSON.stringify({ data: { rateLimit: ${JSON.stringify(rate)}, repository: ${JSON.stringify(reviewRepository)} } }));
 else if (argv[0] === 'api' && argv[1] === 'graphql') console.log(JSON.stringify({ data: { rateLimit: ${JSON.stringify(rate)} } }));
+else if (argv[0] === 'issue' && argv[1] === 'list' && ${JSON.stringify(!!issues)}) console.log(JSON.stringify(argv.includes('plates:agent') ? ${JSON.stringify(issues ?? [])} : []));
 else { console.error('fake gh: offline'); process.exit(1); }
 `);
   await chmod(gh, 0o755);
@@ -93,12 +94,9 @@ test('the CLI and the web render one read model', async () => {
     for (const key of ['decisions', 'walks', 'reviews', 'waiting', 'changes']) assert.deepEqual(cli[key], web[key], `${key}: the same items in both forms`);
     assert.deepEqual(cli.projects, web.projects, 'the same plate, planning and gaps');
     assert.deepEqual(cli.coverage, web.coverage, 'the same coverage');
-    // Same sections, same counts: the terminal says each count the HTML says.
-    const html = renderHomeSnapshot(s.web), text = runNode(process.execPath, [bin, 'home'], { cwd: join(s.dir, 'studio'),
-      env: { ...gitEnv, PLATES_GH: join(s.dir, 'gh'), PLATES_CACHE: join(s.dir, 'cache'), PLATES_STATE: join(s.dir, 'state'), XDG_STATE_HOME: join(s.dir, 'state') } }).stdout;
-    for (const [title, n] of [['Decisions that need you', web.decisions.length], ['Ready to test', web.walks.filter(w => w.ready).length], ['Reviews waiting on you', web.reviews.length], ['In progress / waiting', web.waiting.length]]) {
-      assert.match(html, new RegExp(`>${title}</h2>`)); assert.match(text, new RegExp(`^${title.replace('/', '\\/')} \\((at least )?${n}\\)$`, 'm'), `${title}: ${n} in the terminal`);
-    }
+    // The hosted page keeps its sections until phase 166's increment 2 renders the four.
+    const html = renderHomeSnapshot(s.web);
+    for (const title of ['Decisions that need you', 'Ready to test', 'Reviews waiting on you', 'In progress / waiting']) assert.match(html, new RegExp(`>${title}</h2>`));
   } finally { await s.done(); }
 });
 
@@ -242,4 +240,77 @@ test('the terminal session writes only after a yes, asks for a why, and brings a
   assert.deepEqual(r.data.docket, model.docket.map(e => e.key));
   assert.equal(r.data.settled.length, 1); assert.equal(r.data.putOff.length, 1); assert.equal(r.data.again.length, 1); assert.match(r.data.again[0].reason, /not open/);
   assert.match(r.text, /1 settled · 1 put off · 1 needs another look/); assert.match(r.text, /^Needs another look$/m);
+});
+
+// Phase 166: home is four sections, in order, from one model. The web's /api/home and plates home --json carry the
+// same sections, items and counts for the same sources; the terminal says each count. What one form cannot read yet
+// (tonight's plan, agent issues) is a row in both, with its reason and command, as phase 156's sections are.
+test('the four home sections are one model', async () => {
+  const today = new Date().toISOString().slice(0, 10), day = n => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+  const { nightOf } = await import('../practices/night/files/scripts/plates/night-plan.mjs');
+  const item = (id, title, status) => ({ id, title, kind: 'triage', source: 'owner', number: null, lane: 'night', budget: null, status, result: null });
+  const plan = (date, items) => `${JSON.stringify({ schema: 1, date, shapedBy: 'owner', readyBy: null, willNotTouch: [], settledToday: [], leftOpen: [], items }, null, 2)}\n`;
+  const files = { ...HEALTH,
+    // Built today: it happened since any window. Last night's record has a failed item: a Fix, and a line under Since.
+    'docs/phases/05-today.md': phaseFile(5, { status: 'built' }).replace('since: 2026-10-20', `since: ${today}`),
+    [`docs/night/${day(-1)}.json`]: plan(day(-1), [item('acme-measure', 'Measure the Acme anvil', 'failed'), item('acme-triage', 'Triage Acme', 'done')]),
+    // Tonight's plan as plates goodnight --yes left it in the checkout: the CLI reads it, the App does not.
+    '.plates/night/plan.json': plan(nightOf(new Date()), [item('acme-sort', 'Sort the Acme findings', 'planned')]) };
+  const issues = [{ number: 12, title: 'Acme: shorten the anvil page', url: 'https://github.com/acme/studio/issues/12', createdAt: '2026-11-01T00:00:00Z' }];
+  const s = await sources({ files, issues });
+  try {
+    const four = form => form.home.sections, sec = (form, id) => four(form).find(x => x.id === id);
+    for (const form of [s.web, s.cli]) assert.deepEqual(four(form).map(x => x.title), ['Needs you', 'Since you last looked', 'What should happen next?', 'Your plates'], 'the four, in order');
+    // Needs you: the same ranked rows (fix, decide, try), only what the shared sources hold; answers less what a form can run.
+    const shared = form => sec(form, 'needs-you').items.filter(i => !i.section).map(i => ({ ...i, answers: i.answers.map(({ unavailable, ...a }) => a) }));
+    const web = shared(s.web);
+    assert.deepEqual(web.map(i => i.verb), ['fix', 'decide', 'decide', 'decide', 'try'], 'the fixture has a fix, decisions and a walk, in rank');
+    assert.deepEqual(web.map(i => i.kind), ['night', 'step', 'proposal', 'review', 'walk']);
+    assert.deepEqual(shared(s.cli), web, 'the same rows in both forms');
+    assert.equal(sec(s.cli, 'needs-you').count, sec(s.cli, 'needs-you').items.length);
+    assert.equal(sec(s.web, 'needs-you').count, web.length);
+    assert.equal(sec(s.cli, 'needs-you').known, sec(s.web, 'needs-you').known);
+    // Since you last looked: neither form has a stored visit here, so both use the fixed window and say so.
+    assert.deepEqual(sec(s.cli, 'since'), sec(s.web, 'since'));
+    assert.equal(sec(s.web, 'since').window, 'fixed');
+    const lines = sec(s.web, 'since').plates.flatMap(p => p.lines.map(l => l.text));
+    assert.ok(lines.includes('Phase 5 built: Acme phase 5'), lines.join(' | '));
+    assert.ok(lines.includes(`The night of ${day(-1)}: 1 done, 1 failed`), lines.join(' | '));
+    assert.ok(!lines.some(l => l.includes('Phase 4 built')), 'phase 4 was built before the window');
+    // Your plates: one status each, the same in both forms.
+    assert.deepEqual(sec(s.cli, 'plates'), sec(s.web, 'plates'));
+    assert.equal(sec(s.web, 'plates').items[0].status, 'broken');
+    // What should happen next?: the same rows in both; the CLI reads what is queued, the web names why it cannot and the command that can.
+    assert.deepEqual(sec(s.cli, 'next').sources.map(r => [r.id, r.command]), sec(s.web, 'next').sources.map(r => [r.id, r.command]));
+    assert.ok(sec(s.web, 'next').sources.every(r => r.state === 'unavailable' && r.reason));
+    assert.equal(sec(s.web, 'next').known, true);
+    assert.deepEqual(sec(s.cli, 'next').queued.map(q => [q.queue, q.title]), [['night', 'Sort the Acme findings'], ['agent', 'Acme: shorten the anvil page']]);
+    assert.equal(sec(s.cli, 'next').count, 2);
+    // The terminal says the four headings in order, with the model's counts, and the hedges once, in the footer.
+    const text = runNode(process.execPath, [bin, 'home'], { cwd: join(s.dir, 'studio'),
+      env: { ...gitEnv, PLATES_GH: join(s.dir, 'gh'), PLATES_CACHE: join(s.dir, 'cache'), PLATES_STATE: join(s.dir, 'other-state'), XDG_STATE_HOME: join(s.dir, 'other-state') } }).stdout;
+    const at = ['Needs you', 'Since you last looked', 'What should happen next', 'Your plates'].map(t => text.search(new RegExp(`^${t.replace('?', '\\?')}`, 'm')));
+    assert.ok(at.every((n, i) => n >= 0 && (i === 0 || n > at[i - 1])), text);
+    assert.match(text, new RegExp(`^Needs you \\(${sec(s.cli, 'needs-you').count}\\)$`, 'm'));
+    assert.match(text, new RegExp(`^Since you last looked \\(${sec(s.web, 'since').count}\\) — the last 7 days$`, 'm'));
+    assert.match(text, /^What should happen next\? \(2 queued\)$/m);
+    assert.match(text, /^ {2}Fix · Acme Studio: The night of/m);
+    assert.match(text, /^ {2}Acme Studio: broken\b/m);
+    assert.doesNotMatch(text, /at least|At least|in this source read|Inspection only/);
+  } finally { await s.done(); }
+});
+
+test('since you last looked, in the terminal, starts at its last run', async () => {
+  const s = await sources();
+  try {
+    const env = { ...gitEnv, PLATES_GH: join(s.dir, 'gh'), PLATES_CACHE: join(s.dir, 'cache'), PLATES_STATE: join(s.dir, 'state'), XDG_STATE_HOME: join(s.dir, 'state') };
+    // sources() ran plates home --json once: the second run starts where it looked, and keeps only a time.
+    const again = JSON.parse(runNode(process.execPath, [bin, 'home', '--json'], { cwd: join(s.dir, 'studio'), env }).stdout);
+    const since = again.home.sections.find(x => x.id === 'since');
+    assert.equal(since.window, 'last-run');
+    assert.ok(Date.parse(since.from) >= Date.parse(s.cli.generatedAt) - 1000 && Date.parse(since.from) <= Date.parse(again.generatedAt), since.from);
+    const { readFile } = await import('node:fs/promises');
+    const kept = JSON.parse(await readFile(join(s.dir, 'state', 'plates', 'last-looked.json'), 'utf8'));
+    assert.deepEqual(Object.keys(kept).sort(), ['at', 'schema']);
+  } finally { await s.done(); }
 });
