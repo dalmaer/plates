@@ -244,3 +244,22 @@ test("the owner reads back the instance configuration, and never a secret", asyn
     storageKey: h.config.storageKey, encryptionKey: h.config.encryptionKey.toString("base64") }));
   assert.equal((await h.service(h.request("/api/config?x=1", { cookie }))).status, 400);
 });
+
+// Phase 177: plates promote's revision check reads the commit signed out.
+test("the version path answers the bound commit and nothing else, signed out and uncached; a CLI deploy binds it through PLATES_DEPLOY_REVISION", async () => {
+  const h = harness();
+  h.config.deploymentRevision = "d".repeat(40);
+  const response = await h.service(h.request("/api/version"));
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "private, no-store");
+  assert.deepEqual(await response.json(), { commit: "d".repeat(40) });
+  assert.equal((await h.service(h.request("/api/version?x=1"))).status, 400);
+  h.config.deploymentRevision = null;
+  assert.deepEqual(await (await h.service(h.request("/api/version"))).json(), { commit: null });
+  const env = { PLATES_WEB_CONFIG: JSON.stringify(h.input), PLATES_GITHUB_CLIENT_SECRET: h.secrets.clientSecret, SUPABASE_URL: h.secrets.storageUrl,
+    SUPABASE_SERVICE_ROLE_KEY: h.secrets.storageKey, PLATES_SESSION_ENCRYPTION_KEY: h.secrets.encryptionKey };
+  assert.equal(configFromEnv({ ...env, PLATES_DEPLOY_REVISION: "e".repeat(40) }).deploymentRevision, "e".repeat(40));
+  assert.equal(configFromEnv({ ...env, VERCEL_GIT_COMMIT_SHA: "c".repeat(40), PLATES_DEPLOY_REVISION: "e".repeat(40) }).deploymentRevision, "c".repeat(40), "the Git binding wins");
+  assert.equal(configFromEnv({ ...env, VERCEL_GIT_COMMIT_SHA: "bad", PLATES_DEPLOY_REVISION: "e".repeat(40) }).deploymentRevision, null, "a malformed Git binding is never replaced");
+  assert.equal(configFromEnv({ ...env, PLATES_DEPLOY_REVISION: "private text" }).deploymentRevision, null);
+});

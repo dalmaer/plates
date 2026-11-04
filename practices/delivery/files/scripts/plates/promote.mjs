@@ -7,6 +7,11 @@
 //   plates promote --back <commit> [--yes] [--within <s>] [--every <s>] [--json]
 //   (plates promote runs this script: node scripts/plates/promote.mjs, the same arguments)
 //
+// A Vercel target ("delivery".promote "vercel:<project>", phase 177) deploys,
+// checks and rolls itself back instead of moving a ref: scripts/plates/vercel.mjs,
+// which also takes --watch <s>, --migrated <file> and --migrations-from <commit>,
+// and --back with no commit (the last deployment that passed).
+//
 // .plates/plates.json "delivery": { "promote": "tag:prod" } (or "branch:production"):
 // the ref production deploys from. Without one ("none", or unset) a project
 // has no promote. It needs "delivery".site and "delivery".version, since
@@ -51,7 +56,7 @@ import { ciResult } from './gate.mjs';
 import { verify, verifyText, WITHIN, EVERY } from './verify.mjs';
 
 /** Where a run keeps what it fetched: its own namespace, never a branch. */
-const TESTED_REF = 'refs/plates/promote/tested', PRODUCTION_REF = 'refs/plates/promote/production';
+export const TESTED_REF = 'refs/plates/promote/tested', PRODUCTION_REF = 'refs/plates/promote/production';
 /** How many commits the preview lists, each way. */
 export const LISTED = 20;
 const SHA = /^[0-9a-f]{40}([0-9a-f]{24})?$/;
@@ -59,19 +64,19 @@ const short = s => (s ? s.slice(0, 7) : 'nothing');
 
 export class PromoteError extends DeliveryError {}
 
-function git(root, env, args) {
+export function git(root, env, args) {
   const r = spawnSync(environmentValue('variable:KEEL_GIT', env) ?? 'git', args, { cwd: root, env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 120_000 });
   if (r.error) throw new PromoteError(`could not run git: ${r.error.message}`, 1);
   return r;
 }
-const gitOk = (root, env, args, what) => {
+export const gitOk = (root, env, args, what) => {
   const r = git(root, env, args);
   if (r.status !== 0) throw new PromoteError(`${what}: git ${args[0]} failed: ${(r.stderr || r.stdout).trim().split('\n')[0]}`, 1);
   return r.stdout.trim();
 };
 
 /** Whether a is an ancestor of b (or b itself). An unreadable object is an error, never "no". */
-function ancestor(root, env, a, b) {
+export function ancestor(root, env, a, b) {
   const r = git(root, env, ['merge-base', '--is-ancestor', a, b]);
   if (r.status === 0) return true;
   if (r.status === 1) return false;
@@ -107,7 +112,7 @@ function remoteState(root, env, remote, tested, prod) {
 }
 
 /** The commit an argument names, as this checkout has it once the tested ref is fetched; a throw (exit 1) when none. */
-function resolveCommit(root, env, arg) {
+export function resolveCommit(root, env, arg) {
   const r = git(root, env, ['rev-parse', '--verify', '--quiet', '--end-of-options', `${arg}^{commit}`]);
   const sha = r.status === 0 ? r.stdout.trim() : null;
   if (!sha || !SHA.test(sha)) throw new PromoteError(`${JSON.stringify(arg)} is not a commit in this repository, nor on the tested ref just fetched: only a commit on the tested ref is promoted`, 1);
@@ -115,7 +120,7 @@ function resolveCommit(root, env, arg) {
 }
 
 /** The gate workflow whose result counts: "delivery".gateWorkflow, else the project's ci.gateWorkflow. Never a guess. */
-function gateConfig(config, d) {
+export function gateConfig(config, d) {
   const named = gateWorkflowOf(config);
   if (named?.problem) throw new PromoteError(named.problem);
   const workflow = d.gateWorkflow ?? named?.name ?? null;
@@ -180,7 +185,9 @@ export function move({ root, plan: p, config, env = process.env, remote = 'origi
  * verify: <verify.mjs result>, next, exitCode }. Never moves a second time:
  * a failed verify suggests --back and stops.
  */
-export async function promote({ root, config, commit = null, back = false, yes = false, within = WITHIN, every = EVERY, env = process.env, remote = 'origin', fetch, request, download, now, sleep }) {
+export async function promote({ root, config, commit = null, back = false, yes = false, within = WITHIN, every = EVERY, env = process.env, remote = 'origin', fetch, request, download, now, sleep, ...vercel }) {
+  // A Vercel target deploys and checks itself (phase 177); a tag or a branch moves, as below.
+  if (deliveryOf(config).promote?.kind === 'vercel') return (await import('./vercel.mjs')).promoteVercel({ root, config, commit, back, yes, within, every, env, remote, fetch, request, download, ...(sleep ? { sleep } : {}), ...vercel });
   const p = await plan({ root, config, commit, back, within, every, env, remote, request, download, now });
   if (!yes) return { ...p, moved: null, preview: true, exitCode: 3 };
   // The ref already there is not pushed again, and still verified: a retry is never a success it did not see.
@@ -239,18 +246,22 @@ export function promoteText(r) {
   return lines.join('\n');
 }
 
-const USAGE = 'usage: plates promote [<commit>] [--yes] [--within <s>] [--every <s>] [--json] | plates promote --back <commit> [--yes] [--within <s>] [--every <s>] [--json]';
+const USAGE = 'usage: plates promote [<commit>] [--yes] [--within <s>] [--every <s>] [--watch <s>] [--migrated <file>]... [--migrations-from <commit>] [--json] | plates promote --back [<commit>] [--yes] [--within <s>] [--every <s>] [--json]';
 
-/** The arguments: { commit, back, yes, within?, every? }; a throw (exit 2) on anything else. */
+/** The arguments: { commit, back, yes, within?, every?, watch?, migrated, migrationsFrom }; a throw (exit 2) on anything else. */
 export function parseArgs(args) {
-  const out = { commit: null, back: false, yes: false };
+  const out = { commit: null, back: false, yes: false, migrated: [], migrationsFrom: null };
   const positional = [];
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === '--yes') { out.yes = true; continue; }
-    if (['--back', '--within', '--every'].includes(a)) {
+    // --back's commit is optional: a Vercel target goes back to the last deployment that passed (phase 177).
+    if (a === '--back') { out.back = true; if (args[i + 1] !== undefined && !args[i + 1].startsWith('-')) positional.push(args[++i]); continue; }
+    if (['--within', '--every', '--watch', '--migrated', '--migrations-from'].includes(a)) {
       if (args[i + 1] === undefined || args[i + 1].startsWith('-')) throw new PromoteError(`${a} needs a value; ${USAGE}`);
-      if (a === '--back') { out.back = true; positional.push(args[++i]); } else out[a.slice(2)] = args[++i];
+      if (a === '--migrated') out.migrated.push(args[++i]);
+      else if (a === '--migrations-from') out.migrationsFrom = args[++i];
+      else out[a.slice(2)] = args[++i];
       continue;
     }
     if (a.startsWith('-')) throw new PromoteError(`unknown argument ${a}; ${USAGE}`);
@@ -258,7 +269,7 @@ export function parseArgs(args) {
   }
   if (positional.length > 1) throw new PromoteError(USAGE);
   out.commit = positional[0] ?? null;
-  for (const k of ['within', 'every']) {
+  for (const k of ['within', 'every', 'watch']) {
     if (out[k] === undefined) continue;
     const n = Number(out[k]);
     if (!Number.isFinite(n) || n < 0 || n > 3600 || (k === 'every' && n === 0)) throw new PromoteError(`--${k} is seconds, ${k === 'every' ? 'more than 0' : '0 or more'} and at most 3600 (got ${JSON.stringify(out[k])})`);
@@ -272,9 +283,12 @@ export async function run(args, { root = process.cwd(), env = process.env, fetch
   let config;
   try { config = JSON.parse(await readFile(join(root, '.plates', 'plates.json'), 'utf8')); }
   catch (e) { throw new PromoteError(`cannot read .plates/plates.json (${e.code ?? 'invalid JSON'})`); }
-  const r = await promote({ root, config, commit: o.commit, back: o.back, yes: o.yes, within: o.within ?? WITHIN, every: o.every ?? EVERY, env, fetch });
+  const vercel = deliveryOf(config).promote?.kind === 'vercel';
+  if (!vercel && (o.watch !== undefined || o.migrated.length || o.migrationsFrom)) throw new PromoteError('--watch, --migrated and --migrations-from are a Vercel target\'s ("delivery".promote "vercel:<project>")');
+  const r = await promote({ root, config, commit: o.commit, back: o.back, yes: o.yes, within: o.within ?? WITHIN, every: o.every ?? EVERY, env, fetch,
+    ...(vercel ? { watch: o.watch, migrated: o.migrated, migrationsFrom: o.migrationsFrom } : {}) });
   const { exitCode, ...data } = r;
-  return { data, text: promoteText(r), exitCode };
+  return { data, text: vercel ? (await import('./vercel.mjs')).promoteVercelText(r) : promoteText(r), exitCode };
 }
 
 if (isMain(import.meta)) await main(args => run(args));

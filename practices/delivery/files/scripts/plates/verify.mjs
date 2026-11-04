@@ -233,7 +233,7 @@ export async function live({ root, config, sha, site, env = process.env, fetch, 
  * Tree entries for mktree; none for a project without Vercel. The night
  * practice's plan branch does the same (night-plan.mjs, hostingOptOutPaths).
  */
-function hostingOptOut(root, env, ok, present) {
+export function hostingOptOut(root, env, ok, present) {
   const listed = git(root, env, ['ls-tree', '-r', '--name-only', 'HEAD']);
   if (listed.status !== 0) return [];
   const paths = String(listed.stdout).split('\n').map(p => p.trim()).filter(p => /^(?:[^/]+\/)?vercel\.json$/.test(p));

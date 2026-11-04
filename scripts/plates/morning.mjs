@@ -360,6 +360,71 @@ export function verifyResults(text) {
   return results.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
 }
 
+// ---- production's deploys (plates phase 177) --------------------------------------
+//
+// A Vercel target's plates promote (the delivery practice's
+// scripts/plates/vercel.mjs) adds one JSON line per deploy to deploys.jsonl
+// beside verify.json: { schema: 1, at, project, commit, action ('deploy',
+// 'back' or 'verify'), deployment, target (the rollback target read before
+// it), checks: [{ check, ok, detail }], ok, failed (the first check that did
+// not hold, or null), rolledBack (false, true or 'failed'), serving }. A
+// rollback is a line in the brief and the owner's item until a later deploy
+// passes; a rollback that failed is the first thing the owner sees.
+
+export const DEPLOY_FILE = 'deploys.jsonl';
+/** At most this many deploys are kept, the oldest dropped first; the newest that passed always stays (plates promote --back reads it). */
+export const DEPLOYS_KEEP = 200;
+const DEPLOY_ACTIONS = ['deploy', 'back', 'verify'];
+const deploymentOf = d => (d && typeof d === 'object' && typeof d.id === 'string' && /^[\w.-]{1,100}$/.test(d.id) ? { id: d.id, url: typeof d.url === 'string' ? one(d.url).slice(0, 300) : null, ...(typeof d.commit === 'string' && FULL_SHA.test(d.commit) ? { commit: d.commit } : {}) } : null);
+
+/** One recorded deploy, checked: the record, or null when it is not one. */
+function deployResultOf(r) {
+  if (!r || typeof r !== 'object' || Array.isArray(r) || r.schema !== 1) return null;
+  if (!FULL_SHA.test(r.commit ?? '') || typeof r.ok !== 'boolean' || typeof r.at !== 'string' || !Number.isFinite(Date.parse(r.at)) || !DEPLOY_ACTIONS.includes(r.action)) return null;
+  if (![false, true, 'failed'].includes(r.rolledBack) || !Array.isArray(r.checks)) return null;
+  const checks = r.checks.map(c => (c && typeof c.check === 'string' && typeof c.ok === 'boolean' ? { check: one(c.check).slice(0, 40), ok: c.ok, detail: typeof c.detail === 'string' ? one(c.detail).slice(0, 500) : null } : null));
+  if (checks.some(c => !c)) return null;
+  if (r.ok && (r.rolledBack !== false || checks.some(c => !c.ok))) return null;
+  return { at: r.at, project: typeof r.project === 'string' ? one(r.project).slice(0, 100) : null, commit: r.commit, action: r.action, ok: r.ok,
+    deployment: deploymentOf(r.deployment), target: deploymentOf(r.target), serving: deploymentOf(r.serving), checks,
+    failed: typeof r.failed === 'string' ? one(r.failed).slice(0, 40) : null, rolledBack: r.rolledBack };
+}
+
+/** deploys.jsonl's text as its records, newest first; a throw (MorningError) when a line is not a deploy record. */
+export function deployResults(text) {
+  if (text.length > MAX_BYTES) throw new MorningError(`${DEPLOY_FILE} is larger than ${MAX_BYTES} bytes`);
+  const out = [];
+  String(text).split('\n').forEach((line, i) => {
+    if (!line.trim()) return;
+    let data;
+    try { data = JSON.parse(line); } catch { throw new MorningError(`${DEPLOY_FILE} line ${i + 1} is not JSON`); }
+    const r = deployResultOf(data);
+    if (!r) throw new MorningError(`${DEPLOY_FILE} line ${i + 1} is not a deploy record ({ schema: 1, at, commit, action, ok, checks, rolledBack })`);
+    out.push(r);
+  });
+  return out.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+}
+
+/**
+ * The rollbacks still open, newest first: each deploy that rolled back (or
+ * whose rollback failed) with no deploy that passed after it. A passing
+ * deploy closes every rollback before it. Pure.
+ */
+export function openRollbacks(deploys) {
+  const sorted = [...deploys].sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  const passed = sorted.findIndex(r => r.ok);
+  return (passed < 0 ? sorted : sorted.slice(0, passed)).filter(r => r.rolledBack !== false);
+}
+
+/** One rollback, as the brief and the owner's docket say it. */
+export function rollbackLine(r) {
+  const failed = r.failed ?? 'a check';
+  const why = r.checks.find(c => c.check === r.failed)?.detail;
+  const deployment = r.deployment?.id ? ` (${r.deployment.id})` : '';
+  if (r.rolledBack === 'failed') return `Production's rollback FAILED: ${failed} failed on \`${r.commit.slice(0, 7)}\`${deployment} at ${r.at}${why ? ` (${why})` : ''}, and moving back to ${r.target?.id ?? 'the recorded deployment'} did not take: production may be serving the failed deploy. Check it now: plates promote --back.`;
+  return `Production rolled back: ${failed} failed on \`${r.commit.slice(0, 7)}\`${deployment} at ${r.at}${why ? ` (${why})` : ''}. It serves ${r.serving?.id ?? r.target?.id ?? 'the recorded deployment'} again, until a deploy passes.`;
+}
+
 /**
  * The project's recorded verifies, from origin's keel-verify branch: { results }
  * or { results: [], unread } when the branch cannot be read (never "no
@@ -368,21 +433,26 @@ export function verifyResults(text) {
 export function readVerify(root, {namesEvidence=false,consumer='morning-brief'}={}) {
   const context=namesEvidenceContext(namesEvidence), observation=namesObservation(consumer==='home'?'home':'brief',context);
   const traces=readNames('git ref:keel-verify').map(branch=>({ref:`refs/heads/${branch}`,path:VERIFY_FILE,commitSha:null,blobSha:null,sha256:null,state:'unavailable',absence:null}));
-  let results=[], unread;
+  let results=[], deploys=[], unread;
   try {
     if (!hasOrigin(root)) throw new Error('no origin to read verification history');
     for(const trace of traces) {
-      const text=remoteFile(root,trace.ref.slice('refs/heads/'.length),VERIFY_FILE,trace);
+      const branch=trace.ref.slice('refs/heads/'.length);
+      const text=remoteFile(root,branch,VERIFY_FILE,trace);
       if(text!==null) results.push(...verifyResults(text));
+      // Phase 177: the deploy records beside it (a Vercel target's plates promote).
+      const lines=remoteFile(root,branch,DEPLOY_FILE);
+      if(lines!==null) deploys.push(...deployResults(lines));
     }
     results.sort((a,b)=>Date.parse(b.at)-Date.parse(a.at));
-  } catch(e) {results=[];unread=one(e?.message??e);}
+    deploys.sort((a,b)=>Date.parse(b.at)-Date.parse(a.at));
+  } catch(e) {results=[];deploys=[];unread=one(e?.message??e);}
   if(observation) {
     const projection=namesFragment(observation,'verify',JSON.stringify(results.map(({sha,ok,at})=>({sha,ok,at}))));
     for(const trace of traces) namesRead(observation,context,trace,{consumer,sourceKind:'verify',contributed:!unread&&trace.state==='read',outputSection:'verify',projection});
     if(unread) namesGap(observation,'verify-unavailable');
   }
-  return {results,...(unread?{unread}:{}),...(observation?{observation}:{})};
+  return {results,deploys,...(unread?{unread}:{}),...(observation?{observation}:{})};
 }
 
 /** Production's origin, .plates/plates.json "delivery".site, or null when it names none (or none that parses). */

@@ -72,6 +72,31 @@ exactly that commit (`verify.mjs --exact`), since a newer commit still
 serving contains the older one. It refuses to run in GitHub Actions; no
 workflow plates installs runs it.
 
+**A deploy checks itself and rolls itself back** (phase 177): with
+`"delivery".promote: "vercel:<project>"` and `"delivery".vercel: { "scope":
+"<team>", "checkout": "<absolute directory outside every checkout>" }`,
+`plates promote --yes` runs `scripts/plates/vercel.mjs`. Before anything
+deploys it reads the deployment serving production (the rollback target; none
+readable, nothing deploys), refuses a commit that adds a file under
+`"delivery".migrations` (default `lib/web/migrations`) since the last deploy
+that passed unless `--migrated <file>` says the owner applied it, and fills the
+checkout with exactly the tested commit (`git archive`). Then `vercel deploy
+--prod --skip-domain` with the commit as the deployment's runtime env
+`PLATES_DEPLOY_REVISION`, and `vercel promote` points production at it. The
+checks, in order: the version path reports exactly the commit, the smoke
+paths, and no error in the new deployment's logs for `--watch` seconds (default
+120) from its ready time. Any failure runs `vercel rollback` to the recorded
+deployment, reads that it serves, and exits 1 naming the failed check, the
+deployment that failed and the one serving now; a rollback that does not take
+is the first item on the owner's docket. `plates promote --back` with no commit
+goes at once to the newest deploy that passed before the one serving. Each
+deploy is one JSON line in `deploys.jsonl` on the verify branch, beside
+`verify.json`; a rollback is a line in the morning brief and the owner's item
+until a later deploy passes. The Vercel CLI is one client; it never reads
+environment values or secrets. `"delivery".grant: { "agentPromote": true,
+"since": "YYYY-MM-DD" }`, the owner's, lets the autonomy renderer allow an
+agent exactly `plates promote --yes` and `plates promote --back`.
+
 **Configuration** (`.plates/plates.json`): `"delivery": { "tested": "green",
 "gateWorkflow": "check.yml", "site": "https://anvils.acme.example",
 "version": "/api/version", "smoke": ["/", { "path": "/login", "status": 307 }],
@@ -87,8 +112,8 @@ needs `site` and `version`. Each error names its key. `"delivery".docsOnly` is t
 (phase 79).
 
 **Its files.** `.github/workflows/plates-publish.yml`, `scripts/plates/publish.mjs`,
-`scripts/plates/delivery.mjs`, `scripts/plates/verify.mjs` and
-`scripts/plates/promote.mjs` (managed). It
+`scripts/plates/delivery.mjs`, `scripts/plates/verify.mjs`,
+`scripts/plates/promote.mjs` and `scripts/plates/vercel.mjs` (managed). It
 requires `night` (the gate result reader, `scripts/plates/ci.mjs` and `lib.mjs`,
 and the morning brief, `scripts/plates/morning.mjs`, which reads the verify
 record). Optional: `plates adopt --with delivery`; its publisher pushes a branch

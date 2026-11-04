@@ -7,10 +7,13 @@
 // tree, where the night's scripts are not beside it.
 //
 //   deliveryOf(config)        .plates/plates.json "delivery": { tested, gateWorkflow,
-//                             site, version, smoke, promote }, validated, each
-//                             error naming its key (site, version and smoke: phase
-//                             81's verifier, scripts/plates/verify.mjs; promote:
-//                             phase 82's plates promote, scripts/plates/promote.mjs)
+//                             site, version, smoke, promote, vercel, migrations,
+//                             grant }, validated, each error naming its key (site,
+//                             version and smoke: phase 81's verifier,
+//                             scripts/plates/verify.mjs; promote: phase 82's plates
+//                             promote, scripts/plates/promote.mjs; vercel,
+//                             migrations and grant: phase 177's Vercel target,
+//                             scripts/plates/vercel.mjs)
 //   concurrencyOf(text)       a workflow's concurrency blocks, read as text
 //   workflowKind(file, text, { gate })  'test', 'publish' or null
 //   concurrencyProblems(file, text, kind)  the rule, broken: [string]
@@ -209,6 +212,13 @@ export function deliveryProblems(config) {
     if (p) out.push(`.plates/plates.json "delivery".promote ${p}`);
     else if (d.promote !== 'none' && (d.site === undefined || d.version === undefined)) out.push('.plates/plates.json "delivery".promote needs "delivery".site and "delivery".version: plates promote verifies that production serves the commit it moved to');
   }
+  // Phase 177: a Vercel target's own keys (where it deploys from, and the scope), the migrations path, and the owner's grant.
+  if (d.vercel !== undefined) out.push(...vercelProblems(d.vercel).map(p => `.plates/plates.json "delivery".vercel${p}`));
+  const vercelTarget = typeof d.promote === 'string' && d.promote.startsWith('vercel:');
+  if (vercelTarget && d.vercel === undefined) out.push('.plates/plates.json "delivery".promote is a Vercel target and needs "delivery".vercel: { "scope": "<team>", "checkout": "<an absolute directory outside every checkout>" }');
+  if (d.vercel !== undefined && !vercelTarget) out.push('.plates/plates.json "delivery".vercel is read only with a Vercel target ("delivery".promote "vercel:<project>")');
+  if (d.migrations !== undefined && (typeof d.migrations !== 'string' || !/^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/.test(d.migrations) || d.migrations.split('/').some(s => s === '..' || s === '.'))) out.push(`.plates/plates.json "delivery".migrations must be a directory in the repository, like "lib/web/migrations" (got ${JSON.stringify(d.migrations)})`);
+  if (d.grant !== undefined) out.push(...grantProblems(d.grant).map(p => `.plates/plates.json "delivery".grant${p}`));
   if ((d.version !== undefined || d.smoke !== undefined) && d.site === undefined) out.push('.plates/plates.json "delivery".site is required with "delivery".version or "delivery".smoke: the production origin they are read from (like "https://anvils.acme.example")');
   return out;
 }
@@ -219,8 +229,9 @@ export function deliveryProblems(config) {
  * default branch nor the tested ref), or "none".
  */
 function promoteProblem(value, tested) {
-  const like = 'must be "tag:<name>" or "branch:<name>", the ref production deploys from (like "tag:prod"), or "none"';
+  const like = 'must be "tag:<name>" or "branch:<name>", the ref production deploys from (like "tag:prod"), "vercel:<project>", or "none"';
   if (value === 'none') return null;
+  if (typeof value === 'string' && value.startsWith('vercel:')) return VERCEL_PROJECT.test(value.slice(7)) ? null : `${like}: a Vercel project's name is lowercase letters, digits, ".", "_" and "-" (got ${JSON.stringify(value)})`;
   const m = typeof value === 'string' ? /^(tag|branch):(.+)$/.exec(value) : null;
   if (!m) return `${like} (got ${JSON.stringify(value)})`;
   const p = branchProblem(m[2]);
@@ -231,9 +242,54 @@ function promoteProblem(value, tested) {
   return null;
 }
 
-/** "delivery".promote as a ref: { kind: 'tag' | 'branch', name, ref, spec }, or null for none (no promote). Validated by deliveryProblems. */
+/** A Vercel project's name, as its CLI's --project takes it. */
+const VERCEL_PROJECT = /^[a-z0-9][a-z0-9._-]{0,99}$/;
+
+/**
+ * "delivery".vercel, a Vercel target's keys (phase 177): { scope, checkout,
+ * globalConfig? }. scope is the team the project is in; checkout the
+ * directory the deploy runs from, an absolute path that plates fills with
+ * exactly the tested commit, outside every checkout (never inside a git work
+ * tree); globalConfig the Vercel CLI's own directory (-Q), when it is not the
+ * default. Each problem names its key, after "delivery".vercel.
+ */
+function vercelProblems(v) {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return [' must be an object: { "scope": "<team>", "checkout": "<absolute directory>" }'];
+  const out = [];
+  const extra = Object.keys(v).filter(k => !['scope', 'checkout', 'globalConfig'].includes(k));
+  if (extra.length) out.push(` takes scope, checkout and globalConfig only (got ${extra.join(', ')})`);
+  if (typeof v.scope !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(v.scope)) out.push(`.scope must be the Vercel team (scope) the project is in, like "acme" (got ${JSON.stringify(v.scope)})`);
+  for (const key of ['checkout', 'globalConfig']) {
+    if (key === 'globalConfig' && v[key] === undefined) continue;
+    const p = v[key];
+    if (typeof p !== 'string' || !p.startsWith('/') || p.length > 1024 || /[\0\r\n]/.test(p) || p.split('/').some(s => s === '..' || s === '.') || p === '/') out.push(`.${key} must be an absolute directory${key === 'checkout' ? ' outside every checkout, where plates puts exactly the commit it deploys' : ', the Vercel CLI\'s own (-Q)'} (got ${JSON.stringify(p)})`);
+  }
+  return out;
+}
+
+/**
+ * "delivery".grant, the owner's (phase 177): { agentPromote: true, since:
+ * "YYYY-MM-DD" }. With it the autonomy renderer allows an agent exactly
+ * plates promote --yes and plates promote --back in this project; nothing
+ * else in production. Each problem names its key, after "delivery".grant.
+ */
+function grantProblems(g) {
+  if (!g || typeof g !== 'object' || Array.isArray(g)) return [' must be an object: { "agentPromote": true, "since": "YYYY-MM-DD" }'];
+  const out = [];
+  const extra = Object.keys(g).filter(k => !['agentPromote', 'since'].includes(k));
+  if (extra.length) out.push(` takes agentPromote and since only (got ${extra.join(', ')})`);
+  if (typeof g.agentPromote !== 'boolean') out.push(`.agentPromote must be true or false (got ${JSON.stringify(g.agentPromote)})`);
+  if (typeof g.since !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(g.since) || new Date(`${g.since}T00:00:00Z`).toISOString().slice(0, 10) !== g.since) out.push(`.since must be the date the owner granted it, YYYY-MM-DD (got ${JSON.stringify(g.since)})`);
+  return out;
+}
+
+/** The migrations directory a deploy is refused over when it adds one (phase 177), when .plates/plates.json names none. */
+export const MIGRATIONS = 'lib/web/migrations';
+
+/** "delivery".promote as a ref: { kind: 'tag' | 'branch', name, ref, spec } (a Vercel target: { kind: 'vercel', name: <project>, ref: null, spec }), or null for none (no promote). Validated by deliveryProblems. */
 export function promoteRefOf(value) {
   if (value === undefined || value === null || value === 'none') return null;
+  if (value.startsWith('vercel:')) return { kind: 'vercel', name: value.slice(7), ref: null, spec: value };
   const [, kind, name] = /^(tag|branch):(.+)$/.exec(value);
   return { kind, name, ref: `refs/${kind === 'tag' ? 'tags' : 'heads'}/${name}`, spec: value };
 }
@@ -282,7 +338,10 @@ export function deliveryOf(config) {
   if (problems.length) throw new DeliveryError(problems[0]);
   const d = config?.delivery ?? {};
   const smoke = (d.smoke ?? []).map(c => typeof c === 'string' ? { path: c, status: [200] } : { path: c.path, status: c.status === undefined ? [200] : [c.status].flat() });
-  return { tested: d.tested ?? TESTED, gateWorkflow: d.gateWorkflow ?? null, site: d.site ? new URL(d.site).origin : null, version: d.version ?? null, smoke, promote: promoteRefOf(d.promote) };
+  return { tested: d.tested ?? TESTED, gateWorkflow: d.gateWorkflow ?? null, site: d.site ? new URL(d.site).origin : null, version: d.version ?? null, smoke, promote: promoteRefOf(d.promote),
+    // A Vercel target's keys (phase 177), only with one; the grant, only when the owner set it.
+    ...(d.vercel ? { vercel: { scope: d.vercel.scope, checkout: d.vercel.checkout, globalConfig: d.vercel.globalConfig ?? null }, migrations: d.migrations ?? MIGRATIONS } : {}),
+    ...(d.grant ? { grant: { agentPromote: d.grant.agentPromote, since: d.grant.since } } : {}) };
 }
 
 /** A workflow's top-level `name:`, unquoted, or null. */
