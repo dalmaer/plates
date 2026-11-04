@@ -292,6 +292,11 @@ test('the four home sections are one model', async () => {
     const at = ['Needs you', 'Since you last looked', 'What should happen next', 'Your plates'].map(t => text.search(new RegExp(`^${t.replace('?', '\\?')}`, 'm')));
     assert.ok(at.every((n, i) => n >= 0 && (i === 0 || n > at[i - 1])), text);
     assert.match(text, new RegExp(`^Needs you \\(${sec(s.cli, 'needs-you').count}\\)$`, 'm'));
+    // The start line and the web's Start panel count what Needs you counts, the failed night's Fix (no answers) too.
+    assert.ok(sec(s.web, 'needs-you').count > s.web.docket.length, 'the fixture has a row with no answers');
+    assert.match(text, new RegExp(`^ {2}${sec(s.cli, 'needs-you').count} need you · about \\d+ min — plates home --review`, 'm'));
+    const { renderReviewStart } = await import('../lib/web/review-views.mjs');
+    assert.match(renderReviewStart(s.web), new RegExp(`<strong>${sec(s.web, 'needs-you').count} need you · `));
     assert.match(text, new RegExp(`^Since you last looked \\(${sec(s.web, 'since').count}\\) — the last 7 days$`, 'm'));
     assert.match(text, /^What should happen next\? \(2 queued\)$/m);
     assert.match(text, /^ {2}Fix · Acme Studio: The night of/m);

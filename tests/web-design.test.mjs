@@ -34,7 +34,7 @@ import * as navigationClient from '../lib/web/navigation-client.mjs';
 // PLATES_WRITE_MARKUP_GOLDEN=1 and the diff shows in review (phase 168: the
 // navigation's theme toggle, then its walk fix: the toggle and Sign out move
 // to the page footer; phase 166: home and a plate's page are the four
-// sections, and the Start panel says "N to answer").
+// sections, and the Start panel says "N need you", Needs you's count).
 const GOLDEN = new URL('./fixtures/web-design/markup.json', import.meta.url);
 const access = { workspace: { id: 'acme', name: 'Acme workspace' }, userId: 1, projects: [{ id: 'studio', repo: 'acme/studio', name: 'Acme Studio' }], sourceRevision: 'a'.repeat(40), csrf: 'fake-csrf-acme' };
 const project = { id: 'studio', repo: 'acme/studio', name: 'Acme Studio' };

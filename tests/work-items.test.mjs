@@ -252,9 +252,9 @@ test('every item says how long it takes', async () => {
   const total = snapshot.docket.reduce((n, e) => n + e.minutes, 0), quick = snapshot.docket.filter(e => e.quick).length;
   assert.equal(total, 10 + 1 + 10 + 1 + 5 + 5 + 5 + 2 + 2);
   const { renderReviewStart } = await import('../lib/web/review-views.mjs');
-  assert.match(renderReviewStart(snapshot), new RegExp(`<strong>9 to answer · about ${total} min</strong>`));
+  assert.match(renderReviewStart(snapshot), new RegExp(`<strong>9 need you · about ${total} min</strong>`));
   const { homeText } = await import('../lib/home.mjs');
-  assert.match(homeText({ ...snapshot, generatedAt: '2026-11-03T12:00:00Z' }), new RegExp(`^ {2}9 to answer · about ${total} min — plates home --review \\(--quick: the ${quick} quick ones\\)$`, 'm'));
+  assert.match(homeText({ ...snapshot, generatedAt: '2026-11-03T12:00:00Z' }), new RegExp(`^ {2}9 need you · about ${total} min — plates home --review \\(--quick: the ${quick} quick ones\\)$`, 'm'));
 });
 
 test('what an answer sets moving comes from the phase files and the claim', () => {

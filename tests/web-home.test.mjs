@@ -27,6 +27,9 @@ test('the page shows the four sections in order with the model\'s items and coun
   assert.deepEqual(rows, sec('needs-you').items.map(r=>[r.verb,r.label,r.title]));
   assert.deepEqual(rows.map(r=>r[0]), ['fix','decide','try'], 'the fixture has one of each, in rank');
   assert.match(html, new RegExp(`id="needs-you-title">Needs you</h2><span class="meta">${sec('needs-you').count}</span>`));
+  // The Start panel counts what Needs you counts, the Fix with no answers too; its minutes and session cover the answerable ones.
+  assert.ok(sec('needs-you').count > data.docket.length, 'the fixture has a row with no answers');
+  assert.equal(Number(/<p class="review-start p-card"><strong>(\d+) need/.exec(html)[1]), sec('needs-you').count);
   // Phase 173's answers are kept: each answerable row names them and opens the review session.
   assert.match(html,/data-answers>Answers: Verified · Needs changes · Cannot check yet · Not yet|data-answers>Answers: [^<]*Not now/);
   assert.match(html,/<a href="\/review" data-focus="answer-need-studio:walk:walk-one">Answer →<\/a>/);
