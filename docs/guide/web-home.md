@@ -1,10 +1,15 @@
 # Use the private Home board
 
-Home brings the current project plan into the signed-in workspace. It leads with
-decisions needing a person, walks ready for verification, recent source changes,
-and a summary of every authorized project. Open a project to use the same view
-through that project’s lens. Search and the attention filter narrow cards;
-coverage warnings remain visible even when nothing matches.
+Home brings the current project plan into the signed-in workspace, in four
+sections (phase 166): **Needs you**, one ranked list where each row has one
+verb (Fix, then Decide, then Try it, oldest first) and names its answers, with
+Answer opening the review session; **Since you last looked**, what happened, by
+plate; **What should happen next?**, what is queued, with each source the
+hosted home cannot read yet as one quiet line naming its command; and **Your
+plates**, one status each, with source problems in one line beneath. The
+caveats are one footer line. Open a plate for the same sections through its
+lens, plus what waits on time or agents. Search and the Fix / Decide / Try it
+filter narrow Needs you; source problems stay listed under Your plates.
 
 This is a read-only view. “Inspect source” opens the exact GitHub revision behind
 an item. A phase marked built is a source claim, not proof that this deployment
@@ -20,8 +25,8 @@ numbered database migrations in order, including
 [003-home-retry.sql](../../lib/web/migrations/003-home-retry.sql).
 Use the same approved private database and server-only secret bindings. Home
 needs no additional GitHub permission beyond the selected-repository Metadata
-and Contents reads. With Pull requests read on the installation, **Reviews
-waiting on you** lists each plate's pull requests at their review-round limit
+and Contents reads. With Pull requests read on the installation, Needs you
+lists each plate's pull requests at their review-round limit
 (with the verdict, "stopped: repeating" or "extended: progress", and the merge
 rule's counts: fix first, track, unsorted) and those with findings left
 unanswered; without it, the section is a gap that says so. Its caches are encrypted outside Git; quota counters and
@@ -55,9 +60,8 @@ project content); **What should happen next?**, what is already queued
 with source problems collapsed into one line. A count says "known" only when a
 source could not be read, and the other caveats are one footer line. What waits
 on time or on agents is under `plates home --project <id>`. `--json` carries
-the four as `home`, and `/api/home` carries the same `home`; the hosted page
-keeps its current sections until it renders the four, and until it stores
-your visits it uses the last seven days.
+the four as `home`, and `/api/home` carries the same `home`, which the hosted
+page renders; until it stores your visits it uses the last seven days.
 
 What only one form can read is a row in both (on the web under **Read elsewhere**), with
 the reason and the command that reads it, and never missing from one. Local
@@ -110,7 +114,7 @@ first, then use the actual approved HTTPS instance:
    the displayed reason rather than inventing an action.
 3. Find an unavailable source and distinguish it from an empty successful read.
 4. Open a project and verify the view contains only that project. Search and
-   filter without hiding coverage warnings.
+   filter without hiding the source problems under Your plates.
 5. Refresh while a detail is open. Verify new data queues, and applying it retains
    the corresponding detail and usable focus without a surprise scroll jump.
 6. Repeat at a 360px viewport: no horizontal page overflow; controls and warnings

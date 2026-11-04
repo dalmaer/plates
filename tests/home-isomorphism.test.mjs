@@ -94,9 +94,9 @@ test('the CLI and the web render one read model', async () => {
     for (const key of ['decisions', 'walks', 'reviews', 'waiting', 'changes']) assert.deepEqual(cli[key], web[key], `${key}: the same items in both forms`);
     assert.deepEqual(cli.projects, web.projects, 'the same plate, planning and gaps');
     assert.deepEqual(cli.coverage, web.coverage, 'the same coverage');
-    // The hosted page keeps its sections until phase 166's increment 2 renders the four.
+    // The hosted page renders the model's four sections (phase 166), and the terminal the same headings.
     const html = renderHomeSnapshot(s.web);
-    for (const title of ['Decisions that need you', 'Ready to test', 'Reviews waiting on you', 'In progress / waiting']) assert.match(html, new RegExp(`>${title}</h2>`));
+    for (const title of ['Needs you', 'Since you last looked', 'What should happen next?', 'Your plates']) assert.ok(html.includes(`>${title}</h2>`), title);
   } finally { await s.done(); }
 });
 
@@ -292,6 +292,11 @@ test('the four home sections are one model', async () => {
     const at = ['Needs you', 'Since you last looked', 'What should happen next', 'Your plates'].map(t => text.search(new RegExp(`^${t.replace('?', '\\?')}`, 'm')));
     assert.ok(at.every((n, i) => n >= 0 && (i === 0 || n > at[i - 1])), text);
     assert.match(text, new RegExp(`^Needs you \\(${sec(s.cli, 'needs-you').count}\\)$`, 'm'));
+    // The start line and the web's Start panel count what Needs you counts, the failed night's Fix (no answers) too.
+    assert.ok(sec(s.web, 'needs-you').count > s.web.docket.length, 'the fixture has a row with no answers');
+    assert.match(text, new RegExp(`^ {2}${sec(s.cli, 'needs-you').count} need you · about \\d+ min — plates home --review`, 'm'));
+    const { renderReviewStart } = await import('../lib/web/review-views.mjs');
+    assert.match(renderReviewStart(s.web), new RegExp(`<strong>${sec(s.web, 'needs-you').count} need you · `));
     assert.match(text, new RegExp(`^Since you last looked \\(${sec(s.web, 'since').count}\\) — the last 7 days$`, 'm'));
     assert.match(text, /^What should happen next\? \(2 queued\)$/m);
     assert.match(text, /^ {2}Fix · Acme Studio: The night of/m);

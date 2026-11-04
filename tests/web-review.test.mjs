@@ -212,15 +212,16 @@ test('Home starts the session from one panel at its top, or says nothing needs y
   const access = { workspace: { id: 'acme', name: 'Acme' }, userId: 1, projects: [{ id: 'studio', repo: 'acme/studio', name: 'Acme Studio' }], sourceRevision: 'a'.repeat(40), csrf: 'x' };
   const html = homeView(access, reviewSnapshot());
   // Phase 175: how many, about how long (the sum of the model's estimates: 5 + 1 + 2 + 10), and the quick ones beside everything.
-  assert.match(html, /<p class="review-start p-card"><strong>4 for you · about 18 min<\/strong><span><a class="button" href="\/review"[^>]*>Everything<\/a> <a class="button quiet" href="\/review\?quick=1">Quick ones \(2\)<\/a><\/span><\/p>/);
+  assert.match(html, /<p class="review-start p-card"><strong>4 need you · about 18 min<\/strong><span><a class="button" href="\/review"[^>]*>Everything<\/a> <a class="button quiet" href="\/review\?quick=1">Quick ones \(2\)<\/a><\/span><\/p>/);
   // Only one kind waiting (all quick, or none quick): one Start review.
   const quickOnly = reviewSnapshot(); quickOnly.docket = quickOnly.docket.filter(e => e.quick);
-  assert.match(renderReviewStart(quickOnly), /<strong>2 for you · about 3 min<\/strong><a class="button" href="\/review"[^>]*>Start review<\/a><\/p>/);
+  assert.match(renderReviewStart(quickOnly), /<strong>2 need you · about 3 min<\/strong><a class="button" href="\/review"[^>]*>Start review<\/a><\/p>/);
   assert.ok(html.indexOf('review-start') < html.indexOf('home-toolbar'), 'before the toolbar: the first thing under the heading');
   assert.match(renderReviewStart(reviewSnapshot(), { projectId: 'studio' }), /href="\/projects\/studio\/review"/);
   const none = renderReviewStart({ ...reviewSnapshot(), docket: [] });
   assert.match(none, /Nothing needs you/); assert.doesNotMatch(none, /<a |<button/, 'no button when nothing waits');
-  assert.match(renderReviewStart({ ...reviewSnapshot(), coverage: { state: 'partial', gaps: [] } }), /At least 4 for you · about 18 min/, 'an incomplete read says at least');
+  // Phase 166: the hedge is Needs you's own ("known") and the footer's, never the Start panel's.
+  assert.match(renderReviewStart({ ...reviewSnapshot(), coverage: { state: 'partial', gaps: [] } }), /<strong>4 need you · about 18 min<\/strong>/, 'an incomplete read is not hedged here');
 });
 
 // Phase 175: a session cut short to the quick ones (2 minutes or less each), in both forms.

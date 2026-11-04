@@ -171,6 +171,6 @@ test('the Start panel follows the latest response without applying the view', as
   await scheduled[0].callback();
   assert.deepEqual(renders, [], 'the view waits behind Show new updates');
   assert.equal(elements['[data-apply-updates]'].hidden, false);
-  assert.match(start.innerHTML, /<strong>2 for you<\/strong><a class="button" href="\/review"/, 'the Start panel counts what the response holds');
+  assert.match(start.innerHTML, /<strong>2 need you<\/strong><a class="button" href="\/review"/, 'the Start panel counts what the response holds');
   client.stop();
 });
