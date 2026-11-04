@@ -221,3 +221,66 @@ test('an ask is queued only after its preview is approved', async () => {
   assert.match(renderAskResult(ok), /<input type="checkbox" data-ask-approve>[\s\S]*<button type="button" data-ask-apply disabled>Publish to tonight&#39;s plan<\/button>/);
   assert.doesNotMatch(renderAskResult(issue), /data-ask-apply/);
 });
+
+// Phase 166, increment 4: the hosted home keeps each owner's visits (SQL018, here on PGlite as service_role) and
+// starts Since you last looked at the last load of the visit before this one. Before 018 is applied, the RPC is
+// missing: Home uses the fixed window and says so, never an error.
+test('since you last looked starts at the last visit', async t => {
+  const { PGlite } = await import('@electric-sql/pglite');
+  const { readFile } = await import('node:fs/promises');
+  const { projectHarness, phaseFile } = await import('./helpers/web-projects.mjs');
+  const { createHomeReader } = await import('../lib/web/home.mjs');
+  const db = new PGlite(); t.after(() => db.close());
+  await db.exec('CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;');
+  for (const file of ['017-not-now.sql', '018-last-looked.sql']) await db.exec(await readFile(new URL(`../lib/web/migrations/${file}`, import.meta.url), 'utf8'));
+  const calls = [];
+  const rpc = async options => {
+    const p = JSON.parse(options.body); calls.push(p.p_operation);
+    await db.exec('SET ROLE service_role');
+    try { return Response.json((await db.query('SELECT public.plates_last_looked_rpc($1,$2) v', [p.p_operation, p.p_scope])).rows[0].v); } finally { await db.exec('RESET ROLE'); }
+  };
+  const h = projectHarness(); h.state.now = Date.parse('2026-10-24T12:00:00Z');
+  // Phase 4 was built on 2026-10-20, phase 5 on 2026-10-22; the harness's today is within a week of both.
+  h.source.files['docs/phases/05-later.md'] = phaseFile(5, { status: 'built' }).replace('since: 2026-10-20', 'since: 2026-10-22').replace('# Acme phase 5', '# Acme later');
+  let stored = true;
+  const fetcher = async (url, options) => {
+    const path = new URL(url).pathname;
+    if (path === '/rest/v1/rpc/plates_last_looked_rpc') return stored ? rpc(options) : new Response('{"message":"Could not find the function public.plates_last_looked_rpc"}', { status: 404 });
+    if (path === '/rest/v1/rpc/plates_not_now_rpc') return new Response('{"message":"function not found"}', { status: 404 });
+    return h.fetcher(url, options);
+  };
+  const read = createHomeReader(h.config, { fetcher, now: () => h.state.now });
+  const since = home => home.home.sections.find(s => s.id === 'since');
+  const lines = home => since(home).plates.flatMap(p => p.lines.map(l => l.text));
+  const today = new Date(h.state.now).toISOString().slice(0, 10);
+  assert.ok(today >= '2026-10-22' && today <= '2026-10-27', `the harness's today (${today}) keeps both phases in the fixed window`);
+
+  // The first visit: nothing stored before it, so the fixed window, and the visit is recorded.
+  const first = await read(h.access, 'token', { visit: true });
+  assert.equal(since(first).window, 'fixed'); assert.equal(since(first).days, 7);
+  assert.ok(lines(first).includes('Phase 4 built: Acme phase 4') && lines(first).includes('Phase 5 built: Acme later'));
+  assert.deepEqual(calls, ['visit']);
+  // The owner's previous visit last loaded Home on 2026-10-21; this visit starts there and lists only what came after.
+  await db.exec("UPDATE plates_home.last_looked SET seen_at = '2026-10-21T09:00:00Z'");
+  const second = await read(h.access, 'token', { visit: true });
+  assert.equal(since(second).window, 'last-visit'); assert.equal(since(second).from, '2026-10-21T09:00:00.000Z');
+  assert.deepEqual(lines(second).filter(l => l.startsWith('Phase')), ['Phase 5 built: Acme later'], 'only what happened after the stored visit');
+  assert.match(renderHomeSnapshot(second), /<span class="meta">\d+(?: known)? · since your last visit, 2026-10-21 09:00 UTC<\/span>/);
+  // A background refresh, a reload within the visit, and a plate's page never move it.
+  const refresh = await read(h.access, 'token', {});
+  assert.equal(since(refresh).from, since(second).from);
+  const reload = await read(h.access, 'token', { visit: true });
+  assert.equal(since(reload).from, since(second).from);
+  assert.deepEqual(calls, ['visit', 'visit', 'read', 'visit']);
+  // Only a time is stored: an owner digest and two timestamps, no project content.
+  assert.deepEqual((await db.query("SELECT column_name FROM information_schema.columns WHERE table_schema='plates_home' AND table_name='last_looked' ORDER BY ordinal_position")).rows.map(r => r.column_name), ['scope', 'seen_at', 'previous_at', 'updated_at']);
+  // Before 018 is applied: the fixed window, said once in the footer, and the page still renders.
+  stored = false;
+  const missing = await read(h.access, 'token', { visit: true });
+  assert.equal(since(missing).window, 'fixed'); assert.equal(since(missing).unavailable, 'Visits are not stored yet');
+  assert.match(missing.home.footer, /Visits are not stored yet, so Since you last looked shows the last 7 days\./);
+  assert.match(renderHomeSnapshot(missing), /id="since-title">Since you last looked<\/h2><span class="meta">\d+(?: known)? · the last 7 days<\/span>/);
+  // The route records a visit only for the Home page itself.
+  const server = await readFile(new URL('../lib/web/server.mjs', import.meta.url), 'utf8');
+  assert.match(server, /visit: url\.pathname === '\/' \}/);
+});

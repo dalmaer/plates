@@ -55,6 +55,9 @@ const PROOFS = [
   { migration: '017-not-now.sql', proof: '2026-11-03-web-not-now-hosted-proof.sql',
     wrong: 'grant usage on schema plates_home to anon',
     refused: /a browser role can use schema plates_home/ },
+  { migration: '018-last-looked.sql', proof: '2026-11-04-web-last-looked-hosted-proof.sql',
+    wrong: 'grant execute on function public.plates_last_looked_rpc(text,text) to authenticated',
+    refused: /a browser role can execute public\.plates_last_looked_rpc/ },
 ];
 
 const RACE = '/* TWO-CONNECTION RACE';

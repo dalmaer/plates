@@ -271,7 +271,10 @@ test('the four home sections are one model', async () => {
     assert.equal(sec(s.web, 'needs-you').count, web.length);
     assert.equal(sec(s.cli, 'needs-you').known, sec(s.web, 'needs-you').known);
     // Since you last looked: neither form has a stored visit here, so both use the fixed window and say so.
-    assert.deepEqual(sec(s.cli, 'since'), sec(s.web, 'since'));
+    // (Phase 166 increment 4: the fixture's web has no visit store, SQL018, so it says so; the lines are the same.)
+    const { unavailable, ...webSince } = sec(s.web, 'since');
+    assert.equal(unavailable, 'Visits are not stored yet');
+    assert.deepEqual(sec(s.cli, 'since'), webSince);
     assert.equal(sec(s.web, 'since').window, 'fixed');
     const lines = sec(s.web, 'since').plates.flatMap(p => p.lines.map(l => l.text));
     assert.ok(lines.includes('Phase 5 built: Acme phase 5'), lines.join(' | '));

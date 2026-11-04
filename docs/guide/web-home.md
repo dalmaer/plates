@@ -81,7 +81,16 @@ with source problems collapsed into one line. A count says "known" only when a
 source could not be read, and the other caveats are one footer line. What waits
 on time or on agents is under `plates home --project <id>`. `--json` carries
 the four as `home`, and `/api/home` carries the same `home`, which the hosted
-page renders; until it stores your visits it uses the last seven days.
+page renders.
+
+On the web, **Since you last looked** starts at your previous visit. A visit is a
+run of Home page loads less than thirty minutes apart, and "since" is the last
+load of the visit before this one; a reload, the page's background refresh and
+a plate's own page never move it. The workspace keeps, per owner, an opaque
+digest and those two times only
+([018-last-looked.sql](../../lib/web/migrations/018-last-looked.sql)); no project
+content. On a first visit, or before 018 is applied, Home shows the last seven
+days and its footer says visits are not stored yet.
 
 What only one form can read is a row in both (on the web under **Read elsewhere**), with
 the reason and the command that reads it, and never missing from one. Local
