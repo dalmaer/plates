@@ -165,3 +165,59 @@ test('lessons waiting are named and reviews at their limit are a fix', async () 
   assert.deepEqual(unread.reviews, []); assert.equal(unread.state, 'partial');
   assert.match(renderHomeSnapshot(snapshot([unread])), /reviews: The Plates GitHub App has no Pull requests read permission on this plate\./);
 });
+
+// Phase 166, increment 3: the ask box queues through the existing writers only. Tonight's plan goes through the
+// hosted night-plan publication's own preview and approval (against a fake GitHub); an agent issue has no hosted
+// writer, so the answer is the CLI command with the ask filled in.
+test('an ask is queued only after its preview is approved', async () => {
+  const { nightPlanHarness, plan, token } = await import('./helpers/web-night-plan.mjs');
+  const { createHomeAsk } = await import('../lib/web/home-ask.mjs');
+  const { shape, parseArgs } = await import('../lib/goodnight.mjs');
+  const ASK = "Find out why Acme's anvil page is slow";
+  const fresh = () => { const h = nightPlanHarness(); h.state.now = Date.parse('2026-10-21T05:00:00Z'); return h; }; // before 07:23 UTC: tonight is the night of 2026-10-21, the plan on the branch
+  const apply = (h, previewId, extra = {}) => h.nightPlan.apply(h.access, token, h.project, previewId, { reauthorize: async () => h.access, ...extra });
+  // What the CLI path adds: plates goodnight add --title <ask> --kind triage, from the same plan.
+  const cli = shape(plan(), parseArgs(['add', '--title', ASK, '--kind', 'triage']), { settled: { prs: [], phases: [], findings: [] } }).plan;
+  const expected = cli.items.at(-1);
+  assert.deepEqual(expected, { id: 'find-out-why-acme-s-anvil-page-is-slow', title: ASK, kind: 'triage', source: 'owner', number: null, lane: 'night', budget: null, status: 'planned', result: null });
+
+  // The preview writes nothing, and names exactly the item the CLI would add.
+  let h = fresh(); const ask = createHomeAsk({ daily: h.daily, nightPlan: h.nightPlan, now: () => h.state.now });
+  const previewed = await ask(h.access, token, h.project, { ask: ASK, destination: 'night' });
+  assert.equal(previewed.state, 'preview'); assert.deepEqual(previewed.item, expected);
+  assert.equal(previewed.command, `plates goodnight add --title 'Find out why Acme'\\''s anvil page is slow' --kind triage && plates goodnight --yes`);
+  assert.deepEqual(JSON.parse(previewed.preview.content).items, cli.items, 'the plan it would publish is the CLI path\'s');
+  assert.equal(h.planState.writes.length, 0, 'a preview writes nothing');
+  // A missing preview, or a public one without its digest, is refused and writes nothing.
+  await assert.rejects(apply(h, undefined), e => e.code === 'invalid_preview');
+  await assert.rejects(apply(h, 'f'.repeat(64)), e => e.code === 'invalid_preview');
+  await assert.rejects(apply(h, previewed.preview.id, { publicAcknowledgement: 'a'.repeat(64) }), e => e.code === 'public_acknowledgement_required');
+  assert.equal(h.planState.writes.length, 0);
+  // A stale preview (the plan changed after it was read) is refused and writes nothing.
+  h.branch.files['.plates/night/plan.json'] = `${JSON.stringify({ ...plan(), leftOpen: ['Acme changed elsewhere'] }, null, 2)}\n`; h.branch.head = 'f'.repeat(40);
+  const stale = await apply(h, previewed.preview.id, { publicAcknowledgement: previewed.preview.digest });
+  assert.equal(stale.state, 'refused'); assert.equal(stale.reason, 'daily_source_changed', 'the reviewed source digest no longer matches'); assert.equal(h.planState.writes.length, 0);
+  // Approved with its digest: one write, exactly the plan the CLI path would publish.
+  h = fresh(); const again = createHomeAsk({ daily: h.daily, nightPlan: h.nightPlan, now: () => h.state.now });
+  const ok = await again(h.access, token, h.project, { ask: ASK, destination: 'night' });
+  const done = await apply(h, ok.preview.id, { publicAcknowledgement: ok.preview.digest });
+  assert.equal(done.state, 'committed'); assert.equal(h.planState.writes.length, 1);
+  assert.deepEqual(JSON.parse(h.branch.files['.plates/night/plan.json']), cli);
+  // An agent issue: no hosted writer; the CLI command, filled in, and nothing written.
+  const issue = await again(h.access, token, h.project, { ask: ASK, destination: 'agent' });
+  assert.equal(issue.state, 'command'); assert.match(issue.command, /^plates issue new --agent --title 'Find out why Acme'\\''s anvil page is slow' --rubric <rubric\.md>$/);
+  assert.equal(h.planState.writes.length, 1);
+  // Nothing else is accepted.
+  for (const input of [{ ask: '', destination: 'night' }, { ask: 'x'.repeat(201), destination: 'night' }, { ask: ASK, destination: 'merge' }, { ask: ASK, destination: 'night', plan: {} }])
+    await assert.rejects(again(h.access, token, h.project, input), e => e.code === 'invalid_input');
+  // The form: a plate, the ask, the two destinations (tonight the default), and the command each runs.
+  const html = renderHomeSnapshot(snapshot());
+  const form = html.match(/<form class="ask-form p-card" data-ask-form[\s\S]*?<\/form>/)[0];
+  assert.ok(html.indexOf('data-ask-form') > html.indexOf('id="next-title"') && html.indexOf('data-ask-form') < html.indexOf('id="plates"'), 'in What should happen next?');
+  assert.match(form, /value="night" data-command="plates goodnight add --title \{ask\} --kind triage &amp;&amp; plates goodnight --yes" checked> Tonight&#39;s plan/);
+  assert.match(form, /value="agent" data-command="plates issue new --agent --title \{ask\} --rubric &lt;rubric\.md&gt;"> An agent issue now <span class="meta">\(a command to run\)<\/span>/);
+  assert.match(form, /<code data-ask-command>plates goodnight add --title &quot;&lt;ask&gt;&quot; --kind triage &amp;&amp; plates goodnight --yes<\/code>/);
+  const { renderAskResult } = await import('../lib/web/views.mjs');
+  assert.match(renderAskResult(ok), /<input type="checkbox" data-ask-approve>[\s\S]*<button type="button" data-ask-apply disabled>Publish to tonight&#39;s plan<\/button>/);
+  assert.doesNotMatch(renderAskResult(issue), /data-ask-apply/);
+});
