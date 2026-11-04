@@ -359,7 +359,7 @@
     },
     "scripts/plates/vercel.mjs": {
       "practice": "delivery",
-      "sha256": "a03bcd00b5f15bd06d6aaaa8ac504154d0aef1618e448b3945442b09301474a2"
+      "sha256": "9f5de80f05e57b0e01f84f4e1749933faca1385c299f80a53df50fbe7623b4ba"
     },
     "scripts/plates/verification.mjs": {
       "practice": "night",
