@@ -4,7 +4,7 @@ attempt: {"accepted":true,"verified":true,"rework":0,"lessonStatus":{"status":"n
 # Evidence: phase 166 — Home says what needs you, what happened and what is next
 
 - Date: 2026-11-04
-- Phase: 166, increments 1 to 3
+- Phase: 166, increments 1 to 4
 - Revision: 114ea38c on origin/main e3dc75b4, and this record
 - Claim being checked: one four-section model (Needs you, Since you last looked, What should happen next?, Your plates) in lib/work-items.mjs; `plates home --json` and `/api/home` carry the same sections, items and counts; Needs you holds only the owner's turn, ranked fix, decide, try; the hosted page's HTML is unchanged in this increment.
 
@@ -28,6 +28,13 @@ attempt: {"accepted":true,"verified":true,"rework":0,"lessonStatus":{"status":"n
 - Builder: 951 pass across web, home, work-items, cli, feedback-cli and goodnight tests, exit 0.
 - The agent-issue path has no hosted writer (the App has no Issues write), so on the web it gives the filled-in `plates issue new --agent` command; no new write action was added.
 
+## Increment 4 (a9e0a2b2)
+
+- `node --test --test-name-pattern="since you last looked starts at the last visit" tests/web-home.test.mjs`: exit 0, 1 pass (conductor). On PGlite with migrations 017 and 018: a first visit uses the fixed window; with a stored previous visit Since lists only what happened after it; a background refresh and a reload within 30 minutes leave it alone; the table holds a digest and times only; a missing RPC falls back to the fixed window with a footer note, and the page renders.
+- `node --test tests/web-migrations.test.mjs tests/web-hosted-proofs.test.mjs`: exit 0, 31 pass (conductor).
+- Conductor read lib/web/migrations/018-last-looked.sql: additive and idempotent, RLS on, privileges revoked, a security-definer RPC with an empty search_path granted to service_role only, input bounded to two operations and a digest.
+- Migration 018 is not applied on the hosted store; its hosted proof is docs/evidence/2026-11-04-web-last-looked-hosted-proof.sql.
+
 ## By hand
 
 | Did | Expected | Observed | Proves / does not prove |
@@ -38,6 +45,6 @@ attempt: {"accepted":true,"verified":true,"rework":0,"lessonStatus":{"status":"n
 
 ## Gaps and decision
 
-- Partial: increments 1 to 3 of 4. The stored visit (increment 4) needs a hosted migration.
+- Partial: all four increments built; migration 018 waits for the owner's yes to be applied, then the owner's look on the phone.
 - Since does not yet read merges, releases or installed fleet updates; its footer says so.
 - The web cannot read tonight's plan branch or agent issues (the App has no Issues permission); both are named there with a reason and a command.
