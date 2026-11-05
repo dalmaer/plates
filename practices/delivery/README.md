@@ -108,7 +108,7 @@ check). `site` is https (http on localhost only) and required with `version`
 or `smoke`; `version` and each smoke path start with `/`; a smoke status is a
 code or a list of codes (default 200). `promote` is `tag:<name>`,
 `branch:<name>` (never the default branch or the tested ref) or `none`, and
-needs `site` and `version`. Each error names its key. `"delivery".docsOnly` is the night's gate
+needs `site` and `version`. `"workflows"` maps a workflow's file or `name:` to `"test"`, `"publish"`, `"deploy"` or `"none"` when a project overrides `workflow-concurrency`'s step/trigger/name classification. Each error names its key. `"delivery".docsOnly` is the night's gate
 (phase 79).
 
 **Its files.** `.github/workflows/plates-publish.yml`, `scripts/plates/publish.mjs`,

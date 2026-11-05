@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { load, fill, plan, PUSH_TRIGGERS, CROSS_REVIEW_WORKFLOW, PUBLISH_WORKFLOW, PROJECT, shapePublish, gateNameIn } from '../lib/practices.mjs';
-import { concurrencyOf, concurrencyProblems, workflowKind } from '../practices/delivery/files/scripts/plates/delivery.mjs';
+import { concurrencyOf, concurrencyProblems, deliveryOf, deliveryProblems, workflowKind } from '../practices/delivery/files/scripts/plates/delivery.mjs';
 import { run } from './helpers/run.mjs';
 import {nameRow} from '../lib/names.mjs';
 import { AGENTS } from '../practices/night/files/scripts/plates/lib.mjs';
@@ -3133,6 +3133,107 @@ test('PR #182: a conditional publish group is fixed only when every job it cover
   const jobLevel = extra => `name: deploy\non: push\njobs:\n  deploy:\n    runs-on: ubuntu-latest\n${extra}    concurrency:\n      group: ${group}\n    steps:\n      - run: ./deploy.sh\n`;
   assert.match(problems(jobLevel('')).join('\n'), /cannot establish/);
   assert.deepEqual(problems(jobLevel('    if: github.run_attempt == 1\n')), []);
+});
+
+test('#212: workflowKind classifies by steps, code-ref triggers, observer roles and "delivery".workflows overrides', () => {
+  // 1. A post-deploy verifier (`verify-deploy.yml` or a workflow running verify.mjs alone) is not a publisher.
+  const verifyDeploy = [
+    'name: Verify deploy',
+    'on:',
+    '  workflow_run:',
+    '    workflows: ["Tests"]',
+    '    types: [completed]',
+    '    branches: [main]',
+    '  workflow_dispatch: {}',
+    'concurrency:',
+    '  group: verify-deploy',
+    '  cancel-in-progress: true',
+    'jobs:',
+    '  verify:',
+    '    runs-on: ubuntu-latest',
+    '    steps:',
+    '      - uses: actions/checkout@v4',
+    '      - name: Check Acme production version',
+    '        run: |',
+    '          # Wait for Acme production to serve the tested SHA',
+    '          curl -fsS https://anvils.acme.example/api/version',
+  ].join('\n');
+  assert.equal(workflowKind('.github/workflows/verify-deploy.yml', verifyDeploy, { gate: 'test.yml', check: 'npm test' }), null);
+  assert.deepEqual(concurrencyProblems('.github/workflows/verify-deploy.yml', verifyDeploy, workflowKind('.github/workflows/verify-deploy.yml', verifyDeploy)), []);
+  assert.equal(workflowKind('.github/workflows/verify-deploy.yml', 'name: Verify deploy\n'), null);
+  const postDeployVerify = 'name: Post-deploy\non:\n  workflow_run:\n    workflows: [Deploy]\njobs:\n  v:\n    runs-on: ubuntu-latest\n    steps:\n      - run: node scripts/plates/verify.mjs "$SHA" --record\n';
+  assert.equal(workflowKind('.github/workflows/post-deploy.yml', postDeployVerify), null);
+
+  // A workflow that actually deploys is held as 'publish', even if it also verifies or has a neutral name.
+  const deployAndVerify = [
+    'name: Deploy and verify',
+    'on:',
+    '  workflow_run:',
+    '    workflows: [plates-publish]',
+    'jobs:',
+    '  ship:',
+    '    runs-on: ubuntu-latest',
+    '    steps:',
+    '      - name: Ship Acme',
+    '        run: | # deploy to production',
+    '          npx --yes vercel@latest deploy --prod --yes',
+    '          node scripts/plates/verify.mjs "$SHA" --record',
+    '        env:',
+    '          ACME: "1"',
+  ].join('\n');
+  assert.equal(workflowKind('.github/workflows/deploy-and-verify.yml', deployAndVerify), 'publish');
+  const pagesShip = 'name: Acme docs\non: push\njobs:\n  p:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/deploy-pages@v4\n';
+  assert.equal(workflowKind('.github/workflows/pages-ship.yml', pagesShip), 'publish');
+
+  // 2. An alerter (`ci-alert.yml`) or off-ref workflow (`workflow_run`, `schedule`, `workflow_dispatch`) is not a test workflow.
+  const ciAlert = [
+    'name: CI alert',
+    'on:',
+    '  workflow_run:',
+    '    workflows: ["Tests", "Deploy"]',
+    '    types: [completed]',
+    '  workflow_dispatch: {}',
+    'jobs:',
+    '  tell-someone:',
+    '    runs-on: ubuntu-latest',
+    '    steps:',
+    '      - run: |',
+    '          curl --fail -s https://anvils.acme.example/hooks/alert -d "failed"',
+  ].join('\n');
+  assert.equal(workflowKind('.github/workflows/ci-alert.yml', ciAlert, { gate: 'test.yml', check: 'npm test' }), null);
+  assert.deepEqual(concurrencyProblems('.github/workflows/ci-alert.yml', ciAlert, workflowKind('.github/workflows/ci-alert.yml', ciAlert)), []);
+  assert.equal(workflowKind('.github/workflows/ci-alert.yml', 'name: CI alert\n'), null);
+  assert.equal(workflowKind('.github/workflows/ci-alert.yml', 'name: CI alert\non: push\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - run: curl -fsS https://anvils.acme.example/hooks/alert\n'), null);
+  assert.equal(workflowKind('.github/workflows/nightly-suite.yml', 'name: journeys\non:\n  schedule:\n    - cron: "0 7 * * *"\n  workflow_dispatch: {}\njobs:\n  j:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n'), null);
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non:\n  - workflow_run\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: curl -fsS https://anvils.acme.example/coverage\n'), null);
+
+  // 3. On code refs (`push`, `pull_request`, `merge_group`), running the test suite or custom check command makes it 'test'.
+  const prSuite = 'name: pr\non: [pull_request, merge_group]\njobs:\n  suite:\n    runs-on: ubuntu-latest\n    steps:\n      - run: "npm run test:ci"\n';
+  assert.equal(workflowKind('.github/workflows/pr.yml', prSuite), 'test');
+  const customGate = 'name: build\non: push # on main\njobs:\n  g:\n    runs-on: ubuntu-latest\n    steps:\n      - run: make acme-check\n';
+  assert.equal(workflowKind('.github/workflows/build.yml', customGate, { check: 'make acme-check' }), 'test');
+  assert.equal(workflowKind('.github/workflows/build.yml', customGate.replace('make acme-check', 'make acme-check:docs'), { check: 'make acme-check' }), null);
+  assert.equal(workflowKind('.github/workflows/build.yml', customGate, { check: '   ' }), null);
+  assert.equal(workflowKind('.github/workflows/quoted-trigger.yml', 'name: build\non: # block\n  "push":\n  - pull_request\njobs:\n  g:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n'), 'test');
+  assert.equal(workflowKind('.github/workflows/commented-step.yml', 'name: note\non: push\njobs:\n  n:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          # npx vercel deploy --prod\n          echo Acme\n'), null);
+
+  // 4. "delivery".workflows overrides by path, file, stem or workflow name, and deliveryProblems validates it.
+  assert.equal(workflowKind('.github/workflows/verify-deploy.yml', verifyDeploy, { workflows: { '.github/workflows/verify-deploy.yml': 'deploy' } }), 'publish');
+  assert.equal(workflowKind('.github/workflows/verify-deploy.yml', verifyDeploy, { workflows: { 'verify-deploy.yml': 'publish' } }), 'publish');
+  assert.equal(workflowKind('.github/workflows/ci-alert.yml', ciAlert, { workflows: { 'ci-alert': 'test' } }), 'test');
+  assert.equal(workflowKind('.github/workflows/deploy-and-verify.yml', deployAndVerify, { workflows: { 'Deploy and verify': 'none' } }), null);
+  assert.equal(workflowKind('.github/workflows/verify-deploy.yml', verifyDeploy, { workflows: [] }), null);
+  assert.deepEqual(deliveryOf({ delivery: { workflows: { 'ship.yml': 'deploy', 'verify-deploy.yml': 'none', 'pr.yml': 'test' } } }).workflows, { 'ship.yml': 'publish', 'verify-deploy.yml': null, 'pr.yml': 'test' });
+  for (const [workflows, pattern] of [
+    [[], /"delivery"\.workflows must be an object/],
+    [null, /"delivery"\.workflows must be an object/],
+    [{ '': 'test' }, /"delivery"\.workflows key ""/],
+    [{ ' deploy.yml ': 'deploy' }, /"delivery"\.workflows key " deploy\.yml "/],
+    [{ 'a\nb': 'test' }, /"delivery"\.workflows key "a\\nb"/],
+    [{ 'deploy.yml': 'canary' }, /"delivery"\.workflows\["deploy\.yml"\] must be "test", "publish", "deploy" or "none"/],
+  ]) {
+    assert.match(deliveryProblems({ delivery: { workflows } })[0] ?? '', pattern, JSON.stringify(workflows));
+  }
 });
 
 
