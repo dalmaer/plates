@@ -488,18 +488,26 @@ export function concurrencyOf(text) {
 
 const words = s => (s ?? '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
 
-/** Strip an unquoted POSIX-shell `#` comment from one line, keeping quoted or escaped `#`. */
-function stripShellComment(line) {
-  let quote = null;
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i];
-    if (quote === "'") { if (c === "'") quote = null; continue; }
-    if (c === '\\') { i++; continue; }
-    if (quote === '"') { if (c === '"') quote = null; continue; }
-    if (c === "'" || c === '"') { quote = c; continue; }
-    if (c === '#' && (i === 0 || /[\s;&|]/.test(line[i - 1]))) return line.slice(0, i);
+/** Strip unquoted POSIX-shell `#` comments (carrying quotes and `\` escapes across lines). */
+function stripShellComments(text) {
+  let out = '', quote = null;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quote === "'") { out += c; if (c === "'") quote = null; continue; }
+    if (c === '\\') {
+      if (text[i + 1] === '\n') { out += ' '; i++; continue; }
+      out += c + (text[++i] ?? '');
+      continue;
+    }
+    if (quote === '"') { out += c; if (c === '"') quote = null; continue; }
+    if (c === "'" || c === '"') { quote = c; out += c; continue; }
+    if (c === '#' && (i === 0 || /[\s;&|]/.test(text[i - 1]))) {
+      while (text[i + 1] && text[i + 1] !== '\n') i++;
+      continue;
+    }
+    out += c;
   }
-  return line;
+  return out;
 }
 
 /** A workflow's top-level `on:` event names, or null when `on:` is absent or unreadable. */
@@ -508,18 +516,18 @@ export function workflowTriggers(text) {
   const at = lines.findIndex(l => /^(on|"on"|'on'):([ \t]|$)/.test(l));
   if (at < 0) return null;
   let start = at;
-  let inline = stripShellComment(lines[at].replace(/^[^:]*:/, '')).trim();
+  let inline = stripShellComments(lines[at].replace(/^[^:]*:/, '')).trim();
   if (!inline) {
-    const next = lines.findIndex((l, i) => i > at && Boolean(stripShellComment(l).trim()));
+    const next = lines.findIndex((l, i) => i > at && Boolean(stripShellComments(l).trim()));
     if (next > at && /^\s+[[{]/.test(lines[next])) {
       start = next;
-      inline = stripShellComment(lines[next]).trim();
+      inline = stripShellComments(lines[next]).trim();
     }
   }
   if (inline[0] === '[' || inline[0] === '{') {
     for (const l of lines.slice(start + 1)) {
       if (inline[closing(inline)]) break;
-      const raw = stripShellComment(l);
+      const raw = stripShellComments(l);
       const next = raw.trim();
       if (!next) continue;
       if (!/^\s/.test(raw) && next[0] !== ']' && next[0] !== '}') break;
@@ -543,7 +551,7 @@ export function workflowTriggers(text) {
   const out = [];
   let indent = null;
   for (const l of lines.slice(at + 1)) {
-    const clean = stripShellComment(l);
+    const clean = stripShellComments(l);
     if (!clean.trim()) continue;
     if (!/^\s/.test(clean)) break;
     const m = /^(\s+)(?:-\s+)?["']?([A-Za-z_]\w*)["']?\s*(?::|$)/.exec(clean);
@@ -569,18 +577,23 @@ export function workflowSteps(text) {
       const keyIndent = r[1].length + (r[2] ? r[2].length : 0);
       const block = r[3].replace(/(?:^|[ \t]+)#.*$/, '').trim();
       if (/^[|>][-+]?\d*$/.test(block)) {
+        const blockLines = [];
         let j = i + 1;
         for (; j < job.end; j++) {
           const bl = lines[j];
-          if (!bl.trim()) continue;
+          if (!bl.trim()) { blockLines.push(''); continue; }
           if (bl.search(/\S/) <= keyIndent) break;
-          const code = stripShellComment(bl.trim()).trim();
-          if (code) runs.push(code);
+          blockLines.push(bl.trim());
+        }
+        const joined = blockLines.join('\n');
+        const script = block[0] === '>' ? joined.replace(/([^\n])\n([^\n])/g, '$1 $2') : joined;
+        for (const code of stripShellComments(script).split('\n')) {
+          if (code.trim()) runs.push(code.trim());
         }
         i = j - 1;
       } else {
         const s = scalar(r[3]);
-        const code = s.value ? stripShellComment(s.value).trim() : '';
+        const code = s.value ? stripShellComments(s.value).trim() : '';
         if (code) runs.push(code);
       }
     }

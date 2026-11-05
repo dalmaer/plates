@@ -195,7 +195,7 @@
     },
     "scripts/plates/delivery.mjs": {
       "practice": "delivery",
-      "sha256": "4a1e3dffad4e91328d53348d7479ccec4651f888910e7707e94736d0b17545bc"
+      "sha256": "8b2c4bd2e3fb63b4e95219f613a95e6f6b3128ecf1f36f25e8e7346605f2e627"
     },
     "scripts/plates/distill.mjs": {
       "practice": "climb",

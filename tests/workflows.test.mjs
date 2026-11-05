@@ -3268,6 +3268,11 @@ test('#212: workflowKind classifies by steps, code-ref triggers, observer roles 
   assert.equal(workflowKind('.github/workflows/build.yml', 'name: build\non: push\njobs:\n  b:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          echo \'Acme #1\\\' && npm test # cargo publish\n'), 'test');
   assert.equal(workflowKind('.github/workflows/build.yml', 'name: build\non: push\njobs:\n  b:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          echo \\"acme && npm test # npm publish\n'), 'test');
   assert.equal(workflowKind('.github/workflows/build.yml', 'name: build\non: push\njobs:\n  b:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          curl -fsS https://anvils.acme.example/#v1 && npm test\n'), 'test');
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          echo "Acme\n          version #1" && npm publish\n'), 'publish');
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          echo \'Acme\n          version #1\' && npm publish\n'), 'publish');
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          npx vercel \\\n            deploy --prod\n'), 'publish');
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: >-\n          npx vercel\n          deploy --prod\n'), 'publish');
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: >\n          echo Acme # note\n\n          npm publish\n'), 'publish');
 
   // 4. "delivery".workflows overrides by path, file, stem or workflow name, and deliveryProblems validates it.
   assert.equal(workflowKind('.github/workflows/verify-deploy.yml', verifyDeploy, { workflows: { '.github/workflows/verify-deploy.yml': 'deploy' } }), 'publish');
