@@ -142,3 +142,14 @@ controls. The new scripts check catalog privileges and bounded synthetic RPC
 isolation; live roles, concurrent lock waits, transport enrollment and provider
 acceptance still require their separate owner-attended proofs. No hosted SQL
 was applied and no feature gate was enabled. Full CI remains separate.
+
+## Behavioral proof follow-up — 5 November 2026
+
+The local hosted-proof test now deliberately removes actor isolation from the
+017 private-lesson and 018 host-observation RPC read predicates while preserving
+their signatures, grants and security-definer configuration. Both proof scripts
+reject the broken behavior, and failed proofs leave synthetic row counts unchanged.
+The targeted test passed all three parent/child cases. This closes the tracked
+behavioral-negative-control gap; it does not attest real hosted roles, lock waits,
+enrollment or activation. The broad branch still needs the reviewed split and
+current-main integration; no migrations were applied remotely.

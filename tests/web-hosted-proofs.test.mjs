@@ -187,3 +187,26 @@ test('the 019 personal funding rollback restores the pre-019 functions', async (
     assert.deepEqual(await state(), before);
   } finally { await db.close(); }
 });
+
+// Catalog/grant mutations alone cannot prove that actor isolation is exercised.
+// Mutate only the existing RPC's read predicate on a fresh synthetic database;
+// preserve its signature, grants and SECURITY DEFINER configuration.
+test('017 and 018 hosted proofs reject broken actor isolation with unchanged grants', async t => {
+  const cases = [
+    { migration: '017-private-lessons.sql', rpc: 'plates_private_lesson_rpc', predicate: ' and recipient=p_actor and id=p_id', replacement: ' and id=p_id', refused: /another actor read the preview/ },
+    { migration: '018-host-observations.sql', rpc: 'plates_host_observation_rpc', predicate: ' and id=p_id and actor=p_actor', replacement: ' and id=p_id', refused: /another actor read the host grant/ },
+  ];
+  for (const c of cases) await t.test(c.migration, async () => {
+    const p = PROOFS.find(p => p.migration === c.migration), db = await database(c.migration);
+    try {
+      const signature = `public.${c.rpc}(text,text,text,text,jsonb)`;
+      const original = (await db.query('SELECT pg_get_functiondef($1::regprocedure) AS definition', [signature])).rows[0].definition;
+      const changed = original.replace(c.predicate, c.replacement);
+      assert.notEqual(changed, original, 'the intended actor predicate mutation must apply');
+      await db.exec(changed);
+      const before = await rows(db);
+      await assert.rejects(db.exec(await readFile(new URL(p.proof, EVIDENCE), 'utf8')), c.refused);
+      assert.deepEqual(await rows(db), before, 'failed proof rolls back every synthetic row');
+    } finally { await db.close(); }
+  });
+});
