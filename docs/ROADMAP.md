@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**69 of 170 phases built; 75 owe a walk.** Built means implemented and checked; planned is not available.
+**69 of 171 phases built; 75 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -410,6 +410,18 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 - **174 done when:** From Home, one tap starts a full-screen session that shows each item waiting on the owner as one card, answered with big buttons at the bottom, and ends on a summary of what was settled and what it set moving. `plates home --review` walks the same items, in the same order, in a terminal.
 - **175 done when:** The docket is ordered by what the owner's answer sets moving, each item says about how long it takes, the session can be cut short ("the quick ones"), and a push notification about new items opens straight into the session.
 - **176 done when:** A PR whose checks are green and whose reviews are answered appears in the docket as one card, and **Merge** merges it through the GitHub App, with the same rule the merge follows today. `plates home --answer <pr> merge` does the same from a terminal.
+
+## G8 — A project set and its routines share one operating surface
+
+Plates provides one management experience from project sets to each plate, its work, runs, reviews, health and lessons, with personal or organizational capacity kept distinct from shared project policy and safe, reversible consolidation of Switchboard capabilities.
+
+0/1 built.
+
+| Phase | Status | Since | Depends on | Why it stands here |
+| --- | --- | --- | --- | --- |
+| [137. A project set shows its routines and what actually ran](phases/137-a-project-set-shows-its-routines.md) | partial | 2026-11-05 | [93](phases/93-workspace-data-stays-outside-public-code.md), [102](phases/102-routines-have-a-complete-observed-history.md) | First increment: optional project-set registry and authorization intersection only. Home/history selection, observation transport and hosted features remain in draft PR324; no interface or executor is enabled by this contract. |
+
+- **137 done when:** An authorized owner can inspect existing routines and observations through a project-set lens without adding access, executors or pooled funding authority.
 
 ## G9 — Plates owns the judgment layer and rents the rest
 

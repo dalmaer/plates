@@ -13,7 +13,7 @@ evidence: ["evidence/2026-11-05-project-set-contract.md"]
 
 An authorized owner can inspect existing routines and observations through a project-set lens without adding access, executors or pooled funding authority.
 
-## First safe increment
+## Scope
 
 The optional configuration registry is bounded and pinned to existing project repository IDs. Shared pure readers intersect it with the authenticated project list; a missing or revoked set fails closed. The default configuration and current UI/routes remain unchanged. This increment adds the contract so later Home/history integration can use it without the hosted migrations in [draft PR324](https://github.com/dalmaer/plates/pull/324).
 
