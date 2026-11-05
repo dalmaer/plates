@@ -45,6 +45,10 @@ attempt: {"accepted":true,"verified":true,"rework":0,"lessonStatus":{"status":"n
 
 ## Gaps and decision
 
-- Partial: all four increments built; migration 018 waits for the owner's yes to be applied, then the owner's look on the phone.
+- Partial: all four increments built; migration 018 applied 2026-11-04 (below); waits on deploy, then the owner's look on the phone.
 - Since does not yet read merges, releases or installed fleet updates; its footer says so.
 - The web cannot read tonight's plan branch or agent issues (the App has no Issues permission); both are named there with a reason and a command.
+
+## 2026-11-04: migration 018 applied
+
+Applied by Claude in the owner's Supabase SQL editor (project plates-workspace), at the owner's request ("Apply 018"). The editor held exactly `lib/web/migrations/018-last-looked.sql` from main ef32bb2 (sha256 30725e1f…ec5b66d6, read back from the editor before running); Supabase answered "Success. No rows returned". After: `to_regclass('plates_home.last_looked')` and `to_regprocedure('public.plates_last_looked_rpc(text,text)')` both resolve; `anon` and `authenticated` have no execute on the function and `service_role` does. Production still serves 1f466d4, which predates increments 3 and 4; not yet deployed.
