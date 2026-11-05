@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "date": "2026-11-04",
+  "date": "2026-11-05",
   "shapedBy": "default",
   "readyBy": null,
   "willNotTouch": [],
@@ -9,21 +9,21 @@
   "items": [
     {
       "id": "measures",
-      "title": "Measure the practice: 41 measures; outside or broken on 2026-11-03: long_files, phases_without_issue, phases_stuck, escapes, lessons_without_guard, inbox_waiting, issues_unnamed, dependency_age",
+      "title": "Measure the practice: 41 measures; outside or broken on 2026-11-04: drafts_waiting, long_files, phases_without_issue, phases_stuck, proofs_hold, escapes, lessons_without_guard, inbox_waiting, issues_unnamed, reviews_unanswered, dependency_age",
       "kind": "measure",
       "source": "default",
       "number": null,
       "lane": "night",
       "budget": null,
-      "status": "done",
+      "status": "failed",
       "result": {
-        "note": "11 ok, 11 outside, 19 n/a, 0 broken",
-        "link": "docs/health/2026-11-04.md"
+        "note": "10 ok, 11 outside, 19 n/a, 1 broken (record_contradictions)",
+        "link": "docs/health/2026-11-05.md"
       }
     },
     {
       "id": "health-phases-without-issue",
-      "title": "Proposal from 2026-11-03: Open issues on dalmaer/plates for phases 50, 88, 94, 98, 99, 100, 101, 102, 103, 104 and 36 more and set `issue:` in each one's front matter.",
+      "title": "Proposal from 2026-11-04: Open issues on dalmaer/plates for phases 50, 88, 94, 98, 99, 100, 101, 102, 103, 104 and 41 more and set `issue:` in each one's front matter.",
       "kind": "review",
       "source": "health:phases_without_issue",
       "number": {
@@ -50,11 +50,8 @@
       "budget": {
         "minutes": 45
       },
-      "status": "failed",
-      "result": {
-        "note": "blocked: runner preflight or execution evidence refused the climb; inspect the retained sanitized receipt",
-        "link": "https://github.com/dalmaer/plates/actions/runs/41813975875"
-      }
+      "status": "planned",
+      "result": null
     },
     {
       "id": "robot-60",
@@ -71,7 +68,7 @@
     },
     {
       "id": "persona-performance--published-package",
-      "title": "published package: back to at most 1000kB (measured 2320kB)",
+      "title": "published package: back to at most 1000kB (measured 2365kB)",
       "kind": "triage",
       "source": "persona:performance",
       "number": {
