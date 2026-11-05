@@ -145,3 +145,32 @@ test('first hydration restores a stable source focus key, while preexisting part
     await partial.scheduled[0].callback(); assert.equal(partial.renders.length,0); assert.equal(partial.apply.hidden,false); assert.deepEqual(partial.scrolls,[]);
   } finally {cold.client.stop();partial.client.stop();}
 });
+
+// Phase 174 (production, b90746a4): the Start panel is a count and a link, not
+// the reviewed view. It follows every successful response, applied or not, so
+// it never stays "Reading what needs you…" behind "Show new updates".
+test('the Start panel follows the latest response without applying the view', async () => {
+  const { renderReviewStart } = await import('../lib/web/review-views.mjs');
+  const scheduled = [], renders = [];
+  const element = (props = {}) => ({ dataset: {}, hidden: false, textContent: '', addEventListener() {}, removeEventListener() {}, closest() { return null; }, setAttribute() {}, ...props });
+  // The first render: one plate read from cache, one still loading, nothing in the docket yet.
+  const first = { schema: 1, cursor, cursorState: 'initial', coverage: { state: 'partial', gaps: [] }, docket: [], decisions: [], walks: [], reviews: [], sections: [],
+    projects: [{ id: 'studio', state: 'complete' }, { id: 'lab', state: 'loading' }] };
+  const start = element({ innerHTML: renderReviewStart(first) });
+  assert.match(start.innerHTML, /Reading what needs you/);
+  const root = element({ dataset: { endpoint: '/api/home', cursor, projectId: '', initialLoading: 'false' }, contains() { return false; }, querySelectorAll() { return []; },
+    set innerHTML(value) { renders.push(value); } });
+  const elements = { '[data-home-root]': root, '[data-refresh]': element(), '[data-apply-updates]': element(), '[data-refresh-status]': element(), '[data-review-start-slot]': start };
+  const document = { hidden: false, querySelector: selector => elements[selector] ?? null, addEventListener() {}, removeEventListener() {} };
+  const window = { location: { origin: 'https://acme.test' }, setTimeout(callback, delay) { scheduled.push({ callback, delay }); return scheduled.length; }, clearTimeout() {} };
+  // The poll: both plates read, two items waiting.
+  const walk = { key: 'studio:walk:2', projectId: 'studio', title: 'Acme walk' }, decision = { key: 'lab:proposal:docs/health/x.md', projectId: 'lab', title: 'Acme proposal' };
+  const read = { ...first, cursor: next, cursorState: 'changed', coverage: { state: 'complete', gaps: [] }, projects: [{ id: 'studio', state: 'complete' }, { id: 'lab', state: 'complete' }],
+    decisions: [decision], walks: [walk], docket: [{ key: decision.key, list: 'decisions', kind: 'proposal', label: 'Health proposal' }, { key: walk.key, list: 'walks', kind: 'walk', label: 'Walk' }] };
+  const client = startHomeClient({ document, window, fetch: async () => ({ status: 200, json: async () => read }), renderHomeSnapshot: () => 'applied', renderReviewStart });
+  await scheduled[0].callback();
+  assert.deepEqual(renders, [], 'the view waits behind Show new updates');
+  assert.equal(elements['[data-apply-updates]'].hidden, false);
+  assert.match(start.innerHTML, /<strong>2 need you<\/strong><a class="button" href="\/review"/, 'the Start panel counts what the response holds');
+  client.stop();
+});

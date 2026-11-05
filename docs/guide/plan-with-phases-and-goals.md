@@ -87,12 +87,12 @@ walk (a run on a real surface, an owner's read, a week of nights) says
 skips it, while it stays partial until the walk is done. Beside it,
 `waits: owner | time | external` says whose walk it is (absent: the owner's;
 a week of nights is `time`, a secret someone else sets is `external`), and
-`plates board` files it under that column. A phase that is not buildable before
-a day says `after: 2026-11-01`: `plates next` skips it until that day, and the
-board lists it under time. The generated roadmap never reads the clock (a day
+home files it by that: the owner's walk under Needs you (Try it), the rest on the plate's page under Waiting on time or agents. A phase that is not buildable before
+a day says `after: 2026-11-01`: `plates next` skips it until that day, and home
+lists it as waiting. The generated roadmap never reads the clock (a day
 passing must not make it stale): it names a dated phase "on or after" its date.
 When the owner has walked it, `plates walk done <phase> --note "<what you saw>"`
-checks the box and records the read (see [the board](the-board.md)).
+checks the box and records the read (see [Home](web-home.md); `plates home` in a terminal).
 
 A phase with a ⚑ walk also says, in a **Your part** section after
 Acceptance, what the owner is asked, in plain words for someone who has not
@@ -116,11 +116,10 @@ about. How can we make it clear what we want the user to do?":
 
 Keep the choices real and few (two to five). `**Ready when:** <what must
 happen first>` in place of `**Ready:** yes` says the owner cannot act yet:
-the board lists it under Waiting with that reason, never as the owner's. A
-Markdown table of the data may follow the bullets, and the board shows it.
+the plate's page lists it under Waiting on time or agents with that reason, never as the owner's. A
+Markdown table of the data may follow the bullets.
 Two walk boxes: one `### ` sub-heading per box, in order. The owner answers
-with `plates walk done <phase> --choice "<choice>"` (or the board's button for
-it), which records the choice and ticks the walk's box (a choice listed under
+with `plates walk done <phase> --choice "<choice>"` (or its walk on the hosted home), which records the choice and ticks the walk's box (a choice listed under
 Keeps it open records it and leaves the walk open, to be answered again): the change a choice asks
 for is the conductor's next step, and Then says so. A choice not in the list
 is refused. `npm run roadmap -- --check` notes a walk with no Your part, and

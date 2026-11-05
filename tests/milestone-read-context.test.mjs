@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 import { run } from './helpers/run.mjs';
 import { milestoneConfig, milestone, issue, response } from './helpers/milestones.mjs';
 import { looseEnds } from '../lib/looseends.mjs';
-import { board } from '../lib/board.mjs';
+import { workItems as board } from '../lib/work-items.mjs';
 import { rememberQuota } from '../lib/quota.mjs';
 
 const cli = resolve('bin/plates.mjs');

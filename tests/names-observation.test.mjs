@@ -23,7 +23,7 @@ function fixture() {
     producers: [{ id: 'improve', job: 'night', step: 'night/improve', outcome: 'completed', observedAt: at, reason: null }],
     writes: [{ producerId: 'improve', role: 'health-report', sequence: 1, operationId: null, target: { kind: 'pr', repositoryId: 10, id: 30, number: 3, headSha: A }, outcome: 'confirmed', before: null,
       intended: { fragment: 'fragments/health.txt', sha256: h(body), names: [{ rowId: 'marker:keel:health-report:begin', value: 'plates:health-report:begin' }] }, after: present(body), observedAt: at }],
-    reads: [{ consumer: 'board', sourceKind: 'plan', repositoryId: 10, ref: 'plates-night-plan', path: 'plan.json', commitSha: A, blobSha: B, sha256: h(projection), state: 'read', absence: null, selected: true, contributed: true, outputSection: 'plan', outputProjection: { fragment: 'fragments/plan.txt', sha256: h(projection) }, recordIds: [] }],
+    reads: [{ consumer: 'home', sourceKind: 'plan', repositoryId: 10, ref: 'plates-night-plan', path: 'plan.json', commitSha: A, blobSha: B, sha256: h(projection), state: 'read', absence: null, selected: true, contributed: true, outputSection: 'plan', outputProjection: { fragment: 'fragments/plan.txt', sha256: h(projection) }, recordIds: [] }],
     projections: [], artifacts: [], fragments: [...fragments].map(([path, b]) => ({ path, bytes: b.length, sha256: h(b), kind: path.includes('health') ? 'managed-fragment' : 'projection' })), gaps: [],
   };
   return { observation, fragments };

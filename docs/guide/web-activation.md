@@ -177,6 +177,42 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
    - Needs first: phase 152.
    - Rollback: Redeploy the previous build; logical asset paths never stopped answering, so open pages keep working.
    - Proof to record: The deployed revision, the curl -sI header lines, and the second load's cache column, recorded in docs/evidence/2026-11-02-cached-assets.md.
+43. **family-look** (phase 168, decision, owner attends). After deploying a build with phase 168, the owner opens the workspace on a phone and a laptop, in light and dark through the new theme toggle, with Ledger beside it, and says whether plates and Ledger feel like one family while plates still reads as its own blue and white.
+   - Needs first: phase 151.
+   - Rollback: Redeploy the previous build; the theme choice is a per-device preference and nothing else was written.
+   - Proof to record: The deployed revision and the owner answer (same family, too alike, or too different and where), recorded in docs/evidence/2026-11-02-blue-and-white-glass.md.
+44. **home-calmer** (phase 169, decision, owner attends). After deploying a build with phase 169, the owner reads Home on a phone, top first and then one long scroll, and says whether it is calmer and still clear what needs them.
+   - Needs first: phase 151.
+   - Rollback: Redeploy the previous build; only styles and added class names changed, and nothing was written.
+   - Proof to record: The deployed revision and the owner answer (better, or worse and where), recorded in docs/evidence/2026-11-02-home-design-layer.md.
+45. **one-home-model** (phase 156, decision, owner attends). After deploying a build with phase 156, the owner opens the hosted home with the fleet authorized and plates home in a terminal side by side, and says whether each section and count matches and whether anything plates board showed is missing.
+   - Needs first: phase 151.
+   - Rollback: Redeploy the previous build; the hosted home only reads, and nothing was written.
+   - Proof to record: The deployed revision and the owner answer (nothing missing, or what is missing), recorded in docs/evidence/2026-11-03-one-home-model.md.
+46. **migration-017** (phase 173, migration, owner attends). Apply 017-not-now.sql (the plates_home schema: one sealed Not now record per owner and item, its return date, and plates_not_now_rpc) before or with the build with phase 173, so Not now on Home is kept. Nothing reads it before that build, so it is safe under either; until it is applied the phase 173 build hides nothing, says Not now is unavailable, and refuses a Not now answer with a bounded 503.
+   - Needs first: phase 94.
+   - Rollback: A failure inside the transaction rolls back by itself. After commit, drop the plates_home schema; nothing else reads it, every item put off returns to Needs you, and Home says Not now is unavailable.
+   - Proof to record: The applied version: file name and SHA-256; docs/evidence/2026-11-03-web-not-now-hosted-proof.sql's result (the schema, its grants and the RPC run as the service role); one authenticated Not now answer and its response status, and the item counted as put off on Home.
+47. **migration-018** (phase 166, migration, owner attends). Apply 018-last-looked.sql (plates_home.last_looked: per owner, an opaque digest and the last Home load of this visit and of the one before, and plates_last_looked_rpc) after the build with phase 166's increment 4, so Since you last looked starts at the owner's previous visit. The build goes first and is safe without it: until 018 is applied Home uses the last seven days and says once in its footer that visits are not stored yet.
+   - Needs first: phase 94.
+   - Rollback: A failure inside the transaction rolls back by itself. After commit, drop the table plates_home.last_looked and the function public.plates_last_looked_rpc(text,text); Home goes back to the last seven days and says visits are not stored. Leave the plates_home schema: 017's Not now records live in it.
+   - Proof to record: The applied version: file name and SHA-256; docs/evidence/2026-11-04-web-last-looked-hosted-proof.sql's result (the table, its grants and the RPC run as the service role); one authenticated Home load, then a second after thirty minutes, and Since you last looked naming the first visit's time.
+48. **answers-from-home** (phase 173, decision, owner attends). After deploying a build with phase 173 and applying migration 017, the owner answers one walk and one health proposal from Home on the phone and puts one item off with Not now, and says whether each landed.
+   - Needs first: phase 151.
+   - Rollback: Redeploy the previous build; each answer is an ordinary commit that can be reverted, and Not now rows are per owner and can be deleted.
+   - Proof to record: The deployed revision, the commits the answers wrote, and the owner answer, recorded in docs/evidence/2026-11-03-every-item-answerable.md.
+49. **review-session** (phase 174, decision, owner attends). After deploying a build with phases 173 and 174 and applying migration 017, the owner taps Start review on Home on the phone, goes through the items waiting, and says whether this is how they want to keep plates moving.
+   - Needs first: phases 151, 173.
+   - Rollback: Redeploy the previous build; each answer is an ordinary commit that can be reverted, and Not now rows are per owner and can be deleted.
+   - Proof to record: The deployed revision, the commits the session wrote, and the owner answer (this is it, close but what, or not the right shape), recorded in docs/evidence/2026-11-03-review-session.md.
+50. **docket-notify** (phase 175, decision, owner attends). After deploying a build with phase 175 and adding quietHours (timeZone, from, to) to PLATES_WEB_CONFIG, the owner gets "N new for you" on the phone outside quiet hours, taps it, does the quick ones, and says whether it is fast enough.
+   - Needs first: phases 151, 152, 174.
+   - Rollback: Remove quietHours from PLATES_WEB_CONFIG: nothing is sent without it. Redeploying the previous build also stops it.
+   - Proof to record: The deployed revision, the push delivery record, and the owner answer (fast enough, too many nudges, or too slow to get in), recorded in docs/evidence/2026-11-03-docket-order-and-notify.md.
+51. **look-captures** (phase 172, decision, owner attends). With one design change pending, the owner runs npm run look, opens the printed folder, and reviews the change from its captures in light and dark at phone and laptop widths instead of opening the app; then says whether the captures are useful or not worth keeping.
+   - Needs first: phase 171.
+   - Rollback: Nothing to roll back: the script runs locally against fixture data, writes images only to a temporary folder outside the repo, and changes nothing deployed.
+   - Proof to record: The owner's answer (useful, or not worth it), and which design change was reviewed, recorded in docs/evidence/2026-11-04-look-captured.md.
 
 ## Still open
 

@@ -71,7 +71,7 @@ command that runs on a real surface (`` `gh …` ``), and it cites no
 
 Optional, beside `owes: walk` only: `waits: owner | time | external`, whose
 walk it is (absent is `owner`: a ⚑ box is the owner's). Nothing but where the
-walk is listed changes (`plates board`; the roadmap shows *partial, walk owed
+walk is listed changes (`plates home`; the roadmap shows *partial, walk owed
 (time)*).
 
 Optional: `after: YYYY-MM-DD`, the first day the phase is buildable.
@@ -124,7 +124,7 @@ the phase (no "lever", "walk" or bare phase numbers):
 ```
 
 `**Ready when:** <what must happen first>` in place of `**Ready:** yes`
-means the owner cannot act yet: `plates board` lists it as waiting, with that
+means the owner cannot act yet: `plates home` lists it as waiting, with that
 reason, never as the owner's. A Markdown table of the data may follow the
 bullets. Two or more walk boxes: one `### ` sub-heading per box, in the
 boxes' order. A choice records the decision (`plates walk done <n> --choice

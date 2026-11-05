@@ -38,15 +38,16 @@ fleet report. No project was changed or production service contacted to design i
 
 | Existing surface | Reuse | Missing for this experience |
 | --- | --- | --- |
-| [`board`](../../lib/board.mjs) and [guide](../guide/the-board.md) | Responsibility lanes, Your part, readiness, choices, phase details, action results, source gaps, local authenticated server | A consistent project identity on every item; fleet-wide project summaries and local-root routing; durable action identity beyond array indices |
+| [`home`](../../lib/home.mjs) (the retired board's model is [`work-items`](../../lib/work-items.mjs)) and [guide](../guide/web-home.md) | Responsibility lanes, Your part, readiness, choices, phase details, action results, source gaps, local authenticated server | A consistent project identity on every item; fleet-wide project summaries and local-root routing; durable action identity beyond array indices |
 | [`fleet`](../../lib/fleet.mjs) | Repository identity, practice versions, health, CI, machine PRs | Full per-project walk/goal/agent context; accessible local-checkout mapping; independently refreshed detail |
 | [`status` / `next`](../../lib/cli.mjs) | Derived goals, planning-source variants, free and claimed phases | Unified presentation across local phases, projects shape, and milestones |
 | [`morning`](../../lib/morning.mjs), [`goodnight`](../../lib/goodnight.mjs) | Outcomes, unfinished work, draft plans and budgets | Fleet morning brief and guided evening planning |
 | [`canvas`](isocan-project-canvas.md) | Provenance, history, gaps, bounded projection, recovery concepts | A daily working application; canvas remains an optional publication destination |
 | [`production`](production-errors.md), [delivery](../guide/delivery.md) | Separate serving-revision, smoke and error-window evidence | A coherent delivery view that exposes uncertainty without reading multiple reports |
 
-Extend the board incrementally. Retain `plates board`, its JSON interface, and its
-local operating model. Do not ship a second competing dashboard with separate
+Extend the home incrementally. Phase 156 retired `plates board` into one read
+model (`lib/work-items.mjs`) with two renderers, `plates home` and the hosted
+home; do not ship a second competing dashboard with separate
 classification rules. The fleet strip today is not a full fleet of project boards:
 aggregation and capability discovery are real backend work.
 
@@ -320,7 +321,8 @@ retention and publishing permissions need explicit implementation contracts.
 ### Make new work discoverable without losing focus
 
 Group the journal by project and user-visible change, with a “since last visit”
-filter. First visit uses a named date range. Seen/unseen is a personal preference;
+filter. With no stored visit, the journal shows every observed addition and says
+so on the page. Seen/unseen is a personal preference;
 it never changes acceptance or hides a required walk. Keep new arrivals behind a
 “3 new updates” control while someone is reading or testing. When a decision or
 test finishes, offer the next ready item while preserving a receipt for this one.

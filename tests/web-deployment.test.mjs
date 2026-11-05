@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import packageInfo from "../package.json" with { type: "json" };
 import { harness } from "./helpers/web-http.mjs";
-import { webConfig, configFromEnv } from "../lib/web/config.mjs";
+import { readFileSync } from "node:fs";
+import { webConfig, configFromEnv, instanceConfig } from "../lib/web/config.mjs";
 
 const recovery = {
   epoch: "a".repeat(32),
@@ -215,4 +216,50 @@ test("authenticated recovery HTML has narrow layout, keyboard access, honest lab
     (await h.service(h.request("/recovery", { cookie }))).status,
     401,
   );
+});
+
+test("the owner reads back the instance configuration, and never a secret", async () => {
+  const h = harness();
+  h.config.quietHours = { timeZone: "America/Denver", from: "22:00", to: "06:00" };
+  assert.equal((await h.service(h.request("/api/config"))).status, 401);
+  const { cookie } = await h.login();
+  const response = await h.service(h.request("/api/config", { cookie }));
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "private, no-store");
+  const text = await response.text(), result = JSON.parse(text);
+  assert.deepEqual(result.quietHours, h.config.quietHours);
+  assert.equal(result.origin, h.config.origin);
+  for (const key of ["clientSecret", "storageUrl", "storageKey", "encryptionKey", "connectionEncryptionKey", "deploymentRevision"]) {
+    assert.equal(Object.hasOwn(result, key), false, key);
+    if (typeof h.config[key] === "string") assert.equal(text.includes(h.config[key]), false, key);
+  }
+  // Every member webConfig accepts comes back, so a rebuilt config loses nothing.
+  const accepted = [...readFileSync(new URL("../lib/web/config.mjs", import.meta.url), "utf8")
+    .matchAll(/(?:fields\.push\('|hasOwn\(value \?\? \{\},\s*')(\w+)'/g)].map(m => m[1]);
+  assert.ok(accepted.length >= 10);
+  const all = Object.fromEntries(accepted.map(key => [key, true]));
+  assert.deepEqual(Object.keys(instanceConfig(all)).sort(), [...new Set(accepted)].sort());
+  // What it returns is a valid PLATES_WEB_CONFIG on its own.
+  assert.doesNotThrow(() => webConfig(result, { clientSecret: h.config.clientSecret, storageUrl: h.config.storageUrl,
+    storageKey: h.config.storageKey, encryptionKey: h.config.encryptionKey.toString("base64") }));
+  assert.equal((await h.service(h.request("/api/config?x=1", { cookie }))).status, 400);
+});
+
+// Phase 177: plates promote's revision check reads the commit signed out.
+test("the version path answers the bound commit and nothing else, signed out and uncached; a CLI deploy binds it through PLATES_DEPLOY_REVISION", async () => {
+  const h = harness();
+  h.config.deploymentRevision = "d".repeat(40);
+  const response = await h.service(h.request("/api/version"));
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "private, no-store");
+  assert.deepEqual(await response.json(), { commit: "d".repeat(40) });
+  assert.equal((await h.service(h.request("/api/version?x=1"))).status, 400);
+  h.config.deploymentRevision = null;
+  assert.deepEqual(await (await h.service(h.request("/api/version"))).json(), { commit: null });
+  const env = { PLATES_WEB_CONFIG: JSON.stringify(h.input), PLATES_GITHUB_CLIENT_SECRET: h.secrets.clientSecret, SUPABASE_URL: h.secrets.storageUrl,
+    SUPABASE_SERVICE_ROLE_KEY: h.secrets.storageKey, PLATES_SESSION_ENCRYPTION_KEY: h.secrets.encryptionKey };
+  assert.equal(configFromEnv({ ...env, PLATES_DEPLOY_REVISION: "e".repeat(40) }).deploymentRevision, "e".repeat(40));
+  assert.equal(configFromEnv({ ...env, VERCEL_GIT_COMMIT_SHA: "c".repeat(40), PLATES_DEPLOY_REVISION: "e".repeat(40) }).deploymentRevision, "c".repeat(40), "the Git binding wins");
+  assert.equal(configFromEnv({ ...env, VERCEL_GIT_COMMIT_SHA: "bad", PLATES_DEPLOY_REVISION: "e".repeat(40) }).deploymentRevision, null, "a malformed Git binding is never replaced");
+  assert.equal(configFromEnv({ ...env, PLATES_DEPLOY_REVISION: "private text" }).deploymentRevision, null);
 });

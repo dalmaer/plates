@@ -7,7 +7,7 @@ import { createOperations } from '../lib/web/operations.mjs';
 import { createWalks } from '../lib/web/walks.mjs';
 import { gitBlob } from '../lib/web/decision-github.mjs';
 import { digestOf, feedbackHash, replayEvents } from '../lib/feedback.mjs';
-import { walkWritePlan } from '../lib/board.mjs';
+import { walkWritePlan } from '../lib/work-items.mjs';
 import { render, parsePhase } from '../practices/phases/files/scripts/roadmap.mjs';
 import { unseal } from '../lib/web/common.mjs';
 import { createOperationStore } from '../lib/web/operation-store.mjs';

@@ -13,6 +13,11 @@ and recovery state. This endpoint uses fresh workspace and repository access
 checks and private no-store responses. Never use a public health endpoint to
 test access to private project records.
 
+`/api/config` returns this deployment's `PLATES_WEB_CONFIG`, as validated, with
+the same checks. It holds no secret: those are separate variables, and the
+response never includes them. Vercel never shows a sensitive variable again, so
+to change one member, copy this, edit it, and paste it whole as the new value.
+
 Compare the revision with the exact deployment currently receiving production
 traffic in Vercel. Record both observations privately. An environment variable
 or a successful build alone does not prove which deployment served the request.

@@ -278,7 +278,7 @@ plates goodnight --yes                             # "that's the plan": write it
   and its note says why (no number, the robot off, or what the check refused). "Today" is since the last plan
   pushed (as this checkout last fetched it), or the last 24 hours. A source it
   cannot read, or read only in part, is a "not read" line, never an empty or
-  partial list shown as whole, and the plan keeps it: any board source your
+  partial list shown as whole, and the plan keeps it: any home source your
   items come from (the roadmap, loose ends, reviews, the health page, the
   inbox, claims). The inbox is plates's own, so elsewhere it is quiet. Personas are read
   from their newest review pages, not run.

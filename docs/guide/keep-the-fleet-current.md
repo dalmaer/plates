@@ -92,8 +92,8 @@ plates fleet update --rehearse   # run each update and check in a clone; push no
   - main's check did not finish: a draft, saying so.
 
   The row says `opened <url> (draft: the update fails the check)` or
-  `opened <url> (main was already red)`, never FAILED. `plates board` lists the
-  draft under Broken. `plates update` in one checkout still puts everything back
+  `opened <url> (main was already red)`, never FAILED. `plates home` lists the
+  draft in its Fleet row. `plates update` in one checkout still puts everything back
   and exits 1: you are there to read it.
 - `plates fleet update --rehearse` is the same path without the push. It uses
   this checkout's `practices/` and `migrations/` as the next release would

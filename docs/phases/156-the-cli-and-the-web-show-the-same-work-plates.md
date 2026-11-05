@@ -1,12 +1,13 @@
 ---
-status: planned
-since: 2026-11-01
+status: partial
+owes: walk
+since: 2026-11-03
 goal: G7
 spec: 2
 depends: [96]
 review: wait
-note: "Owner, 2026-11-01: retire plates board now that the hosted home exists, find a place in the web app for what only the board showed, and follow the principle of isomorphism between the CLI and the web."
-evidence: []
+note: "Built and proven by test: one item model in lib/work-items.mjs behind plates home and the hosted home, equal output from both readers, unreadable sources named in both, plates board retired, and every phase file read newest first. The owner's side-by-side walk remains."
+evidence: ["evidence/2026-11-03-one-home-model.md"]
 ---
 
 # The CLI and the web show the same work: plates board retires into the hosted home
@@ -42,12 +43,12 @@ Out of scope: write actions not already on the web, which keep their own phases 
 
 ## Acceptance
 
-- [ ] The web, goodnight and the morning brief import the item model from `lib/work-items.mjs`, and a source file that still imports `lib/board.mjs` fails a test: `tests/work-items.test.mjs: "one item model: no module imports the retired board"`
-- [ ] For the same fixture sources, `plates home --json` and `/api/home` return the same sections, items and counts: `tests/home-isomorphism.test.mjs: "the CLI and the web render one read model"`
-- [ ] A source one form cannot read appears in both as unavailable, with the reason and the command that reads it: `tests/home-isomorphism.test.mjs: "a local-only source is named in both forms, never missing from one"`
-- [ ] The hosted home shows lessons waiting, and reviews waiting on the owner with the round verdict and merge-rule counts, per project and fleet-wide: `tests/web-home.test.mjs: "lessons waiting and reviews at their limit have a home section"`
-- [ ] `plates board` names its replacement and exits 2. No server is started: `tests/cli.test.mjs: "plates board is retired and names plates home"`
-- [ ] ⚑ by hand: the owner opens the hosted home with the fleet authorized, and `plates home` in a terminal. Each section and count matches, and nothing the board used to show is missing.
+- [x] The web, goodnight and the morning brief import the item model from `lib/work-items.mjs`, and a source file that still imports `lib/board.mjs` fails a test: `tests/work-items.test.mjs: "one item model: no module imports the retired board"`
+- [x] For the same fixture sources, `plates home --json` and `/api/home` return the same sections, items and counts: `tests/home-isomorphism.test.mjs: "the CLI and the web render one read model"`
+- [x] A source one form cannot read appears in both as unavailable, with the reason and the command that reads it: `tests/home-isomorphism.test.mjs: "a local-only source is named in both forms, never missing from one"`
+- [x] The hosted home shows lessons waiting, and reviews waiting on the owner with the round verdict and merge-rule counts, per project and fleet-wide: `tests/web-home.test.mjs: "lessons waiting and reviews at their limit have a home section"`
+- [x] `plates board` names its replacement and exits 2. No server is started: `tests/cli.test.mjs: "plates board is retired and names plates home"`
+- [ ] ⚑ by hand: the owner opens the hosted home with the fleet authorized, and plates home in a terminal. Each section and count matches, and nothing the board used to show is missing.
 
 ## Your part
 
@@ -80,4 +81,9 @@ By hand: the owner's side-by-side walk above. A missing item would change the de
 
 ## Next action
 
-Land the model move (`lib/board.mjs` to `lib/work-items.mjs`) as a behaviour-free PR.
+The owner opens the hosted home and `plates home` side by side and says whether anything the board showed is missing.
+
+## Trajectory
+
+- **2026-11-03** — The web reader read only the first 160 phase files, oldest first, so on plates itself (166 files) every walk from phase 161 on was invisible in both forms. It now reads up to 1,000, newest first, in GraphQL batches: a 166-phase plate costs 6 requests instead of about 171. Evidence: tests/home-isomorphism.test.mjs "a plate past 160 phase files shows its newest phase's walk in both forms".
+- **2026-11-03** — Retiring the board changed the bytes of scripts/plates/names-observation.mjs, which the hosted night retry pins at release 0.8.34; the test helper now carries those bytes, and the deployed retry may refuse until its closure is reviewed again. Evidence: tests/web-night-retry.test.mjs.

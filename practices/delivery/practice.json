@@ -1,6 +1,6 @@
 {
   "name": "delivery",
-  "summary": "Changes are verified in parallel and published one at a time: after the gate passes on main, one queued publisher (plates-publish.yml) moves the tested ref (delivery.tested, default green) to the newest commit on main whose gate passed, skipping any a later one has passed and refusing a diverged ref; it never writes main, and deploys follow the tested ref. Production is then checked by the commit it serves (verify.mjs: delivery.site, version and smoke), a deploy skips itself when production already has the commit, and a failed verify is the owner's on the board and in the morning brief. plates promote (promote.mjs) moves the production ref (delivery.promote) only to a commit on the tested ref whose gate passed, previewed first, then verified (exactly that commit for --back); no workflow runs it.",
+  "summary": "Changes are verified in parallel and published one at a time: after the gate passes on main, one queued publisher (plates-publish.yml) moves the tested ref (delivery.tested, default green) to the newest commit on main whose gate passed, skipping any a later one has passed and refusing a diverged ref; it never writes main, and deploys follow the tested ref. Production is then checked by the commit it serves (verify.mjs: delivery.site, version and smoke), a deploy skips itself when production already has the commit, and a failed verify is the owner's on the board and in the morning brief. plates promote (promote.mjs) moves the production ref (delivery.promote) only to a commit on the tested ref whose gate passed, previewed first, then verified (exactly that commit for --back); a Vercel target (vercel.mjs) deploys the tested commit, checks its revision, smoke paths and error logs, and rolls itself back on any failure, recording each deploy beside verify.json; no workflow runs it.",
   "optional": true,
   "requires": ["night"],
   "secrets": [],
@@ -9,6 +9,7 @@
     { "path": "scripts/plates/publish.mjs", "from": "scripts/plates/publish.mjs", "kind": "managed" },
     { "path": "scripts/plates/delivery.mjs", "from": "scripts/plates/delivery.mjs", "kind": "managed" },
     { "path": "scripts/plates/verify.mjs", "from": "scripts/plates/verify.mjs", "kind": "managed" },
-    { "path": "scripts/plates/promote.mjs", "from": "scripts/plates/promote.mjs", "kind": "managed" }
+    { "path": "scripts/plates/promote.mjs", "from": "scripts/plates/promote.mjs", "kind": "managed" },
+    { "path": "scripts/plates/vercel.mjs", "from": "scripts/plates/vercel.mjs", "kind": "managed" }
   ]
 }

@@ -5,7 +5,12 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { run } from './helpers/run.mjs';
 import { feedbackFixture, feedbackWords, feedbackBytes } from './helpers/feedback.mjs';
-import { feedbackSummary, boardView, boardText, board } from '../lib/board.mjs';
+import { feedbackSummary, workItems as board } from '../lib/work-items.mjs';
+import { homeText, feedbackRows } from '../lib/home.mjs';
+import { homeSnapshot, homeSections } from '../lib/work-items.mjs';
+import { renderHomeSnapshot } from '../lib/web/views.mjs';
+// Both home forms, with feedback as the item model gives it: the terminal's row items (a plate's lens lists them, phase 166), the web's named row.
+const forms = feedback => { const data = { schema: 1, generatedAt: '2026-10-21T00:00:00Z', ...homeSnapshot([], { sections: homeSections({ feedback: { items: feedbackRows(feedback), count: feedback.pending } }) }) }; return { text: homeText(data, { projectId: 'studio' }), html: renderHomeSnapshot(data) }; };
 
 const BIN = resolve('bin/plates.mjs');
 function cli(f, args, bin = BIN) {
@@ -64,27 +69,27 @@ test('fresh processes retain exact feedback, refuse stale capture and resolution
   assert.match(JSON.stringify(unavailable), /unavailable|gap|unknown|route/i);
 });
 
-test('board projection is bounded metadata with safe resolution links and no private text or paths', async () => {
+test('the home feedback projection is bounded metadata with safe resolution links and no private text or paths', async () => {
   const privateText='ACME_PRIVATE_SENTINEL', id='a'.repeat(64);
   const feedback=feedbackSummary({status:'ok',items:Array.from({length:35},(_,i)=>({id:i.toString(16).padStart(64,'0'),revision:1,state:i===34?'pending':'linked',words:privateText,result:{file:'/private/acme/path',anchor:privateText},gaps:[privateText],resolution:i!==34?{state:'linked',reference:'https://github.com/acme/studio/issues/12',reason:privateText}:null})),coverage:[privateText]});
   assert.equal(feedback.items.length,30);assert.equal(feedback.omitted,5);assert.equal(feedback.pending,1);assert.equal(feedback.items[0].state,'pending');
-  const data={name:'Acme',today:'2026-10-21',items:[],sources:[],feedback};
-  for(const text of [JSON.stringify(feedback),boardView().page(data),boardText(data)]) {
-    assert.doesNotMatch(text,/ACME_PRIVATE_SENTINEL|\/private\/acme\/path/);
+  const {text,html}=forms(feedback);
+  for(const rendered of [JSON.stringify(feedback),text,html]) {
+    assert.doesNotMatch(rendered,/ACME_PRIVATE_SENTINEL|\/private\/acme\/path/);
   }
-  assert.match(boardView().page(data), /Feedback to review|Open resolution/);assert.match(boardText(data),/https:\/\/github.com\/acme\/studio\/issues\/12/);
+  assert.match(html, /Feedback to review/);assert.match(text,/Feedback to review: 1 read here[\s\S]*https:\/\/github.com\/acme\/studio\/issues\/12/);
   for(const reference of ['javascript:alert(1)','file:///private/acme','https://acme.test/path?secret=1','https://user:password@acme.test/path']) {
     assert.equal(feedbackSummary({status:'ok',items:[{id,state:'linked',resolution:{state:'linked',reference}}]}).items[0].resolution.reference,null);
   }
   assert.equal(feedbackSummary(null).state,'unavailable');
 });
 
-test('board reads persisted feedback metadata and keeps missing sources as coverage gaps', async t => {
+test('the item model reads persisted feedback metadata and keeps missing sources as coverage gaps', async t => {
   const f=await feedbackFixture(t);const item=await capture(f);
   const deps={env:f.env,roadmap:async()=>({phases:[],goals:[]}),looseEnds:async()=>({projects:[]}),reviews:async()=>({items:[],failed:[]}),robot:async()=>({})};
   const data=await board({root:f.root},deps);
   assert.equal(data.feedback.items[0].id,item.id);assert.equal(data.feedback.pending,1);
-  assert.match(boardView().page(data),/Feedback to review/);assert.doesNotMatch(JSON.stringify(data),/Acme private feedback|preview\.txt/);
+  assert.match(forms(data.feedback).text,/Feedback to review: 1 read here/);assert.doesNotMatch(JSON.stringify(data),/Acme private feedback|preview\.txt/);
   const gap=await board({root:f.root},{...deps,feedback:async()=>{throw Error('/private/acme/secret');}});
   assert.equal(gap.feedback.state,'unavailable');assert.doesNotMatch(JSON.stringify(gap),/\/private\/acme\/secret/);
 });

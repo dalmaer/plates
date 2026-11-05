@@ -18,7 +18,8 @@ export function projectHarness({ files, shape = 'files' } = {}) {
       'docs/evidence/acme.md': '# Acme evidence\nA dated observation.\n',
     },
   };
-  const digest = value => createHash('sha1').update(value).digest('hex');
+  // Git's own blob ids, as GitHub's tree gives them, so a reader can check the bytes it is handed.
+  const digest = value => createHash('sha1').update(`blob ${Buffer.byteLength(value)}\0`).update(value).digest('hex');
   const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'content-type': 'application/json',
     'x-ratelimit-remaining': '5000', 'x-ratelimit-reset': String(Math.floor(h.state.now / 1000) + 3600) } });
   const fetcher = async (url, options) => {

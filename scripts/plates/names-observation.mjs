@@ -182,7 +182,7 @@ export function validateObservation(v, { expected, fragments } = {}) {
   }, w => `${w.producerId}/${w.sequence}`);
   list(v.reads, OBSERVATION_LIMITS.reads, '$.reads', (r, p) => {
     shape(r, 'consumer sourceKind repositoryId ref path commitSha blobSha sha256 state absence selected contributed outputSection outputProjection recordIds', p);
-    one(r.consumer, ['morning-brief', 'morning-final', 'board'], p); one(r.sourceKind, ['plan', 'verify'], p); check(r.repositoryId === repo, p, 'identity_mismatch');
+    one(r.consumer, ['morning-brief', 'morning-final', 'home'], p); one(r.sourceKind, ['plan', 'verify'], p); check(r.repositoryId === repo, p, 'identity_mismatch');
     ref(r.ref, p); path(r.path, p); nullable(sha, r.commitSha, p); nullable(sha, r.blobSha, p); nullable(digest, r.sha256, p);
     one(r.state, ['read', 'absent', 'unavailable', 'skipped'], p); one(r.absence, ['ref', 'path', null], p); bool(r.selected, p); bool(r.contributed, p); token(r.outputSection, p);
     shape(r.outputProjection, 'fragment sha256', `${p}.outputProjection`); const f = fragment(r.outputProjection.fragment, 'projection', p); digest(r.outputProjection.sha256, p); check(f.sha256 === r.outputProjection.sha256, p, 'fragment_digest_mismatch');

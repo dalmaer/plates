@@ -33,7 +33,7 @@ const check=(out,id)=>out.data.checks.find(c=>c.id===id);
 test('verify binds selected run attempt and revision; green alone preserves unknown checklist facts',async()=>{
  const {github,calls}=fixture();const out=await verifyNames({repo},github);
  assert.equal(out.exitCode,1);assert.equal(out.data.state,'unknown');assert.equal(check(out,'night').state,'pass');assert.equal(check(out,'night-branch').state,'pass');assert.equal(check(out,'label-receipt').state,'unknown');assert.equal(check(out,'artifacts').state,'pass');
- for(const id of ['morning-final','fresh-markers-fences-labels','board-history'])assert.equal(check(out,id).state,'unknown');
+ for(const id of ['morning-final','fresh-markers-fences-labels','home-history'])assert.equal(check(out,id).state,'unknown');
  assert.equal(out.data.source.attempt,1);assert.equal(out.data.source.revision,revision);assert.ok(calls.some(c=>c.path.includes(`?ref=${revision}`)));assert.ok(calls.some(c=>c.path.endsWith('/attempts/1')));
 });
 test('verify names each failed check without converting historical continuation into fresh-write failure',async()=>{
@@ -69,8 +69,8 @@ test('exact legacy verify suffix is outside the queue rather than a merge blocke
 
 test('verify history inventory reaches the second branch page without inferring consumption',async()=>{
  const branches=Array.from({length:100},(_,i)=>({name:`feature-${i}`,commit:{sha:revision}}));branches.push({name:'keel-night-plan',commit:{sha:revision}},{name:'plates-verify',commit:{sha:revision}});
- const {github,calls}=fixture({branches});const out=await verifyNames({repo},github);const history=check(out,'board-history');assert.equal(history.state,'unknown');assert.deepEqual(history.evidence[0].plan,['keel-night-plan']);assert.deepEqual(history.evidence[0].verify,['plates-verify']);assert.ok(calls.some(c=>c.path.endsWith('/branches?per_page=100&page=2')));
- const bad=fixture({branches:[{name:'keel-night-plan',commit:{sha:'invalid'}}]});assert.match(check(await verifyNames({repo},bad.github),'board-history').reason,/unavailable/);
+ const {github,calls}=fixture({branches});const out=await verifyNames({repo},github);const history=check(out,'home-history');assert.equal(history.state,'unknown');assert.deepEqual(history.evidence[0].plan,['keel-night-plan']);assert.deepEqual(history.evidence[0].verify,['plates-verify']);assert.ok(calls.some(c=>c.path.endsWith('/branches?per_page=100&page=2')));
+ const bad=fixture({branches:[{name:'keel-night-plan',commit:{sha:'invalid'}}]});assert.match(check(await verifyNames({repo},bad.github),'home-history').reason,/unavailable/);
 });
 
 
@@ -178,9 +178,9 @@ test('real publication capture encodes through the collector with a separately e
  assert.ok(manifest.files.some(f=>f.kind==='runtime'&&f.path==='lib/cli.mjs'));
  const offline=join(base,'offline-gh');await writeFile(offline,'#!/bin/sh\nexit 1\n',{mode:0o700});
  const boardImports=join(base,'board-imports.json');
- const actualBoard=run(process.execPath,['--import',loader,join(runtime,'bin/plates.mjs'),'board','--names-evidence','--fresh','--json'],{cwd:root,env:{GITHUB_WORKSPACE:root,PLATES_NAMES_RUNTIME_ROOT:runtime,PLATES_NAMES_IMPORTS_FILE:boardImports,PLATES_NAMES_EVIDENCE_REPOSITORY_ID:'31',PLATES_GH:offline,PLATES_CACHE:join(base,'cache')}});
- assert.equal(actualBoard.status,0,actualBoard.stderr);const boardOutput=JSON.parse(actualBoard.stdout);assert.equal(boardOutput.observation.producerId,'board');assert.ok(boardOutput.observation.gaps.length,'no remote history is unavailable, not fabricated');
- const boardManifest=JSON.parse(await readFile(boardImports,'utf8'));assert.deepEqual(boardManifest.gaps,[]);assert.ok(boardManifest.files.some(f=>f.kind==='runtime'&&f.path==='lib/board.mjs'));
+ const actualBoard=run(process.execPath,['--import',loader,join(runtime,'bin/plates.mjs'),'home','--names-evidence','--fresh','--json'],{cwd:root,env:{GITHUB_WORKSPACE:root,PLATES_NAMES_RUNTIME_ROOT:runtime,PLATES_NAMES_IMPORTS_FILE:boardImports,PLATES_NAMES_EVIDENCE_REPOSITORY_ID:'31',PLATES_GH:offline,PLATES_CACHE:join(base,'cache')}});
+ assert.equal(actualBoard.status,0,actualBoard.stderr);const boardOutput=JSON.parse(actualBoard.stdout);assert.equal(boardOutput.observation.producerId,'home');assert.ok(boardOutput.observation.gaps.length,'no remote history is unavailable, not fabricated');
+ const boardManifest=JSON.parse(await readFile(boardImports,'utf8'));assert.deepEqual(boardManifest.gaps,[]);assert.ok(boardManifest.files.some(f=>f.kind==='runtime'&&f.path==='lib/work-items.mjs'));
  const body='<!-- plates:health-report:begin -->\nAcme generated content\n',bodyFile=join(base,'body.md'),priorFile=join(base,'prior.json'),outputFile=join(base,'publication.json');await writeFile(bodyFile,body);
  let pr={id:61,number:3,base:{repo:repository},head:{ref:'plates-night/2026-10-24',sha:head},body,labels:[],updated_at:'2026-10-24T12:00:00Z'};
  const requests=[];
@@ -243,7 +243,7 @@ async function positiveObservationFixture({legacy=false,artifactGap=false,setup=
  const config={name:'Acme',repo,practices:withoutDelivery?['night']:['night','delivery'],...(setup?{setup:'echo Acme project setup'}:{})},contents=new Map(),date='2026-10-24',at='2026-10-24T10:00:00Z';
  const set=(path,bytes)=>contents.set(path,Buffer.from(bytes));
  set('.plates/plates.json',JSON.stringify(config));
- const paths=['lib/names-verify.mjs','bin/plates.mjs','lib/board.mjs','scripts/plates/morning.mjs','scripts/plates/improve.mjs','scripts/plates/drain.mjs','scripts/plates/night-plan.mjs'];
+ const paths=['lib/names-verify.mjs','bin/plates.mjs','lib/home.mjs','scripts/plates/morning.mjs','scripts/plates/improve.mjs','scripts/plates/drain.mjs','scripts/plates/night-plan.mjs'];
  const runtime=new Set();
  while(paths.length){const path=paths.shift();if(runtime.has(path))continue;runtime.add(path);const bytes=await readFile(new URL('../'+path,import.meta.url));set(path,bytes);for(const m of bytes.toString().matchAll(/(?:\bfrom\s*|\bimport\s+)['"]([^'"]+)['"]/g))if(m[1].startsWith('.'))paths.push(posix.normalize(posix.join(posix.dirname(path),m[1])));}
  for(const kind of ['night','morning'])set(`.github/workflows/plates-${kind}.yml`,await observationWorkflowBytes(`.github/workflows/plates-${kind}.yml`,config));
@@ -299,7 +299,7 @@ async function positiveObservationFixture({legacy=false,artifactGap=false,setup=
   const projections=[];
   if(kind==='night')projections.push({producerId:'drain',kind:'drain-queue',...fragment('fragments/drain-queue.txt',JSON.stringify({before:[],after:[],actions:[]}))});
   const reads=[];
-  if(kind==='morning')for(const consumer of ['morning-brief','board'])for(const sourceKind of ['plan','verify']){
+  if(kind==='morning')for(const consumer of ['morning-brief','home'])for(const sourceKind of ['plan','verify']){
    if(withoutDelivery&&sourceKind==='verify')continue;
    const projection=sourceKind==='plan'?JSON.stringify({date,items:[]}):'[]';
    const outputProjection=fragment(`fragments/${consumer}-${sourceKind}.txt`,projection);
@@ -403,7 +403,7 @@ test('provisioning cannot substitute checkout helpers for missing observer closu
 });
 
 test('a project without actual delivery history reads cannot claim the strict history checklist',async()=>{
- const f=await positiveObservationFixture({withoutDelivery:true});const out=await verifyNames({repo,run:12},f.github);assert.equal(check(out,'board-history').state,'unknown');assert.notEqual(out.data.state,'verified');
+ const f=await positiveObservationFixture({withoutDelivery:true});const out=await verifyNames({repo,run:12},f.github);assert.equal(check(out,'home-history').state,'unknown');assert.notEqual(out.data.state,'verified');
 });
 
 test('cross-job transfer rejects private scalars and objects under allowed evidence keys before export',async()=>{
@@ -411,7 +411,7 @@ test('cross-job transfer rejects private scalars and objects under allowed evide
  const hash='b'.repeat(64),at='2026-10-24T10:00:00Z';
  const snapshot={state:'present',commitSha:null,blobSha:null,sha256:hash,labelIds:[],providerUpdatedAt:at};
  const source={repositoryId:31,path:'scripts/plates/drain.mjs',commitSha:revision,blobSha:revision,sha256:hash};
- const base={producerId:'night-pr',writes:[{producerId:'night-pr',role:'night-pr',sequence:1,operationId:null,target:{kind:'pr',repositoryId:31,id:61,number:3,headSha:revision},outcome:'confirmed',before:null,after:snapshot,intended:{fragment:'fragments/write.txt',sha256:hash,names:[]},observedAt:at}],reads:[{consumer:'board',sourceKind:'plan',repositoryId:31,ref:'plates-night-plan',path:'plan.json',commitSha:revision,blobSha:revision,sha256:hash,state:'read',absence:null,selected:true,contributed:true,outputSection:'plan',outputProjection:{fragment:'fragments/plan.txt',sha256:hash},recordIds:['acme']}],fragments:[{path:'fragments/write.txt',kind:'managed-fragment',text:''},{path:'fragments/plan.txt',kind:'projection',text:JSON.stringify({date:'2026-10-24',items:[]})},{path:'fragments/drain.txt',kind:'projection',text:JSON.stringify({before:[{number:3,id:61,head:'plates-night/2026-10-24',headSha:revision,state:'open',mergeable:true}],after:[],actions:[{number:3,head:'plates-night/2026-10-24',action:'leave',done:false}]})}],projections:[{producerId:'night-pr',kind:'drain-queue',fragment:'fragments/drain.txt',sha256:hash}],gaps:[{code:'read-unavailable',producerId:'night-pr',source}],association:{date:'2026-10-24',branch:'plates-night/2026-10-24',preexisting:true,preimageHeadSha:revision,prId:61,prNumber:3,headSha:revision}};
+ const base={producerId:'night-pr',writes:[{producerId:'night-pr',role:'night-pr',sequence:1,operationId:null,target:{kind:'pr',repositoryId:31,id:61,number:3,headSha:revision},outcome:'confirmed',before:null,after:snapshot,intended:{fragment:'fragments/write.txt',sha256:hash,names:[]},observedAt:at}],reads:[{consumer:'home',sourceKind:'plan',repositoryId:31,ref:'plates-night-plan',path:'plan.json',commitSha:revision,blobSha:revision,sha256:hash,state:'read',absence:null,selected:true,contributed:true,outputSection:'plan',outputProjection:{fragment:'fragments/plan.txt',sha256:hash},recordIds:['acme']}],fragments:[{path:'fragments/write.txt',kind:'managed-fragment',text:''},{path:'fragments/plan.txt',kind:'projection',text:JSON.stringify({date:'2026-10-24',items:[]})},{path:'fragments/drain.txt',kind:'projection',text:JSON.stringify({before:[{number:3,id:61,head:'plates-night/2026-10-24',headSha:revision,state:'open',mergeable:true}],after:[],actions:[{number:3,head:'plates-night/2026-10-24',action:'leave',done:false}]})}],projections:[{producerId:'night-pr',kind:'drain-queue',fragment:'fragments/drain.txt',sha256:hash}],gaps:[{code:'read-unavailable',producerId:'night-pr',source}],association:{date:'2026-10-24',branch:'plates-night/2026-10-24',preexisting:true,preimageHeadSha:revision,prId:61,prNumber:3,headSha:revision}};
  const transfer=value=>namesProducerTransfer({producerId:'night-pr',value,manifest:{files:[],gaps:[]}});
  assert.equal(decodeNamesProducerTransfer(await transfer(base)).value.writes.length,1);
  const paths=['writes.0.role','writes.0.sequence','writes.0.operationId','writes.0.target.number','writes.0.target.id','writes.0.target.repositoryId','writes.0.target.headSha','writes.0.after.sha256','writes.0.after.commitSha','writes.0.after.blobSha','writes.0.after.labelIds','writes.0.after.providerUpdatedAt','writes.0.observedAt','writes.0.intended.sha256','reads.0.repositoryId','reads.0.ref','reads.0.path','reads.0.sha256','reads.0.selected','reads.0.outputSection','reads.0.recordIds','reads.0.outputProjection.sha256','gaps.0.source.path','gaps.0.source.repositoryId','gaps.0.source.sha256','gaps.0.source.commitSha','association.prNumber','association.headSha','association.branch','association.date','association.preexisting','projections.0.sha256'];
@@ -431,7 +431,7 @@ for(const family of ['plates','keel'])test(`required ${family} verify-history al
  const f=await positiveObservationFixture({skippedHistory:family});
  const github=async request=>request.path.includes('/git/ref/heads/'+family+'-verify')?{status:200,data:{ref:'refs/heads/'+family+'-verify',object:{sha:revision}}}:f.github(request);
  const out=await verifyNames({repo,run:12},github);
- assert.equal(check(out,'board-history').state,'unknown');
+ assert.equal(check(out,'home-history').state,'unknown');
  assert.notEqual(out.data.state,'verified');
 });
 

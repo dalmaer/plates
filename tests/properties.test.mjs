@@ -18,7 +18,7 @@ import { validatePlan, applyTick, writePlan, writeRecord, readPlan, recordOf, Ni
 import { furthestItems, TERMINAL } from '../lib/morning.mjs';
 import { claim } from '../lib/claim.mjs';
 import { parsePhase, STATUSES as PHASE_STATUSES, DONE, REVIEW_VALUES, OWES_VALUES, WAITS_VALUES, SPEC } from '../practices/phases/files/scripts/roadmap.mjs';
-import { setField } from '../lib/board.mjs';
+import { setField } from '../lib/work-items.mjs';
 
 // ---- generators: the night's plan -------------------------------------------
 

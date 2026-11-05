@@ -1,0 +1,572 @@
+{
+  "schema": 1,
+  "repo": "dalmaer/plates",
+  "now": "2026-11-04T19:48:10.815Z",
+  "window": {
+    "from": "2026-10-03T03:03:08.000Z",
+    "to": "2026-11-04T19:48:10.815Z"
+  },
+  "sources": {
+    "activity": "repos/dalmaer/plates/activity?per_page=100",
+    "mainRuns": "repos/dalmaer/plates/actions/workflows/373645386/runs?branch=main&event=push&per_page=100",
+    "prRuns": "repos/dalmaer/plates/actions/workflows/373645386/runs?event=pull_request&per_page=100",
+    "publishRuns": "repos/dalmaer/plates/actions/workflows/406575919/runs?per_page=100",
+    "pulls": "repos/dalmaer/plates/pulls?state=closed&per_page=100",
+    "deploys": "repos/dalmaer/plates/contents/deploys.jsonl?ref=plates-verify",
+    "escapes": "docs/phases/*.md Trajectory \"Escape:\" lines",
+    "snapshot": "lib/integration-observations.mjs readObservations (bounded GETs)"
+  },
+  "waits": {
+    "to-ready": {
+      "n": 82,
+      "medianMs": 2000,
+      "p90Ms": 28000,
+      "maxMs": 2537000,
+      "unpaired": 0,
+      "floor": true,
+      "start": "first push to the work branch after its previous landing (or its creation)",
+      "end": "first ready mark of that increment"
+    },
+    "claim-to-ready": {
+      "n": 42,
+      "medianMs": 1444500,
+      "p90Ms": 2772900,
+      "maxMs": 619310000,
+      "unpaired": 48,
+      "start": "claims/phase-<n> created",
+      "end": "first ready mark of a branch naming phase <n>"
+    },
+    "pr-ci": {
+      "n": 456,
+      "medianMs": 328500,
+      "p90Ms": 999000,
+      "maxMs": 419314000,
+      "failed": 96,
+      "start": "gate run created on a pull_request event",
+      "end": "run completed",
+      "last7": {
+        "n": 82,
+        "medianMs": 927500,
+        "p90Ms": 1061800,
+        "maxMs": 75866000
+      },
+      "weeks": [
+        {
+          "week": "2026-09-28",
+          "n": 2,
+          "medianMs": 6000
+        },
+        {
+          "week": "2026-10-05",
+          "n": 148,
+          "medianMs": 194000
+        },
+        {
+          "week": "2026-10-12",
+          "n": 89,
+          "medianMs": 310000
+        },
+        {
+          "week": "2026-10-19",
+          "n": 104,
+          "medianMs": 441500
+        },
+        {
+          "week": "2026-10-26",
+          "n": 53,
+          "medianMs": 538000
+        },
+        {
+          "week": "2026-11-02",
+          "n": 60,
+          "medianMs": 956500
+        }
+      ]
+    },
+    "review": {
+      "agent": {
+        "n": 126,
+        "medianMs": 1962000,
+        "p90Ms": 37406500,
+        "maxMs": 911586000
+      },
+      "night": {
+        "n": 20,
+        "medianMs": 1664500,
+        "p90Ms": 74774800,
+        "maxMs": 75869000
+      },
+      "renovate": {
+        "n": 11,
+        "medianMs": 19339000,
+        "p90Ms": 848280000,
+        "maxMs": 848770000
+      },
+      "other": {
+        "n": 35,
+        "medianMs": 13000,
+        "p90Ms": 75540600,
+        "maxMs": 86983000
+      },
+      "start": "PR created",
+      "end": "PR merged",
+      "closedUnmerged": 7
+    },
+    "integration": {
+      "n": 82,
+      "medianMs": 502500,
+      "p90Ms": 991300,
+      "maxMs": 2645000,
+      "open": 0,
+      "unpaired": 0,
+      "start": "last ready mark (ready/<branch> created or re-pushed)",
+      "end": "the push to main just before ready/<branch> was deleted",
+      "last7": {
+        "n": 59,
+        "medianMs": 549000,
+        "p90Ms": 1219400,
+        "maxMs": 2645000
+      },
+      "weeks": [
+        {
+          "week": "2026-10-19",
+          "n": 23,
+          "medianMs": 396000
+        },
+        {
+          "week": "2026-10-26",
+          "n": 27,
+          "medianMs": 323000
+        },
+        {
+          "week": "2026-11-02",
+          "n": 32,
+          "medianMs": 600500
+        }
+      ]
+    },
+    "lock": {
+      "n": 110,
+      "medianMs": 454000,
+      "p90Ms": 720100,
+      "maxMs": 2622000,
+      "open": 0,
+      "start": "claims/integrate created",
+      "end": "claims/integrate deleted",
+      "last7": {
+        "n": 78,
+        "medianMs": 468500,
+        "p90Ms": 728000,
+        "maxMs": 2622000
+      },
+      "weeks": [
+        {
+          "week": "2026-10-19",
+          "n": 32,
+          "medianMs": 392500
+        },
+        {
+          "week": "2026-10-26",
+          "n": 32,
+          "medianMs": 308000
+        },
+        {
+          "week": "2026-11-02",
+          "n": 46,
+          "medianMs": 569500
+        }
+      ]
+    },
+    "main-ci": {
+      "n": 396,
+      "medianMs": 184000,
+      "p90Ms": 612000,
+      "maxMs": 1115000,
+      "cancelled": 75,
+      "running": 1,
+      "start": "gate run created for a push to main",
+      "end": "run completed (updated_at)",
+      "last7": {
+        "n": 53,
+        "medianMs": 788000,
+        "p90Ms": 1018600,
+        "maxMs": 1115000
+      },
+      "weeks": [
+        {
+          "week": "2026-09-28",
+          "n": 62,
+          "medianMs": 52500
+        },
+        {
+          "week": "2026-10-05",
+          "n": 169,
+          "medianMs": 137000
+        },
+        {
+          "week": "2026-10-12",
+          "n": 44,
+          "medianMs": 323500
+        },
+        {
+          "week": "2026-10-19",
+          "n": 54,
+          "medianMs": 422000
+        },
+        {
+          "week": "2026-10-26",
+          "n": 37,
+          "medianMs": 572000
+        },
+        {
+          "week": "2026-11-02",
+          "n": 30,
+          "medianMs": 913000
+        }
+      ]
+    },
+    "tested": {
+      "n": 9,
+      "medianMs": 981000,
+      "p90Ms": 1111000,
+      "maxMs": 1139000,
+      "unpaired": 0,
+      "start": "push to main of a commit",
+      "end": "green pushed to that commit",
+      "last7": {
+        "n": 9,
+        "medianMs": 981000,
+        "p90Ms": 1111000,
+        "maxMs": 1139000
+      },
+      "weeks": [
+        {
+          "week": "2026-11-02",
+          "n": 9,
+          "medianMs": 981000
+        }
+      ]
+    },
+    "deploy": {
+      "n": 5,
+      "medianMs": 186353,
+      "p90Ms": 238679,
+      "maxMs": 269505,
+      "unpaired": 0,
+      "start": "green pushed to a commit",
+      "end": "its deploy record (deploys.jsonl at)"
+    },
+    "time-to-main": {
+      "n": 82,
+      "medianMs": 677000,
+      "p90Ms": 2993900,
+      "maxMs": 4314000,
+      "unpaired": 0,
+      "floor": true,
+      "start": "as to-ready",
+      "end": "the push to main that landed it"
+    },
+    "claim-to-main": {
+      "n": 42,
+      "medianMs": 2478500,
+      "p90Ms": 5499200,
+      "maxMs": 619915000,
+      "unpaired": 48,
+      "start": "claims/phase-<n> created",
+      "end": "first landing of a branch naming phase <n>"
+    }
+  },
+  "integrator": {
+    "lockRuns": 110,
+    "landingPushes": 74,
+    "changesLanded": 82,
+    "readyRepushes": 73,
+    "runsWithoutLanding": 36
+  },
+  "failure": {
+    "main": {
+      "failedRuns": 37,
+      "completedRuns": 396,
+      "conclusions": {
+        "success": 359,
+        "failure": 37
+      },
+      "last7": {
+        "failed": 3,
+        "completed": 53
+      },
+      "rate": 0.093,
+      "redPeriods": 16,
+      "denominator": "completed gate runs on pushes to main, cancelled and skipped excluded"
+    },
+    "recovery": {
+      "n": 16,
+      "medianMs": 1538500,
+      "p90Ms": 12580500,
+      "maxMs": 180508000,
+      "open": 0,
+      "start": "a failed gate run on main completed",
+      "end": "the next successful gate run on main completed"
+    },
+    "redPeriods": [
+      {
+        "firstFailedRun": 37132139635,
+        "sha": "a2644435b34b3f6eb30b3c4966ecd4a94b042470",
+        "red": "2026-10-03T15:08:27Z",
+        "recovered": "2026-10-03T15:13:31Z",
+        "recoveredBy": 37132444454
+      },
+      {
+        "firstFailedRun": 37367133321,
+        "sha": "acf1b91579f761b9e006eb1a48af6060e5a24577",
+        "red": "2026-10-05T20:16:19Z",
+        "recovered": "2026-10-05T20:53:40Z",
+        "recoveredBy": 37372420905
+      },
+      {
+        "firstFailedRun": 37488122134,
+        "sha": "b4703e079150817fc91e4c4e8d7d6a36ef5ac8d3",
+        "red": "2026-10-06T15:32:15Z",
+        "recovered": "2026-10-06T15:35:01Z",
+        "recoveredBy": 37488577535
+      },
+      {
+        "firstFailedRun": 37512090594,
+        "sha": "cca5ce82519622918f9e99a2d1cbe9e342c163e1",
+        "red": "2026-10-06T18:33:36Z",
+        "recovered": "2026-10-06T18:48:06Z",
+        "recoveredBy": 37513911612
+      },
+      {
+        "firstFailedRun": 37695138927,
+        "sha": "9734581493bd8f22d44ded0fc33333fb1ecd5f28",
+        "red": "2026-10-07T22:19:00Z",
+        "recovered": "2026-10-07T22:21:47Z",
+        "recoveredBy": 37695435556
+      },
+      {
+        "firstFailedRun": 37715456687,
+        "sha": "b6147f048f6990ed777b2f16076715190c14d1cc",
+        "red": "2026-10-08T01:58:57Z",
+        "recovered": "2026-10-08T02:10:30Z",
+        "recoveredBy": 37716403936
+      },
+      {
+        "firstFailedRun": 37716668519,
+        "sha": "dcba8e5bf613c1c737d90af7b537cea6e4d2a576",
+        "red": "2026-10-08T02:14:04Z",
+        "recovered": "2026-10-08T02:17:00Z",
+        "recoveredBy": 37716927042
+      },
+      {
+        "firstFailedRun": 37993237641,
+        "sha": "418181a60c5cb41782d4d5721c8aeeeea7430284",
+        "red": "2026-10-09T21:26:49Z",
+        "recovered": "2026-10-09T22:08:36Z",
+        "recoveredBy": 37997332199
+      },
+      {
+        "firstFailedRun": 38027064158,
+        "sha": "80812d3323de0061cd47d9111342cf4b3e83fbde",
+        "red": "2026-10-10T05:21:44Z",
+        "recovered": "2026-10-10T10:01:12Z",
+        "recoveredBy": 38043221314
+      },
+      {
+        "firstFailedRun": 38060407005,
+        "sha": "44c298c8ff937abc3e92ff783864e82fd85685a3",
+        "red": "2026-10-10T14:42:04Z",
+        "recovered": "2026-10-10T15:14:10Z",
+        "recoveredBy": 38062535425
+      },
+      {
+        "firstFailedRun": 39881271277,
+        "sha": "ad1562123c4042f8942c40cd8b76660089a4d03d",
+        "red": "2026-10-23T01:05:44Z",
+        "recovered": "2026-10-23T01:15:21Z",
+        "recoveredBy": 39882198221
+      },
+      {
+        "firstFailedRun": 40034624162,
+        "sha": "490e7754ca0bf1689305af4798419336d93525df",
+        "red": "2026-10-23T22:43:36Z",
+        "recovered": "2026-10-26T00:52:04Z",
+        "recoveredBy": 40250719559
+      },
+      {
+        "firstFailedRun": 40264300270,
+        "sha": "5ad82e974bb4ad47e7f80abbb676444442dd3a85",
+        "red": "2026-10-26T03:38:19Z",
+        "recovered": "2026-10-26T03:57:30Z",
+        "recoveredBy": 40265854009
+      },
+      {
+        "firstFailedRun": 41496514171,
+        "sha": "98e4a5a17d22ad28e8858a8457f219789a0c0c10",
+        "red": "2026-11-02T18:16:39Z",
+        "recovered": "2026-11-02T19:06:53Z",
+        "recoveredBy": 41504502329
+      },
+      {
+        "firstFailedRun": 41669638263,
+        "sha": "43b1f009ac2b3dc42ad2a90e497c906b7a8d0c51",
+        "red": "2026-11-03T16:17:06Z",
+        "recovered": "2026-11-03T18:36:59Z",
+        "recoveredBy": 41693306048
+      },
+      {
+        "firstFailedRun": 41753453385,
+        "sha": "dbac2c7987d3b38c609800ac2684f5cc09ab0d43",
+        "red": "2026-11-04T01:35:16Z",
+        "recovered": "2026-11-04T02:33:39Z",
+        "recoveredBy": 41759670089
+      }
+    ],
+    "deploys": {
+      "records": 5,
+      "failed": 2,
+      "rolledBack": 1,
+      "rollbackFailed": 0,
+      "rate": 0.4,
+      "recovery": {
+        "n": 2,
+        "medianMs": 1392092,
+        "p90Ms": 2356101,
+        "maxMs": 2597103,
+        "open": 0,
+        "start": "a failed deploy record",
+        "end": "the next passing deploy record"
+      },
+      "denominator": "deploy records (deploy, back and verify actions)"
+    },
+    "escapes": {
+      "inWindow": 21,
+      "total": 21,
+      "byPhase": [
+        {
+          "phase": 35,
+          "n": 3
+        },
+        {
+          "phase": 26,
+          "n": 2
+        },
+        {
+          "phase": 64,
+          "n": 2
+        },
+        {
+          "phase": 177,
+          "n": 2
+        },
+        {
+          "phase": 6,
+          "n": 1
+        },
+        {
+          "phase": 24,
+          "n": 1
+        },
+        {
+          "phase": 30,
+          "n": 1
+        },
+        {
+          "phase": 38,
+          "n": 1
+        },
+        {
+          "phase": 39,
+          "n": 1
+        },
+        {
+          "phase": 41,
+          "n": 1
+        },
+        {
+          "phase": 42,
+          "n": 1
+        },
+        {
+          "phase": 55,
+          "n": 1
+        },
+        {
+          "phase": 56,
+          "n": 1
+        },
+        {
+          "phase": 58,
+          "n": 1
+        },
+        {
+          "phase": 63,
+          "n": 1
+        },
+        {
+          "phase": 66,
+          "n": 1
+        }
+      ],
+      "denominator": "Trajectory lines in docs/phases that start \"Escape:\" (dated by their line)"
+    }
+  },
+  "wip": {
+    "ready": {
+      "peak": 6,
+      "mean": 0.03
+    },
+    "claims": {
+      "peak": 15,
+      "mean": 2.97
+    },
+    "openClaims": 10,
+    "openReady": 0,
+    "now": {
+      "counts": {
+        "active": 0,
+        "branch": 5,
+        "review": 1,
+        "ci": 1,
+        "integration": 0,
+        "deploy": 1,
+        "done": 0,
+        "unknown": 0
+      },
+      "wip": [
+        {
+          "builder": "codex",
+          "open": 5,
+          "branches": [
+            "codex/agent-quality",
+            "codex/discord-test-bridge",
+            "codex/enable-loop",
+            "codex/gas-city-evaluation",
+            "codex/openhands-evaluation"
+          ],
+          "over": true,
+          "next": "codex has 5 increments open: finish review and integration of ready work before opening more"
+        }
+      ],
+      "tested": {
+        "state": "behind",
+        "ref": "green",
+        "behindBy": 4,
+        "lagMs": 465815,
+        "since": "2026-11-04T19:40:25.000Z"
+      }
+    }
+  },
+  "gaps": [
+    {
+      "measure": "main-queue",
+      "why": "a run's run_started_at equals created_at on its first attempt; runner queue time needs the jobs API, not read"
+    }
+  ],
+  "ids": {
+    "gateWorkflow": 373645386,
+    "publishWorkflow": 406575919,
+    "defaultBranch": "main",
+    "mainSha": "1dda19ef318db25e7fb6382c8990778c0c2b7c6c"
+  }
+}

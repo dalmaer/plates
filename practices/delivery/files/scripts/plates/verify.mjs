@@ -32,7 +32,7 @@
 // --record adds the
 // result to the branch keel-verify (verify.json, newest first, the last 30
 // and every failure of the last 72 hours, and each site's latest always),
-// where plates board and the morning brief read it.
+// where plates home and the morning brief read it.
 //
 // live <sha>: one read of the version path: does production already serve
 // that commit or a descendant? A deploy step skips itself on yes:
@@ -233,7 +233,7 @@ export async function live({ root, config, sha, site, env = process.env, fetch, 
  * Tree entries for mktree; none for a project without Vercel. The night
  * practice's plan branch does the same (night-plan.mjs, hostingOptOutPaths).
  */
-function hostingOptOut(root, env, ok, present) {
+export function hostingOptOut(root, env, ok, present) {
   const listed = git(root, env, ['ls-tree', '-r', '--name-only', 'HEAD']);
   if (listed.status !== 0) return [];
   const paths = String(listed.stdout).split('\n').map(p => p.trim()).filter(p => /^(?:[^/]+\/)?vercel\.json$/.test(p));

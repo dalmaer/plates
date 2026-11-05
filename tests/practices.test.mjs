@@ -85,8 +85,8 @@ test('every managed target exists on plates, and plates switches on every practi
     if (f.link) assert.ok(info.isSymbolicLink(), `${f.path} should be a symlink`);
   }
   // Optional practices are each project's own choice: plates has no Loop workspace, keeps claude on (its owner set the token),
-  // climbs nightly (the owner's call, 6 Oct), has its own PRs cross-reviewed (phase 48), and keeps a performance persona (the owner's call, 16 Oct).
-  assert.deepEqual([...(await config(PLATES)).practices].sort(), [...practices.keys()].filter(n => !practices.get(n).optional || ['claude', 'climb', 'cross-review', 'personas', 'reconciliation'].includes(n)).sort(),
+  // climbs nightly (the owner's call, 6 Oct), has its own PRs cross-reviewed (phase 48), keeps a performance persona (the owner's call, 16 Oct), and deploys through plates promote (delivery, phase 177).
+  assert.deepEqual([...(await config(PLATES)).practices].sort(), [...practices.keys()].filter(n => !practices.get(n).optional || ['claude', 'climb', 'cross-review', 'delivery', 'personas', 'reconciliation'].includes(n)).sort(),
     "plates's .plates/plates.json switches on every practice that is not optional (and the optional ones its owner chose, named here)");
   assert.deepEqual([...practices.values()].filter(p => p.optional).map(p => p.name).sort(), optionalPractices(), 'load() reads each practice.json\'s optional flag');
   assert.ok(['claude', 'climb', 'cross-review', 'reconciliation'].every(n => practices.get(n)?.optional), 'the optional practices plates switches on are optional');

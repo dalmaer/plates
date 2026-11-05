@@ -1,11 +1,11 @@
 ---
-status: designed
-since: 2026-11-02
+status: partial
+since: 2026-11-04
 goal: G4
 spec: 2
 depends: [157, 73, 90]
-note: "Design and safe increments specified against existing Night Watch and decision records; implementation, real-night proof and any hook integration remain unbuilt."
-evidence: []
+note: "Increments 1 and 2 built: a validate-only decision envelope, and an append-only journal beside the night plan keyed by the original operation, so a resume inspects and never redispatches. Nothing routes questions or shows them in the morning yet."
+evidence: ["evidence/2026-11-04-night-decisions.md"]
 ---
 
 # Overnight decisions stay within bounds and can be corrected in the morning
@@ -46,10 +46,10 @@ run a paid or externally mutating overnight trial.
 
 ## Acceptance
 
-- [ ] The decision envelope records scope/plan item, alternatives and rationale, evidence and confidence/uncertainty, expected versus measured consequences, affected commit/flag/configuration, validation, actual effects and recovery limits. Check: proposed `tests/night-decisions.test.mjs: "envelope preserves scope, evidence, effects and unknowns"` and `"legacy plans and decision records remain readable"`.
+- [x] The decision envelope records scope/plan item, alternatives and rationale, evidence and confidence/uncertainty, expected versus measured consequences, affected commit/flag/configuration, validation, actual effects and recovery limits. Check: `tests/night-decisions.test.mjs: "envelope preserves scope, evidence, effects and unknowns"` and `"legacy plans and decision records remain readable"`.
 - [ ] Routine ambiguity can select a reversible default within the existing budget and scope; missing permission parks only dependent actions and independent authorized work continues. Check: proposed `tests/night-decisions.test.mjs: "a reversible optional choice continues within scope"` and `"permission-bound dependencies park while independent work continues"`.
 - [ ] Required approval/tool hooks, refusals, protected paths, settled choices, budget and merge restrictions cannot be bypassed by an overnight label, missing reply or model-written approval. Check: proposed `tests/night-decisions.test.mjs: "overnight mode cannot manufacture authority or bypass a hook"`.
-- [ ] Resume/uncertain outcomes inspect original receipts without repeating external effects; chosen, blocked, completed, failed and uncertain states cannot be conflated. Check: proposed `tests/night-decisions.test.mjs: "resume inspects the original uncertain operation without redispatch"`.
+- [x] Resume/uncertain outcomes inspect original receipts without repeating external effects; chosen, blocked, completed, failed and uncertain states cannot be conflated. Check: `tests/night-decisions.test.mjs: "resume inspects the original uncertain operation without redispatch"`.
 - [ ] The morning separates issue-linked completed work from decisions worth revisiting, ranks impact/uncertainty/reversal cost, exposes missing coverage and compares expected with measured consequences, including interacting choices. Check: proposed `tests/morning.test.mjs: "ranked calls remain separate from completed work"` and `tests/night-decisions.test.mjs: "interacting choices keep predictions separate from measured consequences"`.
 - [ ] Keep/adjust/revert feedback preserves the original decision, revalidates source/authority, records the next safe increment and checks its outcome; irreversible effects are not falsely presented as undone. Check: proposed `tests/decision-loop.test.mjs: "morning correction binds the original decision and current authority"` plus the existing irreversible-outcome guard.
 - [ ] One already-authorized night demonstrates a bounded choice, a parked dependent action, independent progress and a useful morning correction through the configured real report path. Check: ⚑ by hand: owner reviews the recorded night and one correction, with no new spend or channel inferred from this phase.
@@ -99,4 +99,9 @@ contract slice or acceptance supplied by this phase.
 
 ## Next action
 
-Implement the pure versioned decision envelope and its named synthetic compatibility/permission cases as the first safe merge; leave journal execution and harness routing disabled.
+Increment 3: opt-in routing of ordinary optional questions. It must choose the hosted night's private destination for the journal, and the modules likely move into the night practice (a practice change, so a reviewed claude/ PR).
+
+## Trajectory
+- **2026-11-04** — An unknown is an object (`{ "unknown": "<why>" }`), not null, so null keeps meaning "none"; and an envelope names its authority by reference only, rejecting any approval, consent or override key at any depth. tests/night-decisions.test.mjs.
+- **2026-11-04** — Escape: increment 1's `readEnvelope` mangled a group marked unknown as a whole, so a valid parked envelope read back broken; caught writing the journal, fixed in 99363f4e with a VERIFIED proof.
+- **2026-11-04** — The journal lives beside the working plan in the night's ignored directory, because the plan branch is force-pushed each reshaping and a branch of a public repository would publish raw journals. docs/specs/night-decisions.md.

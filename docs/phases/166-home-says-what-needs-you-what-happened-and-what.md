@@ -1,11 +1,12 @@
 ---
-status: planned
-since: 2026-11-02
+status: partial
+owes: walk
+since: 2026-11-04
 goal: G7
 spec: 2
 depends: [151, 156]
-note: "Owner, 2026-11-02: 'When I login I find it hard to know what to do.' Home should say what needs attention, what happened recently, and let the owner ask for work next. Builds on phase 156's one read model."
-evidence: []
+note: "Built: Home has four sections, the same in plates home and the hosted home (Needs you, Since you last looked, What should happen next?, Your plates). Migration 018 applied on the hosted store 2026-11-04; waits on deploy, then owes the owner's look on the phone."
+evidence: ["evidence/2026-11-04-home-four-sections.md"]
 ---
 
 # Home says what needs you, what happened and what is next
@@ -44,10 +45,10 @@ The hosted home and `plates home` show the same four sections, in this order, wi
 
 ## Acceptance
 
-- [ ] `plates home --json` and `/api/home` return the same four sections, items and counts for the same fixture sources: `tests/home-isomorphism.test.mjs: "the four home sections are one model"`
-- [ ] "Needs you" ranks fix, decide and try items, and holds no item waiting on time or agents: `tests/work-items.test.mjs: "needs you holds only the owner's turn"`
-- [ ] "Since you last looked" lists only what happened after the stored visit: `tests/web-home.test.mjs: "since you last looked starts at the last visit"`
-- [ ] The ask box previews both paths and writes nothing without the reviewed digest: `tests/web-home.test.mjs: "an ask is queued only after its preview is approved"`
+- [x] `plates home --json` and `/api/home` return the same four sections, items and counts for the same fixture sources: `tests/home-isomorphism.test.mjs: "the four home sections are one model"`
+- [x] "Needs you" ranks fix, decide and try items, and holds no item waiting on time or agents: `tests/work-items.test.mjs: "needs you holds only the owner's turn"`
+- [x] "Since you last looked" lists only what happened after the stored visit: `tests/web-home.test.mjs: "since you last looked starts at the last visit"`
+- [x] The ask box previews both paths and writes nothing without the reviewed digest: `tests/web-home.test.mjs: "an ask is queued only after its preview is approved"`
 - [ ] ⚑ by hand: the owner opens home on the phone and says whether it is clear what to do next.
 
 ## Your part
@@ -76,4 +77,12 @@ By hand: the owner's look on the phone.
 
 ## Next action
 
-Land phase 156's model move. Then build increment 1.
+Deploy (with migration 018 now applied), then the owner's look on the phone (Your part). Migration 018 applied 2026-11-04.
+
+## Trajectory
+
+- **2026-11-04** — A plate that could not be read is "not read", a fourth status beside broken, N for you and all clear: calling it either of the others would be false. tests/home-isomorphism.test.mjs "the four home sections are one model".
+- **2026-11-04** — On the owner's fleet, Needs you holds 35 items and no fix: every item is a decision or a walk, so the ranking's first tier is empty today. docs/evidence/2026-11-04-home-four-sections.md.
+- **2026-11-04** — On the web, an item's answers open the review session rather than becoming buttons on Home, so there is one answer flow; and the Start panel counts what Needs you counts, since a row with no answers made the two disagree. tests/web-home.test.mjs.
+- **2026-11-04** — An agent issue has no hosted writer (the App has no Issues write), so the ask box gives its filled-in CLI command on the web, and an ask to tonight's plan is a triage item, because the hosted night-plan writer refuses other new kinds. tests/web-home.test.mjs "an ask is queued only after its preview is approved".
+- **2026-11-04** — A visit is a run of Home loads less than 30 minutes apart, recorded only by the fleet Home page, so background refreshes and reloads never move "since" past what the owner has not yet seen; without migration 018 the page falls back to seven days and says so. tests/web-home.test.mjs "since you last looked starts at the last visit".
