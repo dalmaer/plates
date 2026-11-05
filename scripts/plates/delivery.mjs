@@ -488,24 +488,59 @@ export function concurrencyOf(text) {
 
 const words = s => (s ?? '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
 
-/** Strip unquoted POSIX-shell `#` comments (carrying quotes and `\` escapes across lines). */
+/** Strip an unquoted YAML `#` comment from one line. */
+function stripYamlComment(line) {
+  let quote = null;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (quote === "'") { if (c === "'" && line[i + 1] === "'") i++; else if (c === "'") quote = null; continue; }
+    if (quote === '"') { if (c === '\\') i++; else if (c === '"') quote = null; continue; }
+    if ((c === "'" || c === '"') && (!i || /[\s[{,:-]/.test(line[i - 1]))) { quote = c; continue; }
+    if (c === '#' && (!i || /[ \t]/.test(line[i - 1]))) return line.slice(0, i);
+  }
+  return line;
+}
+
+/** Fold a YAML `>` block scalar's indent-stripped lines, keeping blank and more-indented breaks. */
+function foldYaml(lines) {
+  const first = lines.findIndex(Boolean);
+  if (first < 0) return '';
+  const normal = s => s[0] !== ' ' && s[0] !== '\t';
+  let out = lines[first], prevNormal = normal(out), empties = 0;
+  for (const l of lines.slice(first + 1)) {
+    if (!l) { empties++; continue; }
+    const curNormal = normal(l);
+    out += (prevNormal && curNormal ? (empties ? '\n'.repeat(empties) : ' ') : '\n'.repeat(empties + 1)) + l;
+    prevNormal = curNormal;
+    empties = 0;
+  }
+  return out;
+}
+
+/** Strip unquoted POSIX-shell `#` comments (tracking words, quotes, `${…}` and `\` escapes). */
 function stripShellComments(text) {
-  let out = '', quote = null;
+  let out = '', quote = null, word = false, dollar = false, param = 0;
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
     if (quote === "'") { out += c; if (c === "'") quote = null; continue; }
     if (c === '\\') {
-      if (text[i + 1] === '\n') { out += ' '; i++; continue; }
+      dollar = false;
+      if (text[i + 1] === '\n') { i++; continue; }
       out += c + (text[++i] ?? '');
+      word = true;
       continue;
     }
-    if (quote === '"') { out += c; if (c === '"') quote = null; continue; }
-    if (c === "'" || c === '"') { quote = c; out += c; continue; }
-    if (c === '#' && (i === 0 || /[\s;&|]/.test(text[i - 1]))) {
+    if (quote) { out += c; if (c === quote.at(-1)) quote = null; continue; }
+    if (c === "'" || c === '"') { quote = c === "'" && dollar ? "$'" : c; word = true; dollar = false; out += c; continue; }
+    if ((dollar || param) && c === '{') { param++; word = true; dollar = false; out += c; continue; }
+    if (param && c === '}') { param--; word = true; dollar = false; out += c; continue; }
+    if (c === '#' && !word && !param) {
       while (text[i + 1] && text[i + 1] !== '\n') i++;
       continue;
     }
     out += c;
+    dollar = c === '$';
+    word = !/[\s;&|()<>]/.test(c);
   }
   return out;
 }
@@ -516,18 +551,18 @@ export function workflowTriggers(text) {
   const at = lines.findIndex(l => /^(on|"on"|'on'):([ \t]|$)/.test(l));
   if (at < 0) return null;
   let start = at;
-  let inline = stripShellComments(lines[at].replace(/^[^:]*:/, '')).trim();
+  let inline = stripYamlComment(lines[at].replace(/^[^:]*:/, '')).trim();
   if (!inline) {
-    const next = lines.findIndex((l, i) => i > at && Boolean(stripShellComments(l).trim()));
+    const next = lines.findIndex((l, i) => i > at && Boolean(stripYamlComment(l).trim()));
     if (next > at && /^\s+[[{]/.test(lines[next])) {
       start = next;
-      inline = stripShellComments(lines[next]).trim();
+      inline = stripYamlComment(lines[next]).trim();
     }
   }
   if (inline[0] === '[' || inline[0] === '{') {
     for (const l of lines.slice(start + 1)) {
       if (inline[closing(inline)]) break;
-      const raw = stripShellComments(l);
+      const raw = stripYamlComment(l);
       const next = raw.trim();
       if (!next) continue;
       if (!/^\s/.test(raw) && next[0] !== ']' && next[0] !== '}') break;
@@ -551,7 +586,7 @@ export function workflowTriggers(text) {
   const out = [];
   let indent = null;
   for (const l of lines.slice(at + 1)) {
-    const clean = stripShellComments(l);
+    const clean = stripYamlComment(l);
     if (!clean.trim()) continue;
     if (!/^\s/.test(clean)) break;
     const m = /^(\s+)(?:-\s+)?["']?([A-Za-z_]\w*)["']?\s*(?::|$)/.exec(clean);
@@ -577,16 +612,19 @@ export function workflowSteps(text) {
       const keyIndent = r[1].length + (r[2] ? r[2].length : 0);
       const block = r[3].replace(/(?:^|[ \t]+)#.*$/, '').trim();
       if (/^[|>][-+]?\d*$/.test(block)) {
-        const blockLines = [];
+        const rawBlock = [];
         let j = i + 1;
         for (; j < job.end; j++) {
           const bl = lines[j];
-          if (!bl.trim()) { blockLines.push(''); continue; }
-          if (bl.search(/\S/) <= keyIndent) break;
-          blockLines.push(bl.trim());
+          if (bl.trim() && bl.search(/\S/) <= keyIndent) break;
+          rawBlock.push(bl);
         }
-        const joined = blockLines.join('\n');
-        const script = block[0] === '>' ? joined.replace(/([^\n])\n([^\n])/g, '$1 $2') : joined;
+        while (rawBlock.length && !rawBlock.at(-1).trim()) rawBlock.pop();
+        const indDigit = /[1-9]/.exec(block)?.[0];
+        const firstNonEmpty = rawBlock.find(b => b.trim());
+        const baseIndent = indDigit ? keyIndent + Number(indDigit) : (firstNonEmpty ? firstNonEmpty.search(/\S/) : keyIndent + 1);
+        const sliced = rawBlock.map(b => b.slice(baseIndent));
+        const script = block[0] === '>' ? foldYaml(sliced) : sliced.join('\n');
         for (const code of stripShellComments(script).split('\n')) {
           if (code.trim()) runs.push(code.trim());
         }
