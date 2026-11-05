@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {changeDetailView,changeIndexView,renderJournalCard,comparablePairs,privateImagePath,captureView,availabilityView} from '../lib/web/change-views.mjs';
 import {renderMediaReceipt,renderUploadReview,renderDeleteReview} from '../lib/web/media-views.mjs';
-import {journalWindow,journalMatches,readJournalVisits} from '../lib/web/change-client.mjs';
+import {journalWindow,journalMatches} from '../lib/web/change-client.mjs';
 import {renderHomeSnapshot} from '../lib/web/views.mjs';
 import {changesHarness,token} from './helpers/web-changes.mjs';
 import {createWebService} from '../lib/web/server.mjs';
@@ -37,10 +37,10 @@ test('only same-project delivery paths render images and arbitrary authored cont
  assert.equal(privateImagePath(`/api/projects/studio/media/${hex('a')}/bytes?token=secret`,'studio'),null);
  assert.match(changeIndexView({...m,items:[m.change]},access),/Since last visit/);
 });
-test('personal date windows are bounded and preserve unknown/future/invalid preference as explicit first use',()=>{
- const now=Date.parse('2026-10-21T12:00:00Z'),first=journalWindow(null,now);assert.equal(first.first,true);assert.match(first.label,/last 7 days/);assert.equal(journalMatches('2026-10-20',first,'since'),true);assert.equal(journalMatches('2026-10-01',first,'since'),false);assert.equal(journalMatches('invalid',first,'all'),true);
- for(const value of ['garbage',String(now+1000),String(now-366*86400000)])assert.equal(journalWindow(value,now).first,true);
- const raw=JSON.stringify({version:1,visits:[{view:'studio',at:String(now-1000)},{view:'../evil',at:String(now-1000)}]});assert.deepEqual(readJournalVisits(raw,now),[{view:'studio',at:String(now-1000)}]);assert.deepEqual(readJournalVisits('x'.repeat(16385),now),[]);assert.deepEqual(readJournalVisits(JSON.stringify({version:1,visits:Array(51).fill({view:'studio',at:String(now)})}),now),[]);
+test('personal date windows are bounded and treat unknown/future/invalid stored visits as explicit first use',()=>{
+ const now=Date.parse('2026-10-21T12:00:00Z'),first=journalWindow(null,now);assert.equal(first.first,true);assert.equal(first.mode,'all');assert.match(first.label,/Showing all observed additions/);assert.equal(journalMatches('2026-10-01',first,'since'),true);assert.equal(journalMatches('invalid',first,'all'),true);
+ for(const value of ['garbage',String(now-1000),new Date(now+1000).toISOString(),new Date(now-366*86400000).toISOString()])assert.equal(journalWindow(value,now).first,true);
+ assert.equal(journalWindow(new Date(now-1000).toISOString(),now).first,false);
 });
 test('library labels distinguish metadata-only receipts from live verified objects and deletion preview names exact bytes',()=>{
  const r=receipt();assert.match(renderMediaReceipt(r),/object not checked in this list/);assert.doesNotMatch(renderMediaReceipt(r),/verified now/);r.objectCheck='verified';r.checkedAt='2026-10-21T12:00:00.000Z';assert.match(renderMediaReceipt(r),/Stored bytes verified now/);
@@ -119,7 +119,31 @@ test('availability explicitly binds source observation to implementation, with n
 
 
 test('since-last-visit includes new same-day additions instead of comparing publication midnight to a visit time',()=>{
- const previous=Date.parse('2026-10-21T09:00:00Z'),now=Date.parse('2026-10-21T17:00:00Z'),range=journalWindow(String(previous),now);
+ const now=Date.parse('2026-10-21T17:00:00Z'),range=journalWindow('2026-10-21T09:00:00Z',now);
  assert.equal(range.since,Date.parse('2026-10-21T00:00:00Z'));assert.equal(journalMatches('2026-10-21',range,'since'),true);assert.equal(journalMatches('2026-10-20',range,'since'),false);assert.match(range.label,/whole day is included because additions have dates, not times/);assert.match(range.label,/some may already be familiar/);
- const first=journalWindow(null,now);assert.equal(journalMatches('2026-10-15',first,'since'),true);assert.equal(journalMatches('2026-10-14',first,'since'),false);
+ const first=journalWindow(null,now);assert.equal(journalMatches('2026-10-14',first,'since'),true);
+});
+
+// Phase 172's look: in a fresh browser the journal defaulted to a seven-day "Since last visit" and hid the
+// fixture's 2026-10-21 change. With no stored visit every addition is shown and the page names that range.
+test('with no stored visit the journal shows every addition, older ones too, and names the range shown',async()=>{
+ const m=await sourceModel(),now=Date.parse('2026-11-04T12:00:00Z'),shown=html=>{const mode=html.match(/<option value="(\w+)"[^>]*\bselected/)[1],since=html.match(/data-journal-since="([^"]+)"/)?.[1]??null;return date=>journalMatches(date,journalWindow(since,now),mode);};
+ assert.equal(m.change.publishedAt,'2026-10-21');
+ const fresh=changeIndexView({...m,items:[m.change]},access,{now});
+ assert.equal(shown(fresh)(m.change.publishedAt),true,'the 2026-10-21 addition is shown on a first visit');
+ assert.match(fresh,/data-journal-date>Showing all observed additions: no previous visit is stored yet, so nothing is hidden by date\./);assert.match(fresh,/<option value="since" disabled>Since last visit \(none stored yet\)/);
+ // Home's stored visit is the since when there is one, named on the page.
+ const visited=changeIndexView({...m,items:[m.change],since:{at:'2026-10-28T09:00:00Z',reason:null}},access,{now});
+ assert.match(visited,/<option value="since" selected>Since last visit</);assert.match(visited,/Since you last looked: additions from 2026-10-28 UTC, the day of your previous visit, as on Home/);
+ assert.equal(shown(visited)('2026-10-21'),false);assert.equal(shown(visited)('2026-10-28'),true);
+ const gap=changeIndexView({...m,items:[m.change],since:{at:null,reason:'Visits are not stored yet'}},access,{now});
+ assert.match(gap,/Showing all observed additions: visits are not stored yet, so nothing is hidden by date/);assert.equal(shown(gap)('2026-10-21'),true);
+});
+test('the Changes route takes its since from the stored Home visit, reads without recording one, and falls back to all',async()=>{
+ const {lookedSince}=await import('../lib/web/last-looked-store.mjs'),h=changesHarness(),signed=await h.login(),ops=[];let stored={seen:'2026-10-21T08:00:00Z',previous:'2026-10-19T08:00:00Z'};
+ const fetcher=async(url,options={})=>{if(new URL(url).pathname==='/rest/v1/rpc/plates_last_looked_rpc'){ops.push(JSON.parse(options.body).p_operation);return stored?Response.json(stored):new Response('{"message":"Could not find the function"}',{status:404});}return h.fetcher(url,options);};
+ const page=async()=>(await createWebService(h.config,{fetcher,now:()=>h.state.now})(h.request('/projects/studio/changes',{cookie:signed.cookie}))).text();
+ const now=h.state.now;assert.equal(lookedSince(stored,Date.parse('2026-10-21T08:10:00Z')),'2026-10-19T08:00:00Z');assert.equal(lookedSince(stored,Date.parse('2026-10-21T09:00:00Z')),'2026-10-21T08:00:00Z');
+ const expected=lookedSince(stored,now);let html=await page();assert.match(html,new RegExp(`data-journal-since="${expected}"`));assert.match(html,new RegExp(`additions from ${expected.slice(0,10)} UTC`));assert.deepEqual([...new Set(ops)],['read']);
+ stored=null;html=await page();assert.doesNotMatch(html,/data-journal-since=/);assert.match(html,/<option value="all" selected>/);assert.match(html,/visits are not stored yet, so nothing is hidden by date/);
 });
