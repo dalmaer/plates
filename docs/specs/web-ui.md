@@ -321,7 +321,8 @@ retention and publishing permissions need explicit implementation contracts.
 ### Make new work discoverable without losing focus
 
 Group the journal by project and user-visible change, with a “since last visit”
-filter. First visit uses a named date range. Seen/unseen is a personal preference;
+filter. With no stored visit, the journal shows every observed addition and says
+so on the page. Seen/unseen is a personal preference;
 it never changes acceptance or hides a required walk. Keep new arrivals behind a
 “3 new updates” control while someone is reading or testing. When a decision or
 test finishes, offer the next ready item while preserving a receipt for this one.
