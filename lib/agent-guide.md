@@ -966,8 +966,22 @@ passed; nothing failing is pushed. Landed changes lose their ready ref; a
 change sent back keeps it as `Status: blocked` with the reason, skipped until
 marked ready again. `--json` → `{ok, base, command, commands, gates, pushed, landed:[{branch,
 head}], blocked:[{branch, head, reason, with}], stillBlocked, alreadyLanded,
-malformed}`; exit 1 when a change was sent back or the push was refused (main
+malformed, record}`; exit 1 when a change was sent back or the push was refused (main
 moved: nothing landed, run again).
+Every run that found its remote, refused or not, appends one JSON line to
+`integrations.jsonl` on the `plates-integrations` branch (written after the lock
+is let go, with a lease; the newest 500 kept): `startedAt`, `endedAt`, `ms`,
+`lock` (`held`, `refused` with its `holder`, or `not-taken`), `outcome`
+(`landed`, `partial`, `blocked`, `nothing-ready`, `refused`, `error`),
+`exitCode`, `considered`, each gate run in `gates` (`candidate`, `mode`,
+`status`, `ms`, `why`), `landed`, `pushed`, `blocked` with each reason, and
+`error`. A record that cannot be written is said (`record: {recorded: false,
+why}`, a line in the text) and never changes what was gated, pushed or the
+exit code; a branch of that name holding no `integrations.jsonl` is left
+alone. `plates home`'s waits read it as `waits.integrations` (runs, outcomes,
+`landedNothing`, the newest five). The test-ledger records a gate writes in
+the worktree are copied to the checkout's `.plates/test-runs` (marked
+`attributedBy: plates-integrate`), so `plates time` counts integrate's gates.
 
 ### Verifying production
 

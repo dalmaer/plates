@@ -306,6 +306,12 @@ on their own change and push. Phase 83 makes that one run:
   gate passed.
 - A change sent back keeps its `ready/` ref, marked blocked with the reason,
   until its session fixes it and runs `plates ready` again.
+- Each run appends one line to `integrations.jsonl` on the
+  `plates-integrations` branch: the lock's answer, the changes considered,
+  each gate run, what landed and what was sent back with the reason, so a run
+  that landed nothing says why. A record that cannot be written is said, never
+  fatal. The gate's test-ledger records are copied from the worktree to the
+  checkout, so `plates time` sees integrate's gates.
 
 `plates --agent-help improve` ("Ready and integrate") has the JSON.
 
