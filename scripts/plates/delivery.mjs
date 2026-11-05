@@ -488,24 +488,70 @@ export function concurrencyOf(text) {
 
 const words = s => (s ?? '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
 
-/** A workflow's top-level `on:` event names, or null when `on:` is absent. */
+/** Strip an unquoted POSIX-shell `#` comment from one line, keeping quoted or escaped `#`. */
+function stripShellComment(line) {
+  let quote = null;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (quote === "'") { if (c === "'") quote = null; continue; }
+    if (c === '\\') { i++; continue; }
+    if (quote === '"') { if (c === '"') quote = null; continue; }
+    if (c === "'" || c === '"') { quote = c; continue; }
+    if (c === '#' && (i === 0 || /[\s;&|]/.test(line[i - 1]))) return line.slice(0, i);
+  }
+  return line;
+}
+
+/** A workflow's top-level `on:` event names, or null when `on:` is absent or unreadable. */
 export function workflowTriggers(text) {
   const lines = (text ?? '').split('\n');
   const at = lines.findIndex(l => /^(on|"on"|'on'):([ \t]|$)/.test(l));
   if (at < 0) return null;
-  const inline = lines[at].replace(/^[^:]*:/, '').replace(/(?:^|[ \t]+)#.*$/, '').trim();
-  if (inline) return inline.replace(/^\[|\]$/g, '').split(',').map(t => t.trim().replace(/^(["'])(.*)\1$/, '$2')).filter(Boolean);
+  let start = at;
+  let inline = stripShellComment(lines[at].replace(/^[^:]*:/, '')).trim();
+  if (!inline) {
+    const next = lines.findIndex((l, i) => i > at && Boolean(stripShellComment(l).trim()));
+    if (next > at && /^\s+[[{]/.test(lines[next])) {
+      start = next;
+      inline = stripShellComment(lines[next]).trim();
+    }
+  }
+  if (inline[0] === '[' || inline[0] === '{') {
+    for (const l of lines.slice(start + 1)) {
+      if (inline[closing(inline)]) break;
+      const raw = stripShellComment(l);
+      const next = raw.trim();
+      if (!next) continue;
+      if (!/^\s/.test(raw) && next[0] !== ']' && next[0] !== '}') break;
+      inline += ' ' + next;
+    }
+    const end = closing(inline);
+    if (inline[end] !== (inline[0] === '[' ? ']' : '}') || inline.slice(end + 1).trim()) return null;
+    const isMap = inline[0] === '{';
+    const out = [];
+    for (const part of topLevel(inline.slice(1, end), ',').map(p => p.trim()).filter(Boolean)) {
+      const s = scalar(isMap ? topLevel(part, ':')[0] : part);
+      if (s.error || !/^[A-Za-z_]\w*$/.test(s.value)) return null;
+      out.push(s.value);
+    }
+    return out;
+  }
+  if (inline) {
+    const s = scalar(inline);
+    return s.error || !/^[A-Za-z_]\w*$/.test(s.value) ? null : [s.value];
+  }
   const out = [];
   let indent = null;
   for (const l of lines.slice(at + 1)) {
-    if (!l.trim() || /^\s*#/.test(l)) continue;
-    if (!/^\s/.test(l)) break;
-    const m = /^(\s+)(?:-\s+)?["']?([A-Za-z_]\w*)["']?\s*(?::|$)/.exec(l);
+    const clean = stripShellComment(l);
+    if (!clean.trim()) continue;
+    if (!/^\s/.test(clean)) break;
+    const m = /^(\s+)(?:-\s+)?["']?([A-Za-z_]\w*)["']?\s*(?::|$)/.exec(clean);
     if (!m) continue;
     indent ??= m[1].length;
     if (m[1].length === indent) out.push(m[2]);
   }
-  return out;
+  return out.length ? out : null;
 }
 
 /** Every step's `uses:` and non-comment `run:` lines under `jobs:`: { uses: [string], runs: [string] }. */
@@ -528,12 +574,14 @@ export function workflowSteps(text) {
           const bl = lines[j];
           if (!bl.trim()) continue;
           if (bl.search(/\S/) <= keyIndent) break;
-          if (!/^\s*#/.test(bl)) runs.push(bl.trim());
+          const code = stripShellComment(bl.trim()).trim();
+          if (code) runs.push(code);
         }
         i = j - 1;
       } else {
         const s = scalar(r[3]);
-        if (s.value) runs.push(s.value);
+        const code = s.value ? stripShellComment(s.value).trim() : '';
+        if (code) runs.push(code);
       }
     }
   }
@@ -571,11 +619,10 @@ export function workflowKind(file, text, { gate = null, check = null, workflows 
   const observer = said.some(w => OBSERVER_WORDS.includes(w));
   if (said.some(w => PUBLISH_WORDS.includes(w)) && !observer && !runs.some(r => VERIFY_RUN.test(r))) return 'publish';
   const triggers = workflowTriggers(text);
-  const onCode = triggers === null ? null : triggers.some(t => CODE_TRIGGERS.includes(t));
-  if (onCode === false) return null;
+  if (triggers !== null && !triggers.some(t => CODE_TRIGGERS.includes(t))) return null;
   if (gate && [base, file, stem, name].includes(gate)) return 'test';
   const checkRe = typeof check === 'string' && check.trim() ? new RegExp(`(^|[^\\w:.-])${check.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w:.-])`) : null;
-  if (onCode === true && runs.some(r => TEST_RUN.test(r) || (checkRe !== null && checkRe.test(r)))) return 'test';
+  if (runs.some(r => TEST_RUN.test(r) || (checkRe !== null && checkRe.test(r)))) return 'test';
   if (said.some(w => TEST_WORDS.includes(w)) && !observer) return 'test';
   return null;
 }

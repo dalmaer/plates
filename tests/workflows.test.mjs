@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { load, fill, plan, PUSH_TRIGGERS, CROSS_REVIEW_WORKFLOW, PUBLISH_WORKFLOW, PROJECT, shapePublish, gateNameIn } from '../lib/practices.mjs';
-import { concurrencyOf, concurrencyProblems, deliveryOf, deliveryProblems, workflowKind } from '../practices/delivery/files/scripts/plates/delivery.mjs';
+import { concurrencyOf, concurrencyProblems, deliveryOf, deliveryProblems, workflowKind, workflowSteps, workflowTriggers } from '../practices/delivery/files/scripts/plates/delivery.mjs';
 import { run } from './helpers/run.mjs';
 import {nameRow} from '../lib/names.mjs';
 import { AGENTS } from '../practices/night/files/scripts/plates/lib.mjs';
@@ -3216,6 +3216,58 @@ test('#212: workflowKind classifies by steps, code-ref triggers, observer roles 
   assert.equal(workflowKind('.github/workflows/build.yml', customGate, { check: '   ' }), null);
   assert.equal(workflowKind('.github/workflows/quoted-trigger.yml', 'name: build\non: # block\n  "push":\n  - pull_request\njobs:\n  g:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n'), 'test');
   assert.equal(workflowKind('.github/workflows/commented-step.yml', 'name: note\non: push\njobs:\n  n:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          # npx vercel deploy --prod\n          echo Acme\n'), null);
+
+  // Flow-mapping `on:` triggers and unreadable `on:` forms (#212 review).
+  const flowMapCi = 'name: CI\non: { push: {}, pull_request: {} }\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n';
+  assert.deepEqual(workflowTriggers(flowMapCi), ['push', 'pull_request']);
+  assert.equal(workflowKind('.github/workflows/ci.yml', flowMapCi, { gate: 'ci.yml' }), 'test');
+  assert.equal(workflowKind('.github/workflows/build.yml', flowMapCi.replace('name: CI', 'name: build')), 'test');
+  assert.match(concurrencyProblems('.github/workflows/ci.yml', flowMapCi, workflowKind('.github/workflows/ci.yml', flowMapCi))[0], /no concurrency group/);
+  assert.deepEqual(workflowTriggers('on: { "push": { branches: [main, release] }, \'pull_request\': { types: [opened, synchronize] } } # code refs\n'), ['push', 'pull_request']);
+  assert.deepEqual(workflowTriggers('on:\n  # flow under on:\n  {\n    push: {}, # main\n    pull_request: {},\n  }\n'), ['push', 'pull_request']);
+  assert.deepEqual(workflowTriggers('on:\n  [workflow_dispatch]\n'), ['workflow_dispatch']);
+  assert.deepEqual(workflowTriggers('on:\n  - push # main\n  - pull_request # prs\n'), ['push', 'pull_request']);
+  assert.equal(workflowKind('.github/workflows/nightly.yml', 'name: sweep\non: { workflow_dispatch: {}, schedule: [{ cron: "0 7 * * *" }] }\njobs:\n  s:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n'), null);
+  for (const unreadable of [
+    'on: { push: {}\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n',
+    'on: [push }\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n',
+    'on: { push: {} } extra\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n',
+    'on: { push: {} }x\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n',
+    'on: { 123: {} }\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n',
+    'on: [push: {}]\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n',
+    'on: *shared_triggers\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n',
+    'on: 123\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n',
+    'on:\n  <<: *shared_triggers\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n',
+  ]) {
+    assert.equal(workflowTriggers(unreadable), null, unreadable);
+    assert.equal(workflowKind('.github/workflows/build.yml', unreadable), 'test', unreadable);
+  }
+
+  // Inline shell `#` comments in `run:` steps (#212 review): excluded outside quotes, preserved inside quotes or mid-word.
+  const commentedPublishNote = [
+    'name: CI',
+    'on: [push, pull_request]',
+    'concurrency:',
+    '  group: ci-${{ github.ref }}',
+    '  cancel-in-progress: true',
+    'jobs:',
+    '  test:',
+    '    runs-on: ubuntu-latest',
+    '    steps:',
+    '      - run: |',
+    '          npm test # npm publish runs in release.yml',
+  ].join('\n');
+  assert.deepEqual(workflowSteps(commentedPublishNote).runs, ['npm test']);
+  assert.deepEqual(workflowSteps('jobs:\n  t:\n    runs-on: ubuntu-latest\n    steps:\n      - run: "# npm publish"\n').runs, []);
+  assert.equal(workflowKind('.github/workflows/ci.yml', commentedPublishNote), 'test');
+  assert.deepEqual(concurrencyProblems('.github/workflows/ci.yml', commentedPublishNote, workflowKind('.github/workflows/ci.yml', commentedPublishNote)), []);
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  t:\n    runs-on: ubuntu-latest\n    steps:\n      - run: "npm test # npm publish runs in release.yml"\n'), 'test');
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  t:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test;# npm publish\n'), 'test');
+  assert.equal(workflowKind('.github/workflows/ship-note.yml', 'name: note\non: push\njobs:\n  s:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          echo "Ship Acme #1" && npx vercel deploy --prod\n'), 'publish');
+  assert.equal(workflowKind('.github/workflows/build.yml', 'name: build\non: push\njobs:\n  b:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          echo "Acme \\" #1" && npm test\n'), 'test');
+  assert.equal(workflowKind('.github/workflows/build.yml', 'name: build\non: push\njobs:\n  b:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          echo \'Acme #1\\\' && npm test # cargo publish\n'), 'test');
+  assert.equal(workflowKind('.github/workflows/build.yml', 'name: build\non: push\njobs:\n  b:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          echo \\"acme && npm test # npm publish\n'), 'test');
+  assert.equal(workflowKind('.github/workflows/build.yml', 'name: build\non: push\njobs:\n  b:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          curl -fsS https://anvils.acme.example/#v1 && npm test\n'), 'test');
 
   // 4. "delivery".workflows overrides by path, file, stem or workflow name, and deliveryProblems validates it.
   assert.equal(workflowKind('.github/workflows/verify-deploy.yml', verifyDeploy, { workflows: { '.github/workflows/verify-deploy.yml': 'deploy' } }), 'publish');
