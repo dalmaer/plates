@@ -261,10 +261,13 @@ its own command, not the ref.
 With delivery on, `plates doctor` reads every workflow in `.github/workflows`
 and reports `workflow-concurrency` when:
 
-- a **test or gate workflow** (the gate workflow, or one named test, check,
-  ci or gate) has no concurrency group per ref (`${{ github.ref }}`) with
+- a **test or gate workflow** (on a code ref: the gate workflow, one that runs
+  the gate or test suite, or one named test, check, ci or gate rather than a
+  verifier or alerter) has no concurrency group per ref (`${{ github.ref }}`) with
   `cancel-in-progress: true`: superseded test runs keep running;
-- a **publish or deploy workflow** (named publish, deploy, release or promote)
+- a **publish or deploy workflow** (one that runs a publish, deploy, release or
+  promote step, or is named publish, deploy, release or promote rather than a
+  verifier or alerter)
   has no concurrency group, a group per ref, commit or run (`github.run_id`,
   `github.run_number`, `github.run_attempt`), or `cancel-in-progress` other than `false`: a
   deploy can be cancelled midway, or two can run at once. A group expression
@@ -283,7 +286,10 @@ Only a workflow-level block covers a whole test workflow. Without one, every
 job needs its own per-ref, cancelling block: one compliant `unit` job does not
 cover an `integration` job with none.
 
-A workflow named neither way is not checked. A gate workflow that also
+A workflow that neither runs nor is named as one (including a post-deploy
+verifier or alerter, or a workflow off code refs that does not publish) is not
+checked; `"delivery".workflows` (`{ "<file or name>": "test" | "publish" | "deploy" | "none" }`)
+overrides classification per workflow. A gate workflow that also
 publishes (isocan's `release.yml`) is held as a publisher.
 
 ## Sessions hand off; one integrator runs the gate

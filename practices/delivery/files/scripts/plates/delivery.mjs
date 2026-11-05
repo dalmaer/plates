@@ -7,15 +7,16 @@
 // tree, where the night's scripts are not beside it.
 //
 //   deliveryOf(config)        .plates/plates.json "delivery": { tested, gateWorkflow,
-//                             site, version, smoke, promote, vercel, migrations,
-//                             grant }, validated, each error naming its key (site,
+//                             workflows, site, version, smoke, promote, vercel,
+//                             migrations, grant }, validated, each error naming its
+//                             key (workflows: plates doctor workflow-concurrency; site,
 //                             version and smoke: phase 81's verifier,
 //                             scripts/plates/verify.mjs; promote: phase 82's plates
 //                             promote, scripts/plates/promote.mjs; vercel,
 //                             migrations and grant: phase 177's Vercel target,
 //                             scripts/plates/vercel.mjs)
 //   concurrencyOf(text)       a workflow's concurrency blocks, read as text
-//   workflowKind(file, text, { gate })  'test', 'publish' or null
+//   workflowKind(file, text, { gate, check, workflows })  'test', 'publish' or null
 //   concurrencyProblems(file, text, kind)  the rule, broken: [string]
 //
 // The rule (design item 6; isocan's test/workflows.test.ts is the model):
@@ -31,6 +32,10 @@ export const TESTED = 'green';
 export const PUBLISH_WORDS = Object.freeze(['publish', 'deploy', 'deployment', 'release', 'promote']);
 /** Words that make it a test or gate workflow (when not a publish one). */
 export const TEST_WORDS = Object.freeze(['test', 'tests', 'check', 'checks', 'ci', 'gate']);
+/** Words that name a verifier, smoke check or alerter rather than a deploy or test suite (#212). */
+export const OBSERVER_WORDS = Object.freeze(['verify', 'verification', 'verifier', 'smoke', 'alert', 'alerts', 'alerter', 'notify', 'notifier', 'notification', 'notifications']);
+const CODE_TRIGGERS = ['push', 'pull_request', 'pull_request_target', 'merge_group'];
+const WORKFLOW_KINDS = ['test', 'publish', 'deploy', 'none'];
 
 /**
  * A group expression that names the ref or the commit: two runs of different
@@ -193,6 +198,13 @@ export function deliveryProblems(config) {
   if (d.gateWorkflow !== undefined && (typeof d.gateWorkflow !== 'string' || !d.gateWorkflow.trim() || d.gateWorkflow !== d.gateWorkflow.trim() || /[\r\n\0"\\]/.test(d.gateWorkflow))) {
     out.push('.plates/plates.json "delivery".gateWorkflow must be the gate workflow\'s file (like "check.yml") or the name GitHub shows for it');
   }
+  if (d.workflows !== undefined) {
+    if (!d.workflows || typeof d.workflows !== 'object' || Array.isArray(d.workflows)) out.push('.plates/plates.json "delivery".workflows must be an object mapping a workflow\'s file or name to "test", "publish", "deploy" or "none"');
+    else for (const [k, v] of Object.entries(d.workflows)) {
+      if (!k.trim() || k !== k.trim() || /[\r\n\0"\\]/.test(k)) out.push(`.plates/plates.json "delivery".workflows key ${JSON.stringify(k)} must be a workflow's file (like "deploy.yml") or the name GitHub shows for it`);
+      if (!WORKFLOW_KINDS.includes(v)) out.push(`.plates/plates.json "delivery".workflows[${JSON.stringify(k)}] must be "test", "publish", "deploy" or "none" (got ${JSON.stringify(v)})`);
+    }
+  }
   // The verifier's keys (phase 81): where production is, which path reports its commit, and what to smoke-test.
   if (d.site !== undefined) {
     const p = siteProblem(d.site);
@@ -339,7 +351,8 @@ export function deliveryOf(config) {
   const d = config?.delivery ?? {};
   const smoke = (d.smoke ?? []).map(c => typeof c === 'string' ? { path: c, status: [200] } : { path: c.path, status: c.status === undefined ? [200] : [c.status].flat() });
   return { tested: d.tested ?? TESTED, gateWorkflow: d.gateWorkflow ?? null, site: d.site ? new URL(d.site).origin : null, version: d.version ?? null, smoke, promote: promoteRefOf(d.promote),
-    // A Vercel target's keys (phase 177), only with one; the grant, only when the owner set it.
+    // Explicit workflow roles (#212), a Vercel target's keys (phase 177), and the grant, only when set.
+    ...(d.workflows ? { workflows: Object.fromEntries(Object.entries(d.workflows).map(([k, v]) => [k, v === 'deploy' ? 'publish' : v === 'none' ? null : v])) } : {}),
     ...(d.vercel ? { vercel: { scope: d.vercel.scope, checkout: d.vercel.checkout, globalConfig: d.vercel.globalConfig ?? null }, migrations: d.migrations ?? MIGRATIONS } : {}),
     ...(d.grant ? { grant: { agentPromote: d.grant.agentPromote, since: d.grant.since } } : {}) };
 }
@@ -475,20 +488,95 @@ export function concurrencyOf(text) {
 
 const words = s => (s ?? '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
 
+/** A workflow's top-level `on:` event names, or null when `on:` is absent. */
+export function workflowTriggers(text) {
+  const lines = (text ?? '').split('\n');
+  const at = lines.findIndex(l => /^(on|"on"|'on'):([ \t]|$)/.test(l));
+  if (at < 0) return null;
+  const inline = lines[at].replace(/^[^:]*:/, '').replace(/(?:^|[ \t]+)#.*$/, '').trim();
+  if (inline) return inline.replace(/^\[|\]$/g, '').split(',').map(t => t.trim().replace(/^(["'])(.*)\1$/, '$2')).filter(Boolean);
+  const out = [];
+  let indent = null;
+  for (const l of lines.slice(at + 1)) {
+    if (!l.trim() || /^\s*#/.test(l)) continue;
+    if (!/^\s/.test(l)) break;
+    const m = /^(\s+)(?:-\s+)?["']?([A-Za-z_]\w*)["']?\s*(?::|$)/.exec(l);
+    if (!m) continue;
+    indent ??= m[1].length;
+    if (m[1].length === indent) out.push(m[2]);
+  }
+  return out;
+}
+
+/** Every step's `uses:` and non-comment `run:` lines under `jobs:`: { uses: [string], runs: [string] }. */
+export function workflowSteps(text) {
+  const lines = (text ?? '').split('\n');
+  const uses = [], runs = [];
+  for (const job of jobsOf(text)) {
+    for (let i = job.line; i < job.end; i++) {
+      const l = lines[i];
+      if (!l.trim() || /^\s*#/.test(l)) continue;
+      const u = /^\s*(?:-\s+)?uses:[ \t]*(.+?)[ \t]*$/.exec(l);
+      if (u) { const s = scalar(u[1]); if (s.value) uses.push(s.value); continue; }
+      const r = /^(\s*)(-\s+)?run:[ \t]*(.*?)[ \t]*$/.exec(l);
+      if (!r) continue;
+      const keyIndent = r[1].length + (r[2] ? r[2].length : 0);
+      const block = r[3].replace(/(?:^|[ \t]+)#.*$/, '').trim();
+      if (/^[|>][-+]?\d*$/.test(block)) {
+        let j = i + 1;
+        for (; j < job.end; j++) {
+          const bl = lines[j];
+          if (!bl.trim()) continue;
+          if (bl.search(/\S/) <= keyIndent) break;
+          if (!/^\s*#/.test(bl)) runs.push(bl.trim());
+        }
+        i = j - 1;
+      } else {
+        const s = scalar(r[3]);
+        if (s.value) runs.push(s.value);
+      }
+    }
+  }
+  return { uses, runs };
+}
+
+const PUBLISH_USES = /(?:^|\/)(?:deploy-[\w-]+|[\w-]+-deploy|[\w-]*vercel-action|wrangler-action|action-gh-release|actions-gh-pages|changesets\/action)@/i;
+const PUBLISH_RUN = /\bscripts\/(?:plates|keel)\/(?:publish|promote|vercel)\.mjs\b|\bvercel\b[^\n;|&]*\s(?:deploy|promote|--prod)\b|\b(?:wrangler|flyctl|railway|netlify|firebase)\s+deploy\b|\bgcloud\s+(?:run|app|functions)\s+deploy\b|\b(?:npm|pnpm|yarn|bun|cargo)\s+publish\b|\bgh\s+release\s+create\b|(?:^|[;&|]\s*|\bthen\s+|\belse\s+)(?:(?:\.\/|(?:ba)?sh\s+|node\s+)(?:scripts\/)?(?:deploy|publish|release|promote)(?:\.(?:sh|mjs|js|ts))?|scripts\/(?:deploy|publish|release|promote)\.(?:sh|mjs|js|ts))(?=\s|$)|\b(?:npm|pnpm|yarn|bun)\s+run\s+(?:deploy|publish|release|promote)(?::[\w-]+)?\b/;
+const VERIFY_RUN = /\bscripts\/(?:plates|keel)\/verify\.mjs\b|\bverify-production\.(?:mjs|js|ts)\b/;
+const TEST_RUN = /\bscripts\/(?:plates|keel)\/(?:gate|test-ledger)\.mjs\b|\b(?:npm|pnpm|yarn|bun)\s+(?:test|run\s+test(?::[\w-]+)?)\b|\bnode\s+(?:[^\n;|&]*\s)?--test\b|\b(?:npx\s+|pnpm\s+exec\s+|yarn\s+)?(?:vitest|jest|mocha)\b|\b(?:pytest|cargo\s+test|go\s+test)\b/;
+
 /**
- * What the rule holds a workflow to: 'publish' when its file name or `name:`
- * says publish, deploy, release or promote; else 'test' when it is the gate
- * workflow (`gate`: its file or name) or says test, check, ci or gate; else
- * null (not checked). Found by reading, so a workflow added next month is held
- * to the rule without anyone listing it.
+ * What the rule holds a workflow to (#212): `"delivery".workflows` when named;
+ * else 'publish' when a step publishes/deploys or its file/`name:` says publish,
+ * deploy, release or promote (and is not a verifier or alerter); else 'test'
+ * on code refs (`push`, `pull_request`, `pull_request_target`, `merge_group`,
+ * or unset `on:`) when it is the gate workflow, runs the gate/test suite, or
+ * says test, check, ci or gate (and is not a verifier or alerter); else null.
  */
-export function workflowKind(file, text, { gate = null } = {}) {
+export function workflowKind(file, text, { gate = null, check = null, workflows = null } = {}) {
   const base = file.split('/').pop();
+  const stem = base.replace(/\.ya?ml$/, '');
   const name = workflowName(text);
-  const said = [...words(base.replace(/\.ya?ml$/, '')), ...words(name)];
-  if (said.some(w => PUBLISH_WORDS.includes(w))) return 'publish';
-  if (gate && [base, file, name].includes(gate)) return 'test';
-  if (said.some(w => TEST_WORDS.includes(w))) return 'test';
+  if (workflows && typeof workflows === 'object' && !Array.isArray(workflows)) {
+    for (const k of [file, base, stem, name]) {
+      if (k && Object.hasOwn(workflows, k) && WORKFLOW_KINDS.includes(workflows[k])) {
+        const v = workflows[k];
+        return v === 'publish' || v === 'deploy' ? 'publish' : v === 'test' ? 'test' : null;
+      }
+    }
+  }
+  const said = [...words(stem), ...words(name)];
+  const { uses, runs } = workflowSteps(text);
+  if (uses.some(u => PUBLISH_USES.test(u)) || runs.some(r => PUBLISH_RUN.test(r))) return 'publish';
+  const observer = said.some(w => OBSERVER_WORDS.includes(w));
+  if (said.some(w => PUBLISH_WORDS.includes(w)) && !observer && !runs.some(r => VERIFY_RUN.test(r))) return 'publish';
+  const triggers = workflowTriggers(text);
+  const onCode = triggers === null ? null : triggers.some(t => CODE_TRIGGERS.includes(t));
+  if (onCode === false) return null;
+  if (gate && [base, file, stem, name].includes(gate)) return 'test';
+  const checkRe = typeof check === 'string' && check.trim() ? new RegExp(`(^|[^\\w:.-])${check.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w:.-])`) : null;
+  if (onCode === true && runs.some(r => TEST_RUN.test(r) || (checkRe !== null && checkRe.test(r)))) return 'test';
+  if (said.some(w => TEST_WORDS.includes(w)) && !observer) return 'test';
   return null;
 }
 

@@ -465,10 +465,10 @@ It exits 1 on findings (drift or a broken practice rule), 0 when clean.
   `health-ignored` (the health directory is git-ignored, so the night's page
   is never committed; fix: set `health` to a directory that is not ignored),
   `delivery-config` (a `delivery.tested` that is not a branch's short name or
-  is `main`, a bad `delivery.gateWorkflow`; delivery on, or those keys set),
+  is `main`, a bad `delivery.gateWorkflow` or `delivery.workflows`; delivery on, or those keys set),
   `workflow-concurrency` (delivery on: a test or gate workflow without a
   per-ref group and `cancel-in-progress: true`, or a publish/deploy/release
-  workflow without one fixed group and `cancel-in-progress: false`),
+  workflow without one fixed group and `cancel-in-progress: false`; verifiers and alerters are skipped, and `delivery.workflows` overrides per workflow),
   `stack-unknown` (a `stack` tag outside the vocabulary; drift reads past
   it), `stack-evidence` (a declared tag nothing in the repo shows, or
   evidence for an undeclared one; with no `stack` at all it is a note naming
