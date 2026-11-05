@@ -98,6 +98,45 @@ test('strings, comments, templates and regular expressions are never mutated; no
   assert.equal(mask[11], 0, 'a regular expression is not');
 });
 
+test('nested template literals and ${} interpolations are never mutated, and genuine code after them still is', () => {
+  const src = [
+    'function nested(x, y) {',
+    '  const a = `outer ${`inner 1 ${x || 2}`} tail`;',
+    '  const b = `price $5 {0} \\` \\${9} ${(() => { const o = { k: 1, m: { n: 2 } }; return [\'text } `\', "text } `", /* }` */ /}`/.test(String(o.k)), `lvl2 ${`lvl3 ${y === 3}`} end`].join(\',\'); })()} done`; const c = x > 0 && y !== 4 ? 5 : 6;',
+    '  const d = `multi ${',
+    '    x < 7 ? `branch 8` : `branch 9`',
+    '  } end`;',
+    '  if (c >= 5) return c + 10;',
+    '  return a + b + d;',
+    '}',
+    '',
+  ].join('\n');
+  const ms = mutantsOf(src, [2, 3, 4, 5, 6, 7, 8]);
+  assert.deepEqual(
+    ms.map(m => `${m.line} ${m.kind} ${m.from}→${m.to}`),
+    [
+      '2 return →return; ',
+      '3 return →return; ',
+      '3 comparison >→>=',
+      '3 number 0→1',
+      '3 logical &&→||',
+      '3 comparison !==→===',
+      '3 number 4→5',
+      '3 number 5→6',
+      '3 number 6→7',
+      '4 return →return; ',
+      '7 return →return; ',
+      '7 condition c >= 5→!(c >= 5)',
+      '7 condition c >= 5→true',
+      '7 comparison >=→>',
+      '7 number 5→6',
+      '7 number 10→11',
+      '8 return →return; ',
+    ],
+    'neither nested template text nor ${} expressions are mutated, and genuine code on the same and later lines still is',
+  );
+});
+
 test('a return early is made only where a statement starts inside a block', () => {
   const src = ['export const LIMIT = 3;', 'export function h(a) {', '  const o = {', '    k: 1,', '    j: 2,', '  };', '  return a', '    .map(x => x);', '}', ''].join('\n');
   const returns = mutantsOf(src, [1, 2, 3, 4, 5, 6, 7, 8]).filter(m => m.kind === 'return').map(m => m.line);
@@ -349,4 +388,45 @@ for(const alias of ['PLATES','KEEL']) test(`phase128 PROVE_MUTANT_MS ${alias} bo
  const repo=await fixRepo(t,{base:{'lib/value.mjs':'export const value = 2;\n'},fix:{'lib/value.mjs':'export const value = 3;\n'},tests:{'tests/value.test.mjs':tst}});
  const {j}=await mutate(repo,['tests/value.test.mjs','--fix','lib/value.mjs'],0,{env:{[`${alias}_PROVE_MUTANT_MS`]:'4321'}});
  assert.equal(j.mutate.limitMs,4321);assert.ok(j.mutate.total>0);
+});
+
+test('prove --mutate skips nested template literals and mutates genuine code after them', async t => {
+  const base = ['export function describe(x) {', '  return String(x);', '}', ''].join('\n');
+  const fix = [
+    'export function describe(x) {',
+    '  const tag = `outer ${`inner 1 ${x || 2}`} tail`;',
+    '  if (x < 0) return `${tag}:neg`;',
+    '  return `${tag}:${x}`;',
+    '}',
+    '',
+  ].join('\n');
+  const tst = [
+    ...TESTHEAD,
+    "import { describe } from '../lib/describe.mjs';",
+    "test('Acme nested template fix', () => {",
+    "  assert.equal(describe(-1), 'outer inner 1 -1 tail:neg');",
+    "  assert.equal(describe(0), 'outer inner 1 2 tail:0');",
+    '});',
+    '',
+  ].join('\n');
+  const repo = await fixRepo(t, { base: { 'lib/describe.mjs': base }, fix: { 'lib/describe.mjs': fix }, tests: { 'tests/describe.test.mjs': tst } });
+  const { j } = await mutate(repo, ['tests/describe.test.mjs', '--fix', 'lib/describe.mjs'], 0);
+  assert.equal(j.verdict, 'VERIFIED', j.reason);
+  const m = j.mutate;
+  assert.equal(m.status, 'ran', m.reason);
+  assert.deepEqual(
+    m.mutants.map(where),
+    [
+      'lib/describe.mjs:2 return return early, before this line',
+      'lib/describe.mjs:3 return return early, before this line',
+      'lib/describe.mjs:3 condition negate `x < 0`',
+      'lib/describe.mjs:3 condition drop `x < 0` (always true)',
+      'lib/describe.mjs:3 comparison `<` → `<=`',
+      'lib/describe.mjs:3 number `0` → `1`',
+      'lib/describe.mjs:4 return return early, before this line',
+    ],
+  );
+  assert.equal(m.candidates, 7);
+  assert.equal(m.caught, 7);
+  assert.deepEqual([m.survivors, m.invalid, m.inconclusive], [[], [], []]);
 });
