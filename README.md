@@ -374,6 +374,7 @@ then gives the commands and every flag by the reason you'd pass it.
 
 | Guide | Read this when… |
 | --- | --- |
+| [How plates works](docs/guide/how-plates-works.md) | you want the whole picture first: the parts, the life of a plate and the life of a fleet, drawn |
 | [Start a project](docs/guide/start-a-project.md) | you have an idea and an empty directory |
 | [Bring a project under plates](docs/guide/bring-a-project-under-plates.md) | a repo already exists, perhaps with its own copy of the practice |
 | [Plan with phases and goals](docs/guide/plan-with-phases-and-goals.md) | you are lining up the work and saying what done means |
