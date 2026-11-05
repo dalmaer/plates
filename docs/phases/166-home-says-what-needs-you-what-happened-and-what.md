@@ -5,7 +5,7 @@ since: 2026-11-04
 goal: G7
 spec: 2
 depends: [151, 156]
-note: "Owner, 2026-11-02: 'When I login I find it hard to know what to do.' Home should say what needs attention, what happened recently, and let the owner ask for work next. Builds on phase 156's one read model."
+note: "Built: Home has four sections, the same in plates home and the hosted home (Needs you, Since you last looked, What should happen next?, Your plates). Migration 018 applied on the hosted store 2026-11-04; waits on deploy, then owes the owner's look on the phone."
 evidence: ["evidence/2026-11-04-home-four-sections.md"]
 ---
 
@@ -77,7 +77,7 @@ By hand: the owner's look on the phone.
 
 ## Next action
 
-The owner's ⚑: apply migration 018 (`lib/web/migrations/018-last-looked.sql`) on the hosted store, then deploy, then the look on the phone (Your part).
+Deploy (with migration 018 now applied), then the owner's look on the phone (Your part). Migration 018 applied 2026-11-04.
 
 ## Trajectory
 
