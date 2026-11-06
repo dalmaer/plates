@@ -19,7 +19,7 @@ Plates writes `plates-night/<date>`, `plates-night/<date>-final`, `plates-night-
 
 The design is [Name transition](../specs/name-transition.md), "Hazards".
 
-- **First, dalmaer/plates#218.** The finalize step rewrites the health page without the production-monitoring lines and the `keel:health-report:end` marker it did not write. Fix it, with its regression test, before the prefix changes, because both touch `plates-morning.yml` and `morning.mjs`.
+- **First, [issue 218](https://github.com/dalmaer/plates/issues/218).** The finalize step rewrites the health page without the production-monitoring lines and the `keel:health-report:end` marker it did not write. Fix it, with its regression test, before the prefix changes, because both touch `plates-morning.yml` and `morning.mjs`.
 - **Writers** (the table rows in phase 124 go from `held` to `dual`):
   - `plates-night.yml` and `plates-morning.yml` (the night and final PRs);
   - `night-plan.mjs` and `goodnight` (the plan branch and its blob path);
@@ -39,7 +39,7 @@ The design is [Name transition](../specs/name-transition.md), "Hazards".
 
 ## Acceptance
 
-- [x] dalmaer/plates#218 is fixed: a health page's lines outside the plan table survive finalize byte for byte. `tests/morning.test.mjs`: "finalize keeps the sections it did not write"
+- [x] [issue 218](https://github.com/dalmaer/plates/issues/218) is fixed: a health page's lines outside the plan table survive finalize byte for byte. `tests/morning.test.mjs`: "finalize keeps the sections it did not write"
 - [x] A fresh project's night, final, plan, climb, tend, loop, robot, update and verify writes use only plates names. `tests/night-box.test.mjs`: "a new project's whole night writes no keel name"
 - [x] An upgraded project with an open `keel-night/<date>` PR and a `keel-night-plan` dated tonight runs that plan. Its `-final` lands on `keel-night/<date>-final`, and drain merges both prefixes' PRs as one queue. `tests/night-box.test.mjs`: "a night started under keel's names finishes under them, and drains with plates's"
 - [x] Both plan branches dated tonight: the plates plan runs, and the record names the one it skipped. `tests/night-plan.test.mjs`: "two plans for one night: plates wins, and says so"
