@@ -1,5 +1,5 @@
 export { environmentValue, markerHeader, markerLines, remoteLabelReceipt, repositoryLabelSelection, repositoryLabelWriter, labelNames, matchesLabel, markerComment, markerComments, markerAtStart, leadingMarkers } from './names.mjs';
-import { environmentValue, markerHeader, markerLines, remoteLabelReceipt, repositoryLabelSelection, repositoryLabelWriter, labelNames, matchesLabel, markerComment, markerComments, markerAtStart, leadingMarkers, writeName, branchSuffix, robotIssueOf } from './names.mjs';
+import { environmentValue, markerHeader, markerLines, remoteLabelReceipt, repositoryLabelSelection, repositoryLabelWriter, labelNames, matchesLabel, markerComment, markerComments, markerAtStart, leadingMarkers, writeName, branchSuffix, robotIssueOf, readNames } from './names.mjs';
 // What the night shift's scripts share (plates practice `night`; managed: plates
 // render rewrites it). Node built-ins only: this runs in the project's own
 // checkout, with no plates anywhere (plates docs/design.md §6, "Projects run on
@@ -2416,7 +2416,10 @@ export function passAgentProblems(config, key) {
  * author reviews it (the fallback). "agent" (for PRs no provider's branch
  * names) is listed and can review, and is never
  * the author of a prefix in "for" while another provider is listed to
- * review it. `agent` known is checked by the caller. Pure; `agents` is the
+ * review it. `agent` known is checked by the caller. A prefix that names
+ * only the robot's branches (plates/robot-, keel/robot-) needs no reviewer:
+ * cross-review never reviews a robot PR (plates-robot.yml reviews it within
+ * the robot's budget), so it is left out (plates#66). Pure; `agents` is the
  * adapter list (a test passes its own).
  */
 export function crossReviewerProblems(config, { agents = AGENTS } = {}) {
@@ -2425,7 +2428,8 @@ export function crossReviewerProblems(config, { agents = AGENTS } = {}) {
   const out = [];
   const listed = listedAgents(config);
   const reviewers = listed.filter(n => agents[n]?.passes.includes('crossReview'));
-  const prefixes = Array.isArray(c.for) ? c.for.filter(p => typeof p === 'string') : [];
+  const robot = readNames('git ref:keel/robot-');
+  const prefixes = Array.isArray(c.for) ? c.for.filter(p => typeof p === 'string' && !robot.some(r => p.startsWith(r))) : [];
   const of = new Map(prefixes.map(p => [p, prefixAuthors(p, agents)]));
   // A prefix that matches a provider's branches and branches no provider names ("claude", "c") cannot say who wrote a PR: refused.
   for (const [p, { authors, unknown }] of of) if (authors.length && unknown) {
