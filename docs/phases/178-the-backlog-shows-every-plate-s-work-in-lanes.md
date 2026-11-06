@@ -4,7 +4,7 @@ since: 2026-11-05
 goal: G7
 spec: 2
 depends: [166]
-note: "Increment 1 landed: backlogOf derives lanes, why-keys and read state; no view or CLI uses it yet. Next: plates home --backlog."
+note: "Increments 1 and 2 landed: backlogOf, and plates home --backlog prints the inbox list. Next: the hosted /backlog with the sidebar."
 evidence: ["evidence/2026-11-05-backlog-lanes.md"]
 ---
 
@@ -64,10 +64,12 @@ By hand: the owner's walk above; a wrong reason changes the why-keys, not the la
 
 ## Next action
 
-Build increment 2: `plates home --backlog [--lane <l>]` renders `backlogOf`, with the "backlog matches in both forms" test.
+Build increment 3: the hosted `/backlog` and `/api/backlog` list with the sidebar shell, which needs an App-side read of each plate's phases and claims; then the web half of "backlog matches in both forms" and `npm run look`.
 
 ## Trajectory
 
 - **2026-11-05** Increment 1 landed `backlogOf(snapshot, roadmaps, {now})`, not `(snapshot, phases, claims)`: claims arrive in each plate's `plates next` data, and each plate has its own roadmap.
 - **2026-11-05** Yours orders by the spec's Ordering rules, not `DOCKET_GROUPS`; the owner's walk settles whether decisions must come before walks.
 - **2026-11-05** Any edit to lib/work-items.mjs needs its sha256 refreshed in lib/web/capability-source-data.mjs, or the operation-coverage test fails.
+- **2026-11-05** Importing STALE_DAYS from lib/claim.mjs broke the names observation's 128-file closure cap; backlogOf keeps its own constant, tested equal.
+- **2026-11-05** `plates home --backlog` reads each plate's roadmap from its working tree through `collect` and `nextFree`, while the snapshot reads the default branch; a dirty or behind tree can disagree.
