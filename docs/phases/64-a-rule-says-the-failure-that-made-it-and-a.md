@@ -34,8 +34,9 @@ The design is [Adopting projects that already have a practice](../research/2026-
 ## Your part
 
 - **Ask:** Let an agent read plates's rules and their causes, and bring you a short list of the rules whose cause no longer applies?
-- **Why:** Reading every rule yourself takes 15 minutes; an agent can do the reading and you only judge the shortlist. Recommended: Yes, shortlist them.
+- **Why:** Reading every rule yourself takes 15 minutes; an agent can do the reading and you only judge the shortlist.
 - **Choices:** Yes, shortlist them | All still needed
+- **Recommend:** Yes, shortlist them
 - **Takes:** 1 minute now; the shortlist later, about 5 minutes.
 - **Then:** Yes: the conductor posts the shortlist (each rule, its cause, and why it may be gone) as a new item for you to keep or drop rule by rule. All still needed: the phase is built.
 - **Ready:** yes

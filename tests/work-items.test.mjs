@@ -517,3 +517,30 @@ test('a plate\'s claims are read the way plates next reads them', async () => {
   assert.match(roadmapOf({ id: 'anvils', state: 'complete', gaps: [] }, { state: 'none' }, { now }).na, /not plates phase files/);
   assert.equal(roadmapOf({ id: 'anvils', state: 'unavailable', gaps: [{ source: 'project', reason: 'No checkout.' }] }, null, { now }).na, 'No checkout.');
 });
+
+// Phase 178: a Your part's Recommend is carried to the walk's answers and marked in every form that shows them.
+test('the recommended answer is marked', async () => {
+  const { questionOf } = await import('../lib/work-items.mjs');
+  const walk = { id: 'anvils:phase:51:walk', projectId: 'anvils', projectName: 'Acme Anvils', kind: 'walk', itemKind: 'walk', ref: '51', phase: '51', ready: true, title: 'Retire the Acme board?',
+    details: { ask: 'Retire the Acme board?', why: 'Two lists are one too many.', choices: ['Retire it', 'Keep both'], recommend: 'Retire it', then: null, takes: '1 minute' } };
+  for (const can of [{ form: 'cli' }, { form: 'web', decisionWrites: true }]) {
+    const answers = answersFor(walk, can);
+    assert.deepEqual(answers.filter(a => a.recommended).map(a => a.label), ['Retire it'], can.form);
+    assert.ok(!answers.find(a => a.label === 'Keep both').recommended);
+  }
+  // A recommendation that is not one of the choices marks nothing, and no recommendation marks nothing.
+  assert.ok(answersFor({ ...walk, details: { ...walk.details, recommend: 'Retire' } }).every(a => !a.recommended));
+  assert.ok(answersFor({ ...walk, details: { ...walk.details, recommend: null } }).every(a => !a.recommended));
+  assert.deepEqual(questionOf(walk), { ask: 'Retire the Acme board?', choices: ['Retire it', 'Keep both'], recommend: 'Retire it' });
+  assert.equal(questionOf({ ...walk, details: { ...walk.details, recommend: 'Retire' } }).recommend, null);
+  assert.equal(questionOf({ kind: 'review', title: 'acme/anvils#7' }), null, 'no Ask, no question');
+  // The review session's card says it in words, and Home's answers line too.
+  const keyed = { ...walk, key: itemKey(walk), answers: answersFor(walk, { form: 'web', decisionWrites: true }) };
+  const { renderReviewCard } = await import('../lib/web/review-views.mjs');
+  const card = renderReviewCard({ key: keyed.key, kind: 'walk', label: 'Walk', minutes: 1, sets: [], item: keyed });
+  assert.match(card, /<button type="button" class="p-lg" data-answer="choice-retire-it" data-recommended aria-keyshortcuts="1">Retire it · Recommended<\/button>/);
+  assert.match(card, /<button type="button" class="p-lg p-quiet" data-answer="choice-keep-both" aria-keyshortcuts="2">Keep both<\/button>/);
+  const { homeView } = await import('../lib/web/views.mjs');
+  const snapshot = homeSnapshot([{ id: 'anvils', name: 'Acme Anvils', state: 'complete', gaps: [], changes: [], decisions: [], walks: [structuredClone(walk)], reviews: [], waiting: [] }], { can: { form: 'web', decisionWrites: true }, today: '2026-11-05' });
+  assert.match(homeView({ workspace: { name: 'Acme' }, projects: [], csrf: 'x', sourceRevision: 'a'.repeat(40) }, { ...snapshot, cursor: 'a'.repeat(64), quota: { state: 'unknown' } }), /Answers: Retire it \(Recommended\) · Keep both/);
+});

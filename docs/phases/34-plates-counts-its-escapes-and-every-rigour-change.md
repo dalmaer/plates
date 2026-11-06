@@ -44,9 +44,10 @@ The design is [How rigorous is a plates spec](../research/2026-10-06-spec-rigor.
 ## Your part
 
 - **Ask:** Keep two rules plates added on 6 October? One: every phase says how it will be proven. Two: every test run is recorded, so flaky and slow tests get named.
-- **Why:** Extra process should earn its place. The numbers below can't tell yet: the rules landed 31 minutes apart, alongside a new reviewer that finds more defects. What is clear is that phase files got about twice as long. Recommended: Keep both, since dropping a guard on unclear numbers risks escapes, and the cost is length, not time.
+- **Why:** Extra process should earn its place. The numbers below can't tell yet: the rules landed 31 minutes apart, alongside a new reviewer that finds more defects. What is clear is that phase files got about twice as long. Dropping a guard on unclear numbers risks escapes, and the cost is length, not time.
 - **Look at:** The table below, its last row first.
 - **Choices:** Keep both | Drop the proof-plan rule | Drop the test-run record | Not enough data yet
+- **Recommend:** Keep both
 - **Keeps it open:** Not enough data yet
 - **Takes:** 5 minutes
 - **Then:** Keep both: recorded; nothing changes. Drop the proof-plan rule: recorded; the conductor drafts a phase that retires it (the "how it will be proven" and "where it runs for real" checks) for you to approve. Drop the test-run record: recorded; the conductor drafts a phase that retires the test record and its flaky and slower-test notes. Not enough data yet: recorded, and the walk stays open; both rules stay, and the conductor brings fresh numbers to the 1 November "does plates help?" review, where you choose again.

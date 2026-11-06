@@ -415,7 +415,36 @@ test('backlog matches in both forms', async () => {
     for (const l of cli.lanes) assert.match(text.stdout, new RegExp(`^${l.title} ${l.count}$`, 'm'));
     for (const item of cli.lanes.flatMap(l => l.items)) assert.ok(text.stdout.split('\n').some(line => line.includes(item.title)), item.key);
     assert.match(text.stdout, /^ {2}1\. Acme Studio #1 {2}Acme phase 1 · G1 {2}\[claude · claimed\] {2}— claim [67]d left$/m);
-    assert.match(text.stdout, /^ {2}\d\. Acme Studio #2 {2}Acme phase 2 · G1 · ~5 min {2}\[\+walk\] {2}— added \d+ days ago$/m);
+    assert.match(text.stdout, /^ {2}\d\. Try the Acme preview on your phone\. {2}\[\+walk\] {2}— added \d+ days ago\n {7}Acme Studio #2 · Acme phase 2 · G1 · ~5 min\n {7}Works \| Needs changes$/m);
+  } finally { await s.done(); }
+});
+
+// The owner's feedback (phase 178): a backlog of questions to work through. A Yours row with an Ask leads with it, its
+// phase number and title as context, and its choices under it with the Your part's Recommend marked, in both forms.
+test('a question leads its row in Yours', async () => {
+  const walk = phaseFile(2, { status: 'partial', owes: true }).replace('- **Choices:** Works | Needs changes\n', '- **Choices:** Works | Needs changes\n- **Recommend:** Works\n');
+  assert.match(walk, /\*\*Recommend:\*\* Works\n/);
+  const s = await sources({ files: { 'docs/phases/02-walk.md': walk } });
+  try {
+    const run = s.again(['--backlog', '--json']);
+    assert.equal(run.status, 0, run.stderr);
+    const cli = JSON.parse(run.stdout), web = (await s.readWeb({ backlog: true })).backlog;
+    const card = form => form.lanes.find(l => l.lane === 'yours').items.find(i => i.key === 'studio:phase:2');
+    for (const [name, form] of [['cli', cli], ['web', web]]) {
+      assert.deepEqual(card(form).question, { ask: 'Try the Acme preview on your phone.', choices: ['Works', 'Needs changes'], recommend: 'Works' }, `${name}: the question`);
+      assert.equal(card(form).title, 'Acme phase 2', `${name}: the title stays, as context`);
+      assert.deepEqual(card(form).answers.filter(a => a.recommended).map(a => a.label), ['Works'], `${name}: the recommended answer`);
+    }
+    assert.deepEqual(card(web).question, card(cli).question);
+    // Items with no Ask keep their title as the headline: the review.
+    for (const form of [cli, web]) assert.equal(form.lanes.find(l => l.lane === 'yours').items.find(i => i.kind === 'review').question, null);
+    // The terminal: the question, then the context, then the choices with the recommendation marked.
+    const text = s.again(['--backlog']).stdout;
+    assert.match(text, /^ {2}\d\. Try the Acme preview on your phone\. {2}\[\+walk\] {2}— added \d+ days ago\n {7}Acme Studio #2 · Acme phase 2 · G1 · ~5 min\n {7}Works \(Recommended\) \| Needs changes$/m);
+    // The web: the question as the row's headline, the context under it, the choices linking to where Home answers.
+    const html = backlogView(s.access, { schema: 1, generatedAt: new Date().toISOString(), lane: null, ...web });
+    assert.match(html, /<span class="backlog-what backlog-q"[^>]*><strong>Try the Acme preview on your phone\.<\/strong><span class="backlog-ref">Acme Studio #2 · Acme phase 2<\/span><span class="backlog-choices"><a class="p-badge" href="\/review" data-recommended>Works · Recommended<\/a><a class="p-badge" href="\/review">Needs changes<\/a><\/span><\/span>/);
+    assert.match(html, /<span class="backlog-ref">Acme Studio PR #7<\/span>acme\/studio#7: 1 review comment unanswered/, 'a review keeps its title');
   } finally { await s.done(); }
 });
 

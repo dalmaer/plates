@@ -155,7 +155,7 @@
     },
     "docs/templates/phase.md": {
       "practice": "phases",
-      "sha256": "cdeab6ef0bce8ab9fb7946d2a5d0c688e2d0eef2b9b0e70eabb85e21c211b499"
+      "sha256": "5bcd3fca90ae060d07350b51d25a47a6b8c3e496bab3d59f04ecf1e740416044"
     },
     "renovate.json": {
       "practice": "renovate",
@@ -375,7 +375,7 @@
     },
     "scripts/roadmap.mjs": {
       "practice": "phases",
-      "sha256": "42aa630f51a884f4d1066cd19972c41d3a7365741cfcd84d78b5e7a6706ccf42"
+      "sha256": "2afcb9c18209b2489a4ec12af5aff4942006fca2190b30ae6516a621e5bddd05"
     },
     "tests/plates-generated.test.mjs": {
       "practice": "phases",
@@ -387,7 +387,7 @@
     },
     "tests/roadmap.test.mjs": {
       "practice": "phases",
-      "sha256": "37d80ceabcd455a3985c168373a7ff0a32b2948ad92e2b845f94ba8f403f0786"
+      "sha256": "dc82f4c05ade321a49a450f5a011885f0277ca22fdbccf7ff3986ed1c4f1529a"
     }
   }
 }

@@ -48,6 +48,13 @@ After bd41227 was deployed, the owner opened `/backlog` on the phone. Every plat
 - "fix: /backlog fills in while plates load, and a loading plate says so" and "fix: a stale plate stays in the backlog, and the page reads until it is fresh". Each `plates prove` was VERIFIED, red before and green after: tests/web-backlog.test.mjs ("a cold cache shows every plate loading, and the backlog fills them in"; "a stale plate keeps its items, is never 'not read', and its claims are read") and tests/web-backlog-client.test.mjs ("the page keeps reading while a plate is stale").
 - Conductor: `npm run check:focused -- tests/web-backlog.test.mjs tests/web-backlog-client.test.mjs tests/web-design.test.mjs tests/work-items.test.mjs tests/home-isomorphism.test.mjs tests/web-operation-coverage.test.mjs tests/names-verify.test.mjs tests/surface-budget.test.mjs tests/web-activation-plan.test.mjs`: exit 0, 224 pass.
 
+## Question-led rows (2026-11-06)
+
+- The builder ran `npm run check:focused` over work-items, home-isomorphism, roadmap, web-design, web-review, web-backlog, web-backlog-client, web-home, web-operation-coverage, names-verify, surface-budget, web-activation-plan and guides: exit 0, 286 pass. `npm run render:check` and `npm run roadmap -- --check`: exit 0.
+- Tests: "a recommendation must be one of the choices" (tests/roadmap.test.mjs), "a question leads its row in Yours" (tests/home-isomorphism.test.mjs), "the recommended answer is marked" (tests/work-items.test.mjs).
+- The conductor looked at the light phone capture from `npm run look`: the Yours row reads "Does publishing from your phone work end to end?", then the plate and phase as context, then "Works · Recommended | Needs changes".
+- Guard change: the backlog.css cap rose from 2600 to 2900 bytes (the sheet is 2800).
+
 ## By hand
 
 | Did | Expected | Observed | Proves / does not prove |

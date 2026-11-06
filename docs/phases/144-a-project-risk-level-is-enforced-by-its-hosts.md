@@ -40,9 +40,10 @@ reports any drift between the level and what the host actually allows.
 ## Your part
 
 - **Ask:** Turn on GitHub's protection for one project so that only what its risk level allows can reach main (for example, the robot can't push to main directly)?
-- **Why:** Today the level is only written down; this makes GitHub enforce it. The conductor shows exactly which rules change before you answer. Recommended: Apply it.
+- **Why:** Today the level is only written down; this makes GitHub enforce it. The conductor shows exactly which rules change before you answer.
 - **Look at:** The ruleset preview, posted with this item.
 - **Choices:** Apply it | Change the level first | Not yet
+- **Recommend:** Apply it
 - **Keeps it open:** Not yet
 - **Takes:** 5 minutes.
 - **Then:** Apply it: the conductor applies it and shows a refused push. Change the level first: you pick the level, and a new preview follows.

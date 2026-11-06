@@ -46,9 +46,10 @@ Plates work: deciding, walking, reading what changed and what ran.
 ## Your part
 
 - **Ask:** Switch on the next piece of the web workspace: private drafts for walks (migration 005)? I run it in your signed-in Supabase tab while you watch.
-- **Why:** Steps 1–5 and migrations 017 and 018 are done; 005 is next in the plan and lets you start a walk on your phone and finish it later. Recommended: Go.
+- **Why:** Steps 1–5 and migrations 017 and 018 are done; 005 is next in the plan and lets you start a walk on your phone and finish it later.
 - **Look at:** Step 6 of the [activation guide](../guide/web-activation.md).
 - **Choices:** Go | Not this week
+- **Recommend:** Go
 - **Keeps it open:** Not this week
 - **Takes:** About 15 minutes, with Supabase open in Chrome.
 - **Then:** Go: the conductor applies 005, runs its proof, records it, and asks about the next step the same way. Not this week: it waits.
