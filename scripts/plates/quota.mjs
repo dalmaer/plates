@@ -191,8 +191,8 @@ export const readRepoUnanswered = async (x, opts) => (await readRepoReviewState(
 
 /**
  * The same one read, with what the board also shows (phase 71): { prs,
- * rounds }, `rounds` each open PR with a review round or more (its count and
- * open findings). plates loose-ends and the board keep it under one cache key.
+ * rounds, ready }, `rounds` each open PR with a review round or more (its count and
+ * open findings), `ready` each open PR the merge rule passes (phase 176). plates loose-ends and the board keep it under one cache key.
  */
 export async function readRepoReviewState({ repo, reviewers = [] }, { env = process.env, today, spend, timeout = 15_000 } = {}) {
   const graphql = async args => {
@@ -202,8 +202,8 @@ export async function readRepoReviewState({ repo, reviewers = [] }, { env = proc
   };
   const read = async vars => (await graphql(repoReviewArgs(repo, vars)))?.repository;
   const readPr = async number => (await graphql(prReviewArgs(repo, number)))?.repository?.pullRequest;
-  const { prs, rounds } = unansweredPrs(await readRepoReviews(read, today, { readPr, reviewers }), reviewers, today);
-  return { prs, rounds };
+  const { prs, rounds, ready } = unansweredPrs(await readRepoReviews(read, today, { readPr, reviewers }), reviewers, today);
+  return { prs, rounds, ready };
 }
 
 /**

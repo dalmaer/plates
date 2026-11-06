@@ -58,6 +58,8 @@ import { environmentValue, markerHeader, markerLines, remoteLabelReceipt, reposi
 //                            reviewRoundLimit, reviewRounds(pr), classMark, classOf, byMergeRule:
 //                            its review rounds, and each open finding's class
 //                            (plates review's limit and the board, phase 71);
+//   mergeRule, reviewedHead, summarizedHead
+//                            the merge rule (plates review --gate, release, the docket)
 //                            repoReviewArgs, readRepoReviews, windowPrs, unansweredPrs:
 //                            the repo-wide read, page by page (the night and
 //                            plates loose-ends); IncompleteRead: never a count;
@@ -1589,6 +1591,53 @@ const page = (conn, what, pr) => {
 };
 
 /**
+ * Whether a reviewer's own conversation comment says it finished reviewing the
+ * head: one line naming the head commit (its short sha in backticks) and
+ * "completed". Codex finishes a review with no findings this way (a status
+ * board and a 👍), posting no review, so waiting for a review would time out.
+ */
+export const summarizedHead = (body, head) => {
+  const sha = String(head ?? '').slice(0, 7);
+  return /^[0-9a-f]{7}$/.test(sha) && String(body ?? '').split('\n').some(l => l.includes(`\`${sha}`) && /\bcompleted\b/i.test(l));
+};
+
+/** Each named reviewer's newest review, and whether it reviewed the head commit (a review on it, or its summary saying so). */
+export function reviewedHead(reviewers, reviews, head, convo = []) {
+  return reviewers.map(name => {
+    const mine = reviews.filter(r => sameLogin(r.reviewer, name));
+    const newest = mine.at(-1) ?? null;
+    const summary = convo.some(c => sameLogin(c?.author?.login, name) && summarizedHead(c.body, head));
+    return { reviewer: name, head: mine.some(r => r.commit === head) || summary, newest: newest && { state: newest.state, commit: newest.commit, at: newest.at } };
+  });
+}
+
+/**
+ * The merge rule (phase 48, plates review --gate and plates release; phase
+ * 176's docket): every comment answered, each named reviewer has reviewed
+ * the head, and someone other than the PR's author has reviewed the head (a
+ * review on that commit, or a named reviewer's summary of it). Pure: the
+ * caller reads. comments: reviewComments(pr, reviewers); reviews: [{ reviewer,
+ * commit, state?, at? }]; convo: the PR's conversation comments.
+ * { ok, why, unanswered: [ids], notReviewed, reviewedBy, reviewed }.
+ */
+export function mergeRule({ comments, reviews, head, author = '', reviewers = [], convo = [] }) {
+  const short = sha => String(sha ?? '').slice(0, 7);
+  const reviewed = reviewedHead(reviewers, reviews, head, convo);
+  const notReviewed = reviewed.filter(r => !r.head).map(r => r.reviewer);
+  const reviewedBy = [...new Set([
+    ...reviews.filter(r => head && r.commit === head).map(r => r.reviewer),
+    ...reviewed.filter(r => r.head).map(r => r.reviewer),
+  ].filter(login => !sameLogin(login, author)))];
+  const unanswered = comments.filter(c => !c.answered).map(c => c.id);
+  const why = [
+    ...(unanswered.length ? [`${unanswered.length} review comment${unanswered.length === 1 ? '' : 's'} unanswered (${unanswered.join(', ')})`] : []),
+    ...(reviewedBy.length ? [] : [`nobody but its author${author ? ` (${author})` : ''} reviewed its head ${short(head)}`]),
+    ...(notReviewed.length ? [`${notReviewed.join(', ')} has not reviewed its head ${short(head)}`] : []),
+  ];
+  return { ok: !why.length, why: why.join('; '), unanswered, notReviewed, reviewedBy, reviewed };
+}
+
+/**
  * Every review comment on one PR (GraphQL, through reviewFragment), with
  * whether it is answered: [{ kind: 'thread'|'comment'|'review', id,
  * databaseId, author, at, path, line, text, url, answered, resolved, status }].
@@ -1946,12 +1995,21 @@ export async function readRepoReviews(read, date, { readPr, reviewers = [], gith
  * `rounds` (phase 71): each open PR with a review round or more, its count
  * and its open findings of any age by the merge rule, for the board; and
  * roundFindings, so the board can judge a PR at its limit (judgeRounds).
+ * `ready` (phase 176): each open PR the merge rule (mergeRule) passes on this
+ * read, its review list whole: the docket's candidates, before checks and drafts.
  */
 export function unansweredPrs(repository, reviewers, date) {
   const { open, merged } = windowPrs(repository, date);
-  const prs = [], rounds = [];
+  const prs = [], rounds = [], ready = [];
   for (const pr of [...open, ...merged]) {
     const comments = reviewComments(pr, reviewers);
+    // Phase 176: an open PR the merge rule passes on this read, for the docket (its checks and draft state are read after).
+    if (pr.state === 'OPEN' && /^[0-9a-f]{40}$/.test(pr.headRefOid ?? '') && pr.reviews?.pageInfo?.hasNextPage === false) {
+      const author = pr.author ? `${pr.author.__typename === 'Bot' ? 'app/' : ''}${pr.author.login}` : null;
+      const verdict = mergeRule({ comments, head: pr.headRefOid, author: pr.author?.login ?? '', reviewers, convo: pr.comments?.nodes ?? [],
+        reviews: (pr.reviews?.nodes ?? []).map(r => ({ reviewer: r?.author?.login ?? 'ghost', commit: r?.commit?.oid ?? null, state: r?.state ?? null, at: r?.submittedAt ?? null })) });
+      if (verdict.ok) ready.push({ number: pr.number, title: pr.title, url: pr.url, author, head: pr.headRefOid, reviewedBy: verdict.reviewedBy, findings: comments.length });
+    }
     const round = pr.state === 'MERGED' ? { count: 0 } : reviewRounds(pr);
     if (round.count) {
       const sorted = byMergeRule(comments);
@@ -1961,7 +2019,7 @@ export function unansweredPrs(repository, reviewers, date) {
     const left = comments.filter(c => !c.answered && /^\d{4}-\d{2}-\d{2}/.test(c.at ?? '') && c.at.slice(0, 10) <= addDays(date, -1));
     if (left.length) prs.push({ number: pr.number, title: pr.title, state: pr.state === 'MERGED' ? 'merged' : 'open', url: pr.url, author: pr.author ? `${pr.author.__typename === 'Bot' ? 'app/' : ''}${pr.author.login}` : null, unanswered: left.length, oldest: left.map(c => c.at.slice(0, 10)).sort()[0] });
   }
-  return { prs, open: open.length, merged: merged.length, rounds };
+  return { prs, open: open.length, merged: merged.length, rounds, ready };
 }
 
 /**
