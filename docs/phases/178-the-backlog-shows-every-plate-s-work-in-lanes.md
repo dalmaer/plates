@@ -1,11 +1,11 @@
 ---
-status: planned
+status: partial
 since: 2026-11-05
 goal: G7
 spec: 2
 depends: [166]
-note: "Specified in docs/specs/web-backlog.md. Read-only: no writes, Attach shown unavailable."
-evidence: []
+note: "Increment 1 landed: backlogOf derives lanes, why-keys and read state; no view or CLI uses it yet. Next: plates home --backlog."
+evidence: ["evidence/2026-11-05-backlog-lanes.md"]
 ---
 
 # The backlog shows every plate's work in lanes, with reasons
@@ -29,9 +29,9 @@ evidence: []
 
 ## Acceptance
 
-- [ ] A phase owing a walk appears under Yours with the walk as its child, never under Agent-ready: `tests/work-items.test.mjs: "a phase owing a walk is yours, not an agent's"`
-- [ ] Ordering is reproducible from the why-keys, with a stable tie-break: `tests/work-items.test.mjs: "backlog order is reproducible from its why-keys"`
-- [ ] A plate that could not be read shows "not read", never an empty lane: `tests/home-isomorphism.test.mjs: "an unread plate is not an empty lane"`
+- [x] A phase owing a walk appears under Yours with the walk as its child, never under Agent-ready: `tests/work-items.test.mjs: "a phase owing a walk is yours, not an agent's"`
+- [x] Ordering is reproducible from the why-keys, with a stable tie-break: `tests/work-items.test.mjs: "backlog order is reproducible from its why-keys"`
+- [x] A plate that could not be read shows "not read", never an empty lane: `tests/work-items.test.mjs: "an unread plate is not an empty lane"`
 - [ ] The CLI and the web show the same items: `tests/home-isomorphism.test.mjs: "backlog matches in both forms"`
 - [ ] The list is captured light and dark at 390 and 1280 px: `npm run look`
 - [ ] ⚑ by hand: the owner, on phone and laptop.
@@ -64,4 +64,10 @@ By hand: the owner's walk above; a wrong reason changes the why-keys, not the la
 
 ## Next action
 
-Write `backlogOf`'s first test from today's `plates next --json`.
+Build increment 2: `plates home --backlog [--lane <l>]` renders `backlogOf`, with the "backlog matches in both forms" test.
+
+## Trajectory
+
+- **2026-11-05** Increment 1 landed `backlogOf(snapshot, roadmaps, {now})`, not `(snapshot, phases, claims)`: claims arrive in each plate's `plates next` data, and each plate has its own roadmap.
+- **2026-11-05** Yours orders by the spec's Ordering rules, not `DOCKET_GROUPS`; the owner's walk settles whether decisions must come before walks.
+- **2026-11-05** Any edit to lib/work-items.mjs needs its sha256 refreshed in lib/web/capability-source-data.mjs, or the operation-coverage test fails.
