@@ -1,11 +1,11 @@
 ---
-status: planned
-since: 2026-11-05
+status: partial
+since: 2026-11-06
 goal: G7
 spec: 2
 depends: [181, 98, 97]
-note: "Specified in docs/specs/web-backlog.md. Assists never answer, accept or mark lived-in."
-evidence: []
+note: "Decision drafts are built for the CLI: an agent records a recommendation with evidence, withdrawn when the phase file moves; nothing answers. Still to build: walk-prep, shape, and a store the web can read drafts from."
+evidence: ["evidence/2026-11-06-decision-drafts.md"]
 ---
 
 # Agents prepare my walks and draft my decisions
@@ -28,8 +28,8 @@ Walk prep leaves a checked environment, the tested revision and screenshots on a
 
 ## Acceptance
 
-- [ ] An assist never writes an answer, acceptance or lived-in: `tests/backlog-assist.test.mjs: "assists never decide"`
-- [ ] A recommendation links its evidence and is withdrawn when its source revision moves: `tests/backlog-assist.test.mjs: "a stale recommendation is withdrawn"`
+- [x] An assist never writes an answer, acceptance or lived-in: `tests/backlog-assist.test.mjs: "assists never decide"`
+- [x] A recommendation links its evidence and is withdrawn when its source revision moves: `tests/backlog-assist.test.mjs: "a stale recommendation is withdrawn"`
 - [ ] A walk prep's revision must equal the tested revision, or it says so: `tests/backlog-assist.test.mjs: "prep names the revision it checked"`
 - [ ] ⚑ by hand: the owner.
 
@@ -60,4 +60,7 @@ Walk prep may capture private screen content. It stays behind the private captur
 
 ## Next action
 
-Write the `decision-draft` assist against a fixture decision and its evidence.
+Define the "tested revision" walk-prep checks against (from evidence or `plates ready` records), then build walk-prep; then a hosted drafts store so the web shows agent recommendations.
+
+## Trajectory
+- **2026-11-06** Decision drafts are local-only: no digest-bound path holds an agent's recommendation, so drafts live under `.git/plates-assist` and the hosted backlog needs its own store. Walk-prep waits on a defined tested revision.
