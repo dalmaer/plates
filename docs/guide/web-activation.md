@@ -213,11 +213,15 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
    - Needs first: phase 178.
    - Rollback: Redeploy the previous build; /agents is read-only and writes nothing.
    - Proof to record: The deployed revision and the owner answer (matches, something missing, or something wrong), recorded in docs/evidence/2026-11-06-agents.md.
-52. **docket-notify** (phase 175, decision, owner attends). After deploying a build with phase 175 and adding quietHours (timeZone, from, to) to PLATES_WEB_CONFIG, the owner gets "N new for you" on the phone outside quiet hours, taps it, does the quick ones, and says whether it is fast enough.
+52. **lane-session** (phase 180, decision, owner attends). After deploying a build with phase 180, the owner taps Start on the Yours lane, clears five items in one sitting, and says whether it was faster than before.
+   - Needs first: phases 174, 178.
+   - Rollback: Redeploy the previous build; each answer is an ordinary commit that can be reverted, and Not now rows are per owner.
+   - Proof to record: The deployed revision and the owner answer (faster, same, or slower and where), recorded in docs/evidence/2026-11-06-lane-session.md.
+53. **docket-notify** (phase 175, decision, owner attends). After deploying a build with phase 175 and adding quietHours (timeZone, from, to) to PLATES_WEB_CONFIG, the owner gets "N new for you" on the phone outside quiet hours, taps it, does the quick ones, and says whether it is fast enough.
    - Needs first: phases 151, 152, 174.
    - Rollback: Remove quietHours from PLATES_WEB_CONFIG: nothing is sent without it. Redeploying the previous build also stops it.
    - Proof to record: The deployed revision, the push delivery record, and the owner answer (fast enough, too many nudges, or too slow to get in), recorded in docs/evidence/2026-11-03-docket-order-and-notify.md.
-53. **look-captures** (phase 172, decision, owner attends). With one design change pending, the owner runs npm run look, opens the printed folder, and reviews the change from its captures in light and dark at phone and laptop widths instead of opening the app; then says whether the captures are useful or not worth keeping.
+54. **look-captures** (phase 172, decision, owner attends). With one design change pending, the owner runs npm run look, opens the printed folder, and reviews the change from its captures in light and dark at phone and laptop widths instead of opening the app; then says whether the captures are useful or not worth keeping.
    - Needs first: phase 171.
    - Rollback: Nothing to roll back: the script runs locally against fixture data, writes images only to a temporary folder outside the repo, and changes nothing deployed.
    - Proof to record: The owner's answer (useful, or not worth it), and which design change was reviewed, recorded in docs/evidence/2026-11-04-look-captured.md.
