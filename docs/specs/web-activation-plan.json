@@ -694,6 +694,19 @@
       "proof": "The deployed revision and the owner answer (found it and the reason was right, found it and the reason was wrong, or could not tell), recorded in docs/evidence/2026-11-05-backlog-lanes.md."
     },
     {
+      "id": "agents-look",
+      "phase": 186,
+      "kind": "decision",
+      "what": "After deploying a build with phase 186, the owner opens the sidebar's Agents and Pending review and says whether they match what is running and what waits for review.",
+      "prerequisites": [
+        178,
+        186
+      ],
+      "ownerAttended": true,
+      "rollback": "Redeploy the previous build; /agents is read-only and writes nothing.",
+      "proof": "The deployed revision and the owner answer (matches, something missing, or something wrong), recorded in docs/evidence/2026-11-06-agents.md."
+    },
+    {
       "id": "docket-notify",
       "phase": 175,
       "kind": "decision",

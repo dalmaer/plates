@@ -78,3 +78,17 @@ test('Recurring reads its own endpoint, and times are said in the viewer\'s zone
   assert.equal(localTime('2026-11-09T10:18:00.000Z', 'weekday-time', 'Europe/London'), 'Mon, 10:18 GMT');
   assert.equal(localTime('nope', 'time'), null);
 });
+
+// Phase 186: the same client serves Agents, reading /api/agents while a plate loads.
+test('Agents reads its own endpoint', async () => {
+  const { renderAgents } = await import('../lib/web/backlog-views.mjs');
+  const p = page(), asked = [];
+  p.root.dataset.view = 'agents';
+  const model = state => ({ schema: 1, generatedAt: '2026-11-05T12:00:00Z', agents: { providers: [], routes: [], plates: [{ projectId: 'studio', projectName: 'Acme Studio', state }] }, pending: { items: [], plates: [] } });
+  const answers = [model('loading'), model('read')];
+  startBacklogClient({ document: p.document, window: p.window, fetch: async url => { asked.push(url); return { status: 200, json: async () => answers.shift() }; }, renderBacklog, renderSidebar, renderAgents });
+  await p.run(); assert.equal(p.timers.length, 1, 'still loading: read again');
+  await p.run(); assert.equal(p.timers.length, 0);
+  assert.deepEqual(asked, ['/api/agents', '/api/agents']);
+  assert.match(p.list.innerHTML, /Pending review/); assert.match(p.side.outerHTML, /<a href="\/agents" aria-current="page">Agents <span class="p-badge">0<\/span>/);
+});

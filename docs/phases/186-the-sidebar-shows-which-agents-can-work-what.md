@@ -1,11 +1,12 @@
 ---
-status: planned
+status: partial
+owes: walk
 since: 2026-11-05
 goal: G7
 spec: 2
 depends: [178]
-note: "Specified in docs/specs/web-backlog.md. Read-only; Pending review uses the GitHub App, no personal token."
-evidence: []
+note: "Built in two increments: agentsOf and pending review, then plates home --agents, the hosted /agents and the live sidebar. Owes the owner's look after deploy."
+evidence: ["evidence/2026-11-06-agents.md"]
 ---
 
 # The sidebar shows which agents can work, what each is on, and what waits for review
@@ -27,9 +28,9 @@ The sidebar's Agents lists each provider in `agents` and each route in `backlog`
 
 ## Acceptance
 
-- [ ] An agent holding a claim shows that item; one without shows idle: `tests/backlog-agents.test.mjs: "an agent shows what it holds"`
-- [ ] A PR set to auto-merge is not pending review: `tests/backlog-agents.test.mjs: "auto-merge is not waiting on you"`
-- [ ] The CLI and the web show the same agents and pending reviews: `tests/home-isomorphism.test.mjs: "agents match in both forms"`
+- [x] An agent holding a claim shows that item; one without shows idle: `tests/backlog-agents.test.mjs: "an agent shows what it holds"`
+- [x] A PR set to auto-merge is not pending review: `tests/backlog-agents.test.mjs: "auto-merge is not waiting on you"`
+- [x] The CLI and the web show the same agents and pending reviews: `tests/home-isomorphism.test.mjs: "agents match in both forms"`
 - [ ] ⚑ by hand: the owner, in the sidebar.
 
 ## Your part
@@ -58,4 +59,7 @@ By hand: the owner's look above.
 
 ## Next action
 
-Write `agentsOf`'s first test from today's `plates next --json` claims and `.plates/plates.json` `agents`.
+Deploy, then the owner's look in the sidebar (Your part).
+
+## Trajectory
+- **2026-11-06** agentsOf takes every plate together, each with its own policy and claims; only claim branches count as holding an item. HOME_MODEL_VERSION 16.

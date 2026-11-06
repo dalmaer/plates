@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**71 of 179 phases built; 73 owe a walk.** Built means implemented and checked; planned is not available.
+**71 of 179 phases built; 74 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -335,7 +335,7 @@ Each change is verified in parallel and published one at a time; production move
 
 From mobile and desktop, an authenticated owner operates every authorized Plates project: decisions, guided tests, visual changes, routine history and execution, fleet lessons and updates, scoped credentials and policy-bound model capacity, with source-backed evidence and private data.
 
-7/44 built; 27 owe a walk.
+7/44 built; 28 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -382,7 +382,7 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 | [183. A local agent host can take a phase](phases/183-a-local-agent-host-can-take-a-phase.md) | planned | 2026-11-05 | [181](phases/181-i-can-attach-an-agent-to-a-phase-and-see-it.md) | Specified in docs/specs/web-backlog.md. Runs only on the owner's machine; off unless the plate lists local-host. |
 | [184. The backlog remembers what happened to each item](phases/184-the-backlog-remembers-what-happened-to-each-item.md) | planned | 2026-11-05 | [181](phases/181-i-can-attach-an-agent-to-a-phase-and-see-it.md) | Specified in docs/specs/web-backlog.md. Metadata only. |
 | [185. Recurring shows every routine each plate runs, and when it next runs](phases/185-recurring-shows-every-routine-each-plate-runs.md) | partial | 2026-11-05 | [178](phases/178-the-backlog-shows-every-plate-s-work-in-lanes.md) | Built in two increments: routinesOf, and plates home --recurring with the hosted /recurring and the sidebar's Humans and Links. Waits on the hosted read after deploy. |
-| [186. The sidebar shows which agents can work, what each is on, and what waits for review](phases/186-the-sidebar-shows-which-agents-can-work-what.md) | planned | 2026-11-05 | [178](phases/178-the-backlog-shows-every-plate-s-work-in-lanes.md) | Specified in docs/specs/web-backlog.md. Read-only; Pending review uses the GitHub App, no personal token. |
+| [186. The sidebar shows which agents can work, what each is on, and what waits for review](phases/186-the-sidebar-shows-which-agents-can-work-what.md) | partial, walk owed | 2026-11-05 | [178](phases/178-the-backlog-shows-every-plate-s-work-in-lanes.md) | Built in two increments: agentsOf and pending review, then plates home --agents, the hosted /agents and the live sidebar. Owes the owner's look after deploy. |
 
 - **93 done when:** An explicitly configured external workspace can be inspected and initialized from the installed CLI without writing private data into application or project Git trees.
 - **94 done when:** The owner has an approved deployment recipe and verified private workspace repository, host and selected-repository GitHub App binding, with credentials stored only in the deployment secret store.

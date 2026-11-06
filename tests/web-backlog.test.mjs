@@ -45,7 +45,8 @@ test('/backlog lists every plate\'s work in lanes, behind Home\'s auth', async (
   assert.equal(page.status, 200);
   const html = await page.text();
   assert.match(html, /<a href="\/backlog" aria-current="page">Backlog <span class="p-badge">\d+<\/span><\/a>/);
-  for (const soon of ['agents', 'pending-review']) assert.match(html, new RegExp(`data-sidebar-soon="${soon}"[^>]*>[^<]+<small>coming</small>`));
+  assert.doesNotMatch(html, /data-sidebar-soon/, 'nothing still to come (phase 186)');
+  assert.match(html, /<a href="\/agents">Agents <span class="p-badge">1<\/span><\/a><a href="\/agents#pending">Pending review<\/a>/, 'Agents counts what is at work; Pending review has no count without the Pull requests read');
   assert.match(html, /<a href="\/recurring">Recurring<\/a>/, 'Recurring is live (phase 185)');
   for (const l of model.lanes) assert.match(html, new RegExp(`id="lane-${l.lane}">${l.title} <span class="meta">${l.items.length}</span>`));
   for (const item of model.lanes.flatMap(l => l.items)) assert.ok(html.includes(`data-backlog-item="${item.key}"`), item.key);
