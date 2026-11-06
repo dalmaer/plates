@@ -33,12 +33,11 @@ The design is [Adopting projects that already have a practice](../research/2026-
 
 ## Your part
 
-- **Ask:** Read plates's rules with their causes next to them, and say whether any of them no longer has a reason to exist.
-- **Why:** A rule whose cause is gone is the cheapest thing to remove, and causes make that visible.
-- **Look at:** plates's AGENTS.md blocks.
-- **Choices:** All still needed | Some can go
-- **Takes:** 15 minutes.
-- **Then:** All needed: the phase is built. Some can go: they are retired in the next release.
+- **Ask:** Let an agent read plates's rules and their causes, and bring you a short list of the rules whose cause no longer applies?
+- **Why:** Reading every rule yourself takes 15 minutes; an agent can do the reading and you only judge the shortlist. Recommended: Yes, shortlist them.
+- **Choices:** Yes, shortlist them | All still needed
+- **Takes:** 1 minute now; the shortlist later, about 5 minutes.
+- **Then:** Yes: the conductor posts the shortlist (each rule, its cause, and why it may be gone) as a new item for you to keep or drop rule by rule. All still needed: the phase is built.
 - **Ready:** yes
 
 ## Real surfaces
@@ -59,7 +58,7 @@ By hand: the owner's read of the rules.
 
 ## Next action
 
-Owner: read the causes in AGENTS.md (15 minutes), then identify any obsolete rule or confirm they remain useful. Record the answer with `plates walk done 64 --choice "All still needed"` only after that read.
+The owner says whether an agent should shortlist rules whose cause is gone (Your part); on yes, the conductor writes the shortlist.
 
 ## Trajectory
 
@@ -68,3 +67,4 @@ Owner: read the causes in AGENTS.md (15 minutes), then identify any obsolete rul
 - **2026-10-11** — Escape: Markdown examples must not change comment state outside their fences. Advice scanners now preserve fence boundaries, ignore indented measurement examples and retain nested prose. Windows keeps preview/validation coverage while POSIX-only execution assertions are guarded. See the follow-up evidence.
 
 - **2026-10-11** — Escape: the output-limit proof raced child startup against a 500 ms deadline on the busy scheduled-climb runner. Separate deadline and output tests preserve real pipes and process cleanup while controlling the output test's clock; exact and combined bounds are now checked explicitly. Runtime behavior is unchanged.
+- **2026-11-06** The 15-minute read of every rule became an agent shortlist the owner approves rule by rule.

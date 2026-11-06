@@ -37,12 +37,12 @@ The design is [The board](../research/2026-10-08-whose-turn-board.md).
 
 ## Your part
 
-- **Ask:** Settle what is waiting on you from this board for a week instead of in chat, then say whether it earns its place.
-- **Why:** The board is only worth keeping if it is where you actually decide; a week of use shows that.
-- **Look at:** This page: `plates board --open` from plates's checkout.
-- **Choices:** Keep it | Keep it, with changes | Not useful
-- **Takes:** a few minutes a day for a week; the answer, 1 minute
-- **Then:** Keep it: recorded, and this is done. Keep it, with changes: recorded; list the changes in the note, and the conductor makes them a phase. Not useful: recorded; say why in the note, and the conductor proposes what replaces it.
+- **Ask:** Retire the terminal board (`plates board --open`) now that the Backlog page shows the same items on your phone and laptop?
+- **Why:** The board's week-long trial never happened, and the Backlog (phase 178) replaced it; keeping both means two lists to trust. Recommended: Retire it.
+- **Look at:** [/backlog](https://plates.dionisaledge.com/backlog) on your phone.
+- **Choices:** Retire it | Keep both
+- **Takes:** 1 minute.
+- **Then:** Retire it: the conductor drafts a small phase that removes `plates board` and points its guide at the Backlog. Keep both: recorded, and the board stays as it is.
 - **Ready:** yes
 
 ## Real surfaces
@@ -62,7 +62,7 @@ The design is [The board](../research/2026-10-08-whose-turn-board.md).
 
 ## Next action
 
-⚑ Owner: run `plates board --open` from plates's checkout, and settle a week of walks and decisions from it rather than in chat.
+The owner answers whether to retire the board (Your part). The week-long trial is withdrawn: the Backlog (phase 178) replaced it.
 
 ## Trajectory
 
@@ -70,3 +70,4 @@ The design is [The board](../research/2026-10-08-whose-turn-board.md).
 - **2026-10-08** — A proposal is decided by a record line in its health page (`keel walk decide`), not a new store; the board and loose-ends both read it.
 - **2026-10-08** — Its first real read found what nothing had surfaced: unanswered reviews on isocan#246–#248 and ledger#46, from before reviews were answered as a rule.
 - **2026-10-08** — The cold start is at 3151 of 3200 characters after `board` and `walk`; the next verb needs a trim first.
+- **2026-11-06** The week-long board trial was withdrawn: the Backlog (phase 178) shows the same items on the phone. The owner now decides only whether to retire the board.

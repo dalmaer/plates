@@ -43,9 +43,9 @@ The design is [How rigorous is a plates spec](../research/2026-10-06-spec-rigor.
 
 ## Your part
 
-- **Ask:** Decide whether to keep two rules plates added on 6 October: every plan must say how it will be proven, and every test run is recorded so flaky or slower tests get named.
-- **Why:** Plates keeps extra process only if fewer defects slip through after it; this is the first time those two rules are judged by that.
-- **Look at:** The table, its last row first; how it was counted is in [the evidence](../evidence/2026-10-06-escapes.md).
+- **Ask:** Keep two rules plates added on 6 October? One: every phase says how it will be proven. Two: every test run is recorded, so flaky and slow tests get named.
+- **Why:** Extra process should earn its place. The numbers below can't tell yet: the rules landed 31 minutes apart, alongside a new reviewer that finds more defects. What is clear is that phase files got about twice as long. Recommended: Keep both, since dropping a guard on unclear numbers risks escapes, and the cost is length, not time.
+- **Look at:** The table below, its last row first.
 - **Choices:** Keep both | Drop the proof-plan rule | Drop the test-run record | Not enough data yet
 - **Keeps it open:** Not enough data yet
 - **Takes:** 5 minutes
