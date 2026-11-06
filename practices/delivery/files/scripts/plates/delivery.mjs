@@ -373,6 +373,9 @@ const bool = v => v === 'true' ? true : v === 'false' ? false : v;
  * form this reader does not take (an anchor, alias, tag, block scalar, flow
  * collection, or an unclosed quote). Never a guess.
  */
+/** A YAML double-quoted scalar's single-character escapes (§5.7); `\\x`, `\\u` and `\\U` take hex digits. */
+const YAML_ESCAPES = { 0: '\0', a: '\x07', b: '\b', t: '\t', '\t': '\t', n: '\n', v: '\v', f: '\f', r: '\r', e: '\x1b', ' ': ' ', N: '\x85', _: '\xa0', L: '\u2028', P: '\u2029' };
+
 export function scalar(raw) {
   const v = (raw ?? '').trim();
   if (!v) return { value: '' };
@@ -381,7 +384,12 @@ export function scalar(raw) {
     let k = 1, out = '';
     for (; k < v.length; k++) {
       if (q === "'" && v[k] === "'" && v[k + 1] === "'") { out += "'"; k++; continue; }
-      if (q === '"' && v[k] === '\\' && k + 1 < v.length) { out += v[++k]; continue; }
+      if (q === '"' && v[k] === '\\' && k + 1 < v.length) {
+        const e = v[++k], hex = { x: 2, u: 4, U: 8 }[e];
+        if (hex && /^[0-9a-fA-F]+$/.test(v.slice(k + 1, k + 1 + hex)) && v.length > k + hex) { out += String.fromCodePoint(parseInt(v.slice(k + 1, k + 1 + hex), 16)); k += hex; continue; }
+        out += YAML_ESCAPES[e] ?? e;
+        continue;
+      }
       if (v[k] === q) break;
       out += v[k];
     }
@@ -488,24 +496,144 @@ export function concurrencyOf(text) {
 
 const words = s => (s ?? '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
 
-/** A workflow's top-level `on:` event names, or null when `on:` is absent. */
+/** Strip an unquoted YAML `#` comment from one line. */
+function stripYamlComment(line) {
+  let quote = null;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (quote === "'") { if (c === "'" && line[i + 1] === "'") i++; else if (c === "'") quote = null; continue; }
+    if (quote === '"') { if (c === '\\') i++; else if (c === '"') quote = null; continue; }
+    if ((c === "'" || c === '"') && (!i || /[\s[{,:-]/.test(line[i - 1]))) { quote = c; continue; }
+    if (c === '#' && (!i || /[ \t]/.test(line[i - 1]))) return line.slice(0, i);
+  }
+  return line;
+}
+
+/** Fold a YAML `>` block scalar's indent-stripped lines, keeping blank and more-indented breaks. */
+function foldYaml(lines) {
+  const first = lines.findIndex(Boolean);
+  if (first < 0) return '';
+  const normal = s => s[0] !== ' ' && s[0] !== '\t';
+  let out = lines[first], prevNormal = normal(out), empties = 0;
+  for (const l of lines.slice(first + 1)) {
+    if (!l) { empties++; continue; }
+    const curNormal = normal(l);
+    out += (prevNormal && curNormal ? (empties ? '\n'.repeat(empties) : ' ') : '\n'.repeat(empties + 1)) + l;
+    prevNormal = curNormal;
+    empties = 0;
+  }
+  return out;
+}
+
+/** Strip unquoted POSIX-shell `#` comments (tracking words, quotes, `${…}` and `\` escapes). */
+function stripShellComments(text) {
+  let out = '', quote = null, word = false, dollar = false, param = 0;
+  const heredocs = [];
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    // A heredoc body is data, copied as is up to its delimiter line: no quote state, no comments.
+    if (c === '\n' && !quote && heredocs.length) {
+      while (heredocs.length && i < text.length) {
+        const { delim, tabs } = heredocs.shift();
+        for (;;) {
+          out += text[i++];
+          if (i >= text.length) break;
+          const end = text.indexOf('\n', i), line = text.slice(i, end < 0 ? text.length : end);
+          if ((tabs ? line.replace(/^\t+/, '') : line) === delim) { out += line; i += line.length; break; }
+          out += line;
+          i += line.length;
+          if (i >= text.length) break;
+        }
+      }
+      if (i >= text.length) break;
+      out += text[i];
+      word = false;
+      dollar = false;
+      continue;
+    }
+    const here = !quote && !param && c === '<' && text[i + 1] === '<' && text[i + 2] !== '<' && text[i - 1] !== '<'
+      ? /^<<(-?)[ \t]*((?:[^\s;&|()<>'"\\]|\\.|'[^']*'|"[^"]*")+)/.exec(text.slice(i)) : null;
+    if (here) {
+      heredocs.push({ delim: here[2].replace(/'([^']*)'|"([^"]*)"|\\(.)/g, (_, a, b, e) => a ?? b ?? e), tabs: Boolean(here[1]) });
+      out += here[0];
+      i += here[0].length - 1;
+      word = true;
+      dollar = false;
+      continue;
+    }
+    if (quote === "'") { out += c; if (c === "'") quote = null; continue; }
+    if (c === '\\') {
+      dollar = false;
+      if (text[i + 1] === '\n') { i++; continue; }
+      out += c + (text[++i] ?? '');
+      word = true;
+      continue;
+    }
+    if (quote) { out += c; if (c === quote.at(-1)) quote = null; continue; }
+    if (c === "'" || c === '"') { quote = c === "'" && dollar ? "$'" : c; word = true; dollar = false; out += c; continue; }
+    if ((dollar || param) && c === '{') { param++; word = true; dollar = false; out += c; continue; }
+    if (param && c === '}') { param--; word = true; dollar = false; out += c; continue; }
+    if (c === '#' && !word && !param) {
+      while (text[i + 1] && text[i + 1] !== '\n') i++;
+      continue;
+    }
+    out += c;
+    dollar = c === '$';
+    word = !/[\s;&|()<>]/.test(c);
+  }
+  return out;
+}
+
+/** A workflow's top-level `on:` event names, or null when `on:` is absent or unreadable. */
 export function workflowTriggers(text) {
   const lines = (text ?? '').split('\n');
   const at = lines.findIndex(l => /^(on|"on"|'on'):([ \t]|$)/.test(l));
   if (at < 0) return null;
-  const inline = lines[at].replace(/^[^:]*:/, '').replace(/(?:^|[ \t]+)#.*$/, '').trim();
-  if (inline) return inline.replace(/^\[|\]$/g, '').split(',').map(t => t.trim().replace(/^(["'])(.*)\1$/, '$2')).filter(Boolean);
+  let start = at;
+  let inline = stripYamlComment(lines[at].replace(/^[^:]*:/, '')).trim();
+  if (!inline) {
+    const next = lines.findIndex((l, i) => i > at && Boolean(stripYamlComment(l).trim()));
+    if (next > at && /^\s+[[{]/.test(lines[next])) {
+      start = next;
+      inline = stripYamlComment(lines[next]).trim();
+    }
+  }
+  if (inline[0] === '[' || inline[0] === '{') {
+    for (const l of lines.slice(start + 1)) {
+      if (inline[closing(inline)]) break;
+      const raw = stripYamlComment(l);
+      const next = raw.trim();
+      if (!next) continue;
+      if (!/^\s/.test(raw) && next[0] !== ']' && next[0] !== '}') break;
+      inline += ' ' + next;
+    }
+    const end = closing(inline);
+    if (inline[end] !== (inline[0] === '[' ? ']' : '}') || inline.slice(end + 1).trim()) return null;
+    const isMap = inline[0] === '{';
+    const out = [];
+    for (const part of topLevel(inline.slice(1, end), ',').map(p => p.trim()).filter(Boolean)) {
+      const s = scalar(isMap ? topLevel(part, ':')[0] : part);
+      if (s.error || !/^[A-Za-z_]\w*$/.test(s.value)) return null;
+      out.push(s.value);
+    }
+    return out;
+  }
+  if (inline) {
+    const s = scalar(inline);
+    return s.error || !/^[A-Za-z_]\w*$/.test(s.value) ? null : [s.value];
+  }
   const out = [];
   let indent = null;
   for (const l of lines.slice(at + 1)) {
-    if (!l.trim() || /^\s*#/.test(l)) continue;
-    if (!/^\s/.test(l)) break;
-    const m = /^(\s+)(?:-\s+)?["']?([A-Za-z_]\w*)["']?\s*(?::|$)/.exec(l);
+    const clean = stripYamlComment(l);
+    if (!clean.trim()) continue;
+    if (!/^\s/.test(clean)) break;
+    const m = /^(\s+)(?:-\s+)?["']?([A-Za-z_]\w*)["']?\s*(?::|$)/.exec(clean);
     if (!m) continue;
     indent ??= m[1].length;
     if (m[1].length === indent) out.push(m[2]);
   }
-  return out;
+  return out.length ? out : null;
 }
 
 /** Every step's `uses:` and non-comment `run:` lines under `jobs:`: { uses: [string], runs: [string] }. */
@@ -523,17 +651,27 @@ export function workflowSteps(text) {
       const keyIndent = r[1].length + (r[2] ? r[2].length : 0);
       const block = r[3].replace(/(?:^|[ \t]+)#.*$/, '').trim();
       if (/^[|>][-+]?\d*$/.test(block)) {
+        const rawBlock = [];
         let j = i + 1;
         for (; j < job.end; j++) {
           const bl = lines[j];
-          if (!bl.trim()) continue;
-          if (bl.search(/\S/) <= keyIndent) break;
-          if (!/^\s*#/.test(bl)) runs.push(bl.trim());
+          if (bl.trim() && bl.search(/\S/) <= keyIndent) break;
+          rawBlock.push(bl);
+        }
+        while (rawBlock.length && !rawBlock.at(-1).trim()) rawBlock.pop();
+        const indDigit = /[1-9]/.exec(block)?.[0];
+        const firstNonEmpty = rawBlock.find(b => b.trim());
+        const baseIndent = indDigit ? keyIndent + Number(indDigit) : (firstNonEmpty ? firstNonEmpty.search(/\S/) : keyIndent + 1);
+        const sliced = rawBlock.map(b => b.slice(baseIndent));
+        const script = block[0] === '>' ? foldYaml(sliced) : sliced.join('\n');
+        for (const code of stripShellComments(script).split('\n')) {
+          if (code.trim()) runs.push(code.trim());
         }
         i = j - 1;
       } else {
         const s = scalar(r[3]);
-        if (s.value) runs.push(s.value);
+        const code = s.value ? stripShellComments(s.value).trim() : '';
+        if (code) runs.push(code);
       }
     }
   }
@@ -571,11 +709,10 @@ export function workflowKind(file, text, { gate = null, check = null, workflows 
   const observer = said.some(w => OBSERVER_WORDS.includes(w));
   if (said.some(w => PUBLISH_WORDS.includes(w)) && !observer && !runs.some(r => VERIFY_RUN.test(r))) return 'publish';
   const triggers = workflowTriggers(text);
-  const onCode = triggers === null ? null : triggers.some(t => CODE_TRIGGERS.includes(t));
-  if (onCode === false) return null;
+  if (triggers !== null && !triggers.some(t => CODE_TRIGGERS.includes(t))) return null;
   if (gate && [base, file, stem, name].includes(gate)) return 'test';
   const checkRe = typeof check === 'string' && check.trim() ? new RegExp(`(^|[^\\w:.-])${check.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w:.-])`) : null;
-  if (onCode === true && runs.some(r => TEST_RUN.test(r) || (checkRe !== null && checkRe.test(r)))) return 'test';
+  if (runs.some(r => TEST_RUN.test(r) || (checkRe !== null && checkRe.test(r)))) return 'test';
   if (said.some(w => TEST_WORDS.includes(w)) && !observer) return 'test';
   return null;
 }
