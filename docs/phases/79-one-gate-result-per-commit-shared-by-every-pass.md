@@ -34,13 +34,13 @@ The design is [Delivery: a change reaches production once, checked](../research/
 
 ## Your part
 
-- **Ask:** Read the CI-minutes line on plates's health page for the week before and the week after this ships.
-- **Why:** It shows whether reusing one result per commit actually saves the runs the comparison found.
-- **Look at:** the health page's CI minutes measure.
-- **Choices:** Fewer minutes | No change
-- **Takes:** 10 minutes.
-- **Then:** No change: the passes still running the gate are found and fixed.
-- **Ready when:** this phase has shipped and a week has passed.
+- **Ask:** Plates's CI used fewer minutes the week after one test result per commit was shared than the week before (the two numbers are on this card). Is that saving worth keeping?
+- **Why:** It is the measure this phase was built to move; the conductor reads both weeks from the health page and states them here, so you only judge the difference.
+- **Choices:** Worth it | Not enough to matter
+- **Recommend:** Worth it
+- **Takes:** 1 minute.
+- **Then:** Worth it: the phase is built. Not enough to matter: the conductor finds which passes still run the full gate and proposes a fix.
+- **Ready when:** a week has passed since this shipped and the conductor has posted both weeks' CI minutes.
 
 ## Real surfaces
 
@@ -80,7 +80,7 @@ By hand: the owner's week.
 
 ## Next action
 
-Owner: read one week of plates's CI minutes before and after on the night's health page (box 5).
+A week after this ships, the conductor reads plates's CI minutes for the week before and after from the health page and posts both; then the owner's question opens.
 
 ## Trajectory
 
