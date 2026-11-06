@@ -1,11 +1,12 @@
 ---
-status: planned
-since: 2026-11-05
+status: partial
+owes: walk
+since: 2026-11-06
 goal: G7
 spec: 2
 depends: [181]
-note: "Specified in docs/specs/web-backlog.md. Runs only on the owner's machine; off unless the plate lists local-host."
-evidence: []
+note: "Built: the local-host route runs the owner's privately configured command with the brief, once, and shows the state it reports. Owes the owner's walk with a real host."
+evidence: ["evidence/2026-11-06-local-host.md"]
 ---
 
 # A local agent host can take a phase
@@ -29,10 +30,10 @@ The `local-host` route claims with the host's provider name and hands the spin b
 
 ## Acceptance
 
-- [ ] The brief carries Done when, Acceptance and current decisions, byte-identical to its preview: `tests/backlog-attach.test.mjs: "local host brief matches its preview"`
-- [ ] Without `local-host` in the policy the route is not offered: `tests/backlog-attach.test.mjs: "local host needs the policy"`
-- [ ] A host that reports no state shows claimed and active only, never running: `tests/backlog-attach.test.mjs: "a silent host is never running"`
-- [ ] ⚑ by hand: the owner attaches a local agent host to one phase, and it lands through `plates ready` and `plates integrate`.
+- [x] The brief carries Done when, Acceptance and current decisions, byte-identical to its preview: `tests/backlog-attach.test.mjs: "local host brief matches its preview"`
+- [x] Without `local-host` in the policy the route is not offered: `tests/backlog-attach.test.mjs: "local host needs the policy"`
+- [x] A host that reports no state shows claimed and active only, never running: `tests/backlog-attach.test.mjs: "a silent host is never running"`
+- [ ] A local agent host attached to one phase builds it, and it lands through ready and integrate: ⚑ by hand: the owner.
 
 ## Your part
 
@@ -62,4 +63,7 @@ Presence depends on what each host can report about its session. A host that rep
 
 ## Next action
 
-Write the host contract as a fixture command and compare the brief it receives byte for byte with its preview.
+The owner's walk: list `local-host` in `backlog.routes`, write `~/.config/plates/local-hosts.json`, and attach one phase (Your part).
+
+## Trajectory
+- **2026-11-06** The local-host route is built behind the attach contract: private config, a brief identical to its preview, never run twice, a scrubbed environment. A silent host stays "claimed".
