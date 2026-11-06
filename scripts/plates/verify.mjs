@@ -271,6 +271,7 @@ export function record({ root, result, remote = 'origin', env = process.env, att
       try { results = verifyResults(shown.stdout); } catch (e) { throw new VerifyError(`${VERIFY_BRANCH}:${VERIFY_FILE} is not a verify record (${e.message}): it is left alone, and this result is not recorded`, 1); }
     }
     const text = `${JSON.stringify({ results: keptResults([entry, ...results], now, { production }) }, null, 2)}\n`;
+    try { verifyResults(text); } catch (e) { throw new VerifyError(`cannot record an invalid ${VERIFY_FILE} (${e.message})`, 1); }
     const blob = ok(['hash-object', '-w', '--stdin'], 'cannot write the record', text);
     // The tip's own tree with verify.json replaced: every other entry stays as it was.
     const others = tip ? ok(['ls-tree', '-z', tip], `cannot read ${VERIFY_BRANCH}'s tree`).split('\0').filter(e => e && e.split('\t').slice(1).join('\t') !== VERIFY_FILE) : [];

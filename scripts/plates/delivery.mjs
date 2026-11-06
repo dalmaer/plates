@@ -121,7 +121,7 @@ export function jobKeys(text) {
       if (at !== indent) continue;
       const m = /^\s*(if|needs):[ \t]*(.*?)[ \t]*$/.exec(l);
       if (!m) continue;
-      if (m[1] === 'if') { const s = scalar(m[2]); keys.if = s.error || !s.value ? null : normExpr(s.value); continue; }
+      if (m[1] === 'if') { const s = scalar(m[2]); keys.if = s.error || !s.value ? false : normExpr(s.value); continue; }
       const v = m[2].replace(/[ \t]+#.*$/, '');
       if (v.startsWith('[')) keys.needs = v.replace(/^\[|\]$/g, '').split(',').map(x => x.trim().replace(/^(["'])(.*)\1$/, '$2')).filter(Boolean);
       else if (v) keys.needs = [scalar(v).value].filter(Boolean);
@@ -134,15 +134,16 @@ export function jobKeys(text) {
 
 /**
  * Whether a job runs only on `cond`: its own `if:` is `cond`, or it needs a
- * job that does and its `if:` (when set) has no always(), failure() or
- * cancelled(), so a skipped need skips it too.
+ * job that does and its `if:` (when set) is readable and has no status
+ * function (always(), failure(), cancelled(), success()), so a skipped need
+ * skips it too (#189).
  */
 function jobOnlyOn(keys, name, cond, seen = new Set()) {
   const j = keys[name];
   if (!j || seen.has(name)) return false;
   seen.add(name);
   if (j.if === cond) return true;
-  if (j.if && /\b(always|failure|cancelled)\s*\(/.test(j.if)) return false;
+  if (j.if === false || (j.if && /\b(always|failure|cancelled|success)\s*\(/i.test(j.if.replace(/'(?:[^']|'')*'/g, '')))) return false;
   return j.needs.some(n => jobOnlyOn(keys, n, cond, seen));
 }
 

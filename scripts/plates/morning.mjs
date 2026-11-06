@@ -329,12 +329,15 @@ export function keptResults(results, now = Date.now(), { production = null } = {
   const latest = new Map();
   for (const r of sorted) if (!latest.has(r.site)) latest.set(r.site, r);
   const prod = production ? latest.get(production) : sorted[0];
-  const pinned = new Set([prod, ...[...latest.values()].filter(r => r !== prod).slice(0, VERIFY_MAX - 1)].filter(Boolean));
+  let previews = [...latest.values()].filter(r => r !== prod).slice(0, VERIFY_MAX - 1);
+  const pinned = new Set([prod, ...previews].filter(Boolean));
   let rest = sorted.filter((r, i) => !pinned.has(r) && (i < VERIFY_KEEP || (!r.ok && Date.parse(r.at) > now - VERIFY_HOLD_MS)));
-  const size = () => JSON.stringify({ results: [...pinned, ...rest] }, null, 2).length;
+  const kept = () => [...(prod ? [prod] : []), ...previews, ...rest];
+  const size = () => JSON.stringify({ results: kept() }, null, 2).length;
   rest = rest.slice(0, Math.max(0, VERIFY_MAX - pinned.size));
   while (rest.length && size() > MAX_BYTES * 0.75) rest = rest.slice(0, -1);
-  return [...pinned, ...rest].sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  while (previews.length && size() > MAX_BYTES * 0.75) previews = previews.slice(0, -1);
+  return kept().sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
 }
 const FULL_SHA = /^[0-9a-f]{40}([0-9a-f]{24})?$/;
 
@@ -449,10 +452,15 @@ export function readVerify(root, {namesEvidence=false,consumer='morning-brief'}=
     for(const trace of traces) {
       const branch=trace.ref.slice('refs/heads/'.length);
       const text=remoteFile(root,branch,VERIFY_FILE,trace);
+      if(trace.absence==='ref') continue;
       if(text!==null) results.push(...verifyResults(text));
       // Phase 177: the deploy records beside it (a Vercel target's plates promote).
       const lines=remoteFile(root,branch,DEPLOY_FILE);
       if(lines!==null) deploys.push(...deployResults(lines));
+      if(text===null&&lines===null) {
+        Object.assign(trace,{state:'unavailable',absence:null});
+        throw new MorningError(`${branch} exists on origin and holds no ${VERIFY_FILE}`);
+      }
     }
     results.sort((a,b)=>Date.parse(b.at)-Date.parse(a.at));
     deploys.sort((a,b)=>Date.parse(b.at)-Date.parse(a.at));
