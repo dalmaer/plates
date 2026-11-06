@@ -430,3 +430,50 @@ test('prove --mutate skips nested template literals and mutates genuine code aft
   assert.equal(m.caught, 7);
   assert.deepEqual([m.survivors, m.invalid, m.inconclusive], [[], [], []]);
 });
+
+test('#185: a mutant that makes a dynamically imported module throw during evaluation is invalid, never caught', async t => {
+  const base = ['export const DEFAULTS = {', '  limit: 2,', '};', ''].join('\n');
+  const fix = ['export const DEFAULTS = {', '  limit: 3,', '};', "if (DEFAULTS.limit < 0) throw new Error('negative limit');", ''].join('\n');
+  const tst = [...TESTHEAD, "test('Acme dynamic import', async () => { const { DEFAULTS } = await import('../lib/limits.mjs'); assert.equal(DEFAULTS.limit, 3); });", ''].join('\n');
+  const repo = await fixRepo(t, { base: { 'lib/limits.mjs': base }, fix: { 'lib/limits.mjs': fix }, tests: { 'tests/limits.test.mjs': tst } });
+  const { j } = await mutate(repo, ['tests/limits.test.mjs', '--fix', 'lib/limits.mjs'], 0);
+  const m = j.mutate;
+  assert.deepEqual(m.invalid.map(where), ['lib/limits.mjs:2 return return early, before this line',
+    'lib/limits.mjs:4 condition negate `DEFAULTS.limit < 0`', 'lib/limits.mjs:4 condition drop `DEFAULTS.limit < 0` (always true)']);
+  assert.match(m.invalid[0].reason, /^does not parse: SyntaxError/, 'a return inside an object literal does not parse');
+  assert.match(m.invalid[1].reason, /^does not parse or import: Error: negative limit$/, 'a throw at dynamic import');
+  assert.match(m.invalid[2].reason, /^does not parse or import: Error: negative limit$/, 'a throw at dynamic import');
+  assert.deepEqual(m.survivors.map(where), ['lib/limits.mjs:4 comparison `<` → `<=`', 'lib/limits.mjs:4 number `0` → `1`']);
+  assert.equal(m.caught, 1, 'only the limit the test reads');
+  assert.equal(m.total, 6);
+  assert.equal(m.line, 'Mutants: 1/6', 'the invalid count against the total, never for it');
+});
+
+test('#185: a dynamically imported module loaded through a preload has parse and evaluation failures judged invalid', async t => {
+  const loader = ["import { register } from 'node:module';",
+    "register('data:text/javascript,' + encodeURIComponent('import { readFileSync } from \"node:fs\"; export async function load(u, c, next) { return u.endsWith(\".jsx\") ? { format: \"module\", source: readFileSync(new URL(u)), shortCircuit: true } : next(u, c); }'));", ''].join('\n');
+  const pkg = `${JSON.stringify({ name: 'acme', type: 'module', scripts: { test: 'node --import ./tests/jsx-loader.mjs --test tests/*.test.mjs' } }, null, 2)}\n`;
+  const base = ['export const DEFAULTS = {', '  limit: 2,', '};', ''].join('\n');
+  const fix = ['export const DEFAULTS = {', '  limit: 3,', '};', "if (DEFAULTS.limit < 0) throw new Error('negative jsx limit');", ''].join('\n');
+  const tst = [...TESTHEAD, "test('Acme jsx dynamic import', async () => { const { DEFAULTS } = await import('../lib/limits.jsx'); assert.equal(DEFAULTS.limit, 3); });", ''].join('\n');
+  const repo = await fixRepo(t, { base: { 'package.json': pkg, 'tests/jsx-loader.mjs': loader, 'lib/limits.jsx': base }, fix: { 'lib/limits.jsx': fix }, tests: { 'tests/limits.test.mjs': tst } });
+  const { j } = await mutate(repo, ['tests/limits.test.mjs', '--fix', 'lib/limits.jsx'], 0);
+  const m = j.mutate;
+  assert.deepEqual(m.invalid.map(where), ['lib/limits.jsx:2 return return early, before this line',
+    'lib/limits.jsx:4 condition negate `DEFAULTS.limit < 0`', 'lib/limits.jsx:4 condition drop `DEFAULTS.limit < 0` (always true)']);
+  assert.match(m.invalid[0].reason, /^does not parse or import: SyntaxError/);
+  assert.match(m.invalid[1].reason, /^does not parse or import: Error: negative jsx limit$/);
+  assert.equal(m.caught, 1);
+  assert.equal(m.total, 6);
+});
+
+test('#185: a module that requires test-body setup to import still has behavioral mutants caught', async t => {
+  const base = ["if (process.env.ACME_READY !== '1') throw new Error('missing ACME_READY');", 'export const value = 2;', ''].join('\n');
+  const fix = ["if (process.env.ACME_READY !== '1') throw new Error('missing ACME_READY');", 'export const value = 3;', ''].join('\n');
+  const tst = [...TESTHEAD, "test('Acme setup before import', async () => { process.env.ACME_READY = '1'; const { value } = await import('../lib/runtime.mjs'); assert.equal(value, 3); });", ''].join('\n');
+  const repo = await fixRepo(t, { base: { 'lib/runtime.mjs': base }, fix: { 'lib/runtime.mjs': fix }, tests: { 'tests/runtime.test.mjs': tst } });
+  const { j } = await mutate(repo, ['tests/runtime.test.mjs', '--fix', 'lib/runtime.mjs'], 0);
+  assert.deepEqual(j.mutate.invalid, []);
+  assert.equal(j.mutate.caught, 1);
+  assert.equal(j.mutate.total, 1);
+});
