@@ -832,3 +832,101 @@ test('sandbox: a merge that alters a binary lockfile byte is refused, though the
   const honest = climb(dir, ['sandbox', '--base', b3, '--head', 'HEAD', '--json']);
   assert.equal(honest.status, 0, honest.stdout + honest.stderr);
 });
+
+// #90: the base's gate runs before the candidate's, so a shared symlinked node_modules would let a base test write
+// node_modules/base-cache (or mutate an installed file in place) and make a broken candidate pass, or dereference a
+// workspace symlink in node_modules to the candidate's checkout instead of the base's.
+test('#90: guard isolates node_modules in worktrees so base-gate writes cannot pass a broken candidate', async t => {
+  const depFiles = {
+    'node_modules/acme-dep/package.json': '{"name":"acme-dep","type":"module","exports":"./index.js"}\n',
+    'node_modules/acme-dep/index.js': "export const dep = 'acme';\n",
+    'node_modules/acme-dep/cache.txt': 'clean\n',
+  };
+  const baseSuite = `import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { writeFileSync } from 'node:fs';
+import { dep } from 'acme-dep';
+import { label } from 'acme-ws';
+import { appDep } from './app/use.mjs';
+test('acme adds', () => {
+  assert.equal(dep, 'acme');
+  assert.equal(label, 'base-ws');
+  assert.equal(appDep, 'app-clean');
+  writeFileSync('node_modules/base-cache', 'from-base\\n');
+  writeFileSync('node_modules/acme-dep/cache.txt', 'dirtied-by-base\\n');
+  writeFileSync('app/node_modules/acme-app/state.txt', 'dirtied-app\\n');
+});
+`;
+  const dir = await acme(t, {
+    climb: { jobs: ['test-time'], testCommand: LEDGER_TEST },
+    config: { check: LEDGER_TEST },
+    files: {
+      '.gitignore': 'node_modules/\napp/node_modules\n',
+      'package.json': JSON.stringify({ name: 'acme', private: true, workspaces: ['packages/*'] }),
+      'packages/ws/package.json': '{"name":"acme-ws","type":"module","exports":"./index.js"}\n',
+      'packages/ws/index.js': "export const label = 'base-ws';\n",
+      'app/package.json': '{"name":"acme-app-dir","private":true,"type":"module"}\n',
+      'app/use.mjs': "import { readFileSync } from 'node:fs';\nexport const appDep = readFileSync(new URL('./node_modules/acme-app/state.txt', import.meta.url), 'utf8').trim();\n",
+      'acme.test.mjs': baseSuite,
+    },
+  });
+  await write(dir, depFiles);
+  const sharedInstall = await mkdtemp(join(tmpdir(), 'plates-climb-install-'));
+  t.after(() => rm(sharedInstall, { recursive: true, force: true }));
+  await write(sharedInstall, { 'acme-app/state.txt': 'app-clean\n' });
+  const { symlink } = await import('node:fs/promises');
+  await symlink(join('..', 'packages', 'ws'), join(dir, 'node_modules', 'acme-ws'));
+  await symlink(sharedInstall, join(dir, 'app', 'node_modules'), 'dir');
+  const base = git(dir, ['rev-parse', 'HEAD']);
+
+  // Candidate 1: depends on node_modules/base-cache left behind by the base's gate.
+  git(dir, ['checkout', '-q', '-b', 'needs-base-cache', base]);
+  await commit(dir, {
+    'acme.test.mjs': `import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
+test('acme adds', () => { assert.equal(existsSync('node_modules/base-cache'), true); });
+`,
+  }, 'acme: needs base-cache');
+  const cached = climb(dir, ['guard', '--base', base, '--json']);
+  assert.equal(cached.status, 1, cached.stdout + cached.stderr);
+  assert.match(json(cached).problems[0], /the gate `.*` failed \(exit 1\)/);
+  assert.equal(existsSync(join(dir, 'node_modules/base-cache')), false);
+  assert.equal(await readFile(join(dir, 'node_modules/acme-dep/cache.txt'), 'utf8'), 'clean\n');
+  assert.equal(await readFile(join(sharedInstall, 'acme-app/state.txt'), 'utf8'), 'app-clean\n');
+
+  // Candidate 2: depends on an existing file in node_modules (or symlinked app/node_modules) mutated by base's gate.
+  git(dir, ['checkout', '-q', '-f', '-B', 'needs-mutated-file', base]);
+  await commit(dir, {
+    'acme.test.mjs': `import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+test('acme adds', () => { assert.equal(readFileSync('node_modules/acme-dep/cache.txt', 'utf8'), 'dirtied-by-base\\n'); });
+`,
+  }, 'acme: needs mutated cache');
+  const mutated = climb(dir, ['guard', '--base', base, '--json']);
+  assert.equal(mutated.status, 1, mutated.stdout + mutated.stderr);
+  assert.equal(await readFile(join(dir, 'node_modules/acme-dep/cache.txt'), 'utf8'), 'clean\n');
+
+  // Honest candidate: passes from the clean install while base's workspace symlink resolved to base's packages/ws.
+  git(dir, ['checkout', '-q', '-f', '-B', 'honest-clean', base]);
+  await commit(dir, {
+    'packages/ws/index.js': "export const label = 'cand-ws';\n",
+    'acme.test.mjs': `import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
+import { dep } from 'acme-dep';
+import { label } from 'acme-ws';
+import { appDep } from './app/use.mjs';
+test('acme adds', () => {
+  assert.equal(dep, 'acme');
+  assert.equal(label, 'cand-ws');
+  assert.equal(appDep, 'app-clean');
+  assert.equal(existsSync('node_modules/base-cache'), false);
+  assert.equal(readFileSync('node_modules/acme-dep/cache.txt', 'utf8'), 'clean\\n');
+});
+`,
+  }, 'acme: clean candidate');
+  const ok = climb(dir, ['guard', '--base', base, '--json']);
+  assert.equal(ok.status, 0, ok.stdout + ok.stderr);
+});

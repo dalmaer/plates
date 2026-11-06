@@ -85,9 +85,9 @@ import { environmentValue, writeName, branchSuffix } from './names.mjs';
 // the lessons table, and any finding decided tonight: deciding is the owner's
 // (lesson 53). Loop unreachable is a notice, never red.
 import { denialEvidence, durations, completion } from './climb-execution.mjs';
-import { readFile, readdir, writeFile, mkdir, mkdtemp, rm, symlink, stat, open, rename } from 'node:fs/promises';
+import { readFile, readdir, writeFile, mkdir, mkdtemp, rm, cp, realpath, stat, open, rename } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { constants, existsSync, readFileSync, rmSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
@@ -846,12 +846,16 @@ async function dropWorktree(root, dir) {
 async function worktree(root, dir, ref) {
   git(root, ['worktree', 'add', '--detach', '--quiet', dir, ref]);
   // The candidate adds no dependency (protocol rule 4; the sandbox refuses an
-  // install file), so both sides share the tree's installs: the root's and
-  // each app or workspace folder's own (ledger's web/node_modules, from
-  // `npm ci --prefix web`), where the worktree has that folder.
+  // install file), so each worktree gets its own cloned copy of the tree's
+  // installs (#90: never a shared symlink where the base's gate can leave a
+  // cache or mutated file for the candidate): the root's and each app or
+  // workspace folder's own (ledger's web/node_modules, from `npm ci --prefix
+  // web`), where the worktree has that folder.
   for (const d of ['.', ...await packageDirs(root)]) {
     const from = join(root, d, 'node_modules'), to = join(dir, d, 'node_modules');
-    if (existsSync(from) && existsSync(join(dir, d)) && !existsSync(to)) await symlink(from, to, 'dir');
+    if (existsSync(from) && existsSync(join(dir, d)) && !existsSync(to)) {
+      await cp(await realpath(from), to, { recursive: true, verbatimSymlinks: true, mode: constants.COPYFILE_FICLONE });
+    }
   }
 }
 
