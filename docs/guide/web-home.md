@@ -98,6 +98,20 @@ with `/api/backlog` carrying the same JSON; there the claims are the plate's
 `claims/phase-*` branches and open PRs, read through the GitHub App. Start on an
 agent-ready row is off until agents can be attached (phase 181).
 
+`plates home --recurring` (phase 185) lists, per plate, every routine it runs
+(night, climb, tend, morning, robot, cross-review, publish, and any other
+scheduled workflow): its schedule in this machine's time zone, its next run
+(computed from the workflow's cron in UTC, never guessed), its last result
+(the night record, else the latest workflow run through `gh`; "last run not
+read" when that read is unavailable) and its budget with the key it comes
+from. A routine switched off names the key that turns it off; a schedule in
+`.plates/plates.json` that disagrees with its workflow's cron shows both. It
+ends with each plate's links (repo, `canvas.home`, production site).
+`--project <id>` keeps one plate and `--json` prints the model. The hosted
+`/recurring` shows the same routines beside the backlog's sidebar, which also
+carries Humans and Links; it reads the latest runs through the App's Actions
+read, and starts, stops and reschedules nothing.
+
 On the web, **Since you last looked** starts at your previous visit. A visit is a
 run of Home page loads less than thirty minutes apart, and "since" is the last
 load of the visit before this one; a reload, the page's background refresh and

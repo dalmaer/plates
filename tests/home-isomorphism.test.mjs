@@ -35,7 +35,7 @@ const reviewRepository = { open: { pageInfo: { hasNextPage: false }, nodes: [{ k
 const rate = { cost: 1, remaining: 4000, resetAt: new Date(Date.now() + 3600_000).toISOString() };
 
 /** The same sources, twice: the web's fake App API and a git checkout with a fake gh. */
-async function sources({ reviews = true, files = {}, issues = null, waits = null } = {}) {
+async function sources({ reviews = true, files = {}, issues = null, waits = null, runs = null } = {}) {
   const h = projectHarness();
   Object.assign(h.source.files, files);
   h.source.files['.plates/plates.json'] = JSON.stringify({ name: 'Acme Studio', repo: 'acme/studio', tagline: 'Publish useful things.', practice: '0.8.32', stack: ['node'], phases: { shape: 'files' },
@@ -64,6 +64,8 @@ async function sources({ reviews = true, files = {}, issues = null, waits = null
     }
     // The waits' REST reads (phase 158): the same answers the fake gh gives.
     const u = new URL(url), key = `${u.pathname}${u.search}`;
+    // Recurring's runs read (phase 185): the same runs the fake gh lists, for both of the App's lists.
+    if (runs && u.pathname === '/repos/acme/studio/actions/runs') { h.source.requests.push({ url, options }); return Response.json({ workflow_runs: runs.map(r => ({ path: r.path, name: r.workflowName, status: r.status, conclusion: r.conclusion, created_at: r.createdAt, html_url: r.url })) }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } }); }
     if (waits && Object.hasOwn(waits, key)) { h.source.requests.push({ url, options }); return Response.json(waits[key], { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } }); }
     return h.fetcher(url, options);
   };
@@ -77,11 +79,12 @@ else if (argv[0] === 'api' && argv[1] === 'graphql') console.log(JSON.stringify(
 else if (argv[0] === 'api' && argv[1] === '-X' && argv[2] === 'GET' && Object.hasOwn(${JSON.stringify(waits ?? {})}, '/' + argv[3])) console.log(JSON.stringify(${JSON.stringify(waits ?? {})}['/' + argv[3]]));
 else if (argv[0] === 'api' && argv[1] === '-X') { console.error('gh: Not Found (HTTP 404)'); process.exit(1); }
 else if (argv[0] === 'pr' && argv[1] === 'list' && process.env.ACME_GH_PRS) console.log(process.env.ACME_GH_PRS);
+else if (argv[0] === 'run' && argv[1] === 'list' && ${JSON.stringify(!!runs)}) console.log(JSON.stringify(${JSON.stringify((runs ?? []).map(({ path, ...r }) => r))}));
 else if (argv[0] === 'issue' && argv[1] === 'list' && ${JSON.stringify(!!issues)}) console.log(JSON.stringify(argv.includes('plates:agent') ? ${JSON.stringify(issues ?? [])} : []));
 else { console.error('fake gh: offline'); process.exit(1); }
 `);
   await chmod(gh, 0o755);
-  const readWeb = createHomeReader(h.config, { fetcher, now: () => Date.now() }), webAccess = { ...h.access, login: 'acme-owner', pullRequestsRead: reviews, checksRead: !!waits };
+  const readWeb = createHomeReader(h.config, { fetcher, now: () => Date.now() }), webAccess = { ...h.access, login: 'acme-owner', pullRequestsRead: reviews, checksRead: !!waits, ...(runs ? { actionsPermission: 'read' } : {}) };
   const web = await readWeb(webAccess, token);
   const cliEnv = (state = 'state') => ({ ...gitEnv, PLATES_GH: gh, PLATES_CACHE: join(dir, 'cache'), PLATES_STATE: join(dir, state), XDG_STATE_HOME: join(dir, state) });
   const run = runNode(process.execPath, [bin, 'home', '--json'], { cwd: root, timeout: 120_000, env: cliEnv() });
@@ -445,6 +448,52 @@ test('a question leads its row in Yours', async () => {
     const html = backlogView(s.access, { schema: 1, generatedAt: new Date().toISOString(), lane: null, ...web });
     assert.match(html, /<span class="backlog-what backlog-q"[^>]*><strong>Try the Acme preview on your phone\.<\/strong><span class="backlog-ref">Acme Studio #2 · Acme phase 2<\/span><span class="backlog-choices"><a class="p-badge" href="\/review" data-recommended>Works · Recommended<\/a><a class="p-badge" href="\/review">Needs changes<\/a><\/span><\/span>/);
     assert.match(html, /<span class="backlog-ref">Acme Studio PR #7<\/span>acme\/studio#7: 1 review comment unanswered/, 'a review keeps its title');
+  } finally { await s.done(); }
+});
+
+// Phase 185: Recurring is one model too. plates home --recurring --json and /api/recurring are both recurringOf over
+// the plate's workflows and plates.json from Home's own read, its night record, and its latest runs (gh, or the App).
+const WORKFLOWS = {
+  '.github/workflows/plates-night.yml': 'name: plates-night\non:\n  schedule:\n    - cron: "23 7 * * *"\n  workflow_dispatch:\njobs: {}\n',
+  '.github/workflows/plates-robot.yml': 'name: plates-robot\non:\n  schedule:\n    - cron: "37 11 * * 1"\njobs: {}\n',
+  '.github/workflows/plates-publish.yml': 'name: plates-publish\non:\n  workflow_run:\n    workflows: [check]\n    types: [completed]\njobs: {}\n',
+  '.github/workflows/acme-sweep.yml': 'name: Acme sweep\non:\n  schedule:\n    - cron: "0 */6 * * *"\njobs: {}\n',
+};
+const RUNS = [
+  { path: '.github/workflows/plates-night.yml', workflowName: 'plates-night', status: 'completed', conclusion: 'success', createdAt: '2026-11-05T07:31:00Z', url: 'https://github.com/acme/studio/actions/runs/11' },
+  { path: '.github/workflows/plates-publish.yml', workflowName: 'plates-publish', status: 'completed', conclusion: 'failure', createdAt: '2026-11-05T09:00:00Z', url: 'https://github.com/acme/studio/actions/runs/12' },
+];
+test('recurring matches in both forms', async () => {
+  const s = await sources({ files: WORKFLOWS, runs: RUNS });
+  try {
+    const run = s.again(['--recurring', '--json']);
+    assert.equal(run.status, 0, run.stderr);
+    const cli = JSON.parse(run.stdout), web = await s.readWeb({ recurring: true });
+    const plates = form => form.plates.map(p => ({ ...p, routines: p.routines?.map(({ nextRun, shapes, ...r }) => ({ ...r, shapes: shapes.map(({ next, ...x }) => x) })) }));
+    assert.deepEqual(plates(web.recurring), plates(cli), 'the same routines, schedules, states, budgets and last results');
+    assert.deepEqual(web.links, cli.links, 'the same links');
+    // Next runs come from the same crons; each form computed them at its own moment, so they agree to the minute's cron.
+    for (const [a, b] of web.recurring.plates[0].routines.map((r, i) => [r.nextRun, cli.plates[0].routines[i].nextRun])) assert.ok(a === b || Math.abs(Date.parse(a) - Date.parse(b)) <= 6 * 3_600_000, `${a} ~ ${b}`);
+    // The fixture exercises a scheduled routine, an off one, an event one and one plates does not ship, so equality is not two empty lists agreeing.
+    const by = Object.fromEntries(cli.plates[0].routines.map(r => [r.id, r]));
+    assert.deepEqual(cli.plates[0].routines.map(r => r.id), ['night', 'robot', 'publish', '.github/workflows/acme-sweep.yml']);
+    assert.equal(by.night.last.from, 'workflow run', 'no night record in the fixture: the latest run answers');
+    assert.equal(by.night.last.result, 'success');
+    assert.deepEqual([by.robot.state, by.robot.off.key], ['off', 'robot.on']);
+    assert.equal(by.publish.last.result, 'failure');
+    assert.equal(by['.github/workflows/acme-sweep.yml'].last.none, 'no run in the latest runs read');
+    assert.deepEqual(cli.links, [{ projectId: 'studio', projectName: 'Acme Studio', repo: 'https://github.com/acme/studio', canvas: null, production: null }]);
+    // The page renders the same routines, and the terminal says each one.
+    const { recurringView } = await import('../lib/web/backlog-views.mjs');
+    const html = recurringView(s.access, { ...web.recurring, sidebar: { humans: [{ login: 'acme-owner', role: 'owner' }], links: web.links } });
+    for (const r of web.recurring.plates[0].routines) assert.ok(html.includes(`data-routine="${r.id}"`), r.id);
+    assert.match(html, /<strong>Robot<\/strong>[^]*?<strong>off<\/strong>: robot.on is not true[^<]*\(<code>robot.on<\/code>\)/);
+    assert.match(html, /<li>acme-owner <small>owner<\/small><\/li>/);
+    const text = s.again(['--recurring']).stdout;
+    assert.match(text, /^Acme Studio — 4 routines$/m);
+    assert.match(text, /^ {2}Night: daily at \d\d:23 \S+ · next /m);
+    assert.match(text, /^ {2}Robot: weekly on \w{3}, \d\d:37 \S+ · off: robot\.on is not true/m);
+    assert.match(text, /^ {6}last failure \(2026-11-05 09:00 UTC\)$/m);
   } finally { await s.done(); }
 });
 

@@ -1,11 +1,11 @@
 ---
-status: planned
+status: partial
 since: 2026-11-05
 goal: G7
 spec: 2
 depends: [178]
-note: "Specified in docs/specs/web-backlog.md. Read-only: starts, stops and reschedules nothing."
-evidence: []
+note: "Built in two increments: routinesOf, and plates home --recurring with the hosted /recurring and the sidebar's Humans and Links. Waits on the hosted read after deploy."
+evidence: ["evidence/2026-11-06-recurring.md"]
 ---
 
 # Recurring shows every routine each plate runs, and when it next runs
@@ -28,9 +28,10 @@ The sidebar's Recurring and `plates home --recurring --json` list, per plate, ea
 
 ## Acceptance
 
-- [ ] Every scheduled workflow appears once, with its next run computed from its cron: `tests/backlog-recurring.test.mjs: "each routine once, next run from its cron"`
-- [ ] A routine switched off in config shows off, with the key that says so: `tests/backlog-recurring.test.mjs: "an off routine says why"`
-- [ ] The CLI and the web show the same routines: `tests/home-isomorphism.test.mjs: "recurring matches in both forms"`
+- [x] Every scheduled workflow appears once, with its next run computed from its cron: `tests/backlog-recurring.test.mjs: "each routine once, next run from its cron"`
+- [x] A routine switched off in config shows off, with the key that says so: `tests/backlog-recurring.test.mjs: "an off routine says why"`
+- [x] The CLI and the web show the same routines: `tests/home-isomorphism.test.mjs: "recurring matches in both forms"`
+- [ ] After deploy, the hosted /recurring lists the fleet\'s routines through the App: ⚑ by hand: the conductor
 
 ## Real surfaces
 
@@ -48,4 +49,8 @@ By hand: none beyond the hosted read.
 
 ## Next action
 
-Write `routinesOf`'s first test from plates's own `.github/workflows/*.yml` crons and `.plates/plates.json`.
+Deploy, then read the hosted /recurring for the fleet through the App, and mark the phase built.
+
+## Trajectory
+
+- **2026-11-06** Latest runs are read as two lists (scheduled, then any event), because a busy PR workflow crowded weekly routines out of one. HOME_MODEL_VERSION 15; backlog.css cap 3000.
