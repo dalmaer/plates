@@ -15,8 +15,9 @@ import { projectHarness, phaseFile } from './helpers/web-projects.mjs';
 import { createHash } from 'node:crypto';
 import { createHomeReader } from '../lib/web/home.mjs';
 import { renderHomeSnapshot } from '../lib/web/views.mjs';
-import { HOME_SECTIONS, backlogOf, BACKLOG_LANES } from '../lib/work-items.mjs';
-import { readRoadmaps } from '../lib/home.mjs';
+import { HOME_SECTIONS, BACKLOG_LANES } from '../lib/work-items.mjs';
+import { backlogView, START_UNAVAILABLE } from '../lib/web/backlog-views.mjs';
+import { claimMessage } from '../lib/claim.mjs';
 import { waitsFixture } from './helpers/waits.mjs';
 
 const bin = fileURLToPath(new URL('../bin/plates.mjs', import.meta.url));
@@ -45,6 +46,7 @@ async function sources({ reviews = true, files = {}, issues = null, waits = null
   git(['init', '-q', '-b', 'main']); git(['add', '-A']); git(['commit', '-q', '-m', MESSAGE]);
   h.source.revision = git(['rev-parse', 'HEAD']);
   // The web: GraphQL through the App answers the review read.
+  const claimRefs = [];
   const fetcher = async (url, options) => {
     if (new URL(url).pathname === '/graphql') {
       h.source.requests.push({ url, options });
@@ -56,6 +58,8 @@ async function sources({ reviews = true, files = {}, issues = null, waits = null
         const repository = Object.fromEntries(blobs.map(([, alias, oid]) => { const text = byOid.get(oid); return [alias, text === undefined ? null : { oid, byteSize: Buffer.byteLength(text), isBinary: false, isTruncated: false, text }]; }));
         return Response.json({ data: { rateLimit: rate, repository } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
       }
+      // The backlog's claims read (phase 178): the claim branches the test pushed to the checkout's remote, and no open PRs.
+      if (query.includes('PlatesClaims')) return Response.json({ data: { rateLimit: rate, repository: { refs: { totalCount: claimRefs.length, nodes: claimRefs }, pullRequests: { totalCount: 0, nodes: [] } } } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
       return Response.json({ data: { rateLimit: rate, ...(query.includes('PlatesReviewWindow') ? { repository: reviewRepository } : {}) } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
     }
     // The waits' REST reads (phase 158): the same answers the fake gh gives.
@@ -72,17 +76,19 @@ else if (argv[0] === 'api' && argv[1] === 'graphql' && q.includes('PlatesReviewW
 else if (argv[0] === 'api' && argv[1] === 'graphql') console.log(JSON.stringify({ data: { rateLimit: ${JSON.stringify(rate)} } }));
 else if (argv[0] === 'api' && argv[1] === '-X' && argv[2] === 'GET' && Object.hasOwn(${JSON.stringify(waits ?? {})}, '/' + argv[3])) console.log(JSON.stringify(${JSON.stringify(waits ?? {})}['/' + argv[3]]));
 else if (argv[0] === 'api' && argv[1] === '-X') { console.error('gh: Not Found (HTTP 404)'); process.exit(1); }
+else if (argv[0] === 'pr' && argv[1] === 'list' && process.env.ACME_GH_PRS) console.log(process.env.ACME_GH_PRS);
 else if (argv[0] === 'issue' && argv[1] === 'list' && ${JSON.stringify(!!issues)}) console.log(JSON.stringify(argv.includes('plates:agent') ? ${JSON.stringify(issues ?? [])} : []));
 else { console.error('fake gh: offline'); process.exit(1); }
 `);
   await chmod(gh, 0o755);
-  const web = await createHomeReader(h.config, { fetcher, now: () => Date.now() })({ ...h.access, login: 'acme-owner', pullRequestsRead: reviews, checksRead: !!waits }, token);
+  const readWeb = createHomeReader(h.config, { fetcher, now: () => Date.now() }), webAccess = { ...h.access, login: 'acme-owner', pullRequestsRead: reviews, checksRead: !!waits };
+  const web = await readWeb(webAccess, token);
   const cliEnv = (state = 'state') => ({ ...gitEnv, PLATES_GH: gh, PLATES_CACHE: join(dir, 'cache'), PLATES_STATE: join(dir, state), XDG_STATE_HOME: join(dir, state) });
   const run = runNode(process.execPath, [bin, 'home', '--json'], { cwd: root, timeout: 120_000, env: cliEnv() });
   assert.equal(run.status, 0, run.stderr);
   // More plates home runs in the same checkout; `state` keeps their last-looked time apart from the first run's.
-  const again = (args, { state = 'state-again' } = {}) => runNode(process.execPath, [bin, 'home', ...args], { cwd: root, timeout: 120_000, env: cliEnv(state) });
-  return { web, cli: JSON.parse(run.stdout), dir, root, env: cliEnv('state-again'), again, done: () => rm(dir, { recursive: true, force: true }) };
+  const again = (args, { state = 'state-again', env = {} } = {}) => runNode(process.execPath, [bin, 'home', ...args], { cwd: root, timeout: 120_000, env: { ...cliEnv(state), ...env } });
+  return { web, cli: JSON.parse(run.stdout), dir, root, git, gitEnv, claimRefs, again, access: webAccess, readWeb: options => readWeb(webAccess, token, options), done: () => rm(dir, { recursive: true, force: true }) };
 }
 
 // What a reader adds about its own read, not the sources: when it read, and the App's numeric repository id.
@@ -364,37 +370,65 @@ test('the CLI and the web show the same changes in flight', async () => {
   } finally { await s.done(); }
 });
 
-// Phase 178: the backlog is one model too. plates home --backlog --json is backlogOf over the snapshot both forms
-// read, with the plate's phases and claims as plates next reads them. The hosted /backlog is increment 3: until it
-// renders, the web half here is backlogOf over the web's own snapshot with the same roadmap.
-const sourceless = backlog => ({ ...backlog, lanes: backlog.lanes.map(l => ({ ...l, items: l.items.map(({ source: { readAt, ...source }, answers, ...item }) => ({ ...item, source, answers: answers.map(({ unavailable, ...a }) => a) })) })) });
+// Phase 178: the backlog is one model too. plates home --backlog --json and /api/backlog are both backlogFor over
+// their own snapshot, with each plate's phases from the same read (projectFromSource) and its claims from where each
+// form reads them: the checkout's remote through git and gh, and the App's GraphQL. Here both see one claim branch.
+// What a read adds about itself: when it read (readAt, and the claim's days left to the tenth), and which writers a form runs.
+const sourceless = backlog => ({ ...backlog, lanes: backlog.lanes.map(l => ({ ...l, items: l.items.map(({ source: { readAt, ...source }, answers, ageLeft, ...item }) => ({ ...item, source, answers: answers.map(({ unavailable, ...a }) => a) })) })) });
 test('backlog matches in both forms', async () => {
   const s = await sources();
   try {
-    const run = s.again(['--backlog', '--json']);
+    // A remote for the checkout, and a claim on phase 1 pushed to it as plates phase claim writes one. The App lists the same branch.
+    const remote = join(s.dir, 'remote.git'), at = new Date(Math.floor(Date.now() / 1000) * 1000).toISOString();
+    execFileSync('git', ['init', '-q', '--bare', '-b', 'main', remote], { env: s.gitEnv });
+    s.git(['remote', 'add', 'origin', remote]); s.git(['push', '-q', 'origin', 'main']);
+    const message = claimMessage({ phase: 1, provider: 'claude', machine: 'acme-mac', at, token: 'acme-token' });
+    const sha = execFileSync('git', ['-C', s.root, 'commit-tree', 'HEAD^{tree}', '-p', 'HEAD', '-m', message], { env: { ...s.gitEnv, GIT_COMMITTER_DATE: at, GIT_AUTHOR_DATE: at }, encoding: 'utf8' }).trim();
+    s.git(['push', '-q', 'origin', `${sha}:refs/heads/claims/phase-1`]);
+    s.claimRefs.push({ name: 'phase-1', target: { oid: sha, message, committedDate: at } });
+
+    const run = s.again(['--backlog', '--json'], { env: { ACME_GH_PRS: '[]' } });
     assert.equal(run.status, 0, run.stderr);
-    const cli = JSON.parse(run.stdout), at = Date.parse(cli.generatedAt);
+    const cli = JSON.parse(run.stdout);
+    const web = await s.readWeb({ backlog: true }), api = { schema: 1, generatedAt: web.generatedAt, lane: null, ...web.backlog };
     assert.deepEqual(cli.lanes.map(l => l.lane), BACKLOG_LANES.map(l => l.id), 'every lane, in order');
-    const roadmaps = await readRoadmaps([{ project: { id: 'studio' }, dir: s.root }], { env: s.env, now: () => at });
-    const expected = backlogOf(s.cli, roadmaps, { now: at });
-    // Over the snapshot plates home --json printed from the same checkout: the two reads differ only in when they read.
-    assert.deepEqual(sourceless({ lanes: cli.lanes, plates: cli.plates, needsShaping: cli.needsShaping }), sourceless(expected), 'the CLI prints backlogOf over the home snapshot');
-    // The fixture puts something in more than one lane, so equality is not two empty backlogs agreeing.
+    assert.deepEqual(sourceless({ ...api, generatedAt: null }), sourceless({ ...cli, generatedAt: null }), 'the same lanes, items, why-keys, plates and claims in both forms');
+    // The fixture puts something in three lanes, so equality is not two empty backlogs agreeing.
     const lanes = Object.fromEntries(cli.lanes.map(l => [l.lane, l.items.map(i => i.key)]));
-    assert.deepEqual(lanes.yours.filter(k => /^studio:phase:/.test(k)).toSorted(), ['studio:phase:1', 'studio:phase:2'], 'the step and the walk nest under their phases');
+    assert.deepEqual(lanes['in-flight'], ['studio:phase:1'], 'the claimed phase is in flight');
+    assert.deepEqual(cli.lanes[0].items[0].holder, { by: 'branch', branch: 'claims/phase-1', provider: 'claude', machine: 'acme-mac', at, pr: null });
+    assert.ok(Math.abs(cli.lanes[0].items[0].ageLeft - 7) <= 0.1 && Math.abs(api.lanes[0].items[0].ageLeft - 7) <= 0.1, 'a fresh claim has its seven days');
+    assert.ok(lanes.yours.includes('studio:phase:2'), 'the walk nests under its phase');
     assert.deepEqual(lanes.waiting, ['studio:phase:3'], 'the walk that is not ready waits');
-    assert.equal(cli.plates[0].state, 'read');
-    assert.deepEqual(cli.claims, [{ projectId: 'studio', read: false, why: 'no git remote here, so there is nowhere to hold a claim' }]);
-    // The web's snapshot, through the same function and roadmap, gives the same backlog.
-    assert.deepEqual(sourceless(backlogOf(s.web, roadmaps, { now: at })), sourceless(expected));
+    assert.deepEqual(lanes.done, [], 'phase 4 was built before the seven-day window');
+    assert.deepEqual(cli.claims, [{ projectId: 'studio', read: true }]);
+    // The web page renders those items: every lane's header and count, one row per item, and Start off with its reason.
+    const html = backlogView(s.access, api);
+    for (const l of api.lanes) assert.match(html, new RegExp(`id="lane-${l.lane}">${l.title} <span class="meta">${l.items.length}</span>`));
+    for (const item of api.lanes.flatMap(l => l.items)) assert.ok(html.includes(`data-backlog-item="${item.key}"`), item.key);
+    assert.match(html, /claim 6d left|claim 7d left/);
+    assert.match(html, /<span class="p-badge">claude · claimed<\/span>/);
+    if (lanes['agent-ready'].length) assert.ok(html.includes(`title="${START_UNAVAILABLE}"`));
     // The terminal renders the same items, one line each, under its lane's header and count.
-    const text = s.again(['--backlog']);
+    const text = s.again(['--backlog'], { env: { ACME_GH_PRS: '[]' } });
     assert.equal(text.status, 0, text.stderr);
     for (const l of cli.lanes) assert.match(text.stdout, new RegExp(`^${l.title} ${l.count}$`, 'm'));
-    for (const item of cli.lanes.flatMap(l => l.items)) assert.ok(text.stdout.split('\n').filter(line => line.includes(item.title)).length >= 1, item.key);
-    assert.match(text.stdout, /^In flight 0\n {2}none$/m, 'an empty lane says none');
-    assert.match(text.stdout, /^ {2}2\. Acme Studio #2 {2}Acme phase 2 · G1 · ~5 min {2}\[\+walk\] {2}— added \d+ days ago$/m);
-    assert.match(text.stdout, /^Acme Studio: claims not read — no git remote here/m);
+    for (const item of cli.lanes.flatMap(l => l.items)) assert.ok(text.stdout.split('\n').some(line => line.includes(item.title)), item.key);
+    assert.match(text.stdout, /^ {2}1\. Acme Studio #1 {2}Acme phase 1 · G1 {2}\[claude · claimed\] {2}— claim [67]d left$/m);
+    assert.match(text.stdout, /^ {2}\d\. Acme Studio #2 {2}Acme phase 2 · G1 · ~5 min {2}\[\+walk\] {2}— added \d+ days ago$/m);
+  } finally { await s.done(); }
+});
+
+test('a plate with no remote holds no claims, in the terminal', async () => {
+  const s = await sources({ reviews: false });
+  try {
+    const run = s.again(['--backlog', '--json']);
+    assert.equal(run.status, 0, run.stderr);
+    const cli = JSON.parse(run.stdout);
+    assert.deepEqual(cli.claims, [{ projectId: 'studio', read: false, why: 'no git remote here, so there is nowhere to hold a claim' }]);
+    assert.equal(cli.plates[0].state, 'read');
+    assert.deepEqual(cli.lanes[0].items, [], 'nothing in flight');
+    assert.match(s.again(['--backlog']).stdout, /^In flight 0\n {2}none$/m, 'an empty lane says none');
   } finally { await s.done(); }
 });
 

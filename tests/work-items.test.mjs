@@ -489,3 +489,31 @@ test('the terminal backlog names an unread plate, never a zero', async () => {
   assert.match(text, /^ {2}\d+\. Acme Anvils #4 {2}Acme phase 4 · Unblocks 1 phase · G1 {2}— added 16 days ago$/m);
   assert.match(text, /^1 free phase waits for shaping \(not spec: 2\), so it is not agent-ready$/m);
 });
+
+// Phase 178, increment 3: both forms turn a plate's value and its claims into the backlog's input the same way.
+test('a plate\'s claims are read the way plates next reads them', async () => {
+  const { roadmapOf, claimFromRef, phaseOfWorkBranch, phaseRoadmap } = await import('../lib/work-items.mjs');
+  const { claimMessage, phaseOfBranch } = await import('../lib/claim.mjs');
+  // The claim commit as plates phase claim writes it, read back field by field.
+  assert.deepEqual(claimFromRef('claims/phase-12', claimMessage({ phase: 12, provider: 'codex', machine: 'acme-mac', at: '2026-11-01T00:00:00Z', token: 't' }), '2026-11-01T00:00:00Z'),
+    { phase: 12, branch: 'claims/phase-12', provider: 'codex', machine: 'acme-mac', at: '2026-11-01T00:00:00.000Z' });
+  assert.equal(claimFromRef('claims/other', '', null), null);
+  for (const name of ['claude/phase-54-robot', 'codex/phase-7', 'work/phase-007', 'claims/phase-3', 'main', 'feature/phases-2', 'acme_phase-9x']) assert.equal(phaseOfWorkBranch(name), phaseOfBranch(name), name);
+  const phase = (id, more = {}) => ({ id, file: `${id}-acme.md`, title: `Acme ${id}`, status: 'planned', goal: 'G1', depends: [], since: '2026-10-01', spec: 2, next: 'Build.', tests: ['x'], done: 'y', ...more });
+  const project = { id: 'anvils', state: 'complete', gaps: [], roadmap: phaseRoadmap([phase(1), phase(2), phase(3, { goal: 'G0' }), phase(4, { depends: [9] }), phase(9, { status: 'built', evidence: ['e'] })], [{ id: 'G0', retired: true }, { id: 'G1' }]) };
+  assert.deepEqual(Object.keys(project.roadmap.phases[0]).toSorted(), ['depends', 'file', 'goal', 'id', 'next', 'since', 'spec', 'status', 'title'], 'only what the backlog reads');
+  const now = '2026-11-05T12:00:00Z';
+  const read = roadmapOf(project, { state: 'read', claims: [{ phase: 1, branch: 'claims/phase-1', provider: 'claude', machine: 'acme-mac', at: '2026-11-04T00:00:00.000Z' }],
+    prs: [{ phase: 2, number: 7, url: 'https://github.com/acme/anvils/pull/7', branch: 'codex/phase-2-anvil', author: 'acme', at: '2026-11-03T00:00:00Z' }] }, { now });
+  // Ready as nextPhase says (a retired goal's phase is not); a claim branch first, else an open PR naming the phase.
+  assert.deepEqual(read.free.map(p => p.id), [4]);
+  assert.deepEqual(read.claimed.map(c => [c.id, c.holder.by, c.holder.provider]), [[1, 'branch', 'claude'], [2, 'pr', 'codex']]);
+  assert.deepEqual(read.claims, { read: true, prs: true });
+  // Nowhere to hold a claim: everything ready is free, and says why. Claims that could not be read: the plate is not read.
+  const none = roadmapOf(project, { state: 'none', why: 'no git remote here' }, { now });
+  assert.deepEqual([none.free.map(p => p.id), none.claimed, none.claims], [[1, 2, 4], [], { read: false, why: 'no git remote here' }]);
+  assert.deepEqual(roadmapOf(project, { state: 'unavailable', why: 'quota' }, { now }), { projectId: 'anvils', na: 'its claims could not be read: quota' });
+  assert.deepEqual(roadmapOf(project, undefined, { now }).na, 'its claims could not be read: not read');
+  assert.match(roadmapOf({ id: 'anvils', state: 'complete', gaps: [] }, { state: 'none' }, { now }).na, /not plates phase files/);
+  assert.equal(roadmapOf({ id: 'anvils', state: 'unavailable', gaps: [{ source: 'project', reason: 'No checkout.' }] }, null, { now }).na, 'No checkout.');
+});

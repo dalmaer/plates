@@ -2,7 +2,7 @@
 attempt: {"accepted":true,"verified":true,"rework":1,"lessonStatus":{"status":"none"}}
 ---
 
-# Evidence: phase 178 — backlogOf and plates home --backlog (increments 1 and 2)
+# Evidence: phase 178 — the backlog in lanes, in the terminal and hosted (increments 1–3)
 
 - Date: 2026-11-05
 - Phase: 178, the backlog shows every plate's work in lanes, with reasons
@@ -31,13 +31,23 @@ Run by the conductor from the worktree root, on the branch with both increments:
 - "backlog matches in both forms" covers the CLI half only: `--json` equals `backlogOf` over the home snapshot and over the web's snapshot with the same roadmap. The web renderer arrives in increment 3, so the box stays unchecked.
 - `.plates/surface.json` flags go from 200 to 202 (`--backlog` and `--lane` on home); no verb is added.
 
+## Increment 3: hosted `/backlog` and `/api/backlog` (2026-11-05)
+
+Run by the conductor from the worktree root:
+
+- `npm run check:focused -- tests/web-backlog.test.mjs tests/home-isomorphism.test.mjs tests/work-items.test.mjs tests/web-design.test.mjs tests/web-review.test.mjs tests/web-operation-coverage.test.mjs tests/names-verify.test.mjs tests/surface-budget.test.mjs tests/guides.test.mjs`: exit 0, 227 pass, 0 fail.
+- "backlog matches in both forms" (tests/home-isomorphism.test.mjs) now covers both halves. A checkout with a bare remote holds a real claim branch, and the fake App lists the same branch. The CLI `--json` and `/api/backlog` are deep-equal except for the read time and the claim's days left, and both of those are checked to be within 0.1 of 7. Both forms take phases from `projectFromSource`'s roadmap, and claims as `nextFree` reads them (claim branch, then an open PR). Increment 2's working-tree read is replaced.
+- tests/web-backlog.test.mjs: signed out, `/backlog` is refused, `/api/backlog` gives 401, and GitHub is never read. A plate whose claims can't be read shows "not read", never free phases.
+- `npm run look` (run by the builder, exit 0) captured `/backlog` from fixtures at 390 and 1280 px, light and dark. The conductor looked at the dark laptop and light phone captures. In flight comes first; each row is one line on the laptop with chips and "claim 5d left"; on the phone the chips wrap under the title; the sidebar shows Backlog 7, Recurring, Agents and Pending review marked "coming", and the unread plate says "not read".
+- Guard change: tests/web-design.test.mjs counts `/assets/backlog.css` apart from the phase-171 CSS bound (81780 bytes over the sheets it was measured on), with its own 2600-byte cap. The old bound is unchanged over its sheets.
+
 ## By hand
 
 | Did | Expected | Observed | Proves / does not prove |
 | --- | --- | --- | --- |
 | Read the new tests | Each asserts a lane rule from the spec, against a synthetic Acme fleet | They assert lanes, children, why-keys, `ageLeft`, `needsShaping` and the not-read state; the ordering test re-sorts from why strings alone | Proves the model; does not prove any rendering |
-| Owner's walk on phone and laptop | | Not run: there is no view yet | |
+| Owner's walk on phone and laptop | | Not run: waits on the deploy | |
 
 ## Gaps and decision
 
-Partial. Still to come: increment 3 (hosted `/backlog` with the sidebar shell), the "backlog matches in both forms" test, `npm run look`, and the owner's walk. The unread-plate test lives in tests/work-items.test.mjs until a renderer exists; the web half of the isomorphism test arrives with increment 3. Seen beside the phase, not fixed: when plates home runs from a worktree, loose-ends read the main checkout as a second plate, so a ⚑ phase can show twice in Yours.
+Partial; owes the walk. Still to come: the deploy, which is the real surface (the hosted workspace reading the owner's fleet through the App), and the owner's walk on phone and laptop. Seen beside the phase, not fixed: when plates home runs from a worktree, loose-ends read the main checkout as a second plate, so a ⚑ phase can show twice in Yours.

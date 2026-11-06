@@ -87,12 +87,16 @@ page renders.
 same read: **In flight**, **Yours**, **Agent-ready**, **Waiting** and
 **Recently done**, one line per item with the reasons it sits there (its
 why-keys) and, on the right, a claim's days left or how long ago it was added.
-Each plate's phases and claims are read as `plates next` reads them in that
-plate's checkout. A phase owing a walk is under Yours with the walk nested in
+Each plate's phases come from Home's own read of its default branch, and its
+claims from its checkout's remote, as `plates next` reads them. A phase owing a walk is under Yours with the walk nested in
 it; a free phase without `spec: 2` waits for shaping. `--lane <l>` keeps one
 lane (`in-flight`, `yours`, `agent-ready`, `waiting` or `done`), `--project <id>`
 one plate, and `--json` prints the model. A plate that could not be read says
-"not read", never zero. The hosted `/backlog` arrives later.
+"not read", never zero; so does one whose claims could not be read. The hosted
+`/backlog` (linked from Home) shows the same items as a list beside a sidebar,
+with `/api/backlog` carrying the same JSON; there the claims are the plate's
+`claims/phase-*` branches and open PRs, read through the GitHub App. Start on an
+agent-ready row is off until agents can be attached (phase 181).
 
 On the web, **Since you last looked** starts at your previous visit. A visit is a
 run of Home page loads less than thirty minutes apart, and "since" is the last

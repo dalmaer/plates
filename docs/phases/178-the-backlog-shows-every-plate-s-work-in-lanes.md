@@ -1,10 +1,11 @@
 ---
 status: partial
+owes: walk
 since: 2026-11-05
 goal: G7
 spec: 2
 depends: [166]
-note: "Increments 1 and 2 landed: backlogOf, and plates home --backlog prints the inbox list. Next: the hosted /backlog with the sidebar."
+note: "Built in three increments: backlogOf, plates home --backlog, and the hosted /backlog list beside the sidebar. Owes the deploy, then the owner's walk."
 evidence: ["evidence/2026-11-05-backlog-lanes.md"]
 ---
 
@@ -32,8 +33,8 @@ evidence: ["evidence/2026-11-05-backlog-lanes.md"]
 - [x] A phase owing a walk appears under Yours with the walk as its child, never under Agent-ready: `tests/work-items.test.mjs: "a phase owing a walk is yours, not an agent's"`
 - [x] Ordering is reproducible from the why-keys, with a stable tie-break: `tests/work-items.test.mjs: "backlog order is reproducible from its why-keys"`
 - [x] A plate that could not be read shows "not read", never an empty lane: `tests/work-items.test.mjs: "an unread plate is not an empty lane"`
-- [ ] The CLI and the web show the same items: `tests/home-isomorphism.test.mjs: "backlog matches in both forms"`
-- [ ] The list is captured light and dark at 390 and 1280 px: `npm run look`
+- [x] The CLI and the web show the same items: `tests/home-isomorphism.test.mjs: "backlog matches in both forms"`
+- [x] The list is captured light and dark at 390 and 1280 px: `npm run look`
 - [ ] ⚑ by hand: the owner, on phone and laptop.
 
 ## Your part
@@ -64,7 +65,7 @@ By hand: the owner's walk above; a wrong reason changes the why-keys, not the la
 
 ## Next action
 
-Build increment 3: the hosted `/backlog` and `/api/backlog` list with the sidebar shell, which needs an App-side read of each plate's phases and claims; then the web half of "backlog matches in both forms" and `npm run look`.
+Deploy, then the owner's walk on phone and laptop (Your part).
 
 ## Trajectory
 
@@ -73,3 +74,5 @@ Build increment 3: the hosted `/backlog` and `/api/backlog` list with the sideba
 - **2026-11-05** Any edit to lib/work-items.mjs needs its sha256 refreshed in lib/web/capability-source-data.mjs, or the operation-coverage test fails.
 - **2026-11-05** Importing STALE_DAYS from lib/claim.mjs broke the names observation's 128-file closure cap; backlogOf keeps its own constant, tested equal.
 - **2026-11-05** `plates home --backlog` reads each plate's roadmap from its working tree through `collect` and `nextFree`, while the snapshot reads the default branch; a dirty or behind tree can disagree.
+- **2026-11-05** Increment 3: the web reads claims with one App GraphQL query per plate (claim branches, then open PRs), and both forms take phases from projectFromSource's roadmap; HOME_MODEL_VERSION is 13.
+- **2026-11-05** backlog.css is counted apart from the phase-171 CSS bound, with its own 2600-byte cap.
