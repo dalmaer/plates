@@ -478,14 +478,17 @@ Acme's lens.
   await writeFile(join(root, '.plates/plates.json'), JSON.stringify({ name: 'Acme Anvils', repo: 'acme/anvils', practices: ['base', 'night'] }));
   const off = plates(['night', 'plan', '--date', NIGHT, '--json'], root, { PLATES_GH: gh });
   assert.ok(!off.json().plan.items.some(i => i.source.startsWith('persona:')));
-  // A persona file that cannot be read is an input the plan cannot read: exit 2, nothing written.
+  // A persona run that fails does not fail the night's plan: it is recorded as one review item, with why, and the plan is made.
   await writeFile(join(root, '.plates/plates.json'), JSON.stringify({ name: 'Acme Anvils', repo: 'acme/anvils', practices: ['base', 'night', 'personas'] }));
   await writeFile(join(root, '.agents/personas/broken.md'), 'no front matter\n');
-  const before = await readFile(join(root, PLAN), 'utf8');
   const bad = plates(['night', 'plan', '--date', NIGHT, '--json'], root, { PLATES_GH: gh });
-  assert.equal(bad.code, 2, bad.out);
-  assert.match(bad.json().error, /cannot read a plan source \(personaCandidates\)/);
-  assert.equal(await readFile(join(root, PLAN), 'utf8'), before);
+  assert.equal(bad.code, 0, bad.out + bad.err);
+  const failed = bad.json().plan.items.filter(i => i.id === 'personas-run');
+  assert.deepEqual(failed.map(i => [i.kind, i.source, i.lane, i.number]), [['review', 'default', 'night', null]], 'one review item records the failed run');
+  assert.match(failed[0].title, /^The personas could not be run tonight: .*broken\.md/);
+  assert.ok(!bad.json().plan.items.some(i => i.source.startsWith('persona:')), 'no persona goal is read from a run that failed');
+  assert.ok(bad.json().plan.items.some(i => i.id === 'measures'), 'the rest of the plan stands');
+  assert.equal(JSON.parse(await readFile(join(root, PLAN), 'utf8')).items.find(i => i.id === 'personas-run')?.kind, 'review', 'and it is written');
 });
 
 test('plates#142: a broken persona with a long command and long stderr still makes a valid plan; the title is cut, the review page keeps them whole', async t => {

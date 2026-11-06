@@ -4,7 +4,7 @@ since: 2026-10-14
 goal: G4
 spec: 2
 depends: [11]
-note: "Built 2026-10-14: the parser, plates persona run, planCandidates and the optional personas practice. Gap: the default plan (phase 73) does not list the candidates yet, and the night does not run personas; the owner's read of a real review page is open."
+note: "Built and proven by test: the parser, plates persona run, the optional practice, and the night: its plan runs every persona and lists each missed goal with its number (each broken one a review item), a failed run is one review item rather than a failed night, and the night's PR carries the review pages. The owner's read of a real review page is open."
 evidence: ["evidence/2026-10-14-personas.md"]
 issue: 133
 ---
@@ -31,7 +31,7 @@ Not in scope: a persona that calls a model (isocan's small tier) — a later dec
 
 - [x] A persona file parses into goals, and an unknown key, a goal with no command, or a bound that is not a number is refused, naming it. `tests/persona.test.mjs`
 - [x] `plates persona run` measures each goal, marks met, missed or broken, writes the review page, and writes nothing else. `tests/persona.test.mjs`
-- [ ] A missed goal appears in the next default plan as a candidate item naming its number; a broken one as a review item. `tests/persona.test.mjs`, `tests/night-plan.test.mjs`
+- [x] A missed goal appears in the next default plan as a candidate item naming its number; a broken one as a review item. `tests/persona.test.mjs`, `tests/night-plan.test.mjs`
 - [x] The optional practice installs the runner and an example persona and renders clean. `tests/practices.test.mjs`
 - [ ] ⚑ by hand: the owner reads one persona's review page from a real project and says whether its goals are the right ones.
 
@@ -67,4 +67,8 @@ By hand: the owner's read of one review page.
 
 ## Next action
 
-After phase 73 merges: list `planCandidates` items in `plates night plan`'s default plan (`tests/night-plan.test.mjs`), and have the night run `plates persona run --all` before the plan is made.
+Owner: after the next night of a project with the personas practice (plates has it), read its `docs/reviews/<date>-<persona>.md` in that night's PR and say whether the goals are the right ones.
+
+## Trajectory
+
+- **2026-11-06** — The default plan already listed persona candidates: phase 73's `personaCandidates` runs `persona run --all` inside `night-plan.mjs tonight` (the night's Plan step), tested in tests/night-plan.test.mjs. Two gaps were real: a persona file that could not be read made the plan unreadable and the night red, and the review pages the run wrote were never committed (only the 2026-10-15 page exists). Now a failed run is one review item (`personas-run`) and the plan stands; the night's PR carries `docs/reviews/<date>-<persona>.md`, and drain treats those dated pages as data. No model is called: goal commands are the project's own.
