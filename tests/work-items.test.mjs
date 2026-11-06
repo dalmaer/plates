@@ -461,6 +461,30 @@ test('backlog order is reproducible from its why-keys', () => {
   assert.deepEqual(tie, ['anvils:phase:4', 'anvils:phase:12', 'anvils:phase:14', 'anvils:phase:5']);
 });
 
+// Phase 184: events annotate cards with what happened; they never move one. The same backlog, with every
+// card's events in any order and with every action, lists the same keys in the same order in every lane.
+test('events never reorder', async () => {
+  const { withEvents, backlogEvent, BACKLOG_ACTIONS } = await import('../lib/backlog-events.mjs');
+  const { snapshot, roadmaps } = backlogFixture();
+  for (const quickFirst of [false, true]) {
+    const backlog = backlogOf(snapshot, roadmaps, { now: NOW, quickFirst });
+    const order = b => b.lanes.map(l => [l.lane, l.items.map(i => i.key)]);
+    const keys = backlog.lanes.flatMap(l => l.items.map(i => i.key)).filter(k => /^[a-z][a-z0-9-]*:[a-z-]+:[A-Za-z0-9]/.test(k));
+    // Most events on the last card, none on the first: a count or a recent action is never a rank.
+    const events = keys.flatMap((key, n) => Array.from({ length: n + 1 }, (_, i) => backlogEvent({ actor: i % 2 ? 'owner' : 'agent:claude', key, action: BACKLOG_ACTIONS[(n + i) % BACKLOG_ACTIONS.length],
+      ...(BACKLOG_ACTIONS[(n + i) % BACKLOG_ACTIONS.length] === 'not-now' ? { reason: 'stated' } : {}), takes: n }, { now: Date.parse(NOW) - (n * 60 + i) * 60000 })));
+    assert.ok(keys.length > 5 && events.length > keys.length);
+    for (const given of [events, events.toReversed()]) {
+      const annotated = withEvents(backlog, given);
+      assert.deepEqual(order(annotated), order(backlog), `quick first ${quickFirst}`);
+      assert.deepEqual(annotated.lanes.map(l => l.count), backlog.lanes.map(l => l.count));
+      assert.ok(annotated.lanes.flatMap(l => l.items).every(i => i.history?.count >= 1));
+    }
+    // The ordering is read from the backlog's inputs alone: events are not one of them.
+    assert.deepEqual(backlogOf({ ...snapshot, events }, roadmaps, { now: NOW, quickFirst }), backlog);
+  }
+});
+
 test('an unread plate is not an empty lane', () => {
   const { snapshot, roadmaps, project, unread } = backlogFixture();
   const backlog = backlogOf(snapshot, roadmaps, { now: NOW });
