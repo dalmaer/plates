@@ -7,7 +7,8 @@ k runs. Lower is better. `climb.mjs measure test-time` prints it.
 The workflow already measured the baseline; do not repeat it. Work within the
 configured measurement command's scope. For a preliminary check after editing,
 `node scripts/plates/climb.mjs measure test-time --runs 1 --json` runs that
-command once through the allowed measurement tool. This is not a keep verdict:
+command once through the allowed measurement tool; do not run the
+measurement command directly. This is not a keep verdict:
 commit, run the unchanged paired `compare --decide`, then `guard` for a kept
 change. The full base/candidate validation belongs to `guard`; do not run it
 again manually before the comparison. Baseline wall time precedes your picked
@@ -15,8 +16,8 @@ agent allowance, and the admission estimate reserves room for validation.
 
 **Where to look first:** the slowest test files. The test ledger
 (`.plates/test-runs/*.json`, written by `scripts/plates/test-ledger.mjs`) records
-each top-level test's file, name and milliseconds; sum by file and start at
-the top. The health page's `slow_tests` row names tests that got slower.
+each top-level test's file, name and milliseconds: open the newest few with
+Read, sum by file and start at the top. The health page's `slow_tests` row names tests that got slower.
 
 **Changes that have paid before:** a test that spawns a process per case
 where one process would do; a fixture rebuilt per test that could be built

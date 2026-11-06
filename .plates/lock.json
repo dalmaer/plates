@@ -3,7 +3,7 @@
   "files": {
     ".agents/climb/PROTOCOL.md": {
       "practice": "climb",
-      "sha256": "d31221d9abfa51053d5dae3564d6bd2c670401ee547fff4fafa86082c035bd35"
+      "sha256": "42d14a46b85303a99d01402101a2a6439b9fb14adf2559abdae421506d81236f"
     },
     ".agents/climb/TEND.md": {
       "practice": "climb",
@@ -31,7 +31,7 @@
     },
     ".agents/climb/jobs/test-time.md": {
       "practice": "climb",
-      "sha256": "f70c28edb4ca379ef4ee932fe18c464e820b8127f723241934cf7ea813715d78"
+      "sha256": "3eedb2f645d123f9f8b93186c52abfd566a220cb72cfa632aac4f0865e896bd2"
     },
     ".agents/cross-review/REVIEW.md": {
       "practice": "cross-review",
