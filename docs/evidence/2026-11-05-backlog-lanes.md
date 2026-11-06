@@ -41,12 +41,20 @@ Run by the conductor from the worktree root:
 - `npm run look` (run by the builder, exit 0) captured `/backlog` from fixtures at 390 and 1280 px, light and dark. The conductor looked at the dark laptop and light phone captures. In flight comes first; each row is one line on the laptop with chips and "claim 5d left"; on the phone the chips wrap under the title; the sidebar shows Backlog 7, Recurring, Agents and Pending review marked "coming", and the unread plate says "not read".
 - Guard change: tests/web-design.test.mjs counts `/assets/backlog.css` apart from the phase-171 CSS bound (81780 bytes over the sheets it was measured on), with its own 2600-byte cap. The old bound is unchanged over its sheets.
 
+## The owner's first look, and two fixes (2026-11-05)
+
+After bd41227 was deployed, the owner opened `/backlog` on the phone. Every plate (plates, ledger, duo, cajones, white-elephant, dtv, papa-tapes, isocan) said "not read", with Backlog 0. HOME_MODEL_VERSION 13 had made every cached value unusable, and `/backlog` rendered cache-only with no client to refresh it. A loading plate was also labelled "not read". A second fault was found in review: a plate older than the ten-minute cache window is `stale`, and the backlog treated stale as not read.
+
+- "fix: /backlog fills in while plates load, and a loading plate says so" and "fix: a stale plate stays in the backlog, and the page reads until it is fresh". Each `plates prove` was VERIFIED, red before and green after: tests/web-backlog.test.mjs ("a cold cache shows every plate loading, and the backlog fills them in"; "a stale plate keeps its items, is never 'not read', and its claims are read") and tests/web-backlog-client.test.mjs ("the page keeps reading while a plate is stale").
+- Conductor: `npm run check:focused -- tests/web-backlog.test.mjs tests/web-backlog-client.test.mjs tests/web-design.test.mjs tests/work-items.test.mjs tests/home-isomorphism.test.mjs tests/web-operation-coverage.test.mjs tests/names-verify.test.mjs tests/surface-budget.test.mjs tests/web-activation-plan.test.mjs`: exit 0, 224 pass.
+
 ## By hand
 
 | Did | Expected | Observed | Proves / does not prove |
 | --- | --- | --- | --- |
 | Read the new tests | Each asserts a lane rule from the spec, against a synthetic Acme fleet | They assert lanes, children, why-keys, `ageLeft`, `needsShaping` and the not-read state; the ordering test re-sorts from why strings alone | Proves the model; does not prove any rendering |
-| Owner's walk on phone and laptop | | Not run: waits on the deploy | |
+| Owner's first look on the phone, at bd41227 | Their plates in lanes | Every plate "not read", empty lanes | Found the cold-cache and stale faults; not the walk |
+| Owner's walk on phone and laptop | | Not run: waits on the fix's deploy | |
 
 ## Gaps and decision
 

@@ -6,7 +6,8 @@ import assert from 'node:assert/strict';
 import { projectHarness } from './helpers/web-projects.mjs';
 import { createWebService } from '../lib/web/server.mjs';
 import { BACKLOG_LANES } from '../lib/work-items.mjs';
-import { START_UNAVAILABLE } from '../lib/web/backlog-views.mjs';
+import { START_UNAVAILABLE, backlogView } from '../lib/web/backlog-views.mjs';
+import { createHomeReader } from '../lib/web/home.mjs';
 import { claimMessage } from '../lib/claim.mjs';
 
 /** The real service over the fake App, whose GraphQL lists one claim branch (phase 1) when `claims` is on. */
@@ -75,4 +76,78 @@ test('a plate whose claims the App cannot read is not read, never empty', async 
   assert.match(model.plates[0].reason, /its claims could not be read/);
   assert.ok(model.lanes.every(l => !l.items.some(i => i.kind === 'phase')), 'no phase is listed as free when its claims are unknown');
   assert.match(await (await s.get('/backlog')).text(), /Acme Studio: not read — its claims could not be read/);
+});
+
+// The first look after deploy (phase 178): a model version change empties every cached plate. The page renders from
+// the cache, so every plate is loading, and says so; /api/backlog fills them, four plates a call, until none is.
+test('a cold cache shows every plate loading, and the backlog fills them in', async () => {
+  const h = projectHarness(), projects = Array.from({ length: 8 }, (_, i) => ({ id: `app${i}`, repoId: 200 + i, repo: `acme/app${i}` }));
+  const fetcher = async (url, options) => {
+    const u = new URL(url);
+    if (u.pathname === '/graphql' && JSON.parse(options.body).query.includes('PlatesClaims')) return Response.json({ data: { repository: { refs: { totalCount: 0, nodes: [] } } } });
+    const id = /^\/repositories\/(2\d\d)$/.exec(u.pathname), repo = /^\/repos\/acme\/app(\d+)\//.exec(u.pathname);
+    if (!id && !repo) return h.fetcher(url, options);
+    const index = id ? Number(id[1]) - 200 : Number(repo[1]);
+    if (index === 7) return new Response('{}', { status: 500 }); // one plate's source is broken: that one is not read
+    if (id) return Response.json({ id: 200 + index, full_name: `acme/app${index}`, default_branch: 'main' });
+    u.pathname = u.pathname.replace(`/acme/app${index}/`, '/acme/studio/');
+    return h.fetcher(u.href, options);
+  };
+  const read = createHomeReader(h.config, { fetcher, now: () => h.state.now }), access = { ...h.access, projects };
+  const token = 'fake-user-access-token-for-tests';
+  // The page's read: cache only, nothing read yet. Every plate is loading, none is "not read", and no count is a zero.
+  const cold = (await read(access, token, { cacheOnly: true, backlog: true })).backlog;
+  assert.deepEqual(cold.plates.map(p => [p.projectId, p.state, p.counts]), projects.map(p => [p.id, 'loading', null]));
+  const html = backlogView(access, { schema: 1, generatedAt: new Date(h.state.now).toISOString(), lane: null, ...cold });
+  assert.match(html, /data-backlog-root data-loading="true"/);
+  for (const p of projects) assert.match(html, new RegExp(`<li>${p.id}: loading</li>`), `${p.id} says loading`);
+  assert.doesNotMatch(html, /not read/);
+  assert.match(html, /<script type="module" src="\/assets\/backlog-client\.mjs"><\/script>/, 'the page reads the rest itself');
+  // /api/backlog's reads: four plates a call, so two calls read all eight.
+  let calls = 0, backlog = cold;
+  while (backlog.plates.some(p => p.state === 'loading') && calls < 5) { backlog = (await read(access, token, { backlog: true })).backlog; calls++; }
+  assert.equal(calls, 2);
+  assert.deepEqual(backlog.plates.map(p => p.state), [...Array(7).fill('read'), 'not read']);
+  assert.ok(backlog.plates.slice(0, 7).every(p => Number.isSafeInteger(p.counts.yours)));
+  assert.equal(backlog.plates[7].counts, null); assert.ok(backlog.plates[7].reason, 'a broken plate says why');
+  assert.equal(backlog.lanes.find(l => l.lane === 'yours').items.filter(i => i.key.endsWith(':phase:2')).length, 7, 'each plate read lists its phase owing a walk');
+});
+
+test('the hosted page loads like Home: cache first, then the client', async () => {
+  const s = await hosted();
+  const html = await (await s.get('/backlog')).text();
+  assert.match(html, /data-loading="true"/); assert.match(html, /<li>studio: loading<\/li>/); assert.doesNotMatch(html, /not read/);
+  assert.match(html, /\/assets\/backlog-client\.[0-9a-f]{12}\.mjs/); assert.match(html, /<noscript>/);
+  for (const asset of ['backlog-client.mjs', 'backlog-views.mjs']) assert.equal((await s.web(s.h.request(`/assets/${asset}`))).status, 200, asset);
+  await s.get('/api/backlog');
+  const after = await (await s.get('/backlog')).text();
+  assert.match(after, /data-loading="false"/); assert.doesNotMatch(after, /: loading</);
+});
+
+// Ten minutes after a read, Home calls a cached plate stale (GH_TTL). The backlog keeps listing it, with its claims
+// read now, says it is stale and counts "at least", and the page reads again until it is fresh.
+test('a stale plate keeps its items, is never "not read", and its claims are read', async () => {
+  const s = await hosted();
+  const fresh = await (await s.get('/api/backlog')).json();
+  const items = fresh.lanes.flatMap(l => l.items.map(i => i.key));
+  assert.ok(items.length > 2);
+  s.h.state.now += 11 * 60_000;
+  const before = s.graphql.length;
+  const html = await (await s.get('/backlog')).text();
+  assert.equal(s.graphql.length, before + 1, 'the stale plate\'s claims are read');
+  for (const key of items) assert.ok(html.includes(`data-backlog-item="${key}"`), `${key} is still listed`);
+  assert.doesNotMatch(html, /not read/);
+  assert.match(html, /<li>Acme Studio: stale, read 11 min ago · \d+ yours · \d+ agent-ready · 1 in flight \(at least\)<\/li>/);
+  assert.match(html, /Acme Studio: stale, read 11 min ago, so its counts are at least these/);
+  assert.match(html, /data-backlog-root data-loading="true"/, 'the page reads again until the plate is fresh');
+  assert.match(html, /claim 6d left/, 'the claim read now still puts phase 1 in flight');
+  // Its model: stale, partial coverage, counts kept.
+  const { createHomeReader } = await import('../lib/web/home.mjs');
+  const signedAccess = { ...s.h.access, login: 'acme-owner' };
+  const reader = createHomeReader(s.h.config, { fetcher: async (url, options) => new URL(url).pathname === '/graphql' && JSON.parse(options.body).query.includes('PlatesClaims')
+    ? Response.json({ data: { repository: { refs: { totalCount: 0, nodes: [] } } } }) : s.h.fetcher(url, options), now: () => s.h.state.now });
+  await reader(signedAccess, 'fake-user-access-token-for-tests', { backlog: true });
+  s.h.state.now += 11 * 60_000;
+  const plate = (await reader(signedAccess, 'fake-user-access-token-for-tests', { cacheOnly: true, backlog: true })).backlog.plates[0];
+  assert.deepEqual([plate.state, plate.coverage, typeof plate.readAt, Number.isSafeInteger(plate.counts.yours)], ['stale', 'partial', 'string', true]);
 });
