@@ -681,6 +681,19 @@
       "proof": "The deployed revision, the commits the session wrote, and the owner answer (this is it, close but what, or not the right shape), recorded in docs/evidence/2026-11-03-review-session.md."
     },
     {
+      "id": "backlog-look",
+      "phase": 178,
+      "kind": "decision",
+      "what": "After deploying a build with phase 178, the owner opens /backlog on the phone and the laptop, finds the one thing they would do first, and says whether its lane and reasons match how they choose.",
+      "prerequisites": [
+        166,
+        178
+      ],
+      "ownerAttended": true,
+      "rollback": "Redeploy the previous build; /backlog is read-only and writes nothing, and Home only gains a link to it.",
+      "proof": "The deployed revision and the owner answer (found it and the reason was right, found it and the reason was wrong, or could not tell), recorded in docs/evidence/2026-11-05-backlog-lanes.md."
+    },
+    {
       "id": "docket-notify",
       "phase": 175,
       "kind": "decision",
