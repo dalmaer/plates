@@ -101,6 +101,18 @@ else process.exit(1);
   return gh;
 }
 
+/**
+ * A fresh project whose gate is a stand-in that passes having run one test, for
+ * tests that read something other than the gate: each `plates improve` would
+ * otherwise run the project's real `npm run check` (npm test and roadmap:check).
+ * The gate itself is exercised by the tests that assert on it, on the real one.
+ */
+export async function projectQuickGate(t) {
+  const dir = await project(t);
+  await setConfig(dir, { check: 'echo "# tests 1"' });
+  return dir;
+}
+
 export const setConfig = async (dir, patch) => {
   const path = join(dir, '.plates', 'plates.json');
   const c = JSON.parse(await readFile(path, 'utf8'));
