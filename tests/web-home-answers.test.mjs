@@ -174,7 +174,7 @@ test('a web walk answer is refused at apply when the box text changed since its 
 // at most READ_CONCURRENCY at a time, within the call budget, and the
 // inventory bound fits. Counted, never timed.
 test('a 190-phase plate previews and applies a walk answer, reading its blobs a bounded few at a time', async () => {
-  const READ_CONCURRENCY = 8, CALL_BUDGET = 600; // lib/web/decision-github.mjs READ_CONCURRENCY, PHASE_INVENTORY_LIMIT + 200
+  const READ_CONCURRENCY = 8, CALL_BUDGET = 600; // lib/web/decision-github.mjs READ_CONCURRENCY, SOURCE_CALL_LIMIT
   const h = walkWeb();
   let inFlight = 0, most = 0, blobs = 0, counting = false;
   const fetcher = async (url, options) => {
