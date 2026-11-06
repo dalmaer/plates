@@ -1115,7 +1115,13 @@ test('plates#63: the runner\'s own options are kept, but the run\'s own (reporte
   const env = { ACME_AUTH: 'acme-private-value', ACME_API_TOKEN: 'tok-123', HOME: '/home/acme' };
   assert.deepEqual(runnerOptions(['--define', 'process.env.AUTH:"acme-private-value"', '--define=X:tok-123', '--timeout=1', '--cwd', '/home/acme'], 'bun', { env, configEnv: ['ACME_AUTH'] }),
     ['--timeout=1', '--cwd', '/home/acme'], 'the secret groups go, value and all; an ordinary environment value stays');
-  assert.deepEqual(runnerOptions(['--define', 'process.env.AUTH:"acme-private-value"'], 'bun', { env: {}, configEnv: [] }), ['--define', 'process.env.AUTH:"acme-private-value"'], 'not a secret where it is not one');
+  assert.deepEqual(runnerOptions(['--define', 'process.env.ACME_MODE:"fast"'], 'bun', { env: {}, configEnv: [] }), ['--define', 'process.env.ACME_MODE:"fast"'], 'an ordinary define stays');
+  // Review on #368 (Codex P1): bun's K:V define of a secret-looking name is a secret, whatever the environment holds.
+  for (const define of ['process.env.API_KEY:"acme-literal"', "process.env.ACME_TOKEN:'x'", 'AUTH_HEADER:"Bearer y"']) {
+    assert.deepEqual(runnerOptions(['--define', define, '--timeout=1'], 'bun', { env: {} }), ['--timeout=1'], define);
+  }
+  // Review on #368 (Codex P2): bun's preload aliases keep their module.
+  assert.deepEqual(runnerOptions(['-r', './setup.ts', '--require', './more.ts', 'a.test.ts'], 'bun'), ['-r', './setup.ts', '--require', './more.ts']);
   assert.deepEqual([runnerOptions(['--timeout=1'], 'node'), runnerOptions(undefined, 'bun')], [[], []]);
   assert.deepEqual(ledger.junitArgs(['--junit', 'j.xml', '--runner', 'bun', '--', '--timeout=10000', '--status', '3']),
     { junit: 'j.xml', runner: 'bun', words: ['--timeout=10000', '--status', '3'] }, 'all after -- is the runner\'s, never the ledger\'s own flags');

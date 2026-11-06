@@ -766,6 +766,12 @@ test('a proposal parses in sh: a quoted operator or runner is a word, and a comm
   }
   assert.match(testsPlan({}, 'bun test --reporter-outfile=reports/current.xml', {}).declined, /or reporter flags of its own/);
   assert.ok(ledgerCommand('bun test --timeout=10000', 'bun').includes('--reporter-outfile=.plates/test-runs/junit.xml --timeout=10000'), 'any other option stays');
+  // plates#63: the runner's words go to the ledger after --, but not words the shell would expand again (review on #368: $RANDOM).
+  assert.ok(ledgerCommand('bun test --timeout=10000', 'bun').endsWith('--start "$plates_start" -- --timeout=10000'));
+  for (const command of ['bun test --define "process.env.ACME_SEED:$RANDOM"', 'bun test --timeout=$ACME_TIMEOUT']) {
+    const line = ledgerCommand(command, 'bun');
+    assert.ok(line.endsWith('--start "$plates_start"'), `${command}: no words handed on\n${line}`);
+  }
   assert.ok(testsConfigProblems({ tests: { junit: 'reports/junit-1.xml' } }).length);
   // More than one runner in the gate (`npm test` runs bun, then vitest runs): record none, propose none (review on #56).
   const two = testsPlan({}, 'npm test && npx vitest run', { test: 'bun test' });

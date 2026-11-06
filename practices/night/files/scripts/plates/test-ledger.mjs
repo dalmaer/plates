@@ -199,7 +199,7 @@ export const runnerFlags = words => flagsIn(words).filter(f => !DROPPED.has(f.na
 
 /** bun's and vitest's flags that take the next word as their value when written without `=` (any other: write `--flag=value`). */
 const JUNIT_VALUED = {
-  bun: new Set(['--timeout', '--preload', '--rerun-each', '--seed', '--max-concurrency', '--conditions', '--define', '-d', '--env-file', '--tsconfig-override',
+  bun: new Set(['--timeout', '--preload', '-r', '--require', '--rerun-each', '--seed', '--max-concurrency', '--conditions', '--define', '-d', '--env-file', '--tsconfig-override',
     '--cwd', '--config', '-c', '--coverage-reporter', '--coverage-dir', '--reporter', '--reporter-outfile', '-t', '--test-name-pattern']),
   vitest: new Set(['--config', '-c', '--root', '-r', '--dir', '--project', '--environment', '--pool', '--testTimeout', '--hookTimeout', '--retry', '--mode',
     '--maxWorkers', '--minWorkers', '--exclude', '--globalSetup', '--reporter', '--outputFile', '-t', '--testNamePattern', '--shard', '--changed', '--related',
@@ -228,14 +228,17 @@ const JUNIT_DROPPED = {
  * `--flag=value` to keep it). A flag with a word that redactedText would
  * change (a configured or environment secret's value, an assignment such as
  * token=, a key, URL credentials) or a secret-looking word (token=, secret=,
- * key=, password=) is never recorded: records are uploaded, and findings
- * print.
+ * key=, password=, or such a name given a value with `:` as bun's --define
+ * K:V is) is never recorded: records are uploaded, and findings print.
  */
+/** A secret-looking name given a value with = or : (bun's --define K:V), quoted or not: `process.env.API_KEY:"…"`. */
+const SECRET_KEY_ARG = /(?:token|secret|password|passwd|credential|api.?key|private.?key|auth|key)\w*["']?\s*[:=]/i;
+
 export function runnerOptions(words, runner, { env = process.env, configEnv = [] } = {}) {
   const valued = JUNIT_VALUED[runner], dropped = JUNIT_DROPPED[runner];
   if (!valued || !Array.isArray(words)) return [];
   const bare = x => x !== undefined && !(String(x).startsWith('-') && String(x) !== '-');
-  const secret = x => SECRETISH.test(x) || redactedText(x, env, { configEnv }) !== x;
+  const secret = x => SECRETISH.test(x) || SECRET_KEY_ARG.test(x) || redactedText(x, env, { configEnv }) !== x;
   const out = [];
   for (let i = 0; i < words.length; i++) {
     const w = String(words[i]);
