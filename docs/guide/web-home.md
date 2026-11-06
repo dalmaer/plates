@@ -197,7 +197,11 @@ only**: the item's key, who, the action, route, lane, takes, an outcome code and
 a receipt link; a Not now's reason is the code `stated` or `none`, never your
 words. Writing one never fails the action it records. The hosted workspace
 keeps a Not now answered on the web in SQL019; until 019 is applied events are
-skipped and the server notes it once.
+skipped and the server notes it once. The hosted `/backlog/history` (beside List
+and By goal; `/backlog/history/YYYY-MM-DD` for a date, else the last 28 days)
+shows the same readout and card history, computed by the same function
+(`lib/web/backlog-history.mjs`) over the hosted events; before 019 it says once
+that events are not stored yet, and shows no counts.
 
 `plates home --agents` (phase 186) lists each provider in the plates'
 `agents` maps with the item it holds now, from claims ("working on plates
