@@ -229,7 +229,7 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
    - Needs first: phase 171.
    - Rollback: Nothing to roll back: the script runs locally against fixture data, writes images only to a temporary folder outside the repo, and changes nothing deployed.
    - Proof to record: The owner's answer (useful, or not worth it), and which design change was reviewed, recorded in docs/evidence/2026-11-04-look-captured.md.
-55. **local-host-walk** (phase 183, decision, owner attends). The owner lists local-host in a plate's backlog.routes, writes ~/.config/plates/local-hosts.json for one agent host on their machine, attaches one ready phase with plates home --attach <key> --route local-host --provider <p> --yes, and watches its card.
+56. **local-host-walk** (phase 183, decision, owner attends). The owner lists local-host in a plate's backlog.routes, writes ~/.config/plates/local-hosts.json for one agent host on their machine, attaches one ready phase with plates home --attach <key> --route local-host --provider <p> --yes, and watches its card.
    - Needs first: phase 181.
    - Rollback: Remove local-host from backlog.routes and release the claim; nothing hosted changes.
    - Proof to record: The claim, the receipt, the host's session id, and the owner answer, recorded in docs/evidence/2026-11-06-local-host.md.
