@@ -33,7 +33,7 @@ export function backlog() {
   const now = '2026-10-21T16:00:00.000Z', phase = (id, status, more = {}) => ({ id, file: `${id}-acme.md`, title: `Acme phase ${id}: publish from every screen`, status, goal: 'G1', depends: [], since: '2026-10-01', spec: 2, next: 'Build it.', ...more });
   const phases = [phase(1, 'partial'), phase(2, 'partial', { owes: 'walk' }), phase(3, 'planned', { depends: [2] }), phase(4, 'planned', { spec: 1 }), phase(5, 'planned', { depends: [9] }), phase(9, 'planned', { goal: 'G2' }), phase(8, 'built', { since: '2026-10-20' })];
   const walk = { id: 'studio:phase:2:walk', projectId: 'studio', projectName: 'Acme Studio', kind: 'walk', itemKind: 'walk', ref: '2', phase: '2', since: '2026-10-11', ready: true, title: 'Publish from a phone', details: { ask: 'Does publishing from your phone work end to end?', takes: 'About five minutes', choices: ['Works', 'Needs changes'], recommend: 'Works' }, sets: [] };
-  const studio = { id: 'studio', repoId: 100, repo: 'acme/studio', name: 'Acme Studio', revision: 'b'.repeat(40), readAt: now, state: 'complete', gaps: [], changes: [], decisions: [], walks: [walk], reviews: [], waiting: [], roadmap: phaseRoadmap(phases, [{ id: 'G1' }, { id: 'G2' }]) };
+  const studio = { id: 'studio', repoId: 100, repo: 'acme/studio', name: 'Acme Studio', revision: 'b'.repeat(40), readAt: now, state: 'complete', gaps: [], changes: [], decisions: [], walks: [walk], reviews: [], waiting: [], roadmap: phaseRoadmap(phases, [{ id: 'G1', title: 'Publishing works everywhere' }, { id: 'G2', title: 'Owners walk less' }]) };
   const unread = { id: 'anvils', repo: 'acme/anvils', name: 'Acme Anvils', state: 'unavailable', gaps: [{ source: 'project', reason: 'The App cannot read acme/anvils.' }], changes: [], decisions: [], walks: [], reviews: [], waiting: [] };
   const model = homeSnapshot([studio, unread], { can: { form: 'web' }, today: '2026-10-21' });
   const claims = { state: 'read', claims: [{ phase: 1, branch: 'claims/phase-1', provider: 'claude', machine: 'acme-mac', at: '2026-10-19T16:00:00.000Z' }], prs: [] };
@@ -78,6 +78,8 @@ export async function designPages() {
     reviewEmpty: { html: reviewView(access, reviewEmpty, project), api: { '/api/projects/studio/home': reviewEmpty } },
     // Phase 178: the backlog, a list beside the sidebar, with a row in four lanes and one plate not read.
     backlog: { html: backlogView(access, backlog()), api: { '/api/backlog': backlog() } },
+    // Phase 179: the same backlog by goal, one card per phase.
+    backlogGoals: { html: backlogView(access, backlog(), { arrangement: 'goals' }), api: { '/api/backlog': backlog() } },
     // Phase 185: Recurring, beside the same sidebar: a scheduled routine, a weekly one whose config disagrees, an off one, an event one.
     recurring: { html: recurringView(access, recurring()), api: { '/api/recurring': recurring() } },
     // Phase 186: Agents and Pending review: one provider working, one idle, routes on and off, a pending PR, and a plate whose PRs were not read.

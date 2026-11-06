@@ -153,3 +153,18 @@ test('a stale plate keeps its items, is never "not read", and its claims are rea
   const plate = (await reader(signedAccess, 'fake-user-access-token-for-tests', { cacheOnly: true, backlog: true })).backlog.plates[0];
   assert.deepEqual([plate.state, plate.coverage, typeof plate.readAt, Number.isSafeInteger(plate.counts.yours)], ['stale', 'partial', 'string', true]);
 });
+
+// Phase 179: By goal is its own path (the routes take no query), beside the List, the default.
+test('/backlog/goals arranges the backlog by goal, one card per phase', async () => {
+  const s = await hosted();
+  await s.get('/api/backlog');
+  const html = await (await s.get('/backlog/goals')).text();
+  assert.match(html, /data-backlog-root data-view="goals" data-endpoint="\/api\/backlog"/);
+  assert.match(html, /<a href="\/backlog">List<\/a> · <a href="\/backlog\/goals" aria-current="page">By goal<\/a>/);
+  assert.match(html, /data-goal="studio:goal:G1"[^>]*><h2 id="goal-studio:goal:G1">Acme Studio · G1 — A dependable studio <span class="meta">/);
+  assert.match(html, /data-member="studio:phase:2:box [^"]+">walk \(box \d+\)/, 'the walk is nested under its phase');
+  const list = await (await s.get('/backlog')).text();
+  assert.match(list, /<a href="\/backlog" aria-current="page">List<\/a> · <a href="\/backlog\/goals">By goal<\/a>/);
+  assert.equal((await s.get('/backlog/goals?x=1')).status, 400);
+  assert.equal((await s.web(s.h.request('/assets/backlog-grouping.mjs'))).status, 200);
+});

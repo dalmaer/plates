@@ -430,8 +430,9 @@ test('controls are styled once', () => {
 // Phase 178: a page added since has its own sheet and its own cap, counted
 // apart, so the bound above still holds every sheet it was measured over.
 // The backlog's cap rose by 300 bytes for its question rows (phase 178's owner questions),
-// and by 100 for Recurring's rows, which share its sheet (phase 185).
-const CSS_BYTES_BEFORE_171 = 81780, PAGE_SHEETS_SINCE = { '/assets/backlog.css': 3000 };
+// by 100 for Recurring's rows, which share its sheet (phase 185), and by 300 for
+// By goal's toggle, nested members and "more" (phase 179).
+const CSS_BYTES_BEFORE_171 = 81780, PAGE_SHEETS_SINCE = { '/assets/backlog.css': 3300 };
 test('the design layer does not grow the stylesheets', () => {
   const table = assets.buildAssetTable(assets.defaultSources());
   const css = [...table.entries].filter(([, entry]) => entry.type.startsWith('text/css'));

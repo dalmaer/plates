@@ -540,6 +540,30 @@ test('agents match in both forms', async () => {
   } finally { await s.done(); }
 });
 
+// Phase 179: By goal is the same backlog arranged by the same pure rules, so both forms make the same cards and groups.
+test('by goal matches in both forms', async () => {
+  const s = await sources({ files: { 'docs/goals.json': JSON.stringify([{ id: 'G1', title: 'A dependable studio', outcome: 'People publish confidently.' }]) } });
+  try {
+    const run = s.again(['--backlog', '--by-goal', '--json']);
+    assert.equal(run.status, 0, run.stderr);
+    const cli = JSON.parse(run.stdout), web = (await s.readWeb({ backlog: true })).backlog;
+    const { byGoal } = await import('../lib/web/backlog-grouping.mjs');
+    const shape = groups => groups.map(g => ({ key: g.key, title: g.title, counts: g.counts, cards: g.cards.map(c => ({ key: c.key, lane: c.lane, keys: c.keys, members: c.members.map(m => m.identity) })) }));
+    assert.equal(cli.arrangement, 'by-goal');
+    assert.deepEqual(shape(byGoal(web).groups), shape(cli.groups));
+    assert.deepEqual(cli.groups.map(g => [g.key, g.title]), [['studio:goal:G1', 'A dependable studio'], ['studio:goal:none', null]]);
+    const walk = cli.groups[0].cards.find(c => c.key === 'studio:phase:2');
+    assert.deepEqual(walk.members.map(m => m.kinds), [['walk']], 'the walk nests in its phase\'s one card');
+    // The page arranges the same, and the terminal says it.
+    const { backlogView } = await import('../lib/web/backlog-views.mjs');
+    const html = backlogView(s.access, { schema: 1, generatedAt: new Date().toISOString(), lane: null, ...web }, { arrangement: 'goals' });
+    assert.match(html, /<a href="\/backlog\/goals" aria-current="page">By goal<\/a>/);
+    for (const g of cli.groups) assert.ok(html.includes(`data-goal="${g.key}"`), g.key);
+    assert.match(s.again(['--backlog', '--by-goal']).stdout, /^Acme Studio · G1 — A dependable studio {2}\(/m);
+    assert.equal(s.again(['--backlog', '--by-goal', '--lane', 'yours']).status, 2, '--by-goal takes no --lane');
+  } finally { await s.done(); }
+});
+
 test('a plate with no remote holds no claims, in the terminal', async () => {
   const s = await sources({ reviews: false });
   try {

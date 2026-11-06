@@ -92,3 +92,15 @@ test('Agents reads its own endpoint', async () => {
   assert.deepEqual(asked, ['/api/agents', '/api/agents']);
   assert.match(p.list.innerHTML, /Pending review/); assert.match(p.side.outerHTML, /<a href="\/agents" aria-current="page">Agents <span class="p-badge">0<\/span>/);
 });
+
+// Phase 179: By goal reads the backlog's endpoint and renders its own arrangement, with the backlog's sidebar.
+test('By goal reads the backlog and arranges it', async () => {
+  const { renderByGoal } = await import('../lib/web/backlog-views.mjs');
+  const p = page(), asked = [];
+  p.root.dataset.view = 'goals';
+  const answers = [{ ...model(['read']), goals: [], lanes: [{ lane: 'yours', title: 'Yours', count: 1, items: [{ key: 'app0:phase:3', projectId: 'app0', projectName: 'Acme 0', kind: 'phase', ref: '3', phase: '3', title: 'Acme phase 3', goal: null, why: [], children: [], nested: [], answers: [], since: null, lane: 'yours' }] }] }];
+  startBacklogClient({ document: p.document, window: p.window, fetch: async url => { asked.push(url); return { status: 200, json: async () => answers.shift() }; }, renderBacklog, renderSidebar, renderByGoal });
+  await p.run();
+  assert.deepEqual(asked, ['/api/backlog']);
+  assert.match(p.list.innerHTML, /data-goal="app0:goal:none"/); assert.match(p.side.outerHTML, /<a href="\/backlog" aria-current="page">Backlog/);
+});
