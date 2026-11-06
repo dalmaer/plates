@@ -424,6 +424,51 @@ test('backlog matches in both forms', async () => {
   } finally { await s.done(); }
 });
 
+// Phase 184: what happened to each item is one read model too. The CLI reads the checkout's events; the web reads the
+// hosted store's (SQL019, here its RPC answering with the same records). Both compute historyOf over their own backlog,
+// so the readout (counts, routes attached and landed, minutes per week) and each card's history are the same, and
+// each form says them with the same lines (readoutLines, history.text). Before 019 the web says so once, never a zero.
+test('history matches in both forms', async () => {
+  const s = await sources();
+  try {
+    const { createBacklogEventStore } = await import('../lib/backlog-events.mjs');
+    const { createBacklogEventStore: hostedStore } = await import('../lib/web/backlog-events-store.mjs');
+    const { historyOf, readoutLines } = await import('../lib/web/backlog-history.mjs');
+    const local = await createBacklogEventStore({ root: s.root }), day = Date.now() - 86_400_000;
+    await local.append({ actor: 'agent:claude', key: 'studio:phase:3', action: 'attach', route: 'session', lane: 'agent-ready', outcome: 'attached' }, { now: day });
+    await local.append({ actor: 'owner', key: 'studio:phase:2', action: 'answer', takes: 5, outcome: 'choice-1' }, { now: day + 60000 });
+    await local.append({ actor: 'owner', key: 'studio:phase:2', action: 'not-now', reason: 'stated', outcome: 'not-now' }, { now: day + 120000 });
+    const since = new Date(day - 86_400_000).toISOString().slice(0, 10);
+    const run = s.again(['--backlog', '--since', since, '--json'], { env: { ACME_GH_PRS: '[]' } });
+    assert.equal(run.status, 0, run.stderr);
+    const cli = JSON.parse(run.stdout);
+    // The hosted store holds the same records (its own ids); the web's model is historyOf over its backlog and them.
+    const rows = (await local.list()).map(({ schema, id, ...e }, n) => ({ ...e, id: n + 1 }));
+    const hosted = hostedStore(s.webConfig ?? { appId: 1, installationId: 2, workspace: { id: 'acme', repoId: 3 }, storageUrl: 'https://store.acme.test', storageKey: 'k' }, async () => Response.json({ events: rows }));
+    const web = await s.readWeb({ backlog: true }), backlog = { schema: 1, generatedAt: web.generatedAt, lane: null, ...web.backlog };
+    const api = historyOf(backlog, await hosted.list(7, `${since}T00:00:00.000Z`), { since: `${since}T00:00:00.000Z` });
+    const plain = ({ events, ...r }) => ({ ...r, events: events.map(({ id, ...e }) => e) });
+    assert.deepEqual(plain(api.events), plain(cli.events), 'the same readout in both forms');
+    assert.equal(cli.events.count, 3, 'three events, so equality is not two empty readouts agreeing');
+    assert.deepEqual(cli.events.weeks.reduce((n, w) => n + w.unknown, 0), 1, 'the Not now has no estimate: at least');
+    const histories = b => Object.fromEntries(b.lanes.flatMap(l => l.items).filter(i => i.history).map(i => [i.key, i.history]));
+    assert.deepEqual(histories(api), histories(cli), 'each card\'s history');
+    assert.deepEqual(Object.keys(histories(cli)).toSorted(), ['studio:phase:2', 'studio:phase:3']);
+    assert.deepEqual(api.lanes.map(l => l.items.map(i => i.key)), backlog.lanes.map(l => l.items.map(i => i.key)), 'events never move a card');
+    // Each form says the same lines.
+    const lines = readoutLines(cli.events), said = [lines.title, lines.summary, ...lines.routes, ...lines.weeks];
+    const html = backlogView(s.access, api, { arrangement: 'history' });
+    const text = s.again(['--backlog', '--since', since], { env: { ACME_GH_PRS: '[]' } });
+    assert.equal(text.status, 0, text.stderr);
+    for (const line of said) { assert.ok(text.stdout.includes(line), `terminal: ${line}`); assert.ok(html.includes(line.replace(/'/g, '&#39;')), `web: ${line}`); }
+    for (const h of Object.values(histories(cli))) { assert.ok(text.stdout.includes(`[${h.text}]`), h.text); assert.ok(html.includes(`data-backlog-history>${h.text}</span>`), h.text); }
+    // Before 019: the web says it once and shows no counts; the terminal, whose store is read, still has them.
+    const unstored = backlogView(s.access, historyOf(backlog, null, { since: `${since}T00:00:00.000Z`, note: 'Events are not stored yet, so what happened is not shown.' }), { arrangement: 'history' });
+    assert.equal(unstored.match(/Events are not stored yet/g).length, 1);
+    assert.doesNotMatch(unstored, /\(0 events\)|nothing recorded|data-backlog-history>/);
+  } finally { await s.done(); }
+});
+
 // The owner's feedback (phase 178): a backlog of questions to work through. A Yours row with an Ask leads with it, its
 // phase number and title as context, and its choices under it with the Your part's Recommend marked, in both forms.
 test('a question leads its row in Yours', async () => {

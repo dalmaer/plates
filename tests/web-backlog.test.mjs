@@ -11,7 +11,7 @@ import { createHomeReader } from '../lib/web/home.mjs';
 import { claimMessage } from '../lib/claim.mjs';
 
 /** The real service over the fake App, whose GraphQL lists one claim branch (phase 1) when `claims` is on. */
-async function hosted({ claims = true } = {}) {
+async function hosted({ claims = true, events = null } = {}) {
   const h = projectHarness(), graphql = [];
   const fetcher = async (url, options) => {
     if (new URL(url).pathname === '/graphql' && JSON.parse(options.body).query.includes('PlatesClaims')) {
@@ -20,6 +20,8 @@ async function hosted({ claims = true } = {}) {
       const at = new Date(h.state.now - 86_400_000).toISOString().replace(/\.\d{3}Z$/, 'Z');
       return Response.json({ data: { repository: { refs: { totalCount: 1, nodes: [{ name: 'phase-1', target: { oid: 'c'.repeat(40), message: claimMessage({ phase: 1, provider: 'codex', machine: 'acme-mac', at, token: 't' }), committedDate: at } }] } } } });
     }
+    // Backlog events (phase 184): SQL019's RPC answers only when the test applies it.
+    if (new URL(url).pathname === '/rest/v1/rpc/plates_backlog_events_rpc') return events ? events(JSON.parse(options.body)) : new Response('{"message":"Could not find the function public.plates_backlog_events_rpc"}', { status: 404 });
     return h.fetcher(url, options);
   };
   const web = createWebService({ ...h.config }, { now: () => h.state.now, fetcher });
@@ -167,4 +169,31 @@ test('/backlog/goals arranges the backlog by goal, one card per phase', async ()
   assert.match(list, /<a href="\/backlog" aria-current="page">List<\/a> · <a href="\/backlog\/goals">By goal<\/a>/);
   assert.equal((await s.get('/backlog/goals?x=1')).status, 400);
   assert.equal((await s.web(s.h.request('/assets/backlog-grouping.mjs'))).status, 200);
+});
+
+// Phase 184: History is its own path beside List and By goal (a date in the path, never a query): what happened since,
+// from the hosted events and the readout plates home --backlog --since prints, and each card's history.
+test('/backlog/history reads back what happened, and says so before 019', async () => {
+  const before = await hosted();
+  await before.get('/api/backlog');
+  const html = await (await before.get('/backlog/history')).text();
+  assert.match(html, /data-view="history"/);
+  assert.match(html, /<a href="\/backlog\/history" aria-current="page">History<\/a>/);
+  assert.equal(html.match(/Events are not stored yet/g)?.length, 1, 'said once');
+  assert.doesNotMatch(html, /\b0 events?\b|nothing recorded|data-backlog-history>/, 'never a zero');
+  const unstored = await (await before.get('/api/backlog/history')).json();
+  assert.deepEqual([unstored.events, unstored.eventsNote], [null, 'Events are not stored yet, so what happened is not shown.']);
+  assert.equal((await before.get('/backlog/history?since=2026-01-01')).status, 400);
+  assert.equal((await before.get('/backlog/history/2026-13-45')).status, 404);
+  const sent = [];
+  const after = await hosted({ events: body => { sent.push(body); return Response.json({ events: [
+    { id: 1, at: '2026-10-20T09:00:00.000Z', actor: 'agent:claude', key: 'studio:phase:1', action: 'attach', reason: null, route: 'session', lane: 'agent-ready', position: null, takes: null, outcome: 'attached', receipt: null },
+    { id: 2, at: '2026-10-20T10:00:00.000Z', actor: 'owner', key: 'studio:phase:2', action: 'answer', reason: null, route: null, lane: null, position: null, takes: 5, outcome: 'choice-1', receipt: null }] }); } });
+  await after.get('/api/backlog');
+  const page = await (await after.get('/backlog/history/2026-10-01')).text();
+  assert.equal(sent.at(-1).p_operation, 'list');
+  assert.equal(sent.at(-1).p_since, '2026-10-01T00:00:00.000Z');
+  assert.match(page, /What happened since 2026-10-01 \(2 events\)/);
+  assert.match(page, /route session: 1 attached, 0 landed/);
+  assert.match(page, /data-backlog-item="studio:phase:1"[\s\S]*?<span class="p-badge" data-backlog-history>1 event · last attach 2026-10-20<\/span>/);
 });
