@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { KINDS, kindOf, looseItems, fleetOf, reviewItems, WRITERS, itemKey, answersFor, homeSnapshot, homeSections, notNowRecord, takesMinutes, DEFAULT_MINUTES, QUICK_MINUTES, phaseSets, rollbackItems } from '../lib/work-items.mjs';
+import { KINDS, kindOf, looseItems, fleetOf, reviewItems, WRITERS, itemKey, answersFor, homeSnapshot, homeSections, notNowRecord, takesMinutes, DEFAULT_MINUTES, QUICK_MINUTES, phaseSets, rollbackItems, backlogOf, BACKLOG_LANES, BACKLOG_STALE_DAYS, NEEDS_SHAPING } from '../lib/work-items.mjs';
 import { deployResults, openRollbacks, rollbackLine } from '../practices/night/files/scripts/plates/morning.mjs';
 
 const repo = fileURLToPath(new URL('..', import.meta.url));
@@ -331,4 +331,161 @@ test("needs you holds only the owner's turn", () => {
   assert.ok(needs.items.filter(i => i.key && !['night', 'repair'].includes(i.kind) && i.kind !== 'ci').every(i => i.answers.length > 0));
   const formless = h => h.sections[0].items.map(({ answers, ...i }) => i);
   assert.deepEqual(formless(four({ form: 'web', decisionWrites: true })), formless(home));
+});
+
+// Phase 178: the backlog, every plate's work in lanes, derived from what Home reads.
+// A synthetic Acme fleet: one plate read (its phases as plates next --json gives them), one that could not be read.
+const NOW = '2026-11-05T12:00:00Z';
+function backlogFixture() {
+  const phase = (id, status, more = {}) => ({ id, status, title: `Acme phase ${id}`, goal: 'G1', depends: [], since: '2026-10-01', spec: 2, next: `Build ${id}.`, file: `${id}-acme.md`, ...more });
+  const phases = [
+    phase(1, 'built', { since: '2026-11-03' }),                       // done this week
+    phase(2, 'built', { since: '2026-09-01' }),                       // done long ago: not in Recently done
+    phase(3, 'partial', { owes: 'walk', goal: 'G2' }),                // owes a ready walk: Yours, the walk its child
+    phase(4, 'planned', { depends: [2], since: '2026-10-20' }),       // free, unblocks 6
+    phase(5, 'planned', { goal: 'G2', since: '2026-10-02' }),         // free, later goal
+    phase(6, 'planned', { depends: [4] }),                            // waits on 4
+    phase(7, 'planned', { spec: 1 }),                                 // free but an older spec: needs shaping
+    phase(8, 'partial'),                                              // claimed
+    phase(9, 'partial', { owes: 'walk' }),                            // its walk is not ready
+    phase(10, 'planned', { after: '2026-12-01' }),                    // dated
+    phase(11, 'planned', { next: '⚑ Approve the Acme lane.' }),       // free, but its next action is the owner's
+    phase(12, 'planned', { since: '2026-10-10' }),                    // free, same goal as 4, nothing waits on it
+    phase(13, 'superseded'),
+    phase(15, 'partial', { owes: 'walk', goal: 'G2' }),               // owes a ten-minute walk, older than 3's
+  ];
+  const holder = { by: 'branch', branch: 'claims/phase-8', provider: 'claude', machine: 'acme-mac', at: '2026-11-03T12:00:00.000Z', mine: false, here: false, pr: null, work: [] };
+  const roadmap = { projectId: 'anvils', phases, goals: [{ id: 'G1' }, { id: 'G2' }],
+    free: phases.filter(p => [4, 5, 7, 11, 12].includes(p.id)), claimed: [{ id: 8, title: 'Acme phase 8', file: '8-acme.md', status: 'partial', holder }], behind: [] };
+  const project = { id: 'anvils', name: 'Acme Anvils', state: 'complete', revision: 'a'.repeat(40), readAt: NOW, gaps: [], changes: [],
+    decisions: [
+      { id: 'anvils:phase:11:decision', projectId: 'anvils', kind: 'decision', itemKind: 'step', ref: '11', phase: '11', since: '2026-11-01', title: 'Approve the Acme lane', sets: [{ kind: 'phase', phase: '11', title: 'Acme phase 11' }] },
+      { id: 'anvils:health:docs/health/2026-10-30.md', projectId: 'anvils', kind: 'decision', itemKind: 'proposal', ref: 'docs/health/2026-10-30.md', title: 'Update the anvils', decisionTarget: { kind: 'health', path: 'docs/health/2026-10-30.md' } },
+    ],
+    walks: [
+      { id: 'anvils:phase:3:walk', projectId: 'anvils', kind: 'walk', itemKind: 'walk', ref: '3', phase: '3', since: '2026-10-15', ready: true, title: 'Ring the anvil', details: { takes: 'A minute.', choices: ['Rings', 'Thuds'], then: 'Rings: built.' }, sets: [] },
+      { id: 'anvils:phase:15:walk', projectId: 'anvils', kind: 'walk', itemKind: 'walk', ref: '15', phase: '15', since: '2026-10-05', ready: true, title: 'A week at the forge', details: { takes: 'About 10 minutes.' }, sets: [] },
+    ],
+    reviews: [{ id: 'anvils:review:7', projectId: 'anvils', kind: 'review', itemKind: 'review', ref: '7', title: 'acme/anvils#7: review round 3 of 3', review: { number: 7, rounds: 3, limit: 3 } }],
+    waiting: [{ id: 'anvils:phase:9:waiting', projectId: 'anvils', kind: 'waiting', itemKind: 'walk', ref: '9', phase: '9', ready: false, title: 'Acme phase 9', why: 'Ready when: the anvil is deployed' }] };
+  const unread = { id: 'sprockets', name: 'Acme Sprockets', state: 'unavailable', gaps: [{ source: 'project', reason: 'The App cannot read acme/sprockets.' }], changes: [], decisions: [], walks: [], reviews: [], waiting: [] };
+  const snapshot = homeSnapshot([structuredClone(project), structuredClone(unread)], { sections: [], today: '2026-11-05' });
+  return { snapshot, roadmaps: [roadmap, { projectId: 'sprockets', na: 'not read' }], project, unread, roadmap };
+}
+const laneOf = (backlog, key) => backlog.lanes.find(l => l.items.some(i => i.key === key))?.lane ?? null;
+
+test("a phase owing a walk is yours, not an agent's", async () => {
+  const { snapshot, roadmaps } = backlogFixture();
+  const backlog = backlogOf(snapshot, roadmaps, { now: NOW });
+  assert.deepEqual(backlog.lanes.map(l => l.lane), BACKLOG_LANES.map(l => l.id));
+  assert.deepEqual(BACKLOG_LANES.map(l => l.id), ['in-flight', 'yours', 'agent-ready', 'waiting', 'done']);
+  const card = backlog.lanes.find(l => l.lane === 'yours').items.find(i => i.key === 'anvils:phase:3');
+  assert.ok(card, 'the phase owing a walk is under Yours');
+  assert.deepEqual(card.children, ['anvils:walk:3'], 'with the walk as its child');
+  assert.equal(card.takes, 1, "its minutes are the walk's Takes");
+  assert.ok(card.answers.length > 0 && card.answers.every(a => typeof a.id === 'string'), "it carries the walk's answers");
+  assert.equal(card.next, 'Rings: built.');
+  // The walk is nested, never a row of its own; the phase is in exactly one lane, and not Agent-ready.
+  assert.equal(laneOf(backlog, 'anvils:walk:3'), null);
+  assert.equal(backlog.lanes.flatMap(l => l.items).filter(i => i.key === 'anvils:phase:3').length, 1);
+  // Even if a reader listed it as free, owing a walk wins.
+  const r = structuredClone(roadmaps); r[0].free.push(r[0].phases.find(p => p.id === 3));
+  assert.equal(laneOf(backlogOf(snapshot, r, { now: NOW }), 'anvils:phase:3'), 'yours');
+  // A free phase whose next action is the owner's is Yours too, with its step as the child.
+  assert.deepEqual(backlog.lanes.find(l => l.lane === 'yours').items.find(i => i.key === 'anvils:phase:11').children, ['anvils:step:11']);
+  // The rest, lane by lane.
+  const lanes = Object.fromEntries(backlog.lanes.map(l => [l.lane, l.items.map(i => i.key)]));
+  assert.deepEqual(lanes['in-flight'], ['anvils:phase:8']);
+  assert.deepEqual(lanes['agent-ready'], ['anvils:phase:4', 'anvils:phase:12', 'anvils:phase:5']);
+  assert.deepEqual(lanes.waiting.toSorted(), ['anvils:phase:10', 'anvils:phase:6', 'anvils:phase:7', 'anvils:phase:9']);
+  assert.deepEqual(lanes.done, ['anvils:phase:1']);
+  const all = Object.fromEntries(backlog.lanes.flatMap(l => l.items).map(i => [i.key, i]));
+  assert.deepEqual(all['anvils:phase:9'].why.slice(0, 1), ['Ready when: the anvil is deployed']);
+  assert.deepEqual(all['anvils:phase:6'].why.slice(0, 1), ['Waits on 4']);
+  assert.deepEqual(all['anvils:phase:10'].why.slice(0, 1), ['Not before 2026-12-01']);
+  // Agent-ready needs spec: 2; an older free phase waits for shaping, and is counted (the spec's open question).
+  assert.deepEqual(all['anvils:phase:7'].why.slice(0, 1), [NEEDS_SHAPING]);
+  assert.equal(backlog.needsShaping, 1);
+  // A claimed phase: the holder unchanged from plates next, presence "claimed" only, and the claim's days left of STALE_DAYS.
+  assert.equal(all['anvils:phase:8'].presence, 'claimed');
+  assert.equal(all['anvils:phase:8'].holder.provider, 'claude');
+  assert.equal(all['anvils:phase:8'].ageLeft, 5);
+  // The default is lib/claim.mjs's STALE_DAYS (kept as its own constant so plates home's closure stays bounded); a caller may pass another.
+  const { STALE_DAYS } = await import('../lib/claim.mjs');
+  assert.equal(BACKLOG_STALE_DAYS, STALE_DAYS);
+  assert.equal(backlogOf(snapshot, roadmaps, { now: NOW, staleDays: 3 }).lanes[0].items[0].ageLeft, 1);
+  // What a phase unblocks comes from depends:.
+  assert.deepEqual(all['anvils:phase:4'].unblocks, ['6']);
+  assert.deepEqual(all['anvils:phase:4'].why, ['Unblocks 1 phase', 'G1', 'Waiting 16 days']);
+  assert.equal(all['anvils:phase:4'].source.file, 'docs/phases/4-acme.md');
+  // Every lane is present even when nothing is in it.
+  const empty = backlogOf({ projects: [], docket: [] }, [], { now: NOW });
+  assert.deepEqual(empty.lanes.map(l => [l.lane, l.count]), BACKLOG_LANES.map(l => [l.id, 0]));
+  assert.throws(() => backlogOf(snapshot, roadmaps), /needs `now`/);
+});
+
+/** A lane's order rebuilt from nothing but each card's why-keys and key (spec Ordering 1–5). goals: the plate's goal order. */
+function orderFromWhy(items, { goals, quickFirst = false, lane }) {
+  const keyOf = item => {
+    const has = s => item.why.includes(s), match = re => item.why.map(w => re.exec(w)).find(Boolean);
+    const goal = item.why.find(w => goals.includes(w));
+    const minutes = match(/^~(\d+) min$/), age = match(/^(?:Waiting|Claimed|Done) (\d+) days?/), today = item.why.some(w => /^(?:Waiting since|Claimed|Done) today$/.test(w));
+    return [has('Urgent') ? 0 : 1, has('An agent waits on this') ? 0 : 1, -(Number(match(/^Unblocks (\d+) phases?$/)?.[1] ?? 0)),
+      goal ? goals.indexOf(goal) : Infinity, quickFirst && lane === 'yours' && minutes && Number(minutes[1]) <= QUICK_MINUTES ? 0 : 1,
+      -(age ? Number(age[1]) : today ? 0 : -1)];
+  };
+  return items.map(i => [keyOf(i), i.key]).sort(([a, x], [b, y]) => { for (let n = 0; n < a.length; n++) if (a[n] !== b[n]) return a[n] < b[n] ? -1 : 1; return x < y ? -1 : x > y ? 1 : 0; }).map(([, key]) => key);
+}
+
+test('backlog order is reproducible from its why-keys', () => {
+  const { snapshot, roadmaps } = backlogFixture();
+  for (const quickFirst of [false, true]) {
+    const backlog = backlogOf(snapshot, roadmaps, { now: NOW, quickFirst });
+    for (const l of backlog.lanes) assert.deepEqual(orderFromWhy(l.items, { goals: ['G1', 'G2'], quickFirst, lane: l.lane }), l.items.map(i => i.key), `${l.lane}, quick first ${quickFirst}`);
+    // The same inputs in another order give the same backlog.
+    const shuffled = structuredClone(snapshot); shuffled.docket.reverse();
+    const r = structuredClone(roadmaps); r[0].phases.reverse(); r.reverse();
+    assert.deepEqual(backlogOf(shuffled, r, { now: NOW, quickFirst }), backlog);
+  }
+  // Yours: what an agent waits on first (the review at its limit, then the step's phase), then the oldest; quick first moves the minute walk up.
+  const yours = q => backlogOf(snapshot, roadmaps, { now: NOW, quickFirst: q }).lanes.find(l => l.lane === 'yours').items.map(i => i.key);
+  assert.deepEqual(yours(false), ['anvils:phase:11', 'anvils:review:7', 'anvils:phase:15', 'anvils:phase:3', 'anvils:proposal:docs/health/2026-10-30.md']);
+  assert.deepEqual(yours(true), ['anvils:phase:11', 'anvils:review:7', 'anvils:phase:3', 'anvils:phase:15', 'anvils:proposal:docs/health/2026-10-30.md']);
+  const all = Object.fromEntries(backlogOf(snapshot, roadmaps, { now: NOW }).lanes.flatMap(l => l.items).map(i => [i.key, i.why]));
+  assert.deepEqual(all['anvils:phase:11'], ['An agent waits on this', 'G1', '~5 min', 'Waiting 4 days']);
+  assert.deepEqual(all['anvils:review:7'], ['An agent waits on this', '~5 min']);
+  assert.deepEqual(all['anvils:phase:15'], ['G2', '~10 min', 'Waiting 31 days']);
+  assert.deepEqual(all['anvils:phase:3'], ['G2', '~1 min', 'Waiting 21 days']);
+  // Cards whose why-keys are all equal fall back to `key`, so the tie-break is stable.
+  const tie = backlogOf(snapshot, [{ ...roadmaps[0], phases: [...roadmaps[0].phases, { ...roadmaps[0].phases[11], id: 14, file: '14-acme.md' }] }], { now: NOW }).lanes.find(l => l.lane === 'agent-ready').items.map(i => i.key);
+  assert.deepEqual(tie, ['anvils:phase:4', 'anvils:phase:12', 'anvils:phase:14', 'anvils:phase:5']);
+});
+
+test('an unread plate is not an empty lane', () => {
+  const { snapshot, roadmaps, project, unread } = backlogFixture();
+  const backlog = backlogOf(snapshot, roadmaps, { now: NOW });
+  const plate = id => backlog.plates.find(p => p.projectId === id);
+  assert.deepEqual(plate('sprockets'), { projectId: 'sprockets', projectName: 'Acme Sprockets', state: 'not read', reason: 'The App cannot read acme/sprockets.', counts: null });
+  assert.equal(plate('anvils').state, 'read');
+  assert.deepEqual(plate('anvils').counts, { 'in-flight': 1, yours: 5, 'agent-ready': 3, waiting: 4, done: 1 });
+  assert.ok(!backlog.lanes.some(l => l.items.some(i => i.projectId === 'sprockets')));
+  // A plate whose phases could not be read is not read either, even with its other sources read; one with no roadmap at all the same.
+  const noPhases = backlogOf(snapshot, [{ projectId: 'anvils', na: 'docs/phases could not be listed' }], { now: NOW });
+  assert.deepEqual([noPhases.plates[0].state, noPhases.plates[0].reason, noPhases.plates[0].counts], ['not read', 'docs/phases could not be listed', null]);
+  assert.equal(backlogOf(snapshot, [], { now: NOW }).plates[0].counts, null);
+  // A plate read with nothing in it says 0 in every lane: an empty lane is a read, never a stand-in for an unread one.
+  const quiet = { ...structuredClone(unread), id: 'quiet', name: 'Acme Quiet', state: 'complete', gaps: [] };
+  const read = backlogOf(homeSnapshot([structuredClone(project), quiet], { sections: [], today: '2026-11-05' }), [roadmaps[0], { projectId: 'quiet', phases: [], goals: [], free: [], claimed: [] }], { now: NOW });
+  assert.deepEqual(read.plates.find(p => p.projectId === 'quiet'), { projectId: 'quiet', projectName: 'Acme Quiet', state: 'read', coverage: 'complete', counts: { 'in-flight': 0, yours: 0, 'agent-ready': 0, waiting: 0, done: 0 } });
+});
+
+test('the terminal backlog names an unread plate, never a zero', async () => {
+  const { backlogText } = await import('../lib/home.mjs');
+  const { snapshot, roadmaps } = backlogFixture();
+  const text = backlogText({ schema: 1, generatedAt: NOW, lane: null, ...backlogOf(snapshot, roadmaps, { now: NOW }) });
+  assert.match(text, /^Acme Sprockets: not read — The App cannot read acme\/sprockets\.$/m);
+  assert.doesNotMatch(text, /Acme Sprockets #/);
+  assert.match(text, /^In flight 1\n {2}1\. Acme Anvils #8 {2}Acme phase 8 · G1 {2}\[claude · claimed\] {2}— claim 5d left$/m);
+  assert.match(text, /^ {2}\d+\. Acme Anvils #4 {2}Acme phase 4 · Unblocks 1 phase · G1 {2}— added 16 days ago$/m);
+  assert.match(text, /^1 free phase waits for shaping \(not spec: 2\), so it is not agent-ready$/m);
 });
