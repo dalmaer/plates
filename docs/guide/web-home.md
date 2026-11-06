@@ -146,6 +146,22 @@ policy lists (only `session` with no policy). This build starts `session`
 only. The backlog's Start button on an agent-ready row stays off on the web,
 and its tooltip gives this command.
 
+`plates home --assist <plate>:phase:<n> --recommend <choice> --why "<line>"
+--evidence <link> [--evidence <link>...] [--provider <p>]` (phase 182), run in
+that plate's checkout, keeps an agent's draft recommendation on the phase's
+Your part. The choice must be one of its Choices; each evidence link is an
+https link or a path committed in the repo. Without `--yes` it previews the
+draft and its digest and exits 3. With `--yes` it journals the intent and keeps
+the draft under the checkout's git directory, beside the attach journal, by
+route `session`: the agent is your own session, and nothing is started or
+claimed. It never records an answer, ticks a box, moves a status or adds
+evidence. `plates home --backlog` shows it on the card as "Agent recommends: X,
+because Y (evidence) · agent", next to any Recommend the phase file names. The
+draft names the git blob of the phase file it read; once that file changes, the
+draft is withdrawn and the backlog says so. A plate's `"backlog": { "assists":
+[...] }` policy can turn it off (with no policy, `decision-draft` is offered).
+Drafts are local to the checkout: the hosted backlog does not read them yet.
+
 `plates home --agents` (phase 186) lists each provider in the plates'
 `agents` maps with the item it holds now, from claims ("working on plates
 #178", with its presence: claimed, or stale after seven days without a push),
