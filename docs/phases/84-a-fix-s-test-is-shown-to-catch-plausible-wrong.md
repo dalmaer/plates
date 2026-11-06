@@ -37,13 +37,13 @@ Not in scope: mutating code outside the fix, or failing a commit for survivors (
 
 ## Your part
 
-- **Ask:** Read the survivors plates prove --mutate reports for one real fix commit.
-- **Why:** It shows whether the check finds real holes in tests or just noise.
-- **Look at:** the prove output in the next fix's PR.
-- **Choices:** Real gaps | Noise
-- **Takes:** 10 minutes.
-- **Then:** Noise: the mutation set is narrowed.
-- **Ready when:** this phase has shipped and a fix has been proven with it.
+- **Ask:** Plates checked a real fix's test by making small wrong changes to the fix. These wrong changes still passed the test. Are they real holes in the test, or harmless?
+- **Why:** If the holes are real, this check earns its place in every fix; if they are noise, the check is narrowed. The conductor marks which ones it thinks are real.
+- **Look at:** The list of wrong changes the test missed, in the fix's PR and in this phase's evidence.
+- **Choices:** Real holes | Harmless
+- **Takes:** 5 minutes.
+- **Then:** Real holes: the phase is built, and the fix's test is strengthened. Harmless: the mutation set is narrowed so these stop appearing.
+- **Ready when:** the conductor has run `plates prove --mutate` on a real fix and posted what survived.
 
 ## Real surfaces
 
@@ -61,4 +61,7 @@ By hand: one real fix's survivors.
 
 ## Next action
 
-⚑ The owner reads the survivors `plates prove --mutate` reports for the next real fix (the prove output in its PR) and says real gaps or noise; noise narrows the mutation set. A first look, at `012a0af`, is in the evidence.
+The conductor runs `plates prove --mutate` on the next real fix commit and posts the surviving wrong changes in its PR and the evidence, marking which look real; then the owner's question opens.
+
+## Trajectory
+- **2026-11-06** The survivors are prepared by the conductor before the owner is asked; the question waits until they exist.

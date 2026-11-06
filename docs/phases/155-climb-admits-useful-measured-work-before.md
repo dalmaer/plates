@@ -1,6 +1,5 @@
 ---
 status: partial
-owes: walk
 since: 2026-11-01
 goal: G4
 spec: 2
@@ -44,8 +43,9 @@ The provider's final explanation was not retained in the downloaded artifacts. D
 
 ## Next action
 
-Review and install the repair, then inspect the next scheduled climb without an extra paid dispatch. Record its admission, measured attempts and outcome; use the operating audit to complete existing hosted walks rather than claiming deployment from local tests.
+Agent work: every scheduled climb failed from 1 to 5 November (latest run 42010228882). Diagnose and fix that first, then observe the next scheduled run and record its admission, attempts and outcome.
 
 ## Trajectory
 
 - **2026-11-01** — The long night was baseline work, not prolonged agent execution. Budget admission now uses independent wall duration; review added durable pending receipts and unconditional finalization so interrupted probes remain visible. Local proof passes; scheduled usefulness remains open.
+- **2026-11-06** Moved out of the owner's lane: observing a climb run is agent work. Every scheduled climb failed 1–5 November.

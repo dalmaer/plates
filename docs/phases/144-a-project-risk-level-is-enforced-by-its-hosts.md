@@ -39,14 +39,14 @@ reports any drift between the level and what the host actually allows.
 
 ## Your part
 
-- **Ask:** Approve applying the GitHub ruleset that matches one project's risk level.
-- **Why:** It is the first time a level is enforced by GitHub rather than only written down.
-- **Look at:** the ruleset preview the conductor posts.
+- **Ask:** Turn on GitHub's protection for one project so that only what its risk level allows can reach main (for example, the robot can't push to main directly)?
+- **Why:** Today the level is only written down; this makes GitHub enforce it. The conductor shows exactly which rules change before you answer. Recommended: Apply it.
+- **Look at:** The ruleset preview, posted with this item.
 - **Choices:** Apply it | Change the level first | Not yet
 - **Keeps it open:** Not yet
 - **Takes:** 5 minutes.
-- **Then:** Apply it: the conductor applies it and tries a refused push. Change the level first: `plates autonomy --level …`, then a new preview.
-- **Ready:** yes
+- **Then:** Apply it: the conductor applies it and shows a refused push. Change the level first: you pick the level, and a new preview follows.
+- **Ready when:** the conductor has picked a fleet project at Medium and posted its ruleset preview.
 
 ## Real surfaces
 
@@ -66,5 +66,5 @@ By hand: the refused push on one project.
 
 ## Next action
 
-The owner picks a fleet project at Medium; the conductor posts the ruleset
-preview, applies it on a yes, and tries a refused robot push.
+The conductor picks a fleet project at Medium and posts its ruleset preview; then the owner's question opens.
+
