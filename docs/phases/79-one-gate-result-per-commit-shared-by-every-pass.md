@@ -4,7 +4,7 @@ since: 2026-10-16
 goal: G6
 spec: 2
 depends: [33, 15]
-note: "Partial 2026-10-16: scripts/plates/gate.mjs reuses CI's exact result (proven by its plates-test-runs records) for the night, the loop and pre-push, and skips docs-only commits; the judges' base gates still run their own."
+note: "Partial 2026-11-06: the night, the loop and pre-push reuse CI's exact result (its plates-test-runs records) and docs-only commits skip; the judges' base gates deliberately run their own, like for like with the candidate. The owner's week of CI minutes remains."
 evidence: ["evidence/2026-10-16-gate-reuse.md"]
 issue: 162
 ---
@@ -27,7 +27,7 @@ The design is [Delivery: a change reaches production once, checked](../research/
 ## Acceptance
 
 - [x] The gate workflow uploads `plates-test-runs` on success and failure, and adoption proposes it for a project's own CI. `tests/workflows.test.mjs`, `tests/adopt.test.mjs`
-- [ ] Every pass that runs the gate reuses an exact, clean, successful result for its commit and runs the gate only without one, saying which. `tests/gate-reuse.test.mjs`
+- [x] Every pass that runs the gate reuses an exact, clean, successful result for its commit and runs the gate only without one, saying which, except the judges' base gates (climb's guard and the robot's judge), which run their own beside the candidate's. `tests/gate-reuse.test.mjs`
 - [x] A result for another command, another tree, or a run with no tests is never reused. `tests/gate-reuse.test.mjs`
 - [x] A doc-only commit records a skip, and a commit touching anything else runs the suite. `tests/gate-reuse.test.mjs`
 - [ ] ⚑ by hand: the owner reads one week of plates's CI minutes before and after on the night's health page.
@@ -60,8 +60,28 @@ By hand: the owner's week.
 - **Known limit**: a pass that tests a different tree than CI (climb's candidate branch) still runs its own gate; reuse is only for the exact commit.
 - **Settled 2026-10-16 (the build):** the evidence of a reusable result is the run's `plates-test-runs` records (a gate record for the commit and tree, clean, the same command's hash, exit 0, and a test run under it that ran a test and failed none), never a job's name: a name cannot say which command ran on which tree. Only a success is reused; a red CI result runs the gate again. Reuse still needs an explicit `ci.gateWorkflow`.
 - **Settled 2026-10-16:** docs-only is decided against the newest first-parent ancestor (at most 20 back) with a result of reuse grade at any age, and only for a clean commit; CI's own step (`gate.mjs --ci`) never reuses, it only skips or runs.
-- **Open: the judges' base gates.** climb's guard and the robot's judge run the gate on the base, the commit CI tested. The judge job holds no token by design (the agent's code runs in that step), and the robot's judge strips `GITHUB_*` from the gate's env, so CI's run is not like for like there. Carrying CI's verified records in from a trusted step before the agent's code runs is the likely shape; not built.
+- **Settled 2026-11-06: the judges' base gates run their own.** climb's guard
+  (`climb.mjs guard`) and the robot's judge run the base's gate to compare its test ledger with the candidate's: a test the base ran that
+  the candidate did not is refused. That comparison is only as strong as the
+  two runs are alike. CI's run is not: its gate step holds `GH_TOKEN` and every
+  `GITHUB_*` variable, the robot's judge strips them, climb's judge step has
+  no `GH_TOKEN`, and the judge's base runs in a worktree beside the checkout
+  after the project's own setup. A test CI skipped that the judge would run is
+  one the candidate could then drop unseen, which breaks "never weaker"; a
+  test CI ran that the judge skips refuses every honest candidate. A carry-in
+  can be made tamper-proof (a separate job with `actions: read` verifies CI's
+  records with `ciResult` before the agent job's output is read, pins their
+  digest in its job outputs, and the guard reads them before any of the
+  agent's code runs), but it adds a token-bearing job to two judge workflows
+  and changes two reviewed scripts to save one gate run per night or robot
+  PR, and it would still compare unlike runs. Revisit only if CI's gate and
+  the judge's are made to run in the same environment. (Tend's guard runs no
+  base gate: it tests tend's own commits, another tree, as the known limit says.)
 
 ## Next action
 
-Decide the judges' base gates (Deliberately open): carry CI's verified base records into climb's guard and the robot's judge from a trusted step, or record that they keep running their own; then box 2 can be ticked. The owner's week of CI minutes waits on that.
+Owner: read one week of plates's CI minutes before and after on the night's health page (box 5).
+
+## Trajectory
+
+- **2026-11-06** — Decided the judges' base gates: they keep running their own. The carry-in could be made safe, but CI's gate runs in another environment (tokens, `GITHUB_*`, checkout layout), so reusing it would weaken the guard's base-versus-candidate test comparison. Box 2 now names that exception; the night, loop and pre-push reuse as before.
