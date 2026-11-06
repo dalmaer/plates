@@ -434,7 +434,7 @@ test('controls are styled once', () => {
 // by 100 for Recurring's rows, which share its sheet (phase 185), and by 300 for
 // By goal's toggle, nested members and "more" (phase 179). The review session's
 // peek and running total (phase 180) are their own sheet, beside review.css.
-const CSS_BYTES_BEFORE_171 = 81780, PAGE_SHEETS_SINCE = { '/assets/backlog.css': 3300, '/assets/review-session.css': 450 };
+const CSS_BYTES_BEFORE_171 = 81780, PAGE_SHEETS_SINCE = { '/assets/plate-workspace.css': 8500, '/assets/backlog.css': 3300, '/assets/review-session.css': 450 };
 test('the design layer keeps its budget with a bounded Home loading addition', () => {
   const table = assets.buildAssetTable(assets.defaultSources());
   const css = [...table.entries].filter(([, entry]) => entry.type.startsWith('text/css'));

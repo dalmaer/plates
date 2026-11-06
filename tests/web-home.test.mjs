@@ -21,7 +21,7 @@ const headings = html => [...html.matchAll(/<h2 id="[^"]+">([^<]+)<\/h2>/g)].map
 // Phase 166, increment 2: the hosted page is the model's four sections, in order, with its items and counts.
 test('the page shows the four sections in order with the model\'s items and counts', () => {
   const data=freeze(snapshot()), before=JSON.stringify(data), html=homeView(access,data), four=data.home.sections, sec=id=>four.find(s=>s.id===id);
-  assert.deepEqual(headings(html), ['Needs you','Since you last looked','What should happen next?','Your plates']);
+  assert.deepEqual(headings(html), ['Your plates','Needs you','Since you last looked','What should happen next?','Your plates']);
   // Needs you: one row per model row, in the model's order, each with its one verb.
   const rows=[...html.matchAll(/<li class="need p-card" data-record="([^"]+)" data-verb="([^"]+)"[\s\S]*?<span class="verb[^"]*">([^<]+)<\/span>[\s\S]*?<h3>([^<]+)<\/h3>/g)].map(m=>[m[2],m[3],m[4]]);
   assert.deepEqual(rows, sec('needs-you').items.map(r=>[r.verb,r.label,r.title]));
@@ -282,5 +282,5 @@ test('since you last looked starts at the last visit', async t => {
   assert.match(renderHomeSnapshot(missing), /id="since-title">Since you last looked<\/h2><span class="meta">\d+(?: known)? · the last 7 days<\/span>/);
   // The route records a visit only for the Home page itself.
   const server = await readFile(new URL('../lib/web/server.mjs', import.meta.url), 'utf8');
-  assert.match(server, /visit: url\.pathname === '\/' \}/);
+  assert.match(server, /visit: url\.pathname === '\/', backlog: Boolean\(selectedId\) \}/);
 });

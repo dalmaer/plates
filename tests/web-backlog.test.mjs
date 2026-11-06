@@ -197,3 +197,20 @@ test('/backlog/history reads back what happened, and says so before 019', async 
   assert.match(page, /route session: 1 attached, 0 landed/);
   assert.match(page, /data-backlog-item="studio:phase:1"[\s\S]*?<span class="p-badge" data-backlog-history>1 event · last attach 2026-10-20<\/span>/);
 });
+
+
+test('a single plate home carries its backlog and claims with a source-bound cursor', async () => {
+  const s = await hosted();
+  const first = await (await s.get('/api/projects/studio/home')).json();
+  assert.equal(first.backlog.lanes[0].items[0].holder.provider, 'codex');
+  assert.ok(first.backlog.lanes.flatMap(l=>l.items).every(i=>i.projectId==='studio'));
+  const html = await (await s.get('/projects/studio')).text();
+  assert.match(html,/data-plate-workspace/);
+  assert.match(html,/data-message-key="studio:phase:1"/);
+  assert.equal((await s.get('/api/projects/missing/home')).status,404);
+  assert.equal((await s.web(s.h.request('/api/projects/studio/home'))).status,401);
+  const prior = first.cursor;
+  s.h.state.now += 24 * 60 * 60_000;
+  const next = await (await s.get('/api/projects/studio/home')).json();
+  assert.notEqual(next.cursor, prior, 'claim observation changes are part of the cursor');
+});
