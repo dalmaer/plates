@@ -98,6 +98,15 @@ with `/api/backlog` carrying the same JSON; there the claims are the plate's
 `claims/phase-*` branches and open PRs, read through the GitHub App. Start on an
 agent-ready row is off until agents can be attached (phase 181).
 
+Start at the top of the backlog's Yours lane (or "Your lane, in backlog order"
+on Home) opens the review session at `/review/yours` over exactly that lane, in
+its order (phase 180). Each card says how many are left and about how long
+they take, from each item's Takes or its kind's usual minutes, and "at least"
+when one is unknown. The next card's header shows below the current one. Not
+now takes an optional one-line reason, kept with its date in the same sealed
+record. The session ends in "All caught up" only when every plate and source
+was read; otherwise it says the read was partial.
+
 `plates home --backlog --by-goal` (phase 179) arranges the same backlog
 under each plate's goals, in `docs/goals.json` order, then its items with no
 goal: a header per goal with its lane counts, its first seven cards, and how

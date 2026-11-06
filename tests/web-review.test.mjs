@@ -212,10 +212,11 @@ test('Home starts the session from one panel at its top, or says nothing needs y
   const access = { workspace: { id: 'acme', name: 'Acme' }, userId: 1, projects: [{ id: 'studio', repo: 'acme/studio', name: 'Acme Studio' }], sourceRevision: 'a'.repeat(40), csrf: 'x' };
   const html = homeView(access, reviewSnapshot());
   // Phase 175: how many, about how long (the sum of the model's estimates: 5 + 1 + 2 + 10), and the quick ones beside everything.
-  assert.match(html, /<p class="review-start p-card"><strong>4 need you · about 18 min<\/strong><span><a class="button" href="\/review"[^>]*>Everything<\/a> <a class="button quiet" href="\/review\?quick=1">Quick ones \(2\)<\/a><\/span><\/p>/);
+  assert.match(html, /<p class="review-start p-card"><strong>4 need you · about 18 min<\/strong><span><a class="button" href="\/review"[^>]*>Everything<\/a> <a class="button quiet" href="\/review\?quick=1">Quick ones \(2\)<\/a> <a class="button quiet" href="\/review\/yours" data-review-yours>Your lane, in backlog order<\/a><\/span><\/p>/);
   // Only one kind waiting (all quick, or none quick): one Start review.
   const quickOnly = reviewSnapshot(); quickOnly.docket = quickOnly.docket.filter(e => e.quick);
-  assert.match(renderReviewStart(quickOnly), /<strong>2 need you · about 3 min<\/strong><a class="button" href="\/review"[^>]*>Start review<\/a><\/p>/);
+  assert.match(renderReviewStart(quickOnly), /<strong>2 need you · about 3 min<\/strong><span><a class="button" href="\/review"[^>]*>Start review<\/a> <a class="button quiet" href="\/review\/yours" data-review-yours>Your lane, in backlog order<\/a><\/span><\/p>/);
+  assert.doesNotMatch(renderReviewStart(reviewSnapshot(), { projectId: 'studio' }), /review\/yours/, 'a plate\'s own page starts its own session');
   assert.ok(html.indexOf('review-start') < html.indexOf('home-toolbar'), 'before the toolbar: the first thing under the heading');
   assert.match(renderReviewStart(reviewSnapshot(), { projectId: 'studio' }), /href="\/projects\/studio\/review"/);
   const none = renderReviewStart({ ...reviewSnapshot(), docket: [] });
@@ -294,4 +295,77 @@ test('the arrows flip through the cards, and a card flipped past comes round aga
   const html = renderReviewEnd({ settled: session.settled, putOff: session.putOff, again: session.again, skipped: session.skipped, home: '/' });
   assert.match(html, /0 settled · 3 put off · 1 skipped/);
   assert.match(html, /<h2>Skipped<\/h2><ul><li>[^<]+: still waiting on Home<\/li><\/ul>/);
+});
+
+// Phase 180: the lane as a session the owner can finish. What is left says how long it takes, honestly.
+test('session time is honest', async () => {
+  const { sessionTime, sessionLine } = await import('../lib/web/review-views.mjs');
+  const { DEFAULT_MINUTES, estimateOf, docketOf } = await import('../lib/work-items.mjs');
+  const items = docketItems(reviewSnapshot());
+  // From Takes where an item has one, else its kind's DEFAULT_MINUTES: every fixture item is known, so "~".
+  assert.deepEqual(items.map(e => [e.kind, e.minutes, e.estimate]), [['step', DEFAULT_MINUTES.step, 'kind'], ['claim', DEFAULT_MINUTES.claim, 'kind'], ['proposal', DEFAULT_MINUTES.proposal, 'kind'], ['walk', 10, 'takes']]);
+  assert.equal(sessionLine(sessionTime(items)), `4 left · ~${1 + 5 + 2 + 10} min`);
+  // One item whose minutes are unknown (no Takes, a kind with no default): never a guess, and the total says "at least".
+  assert.deepEqual(estimateOf({ kind: 'acme-odd' }), { minutes: null, from: 'unknown' });
+  const odd = docketOf({ decisions: [{ key: 'studio:acme-odd:1', kind: 'acme-odd', ready: true, title: 'An Acme oddity', waits: 'owner' }] });
+  assert.deepEqual([odd[0].minutes, odd[0].estimate, odd[0].quick], [null, 'unknown', false], 'unknown is not quick either');
+  assert.equal(sessionLine(sessionTime([...items, ...odd])), '5 left · at least 18 min');
+  // The card says what is left, and peeks at the next card's header.
+  const card = renderReviewCard(items[0], { index: 0, total: items.length, next: items[1], remaining: items });
+  assert.match(card, /<p class="review-left" data-review-left>4 left · ~18 min<\/p>/);
+  assert.match(card, new RegExp(`<aside class="review-peek" data-review-peek="${items[1].key}" aria-label="Next card"><span class="review-quiet">Next</span> <span class="p-badge">studio</span> <span class="p-badge">${items[1].label}</span> Stale claim: phase 7</aside>`));
+  assert.doesNotMatch(renderReviewCard(items[3], { index: 3, total: 4, next: null, remaining: [items[3]] }), /review-peek/, 'the last card has nothing to peek at');
+  // The session counts down as cards are answered; Not now takes a reason, sent as its why.
+  const c = clock(), sent = [];
+  const session = createReviewSession({ items, send: async hold => { sent.push(hold); return { state: 'put-off', until: hold.until }; }, timers: c.timers });
+  assert.equal(sessionLine(sessionTime(session.upcoming())), '4 left · ~18 min');
+  const notNow = items[0].item.answers.find(a => a.writer === 'not now');
+  session.choose(notNow.id, { until: '2026-11-12', why: 'Waiting for the Acme delivery' });
+  assert.equal(sessionLine(sessionTime(session.upcoming())), `3 left · ~${18 - items[0].minutes} min`);
+  await c.tick();
+  assert.deepEqual([sent[0].until, sent[0].why], ['2026-11-12', 'Waiting for the Acme delivery']);
+  // The Not now panel offers the reason line, bounded like every why.
+  assert.match(card, /<input type="text" class="p-field" maxlength="300" autocomplete="off" aria-label="Why not now \(optional\)" placeholder="Why not now \(optional\)" data-review-reason>/);
+});
+
+test('caught up needs complete coverage', async () => {
+  const { laneComplete } = await import('../lib/web/review-views.mjs');
+  const needs = known => ({ home: { sections: [{ id: 'needs-you', known, items: [] }] }, projects: [{ id: 'studio', state: 'complete' }] });
+  assert.equal(laneComplete(needs(false)), true);
+  assert.equal(laneComplete(needs(true)), false, 'a source not read: Needs you\'s count is only what was read');
+  assert.equal(laneComplete({ ...needs(false), projects: [{ id: 'studio', state: 'loading' }] }), false, 'a plate still loading');
+  assert.equal(laneComplete({ ...needs(false), projects: [{ id: 'studio', state: 'stale' }] }), false, 'a stale plate');
+  assert.equal(laneComplete({ projects: [] }), false, 'no Needs you at all: not known to be complete');
+  // The end: "All caught up" only on a complete read with nothing coming back or skipped.
+  const settled = [{ item: { title: 'Acme' }, label: 'Done', sets: [] }];
+  assert.match(renderReviewEnd({ settled }, { complete: true }), /<h1 class="review-ask" data-review-caught-up>All caught up<\/h1>/);
+  assert.doesNotMatch(renderReviewEnd({ settled }, { complete: false }), /All caught up/);
+  assert.doesNotMatch(renderReviewEnd({ settled, skipped: [{ item: { title: 'Acme later' } }] }, { complete: true }), /All caught up/, 'a card flipped past still waits');
+  assert.doesNotMatch(renderReviewEnd({ settled, again: [{ item: { title: 'Acme' }, reason: 'stale' }] }, { complete: true }), /All caught up/);
+  assert.match(renderReviewEnd({}, { nothing: true, complete: true }), /All caught up/);
+  assert.match(renderReviewEnd({}, { nothing: true, complete: false }), /<h1 class="review-ask">Nothing needs you in what was read<\/h1>[^]*not all caught up/);
+  // The server's page says the same from the snapshot.
+  const empty = { ...reviewSnapshot(), docket: [] };
+  assert.doesNotMatch(reviewView({ workspace: { name: 'Acme' }, csrf: 'x' }, empty), /All caught up/, 'no Needs you section read: not caught up');
+  assert.match(reviewView({ workspace: { name: 'Acme' }, csrf: 'x' }, { ...empty, home: { sections: [{ id: 'needs-you', known: false, items: [] }] } }), /All caught up/);
+});
+
+test('/review/yours is the backlog\'s lane, in its order', async t => {
+  const s = await hosted(t);
+  await s.home(); await s.fetch('/api/backlog');
+  const backlog = await (await s.fetch('/api/backlog')).json();
+  const { yoursOrder } = await import('../lib/web/review-views.mjs');
+  const order = yoursOrder(backlog);
+  assert.ok(order.length >= 2, 'the fixture lane has several items');
+  const r = await s.web(s.h.request('/review/yours', { cookie: s.signed.cookie }));
+  assert.equal(r.status, 200);
+  const html = await r.text();
+  const docketOrder = docketItems(await s.home(), { order }).map(e => e.key);
+  assert.deepEqual(docketOrder, order.filter(k => docketOrder.includes(k)), 'the docket in the lane\'s order');
+  assert.match(html, new RegExp(`data-review-card="${docketOrder[0]}"`), 'the first card is the lane\'s first');
+  assert.match(html, /data-order="\[/); assert.match(html, /data-home="\/backlog"/, 'the session ends back on the backlog');
+  assert.match(html, /\/assets\/review-session\.[0-9a-f]{12}\.css/);
+  assert.match(await (await s.web(s.h.request('/backlog', { cookie: s.signed.cookie }))).text(), /<a class="button" href="\/review\/yours" data-backlog-start-session>Start · \d+ · (?:~|at least )\d+ min<\/a>/);
+  assert.equal((await s.web(s.h.request('/review/yours?x=1', { cookie: s.signed.cookie }))).status, 400);
+  assert.notEqual((await s.web(s.h.request('/review/yours'))).status, 200, 'signed out: no lane');
 });
