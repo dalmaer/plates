@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**69 of 179 phases built; 75 owe a walk.** Built means implemented and checked; planned is not available.
+**69 of 179 phases built; 76 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -335,7 +335,7 @@ Each change is verified in parallel and published one at a time; production move
 
 From mobile and desktop, an authenticated owner operates every authorized Plates project: decisions, guided tests, visual changes, routine history and execution, fleet lessons and updates, scoped credentials and policy-bound model capacity, with source-backed evidence and private data.
 
-7/44 built; 26 owe a walk.
+7/44 built; 27 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -374,7 +374,7 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 | [174. A review session takes me through my docket, one item at a time](phases/174-a-review-session-takes-me-through-my-docket.md) | partial, walk owed | 2026-11-03 | [173](phases/173-every-item-waiting-on-the-owner-can-be-answered.md) | Built and proven by test: /review shows each Needs-you item as one full-screen card with big answers, a 5-second Undo, Add why and Not now, writes through phase 173's writers, brings failures back, and ends on what it settled; Home has a Start panel; plates home --review walks the same docket. The owner's session on the phone remains. |
 | [175. The docket puts what blocks agents first, and a notification opens it](phases/175-the-docket-puts-what-blocks-agents-first.md) | partial, walk owed | 2026-11-03 | [174](phases/174-a-review-session-takes-me-through-my-docket.md), [152](phases/152-plates-is-an-app-on-the-owners-phone.md) | Built and proven by test: the docket orders blockers, quick decisions, then walks in one model for both forms; estimates and their total; a quick-ones session; what each answer sets moving; and a once-a-day push that opens /review outside quiet hours. Needs quietHours configured and the owner's walk on the phone. |
 | [176. A pull request that is ready can be merged from the docket](phases/176-a-ready-pull-request-can-be-merged-from-the-docket.md) | planned | 2026-11-03 | [174](phases/174-a-review-session-takes-me-through-my-docket.md) | Merging is the owner's step on fleet repos. Today it means copying a gh command into a terminal; the review session should offer it as one card. |
-| [178. The backlog shows every plate's work in lanes, with reasons](phases/178-the-backlog-shows-every-plate-s-work-in-lanes.md) | partial | 2026-11-05 | [166](phases/166-home-says-what-needs-you-what-happened-and-what.md) | Increments 1 and 2 landed: backlogOf, and plates home --backlog prints the inbox list. Next: the hosted /backlog with the sidebar. |
+| [178. The backlog shows every plate's work in lanes, with reasons](phases/178-the-backlog-shows-every-plate-s-work-in-lanes.md) | partial, walk owed | 2026-11-05 | [166](phases/166-home-says-what-needs-you-what-happened-and-what.md) | Built in three increments: backlogOf, plates home --backlog, and the hosted /backlog list beside the sidebar. Owes the deploy, then the owner's walk. |
 | [179. The backlog groups by goal and shows one card per phase](phases/179-the-backlog-groups-by-goal-and-shows-one-card.md) | planned | 2026-11-05 | [178](phases/178-the-backlog-shows-every-plate-s-work-in-lanes.md) | Specified in docs/specs/web-backlog.md. |
 | [180. My lane is a session I can finish](phases/180-my-lane-is-a-session-i-can-finish.md) | planned | 2026-11-05 | [178](phases/178-the-backlog-shows-every-plate-s-work-in-lanes.md), [174](phases/174-a-review-session-takes-me-through-my-docket.md) | Specified in docs/specs/web-backlog.md. Extends the review session of phase 174. |
 | [181. I can attach an agent to a phase, and see it working](phases/181-i-can-attach-an-agent-to-a-phase-and-see-it.md) | planned | 2026-11-05 | [178](phases/178-the-backlog-shows-every-plate-s-work-in-lanes.md) | Specified in docs/specs/web-backlog.md. Routes session and tonight first; robot as a later increment gated by robot.on. |
