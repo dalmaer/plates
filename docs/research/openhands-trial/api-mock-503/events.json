@@ -1,0 +1,27 @@
+{
+  "exitCode": 1,
+  "events": [
+    {
+      "index": 1,
+      "inputCounting": "sdk-model-token-estimate-including-tools",
+      "inputTokens": 3417,
+      "kind": "provider-intent",
+      "maxOutputTokens": 4000,
+      "requestSHA256": "8c9af78f1fa8d7ed20987aa42f0bfea0ea9228077224bee1cf44442b3f940ced",
+      "rpcId": 1
+    },
+    {
+      "errorClass": "LLMServiceUnavailableError",
+      "index": 1,
+      "kind": "provider-error",
+      "requestSHA256": "8c9af78f1fa8d7ed20987aa42f0bfea0ea9228077224bee1cf44442b3f940ced",
+      "rpcId": 2,
+      "uncertain": true
+    },
+    {
+      "errorClass": "ConversationRunError",
+      "kind": "fatal"
+    }
+  ],
+  "qualification": "HTTPX in-process mock; all sockets denied; synthetic key and usage; no real provider or credentials."
+}

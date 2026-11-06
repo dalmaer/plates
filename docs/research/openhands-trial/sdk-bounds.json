@@ -1,0 +1,63 @@
+[
+  {
+    "case": "input-bound",
+    "exitCode": 1,
+    "kinds": [
+      "fatal"
+    ],
+    "intents": 0,
+    "effects": 0,
+    "providerCalls": 0
+  },
+  {
+    "case": "output-bound",
+    "exitCode": 1,
+    "kinds": [
+      "provider-intent",
+      "provider-error",
+      "fatal"
+    ],
+    "intents": 1,
+    "effects": 0,
+    "providerCalls": 0
+  },
+  {
+    "case": "uncertain",
+    "exitCode": 1,
+    "kinds": [
+      "provider-intent",
+      "provider-error",
+      "fatal"
+    ],
+    "intents": 1,
+    "effects": 0,
+    "providerCalls": 0
+  },
+  {
+    "case": "request-bound",
+    "exitCode": 0,
+    "kinds": [
+      "provider-intent",
+      "provider-result",
+      "approval-request",
+      "tool",
+      "finished"
+    ],
+    "intents": 1,
+    "effects": 1,
+    "providerCalls": 0
+  },
+  {
+    "case": "exact-approval-denied",
+    "exitCode": 1,
+    "kinds": [
+      "provider-intent",
+      "provider-result",
+      "approval-request",
+      "fatal"
+    ],
+    "intents": 1,
+    "effects": 0,
+    "providerCalls": 0
+  }
+]

@@ -1,0 +1,238 @@
+{
+  "schema": 1,
+  "kind": "plates-real-task-evaluation",
+  "task": "task-b",
+  "mode": "acceptance",
+  "baseline": "037e13b4f78c061405cef899b528badb536584ad",
+  "worktree": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/openhands-real-trial-prepared/followup-lesson",
+  "head": "037e13b4f78c061405cef899b528badb536584ad",
+  "dirtyPaths": "",
+  "integrity": {
+    "passed": true,
+    "baseline": "037e13b4f78c061405cef899b528badb536584ad",
+    "baselineHelperTree": "7cadb6a00169ebc31296ee42e39a456f1df8238e",
+    "checkedFiles": 59,
+    "currentFiles": 59,
+    "helperManifestSHA256": "6a846bd128efebc8a1839e9b978ad977701ca1e44ed540ff6208f6401b4de793",
+    "issues": []
+  },
+  "evaluatorSHA256": "723feab106853c71b2016f65904ec9f7880379ddde4804ec4c1dfb0400037548",
+  "sourceSHA256": {
+    "lib/web/server.mjs": "16d2b138f944ac08667a449b0031077404eaa030ff4235fbddb201b0175e6a5f",
+    "lib/web/migration.mjs": "c5cdd924c7fafab9d483ec289a9618e8627d8b1109ac14bdbfdcea6779fa7795",
+    "tests/helpers/web-learning.mjs": "c52852673486a6a63c4456ac6ff90e031c40e9c27f550ed524797179bcb7553b",
+    "tests/helpers/web-http.mjs": "dd493aa113b9b76f1f7845d8c54ed25c879fbd002a3c428c058009b39b601e91"
+  },
+  "total": 7,
+  "passed": 4,
+  "failed": 3,
+  "acceptancePassed": false,
+  "qualification": "Pass requires every frozen assertion; provider/auth/storage transport remains synthetic.",
+  "results": [
+    {
+      "name": "task-b/api/authorized-control",
+      "surface": "api",
+      "scenario": "authorized-control",
+      "unknownOperation": false,
+      "passed": true,
+      "status": 200,
+      "error": null,
+      "returnedOriginalReceipt": true,
+      "revealedCommit": true,
+      "revealedPreview": true,
+      "injections": 0,
+      "membersAfter": [
+        1
+      ],
+      "projectAccessAfter": true,
+      "fixtureWritesBefore": 1,
+      "fixtureWritesAfter": 1,
+      "repeat": {
+        "status": 200,
+        "sameOriginal": true
+      },
+      "checks": {
+        "fixtureOnlyNoAdditionalSourceWrite": true,
+        "injectionObserved": true,
+        "retainedWorkspaceMembership": true,
+        "authorizedRead": true,
+        "authorizedRepeat": true
+      }
+    },
+    {
+      "name": "task-b/api/before-read-loss",
+      "surface": "api",
+      "scenario": "before-read-loss",
+      "unknownOperation": false,
+      "passed": true,
+      "status": 401,
+      "error": "sign_in_required",
+      "returnedOriginalReceipt": false,
+      "revealedCommit": false,
+      "revealedPreview": false,
+      "injections": 0,
+      "membersAfter": [
+        1
+      ],
+      "projectAccessAfter": false,
+      "fixtureWritesBefore": 1,
+      "fixtureWritesAfter": 1,
+      "repeat": null,
+      "checks": {
+        "fixtureOnlyNoAdditionalSourceWrite": true,
+        "injectionObserved": true,
+        "retainedWorkspaceMembership": true,
+        "authorizationRefusal": true,
+        "noBufferedReceipt": true,
+        "typedApiRefusal": true,
+        "noUnknownHtmlFallback": true
+      }
+    },
+    {
+      "name": "task-b/api/mid-read-loss",
+      "surface": "api",
+      "scenario": "mid-read-loss",
+      "unknownOperation": false,
+      "passed": false,
+      "status": 200,
+      "error": null,
+      "returnedOriginalReceipt": true,
+      "revealedCommit": true,
+      "revealedPreview": true,
+      "injections": 1,
+      "membersAfter": [
+        1
+      ],
+      "projectAccessAfter": false,
+      "fixtureWritesBefore": 1,
+      "fixtureWritesAfter": 1,
+      "repeat": null,
+      "checks": {
+        "fixtureOnlyNoAdditionalSourceWrite": true,
+        "injectionObserved": true,
+        "retainedWorkspaceMembership": true,
+        "authorizationRefusal": false,
+        "noBufferedReceipt": false,
+        "typedApiRefusal": false,
+        "noUnknownHtmlFallback": true
+      }
+    },
+    {
+      "name": "task-b/html/authorized-control",
+      "surface": "html",
+      "scenario": "authorized-control",
+      "unknownOperation": false,
+      "passed": true,
+      "status": 200,
+      "error": null,
+      "returnedOriginalReceipt": true,
+      "revealedCommit": true,
+      "revealedPreview": false,
+      "injections": 0,
+      "membersAfter": [
+        1
+      ],
+      "projectAccessAfter": true,
+      "fixtureWritesBefore": 1,
+      "fixtureWritesAfter": 1,
+      "repeat": {
+        "status": 200,
+        "sameOriginal": true
+      },
+      "checks": {
+        "fixtureOnlyNoAdditionalSourceWrite": true,
+        "injectionObserved": true,
+        "retainedWorkspaceMembership": true,
+        "authorizedRead": true,
+        "authorizedRepeat": true
+      }
+    },
+    {
+      "name": "task-b/html/before-read-loss",
+      "surface": "html",
+      "scenario": "before-read-loss",
+      "unknownOperation": false,
+      "passed": true,
+      "status": 401,
+      "error": null,
+      "returnedOriginalReceipt": false,
+      "revealedCommit": false,
+      "revealedPreview": false,
+      "injections": 0,
+      "membersAfter": [
+        1
+      ],
+      "projectAccessAfter": false,
+      "fixtureWritesBefore": 1,
+      "fixtureWritesAfter": 1,
+      "repeat": null,
+      "checks": {
+        "fixtureOnlyNoAdditionalSourceWrite": true,
+        "injectionObserved": true,
+        "retainedWorkspaceMembership": true,
+        "authorizationRefusal": true,
+        "noBufferedReceipt": true,
+        "typedApiRefusal": true,
+        "noUnknownHtmlFallback": true
+      }
+    },
+    {
+      "name": "task-b/html/mid-read-loss",
+      "surface": "html",
+      "scenario": "mid-read-loss",
+      "unknownOperation": false,
+      "passed": false,
+      "status": 200,
+      "error": null,
+      "returnedOriginalReceipt": true,
+      "revealedCommit": true,
+      "revealedPreview": false,
+      "injections": 1,
+      "membersAfter": [
+        1
+      ],
+      "projectAccessAfter": false,
+      "fixtureWritesBefore": 1,
+      "fixtureWritesAfter": 1,
+      "repeat": null,
+      "checks": {
+        "fixtureOnlyNoAdditionalSourceWrite": true,
+        "injectionObserved": true,
+        "retainedWorkspaceMembership": true,
+        "authorizationRefusal": false,
+        "noBufferedReceipt": false,
+        "typedApiRefusal": true,
+        "noUnknownHtmlFallback": true
+      }
+    },
+    {
+      "name": "task-b/html/unknown-operation/mid-read-loss",
+      "surface": "html",
+      "scenario": "mid-read-loss",
+      "unknownOperation": true,
+      "passed": false,
+      "status": 200,
+      "error": null,
+      "returnedOriginalReceipt": false,
+      "revealedCommit": false,
+      "revealedPreview": false,
+      "injections": 1,
+      "membersAfter": [
+        1
+      ],
+      "projectAccessAfter": false,
+      "fixtureWritesBefore": 1,
+      "fixtureWritesAfter": 1,
+      "repeat": null,
+      "checks": {
+        "fixtureOnlyNoAdditionalSourceWrite": true,
+        "injectionObserved": true,
+        "retainedWorkspaceMembership": true,
+        "authorizationRefusal": false,
+        "noBufferedReceipt": true,
+        "typedApiRefusal": true,
+        "noUnknownHtmlFallback": false
+      }
+    }
+  ]
+}

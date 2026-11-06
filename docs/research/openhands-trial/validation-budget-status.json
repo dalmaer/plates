@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "authority": "admission-only",
+  "initialized": true,
+  "stateDir": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/validation-host",
+  "capacity": 1,
+  "used": 1,
+  "coordinationBusy": false,
+  "coordinationOwner": null,
+  "leases": [
+    {
+      "id": "d1bfd29e-d920-4063-b9e4-ddae837a6d56",
+      "pid": 41883,
+      "uid": 501,
+      "host": "Mac",
+      "repo": "dalmaer/plates",
+      "root": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/plates-openhands",
+      "revision": "fccc76fa81075d66f8e40e4d4e57fda5554c525e",
+      "dirty": true,
+      "foregroundContract": "posix-cooperative-process-group",
+      "weight": 1,
+      "createdAt": "2026-10-30T23:37:35.569Z",
+      "commandDigest": "5233f39db9091c68afce997411006c2ec123f7b6940732c33914b3c30aeadb69",
+      "childPid": 41890,
+      "state": "running"
+    }
+  ],
+  "history": [
+    {
+      "id": "ec842ba5-91c2-468a-8f1a-eaf8473994ec",
+      "foregroundContract": "posix-cooperative-process-group",
+      "repo": "dalmaer/plates",
+      "root": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/plates-openhands",
+      "revision": "d279d1ee4d650c428b04d19f343f905030eb4366",
+      "commandDigest": "5233f39db9091c68afce997411006c2ec123f7b6940732c33914b3c30aeadb69",
+      "createdAt": "2026-10-30T22:00:06.406Z",
+      "endedAt": "2026-10-30T22:04:33.557Z",
+      "childStatus": 0,
+      "signal": null,
+      "timedOut": false,
+      "interrupted": null,
+      "spawnError": null,
+      "wallMs": 267148.17783299997,
+      "cpuMs": null,
+      "released": true
+    },
+    {
+      "id": "101ad66b-b865-4422-a0b9-b014758300e3",
+      "foregroundContract": "posix-cooperative-process-group",
+      "repo": "dalmaer/plates",
+      "root": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-4/plates-openhands",
+      "revision": "060fe4165c75dcdbc99f39c34c76ee9a6fa1fe82",
+      "commandDigest": "5233f39db9091c68afce997411006c2ec123f7b6940732c33914b3c30aeadb69",
+      "createdAt": "2026-10-30T23:08:43.115Z",
+      "endedAt": "2026-10-30T23:14:27.624Z",
+      "childStatus": 0,
+      "signal": null,
+      "timedOut": false,
+      "interrupted": null,
+      "spawnError": null,
+      "wallMs": 344506.44649999996,
+      "cpuMs": null,
+      "released": true
+    }
+  ],
+  "limits": [
+    "Foreground commands and externally controlled container leases share capacity only when all participants use this same host state directory.",
+    "Missing, old or apparently dead owners never release capacity automatically."
+  ]
+}

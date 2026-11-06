@@ -1,0 +1,73 @@
+{
+  "exitCode": 0,
+  "events": [
+    {
+      "index": 1,
+      "inputCounting": "sdk-model-token-estimate-including-tools",
+      "inputTokens": 3417,
+      "kind": "provider-intent",
+      "maxOutputTokens": 4000,
+      "requestSHA256": "8c9af78f1fa8d7ed20987aa42f0bfea0ea9228077224bee1cf44442b3f940ced",
+      "rpcId": 1
+    },
+    {
+      "index": 1,
+      "kind": "provider-result",
+      "requestSHA256": "8c9af78f1fa8d7ed20987aa42f0bfea0ea9228077224bee1cf44442b3f940ced",
+      "rpcId": 2,
+      "synthetic": false,
+      "tokens": 120
+    },
+    {
+      "actions": [
+        {
+          "action": {
+            "operation": "read",
+            "path": "lib/acme.mjs"
+          },
+          "actionSHA256": "a497d3cd5f12dd88f29bc7bc526b2a57ce60bce7aba06673d7005c7334bd8ebb",
+          "eventId": "ef8cfa66-53de-477f-b12e-5e46c086e14b",
+          "toolCallId": "acme-mock-read-1"
+        }
+      ],
+      "kind": "approval-request",
+      "rpcId": 3
+    },
+    {
+      "action": {
+        "operation": "read",
+        "path": "lib/acme.mjs"
+      },
+      "actionSHA256": "a497d3cd5f12dd88f29bc7bc526b2a57ce60bce7aba06673d7005c7334bd8ebb",
+      "eventId": "ef8cfa66-53de-477f-b12e-5e46c086e14b",
+      "kind": "tool",
+      "rpcId": 4,
+      "toolCallId": "acme-mock-read-1"
+    },
+    {
+      "index": 2,
+      "inputCounting": "sdk-model-token-estimate-including-tools",
+      "inputTokens": 3471,
+      "kind": "provider-intent",
+      "maxOutputTokens": 4000,
+      "requestSHA256": "e617bd828848bd578add71bf024f564b02b1f8582920446fdfe5db14e5a3d9b1",
+      "rpcId": 5
+    },
+    {
+      "index": 2,
+      "kind": "provider-result",
+      "requestSHA256": "e617bd828848bd578add71bf024f564b02b1f8582920446fdfe5db14e5a3d9b1",
+      "rpcId": 6,
+      "synthetic": false,
+      "tokens": 120
+    },
+    {
+      "kind": "finished",
+      "providerCalls": 2,
+      "requestCount": 2,
+      "rpcId": 7,
+      "status": "finished"
+    }
+  ],
+  "qualification": "HTTPX in-process mock; all sockets denied; synthetic key and usage; no real provider or credentials."
+}

@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "status": "offline-local-prerequisites-complete; API-not-authorized",
+  "sourceSHA256": {
+    "trial-controller.mjs": "b1090194a721476a0f87624806760805a7a2a2324c8acd37981b83b7bbcf4855",
+    "sdk-trial.py": "b2b5df05d18c9a08fbd490a060a82f17a1b5eae726676411c288b8307a9abc2a",
+    "check-candidate.mjs": "d1d2dbef816d1dc1a8dd7b5aa0323aaf01e306d24ed2d44466688f6e12b8148f",
+    "check-runner.mjs": "bf53410bea9a558bf5906ff5cdaa7326de343f5f2903531ec85045c3fe587f7a",
+    "capture-candidate.mjs": "285fc529466bf802ad143bae75e00fbbc832cdeeed2f6573b39328dd3b989bfd",
+    "contained-score.mjs": "fc47ca2a7e035dc82ab22873a1343a815416b72351636511c7a45c723804681a",
+    "containment.mjs": "36e1882a9529594344b02459675f7d60e33e9f51085db2b7dbe50e922880c475",
+    "offline-trial-demo.mjs": "5046b65e7fbe8f7b6da03ee6ab0f7ca3316d2057398ff93a9119e10aafe13f03",
+    "offline-crash-proof.mjs": "6137265fe32347462cfe53e9f8d89f8bebf04c44519cef4edba03f1575963a21"
+  },
+  "nativeControllerTests": {
+    "pass": 4,
+    "fail": 0,
+    "skip": 0,
+    "log": "/tmp/openhands-native-trial-tests-release.log",
+    "sha256": "ef36ab75b3e64a53df6107cb0a636c8b8b0954c0797cf559d928ace7df90cc67"
+  },
+  "integrated": {
+    "nativeConversationMatchesPlates": true,
+    "providerCalls": 0,
+    "fileActions": 2,
+    "fixedChecks": 20,
+    "baselineAcceptance": "4/6 expected unchanged failure",
+    "learning": "no-useful-lesson"
+  },
+  "crash": {
+    "coordinator": "actual owned SIGKILL",
+    "completedFileEffects": 1,
+    "secondAction": "not executed; awaiting approval",
+    "duplicateLaunch": "refused",
+    "learning": "pending -> no-useful-lesson"
+  },
+  "transportMock": {
+    "socketAccess": "denied",
+    "successMockRequests": 2,
+    "failure503MockRequests": 1,
+    "realProviderCalls": 0,
+    "qualifications": "Each retained proof manifest describes synthetic responses, usage and mock file-tool result; not live integration."
+  },
+  "finalCodeChecks": {
+    "native": "passed",
+    "focused": "passed on final code and evidence",
+    "typecheck": "passed",
+    "syntax": "passed",
+    "logs": {
+      "/tmp/openhands-trial-focused-release.log": "58515b439296498e9bdd72fa5bd1f2da4276d81043e353a94949a1fbe6492867",
+      "/tmp/openhands-trial-typecheck-release.log": "b562ea4eacf3b29ea4e160213f8b2fc984bf8aeefceaf8bbd5b760be0999b6d8"
+    }
+  },
+  "fullGate": {
+    "newGate": "not run: shared admission capacity remains occupied by unresolved foreground lease",
+    "previousGate": "exit0 receipt from cfee23ac preparation; not current-file validation",
+    "lease": "d1bfd29e-d920-4063-b9e4-ddae837a6d56",
+    "supportedRecovery": "no foreground recovery/settlement API exists",
+    "stateEdited": false
+  },
+  "remainingConfiguration": [
+    "explicit user approval of named API account/model/endpoint/data scope and limits",
+    "dedicated approved API key environment variable",
+    "independently established broker Ed25519 trust key and current signed funding envelope",
+    "actual broker account/scope/token/billing ceiling verification",
+    "fresh disposable workspaces/private controller roots"
+  ],
+  "deniedBatch": "not executed or retried; no file-preview workaround",
+  "maintenance": {
+    "newControllerSDKAndFixedCheckLines": 623,
+    "scope": "experimental glue plus existing Evaluation store; custom transport guard and macOS sandbox require upstream/OS qualification on upgrade"
+  }
+}

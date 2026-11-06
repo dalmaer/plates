@@ -1,0 +1,24 @@
+{
+  "pass": true,
+  "fragmentedInput": true,
+  "exactContentPreserved": true,
+  "host": {
+    "exit": {
+      "code": 0,
+      "signal": null,
+      "timedOut": false
+    },
+    "body": {
+      "ok": true,
+      "operation": "write",
+      "path": "lib/acme.mjs",
+      "sha256": "09c6812b685a81b0640c4705bcbf6cc67b6baaced773311c574fd1d64cd37f59",
+      "bytes": 43,
+      "created": true
+    },
+    "policySHA256": "a01a2a681a7a08e692d1f9b8cf9360ed4a7821ecc6fa5259c34a13dbba39886b",
+    "nodeSHA256": "6f32069480ec14d52b6d7b1f3c7124cfbbc46203abf5ddf5c65b127435f3f329",
+    "stderr": ""
+  },
+  "hostSHA256": "6c5d7f70591360e8f1a8074023f0302d821fb9bb56f048885dbff2ed04a5dcf4"
+}
