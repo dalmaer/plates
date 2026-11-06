@@ -45,7 +45,8 @@ test('/backlog lists every plate\'s work in lanes, behind Home\'s auth', async (
   assert.equal(page.status, 200);
   const html = await page.text();
   assert.match(html, /<a href="\/backlog" aria-current="page">Backlog <span class="p-badge">\d+<\/span><\/a>/);
-  for (const soon of ['recurring', 'agents', 'pending-review']) assert.match(html, new RegExp(`data-sidebar-soon="${soon}"[^>]*>[^<]+<small>coming</small>`));
+  for (const soon of ['agents', 'pending-review']) assert.match(html, new RegExp(`data-sidebar-soon="${soon}"[^>]*>[^<]+<small>coming</small>`));
+  assert.match(html, /<a href="\/recurring">Recurring<\/a>/, 'Recurring is live (phase 185)');
   for (const l of model.lanes) assert.match(html, new RegExp(`id="lane-${l.lane}">${l.title} <span class="meta">${l.items.length}</span>`));
   for (const item of model.lanes.flatMap(l => l.items)) assert.ok(html.includes(`data-backlog-item="${item.key}"`), item.key);
   assert.match(html, /claim 6d left/); assert.match(html, /<span class="p-badge">codex · claimed<\/span>/);
@@ -99,7 +100,7 @@ test('a cold cache shows every plate loading, and the backlog fills them in', as
   const cold = (await read(access, token, { cacheOnly: true, backlog: true })).backlog;
   assert.deepEqual(cold.plates.map(p => [p.projectId, p.state, p.counts]), projects.map(p => [p.id, 'loading', null]));
   const html = backlogView(access, { schema: 1, generatedAt: new Date(h.state.now).toISOString(), lane: null, ...cold });
-  assert.match(html, /data-backlog-root data-loading="true"/);
+  assert.match(html, /data-backlog-root data-view="backlog" data-endpoint="\/api\/backlog" data-loading="true"/);
   for (const p of projects) assert.match(html, new RegExp(`<li>${p.id}: loading</li>`), `${p.id} says loading`);
   assert.doesNotMatch(html, /not read/);
   assert.match(html, /<script type="module" src="\/assets\/backlog-client\.mjs"><\/script>/, 'the page reads the rest itself');
@@ -139,7 +140,7 @@ test('a stale plate keeps its items, is never "not read", and its claims are rea
   assert.doesNotMatch(html, /not read/);
   assert.match(html, /<li>Acme Studio: stale, read 11 min ago · \d+ yours · \d+ agent-ready · 1 in flight \(at least\)<\/li>/);
   assert.match(html, /Acme Studio: stale, read 11 min ago, so its counts are at least these/);
-  assert.match(html, /data-backlog-root data-loading="true"/, 'the page reads again until the plate is fresh');
+  assert.match(html, /data-backlog-root data-view="backlog" data-endpoint="\/api\/backlog" data-loading="true"/, 'the page reads again until the plate is fresh');
   assert.match(html, /claim 6d left/, 'the claim read now still puts phase 1 in flight');
   // Its model: stale, partial coverage, counts kept.
   const { createHomeReader } = await import('../lib/web/home.mjs');

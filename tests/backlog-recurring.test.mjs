@@ -3,7 +3,7 @@
 // runs. Pure: synthetic Acme inputs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { routinesOf, cronNext, cronShape, parseCron, linksOf, recurringConfig, ROUTINES } from '../lib/recurring.mjs';
+import { routinesOf, cronNext, cronShape, parseCron, linksOf, recurringConfig, routineWords, timeText, ROUTINES } from '../lib/web/recurring-model.mjs';
 
 const NOW = '2026-11-05T12:00:00Z'; // a Thursday
 const wf = (id, crons, more = {}) => ({ path: `.github/workflows/plates-${id}.yml`, name: `plates-${id}`, crons, triggers: crons.length ? ['schedule', 'workflow_dispatch'] : ['pull_request'], ...more });
@@ -29,8 +29,8 @@ test('each routine once, next run from its cron', () => {
   assert.equal(by['.github/workflows/acme-sweep.yml'].nextRun, '2026-11-05T18:00:00.000Z');
   assert.equal(by.publish.nextRun, null, 'an event-driven routine has no next run');
   assert.deepEqual(by.publish.crons, []);
-  assert.deepEqual(by.night.shapes, [{ cadence: 'daily', at: '07:23', cron: '23 7 * * *' }]);
-  assert.deepEqual(by.tend.shapes, [{ cadence: 'weekly', days: ['Mondays'], at: '10:18', cron: '18 10 * * 1' }]);
+  assert.deepEqual(by.night.shapes, [{ cadence: 'daily', at: '07:23', cron: '23 7 * * *', next: '2026-11-06T07:23:00.000Z' }]);
+  assert.deepEqual(by.tend.shapes, [{ cadence: 'weekly', days: ['Mondays'], at: '10:18', cron: '18 10 * * 1', next: '2026-11-09T10:18:00.000Z' }]);
   assert.deepEqual(gaps, []);
   // The last result: the night record for night, the latest run for the rest, and plainly none when nothing was read.
   assert.deepEqual(by.night.last, { result: 'done', at: '2026-11-05', url: null, from: 'night journal' });
@@ -59,6 +59,13 @@ test('each routine once, next run from its cron', () => {
   for (const bad of ['* * * *', '61 * * * *', 'a b c d e', '*/0 * * * *', '5-1 * * * *']) assert.equal(parseCron(bad), null, bad);
   assert.deepEqual(cronShape('*/15 * * * *'), { cadence: 'other', cron: '*/15 * * * *' });
   assert.equal(ROUTINES.length, 7);
+  // In words, in a time zone: the schedule in the owner's zone, the next run, the last result and the budget.
+  const la = { timeZone: 'America/Los_Angeles' };
+  assert.deepEqual(routineWords(by.night, la), { schedule: 'daily at 23:23 PST', config: null, next: 'next Thu, Nov 5, 23:23 PST', last: 'last done (2026-11-05)', budget: 'budget 120 min (night record 2026-11-05)' });
+  assert.equal(routineWords(by.tend).schedule, 'weekly on Mon, 10:18 UTC');
+  assert.equal(routineWords(by.publish).schedule, 'on pull_request');
+  assert.equal(routineWords(weekly).config, 'climb.schedule: weekly (the workflow\'s cron says otherwise; both shown)');
+  assert.equal(timeText('nope', 'time'), 'unknown');
 });
 
 test('an off routine says why', () => {

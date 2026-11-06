@@ -58,3 +58,23 @@ test('the page keeps reading while a plate is stale', async () => {
   await p.run(); assert.equal(p.timers.length, 0, 'fresh: stop');
   assert.equal(p.root.dataset.loading, 'false');
 });
+
+// Phase 185: the same client serves Recurring, reading its own endpoint, and says every time in the viewer's zone.
+test('Recurring reads its own endpoint, and times are said in the viewer\'s zone', async () => {
+  const { renderRecurring } = await import('../lib/web/backlog-views.mjs');
+  const { localTime } = await import('../lib/web/backlog-client.mjs');
+  const p = page(), asked = [];
+  p.root.dataset.view = 'recurring';
+  const times = [{ attrs: { datetime: '2026-11-06T07:23:00.000Z' }, dataset: { local: 'time' }, textContent: '07:23 UTC', getAttribute(k) { return this.attrs[k]; } }];
+  p.root.querySelectorAll = sel => sel === 'time[data-local]' ? times : [];
+  const plate = state => ({ projectId: 'studio', projectName: 'Acme Studio', state, routines: state === 'loading' ? null : [], gaps: [] });
+  const answers = [{ schema: 1, generatedAt: '2026-11-05T12:00:00Z', plates: [plate('read')] }];
+  startBacklogClient({ document: p.document, window: p.window, fetch: async url => { asked.push(url); return { status: 200, json: async () => answers.shift() }; }, renderBacklog, renderSidebar, renderRecurring, timeZone: 'America/Los_Angeles' });
+  assert.equal(times[0].textContent, '23:23 PST', 'said in the viewer\'s zone before any read');
+  await p.run();
+  assert.deepEqual(asked, ['/api/recurring']);
+  assert.match(p.list.innerHTML, /data-recurring-plate="studio"/); assert.match(p.side.outerHTML, /<a href="\/recurring" aria-current="page">Recurring/);
+  assert.equal(p.timers.length, 0, 'every plate read: done');
+  assert.equal(localTime('2026-11-09T10:18:00.000Z', 'weekday-time', 'Europe/London'), 'Mon, 10:18 GMT');
+  assert.equal(localTime('nope', 'time'), null);
+});

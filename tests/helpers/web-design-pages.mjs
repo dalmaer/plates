@@ -6,7 +6,8 @@ import { homeView, projectView, signinView } from '../../lib/web/views.mjs';
 import { decisionView } from '../../lib/web/decision-views.mjs';
 import { changeIndexView } from '../../lib/web/change-views.mjs';
 import { reviewView } from '../../lib/web/review-views.mjs';
-import { backlogView } from '../../lib/web/backlog-views.mjs';
+import { backlogView, recurringView } from '../../lib/web/backlog-views.mjs';
+import { recurringOf } from '../../lib/web/recurring-model.mjs';
 import { changesHarness, token } from './web-changes.mjs';
 import { reviewSnapshot } from './review-fixture.mjs';
 import { itemKey, docketOf, homeSnapshot, backlogFor, roadmapOf, phaseRoadmap } from '../../lib/work-items.mjs';
@@ -36,7 +37,16 @@ export function backlog() {
   const model = homeSnapshot([studio, unread], { can: { form: 'web' }, today: '2026-10-21' });
   const claims = { state: 'read', claims: [{ phase: 1, branch: 'claims/phase-1', provider: 'claude', machine: 'acme-mac', at: '2026-10-19T16:00:00.000Z' }], prs: [] };
   const roadmaps = [roadmapOf(studio, claims, { now }), roadmapOf(unread, null, { now })];
-  return { schema: 1, generatedAt: now, lane: null, ...backlogFor(model, roadmaps, { now }) };
+  return { schema: 1, generatedAt: now, lane: null, ...backlogFor(model, roadmaps, { now }), sidebar: sidebar() };
+}
+const sidebar = () => ({ humans: [{ login: 'acme-owner', role: 'owner' }], links: [{ projectId: 'studio', projectName: 'Acme Studio', repo: 'https://github.com/acme/studio', canvas: 'https://canvas.acme.example', production: 'https://studio.acme.example' }] });
+/** Recurring's model from Acme workflows and plates.json, read at a fixed time; one plate not read. */
+export function recurring() {
+  const now = '2026-10-21T16:00:00.000Z', wf = (id, crons, triggers = ['schedule']) => ({ path: `.github/workflows/plates-${id}.yml`, name: `plates-${id}`, crons, triggers });
+  const studio = { projectId: 'studio', projectName: 'Acme Studio', state: 'read', config: { practices: ['night', 'climb', 'delivery'], climb: { schedule: 'weekly', budget: { minutes: 45 } }, robot: { on: false, budgetMinutes: 60 } },
+    workflows: [wf('night', ['23 7 * * *']), wf('climb', ['17 10 * * *']), wf('robot', ['37 11 * * 1']), wf('publish', [], ['workflow_run'])], daily: { state: 'read', date: '2026-10-21', counts: { done: 4, failed: 1 }, allocatedMinutes: 90 },
+    runs: { state: 'read', items: [{ path: '.github/workflows/plates-publish.yml', name: 'plates-publish', status: 'completed', conclusion: 'success', at: '2026-10-21T15:00:00Z', url: 'https://github.com/acme/studio/actions/runs/7' }] } };
+  return { ...recurringOf([studio, { projectId: 'anvils', projectName: 'Acme Anvils', state: 'not read', na: 'The App cannot read acme/anvils.' }], { now }), links: sidebar().links, sidebar: sidebar() };
 }
 const decision = () => ({ schema: 1, project, source: { path: 'docs/reviews/2026-10-21.md', head: 'c'.repeat(40), blob: 'd'.repeat(40), branch: 'main', visibility: 'public', link: 'https://github.com/acme/studio/blob/main/docs/reviews/2026-10-21.md' }, target: { kind: 'shaping', path: 'docs/shaping/next.json', question: 'scope' },
   question: { title: 'Which Acme scope should we build?', body: 'The owner chooses.', choices: [], recommendation: { text: 'Build the broader scope.', evidence: ['docs/evidence/acme.md'], alternatives: ['Keep this release small.'] } } });
@@ -56,6 +66,8 @@ export async function designPages() {
     reviewEmpty: { html: reviewView(access, reviewEmpty, project), api: { '/api/projects/studio/home': reviewEmpty } },
     // Phase 178: the backlog, a list beside the sidebar, with a row in four lanes and one plate not read.
     backlog: { html: backlogView(access, backlog()), api: { '/api/backlog': backlog() } },
+    // Phase 185: Recurring, beside the same sidebar: a scheduled routine, a weekly one whose config disagrees, an off one, an event one.
+    recurring: { html: recurringView(access, recurring()), api: { '/api/recurring': recurring() } },
   };
 }
 
