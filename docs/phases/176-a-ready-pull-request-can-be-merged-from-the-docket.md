@@ -1,10 +1,11 @@
 ---
-status: planned
+status: partial
+owes: walk
 since: 2026-11-03
 goal: G7
 spec: 2
 depends: [174]
-note: "Merging is the owner's step on fleet repos. Today it means copying a gh command into a terminal; the review session should offer it as one card."
+note: "Built and proven by test: a ready PR (the merge rule passes, checks green, not a draft) is one card in the docket; plates home --answer <pr> merge merges it with gh at the card's head, and the web merge is a digest-bound, journaled preview/apply through the App that refuses a moved head. The App's Pull requests write grant and the owner's merge remain."
 evidence: []
 ---
 
@@ -31,9 +32,9 @@ A PR whose checks are green and whose reviews are answered appears in the docket
 
 ## Acceptance
 
-- [ ] Only PRs with passing checks and answered reviews appear, and a draft or a PR with unanswered findings does not: `tests/work-items.test.mjs: "only a ready pull request reaches the docket"`
-- [ ] A merge is refused when the head moved after the card was shown: `tests/web-review.test.mjs: "a merge is refused when the head moved"`
-- [ ] Without the permission, Merge is shown unavailable with the reason in both forms: `tests/home-isomorphism.test.mjs: "merge says why it is unavailable"`
+- [x] Only PRs with passing checks and answered reviews appear, and a draft or a PR with unanswered findings does not: `tests/work-items.test.mjs: "only a ready pull request reaches the docket"`
+- [x] A merge is refused when the head moved after the card was shown: `tests/web-review.test.mjs: "a merge is refused when the head moved"`
+- [x] Without the permission, Merge is shown unavailable with the reason in both forms: `tests/home-isomorphism.test.mjs: "merge says why it is unavailable"`
 - [ ] ⚑ by hand: the owner merges one real PR from the session.
 
 ## Your part
@@ -62,4 +63,8 @@ By hand: the owner's merge.
 
 ## Next action
 
-After phase 174: ready PRs on the card, read-only (increment 1).
+Owner: grant the Plates GitHub App "Pull requests: Read and write" (and Checks read) on the plates installation (activation step github-app-pull-requests-write), then merge one ready PR from a review session.
+
+## Trajectory
+
+- **2026-11-06** — Increments 1 and 3 built together, gated: the merge rule moved into the night practice (mergeRule), so plates review --gate, plates release and the docket apply one rule. A review item (findings unanswered) no longer lists Merge. The web merge needs decisionWrites and the App's Pull requests and Contents write, and says which is missing. Request changes posts from the terminal only; the hosted workspace lists it unavailable. With several merge methods allowed, squash is chosen, then merge, then rebase, and the preview names it. Evidence: lib/pr-ready.mjs, lib/web/pr-merges.mjs.
