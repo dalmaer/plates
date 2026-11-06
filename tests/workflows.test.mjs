@@ -3282,6 +3282,13 @@ test('#212: workflowKind classifies by steps, code-ref triggers, observer roles 
   assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          echo ${ACME_TAG:-{a} #v1} && npm publish\n'), 'publish');
   assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          { npm test; # npm publish\n          }\n'), 'test');
   assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          echo ""#1 && npm publish\n'), 'publish');
+  // A double-quoted YAML scalar's escapes are decoded before shell comments are stripped (#352 review).
+  assert.deepEqual(workflowSteps('jobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: "echo Acme # note\\n npm publish"\n').runs, ['echo Acme \n npm publish']);
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: "echo Acme # note\\n npm publish"\n'), 'publish');
+  // A heredoc body is data: its quotes never change the shell's quote state after the delimiter (#352 review).
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          cat <<\'EOF\'\n          "\n          EOF\n          echo "Acme #1" && npm publish\n'), 'publish');
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          cat <<-ACME > notes.txt # notes\n          \t\'\n          \tACME\n          echo \'Acme #1\' && npm publish\n'), 'publish');
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          cat <<EOF\n          "\n          EOF\n          npm test # npm publish\n'), 'test');
 
   // 4. "delivery".workflows overrides by path, file, stem or workflow name, and deliveryProblems validates it.
   assert.equal(workflowKind('.github/workflows/verify-deploy.yml', verifyDeploy, { workflows: { '.github/workflows/verify-deploy.yml': 'deploy' } }), 'publish');

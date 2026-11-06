@@ -373,6 +373,9 @@ const bool = v => v === 'true' ? true : v === 'false' ? false : v;
  * form this reader does not take (an anchor, alias, tag, block scalar, flow
  * collection, or an unclosed quote). Never a guess.
  */
+/** A YAML double-quoted scalar's single-character escapes (§5.7); `\\x`, `\\u` and `\\U` take hex digits. */
+const YAML_ESCAPES = { 0: '\0', a: '\x07', b: '\b', t: '\t', '\t': '\t', n: '\n', v: '\v', f: '\f', r: '\r', e: '\x1b', ' ': ' ', N: '\x85', _: '\xa0', L: '\u2028', P: '\u2029' };
+
 export function scalar(raw) {
   const v = (raw ?? '').trim();
   if (!v) return { value: '' };
@@ -381,7 +384,12 @@ export function scalar(raw) {
     let k = 1, out = '';
     for (; k < v.length; k++) {
       if (q === "'" && v[k] === "'" && v[k + 1] === "'") { out += "'"; k++; continue; }
-      if (q === '"' && v[k] === '\\' && k + 1 < v.length) { out += v[++k]; continue; }
+      if (q === '"' && v[k] === '\\' && k + 1 < v.length) {
+        const e = v[++k], hex = { x: 2, u: 4, U: 8 }[e];
+        if (hex && /^[0-9a-fA-F]+$/.test(v.slice(k + 1, k + 1 + hex)) && v.length > k + hex) { out += String.fromCodePoint(parseInt(v.slice(k + 1, k + 1 + hex), 16)); k += hex; continue; }
+        out += YAML_ESCAPES[e] ?? e;
+        continue;
+      }
       if (v[k] === q) break;
       out += v[k];
     }
@@ -520,8 +528,39 @@ function foldYaml(lines) {
 /** Strip unquoted POSIX-shell `#` comments (tracking words, quotes, `${…}` and `\` escapes). */
 function stripShellComments(text) {
   let out = '', quote = null, word = false, dollar = false, param = 0;
+  const heredocs = [];
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
+    // A heredoc body is data, copied as is up to its delimiter line: no quote state, no comments.
+    if (c === '\n' && !quote && heredocs.length) {
+      while (heredocs.length && i < text.length) {
+        const { delim, tabs } = heredocs.shift();
+        for (;;) {
+          out += text[i++];
+          if (i >= text.length) break;
+          const end = text.indexOf('\n', i), line = text.slice(i, end < 0 ? text.length : end);
+          if ((tabs ? line.replace(/^\t+/, '') : line) === delim) { out += line; i += line.length; break; }
+          out += line;
+          i += line.length;
+          if (i >= text.length) break;
+        }
+      }
+      if (i >= text.length) break;
+      out += text[i];
+      word = false;
+      dollar = false;
+      continue;
+    }
+    const here = !quote && !param && c === '<' && text[i + 1] === '<' && text[i + 2] !== '<' && text[i - 1] !== '<'
+      ? /^<<(-?)[ \t]*((?:[^\s;&|()<>'"\\]|\\.|'[^']*'|"[^"]*")+)/.exec(text.slice(i)) : null;
+    if (here) {
+      heredocs.push({ delim: here[2].replace(/'([^']*)'|"([^"]*)"|\\(.)/g, (_, a, b, e) => a ?? b ?? e), tabs: Boolean(here[1]) });
+      out += here[0];
+      i += here[0].length - 1;
+      word = true;
+      dollar = false;
+      continue;
+    }
     if (quote === "'") { out += c; if (c === "'") quote = null; continue; }
     if (c === '\\') {
       dollar = false;
