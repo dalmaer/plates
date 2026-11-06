@@ -51,7 +51,7 @@ test('/backlog lists every plate\'s work in lanes, behind Home\'s auth', async (
   for (const l of model.lanes) assert.match(html, new RegExp(`id="lane-${l.lane}">${l.title} <span class="meta">${l.items.length}</span>`));
   for (const item of model.lanes.flatMap(l => l.items)) assert.ok(html.includes(`data-backlog-item="${item.key}"`), item.key);
   assert.match(html, /claim 6d left/); assert.match(html, /<span class="p-badge">codex · claimed<\/span>/);
-  if (keys['agent-ready'].length) assert.ok(html.includes(`aria-disabled="true" title="${START_UNAVAILABLE}"`), 'Start is off, with its reason');
+  if (keys['agent-ready'].length) assert.ok(html.includes(`aria-disabled="true" title="${START_UNAVAILABLE.replace("'", "&#39;")}: plates home --attach ${keys['agent-ready'][0]} --route session"`), 'Start is off, with its reason');
   assert.match(html, /\/assets\/backlog\.[0-9a-f]{12}\.css/);
   assert.equal((await s.web(s.h.request('/assets/backlog.css'))).status, 200);
   // Home links to it.

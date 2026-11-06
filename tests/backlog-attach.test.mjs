@@ -10,6 +10,10 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { attach, attachPreview, checkRoute, sessionBrief, BUILT_ROUTES } from '../lib/attach.mjs';
 import { offeredRoutes } from '../lib/web/agents-model.mjs';
+import { run } from './helpers/run.mjs';
+import { fileURLToPath } from 'node:url';
+
+const BIN = fileURLToPath(new URL('../bin/plates.mjs', import.meta.url));
 
 const phase = (title, depends = '[]', status = 'planned', evidence = '[]') => `---
 status: ${status}
@@ -140,4 +144,26 @@ test('absent policy is session only', async () => {
   assert.deepEqual(BUILT_ROUTES, ['session']);
   // An agent the plate does not list is refused before anything is read.
   await assert.rejects(attach({ root: '/acme', ...target, provider: 'gemini', yes: true }, { claim: () => assert.fail('no claim') }), /--provider gemini is not one of this plate's agents \(claude, codex\)/);
+});
+
+test('plates home --attach previews, then claims and hands over the session brief', async t => {
+  const x = await acme(t);
+  const plates = (args, env) => { const r = run(process.execPath, [BIN, 'home', ...args], { cwd: x.a, env }); return { code: r.status, out: r.stdout, err: r.stderr }; };
+  const env = x.env('acme-laptop', 'claude');
+  const preview = plates(['--attach', 'app:phase:1', '--route', 'session', '--json'], env);
+  assert.equal(preview.code, 3, preview.err);
+  assert.equal(JSON.parse(preview.out).state, 'preview');
+  assert.throws(() => git(x.origin, 'rev-parse', '--verify', '--quiet', 'refs/heads/claims/phase-1'), 'a preview claims nothing');
+  const done = plates(['--attach', 'app:phase:1', '--route', 'session', '--provider', 'claude', '--yes'], env);
+  assert.equal(done.code, 0, done.err);
+  assert.match(done.out, /^ {2}\/spin 1$/m);
+  assert.match(git(x.origin, 'log', '-1', '--format=%B', 'refs/heads/claims/phase-1'), /^Provider: claude$/m);
+  // A second --yes finds the receipt: nothing is claimed or handed over again.
+  assert.match(plates(['--attach', 'app:phase:1', '--route', 'session', '--provider', 'claude', '--yes'], env).out, /Already attached at /);
+  // Refusals: a route off by policy, a key for another plate, a phase not ready, a usage error.
+  for (const [args, code, says] of [[['--attach', 'app:phase:1', '--route', 'tonight', '--yes'], 2, /route tonight is off/], [['--attach', 'forge:phase:1', '--route', 'session'], 2, /forge's; this checkout is app/],
+    [['--attach', 'app:phase:0', '--route', 'session'], 1, /not ready to build/], [['--attach', 'app:phase:1'], 2, /--attach <key> --route <r>/]]) {
+    const r = plates(args, env);
+    assert.equal(r.code, code, `${args.join(' ')}: ${r.out}${r.err}`); assert.match(r.out + r.err, says);
+  }
 });
