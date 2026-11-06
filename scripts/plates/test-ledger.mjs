@@ -202,7 +202,9 @@ const JUNIT_VALUED = {
   bun: new Set(['--timeout', '--preload', '--rerun-each', '--seed', '--max-concurrency', '--conditions', '--define', '-d', '--env-file', '--tsconfig-override',
     '--cwd', '--config', '-c', '--coverage-reporter', '--coverage-dir', '--reporter', '--reporter-outfile', '-t', '--test-name-pattern']),
   vitest: new Set(['--config', '-c', '--root', '-r', '--dir', '--project', '--environment', '--pool', '--testTimeout', '--hookTimeout', '--retry', '--mode',
-    '--maxWorkers', '--minWorkers', '--exclude', '--globalSetup', '--reporter', '--outputFile', '-t', '--testNamePattern', '--shard', '--changed', '--related']),
+    '--maxWorkers', '--minWorkers', '--exclude', '--globalSetup', '--reporter', '--outputFile', '-t', '--testNamePattern', '--shard', '--changed', '--related',
+    '--sequence.seed', '--typecheck.checker', '--typecheck.tsconfig', '--browser.name', '--browser.provider', '--teardownTimeout', '--slowTestThreshold',
+    '--maxConcurrency', '--vmMemoryLimit', '--api.port', '--api.host']),
 };
 /**
  * The run's own, never repeated by a run-alone command: what it reports and where, which tests (a name filter,
@@ -220,12 +222,20 @@ const JUNIT_DROPPED = {
  * (what follows `--` on the ledger's command line, as the shell gave them to
  * the runner): its flags, as written, but the run's own (JUNIT_DROPPED; a
  * vitest dotted option such as --outputFile.junit is its base's), and no
- * file or folder. A flag with a secret-looking word (token=, secret=, key=,
- * password=) is never recorded: records are uploaded, and findings print.
+ * file or folder. A flag not known to take a value (JUNIT_VALUED) and
+ * followed by a bare word is left out: that word may be its value or a file,
+ * and either guess can print a command that runs something else (write
+ * `--flag=value` to keep it). A flag with a word that redactedText would
+ * change (a configured or environment secret's value, an assignment such as
+ * token=, a key, URL credentials) or a secret-looking word (token=, secret=,
+ * key=, password=) is never recorded: records are uploaded, and findings
+ * print.
  */
-export function runnerOptions(words, runner) {
+export function runnerOptions(words, runner, { env = process.env, configEnv = [] } = {}) {
   const valued = JUNIT_VALUED[runner], dropped = JUNIT_DROPPED[runner];
   if (!valued || !Array.isArray(words)) return [];
+  const bare = x => x !== undefined && !(String(x).startsWith('-') && String(x) !== '-');
+  const secret = x => SECRETISH.test(x) || redactedText(x, env, { configEnv }) !== x;
   const out = [];
   for (let i = 0; i < words.length; i++) {
     const w = String(words[i]);
@@ -233,9 +243,11 @@ export function runnerOptions(words, runner) {
     if (!w.startsWith('-') || w === '-') continue;
     const eq = w.indexOf('=');
     const name = eq > 0 ? w.slice(0, eq) : w;
-    const flag = eq < 0 && valued.has(name) && i + 1 < words.length ? [w, String(words[++i])] : [w];
+    const takes = eq < 0 && valued.has(name);
+    if (eq < 0 && !takes && bare(words[i + 1])) continue;
+    const flag = takes && i + 1 < words.length ? [w, String(words[++i])] : [w];
     const base = runner === 'vitest' ? name.replace(/^(--[^.]+)\..*$/, '$1') : name;
-    if (dropped.has(base) || flag.some(x => SECRETISH.test(x))) continue;
+    if (dropped.has(base) || flag.some(secret)) continue;
     out.push(...flag);
   }
   return out;
@@ -1400,7 +1412,7 @@ export async function junitRun({ junit, runner, status = null, cwd = process.cwd
   try {
     const workflow = process.env.GITHUB_ACTIONS === 'true' && process.env.GITHUB_WORKFLOW ? { workflow: process.env.GITHUB_WORKFLOW } : {};
     const here = relative(root, real(cwd)).split(sep).join('/') || '.';
-    const args = runnerOptions(words, kind);
+    const args = runnerOptions(words, kind, { env, configEnv });
     const run = {
       busy: busyBetween(start, await sample()),
       ...where(root, { exclude: shown === at ? [] : [shown] }), runner: kind, dir: here,
