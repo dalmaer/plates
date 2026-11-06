@@ -35,11 +35,11 @@ const reviewRepository = { open: { pageInfo: { hasNextPage: false }, nodes: [{ k
 const rate = { cost: 1, remaining: 4000, resetAt: new Date(Date.now() + 3600_000).toISOString() };
 
 /** The same sources, twice: the web's fake App API and a git checkout with a fake gh. */
-async function sources({ reviews = true, files = {}, issues = null, waits = null, runs = null } = {}) {
+async function sources({ reviews = true, files = {}, issues = null, waits = null, runs = null, prs = null, config = {} } = {}) {
   const h = projectHarness();
   Object.assign(h.source.files, files);
   h.source.files['.plates/plates.json'] = JSON.stringify({ name: 'Acme Studio', repo: 'acme/studio', tagline: 'Publish useful things.', practice: '0.8.32', stack: ['node'], phases: { shape: 'files' },
-    ...(waits ? { practices: ['phases', 'delivery'], delivery: { tested: 'green', promote: 'vercel:studio' } } : {}) });
+    ...(waits ? { practices: ['phases', 'delivery'], delivery: { tested: 'green', promote: 'vercel:studio' } } : {}), ...config });
   const dir = await mkdtemp(join(tmpdir(), 'plates-home-iso-')), root = join(dir, 'studio');
   for (const [path, content] of Object.entries(h.source.files)) { await mkdir(dirname(join(root, path)), { recursive: true }); await writeFile(join(root, path), content); }
   const git = args => execFileSync('git', ['-C', root, ...args], { env: gitEnv, encoding: 'utf8' }).trim();
@@ -59,6 +59,8 @@ async function sources({ reviews = true, files = {}, issues = null, waits = null
         return Response.json({ data: { rateLimit: rate, repository } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
       }
       // The backlog's claims read (phase 178): the claim branches the test pushed to the checkout's remote, and no open PRs.
+      // Pending review's read (phase 186): the same open PRs the fake gh lists.
+      if (query.includes('PlatesPending')) return Response.json({ data: { rateLimit: rate, repository: { pullRequests: { totalCount: (prs ?? []).length, nodes: prs ?? [] } } } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
       if (query.includes('PlatesClaims')) return Response.json({ data: { rateLimit: rate, repository: { refs: { totalCount: claimRefs.length, nodes: claimRefs }, pullRequests: { totalCount: 0, nodes: [] } } } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
       return Response.json({ data: { rateLimit: rate, ...(query.includes('PlatesReviewWindow') ? { repository: reviewRepository } : {}) } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
     }
@@ -494,6 +496,47 @@ test('recurring matches in both forms', async () => {
     assert.match(text, /^ {2}Night: daily at \d\d:23 \S+ · next /m);
     assert.match(text, /^ {2}Robot: weekly on \w{3}, \d\d:37 \S+ · off: robot\.on is not true/m);
     assert.match(text, /^ {6}last failure \(2026-11-05 09:00 UTC\)$/m);
+  } finally { await s.done(); }
+});
+
+// Phase 186: Agents and Pending review are one model too. plates home --agents --json and /api/agents are both agentsFor
+// over each plate's config and phases from Home's read, its claims (git and gh, or the App) and its open PRs (gh, or the App).
+const PRS = [
+  { number: 21, title: 'Acme anvils, sharper', url: 'https://github.com/acme/studio/pull/21', createdAt: '2026-11-01T10:00:00Z', isDraft: false, reviewDecision: 'REVIEW_REQUIRED', autoMergeRequest: null, author: { login: 'acme-owner' }, headRefName: 'claude/anvils', state: 'OPEN' },
+  { number: 22, title: 'Acme bump', url: 'https://github.com/acme/studio/pull/22', createdAt: '2026-10-30T10:00:00Z', isDraft: false, reviewDecision: null, autoMergeRequest: { enabledAt: '2026-10-30T11:00:00Z' }, author: { login: 'renovate' }, headRefName: 'renovate/x', state: 'OPEN' },
+];
+test('agents match in both forms', async () => {
+  const s = await sources({ prs: PRS, config: { agents: { claude: {}, codex: {} }, backlog: { routes: ['session', 'tonight'] } } });
+  try {
+    const remote = join(s.dir, 'remote.git'), at = new Date(Math.floor(Date.now() / 1000) * 1000).toISOString();
+    execFileSync('git', ['init', '-q', '--bare', '-b', 'main', remote], { env: s.gitEnv });
+    s.git(['remote', 'add', 'origin', remote]); s.git(['push', '-q', 'origin', 'main']);
+    const message = claimMessage({ phase: 1, provider: 'claude', machine: 'acme-mac', at, token: 'acme-token' });
+    const sha = execFileSync('git', ['-C', s.root, 'commit-tree', 'HEAD^{tree}', '-p', 'HEAD', '-m', message], { env: { ...s.gitEnv, GIT_COMMITTER_DATE: at, GIT_AUTHOR_DATE: at }, encoding: 'utf8' }).trim();
+    s.git(['push', '-q', 'origin', `${sha}:refs/heads/claims/phase-1`]);
+    s.claimRefs.push({ name: 'phase-1', target: { oid: sha, message, committedDate: at } });
+
+    const run = s.again(['--agents', '--json'], { env: { ACME_GH_PRS: JSON.stringify(PRS) } });
+    assert.equal(run.status, 0, run.stderr);
+    const cli = JSON.parse(run.stdout), web = (await s.readWeb({ agents: true })).agents;
+    const ageless = m => ({ ...m, generatedAt: null, pending: { ...m.pending, items: m.pending.items.map(({ ageDays, ...i }) => i) } });
+    assert.deepEqual(ageless(web), ageless(cli), 'the same agents, routes and pending reviews in both forms');
+    // The fixture: claude holds phase 1, codex is idle; session and tonight on, the robot off; one PR waits, the auto-merge one does not.
+    const by = Object.fromEntries(cli.agents.providers.map(p => [p.id, p]));
+    assert.deepEqual(by.claude.holds.map(h => [h.projectId, h.phase, h.title, h.presence]), [['studio', 1, 'Acme phase 1', 'claimed']]);
+    assert.equal(by.codex.state, 'idle');
+    assert.deepEqual(cli.agents.routes.filter(r => r.state === 'on').map(r => r.id), ['session', 'tonight']);
+    assert.deepEqual(cli.pending.items.map(i => [i.number, i.review]), [[21, 'review required']]);
+    // The page renders the same, and the terminal says it.
+    const { agentsView } = await import('../lib/web/backlog-views.mjs');
+    const html = agentsView(s.access, { ...web, sidebar: { humans: [], links: [], counts: {} } });
+    assert.match(html, /data-agent="claude"[^]*?working on <strong>Acme Studio #1<\/strong> Acme phase 1/);
+    assert.match(html, /data-agent="codex"[^]*?<p class="backlog-none">idle<\/p>/);
+    assert.match(html, /data-pending="studio:review:21"/); assert.doesNotMatch(html, /studio:review:22/);
+    assert.match(html, /<a href="\/agents" aria-current="page">Agents <span class="p-badge">1<\/span><\/a><a href="\/agents#pending">Pending review <span class="p-badge">1<\/span><\/a>/);
+    const text = s.again(['--agents'], { env: { ACME_GH_PRS: JSON.stringify(PRS) } }).stdout;
+    assert.match(text, /^ {2}claude: working on Acme Studio #1 Acme phase 1 · claimed on acme-mac$/m);
+    assert.match(text, /^ {2}Acme Studio #21 {2}Acme anvils, sharper · review required {2}— \d+ days old$/m);
   } finally { await s.done(); }
 });
 

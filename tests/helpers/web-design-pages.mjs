@@ -6,7 +6,8 @@ import { homeView, projectView, signinView } from '../../lib/web/views.mjs';
 import { decisionView } from '../../lib/web/decision-views.mjs';
 import { changeIndexView } from '../../lib/web/change-views.mjs';
 import { reviewView } from '../../lib/web/review-views.mjs';
-import { backlogView, recurringView } from '../../lib/web/backlog-views.mjs';
+import { backlogView, recurringView, agentsView } from '../../lib/web/backlog-views.mjs';
+import { agentsFor, agentCounts } from '../../lib/web/agents-model.mjs';
 import { recurringOf } from '../../lib/web/recurring-model.mjs';
 import { changesHarness, token } from './web-changes.mjs';
 import { reviewSnapshot } from './review-fixture.mjs';
@@ -40,6 +41,17 @@ export function backlog() {
   return { schema: 1, generatedAt: now, lane: null, ...backlogFor(model, roadmaps, { now }), sidebar: sidebar() };
 }
 const sidebar = () => ({ humans: [{ login: 'acme-owner', role: 'owner' }], links: [{ projectId: 'studio', projectName: 'Acme Studio', repo: 'https://github.com/acme/studio', canvas: 'https://canvas.acme.example', production: 'https://studio.acme.example' }] });
+/** Agents' model from Acme claims, policy and PRs, read at a fixed time. */
+export function agents() {
+  const now = '2026-10-21T16:00:00.000Z';
+  const model = agentsFor([
+    { projectId: 'studio', projectName: 'Acme Studio', config: { agents: { claude: {}, codex: {} }, backlog: { routes: ['session', 'tonight'] }, robot: { on: false } },
+      claims: [{ phase: 178, branch: 'claims/phase-178', provider: 'claude', machine: 'acme-mac', at: '2026-10-21T09:00:00.000Z' }], titles: { 178: 'The backlog shows every plate\'s work in lanes' },
+      prs: { state: 'read', items: [{ number: 41, title: 'Acme anvils, sharper', url: 'https://github.com/acme/studio/pull/41', createdAt: '2026-10-18T10:00:00Z', isDraft: false, reviewDecision: 'REVIEW_REQUIRED', autoMerge: false, author: 'acme' }] } },
+    { projectId: 'anvils', projectName: 'Acme Anvils', config: { agents: { claude: {} } }, claims: [], titles: {}, prs: { state: 'unavailable', why: 'the Plates GitHub App has no Pull requests read on this plate' } },
+  ], { now });
+  return { ...model, sidebar: { ...sidebar(), counts: agentCounts(model) } };
+}
 /** Recurring's model from Acme workflows and plates.json, read at a fixed time; one plate not read. */
 export function recurring() {
   const now = '2026-10-21T16:00:00.000Z', wf = (id, crons, triggers = ['schedule']) => ({ path: `.github/workflows/plates-${id}.yml`, name: `plates-${id}`, crons, triggers });
@@ -68,6 +80,8 @@ export async function designPages() {
     backlog: { html: backlogView(access, backlog()), api: { '/api/backlog': backlog() } },
     // Phase 185: Recurring, beside the same sidebar: a scheduled routine, a weekly one whose config disagrees, an off one, an event one.
     recurring: { html: recurringView(access, recurring()), api: { '/api/recurring': recurring() } },
+    // Phase 186: Agents and Pending review: one provider working, one idle, routes on and off, a pending PR, and a plate whose PRs were not read.
+    agents: { html: agentsView(access, agents()), api: { '/api/agents': agents() } },
   };
 }
 

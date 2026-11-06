@@ -112,6 +112,18 @@ ends with each plate's links (repo, `canvas.home`, production site).
 carries Humans and Links; it reads the latest runs through the App's Actions
 read, and starts, stops and reschedules nothing.
 
+`plates home --agents` (phase 186) lists each provider in the plates'
+`agents` maps with the item it holds now, from claims ("working on plates
+#178", with its presence: claimed, or stale after seven days without a push),
+or idle; each route an agent may join by (session, local agent host, tonight,
+robot, worker), on for the plates whose `"backlog": { "routes": [...] }`
+policy lists it (session only with no policy) or off with its reason
+(`robot.on`, workers not yet activated, not in policy); and Pending review,
+the fleet's open pull requests not set to auto-merge, oldest first, read
+through `gh`. The hosted `/agents` shows the same, reading pull requests with
+the App's Pull requests read (a plate without it says "not read"), and the
+sidebar's Agents and Pending review carry their counts on every page.
+
 On the web, **Since you last looked** starts at your previous visit. A visit is a
 run of Home page loads less than thirty minutes apart, and "since" is the last
 load of the visit before this one; a reload, the page's background refresh and

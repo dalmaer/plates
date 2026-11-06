@@ -1,6 +1,6 @@
 {
   "verbs": 50,
-  "flags": 203,
+  "flags": 204,
   "counted": "verbs: every key of `verbs` in lib/cli.mjs (\"goal add\" is one verb). flags: each distinct --flag a verb's usage string names counts once for that verb, so --dry-run on two verbs counts twice; the shared flags --json, --yes and --help count once for the whole CLI, and only when some usage string names them (--help is read by the dispatcher and named by none, so it does not count); each top-level flag in FLAGS (--agent-help, --version) counts once.",
   "surface": {
     "shared": ["--json", "--yes"],
@@ -43,7 +43,7 @@
       "feedback": ["--digest", "--record"],
       "issue": ["--agent", "--rubric", "--title"],
       "review": ["--class", "--close", "--file-agent-issue", "--fixed", "--gate", "--not-valid", "--reviewer", "--rubric", "--title", "--tracked", "--wait"],
-      "home": ["--answer", "--backlog", "--fresh", "--lane", "--names-evidence", "--project", "--quick", "--recurring", "--review", "--until", "--why"],
+      "home": ["--agents", "--answer", "--backlog", "--fresh", "--lane", "--names-evidence", "--project", "--quick", "--recurring", "--review", "--until", "--why"],
       "board": [],
       "promote": ["--back", "--every", "--migrated", "--migrations-from", "--watch", "--within"],
       "walk": ["--accept", "--box", "--choice", "--decline", "--instance", "--map", "--note", "--proposal"],
