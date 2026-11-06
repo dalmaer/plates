@@ -986,7 +986,7 @@ the worktree are copied to the checkout's `.plates/test-runs` (marked
 ### Verifying production
 
 `node scripts/plates/verify.mjs <sha> [--site <origin>] [--within <s>] [--every
-<s>] [--record] [--json]` (delivery, phase 81) reads `delivery.version` on
+<s>] [--record [--failed <reason>]] [--json]` (delivery, phase 81) reads `delivery.version` on
 `delivery.site` (https; http on localhost only; `--site` for a preview) until
 production serves `<sha>` or a descendant (ancestry in the checkout, full
 history; a commit it lacks after one fetch is never yes) or `--within`
@@ -999,7 +999,7 @@ matched}], failures, at, run, recorded?}`; exit 0 passed, 1 failed (or not
 recorded), 2 config or usage, each error naming its key (doctor:
 `delivery-config`). `live <sha>`: one read, `{live, serving, why}`, exit 0 yes,
 1 no (unreadable is no). `--record` pushes the result to `keel-verify:verify.json`
-(newest first, 30 kept, every failure for 72 h and each site's latest always, lease; other files on the branch kept; a non-record there, or a branch with no verify.json, is left alone, exit 1). With
+(newest first, 30 kept, every failure for 72 h and each site's latest always, lease; other files on the branch kept; a non-record there, or a branch with no verify.json, is left alone, exit 1; `--record --failed "<reason>"` records a failure another check found without polling). With
 delivery on, `plates home` lists production's (site = `delivery.site`) failed
 latest verify as the owner's (source `verify`; a preview's pass never clears
 it) and the morning brief puts each failure of the day before the night

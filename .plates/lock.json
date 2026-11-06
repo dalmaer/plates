@@ -367,7 +367,7 @@
     },
     "scripts/plates/verify.mjs": {
       "practice": "delivery",
-      "sha256": "ce04f740798a7df89d9fc1dce10e6a48bbf688d2dc52fea411bf7173a20189e5"
+      "sha256": "1fe15e57b104cc8748445550f1b1800519668a4a51d8a6ce071adadb30cb75c9"
     },
     "scripts/plates/workflows.mjs": {
       "practice": "ci",
