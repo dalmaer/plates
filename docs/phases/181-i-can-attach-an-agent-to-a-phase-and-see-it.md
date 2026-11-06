@@ -1,11 +1,11 @@
 ---
-status: planned
-since: 2026-11-05
+status: partial
+since: 2026-11-06
 goal: G7
 spec: 2
 depends: [178]
-note: "Specified in docs/specs/web-backlog.md. Routes session and tonight first; robot as a later increment gated by robot.on."
-evidence: []
+note: "The attach contract and the CLI session route are built: plates home --attach previews, claims create-only, journals and hands over the /spin brief. Web attach, tonight and robot remain."
+evidence: ["evidence/2026-11-06-attach.md"]
 ---
 
 # I can attach an agent to a phase, and see it working
@@ -32,10 +32,10 @@ Attach on an agent-ready phase previews, claims and starts the `session` or `ton
 
 ## Acceptance
 
-- [ ] Of two attaches to one phase, one claim wins and the other shows the holder and dispatches nothing: `tests/backlog-attach.test.mjs: "a lost race never dispatches"`
-- [ ] An uncertain dispatch is recovered from its journal, never repeated: `tests/backlog-attach.test.mjs: "dispatch recovers, never repeats"`
-- [ ] Without a policy only `session` is offered: `tests/backlog-attach.test.mjs: "absent policy is session only"`
-- [ ] Presence says claimed unless an execution source says running: `tests/work-items.test.mjs: "a claim is not a running agent"`
+- [x] Of two attaches to one phase, one claim wins and the other shows the holder and dispatches nothing: `tests/backlog-attach.test.mjs: "a lost race never dispatches"`
+- [x] An uncertain dispatch is recovered from its journal, never repeated: `tests/backlog-attach.test.mjs: "dispatch recovers, never repeats"`
+- [x] Without a policy only `session` is offered: `tests/backlog-attach.test.mjs: "absent policy is session only"`
+- [x] Presence says claimed unless an execution source says running: `tests/work-items.test.mjs: "a claim is not a running agent"`
 - [ ] A generated robot rubric carries the phase's unresolved ⚑ as owner blockers: `tests/backlog-attach.test.mjs: "rubric keeps owner blockers"`
 - [ ] ⚑ by hand: the owner.
 
@@ -62,8 +62,13 @@ By hand: the owner's attach and the night that follows.
 
 ## Deliberately open
 
+- **`tonight` needs a night pass that builds a phase.** No night pass builds from a plan item today (`validatePlan` wants a measured number and refuses lane `night`). Choices: a triage-only item; the robot route queued for tonight (increment 4); or a new night pass running `/spin <n>`, which is new spend and the owner's call. Until settled, `tonight` is refused as not built.
+
 Whether High autonomy may attach without a confirm on listed routes. Settled after a week of Medium.
 
 ## Next action
 
-Add presence to the read model from `next.claimed[].holder` and claim-branch pushes.
+Increment 4: the robot route with a generated rubric (rubric keeps owner blockers), gated by `robot.on`. Then hosted attach (App Contents write on refs, a durable hosted journal) and the owner's decision on `tonight`.
+
+## Trajectory
+- **2026-11-06** The attach contract and the CLI session route landed. `tonight` is blocked: no night pass builds a phase from a plan item. Web Start stays off and names the CLI command.
