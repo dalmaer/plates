@@ -6,11 +6,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, readdir, writeFile, rm, chmod, symlink } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, readdir, writeFile, rm, chmod, symlink, cp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ready, integrate, fastChecks, parseReady, pushable, LOCK } from '../lib/integrate.mjs';
+import { ready, integrate, fastChecks, parseReady, pushable, LOCK, IntegrateError } from '../lib/integrate.mjs';
+import { INTEGRATIONS_BRANCH, INTEGRATIONS_FILE, integrationRuns } from '../lib/integration-records.mjs';
 import { run } from './helpers/run.mjs';
 
 const PLATES = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -532,4 +533,152 @@ test('when main moves during the gate, the batch is gated again on the new main 
   assert.deepEqual(remoteRefs(origin, 'ready/'), []);
   assert.deepEqual(remoteRefs(origin, LOCK), []);
   assert.equal((await pushes()).length, 2, 'the elsewhere merge and the batch');
+});
+
+test('#190: an installed pre-push gate hook defers during ready and integrate pushes, and still gates ordinary pushes and --ci', async t => {
+  const { dir, a, b, origin, env, pushes, gateRuns } = await acme(t, {
+    check: `node -e "if (process.env.PLATES_DEFER_GATE) process.exit(1)" && node gate.mjs`,
+    fast: [`node -e "if (process.env.PLATES_DEFER_GATE) process.exit(1)" && node fast.mjs`],
+  });
+  const gh = join(dir, 'empty-gh'), hookLog = join(dir, 'hook.log');
+  await writeFile(gh, `#!${process.execPath}\nconsole.log('[]');\n`, { mode: 0o755 });
+  await cp(join(PLATES, 'practices', 'night', 'files', 'scripts', 'plates'), join(a, 'scripts', 'plates'), { recursive: true });
+  await writeFile(join(a, '.gitignore'), 'dist/\n.plates/test-runs/\n');
+  git(a, 'add', '-A'); git(a, 'commit', '-q', '-m', 'acme: install night gate scripts');
+  git(a, 'push', '-q', 'origin', 'main');
+  git(b, 'fetch', '-q', 'origin'); git(b, 'reset', '-q', '--hard', 'origin/main');
+
+  const hook = `#!/bin/sh\necho "$1" >> "${hookLog}"\nexec "${process.execPath}" scripts/plates/gate.mjs\n`;
+  for (const clone of [a, b]) {
+    await writeFile(join(clone, '.git', 'hooks', 'pre-push'), hook, { mode: 0o755 });
+  }
+  const hookRuns = async () => (await readFile(hookLog, 'utf8').catch(() => '')).split('\n').filter(Boolean).length;
+  const sessionEnv = m => ({ ...env(m), PLATES_GH: gh });
+
+  // Direct gate.mjs checks: deferred output (--json and text), non-1 values ignored, and --ci never defers nor leaks PLATES_DEFER_GATE.
+  const deferredJson = run(process.execPath, ['scripts/plates/gate.mjs', '--json'], { cwd: a, env: { ...sessionEnv('m1'), PLATES_DEFER_GATE: '1' } });
+  assert.equal(deferredJson.status, 0, deferredJson.stderr);
+  assert.deepEqual(JSON.parse(deferredJson.stdout), {
+    action: 'deferred',
+    command: `node -e "if (process.env.PLATES_DEFER_GATE) process.exit(1)" && node gate.mjs`,
+    status: 0,
+  });
+  const deferredText = run(process.execPath, ['scripts/plates/gate.mjs'], { cwd: a, env: { ...sessionEnv('m1'), PLATES_DEFER_GATE: '1' } });
+  assert.equal(deferredText.status, 0, deferredText.stderr);
+  assert.match(deferredText.stdout, /^plates gate: deferred `.*` to plates integrate\n$/);
+  assert.equal(await gateRuns(), 0);
+
+  const ciGate = run(process.execPath, ['scripts/plates/gate.mjs', '--ci'], { cwd: a, env: { ...sessionEnv('m1'), PLATES_DEFER_GATE: '1' } });
+  assert.equal(ciGate.status, 0, ciGate.stderr + ciGate.stdout);
+  assert.match(ciGate.stdout, /^plates gate: ran /, '--ci never defers, prints ran, and strips PLATES_DEFER_GATE before running check');
+  assert.equal(await gateRuns(), 1);
+
+  // Ordinary git push outside ready/integrate still runs the pre-push gate hook (and rejects a failing tree).
+  git(a, 'checkout', '-q', '-b', 'manual-bad', 'origin/main');
+  await writeFile(join(a, 'bad.txt'), 'BREAK\n');
+  git(a, 'add', 'bad.txt'); git(a, 'commit', '-q', '-m', 'acme: manual broken');
+  const blockedPush = run('git', ['-C', a, 'push', '-q', 'origin', 'manual-bad'], { env: sessionEnv('m1') });
+  assert.notEqual(blockedPush.status, 0, 'ordinary git push runs pre-push gate and blocks BREAK');
+  assert.equal(await gateRuns(), 2);
+  assert.equal(await hookRuns(), 1);
+
+  // Two changes handed off via plates ready: pre-push hook runs on all four pushes, defers each time, and runs 0 full gates.
+  git(a, 'checkout', '-q', '-B', 'claude/anvil', 'origin/main');
+  await writeFile(join(a, 'anvil.txt'), 'two anvils\n');
+  git(a, 'commit', '-q', '-am', 'acme: two anvils');
+  const r1 = await ready({ root: a }, { env: { ...sessionEnv('m1'), PLATES_DEFER_GATE: '1' }, now: (clock += 1000) });
+  assert.equal(r1.data.ok, true, r1.text);
+  assert.equal(await gateRuns(), 2, 'ready never ran the full gate on branch or ready-ref push');
+  assert.equal(await hookRuns(), 3, 'both ready pushes still invoked the pre-push hook');
+
+  git(b, 'checkout', '-q', '-B', 'codex/rocket', 'origin/main');
+  await writeFile(join(b, 'rocket.txt'), 'one rocket\n');
+  git(b, 'add', 'rocket.txt'); git(b, 'commit', '-q', '-m', 'acme: rocket');
+  const r2 = await ready({ root: b }, { env: sessionEnv('m2'), now: (clock += 1000) });
+  assert.equal(r2.data.ok, true, r2.text);
+  assert.equal(await gateRuns(), 2);
+  assert.equal(await hookRuns(), 5);
+
+  // Integrator checkout has pre-push hook too: lock, main, ready-ref and release pushes all defer, and the batch gate runs once.
+  git(a, 'checkout', '-q', 'main');
+  const integrated = run(process.execPath, [BIN, 'integrate', '--json'], { cwd: a, env: { ...sessionEnv('m1'), PLATES_DEFER_GATE: '1' } });
+  assert.equal(integrated.status, 0, integrated.stderr + integrated.stdout);
+  const out = JSON.parse(integrated.stdout);
+  assert.equal(out.ok, true);
+  assert.equal(out.gates, 1);
+  assert.deepEqual(out.landed.map(l => l.branch), ['claude/anvil', 'codex/rocket']);
+  assert.equal(await gateRuns(), 3, 'exactly one full gate ran during integrate');
+  assert.ok((await hookRuns()) >= 9, 'lock, main, ready-ref and release pushes still ran pre-push');
+  assert.equal((await pushes()).length, 2, 'setup push plus one batch push');
+});
+
+test('#190: a failed lock release exits non-zero naming claims/integrate and recovery steps while keeping what landed', async t => {
+  const { dir, a, b, origin, env } = await acme(t);
+  const holdFlag = join(dir, 'hold-lock');
+  await writeFile(join(origin, 'hooks', 'pre-receive'), `#!/bin/sh
+while read old new ref; do
+  if [ "$ref" = "refs/heads/${LOCK}" ] && [ "$new" = "0000000000000000000000000000000000000000" ] && [ -f "${holdFlag}" ]; then
+    echo "acme lock delete declined" >&2
+    exit 1
+  fi
+done
+`, { mode: 0o755 });
+  const records = () => integrationRuns(git(origin, 'show', `${INTEGRATIONS_BRANCH}:${INTEGRATIONS_FILE}`)).runs;
+
+  // Normal error when lock release succeeds: rejects with the run's own error, releases the lock, and records outcome error.
+  await change(a, 'claude/crash', { 'crash.txt': 'ok\n' }, env('m1'));
+  const cleanFail = await integrate({ root: a }, {
+    env: env('m1'),
+    gate: async () => { throw new IntegrateError('gate crashed cleanly', 2); },
+  }).catch(e => e);
+  assert.equal(cleanFail.exitCode, 2);
+  assert.equal(cleanFail.message, 'gate crashed cleanly');
+  assert.deepEqual(remoteRefs(origin, LOCK), []);
+  assert.equal(records().at(-1).outcome, 'error');
+  assert.equal(records().at(-1).error, 'gate crashed cleanly');
+  assert.equal(records().at(-1).lock.released, undefined);
+
+  // Landed batch followed by a failed lock release: exit 1, ok false, landed report preserved, lock ref + recovery steps named.
+  await writeFile(holdFlag, '1\n');
+  const head = git(origin, 'rev-parse', 'claude/crash');
+  const r = await integrate({ root: a }, { env: env('m1'), gate: async () => ({ status: 0 }) });
+  assert.equal(r.exitCode, 1);
+  assert.equal(r.data.ok, false);
+  assert.equal(r.data.lock, LOCK);
+  assert.equal(r.data.lockRef, `refs/heads/${LOCK}`);
+  assert.equal(r.data.lockReleased, false);
+  assert.match(r.data.lockReleaseError, /failed to push some refs/);
+  assert.equal(r.data.recovery, `git push origin --delete ${LOCK}`);
+  assert.deepEqual(r.data.landed, [{ branch: 'claude/crash', head }]);
+  assert.equal(r.data.pushed, git(origin, 'rev-parse', 'main'));
+  assert.match(r.text, /^Landed on main in one push \([0-9a-f]{7}\): claude\/crash\./);
+  assert.match(r.text, /The lock claims\/integrate \(refs\/heads\/claims\/integrate\) could not be released on origin \(.*failed to push some refs.*\)/);
+  assert.match(r.text, /git ls-remote origin refs\/heads\/claims\/integrate/);
+  assert.match(r.text, /git push origin --delete claims\/integrate/);
+  assert.deepEqual(remoteRefs(origin, LOCK), [LOCK], 'the lock is indeed still held on origin');
+  const rec = records().at(-1);
+  assert.equal(rec.outcome, 'error');
+  assert.equal(rec.exitCode, 1);
+  assert.equal(rec.moved, 0);
+  assert.deepEqual(rec.lock, { result: 'held', released: false });
+  assert.deepEqual(rec.landed, [{ branch: 'claude/crash', head }]);
+  assert.match(rec.error, /claims\/integrate.*could not be released/);
+
+  // Another integrator is refused until the recovery step deletes the lock.
+  const refused = await integrate({ root: b }, { env: env('m2'), gate: async () => ({ status: 0 }) });
+  assert.equal(refused.data.refused, true);
+  await rm(holdFlag);
+  execFileSync('git', ['-C', a, 'push', '-q', 'origin', '--delete', LOCK]);
+  assert.deepEqual(remoteRefs(origin, LOCK), []);
+
+  // An error during the run AND a failed lock release: both the original error and the lock recovery note are reported.
+  await change(b, 'codex/both', { 'both.txt': 'ok\n' }, env('m2'));
+  await writeFile(holdFlag, '1\n');
+  const doubleFail = await integrate({ root: a }, {
+    env: env('m1'),
+    gate: async () => { throw new IntegrateError('gate crashed under held lock', 2); },
+  }).catch(e => e);
+  assert.equal(doubleFail.exitCode, 2);
+  assert.match(doubleFail.message, /^gate crashed under held lock\nThe lock claims\/integrate \(refs\/heads\/claims\/integrate\) could not be released on origin/);
+  assert.match(doubleFail.message, /git push origin --delete claims\/integrate/);
 });
