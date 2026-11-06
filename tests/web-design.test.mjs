@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
+import { homeLoadingStyles } from '../lib/web/home-loading.mjs';
 import { homeView } from '../lib/web/views.mjs';
 import { recoveryView } from '../lib/web/recovery-view.mjs';
 import { tokens as designTokens } from '../lib/web/design.mjs';
@@ -433,12 +434,16 @@ test('controls are styled once', () => {
 // by 100 for Recurring's rows, which share its sheet (phase 185), and by 300 for
 // By goal's toggle, nested members and "more" (phase 179). The review session's
 // peek and running total (phase 180) are their own sheet, beside review.css.
-const CSS_BYTES_BEFORE_171 = 81780, PAGE_SHEETS_SINCE = { '/assets/backlog.css': 3300, '/assets/review-session.css': 450 };
-test('the design layer does not grow the stylesheets', () => {
+const CSS_BYTES_BEFORE_171 = 81780, PAGE_SHEETS_SINCE = { '/assets/plate-workspace.css': 8500, '/assets/backlog.css': 3300, '/assets/review-session.css': 450 };
+test('the design layer keeps its budget with a bounded Home loading addition', () => {
   const table = assets.buildAssetTable(assets.defaultSources());
   const css = [...table.entries].filter(([, entry]) => entry.type.startsWith('text/css'));
   const total = css.filter(([path]) => !Object.hasOwn(PAGE_SHEETS_SINCE, path)).reduce((sum, [, entry]) => sum + Buffer.byteLength(entry.body), 0);
-  assert.ok(total < CSS_BYTES_BEFORE_171, `served CSS is ${total} bytes, under the ${CSS_BYTES_BEFORE_171} before phase 171`);
+  // Loading is new UI, shipped in plates.css and its keel.css alias. Keep the
+  // historical layer budget and cap this addition separately (2026-11-06).
+  const loadingBytes = Buffer.byteLength(homeLoadingStyles);
+  assert.ok(loadingBytes <= 700, 'Home loading adds at most 700 bytes per shell stylesheet');
+  assert.ok(total - 2 * loadingBytes < CSS_BYTES_BEFORE_171, `CSS excluding the bounded loading addition is ${total - 2 * loadingBytes} bytes, under ${CSS_BYTES_BEFORE_171}`);
   for (const [path, cap] of Object.entries(PAGE_SHEETS_SINCE)) {
     const size = Buffer.byteLength(table.entries.get(path)?.body ?? '');
     assert.ok(size > 0 && size <= cap, `${path} is ${size} bytes, within its ${cap}`);

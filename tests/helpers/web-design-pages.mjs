@@ -76,10 +76,10 @@ const decision = () => ({ schema: 1, project, source: { path: 'docs/reviews/2026
 /** Each page type: its markup, and the JSON its client reads back (GET path → body), as the server would answer it. */
 export async function designPages() {
   const h = changesHarness(), model = await h.changes.detail(h.access, token, h.project, 'acme-search');
-  const home = snapshot(), review = reviewSnapshot(), reviewEmpty = { ...reviewSnapshot(), docket: [], home: { sections: [{ id: 'needs-you', known: false, items: [] }] } };
+  const home = snapshot(), plate = {...snapshot(),backlog:backlog()}, review = reviewSnapshot(), reviewEmpty = { ...reviewSnapshot(), docket: [], home: { sections: [{ id: 'needs-you', known: false, items: [] }] } };
   return {
     home: { html: homeView(access, home), api: { '/api/home': home } },
-    project: { html: projectView(project, access, snapshot()), api: { '/api/projects/studio/home': snapshot() } },
+    project: { html: projectView(project, access, plate), api: { '/api/projects/studio/home': plate } },
     signin: { html: signinView('fake-csrf-acme', '/projects/studio'), api: {} },
     decision: { html: decisionView(decision(), access), api: {} },
     changes: { html: changeIndexView({ ...model, items: [model.change] }, access), api: {} },
