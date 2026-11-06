@@ -145,7 +145,7 @@ project's smoke checks (after ledger's `verify-production.mjs`). In
 its key, from the verifier (exit 2) and from `plates doctor` (`delivery-config`).
 
 ```bash
-node scripts/plates/verify.mjs <sha> [--within 600] [--every 10] [--record] [--json]
+node scripts/plates/verify.mjs <sha> [--within 600] [--every 10] [--record [--failed "<reason>"]] [--json]
 node scripts/plates/verify.mjs live <sha> [--json]
 ```
 
@@ -156,7 +156,9 @@ node scripts/plates/verify.mjs live <sha> [--json]
   then reads each smoke path once. It passes (exit 0) only on what it saw;
   otherwise it fails (exit 1), naming each check that did not hold: what
   production served, after how many reads, and each smoke path's expected and
-  actual status.
+  actual status. When a project runs checks of its own beyond GET status codes,
+  `verify.mjs <sha> --record --failed "<reason>"` (repeatable) records that
+  failure without polling and exits 1.
 - **live** reads the version path once: exit 0 when production already
   serves that commit or a descendant, 1 otherwise, including when it cannot
   read it. A deploy step skips itself on yes, then verifies:

@@ -55,7 +55,8 @@ the checkout) or `--within` seconds pass, then each `delivery.smoke` path's
 status (redirects not followed). It passes only on what it saw, and fails
 naming each check. `verify.mjs live <sha>` (one read; exit 0 yes, 1 no) lets
 a deploy step skip a commit production already has. `--record` adds the
-result to the branch `keel-verify` (`verify.json`); a failed latest verify is
+result to the branch `keel-verify` (`verify.json`, or `--record --failed "<reason>"`
+for a failure the project's own checks found); a failed latest verify is
 an owner's item on `plates home`, and each failure of the day before a night
 is a line in that night's morning brief.
 

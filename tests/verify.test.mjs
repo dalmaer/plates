@@ -13,7 +13,7 @@ import { pathToFileURL } from 'node:url';
 import { scratch, ENV } from './helpers/improve.mjs';
 import { runAsync } from './helpers/run.mjs';
 import { deliveryOf, deliveryProblems } from '../practices/delivery/files/scripts/plates/delivery.mjs';
-import { verifyResults, verifyFailuresFor, VERIFY_BRANCH, VERIFY_FILE } from '../practices/night/files/scripts/plates/morning.mjs';
+import { verifyResults, verifyFailuresFor, verifyLine, lastNight, VERIFY_BRANCH, VERIFY_FILE } from '../practices/night/files/scripts/plates/morning.mjs';
 
 const NIGHT = resolve('practices/night/files/scripts/plates');
 const DELIVERY = resolve('practices/delivery/files/scripts/plates');
@@ -372,4 +372,95 @@ test('the verify branch is not the app: where the project has a vercel.json, the
   v.record({ root: repo.root, result: { ...result, at: '2026-10-26T09:00:00.000Z' }, env: ENV });
   assert.deepEqual(files(), ['vercel.json', 'verify.json', 'web/vercel.json']);
   assert.equal(verifyResults(execFileSync('git', ['--git-dir', repo.origin, 'show', `refs/heads/${VERIFY_BRANCH}:${VERIFY_FILE}`], { env: ENV, encoding: 'utf8' })).length, 2);
+});
+
+// #213: a project's verify workflow may run checks verify.mjs cannot express (POST + response headers);
+// --record --failed "<reason>" records that failure without polling or overwriting it with GET smoke passes.
+test('#213: --record --failed records a failure another check found without polling, and validates its flags and reasons', async t => {
+  const { prod, repo, dir, v, cfg } = await setup(t, { smoke: ['/', { path: '/login', status: 307 }] });
+  prod.serve(repo.C);
+  prod.state.routes = { '/': 200, '/login': 307 };
+  const ghEnv = { ...ENV, GITHUB_ACTIONS: 'true', GITHUB_SERVER_URL: 'https://github.com', GITHUB_REPOSITORY: 'acme/anvils', GITHUB_RUN_ID: '42' };
+  const runScript = (args, env = { ...ENV, GITHUB_ACTIONS: '' }) => runAsync(process.execPath, [join(dir, 'verify.mjs'), ...args], { cwd: repo.root, env });
+  const shown = () => verifyResults(execFileSync('git', ['--git-dir', repo.origin, 'show', `refs/heads/${VERIFY_BRANCH}:${VERIFY_FILE}`], { env: ENV, encoding: 'utf8' }));
+  const hasBranch = () => execFileSync('git', ['--git-dir', repo.origin, 'branch', '--list', VERIFY_BRANCH], { env: ENV, encoding: 'utf8' }).trim();
+
+  // Bad usage is exit 2 before touching production or pushing a branch.
+  for (const [args, pattern] of [
+    [[repo.C, '--failed', 'POST /api/mcp: missing resource_metadata'], /--failed requires --record/],
+    [[repo.C, '--record', '--failed'], /--failed needs a value/],
+    [[repo.C, '--failed', '--record'], /--failed needs a value/],
+    [[repo.C, '--record', '--failed', ''], /--failed needs a non-empty reason/],
+    [[repo.C, '--record', '--failed', '  \n\t  '], /--failed needs a non-empty reason/],
+    [[repo.C, '--record', ...Array(51).fill(['--failed', 'x']).flat()], /--failed needs 1 to 50 reasons/],
+    [['live', repo.C, '--failed', 'Acme'], /unknown argument --failed/],
+    [['live', repo.C, '--record', '--failed', 'Acme'], /unknown argument --record/],
+    [[repo.C.slice(0, 7), '--record', '--failed', 'Acme'], /must be a full hash/],
+  ]) {
+    const bad = await runScript(args);
+    assert.equal(bad.status, 2, `${JSON.stringify(args)}: ${bad.stderr}${bad.stdout}`);
+    assert.match(bad.stderr, pattern, JSON.stringify(args));
+  }
+  assert.equal(hasBranch(), '', 'refused invocations push nothing');
+  assert.equal(prod.state.reads, 0, 'refused invocations never poll production');
+
+  // Direct parser and result builder checks: defaults, exact/site/env/clock, reason normalization, and bounds.
+  assert.equal(v.REASON_MAX, 1000);
+  assert.deepEqual(v.parseArgs([repo.C, '--record', '--failed', '  POST /api/mcp:\n  missing resource_metadata  ']), {
+    sub: 'verify', sha: repo.C, record: true, exact: false, failed: ['POST /api/mcp: missing resource_metadata'],
+  });
+  assert.equal(v.parseArgs([repo.C, '--record', ...Array(50).fill(['--failed', 'x']).flat()]).failed.length, 50);
+  const def = v.failed({ root: repo.root, config: cfg, sha: repo.C, reasons: '  Acme   check\nfailed  ', env: { ...ENV, GITHUB_ACTIONS: '' } });
+  assert.equal(def.ok, false);
+  assert.equal(def.exact, false);
+  assert.equal(def.run, null);
+  assert.deepEqual(def.failures, ['Acme check failed']);
+  assert.ok(Number.isFinite(Date.parse(def.at)));
+  const fixedAt = Date.parse('2026-10-21T15:00:00.000Z');
+  assert.deepEqual(
+    v.failed({ root: repo.root, config: cfg, sha: repo.C, site: 'https://preview-3.anvils.acme.example', exact: true, reasons: ['first', 'x'.repeat(v.REASON_MAX + 25)], env: ghEnv, now: () => fixedAt }),
+    {
+      ok: false, sha: repo.C, site: 'https://preview-3.anvils.acme.example', version: '/api/version', exact: true,
+      serving: null, contained: false, attempts: 0, waited: 0, smoke: [],
+      failures: ['first', 'x'.repeat(v.REASON_MAX)], at: '2026-10-21T15:00:00.000Z', run: 'https://github.com/acme/anvils/actions/runs/42',
+    },
+  );
+  assert.equal(v.failed({ root: repo.root, config: cfg, sha: repo.C, reasons: Array(50).fill('x'), env: ENV }).failures.length, 50);
+  for (const [reasons, pattern] of [[[], /1 to 50 reasons/], [Array(51).fill('x'), /1 to 50 reasons/], [[42], /non-empty reason/], [['   '], /non-empty reason/]]) {
+    assert.throws(() => v.failed({ root: repo.root, config: cfg, sha: repo.C, reasons, env: ENV }), e => e.exitCode === 2 && pattern.test(e.message));
+  }
+
+  // Even though production serves C and all GET smoke checks pass, --record --failed records ok: false without polling.
+  let res = await runScript([repo.C, '--within', '120', '--record', '--failed', 'POST /api/mcp: missing WWW-Authenticate resource_metadata'], ghEnv);
+  assert.equal(res.status, 1, res.stderr + res.stdout);
+  assert.equal(prod.state.reads, 0, '--failed does not poll /api/version');
+  assert.deepEqual(prod.state.log, [], '--failed does not hit smoke routes');
+  assert.match(res.stdout, new RegExp(`^plates verify: FAILED for ${repo.C.slice(0, 7)} at http://127\\.0\\.0\\.1:\\d+:\\n  - POST /api/mcp: missing WWW-Authenticate resource_metadata\\nRecorded on ${VERIFY_BRANCH} \\([0-9a-f]{7}\\)\\.\\n$`));
+
+  let recorded = shown();
+  assert.equal(recorded.length, 1);
+  assert.deepEqual(
+    { sha: recorded[0].sha, ok: recorded[0].ok, site: recorded[0].site, serving: recorded[0].serving, failures: recorded[0].failures, run: recorded[0].run },
+    { sha: repo.C, ok: false, site: prod.site, serving: null, failures: ['POST /api/mcp: missing WWW-Authenticate resource_metadata'], run: 'https://github.com/acme/anvils/actions/runs/42' },
+  );
+  const nightDate = lastNight(Date.parse(recorded[0].at) + 24 * 3600 * 1000);
+  const briefFailures = verifyFailuresFor(recorded, nightDate, { production: prod.site });
+  assert.equal(briefFailures.length, 1);
+  assert.match(verifyLine(briefFailures[0]), /Production failed its verify .* POST \/api\/mcp: missing WWW-Authenticate resource_metadata\. https:\/\/github\.com\/acme\/anvils\/actions\/runs\/42$/);
+
+  // Preview override, --exact, multiple --failed reasons, and a project with delivery.site but no delivery.version.
+  await writeFile(join(repo.root, '.plates/plates.json'), JSON.stringify({ name: 'Acme', repo: 'acme/anvils', practices: ['night', 'delivery'], delivery: { site: prod.site } }));
+  res = await runScript([repo.C, '--site', 'https://preview-9.anvils.acme.example', '--exact', '--record', '--failed', 'POST /api/mcp: 401 header missing', '--failed', 'POST /api/webhook:\nexpected 202, got 500', '--json']);
+  assert.equal(res.status, 1, res.stderr + res.stdout);
+  const parsed = JSON.parse(res.stdout);
+  assert.equal(parsed.ok, false);
+  assert.equal(parsed.site, 'https://preview-9.anvils.acme.example');
+  assert.equal(parsed.version, null);
+  assert.equal(parsed.exact, true);
+  assert.deepEqual(parsed.failures, ['POST /api/mcp: 401 header missing', 'POST /api/webhook: expected 202, got 500']);
+  assert.equal(parsed.recorded.recorded, true);
+  assert.equal(shown().length, 2);
+  const noVersion = await runScript([repo.C]);
+  assert.equal(noVersion.status, 2);
+  assert.match(noVersion.stderr, /no "delivery"\.version/);
 });
