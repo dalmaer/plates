@@ -707,6 +707,20 @@
       "proof": "The deployed revision and the owner answer (matches, something missing, or something wrong), recorded in docs/evidence/2026-11-06-agents.md."
     },
     {
+      "id": "lane-session",
+      "phase": 180,
+      "kind": "decision",
+      "what": "After deploying a build with phase 180, the owner taps Start on the Yours lane, clears five items in one sitting, and says whether it was faster than before.",
+      "prerequisites": [
+        174,
+        178,
+        180
+      ],
+      "ownerAttended": true,
+      "rollback": "Redeploy the previous build; each answer is an ordinary commit that can be reverted, and Not now rows are per owner.",
+      "proof": "The deployed revision and the owner answer (faster, same, or slower and where), recorded in docs/evidence/2026-11-06-lane-session.md."
+    },
+    {
       "id": "docket-notify",
       "phase": 175,
       "kind": "decision",

@@ -66,7 +66,7 @@ const decision = () => ({ schema: 1, project, source: { path: 'docs/reviews/2026
 /** Each page type: its markup, and the JSON its client reads back (GET path → body), as the server would answer it. */
 export async function designPages() {
   const h = changesHarness(), model = await h.changes.detail(h.access, token, h.project, 'acme-search');
-  const home = snapshot(), review = reviewSnapshot(), reviewEmpty = { ...reviewSnapshot(), docket: [] };
+  const home = snapshot(), review = reviewSnapshot(), reviewEmpty = { ...reviewSnapshot(), docket: [], home: { sections: [{ id: 'needs-you', known: false, items: [] }] } };
   return {
     home: { html: homeView(access, home), api: { '/api/home': home } },
     project: { html: projectView(project, access, snapshot()), api: { '/api/projects/studio/home': snapshot() } },

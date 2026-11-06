@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**72 of 179 phases built; 74 owe a walk.** Built means implemented and checked; planned is not available.
+**72 of 179 phases built; 75 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -335,7 +335,7 @@ Each change is verified in parallel and published one at a time; production move
 
 From mobile and desktop, an authenticated owner operates every authorized Plates project: decisions, guided tests, visual changes, routine history and execution, fleet lessons and updates, scoped credentials and policy-bound model capacity, with source-backed evidence and private data.
 
-8/44 built; 28 owe a walk.
+8/44 built; 29 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -376,7 +376,7 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 | [176. A pull request that is ready can be merged from the docket](phases/176-a-ready-pull-request-can-be-merged-from-the-docket.md) | planned | 2026-11-03 | [174](phases/174-a-review-session-takes-me-through-my-docket.md) | Merging is the owner's step on fleet repos. Today it means copying a gh command into a terminal; the review session should offer it as one card. |
 | [178. The backlog shows every plate's work in lanes, with reasons](phases/178-the-backlog-shows-every-plate-s-work-in-lanes.md) | partial, walk owed | 2026-11-05 | [166](phases/166-home-says-what-needs-you-what-happened-and-what.md) | Built in three increments: backlogOf, plates home --backlog, and the hosted /backlog list beside the sidebar. Owes the deploy, then the owner's walk. |
 | [179. The backlog groups by goal and shows one card per phase](phases/179-the-backlog-groups-by-goal-and-shows-one-card.md) | built | 2026-11-06 | [178](phases/178-the-backlog-shows-every-plate-s-work-in-lanes.md) | Built: a grouping module gives each item one card, and By goal shows in plates home --backlog --by-goal and on /backlog/goals. |
-| [180. My lane is a session I can finish](phases/180-my-lane-is-a-session-i-can-finish.md) | planned | 2026-11-05 | [178](phases/178-the-backlog-shows-every-plate-s-work-in-lanes.md), [174](phases/174-a-review-session-takes-me-through-my-docket.md) | Specified in docs/specs/web-backlog.md. Extends the review session of phase 174. |
+| [180. My lane is a session I can finish](phases/180-my-lane-is-a-session-i-can-finish.md) | partial, walk owed | 2026-11-06 | [178](phases/178-the-backlog-shows-every-plate-s-work-in-lanes.md), [174](phases/174-a-review-session-takes-me-through-my-docket.md) | Built: /review/yours runs the Yours lane with a peek, an honest running total, Not now with a reason (already sealed in SQL017, no migration) and 'All caught up' only after a complete read. Owes the owner's walk. |
 | [181. I can attach an agent to a phase, and see it working](phases/181-i-can-attach-an-agent-to-a-phase-and-see-it.md) | planned | 2026-11-05 | [178](phases/178-the-backlog-shows-every-plate-s-work-in-lanes.md) | Specified in docs/specs/web-backlog.md. Routes session and tonight first; robot as a later increment gated by robot.on. |
 | [182. Agents prepare my walks and draft my decisions](phases/182-agents-prepare-my-walks-and-draft-my-decisions.md) | planned | 2026-11-05 | [181](phases/181-i-can-attach-an-agent-to-a-phase-and-see-it.md), [98](phases/98-guided-walks-preserve-what-was-tested.md), [97](phases/97-decisions-change-the-reviewed-source.md) | Specified in docs/specs/web-backlog.md. Assists never answer, accept or mark lived-in. |
 | [183. A local agent host can take a phase](phases/183-a-local-agent-host-can-take-a-phase.md) | planned | 2026-11-05 | [181](phases/181-i-can-attach-an-agent-to-a-phase-and-see-it.md) | Specified in docs/specs/web-backlog.md. Runs only on the owner's machine; off unless the plate lists local-host. |
