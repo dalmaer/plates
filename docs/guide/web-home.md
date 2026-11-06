@@ -83,6 +83,17 @@ on time or on agents is under `plates home --project <id>`. `--json` carries
 the four as `home`, and `/api/home` carries the same `home`, which the hosted
 page renders.
 
+`plates home --backlog` (phase 178) shows every plate's work in lanes, from the
+same read: **In flight**, **Yours**, **Agent-ready**, **Waiting** and
+**Recently done**, one line per item with the reasons it sits there (its
+why-keys) and, on the right, a claim's days left or how long ago it was added.
+Each plate's phases and claims are read as `plates next` reads them in that
+plate's checkout. A phase owing a walk is under Yours with the walk nested in
+it; a free phase without `spec: 2` waits for shaping. `--lane <l>` keeps one
+lane (`in-flight`, `yours`, `agent-ready`, `waiting` or `done`), `--project <id>`
+one plate, and `--json` prints the model. A plate that could not be read says
+"not read", never zero. The hosted `/backlog` arrives later.
+
 On the web, **Since you last looked** starts at your previous visit. A visit is a
 run of Home page loads less than thirty minutes apart, and "since" is the last
 load of the visit before this one; a reload, the page's background refresh and

@@ -478,3 +478,14 @@ test('an unread plate is not an empty lane', () => {
   const read = backlogOf(homeSnapshot([structuredClone(project), quiet], { sections: [], today: '2026-11-05' }), [roadmaps[0], { projectId: 'quiet', phases: [], goals: [], free: [], claimed: [] }], { now: NOW });
   assert.deepEqual(read.plates.find(p => p.projectId === 'quiet'), { projectId: 'quiet', projectName: 'Acme Quiet', state: 'read', coverage: 'complete', counts: { 'in-flight': 0, yours: 0, 'agent-ready': 0, waiting: 0, done: 0 } });
 });
+
+test('the terminal backlog names an unread plate, never a zero', async () => {
+  const { backlogText } = await import('../lib/home.mjs');
+  const { snapshot, roadmaps } = backlogFixture();
+  const text = backlogText({ schema: 1, generatedAt: NOW, lane: null, ...backlogOf(snapshot, roadmaps, { now: NOW }) });
+  assert.match(text, /^Acme Sprockets: not read — The App cannot read acme\/sprockets\.$/m);
+  assert.doesNotMatch(text, /Acme Sprockets #/);
+  assert.match(text, /^In flight 1\n {2}1\. Acme Anvils #8 {2}Acme phase 8 · G1 {2}\[claude · claimed\] {2}— claim 5d left$/m);
+  assert.match(text, /^ {2}\d+\. Acme Anvils #4 {2}Acme phase 4 · Unblocks 1 phase · G1 {2}— added 16 days ago$/m);
+  assert.match(text, /^1 free phase waits for shaping \(not spec: 2\), so it is not agent-ready$/m);
+});

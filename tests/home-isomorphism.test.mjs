@@ -15,7 +15,8 @@ import { projectHarness, phaseFile } from './helpers/web-projects.mjs';
 import { createHash } from 'node:crypto';
 import { createHomeReader } from '../lib/web/home.mjs';
 import { renderHomeSnapshot } from '../lib/web/views.mjs';
-import { HOME_SECTIONS } from '../lib/work-items.mjs';
+import { HOME_SECTIONS, backlogOf, BACKLOG_LANES } from '../lib/work-items.mjs';
+import { readRoadmaps } from '../lib/home.mjs';
 import { waitsFixture } from './helpers/waits.mjs';
 
 const bin = fileURLToPath(new URL('../bin/plates.mjs', import.meta.url));
@@ -76,10 +77,12 @@ else { console.error('fake gh: offline'); process.exit(1); }
 `);
   await chmod(gh, 0o755);
   const web = await createHomeReader(h.config, { fetcher, now: () => Date.now() })({ ...h.access, login: 'acme-owner', pullRequestsRead: reviews, checksRead: !!waits }, token);
-  const run = runNode(process.execPath, [bin, 'home', '--json'], { cwd: root, timeout: 120_000,
-    env: { ...gitEnv, PLATES_GH: gh, PLATES_CACHE: join(dir, 'cache'), PLATES_STATE: join(dir, 'state'), XDG_STATE_HOME: join(dir, 'state') } });
+  const cliEnv = (state = 'state') => ({ ...gitEnv, PLATES_GH: gh, PLATES_CACHE: join(dir, 'cache'), PLATES_STATE: join(dir, state), XDG_STATE_HOME: join(dir, state) });
+  const run = runNode(process.execPath, [bin, 'home', '--json'], { cwd: root, timeout: 120_000, env: cliEnv() });
   assert.equal(run.status, 0, run.stderr);
-  return { web, cli: JSON.parse(run.stdout), dir, done: () => rm(dir, { recursive: true, force: true }) };
+  // More plates home runs in the same checkout; `state` keeps their last-looked time apart from the first run's.
+  const again = (args, { state = 'state-again' } = {}) => runNode(process.execPath, [bin, 'home', ...args], { cwd: root, timeout: 120_000, env: cliEnv(state) });
+  return { web, cli: JSON.parse(run.stdout), dir, root, env: cliEnv('state-again'), again, done: () => rm(dir, { recursive: true, force: true }) };
 }
 
 // What a reader adds about its own read, not the sources: when it read, and the App's numeric repository id.
@@ -358,5 +361,58 @@ test('the CLI and the web show the same changes in flight', async () => {
     assert.match(text.stdout, /Changes in flight \(4\)\n  waiting on integration · claude\/phase-7 · 2 h · past its target/);
     for (const r of rows(s.web)) assert.ok(text.stdout.includes(r[3]), `the terminal prints ${r[0]}'s next action`);
     assert.ok(!renderHomeSnapshot(s.web).includes('>Changes in flight</h2>'), 'home itself lists no waits: the plate\'s page does');
+  } finally { await s.done(); }
+});
+
+// Phase 178: the backlog is one model too. plates home --backlog --json is backlogOf over the snapshot both forms
+// read, with the plate's phases and claims as plates next reads them. The hosted /backlog is increment 3: until it
+// renders, the web half here is backlogOf over the web's own snapshot with the same roadmap.
+const sourceless = backlog => ({ ...backlog, lanes: backlog.lanes.map(l => ({ ...l, items: l.items.map(({ source: { readAt, ...source }, answers, ...item }) => ({ ...item, source, answers: answers.map(({ unavailable, ...a }) => a) })) })) });
+test('backlog matches in both forms', async () => {
+  const s = await sources();
+  try {
+    const run = s.again(['--backlog', '--json']);
+    assert.equal(run.status, 0, run.stderr);
+    const cli = JSON.parse(run.stdout), at = Date.parse(cli.generatedAt);
+    assert.deepEqual(cli.lanes.map(l => l.lane), BACKLOG_LANES.map(l => l.id), 'every lane, in order');
+    const roadmaps = await readRoadmaps([{ project: { id: 'studio' }, dir: s.root }], { env: s.env, now: () => at });
+    const expected = backlogOf(s.cli, roadmaps, { now: at });
+    // Over the snapshot plates home --json printed from the same checkout: the two reads differ only in when they read.
+    assert.deepEqual(sourceless({ lanes: cli.lanes, plates: cli.plates, needsShaping: cli.needsShaping }), sourceless(expected), 'the CLI prints backlogOf over the home snapshot');
+    // The fixture puts something in more than one lane, so equality is not two empty backlogs agreeing.
+    const lanes = Object.fromEntries(cli.lanes.map(l => [l.lane, l.items.map(i => i.key)]));
+    assert.deepEqual(lanes.yours.filter(k => /^studio:phase:/.test(k)).toSorted(), ['studio:phase:1', 'studio:phase:2'], 'the step and the walk nest under their phases');
+    assert.deepEqual(lanes.waiting, ['studio:phase:3'], 'the walk that is not ready waits');
+    assert.equal(cli.plates[0].state, 'read');
+    assert.deepEqual(cli.claims, [{ projectId: 'studio', read: false, why: 'no git remote here, so there is nowhere to hold a claim' }]);
+    // The web's snapshot, through the same function and roadmap, gives the same backlog.
+    assert.deepEqual(sourceless(backlogOf(s.web, roadmaps, { now: at })), sourceless(expected));
+    // The terminal renders the same items, one line each, under its lane's header and count.
+    const text = s.again(['--backlog']);
+    assert.equal(text.status, 0, text.stderr);
+    for (const l of cli.lanes) assert.match(text.stdout, new RegExp(`^${l.title} ${l.count}$`, 'm'));
+    for (const item of cli.lanes.flatMap(l => l.items)) assert.ok(text.stdout.split('\n').filter(line => line.includes(item.title)).length >= 1, item.key);
+    assert.match(text.stdout, /^In flight 0\n {2}none$/m, 'an empty lane says none');
+    assert.match(text.stdout, /^ {2}2\. Acme Studio #2 {2}Acme phase 2 · G1 · ~5 min {2}\[\+walk\] {2}— added \d+ days ago$/m);
+    assert.match(text.stdout, /^Acme Studio: claims not read — no git remote here/m);
+  } finally { await s.done(); }
+});
+
+test('the backlog keeps one lane, and refuses one it does not have', async () => {
+  const s = await sources({ reviews: false });
+  try {
+    const one = s.again(['--backlog', '--lane', 'waiting', '--json']);
+    assert.equal(one.status, 0, one.stderr);
+    const data = JSON.parse(one.stdout);
+    assert.deepEqual([data.lane, data.lanes.map(l => l.lane)], ['waiting', ['waiting']]);
+    assert.deepEqual(data.lanes[0].items.map(i => i.key), ['studio:phase:3']);
+    assert.ok(Object.values(data.plates[0].counts).reduce((a, b) => a + b) > 1, 'the plate\'s counts stay whole');
+    const text = s.again(['--backlog', '--lane', 'waiting']);
+    assert.match(text.stdout, /^Waiting 1$/m); assert.doesNotMatch(text.stdout, /^Yours /m);
+    for (const args of [['--backlog', '--lane', 'someday'], ['--backlog', '--lane'], ['--backlog', '--answer', 'x']]) {
+      const bad = s.again([...args, '--json']);
+      assert.equal(bad.status, 2, `${args.join(' ')}: ${bad.stdout}${bad.stderr}`);
+    }
+    assert.match(s.again(['--backlog', '--lane', 'someday']).stderr, /--lane is one of in-flight, yours, agent-ready, waiting, done/);
   } finally { await s.done(); }
 });
