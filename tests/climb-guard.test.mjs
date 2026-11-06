@@ -9,7 +9,7 @@ import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { run } from './helpers/run.mjs';
 import { runBlocks } from './helpers/workflows.mjs';
-import { NIGHT, git, write, commit, acme, climb, json, load, LEDGER_TEST, suite, ledgerRuns, WAITING } from './helpers/climb.mjs';
+import { NIGHT, git, diagnosticGit, write, commit, acme, climb, json, load, LEDGER_TEST, suite, ledgerRuns, WAITING } from './helpers/climb.mjs';
 
 test('guard: fails when a test that ran in the base did not run in the candidate (dropped or skipped), and passes a refactor', async t => {
   const dir = await acme(t, { climb: { jobs: ['test-time'], testCommand: LEDGER_TEST }, config: { check: LEDGER_TEST }, files: { 'acme.test.mjs': suite('acme adds', 'acme subtracts') } });
@@ -36,16 +36,19 @@ test('guard: fails when a test that ran in the base did not run in the candidate
   // commits (or only stages) a change and exits 0, is refused: only the commit checked is ever taken.
   const checked = git(dir, ['rev-parse', 'HEAD']);
   const cfg = JSON.parse(await readFile(join(dir, '.plates/plates.json'), 'utf8'));
+  const gateGit = await diagnosticGit(t);
   for (const [tail, said] of [
-    ['echo "// sneak" >> acme.test.mjs && git add acme.test.mjs && git commit -q -m sneak', /moved HEAD from [0-9a-f]{7} to [0-9a-f]{7} after the guard's checks/],
-    ['echo "// sneak" >> acme.test.mjs && git add acme.test.mjs', /changed the tracked tree or the index after the guard's checks/],
+    [`echo "// sneak" >> acme.test.mjs && ${gateGit.command} add acme.test.mjs && ${gateGit.command} commit -q -m sneak`, /moved HEAD from [0-9a-f]{7} to [0-9a-f]{7} after the guard's checks/],
+    [`echo "// sneak" >> acme.test.mjs && ${gateGit.command} add acme.test.mjs`, /changed the tracked tree or the index after the guard's checks/],
     // PR #59: a config set (here core.hooksPath) in the git dir is refused before any git of plates's reads it.
-    ['git config core.hooksPath acme-hooks', /changed the git dir's config, hooks or attributes/],
+    [`${gateGit.command} config core.hooksPath acme-hooks`, /changed the git dir's config, hooks or attributes/],
   ]) {
     await writeFile(join(dir, '.plates/plates.json'), JSON.stringify({ ...cfg, check: `${LEDGER_TEST} && ${tail}` }));
+    await gateGit.clear();
     const moved = guard();
-    assert.equal(moved.status, 1, moved.stdout + moved.stderr);
-    assert.ok(json(moved).problems.some(p => said.test(p)), JSON.stringify(json(moved).problems));
+    const diagnostic = `${moved.stdout}${moved.stderr}\n${await gateGit.failure()}`;
+    assert.equal(moved.status, 1, diagnostic);
+    assert.ok(json(moved).problems.some(p => said.test(p)), diagnostic);
     git(dir, ['reset', '-q', '--hard', checked]);
   }
 

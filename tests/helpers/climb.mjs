@@ -27,6 +27,30 @@ export const git = (cwd, args) => {
   return r.stdout.trim();
 };
 
+/** Git in a synthetic gate, whose stderr the production guard does not return.
+ * Keep a bounded failure outside the guarded tree and include it in assertions.
+ * No timeout or retry is added; status and signals still fail the gate.
+ */
+export async function diagnosticGit(t) {
+  const dir = await mkdtemp(join(tmpdir(), 'plates-climb-git-diagnostic-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const log = join(dir, 'failure.txt'), script = join(dir, 'git.mjs');
+  await writeFile(log, '');
+  await writeFile(script, `import { spawnSync } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
+import { gitFailure } from ${JSON.stringify(pathToFileURL(join(PLATES, 'tests/fixtures/improve/git-diagnostics.mjs')).href)};
+const args = process.argv.slice(2);
+const r = spawnSync('git', args, { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+if (r.error || r.status !== 0) writeFileSync(${JSON.stringify(log)}, gitFailure(args, r, process.cwd()));
+process.stdout.write(r.stdout ?? '');
+process.stderr.write(r.stderr ?? '');
+if (r.signal) process.kill(process.pid, r.signal);
+else process.exitCode = r.status ?? 1;
+`);
+  const quote = value => `'${value.replace(/'/g, `'"'"'`)}'`;
+  return { command: `${quote(process.execPath)} ${quote(script)}`, clear: () => writeFile(log, ''), failure: () => readFile(log, 'utf8') };
+}
+
 export async function write(dir, files) {
   for (const [p, text] of Object.entries(files)) {
     await mkdir(dirname(join(dir, p)), { recursive: true });
