@@ -774,6 +774,32 @@
       "ownerAttended": true,
       "rollback": "Remove local-host from backlog.routes and release the claim; nothing hosted changes.",
       "proof": "The claim, the receipt, the host's session id, and the owner answer, recorded in docs/evidence/2026-11-06-local-host.md."
+    },
+    {
+      "id": "github-app-pull-requests-write",
+      "phase": 176,
+      "kind": "github-app",
+      "what": "Owner grants the Plates GitHub App \"Pull requests: Read and write\" on the plates installation (with the Contents: Read and write already granted for decisions, which GitHub's merge endpoint requires) and Checks: Read, so a ready pull request's card can show its checks and Merge can be submitted. Merging also needs decisionWrites on; until both hold, Merge is listed unavailable with this reason.",
+      "prerequisites": [
+        97,
+        176
+      ],
+      "ownerAttended": true,
+      "rollback": "Owner removes Pull requests write in the App's settings; Merge returns to unavailable with its reason, and nothing else changes.",
+      "proof": "A GitHub API read of the installation's permissions (pull_requests: write, contents: write, checks: read), sanitized."
+    },
+    {
+      "id": "merge-from-docket",
+      "phase": 176,
+      "kind": "decision",
+      "what": "After deploying a build with phase 176 and the Pull requests write grant, the owner opens a review session on the phone, merges one ready pull request from its card, and says whether what was being merged was clear before the tap.",
+      "prerequisites": [
+        174,
+        176
+      ],
+      "ownerAttended": true,
+      "rollback": "A merge is reverted with an ordinary revert PR; redeploying the previous build removes Merge from the card.",
+      "proof": "The deployed revision, the merged PR and its merge commit from the operation receipt, and the owner answer (merged, clear; merged, but unclear; or didn't trust it), recorded in phase 176's evidence."
     }
   ],
   "open": [
