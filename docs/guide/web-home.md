@@ -184,6 +184,25 @@ runs `state... <session id>` when it reads the backlog. An answer of
 presence, with the host and session as its source. A host with no state
 command, or one that answers anything else, leaves the card at "claimed".
 
+`plates home --backlog --since YYYY-MM-DD` (phase 184) reads back what
+happened to each item since that date: the counts per action, each route's
+attached phases and how many landed (are in Recently done), and the minutes of
+the answers you gave each week ("at least" when one had no estimate). Each card
+carries its `history` (how many events, the last one); events never reorder the
+backlog. They are written where the actions already happen (attach, assist,
+`plates phase claim --release`, and each answer and Not now from `plates home
+--answer`) into the plate's `.plates/backlog-events/`, private like feedback's
+store (0700/0600, git-ignored, refused when tracked), and they are **metadata
+only**: the item's key, who, the action, route, lane, takes, an outcome code and
+a receipt link; a Not now's reason is the code `stated` or `none`, never your
+words. Writing one never fails the action it records. The hosted workspace
+keeps a Not now answered on the web in SQL019; until 019 is applied events are
+skipped and the server notes it once. The hosted `/backlog/history` (beside List
+and By goal; `/backlog/history/YYYY-MM-DD` for a date, else the last 28 days)
+shows the same readout and card history, computed by the same function
+(`lib/web/backlog-history.mjs`) over the hosted events; before 019 it says once
+that events are not stored yet, and shows no counts.
+
 `plates home --agents` (phase 186) lists each provider in the plates'
 `agents` maps with the item it holds now, from claims ("working on plates
 #178", with its presence: claimed, or stale after seven days without a push),

@@ -1,11 +1,11 @@
 ---
-status: planned
-since: 2026-11-05
+status: partial
+since: 2026-11-06
 goal: G7
 spec: 2
 depends: [181]
-note: "Specified in docs/specs/web-backlog.md. Metadata only."
-evidence: []
+note: "Built: metadata-only events, written locally and (after migration 019) hosted, read back the same in plates home --backlog --since and /backlog/history. Waits on applying 019."
+evidence: ["evidence/2026-11-06-backlog-events.md"]
 ---
 
 # The backlog remembers what happened to each item
@@ -28,9 +28,10 @@ evidence: []
 
 ## Acceptance
 
-- [ ] Events hold no source text or owner words: `tests/backlog-events.test.mjs: "metadata only"`
-- [ ] Ordering is identical with and without events: `tests/work-items.test.mjs: "events never reorder"`
-- [ ] A tracked events directory is refused: `tests/backlog-events.test.mjs: "events refuse a tracked directory"`
+- [x] Events hold no source text or owner words: `tests/backlog-events.test.mjs: "metadata only"`
+- [x] Ordering is identical with and without events: `tests/work-items.test.mjs: "events never reorder"`
+- [x] A tracked events directory is refused: `tests/backlog-events.test.mjs: "events refuse a tracked directory"`
+- [ ] After migration 019 is applied, one event written from the web is read back on /backlog/history: ⚑ by hand: the conductor, with the owner
 
 ## Real surfaces
 
@@ -48,4 +49,7 @@ Retention: how long events are kept. Settled when the readout is first used.
 
 ## Next action
 
-Write the local event writer with the metadata-only test.
+Apply migration 019 with the owner (activation step migration-019), then write one event from the web and read it back on /backlog/history.
+
+## Trajectory
+- **2026-11-06** Events are short codes only (a Not now reason is stored as `stated` or `none`); the history readout is one function, used by the CLI and /backlog/history.

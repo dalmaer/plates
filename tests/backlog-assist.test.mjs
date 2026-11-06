@@ -100,7 +100,13 @@ test('assists never decide', async t => {
   assert.equal(git(root, 'rev-parse', 'HEAD'), before.head, 'nothing was committed');
   assert.equal(await readFile(join(root, FILE), 'utf8'), before.file, 'the phase file (its status, acceptance, Your part and evidence) is byte for byte as it was');
   assert.deepEqual(kept.data.effect.writes, [...ASSIST_WRITES]);
-  assert.ok(ASSIST_WRITES.every(w => w.startsWith('git-dir:')), 'an assist writes only under the git dir');
+  // Under the git dir, and its backlog event (phase 184) in the ignored private store: metadata only, never the draft.
+  assert.ok(ASSIST_WRITES.every(w => w.startsWith('git-dir:') || w === 'ignored:.plates/backlog-events'), 'an assist writes only under the git dir and its ignored event');
+  assert.equal(kept.data.eventNote, undefined, 'its event was written');
+  const events = await readdir(join(root, '.plates/backlog-events'));
+  const event = JSON.parse(await readFile(join(root, '.plates/backlog-events', events.find(n => n.endsWith('.json'))), 'utf8'));
+  assert.deepEqual([event.action, event.key, event.actor, event.outcome], ['assist', KEY, 'agent:claude', 'drafted']);
+  assert.ok(!JSON.stringify(event).includes(draft.why) && !JSON.stringify(event).includes(draft.recommend), 'the event holds no draft words');
   assert.ok(dirs.journal.startsWith(join(root, '.git')) && dirs.drafts.startsWith(join(root, '.git')));
   // On the card it is the agent's, beside the person's Recommend: the question's recommend and every answer are unchanged.
   const shown = await backlogWithDrafts(root, backlog(), 'app');

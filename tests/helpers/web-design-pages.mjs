@@ -12,6 +12,7 @@ import { recurringOf } from '../../lib/web/recurring-model.mjs';
 import { changesHarness, token } from './web-changes.mjs';
 import { reviewSnapshot } from './review-fixture.mjs';
 import { itemKey, docketOf, homeSnapshot, backlogFor, roadmapOf, phaseRoadmap } from '../../lib/work-items.mjs';
+import { backlogEvent, withEvents, eventsReadout } from '../../lib/backlog-events.mjs';
 
 export const access = { workspace: { id: 'acme', name: 'Acme workspace' }, userId: 1, projects: [{ id: 'studio', repo: 'acme/studio', name: 'Acme Studio' }], sourceRevision: 'a'.repeat(40), csrf: 'fake-csrf-acme' };
 export const project = { id: 'studio', repo: 'acme/studio', name: 'Acme Studio' };
@@ -27,6 +28,15 @@ export function snapshot() {
   // Phase 166: home's four sections, as the server's model builds them from this plate.
   value.home = homeSnapshot([{ ...value.projects[0], decisions: [decision], walks: [walk], waiting: [waiting], changes: [change], reviews: [] }], { can: { form: 'web' }, today: '2026-10-21' }).home;
   return value;
+}
+/** History (phase 184): the same backlog with what happened since 2026-10-14: an attach that landed, an answer, a Not now with no estimate. */
+export function backlogHistory() {
+  const b = backlog(), since = '2026-10-14T00:00:00.000Z';
+  const at = (day, n) => ({ now: Date.parse(`2026-10-${day}T09:00:00Z`), id: String(n).repeat(24).slice(0, 24) });
+  const events = [backlogEvent({ actor: 'agent:claude', key: 'studio:phase:8', action: 'attach', route: 'session', lane: 'agent-ready', outcome: 'attached' }, at(15, 1)),
+    backlogEvent({ actor: 'owner', key: 'studio:phase:2', action: 'answer', takes: 5, outcome: 'choice-1' }, at(19, 2)),
+    backlogEvent({ actor: 'owner', key: 'studio:phase:4', action: 'not-now', reason: 'stated', outcome: 'not-now' }, at(20, 3))];
+  return { ...withEvents(b, events), since, events: eventsReadout(events, { since, backlog: b }), eventsNote: null };
 }
 /** The backlog's model from Acme phases: one claimed, one owing a walk, two free (one not yet spec: 2), one waiting, one built this week; and a plate not read. */
 export function backlog() {
@@ -80,6 +90,9 @@ export async function designPages() {
     backlog: { html: backlogView(access, backlog()), api: { '/api/backlog': backlog() } },
     // Phase 179: the same backlog by goal, one card per phase.
     backlogGoals: { html: backlogView(access, backlog(), { arrangement: 'goals' }), api: { '/api/backlog': backlog() } },
+    // Phase 184: History, what happened since a date and each card's history; and before SQL019, the note alone.
+    backlogHistory: { html: backlogView(access, backlogHistory(), { arrangement: 'history' }), api: { '/api/backlog/history': backlogHistory() } },
+    backlogHistoryUnstored: { html: backlogView(access, { ...backlog(), since: '2026-10-14T00:00:00.000Z', events: null, eventsNote: 'Events are not stored yet, so what happened is not shown.' }, { arrangement: 'history' }), api: {} },
     // Phase 185: Recurring, beside the same sidebar: a scheduled routine, a weekly one whose config disagrees, an off one, an event one.
     recurring: { html: recurringView(access, recurring()), api: { '/api/recurring': recurring() } },
     // Phase 186: Agents and Pending review: one provider working, one idle, routes on and off, a pending PR, and a plate whose PRs were not read.
