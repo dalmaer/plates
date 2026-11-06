@@ -109,13 +109,15 @@ const strip = line => line.trim().replace(/^- \[[ x]\]\s*/, '').replace(/^-\s+/,
  * asked, in plain words, for a phase with a ⚑ walk. One bullet per field,
  * `- **Ask:** …`; Choices are split on " | ", and so is Keeps it open (the
  * choices, among Choices, that record an answer and leave the walk open);
+ * Recommend (optional) is the one choice the conductor recommends, spelled
+ * exactly as Choices spells it (--check refuses any other);
  * `**Ready:** yes` is ready,
  * `**Ready when:** <what first>` is not ({ when }). A Markdown table may
  * follow the bullets. With `### ` sub-headings, one part per walk box: the
  * phase's yourPart is the first, with every part in `parts`. null when the
  * section is absent or empty.
  */
-export const YOUR_PART_FIELDS = Object.freeze({ 'Ask': 'ask', 'Why': 'why', 'Look at': 'look', 'Choices': 'choices', 'Keeps it open': 'keepsOpen', 'Takes': 'takes', 'Then': 'then', 'Ready': 'ready', 'Ready when': 'readyWhen' });
+export const YOUR_PART_FIELDS = Object.freeze({ 'Ask': 'ask', 'Why': 'why', 'Look at': 'look', 'Choices': 'choices', 'Recommend': 'recommend', 'Keeps it open': 'keepsOpen', 'Takes': 'takes', 'Then': 'then', 'Ready': 'ready', 'Ready when': 'readyWhen' });
 export function yourPartOf(text) {
   if (!text || !String(text).trim()) return null;
   const blocks = [];
@@ -135,7 +137,7 @@ export function yourPartOf(text) {
 }
 
 function partOf(lines, heading) {
-  const part = { heading, ask: null, why: null, look: null, choices: [], keepsOpen: [], takes: null, then: null, ready: null, table: null };
+  const part = { heading, ask: null, why: null, look: null, choices: [], recommend: null, keepsOpen: [], takes: null, then: null, ready: null, table: null };
   const rows = [];
   let field = null;
   for (const line of lines) {
@@ -360,6 +362,13 @@ export function specProblems(file, raw) {
     if (!left.length) continue;
     templated.add(section);
     problems.push(`${where(section)} still holds the template's text ("${left[0]}"); ${section === 'Trajectory' ? 'delete the section until something changes the course' : section === 'Your part' ? 'delete the section when the phase has no ⚑ walk; otherwise say in plain words what the owner should do' : 'write what this phase means'}`);
+  }
+  // A recommendation the owner cannot pick is no recommendation: it must be one of its part's Choices, spelled as they are.
+  if (!templated.has('Your part')) {
+    const yp = yourPartOf(sections['Your part']);
+    for (const p of yp?.parts ?? (yp ? [yp] : [])) if (p.recommend !== null && !p.choices.includes(p.recommend)) {
+      problems.push(`${where('Your part')}${p.heading ? ` (${p.heading})` : ''}: **Recommend:** "${p.recommend}" is not one of its Choices (${p.choices.length ? p.choices.join(' | ') : 'none listed'}); recommend one of them, spelled as Choices spells it`);
+    }
   }
   if (spec < 2) return problems;
   if (!templated.has('Acceptance')) for (const box of boxes(sections.Acceptance)) {

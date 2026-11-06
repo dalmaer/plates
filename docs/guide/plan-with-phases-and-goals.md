@@ -108,13 +108,18 @@ about. How can we make it clear what we want the user to do?":
 - **Why:** <one sentence: what it settles or unblocks>
 - **Look at:** <one line; it may hold a Markdown link>
 - **Choices:** <Choice A> | <Choice B> | …
+- **Recommend:** <Choice A>   (optional)
 - **Keeps it open:** <Choice B>   (optional)
 - **Takes:** <about how long, e.g. 5 minutes>
 - **Then:** <Choice A: what happens. Choice B: what happens.>
 - **Ready:** yes
 ```
 
-Keep the choices real and few (two to five). `**Ready when:** <what must
+Keep the choices real and few (two to five). **Recommend** names the one
+choice you would pick, spelled exactly as in Choices
+(`npm run roadmap -- --check` refuses any other), and Why keeps the reason;
+Home, the backlog, `plates home --backlog` and the review session mark that
+answer "Recommended". `**Ready when:** <what must
 happen first>` in place of `**Ready:** yes` says the owner cannot act yet:
 the plate's page lists it under Waiting on time or agents with that reason, never as the owner's. A
 Markdown table of the data may follow the bullets.

@@ -38,9 +38,10 @@ The design is [The board](../research/2026-10-08-whose-turn-board.md).
 ## Your part
 
 - **Ask:** Retire the terminal board (`plates board --open`) now that the Backlog page shows the same items on your phone and laptop?
-- **Why:** The board's week-long trial never happened, and the Backlog (phase 178) replaced it; keeping both means two lists to trust. Recommended: Retire it.
+- **Why:** The board's week-long trial never happened, and the Backlog (phase 178) replaced it; keeping both means two lists to trust.
 - **Look at:** [/backlog](https://plates.dionisaledge.com/backlog) on your phone.
 - **Choices:** Retire it | Keep both
+- **Recommend:** Retire it
 - **Takes:** 1 minute.
 - **Then:** Retire it: the conductor drafts a small phase that removes `plates board` and points its guide at the Backlog. Keep both: recorded, and the board stays as it is.
 - **Ready:** yes
