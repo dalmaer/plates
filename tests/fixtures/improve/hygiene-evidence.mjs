@@ -4,9 +4,10 @@ import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { gitFailure } from './git-diagnostics.mjs';
 import { longFiles, draftsWaiting } from '../../../practices/night/files/scripts/plates/hygiene-measures.mjs';
 
-export async function hygieneFixture({ env, now }) {
+export async function hygieneFixture({ env, now, execute = spawnSync }) {
   const dir = await mkdtemp(join(tmpdir(), 'plates-hygiene-fixture-'));
   const root = join(dir, 'acme');
   try {
@@ -17,8 +18,8 @@ export async function hygieneFixture({ env, now }) {
     const gitEnv = Object.fromEntries(Object.entries(env).filter(([key]) => !key.startsWith('GIT_') && key !== 'PLATES_GIT'));
     Object.assign(gitEnv, { PLATES_GIT: 'git', GIT_CONFIG_GLOBAL: global, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_COUNT: '3', GIT_CONFIG_KEY_0: 'core.fsmonitor', GIT_CONFIG_VALUE_0: 'false', GIT_CONFIG_KEY_1: 'commit.gpgsign', GIT_CONFIG_VALUE_1: 'false', GIT_CONFIG_KEY_2: 'core.hooksPath', GIT_CONFIG_VALUE_2: '/dev/null', GIT_AUTHOR_NAME: 'Acme', GIT_AUTHOR_EMAIL: 'acme@acme.test', GIT_COMMITTER_NAME: 'Acme', GIT_COMMITTER_EMAIL: 'acme@acme.test' });
     const git = args => {
-      const r = spawnSync('git', args, {cwd:root,env:gitEnv,encoding:'utf8',timeout:5000,maxBuffer:1024*1024});
-      if (r.error || r.status !== 0) throw new Error(`synthetic Git: ${r.error?.message ?? r.stderr}`);
+      const r = execute('git', args, {cwd:root,env:gitEnv,encoding:'utf8',timeout:5000,maxBuffer:1024*1024});
+      if (r.error || r.status !== 0) throw new Error(gitFailure(args, r, root), { cause: r.error });
     };
     git(['init','--initial-branch=main']);
     await writeFile(join(root, 'anvils.mjs'), `export function anvils() {\n${'  // an Acme anvil\n'.repeat(1600)}}\n`);
