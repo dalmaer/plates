@@ -131,6 +131,21 @@ ends with each plate's links (repo, `canvas.home`, production site).
 carries Humans and Links; it reads the latest runs through the App's Actions
 read, and starts, stops and reschedules nothing.
 
+`plates home --attach <plate>:phase:<n> --route session [--provider <p>]`
+(phase 181), run in that plate's checkout, attaches an agent to a phase that
+is ready to build. Without `--yes` it previews the exact effect (the claim
+ref, the agent, the route, the brief's size and digest, the budget charged)
+and exits 3. With `--yes` it makes the same create-only claim as
+`plates phase claim`, reads it back, journals the intent under the
+checkout's git directory, then hands over the `/spin <n>` brief to open in
+Claude Code or Codex; nothing is started. If another agent's claim won, it
+says who holds it and does nothing else. A second `--yes` returns the
+receipt; an attach interrupted after its intent was journaled is recovered,
+never repeated. A plate offers the routes its `"backlog": { "routes": [...] }`
+policy lists (only `session` with no policy). This build starts `session`
+only. The backlog's Start button on an agent-ready row stays off on the web,
+and its tooltip gives this command.
+
 `plates home --agents` (phase 186) lists each provider in the plates'
 `agents` maps with the item it holds now, from claims ("working on plates
 #178", with its presence: claimed, or stale after seven days without a push),

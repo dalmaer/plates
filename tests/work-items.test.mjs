@@ -544,3 +544,19 @@ test('the recommended answer is marked', async () => {
   const snapshot = homeSnapshot([{ id: 'anvils', name: 'Acme Anvils', state: 'complete', gaps: [], changes: [], decisions: [], walks: [structuredClone(walk)], reviews: [], waiting: [] }], { can: { form: 'web', decisionWrites: true }, today: '2026-11-05' });
   assert.match(homeView({ workspace: { name: 'Acme' }, projects: [], csrf: 'x', sourceRevision: 'a'.repeat(40) }, { ...snapshot, cursor: 'a'.repeat(64), quota: { state: 'unknown' } }), /Answers: Retire it \(Recommended\) · Keep both/);
 });
+
+// Phase 181: presence says claimed unless an execution source says more.
+test('a claim is not a running agent', async () => {
+  const { EXECUTION_STATES } = await import('../lib/work-items.mjs');
+  const { snapshot, roadmaps } = backlogFixture();
+  const at = executions => backlogOf(snapshot, [{ ...roadmaps[0], executions }, roadmaps[1]], { now: NOW }).lanes[0].items.find(i => i.key === 'anvils:phase:8');
+  // The claim alone: claimed, from the claim branch.
+  assert.deepEqual([at(undefined).presence, at(undefined).presenceSource], ['claimed', 'claim branch']);
+  // A session handed its brief, or an attach receipt, is not an execution: still claimed.
+  assert.equal(at([{ phase: 8, state: 'handed', source: 'attach receipt' }]).presence, 'claimed');
+  assert.equal(at([{ phase: 8, state: 'attached', source: 'attach receipt' }]).presence, 'claimed');
+  // Only an execution source says running, and says which.
+  assert.deepEqual([at([{ phase: 8, state: 'running', source: 'night journal 2026-11-05' }]).presence, at([{ phase: 8, state: 'running', source: 'night journal 2026-11-05' }]).presenceSource], ['running', 'night journal 2026-11-05']);
+  assert.equal(at([{ phase: 9, state: 'running', source: 'night journal' }]).presence, 'claimed', 'another phase\'s run is not this one\'s');
+  assert.deepEqual(EXECUTION_STATES, ['running', 'ready', 'integrating', 'blocked']);
+});

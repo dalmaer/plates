@@ -413,7 +413,7 @@ test('backlog matches in both forms', async () => {
     for (const item of api.lanes.flatMap(l => l.items)) assert.ok(html.includes(`data-backlog-item="${item.key}"`), item.key);
     assert.match(html, /claim 6d left|claim 7d left/);
     assert.match(html, /<span class="p-badge">claude · claimed<\/span>/);
-    if (lanes['agent-ready'].length) assert.ok(html.includes(`title="${START_UNAVAILABLE}"`));
+    if (lanes['agent-ready'].length) assert.ok(html.includes(`title="${START_UNAVAILABLE.replace("'", "&#39;")}: plates home --attach `));
     // The terminal renders the same items, one line each, under its lane's header and count.
     const text = s.again(['--backlog'], { env: { ACME_GH_PRS: '[]' } });
     assert.equal(text.status, 0, text.stderr);
