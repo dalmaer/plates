@@ -5,7 +5,7 @@
 // compare what each renders. Neither side is compared with itself.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, mkdir, chmod, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, mkdir, chmod, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -15,7 +15,7 @@ import { projectHarness, phaseFile } from './helpers/web-projects.mjs';
 import { createHash } from 'node:crypto';
 import { createHomeReader } from '../lib/web/home.mjs';
 import { renderHomeSnapshot } from '../lib/web/views.mjs';
-import { HOME_SECTIONS, BACKLOG_LANES } from '../lib/work-items.mjs';
+import { HOME_SECTIONS, BACKLOG_LANES, MERGE_PERMISSION } from '../lib/work-items.mjs';
 import { backlogView, START_UNAVAILABLE } from '../lib/web/backlog-views.mjs';
 import { claimMessage } from '../lib/claim.mjs';
 import { waitsFixture } from './helpers/waits.mjs';
@@ -35,7 +35,7 @@ const reviewRepository = { open: { pageInfo: { hasNextPage: false }, nodes: [{ k
 const rate = { cost: 1, remaining: 4000, resetAt: new Date(Date.now() + 3600_000).toISOString() };
 
 /** The same sources, twice: the web's fake App API and a git checkout with a fake gh. */
-async function sources({ reviews = true, files = {}, issues = null, waits = null, runs = null, prs = null, config = {} } = {}) {
+async function sources({ reviews = true, files = {}, issues = null, waits = null, runs = null, prs = null, config = {}, review = reviewRepository, ready = null, checksRead = !!waits, decisionWrites = false } = {}) {
   const h = projectHarness();
   Object.assign(h.source.files, files);
   h.source.files['.plates/plates.json'] = JSON.stringify({ name: 'Acme Studio', repo: 'acme/studio', tagline: 'Publish useful things.', practice: '0.8.32', stack: ['node'], phases: { shape: 'files' },
@@ -62,7 +62,9 @@ async function sources({ reviews = true, files = {}, issues = null, waits = null
       // Pending review's read (phase 186): the same open PRs the fake gh lists.
       if (query.includes('PlatesPending')) return Response.json({ data: { rateLimit: rate, repository: { pullRequests: { totalCount: (prs ?? []).length, nodes: prs ?? [] } } } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
       if (query.includes('PlatesClaims')) return Response.json({ data: { rateLimit: rate, repository: { refs: { totalCount: claimRefs.length, nodes: claimRefs }, pullRequests: { totalCount: 0, nodes: [] } } } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
-      return Response.json({ data: { rateLimit: rate, ...(query.includes('PlatesReviewWindow') ? { repository: reviewRepository } : {}) } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
+      // The ready PRs' checks read (phase 176): the same answer the fake gh gives.
+      if (query.includes('PlatesReadyChecks')) return Response.json({ data: { rateLimit: rate, repository: ready } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
+      return Response.json({ data: { rateLimit: rate, ...(query.includes('PlatesReviewWindow') ? { repository: review } : {}) } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
     }
     // The waits' REST reads (phase 158): the same answers the fake gh gives.
     const u = new URL(url), key = `${u.pathname}${u.search}`;
@@ -76,17 +78,20 @@ async function sources({ reviews = true, files = {}, issues = null, waits = null
   await writeFile(gh, `#!${process.execPath}
 const argv = process.argv.slice(2), q = (argv.find(a => a.startsWith('query=')) ?? '').slice(6);
 if (argv[0] === 'api' && argv[1] === 'user') console.log('acme-owner');
-else if (argv[0] === 'api' && argv[1] === 'graphql' && q.includes('PlatesReviewWindow')) console.log(JSON.stringify({ data: { rateLimit: ${JSON.stringify(rate)}, repository: ${JSON.stringify(reviewRepository)} } }));
+else if (argv[0] === 'api' && argv[1] === 'graphql' && q.includes('PlatesReviewWindow')) console.log(JSON.stringify({ data: { rateLimit: ${JSON.stringify(rate)}, repository: ${JSON.stringify(review)} } }));
+else if (argv[0] === 'api' && argv[1] === 'graphql' && q.includes('PlatesReadyChecks')) console.log(JSON.stringify({ data: { repository: ${JSON.stringify(ready)} } }));
 else if (argv[0] === 'api' && argv[1] === 'graphql') console.log(JSON.stringify({ data: { rateLimit: ${JSON.stringify(rate)} } }));
 else if (argv[0] === 'api' && argv[1] === '-X' && argv[2] === 'GET' && Object.hasOwn(${JSON.stringify(waits ?? {})}, '/' + argv[3])) console.log(JSON.stringify(${JSON.stringify(waits ?? {})}['/' + argv[3]]));
 else if (argv[0] === 'api' && argv[1] === '-X') { console.error('gh: Not Found (HTTP 404)'); process.exit(1); }
 else if (argv[0] === 'pr' && argv[1] === 'list' && process.env.ACME_GH_PRS) console.log(process.env.ACME_GH_PRS);
+else if (argv[0] === 'api' && argv[1] === 'repos/acme/studio') console.log(JSON.stringify({ allow_squash_merge: true, allow_merge_commit: true, allow_rebase_merge: false }));
+else if (argv[0] === 'pr' && argv[1] === 'merge' && process.env.ACME_GH_LOG) require('node:fs').appendFileSync(process.env.ACME_GH_LOG, JSON.stringify(argv) + String.fromCharCode(10));
 else if (argv[0] === 'run' && argv[1] === 'list' && ${JSON.stringify(!!runs)}) console.log(JSON.stringify(${JSON.stringify((runs ?? []).map(({ path, ...r }) => r))}));
 else if (argv[0] === 'issue' && argv[1] === 'list' && ${JSON.stringify(!!issues)}) console.log(JSON.stringify(argv.includes('plates:agent') ? ${JSON.stringify(issues ?? [])} : []));
 else { console.error('fake gh: offline'); process.exit(1); }
 `);
   await chmod(gh, 0o755);
-  const readWeb = createHomeReader(h.config, { fetcher, now: () => Date.now() }), webAccess = { ...h.access, login: 'acme-owner', pullRequestsRead: reviews, checksRead: !!waits, ...(runs ? { actionsPermission: 'read' } : {}) };
+  const readWeb = createHomeReader(decisionWrites ? { ...h.config, decisionWrites: true } : h.config, { fetcher, now: () => Date.now() }), webAccess = { ...h.access, login: 'acme-owner', pullRequestsRead: reviews, checksRead, ...(runs ? { actionsPermission: 'read' } : {}) };
   const web = await readWeb(webAccess, token);
   const cliEnv = (state = 'state') => ({ ...gitEnv, PLATES_GH: gh, PLATES_CACHE: join(dir, 'cache'), PLATES_STATE: join(dir, state), XDG_STATE_HOME: join(dir, state) });
   const run = runNode(process.execPath, [bin, 'home', '--json'], { cwd: root, timeout: 120_000, env: cliEnv() });
@@ -594,4 +599,52 @@ test('the backlog keeps one lane, and refuses one it does not have', async () =>
     }
     assert.match(s.again(['--backlog', '--lane', 'someday']).stderr, /--lane is one of in-flight, yours, agent-ready, waiting, done/);
   } finally { await s.done(); }
+});
+
+// Phase 176: Acme PR 7, its one finding answered and its head reviewed, with green checks: ready to merge.
+const HEAD7 = 'a'.repeat(40);
+const readyRepository = { open: { pageInfo: { hasNextPage: false }, nodes: [{ ...reviewRepository.open.nodes[0], headRefOid: HEAD7,
+  reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [{ id: 'T1', isResolved: true, tail: { totalCount: 2, nodes: [reviewRepository.open.nodes[0].reviewThreads.nodes[0].tail.nodes[0],
+    { databaseId: 2, author: { login: 'acme-owner' }, body: '**Fixed** in abc1234.', createdAt: '2026-10-02T09:00:00Z', url: 'https://github.com/acme/studio/pull/7#c2' }] } }] },
+  reviews: { pageInfo: { hasPreviousPage: false }, nodes: [{ id: 'R1', databaseId: 1, author: { login: 'acme-reviewer' }, commit: { oid: HEAD7 }, body: '', state: 'COMMENTED', submittedAt: '2026-10-03T00:00:00Z', url: 'https://github.com/acme/studio/pull/7#r1' }] } }] },
+  merged: { pageInfo: { hasNextPage: false }, nodes: [] } };
+const readyChecks = { p7: { number: 7, state: 'OPEN', isDraft: false, headRefOid: HEAD7, additions: 4, deletions: 1, changedFiles: 2, commits: { nodes: [{ commit: { oid: HEAD7, statusCheckRollup: { state: 'SUCCESS' } } }] } } };
+
+test('merge says why it is unavailable', async () => {
+  const s = await sources({ review: readyRepository, ready: readyChecks, checksRead: true, decisionWrites: true });
+  try {
+    const card = form => form.reviews.find(i => i.key === 'studio:merge:7');
+    assert.ok(card(s.web) && card(s.cli), 'the ready PR is one card in both forms');
+    assert.deepEqual(formless(card(s.cli)), formless(card(s.web)), 'the same card, item by item');
+    assert.equal(s.web.reviews.filter(i => i.ref === '7').length, 1, 'one card per PR');
+    // The hosted workspace has decision writes but not the App's Pull requests write: Merge says so, on the card and in the API.
+    const merge = form => card(form).answers.find(a => a.id === 'merge');
+    assert.equal(merge(s.web).unavailable.reason, MERGE_PERMISSION);
+    assert.equal(merge(s.web).unavailable.command, 'plates home --answer studio:merge:7 merge', 'and how to do it from the terminal');
+    assert.ok(!merge(s.cli).unavailable, 'the terminal merges through the owner\'s gh');
+    const { docketItems, renderReviewCard } = await import('../lib/web/review-views.mjs');
+    const { reviewCardText } = await import('../lib/home-review.mjs');
+    const entry = docketItems(s.web).find(e => e.key === 'studio:merge:7');
+    const html = renderReviewCard(entry);
+    assert.match(html, /data-answer="merge" data-recommended aria-disabled="true"/, 'shown, and disabled');
+    assert.ok(html.includes('Merge is not available here: The Plates GitHub App needs &quot;Pull requests: Read and write&quot;'), 'the web card says why');
+    assert.match(html, /href="https:\/\/github.com\/acme\/studio\/pull\/7\/files"[^>]*>Look at: Open the diff/);
+    assert.match(reviewCardText(entry, { index: 0, total: 1 }), /1\) Merge \(not from here: The Plates GitHub App needs "Pull requests: Read and write"/, 'the terminal card says the same of the hosted model');
+    // The terminal: plates home --answer <pr-key> merge previews (exit 3) until --yes, then merges with gh at the card's head.
+    const log = join(s.dir, 'gh-merge.log');
+    const preview = s.again(['--answer', 'studio:merge:7', 'merge'], { env: { ACME_GH_LOG: log } });
+    assert.equal(preview.status, 3, preview.stderr);
+    assert.match(preview.stdout + preview.stderr, /Would merge acme\/studio#7 .* at head aaaaaaa, by squash, only if its head is still aaaaaaa/);
+    assert.equal(await readFile(log, 'utf8').catch(() => ''), '', 'the preview merges nothing');
+    const yes = s.again(['--answer', 'studio:merge:7', 'merge', '--yes', '--json'], { env: { ACME_GH_LOG: log } });
+    assert.equal(yes.status, 0, yes.stderr);
+    assert.deepEqual((await readFile(log, 'utf8')).trim().split('\n').map(l => JSON.parse(l)), [['pr', 'merge', '7', '-R', 'acme/studio', '--squash', '--match-head-commit', HEAD7]]);
+  } finally { await s.done(); }
+  // Where the checks are not read, neither form shows the PR ready, and both say why.
+  const unread = await sources({ review: readyRepository, ready: null, checksRead: false });
+  try {
+    for (const form of [unread.web, unread.cli]) assert.ok(!form.reviews.some(i => i.itemKind === 'merge'), 'no merge card without a checks read');
+    assert.ok(unread.web.coverage && unread.web.projects[0].gaps.some(g => g.source === 'reviews' && /no pull request is shown ready to merge/.test(g.reason)), 'the web says why');
+    assert.ok(unread.cli.projects[0].gaps.some(g => g.source === 'reviews' && /no pull request is shown ready to merge/.test(g.reason)), 'the terminal says why');
+  } finally { await unread.done(); }
 });

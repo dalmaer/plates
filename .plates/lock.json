@@ -227,7 +227,7 @@
     },
     "scripts/plates/lib.mjs": {
       "practice": "night",
-      "sha256": "4b8f4db477fac441a24fc946262c16a6c377deea73d0aac6f8017127de4b7cc6"
+      "sha256": "0d52409db08c1e432af954dc3fcd54eea87806c28126de232361a235dab17603"
     },
     "scripts/plates/milestones.mjs": {
       "practice": "night",
@@ -295,7 +295,7 @@
     },
     "scripts/plates/quota.mjs": {
       "practice": "night",
-      "sha256": "a498d93b39fbb85039dbbcf002ab474dc27e12a12e466391976e1b6715f1108d"
+      "sha256": "f1d5f6cf9d383fc8e75b5148757494011da6f52afc4e6554420e05fef2582bd1"
     },
     "scripts/plates/reconcile-actions.mjs": {
       "practice": "reconciliation",
