@@ -654,6 +654,20 @@
       "proof": "The applied version: file name and SHA-256; docs/evidence/2026-11-04-web-last-looked-hosted-proof.sql's result (the table, its grants and the RPC run as the service role); one authenticated Home load, then a second after thirty minutes, and Since you last looked naming the first visit's time."
     },
     {
+      "id": "migration-019",
+      "phase": 184,
+      "kind": "migration",
+      "migration": "019-backlog-events.sql",
+      "what": "Apply 019-backlog-events.sql (plates_home.backlog_events: per owner, an opaque digest, the database's time and the event's short codes, append-only, and plates_backlog_events_rpc) after the build with phase 184's hosted writes, so a Not now answered on the web leaves its backlog event. The build goes first and is safe without it: until 019 is applied each event is skipped, the server notes that once, and every answer is written as before. Events hold no source text and no owner words.",
+      "prerequisites": [
+        94,
+        184
+      ],
+      "ownerAttended": true,
+      "rollback": "A failure inside the transaction rolls back by itself. After commit, drop the table plates_home.backlog_events, the function public.plates_backlog_events_rpc(text,text,jsonb,timestamptz) and the trigger function plates_home.backlog_events_append_only(); events are skipped again, noted once, and nothing else changes. Leave the plates_home schema: 017's Not now and 018's visits live in it.",
+      "proof": "The applied version: file name and SHA-256; docs/evidence/2026-11-06-web-backlog-events-hosted-proof.sql's result (the table, its grants, the append-only trigger and the RPC run as the service role); one Not now answered on the deployed web, and its event read back as the service role, holding codes only."
+    },
+    {
       "id": "answers-from-home",
       "phase": 173,
       "kind": "decision",
