@@ -1508,6 +1508,10 @@ const carriesFindings = body => markerAtStart(body, 'marker:keel:cross-review') 
  * Not one: a cross-review summary carrying its findings, which are answered there and count as a finding on its push.
  */
 const isStatus = body => /^\s*<!--/.test(String(body ?? '')) && !carriesFindings(body);
+/** A comment that is itself a plates answer (replyText, alone or under quote lines). */
+const PLATES_ANSWER = /^(?:(?:>[^\n]*\r?\n)+\r?\n)?\*\*(?:Fixed\*\* in |Valid, tracked\*\* in |Not valid:\*\* )/;
+export const isPlatesAnswer = body => PLATES_ANSWER.test(String(body ?? ''));
+const isBotAuthor = x => x?.author?.__typename === 'Bot' || /\[bot\]$/i.test(x?.author?.login ?? '') || sameLogin(loginOf(x), 'github-actions[bot]');
 // Robot author and reviewer share the Actions identity. Only the exact posted
 // envelope, tied to this PR's canonical delivery association, is an exception.
 const robotReviewRepositories = new WeakMap();
@@ -1611,15 +1615,16 @@ export function reviewComments(pr, reviewers = []) {
     const first = every[0];
     if (!first) continue;
     const by = loginOf(first);
-    // Whoever could answer it may sort it: never the finding's own author or a named reviewer (their text is not plates's record).
-    const sorts = c => c !== first && !sameLogin(loginOf(c), by) && !isNamed(loginOf(c));
+    const canReply = c => c !== first && !isNamed(loginOf(c));
+    // Whoever could answer it may sort it: never a named reviewer, and the finding's own author only via plates's own mark or answer.
+    const sorts = c => canReply(c) && (!sameLogin(loginOf(c), by) || (!isBotAuthor(c) && (classOnly(c.body) || isPlatesAnswer(c.body))));
     const comments = every.filter(c => !(sorts(c) && classOnly(c.body)));
     const klass = every.filter(sorts).map(c => classOf(c.body)).filter(Boolean).at(-1) ?? null;
-    // The newest comment decides: a reviewer's follow-up reopens it.
-    const last = loginOf(comments.at(-1));
-    const answered = comments.length > 1 && !sameLogin(last, by) && !isNamed(last);
+    // The newest comment decides: a reviewer's follow-up reopens it; plates's own answer from a human author answers it too.
+    const answers = c => canReply(c) && (!sameLogin(loginOf(c), by) || (!isBotAuthor(c) && isPlatesAnswer(c.body)));
+    const answered = answers(comments.at(-1));
     // Reopened: aged from the first comment after the last answer, so a follow-up gets its own day.
-    const lastAnswer = comments.findLastIndex(c => !sameLogin(loginOf(c), by) && !isNamed(loginOf(c)));
+    const lastAnswer = comments.findLastIndex(answers);
     const since = answered || lastAnswer < 0 ? first : comments[lastAnswer + 1];
     out.push({ kind: 'thread', id: t.id, databaseId: first.databaseId, author: by, at: since.createdAt, path: t.path ?? null, line: t.line ?? null,
       text: firstLine(first.body), url: first.url, resolved: !!t.isResolved, answered, class: klass });
@@ -1630,8 +1635,10 @@ export function reviewComments(pr, reviewers = []) {
   if (!Array.isArray(convo)) throw new Error('the pull request came back without its conversation comments');
   const entry = (kind, c, at) => {
     const robot = kind === 'review' ? robotReview(pr, c) : null;
-    const by = loginOf(c), status = robot ? robot.status : isStatus(c.body), after = Date.parse(at);
-    const later = convo.filter(o => Date.parse(o.createdAt) > after && !sameLogin(loginOf(o), by) && !isNamed(loginOf(o)) && references(o.body, c));
+    const by = loginOf(c), approved = kind === 'review' && c.state === 'APPROVED' && !carriesFindings(c.body);
+    const status = robot ? robot.status : (approved || isStatus(c.body)), after = Date.parse(at);
+    const canReply = o => !isNamed(loginOf(o)) && (!sameLogin(loginOf(o), by) || (!isBotAuthor(o) && (classOnly(o.body) || isPlatesAnswer(o.body))));
+    const later = convo.filter(o => Date.parse(o.createdAt) > after && canReply(o) && references(o.body, c));
     // A comment that is only a class mark sorts it and answers nothing.
     const replied = later.some(o => !classOnly(o.body));
     return { kind, id: c.id, databaseId: c.databaseId, author: by, at, path: null, line: null, text: firstLine(robot ? robot.text : c.body), url: c.url, resolved: false, status, answered: status || replied,

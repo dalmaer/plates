@@ -82,20 +82,20 @@ if (argv[0] === 'api' && argv.includes('--include')) {
   } else if (q.includes('$after')) {
     // The review bodies after the cursor: s.laterBodies, one page, then no more (s.endless: always more).
     const n = node;
-    console.log(JSON.stringify({ data: { repository: { pullRequest: { reviews: { pageInfo: { hasNextPage: !!s.endless, endCursor: s.endless ? 'C' + field('after') : null }, nodes: (s.laterBodies ?? []).map(r => ({ id: r.id, databaseId: r.databaseId, author: { login: r.author }, body: r.body, state: 'COMMENTED', submittedAt: r.createdAt, url: 'https://github.com/acme/app/pull/3#pullrequestreview-' + r.databaseId })) } } } } }));
+    console.log(JSON.stringify({ data: { repository: { pullRequest: { reviews: { pageInfo: { hasNextPage: !!s.endless, endCursor: s.endless ? 'C' + field('after') : null }, nodes: (s.laterBodies ?? []).map(r => ({ id: r.id, databaseId: r.databaseId, author: { login: r.author }, body: r.body, state: r.state ?? 'COMMENTED', submittedAt: r.createdAt, url: 'https://github.com/acme/app/pull/3#pullrequestreview-' + r.databaseId })) } } } } }));
   } else if (s.noPr) console.log(JSON.stringify({ data: { repository: { pullRequest: null } } }));
   else console.log(JSON.stringify({ data: { ...(s.rate ? { rateLimit: s.rate } : {}), repository: { pullRequest: {
     number: 3, title: 'Acme rocket skates', url: 'https://github.com/acme/app/pull/3', state: 'OPEN', mergedAt: null, headRefOid: s.head,
-    author: { login: 'acme-owner' },
+    author: { login: s.prAuthor ?? 'acme-owner' },
     reviewThreads: { pageInfo: { hasNextPage: !!s.moreThreads }, nodes: s.threads.map(t => ({ id: t.id, isResolved: !!t.isResolved, path: t.path ?? null, line: t.line ?? null, comments: { pageInfo: { hasNextPage: !!t.more }, nodes: t.comments.map(node) } })) },
     comments: { pageInfo: { hasNextPage: !!s.moreComments }, nodes: s.comments.map(c => ({ id: c.id, ...node(c) })) },
-    reviews: { pageInfo: { hasNextPage: !!s.moreReviews, endCursor: s.cursor ?? null }, nodes: (s.bodies ?? []).map(r => ({ id: r.id, databaseId: r.databaseId, author: { login: r.author }, body: r.body, state: 'COMMENTED', submittedAt: r.createdAt, url: 'https://github.com/acme/app/pull/3#pullrequestreview-' + r.databaseId })) },
+    reviews: { pageInfo: { hasNextPage: !!s.moreReviews, endCursor: s.cursor ?? null }, nodes: (s.bodies ?? []).map(r => ({ id: r.id, databaseId: r.databaseId, author: { login: r.author }, body: r.body, state: r.state ?? 'COMMENTED', submittedAt: r.createdAt, url: 'https://github.com/acme/app/pull/3#pullrequestreview-' + r.databaseId })) },
   } } } }));
 } else if (argv[0] === 'api' && argv[1] === '-X' && argv[2] === 'POST') {
   if (!s.writes) deny();
   const m = /comments\\/(\\d+)\\/replies$/.exec(argv[3]);
   if (m) s.threads.find(t => t.comments[0].databaseId === Number(m[1])).comments.push({ databaseId: 900 + s.threads.length, author: 'acme-owner', body: field('body'), createdAt: '2026-10-06T12:00:00Z' });
-  else s.comments.push({ id: 'IC_new', databaseId: 999, author: 'acme-owner', body: field('body'), createdAt: '2026-10-06T12:00:00Z' });
+  else s.comments.push({ id: s.comments.some(x => x.id === 'IC_new') ? 'IC_new_' + s.comments.length : 'IC_new', databaseId: 999 + s.comments.length, author: 'acme-owner', body: field('body'), createdAt: '2026-10-06T12:00:00Z' });
   save();
   if (s.loseReply) { s.loseReply = false; save(); console.error('Acme reply response lost'); process.exit(1); }
   console.log('{}');
@@ -528,7 +528,7 @@ const prOf = ({ threads = [], comments = [], bodies = [], author = 'acme-owner' 
   return { number: 3, author: { login: author },
     reviewThreads: { pageInfo: { hasNextPage: false }, nodes: threads.map(t => ({ id: t.id, isResolved: !!t.isResolved, path: null, line: null, comments: { pageInfo: { hasNextPage: !!t.more }, nodes: t.comments.map(node) } })) },
     comments: { pageInfo: { hasNextPage: false }, nodes: comments.map(x => ({ id: x.id, ...node(x) })) },
-    reviews: { pageInfo: { hasNextPage: false }, nodes: bodies.map(r => ({ id: r.id, databaseId: r.databaseId, author: { login: r.author }, body: r.body, state: 'COMMENTED', submittedAt: r.createdAt, url: `https://github.com/acme/app/pull/3#pullrequestreview-${r.databaseId}` })) } };
+    reviews: { pageInfo: { hasNextPage: false }, nodes: bodies.map(r => ({ id: r.id, databaseId: r.databaseId, author: { login: r.author }, body: r.body, state: r.state ?? 'COMMENTED', submittedAt: r.createdAt, url: `https://github.com/acme/app/pull/3#pullrequestreview-${r.databaseId}` })) } };
 };
 const answered = (pr, reviewers = ['acme-reviewer[bot]']) => Object.fromEntries(reviewComments(pr, reviewers).map(x => [x.id, x.answered]));
 
@@ -563,6 +563,139 @@ test('a review\'s top-level body owes an answer: a later comment that quotes, li
   assert.equal(read(by('PRR_1: fixed in abc1234.'), [])[0].answered, true, 'its id');
   assert.equal(read(by('Merging now.'), [])[0].answered, false, 'an unrelated comment is not an answer');
   assert.equal(read([{ id: 'IC_r', ...c(91, 'acme-reviewer', '> The crate has no lid.\n\nStill true.', '2026-10-06') }], [])[0].answered, false, 'the reviewer quoting itself is not an answer');
+});
+
+test('#217: APPROVED review bodies are status notes, and canonical plates answers/classes from the same human login satisfy --gate while preserving negative controls', async t => {
+  // 1. An owner's APPROVED review on a bot/dependency PR is status (answered: true) and passes --gate immediately.
+  const approveDir = await project(t, null);
+  const approveGh = await stubGh(t, {
+    prAuthor: 'renovate',
+    bodies: [{ id: 'PRR_approved', databaseId: 201, author: 'acme-owner', state: 'APPROVED', body: 'Reviewed (Acme): no findings, OK to merge.', createdAt: '2026-10-05T09:00:00Z' }],
+    reviews: [{ user: 'acme-owner', state: 'APPROVED', commit_id: HEAD }],
+  });
+  const approvedRead = plates(approveDir, approveGh, ['acme/app#3', '--gate', '--json']);
+  assert.equal(approvedRead.code, 0, approvedRead.out + approvedRead.err);
+  assert.deepEqual(approvedRead.json().comments.map(x => [x.id, x.status, x.answered]), [['PRR_approved', true, true]]);
+  assert.match(plates(approveDir, approveGh, ['acme/app#3']).out, /status +PRR_approved/);
+
+  // 2. An owner's COMMENTED review body and inline thread on a dependency PR can be classed idempotently and closed from the same login.
+  const closeDir = await project(t);
+  const closeGh = await stubGh(t, {
+    prAuthor: 'renovate',
+    writes: true,
+    reviews: [ON_HEAD, { user: 'acme-owner', state: 'COMMENTED', commit_id: HEAD }],
+    threads: [{ id: 'PRRT_own', path: 'package.json', line: 5, comments: [c(210, 'acme-owner', 'Verify Node engine range.', '2026-10-05')] }],
+    bodies: [
+      { id: 'PRR_note', databaseId: 202, author: 'acme-owner', state: 'COMMENTED', body: 'Review of `abc1234` completed, no findings: check and typecheck pass.', createdAt: '2026-10-05T09:00:00Z' },
+      { id: 'PRR_second', databaseId: 203, author: 'acme-owner', state: 'COMMENTED', body: 'Second owner note to close sequentially.', createdAt: '2026-10-05T09:05:00Z' },
+    ],
+    comments: [{ id: 'IC_foreign', ...c(211, 'wile-e', 'Check changelog entry.', '2026-10-05') }],
+    commitsOnly: true,
+    commits: { abc1234: '2026-10-06T09:00:00Z' },
+  });
+  assert.equal(plates(closeDir, closeGh, ['acme/app#3', '--gate']).code, 1, 'COMMENTED review bodies still require an answer');
+  assert.equal(plates(closeDir, closeGh, ['acme/app#3', '--reviewer', 'acme-reviewer[bot]', '--reviewer', 'wile-e']).code, 1);
+
+  // --class from the same login records the class without answering, and a retry sees each finding's own class (for both review/thread and non-reviewer comment).
+  assert.equal(plates(closeDir, closeGh, ['acme/app#3', '--class', 'security', 'PRR_note']).code, 0);
+  assert.equal(plates(closeDir, closeGh, ['acme/app#3', '--class', 'other', 'PRRT_own,IC_foreign']).code, 0);
+  const retryClass = plates(closeDir, closeGh, ['acme/app#3', '--class', 'other', 'PRRT_own,IC_foreign', '--json']);
+  assert.equal(retryClass.code, 0, retryClass.out + retryClass.err);
+  assert.deepEqual(retryClass.json().classed.map(x => x.already), [true, true]);
+  const retrySec = plates(closeDir, closeGh, ['acme/app#3', '--class', 'security', 'PRR_note', '--json']);
+  assert.equal(retrySec.code, 0, retrySec.out + retrySec.err);
+  assert.deepEqual(retrySec.json().classed.map(x => x.already), [true]);
+  assert.equal(plates(closeDir, closeGh, ['acme/app#3', '--gate']).code, 1, 'classing alone never answers');
+
+  // PR author's own comment (renovate) is not news; sequential --close calls from acme-owner succeed without re-reading, and --gate then passes.
+  await closeGh.change(s => s.comments.push({ id: 'IC_renovate', ...c(212, 'renovate', 'Updated branch.', '2026-10-06') }));
+  assert.equal(plates(closeDir, closeGh, ['acme/app#3', '--close', 'PRR_note', '--not-valid', 'completed summary note, no finding', '--class', 'overwrite']).code, 0);
+  assert.equal(plates(closeDir, closeGh, ['acme/app#3', '--close', 'PRR_second', '--not-valid', 'second summary note, no finding']).code, 0);
+  assert.equal(plates(closeDir, closeGh, ['acme/app#3', '--close', 'PRRT_own', '--fixed', 'abc1234']).code, 0);
+  const gated = plates(closeDir, closeGh, ['acme/app#3', '--gate', '--json']);
+  assert.equal(gated.code, 0, gated.out + gated.err);
+  assert.deepEqual(gated.json().comments.map(x => [x.id, x.answered, x.class]), [
+    ['PRRT_own', true, 'other'],
+    ['PRR_note', true, 'overwrite'],
+    ['PRR_second', true, null],
+  ]);
+
+  // Negative controls on notNews: a non-PR-author prose comment or a finding containing '**Not valid:**' in a non-quote paragraph IS news and blocks --close.
+  const newsDir = await project(t);
+  const newsGh = await stubGh(t, {
+    prAuthor: 'renovate',
+    writes: true,
+    threads: [{ id: 'PRRT_n1', path: 'a.js', line: 1, comments: [c(220, 'acme-reviewer', 'Check a.js.', '2026-10-05')] }],
+  });
+  plates(newsDir, newsGh, ['acme/app#3']);
+  await newsGh.change(s => s.comments.push({ id: 'IC_spoof', ...c(221, 'acme-owner', '**P1** Bad input.\n\n**Not valid:** is what the message should say.', '2026-10-06') }));
+  assert.equal(plates(newsDir, newsGh, ['acme/app#3', '--close', 'PRRT_n1', '--not-valid', 'checked in a.js:1']).code, 2, 'non-quote paragraph with answer prefix is still news');
+
+  // 3. Direct reviewComments structural & security negative controls.
+  const conn = nodes => ({ nodes, pageInfo: { hasNextPage: false } });
+  const fallbackApproved = {
+    id: 'PRR_fallback', databaseId: 301, author: { login: 'acme-owner' }, state: 'APPROVED', submittedAt: '2026-10-05T09:00:00Z', url: 'https://github.com/acme/app/pull/3#r301',
+    body: '<!-- keel:cross-review -->\nSummary\n<!-- keel:cross-review findings 1 -->\n- `a.js:1` **P1** Defect.',
+  };
+  const convoState = { id: 'IC_state', databaseId: 302, author: { login: 'acme-reviewer' }, state: 'APPROVED', body: 'Reviewer convo finding.', createdAt: '2026-10-05T09:00:00Z', url: 'https://github.com/acme/app/pull/3#c302' };
+  const humanReview = { id: 'PRR_human', databaseId: 303, author: { __typename: 'User', login: 'acme-owner' }, state: 'COMMENTED', body: 'Line one.\nLine two.', submittedAt: '2026-10-05T09:00:00Z', url: 'https://github.com/acme/app/pull/3#r303' };
+  const proseSpoof = { id: 'IC_prose', databaseId: 304, author: { __typename: 'User', login: 'acme-owner' }, body: '> Line one.\n\nStill checking.\n<!-- keel:class other -->', createdAt: '2026-10-06T09:00:00Z', url: 'u304' };
+  const nullComment = { id: 'IC_null', databaseId: 305, author: { __typename: 'User', login: 'acme-owner' }, body: null, createdAt: '2026-10-06T09:00:00Z', url: 'u305' };
+  const sameSecond = { id: 'IC_same_sec', databaseId: 307, author: { __typename: 'User', login: 'acme-owner' }, body: '> Line one.\n\n**Not valid:** same timestamp is not later.', createdAt: '2026-10-05T09:00:00Z', url: 'u307' };
+  const unitPr = {
+    number: 3, author: { login: 'renovate' },
+    reviewThreads: conn([
+      // Reopened after a same-login plates answer: unanswered again, aged from the prose follow-up.
+      { id: 'T_reopen_self', isResolved: false, path: 'a.js', line: 1, comments: conn([
+        { databaseId: 310, author: { __typename: 'User', login: 'acme-owner' }, body: 'Initial check.', createdAt: '2026-10-05T09:00:00Z', url: 'u310' },
+        { databaseId: 311, author: { __typename: 'User', login: 'acme-owner' }, body: '**Fixed** in abc1234. Validated against the code first.', createdAt: '2026-10-06T09:00:00Z', url: 'u311' },
+        { databaseId: 312, author: { __typename: 'User', login: 'acme-owner' }, body: 'Still fails on empty input.\n<!-- keel:class other -->', createdAt: '2026-10-07T09:00:00Z', url: 'u312' },
+      ]) },
+      // Named reviewer and all three bot shapes (__typename Bot, [bot] suffix, github-actions) cannot self-answer or self-class.
+      { id: 'T_named_self', isResolved: false, comments: conn([
+        { databaseId: 320, author: { login: 'acme-reviewer' }, body: 'Named finding.', createdAt: '2026-10-05T09:00:00Z', url: 'u320' },
+        { databaseId: 321, author: { login: 'acme-reviewer' }, body: '**Not valid:** self close attempt.', createdAt: '2026-10-06T09:00:00Z', url: 'u321' },
+      ]) },
+      { id: 'T_typename_bot', isResolved: false, comments: conn([
+        { databaseId: 322, author: { __typename: 'Bot', login: 'helper-app' }, body: 'Bot finding.', createdAt: '2026-10-05T09:00:00Z', url: 'u322' },
+        { databaseId: 323, author: { __typename: 'Bot', login: 'helper-app' }, body: '**Not valid:** bot self close.', createdAt: '2026-10-06T09:00:00Z', url: 'u323' },
+      ]) },
+      { id: 'T_suffix_bot', isResolved: false, comments: conn([
+        { databaseId: 324, author: { login: 'lint-helper[bot]' }, body: 'Suffix bot finding.', createdAt: '2026-10-05T09:00:00Z', url: 'u324' },
+        { databaseId: 325, author: { login: 'lint-helper[bot]' }, body: '**Not valid:** suffix bot self close.', createdAt: '2026-10-06T09:00:00Z', url: 'u325' },
+      ]) },
+      { id: 'T_actions_bot', isResolved: false, comments: conn([
+        { databaseId: 326, author: { login: 'github-actions' }, body: 'Actions finding.', createdAt: '2026-10-05T09:00:00Z', url: 'u326' },
+        { databaseId: 327, author: { login: 'github-actions' }, body: '**Not valid:** actions self close.', createdAt: '2026-10-06T09:00:00Z', url: 'u327' },
+      ]) },
+    ]),
+    reviews: conn([fallbackApproved, humanReview]),
+    comments: conn([convoState, proseSpoof, nullComment, sameSecond]),
+  };
+  const got = Object.fromEntries(reviewComments(unitPr, ['acme-reviewer']).map(x => [x.id, { status: !!x.status, answered: x.answered, class: x.class, at: x.at }]));
+  assert.deepEqual(got, {
+    T_reopen_self: { status: false, answered: false, class: null, at: '2026-10-07T09:00:00Z' },
+    T_named_self: { status: false, answered: false, class: null, at: '2026-10-05T09:00:00Z' },
+    T_typename_bot: { status: false, answered: false, class: null, at: '2026-10-05T09:00:00Z' },
+    T_suffix_bot: { status: false, answered: false, class: null, at: '2026-10-05T09:00:00Z' },
+    T_actions_bot: { status: false, answered: false, class: null, at: '2026-10-05T09:00:00Z' },
+    PRR_fallback: { status: false, answered: false, class: null, at: '2026-10-05T09:00:00Z' },
+    PRR_human: { status: false, answered: false, class: null, at: '2026-10-05T09:00:00Z' },
+    IC_state: { status: false, answered: false, class: null, at: '2026-10-05T09:00:00Z' },
+  });
+  // Multi-line quote + canonical answer from the same User login answers PRR_human; robot APPROVED review stays unanswered.
+  const multiQuote = { id: 'IC_multi', databaseId: 306, author: { __typename: 'User', login: 'acme-owner' }, body: '> Line one.\n> Line two.\n\n**Fixed** in abc1234. Validated against the code first.\n\nhttps://github.com/acme/app/pull/3#r303', createdAt: '2026-10-06T10:00:00Z', url: 'u306' };
+  const afterMulti = Object.fromEntries(reviewComments({ ...unitPr, comments: conn([convoState, multiQuote]) }, ['acme-reviewer']).map(x => [x.id, x.answered]));
+  assert.equal(afterMulti.PRR_human, true);
+  const rHead = 'a'.repeat(40), bot = { __typename: 'Bot', login: 'github-actions' };
+  const rMark = { version: 1, repo: 'acme/app', issueNumber: 7, instanceId: 'issue-7', author: 'claude', headSha: rHead, cursor: 0 };
+  const rPr = {
+    number: 8, url: 'https://github.com/acme/app/pull/8', author: bot, headRefName: 'plates/robot-7', headRefOid: rHead,
+    repository: { nameWithOwner: 'acme/app' }, headRepository: { nameWithOwner: 'acme/app' },
+    body: `<!-- keel:robot-delivery ${JSON.stringify(rMark)} -->`, reviewThreads: conn([]), comments: conn([]),
+    reviews: conn([{ id: 'PRR_robot_app', databaseId: 12, author: bot, state: 'APPROVED', commit: { oid: rHead }, submittedAt: '2026-10-01T00:00:00Z', url: 'https://github.com/acme/app/pull/8#r12', body: `<!-- keel:robot-review ${rHead} codex -->\nReviewed by codex; built by claude.\n\n[P1] Defect.` }]),
+  };
+  assert.deepEqual(reviewComments(rPr).map(x => [x.status, x.answered]), [[false, false]], 'robot review ignores APPROVED state');
 });
 
 test('a reviewer\'s conversation comment is answered only by a later comment that references it, never by an unrelated one', () => {
