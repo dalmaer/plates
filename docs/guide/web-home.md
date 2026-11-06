@@ -98,6 +98,16 @@ with `/api/backlog` carrying the same JSON; there the claims are the plate's
 `claims/phase-*` branches and open PRs, read through the GitHub App. Start on an
 agent-ready row is off until agents can be attached (phase 181).
 
+`plates home --backlog --by-goal` (phase 179) arranges the same backlog
+under each plate's goals, in `docs/goals.json` order, then its items with no
+goal: a header per goal with its lane counts, its first seven cards, and how
+many more. Each phase or pull request is one card; its walk, ⚑ step, stale
+claim and review findings nest under it. Items are deduplicated by plate,
+phase and acceptance item, keeping every source link, and look-alike work in
+two plates is never merged. A card sits in its most pressing member's lane,
+Yours first. `--json` adds the groups. The hosted `/backlog/goals` shows the
+same; List and By goal are links at the top of the backlog.
+
 `plates home --recurring` (phase 185) lists, per plate, every routine it runs
 (night, climb, tend, morning, robot, cross-review, publish, and any other
 scheduled workflow): its schedule in this machine's time zone, its next run
