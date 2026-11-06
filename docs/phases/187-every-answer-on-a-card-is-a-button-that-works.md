@@ -21,6 +21,11 @@ On the hosted workspace, a step's **Done** and **Hand to an agent** write from t
 - **The question heading** in the review session takes focus for screen readers without drawing a focus ring.
 - Out of scope: the other CLI-only writers (`learn decide`, `lessons send`, `claim release`, `pr comment`), which keep their reasons; a later phase can take them.
 
+## Real surfaces
+
+- adopted project: the hosted workspace writes a step's mark to a fleet repo through the GitHub App, and Home stops listing it.
+- GitHub API: an agent issue filed through the App on a plate that grants Issues write.
+
 ## Integration increments
 
 1. The focus ring and the web wording: unavailable answers state the reason only. Safe alone.
@@ -40,7 +45,7 @@ On the hosted workspace, a step's **Done** and **Hand to an agent** write from t
 - **Ask:** On your phone, open Review, press Done on a step, type a one-line why, and confirm. Does the step leave Home?
 - **Why:** It is the case that failed: a button that told you to open a terminal.
 - **Look at:** The step's card in Review, then Home after the write.
-- **Choices:** It worked · It wrote but the step is still listed · It asked me to run something
+- **Choices:** It worked | It wrote but the step is still listed | It asked me to run something
 - **Recommend:** It worked
 - **Takes:** 2 minutes
 - **Ready when:** this phase is deployed.
