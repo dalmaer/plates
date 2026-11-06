@@ -1,5 +1,5 @@
 ---
-status: planned
+status: partial
 since: 2026-11-05
 goal: G7
 spec: 2

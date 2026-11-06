@@ -162,6 +162,21 @@ draft is withdrawn and the backlog says so. A plate's `"backlog": { "assists":
 [...] }` policy can turn it off (with no policy, `decision-draft` is offered).
 Drafts are local to the checkout: the hosted backlog does not read them yet.
 
+`plates home --backlog --since YYYY-MM-DD` (phase 184) reads back what
+happened to each item since that date: the counts per action, each route's
+attached phases and how many landed (are in Recently done), and the minutes of
+the answers you gave each week ("at least" when one had no estimate). Each card
+carries its `history` (how many events, the last one); events never reorder the
+backlog. They are written where the actions already happen (attach, assist,
+`plates phase claim --release`, and each answer and Not now from `plates home
+--answer`) into the plate's `.plates/backlog-events/`, private like feedback's
+store (0700/0600, git-ignored, refused when tracked), and they are **metadata
+only**: the item's key, who, the action, route, lane, takes, an outcome code and
+a receipt link; a Not now's reason is the code `stated` or `none`, never your
+words. Writing one never fails the action it records. The hosted workspace
+keeps a Not now answered on the web in SQL019; until 019 is applied events are
+skipped and the server notes it once.
+
 `plates home --agents` (phase 186) lists each provider in the plates'
 `agents` maps with the item it holds now, from claims ("working on plates
 #178", with its presence: claimed, or stale after seven days without a push),
