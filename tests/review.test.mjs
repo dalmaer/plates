@@ -339,13 +339,19 @@ test('#60: --close --fixed refuses a finding posted after the fixing commit, fai
   const dir = await project(t);
   const early = { id: 'PRRT_early', path: 'anvil.js', line: 4, comments: [c(10, 'acme-reviewer', 'Check the anvil.', '2026-10-04')] };
   const late = { id: 'PRRT_late', path: 'skates.js', line: 12, comments: [c(11, 'acme-reviewer', 'Check the brakes.', '2026-10-06')] };
+  const selfFollowUp = { id: 'PRRT_followup', path: 'wheel.js', line: 6, comments: [
+    c(15, 'acme-reviewer', 'Wheel wobbles.', '2026-10-04'),
+    c(16, 'acme-reviewer', 'Still broken on resize.', '2026-10-06'),
+    c(17, 'alice', '<!-- keel:class other -->\nClassed **other** by the merge rule.', '2026-10-08'),
+    c(18, 'acme-owner', 'Looking into resize.', '2026-10-08'),
+  ] };
   const reopened = { id: 'PRRT_reopen', path: 'lid.js', line: 8, comments: [
     c(12, 'acme-reviewer', 'Close the lid.', '2026-10-04'),
     c(13, 'acme-owner', 'Closed in def5678.', '2026-10-04'),
     c(14, 'acme-reviewer', 'Still open on resize.', '2026-10-06'),
   ] };
   const gh = await stubGh(t, {
-    threads: [early, late, reopened],
+    threads: [early, late, selfFollowUp, reopened],
     bodies: [{ id: 'PRR_late', databaseId: 77, author: 'acme-reviewer', body: 'Acme body finding.', createdAt: '2026-10-06T09:00:00Z' }],
     reviews: [ON_HEAD],
     writes: true,
@@ -354,6 +360,7 @@ test('#60: --close --fixed refuses a finding posted after the fixing commit, fai
       abc1234: '2026-10-05T09:00:00Z',
       def5678: '2026-10-06T11:30:00+02:30',
       fedcba9: { date: '2026-10-06T07:30:01-01:30', authorOnly: true },
+      '0123456': '2026-10-07T09:00:00Z',
       'acme/other@1122334': '2026-10-04T00:00:00Z',
       'acme/other@5566778': '2026-10-06T12:00:00Z',
       'refs/tags/v0.7.0': false,
@@ -375,6 +382,11 @@ test('#60: --close --fixed refuses a finding posted after the fixing commit, fai
     },
   });
   assert.equal(plates(dir, gh, ['acme/app#3']).code, 1);
+
+  // Reviewer follow-up on an older thread (even with later class/author notes) advances the finding time to the latest substantive reviewer comment.
+  const followOld = plates(dir, gh, ['acme/app#3', '--close', 'PRRT_followup', '--fixed', 'abc1234']);
+  assert.equal(followOld.code, 2, followOld.out + followOld.err);
+  assert.match(followOld.err, /PRRT_followup \(acme-reviewer, wheel\.js:6\) was posted at 2026-10-06T09:00:00Z, after abc1234 was committed \(2026-10-05T09:00:00Z\)/);
 
   // Older commit: exits 2, names the thread, its date and the commit's date, and posts nothing (even alongside an older valid thread).
   const old = plates(dir, gh, ['acme/app#3', '--close', 'PRRT_late', '--fixed', 'abc1234']);
@@ -403,19 +415,25 @@ test('#60: --close --fixed refuses a finding posted after the fixing commit, fai
   }
   assert.equal(writesIn(await gh.calls()).length, 0, 'every refused or unverifiable close posted nothing');
 
-  // Commit at the finding's exact timestamp, commit after (via author date fallback), cross-repo commit, and release tags (v0.9.0, bare 0.9.0 -> v0.9.0, and v0.7.0 -> bare 0.7.0) succeed.
+  // Commit at the finding's exact timestamp, commit after reviewer follow-up (ignoring later class/author notes), author date fallback, cross-repo commit, release tags, and non-fixed answers succeed.
+  assert.equal(plates(dir, gh, ['acme/app#3', '--close', 'PRRT_late', '--tracked', '#99']).code, 0);
   assert.equal(plates(dir, gh, ['acme/app#3', '--close', 'PRRT_late', '--fixed', 'def5678']).code, 0);
+  assert.equal(plates(dir, gh, ['acme/app#3', '--close', 'PRRT_followup', '--fixed', '0123456']).code, 0);
   assert.equal(plates(dir, gh, ['acme/app#3', '--close', 'PRRT_reopen', '--fixed', 'fedcba9']).code, 0);
   assert.equal(plates(dir, gh, ['acme/app#3', '--close', 'PRR_late', '--fixed', 'acme/other@5566778']).code, 0);
   assert.equal(plates(dir, gh, ['acme/app#3', '--close', 'PRRT_early', '--fixed', '0.9.0']).code, 0);
   assert.equal(plates(dir, gh, ['acme/app#3', '--close', 'PRRT_early', '--fixed', 'v0.7.0']).code, 0);
-  assert.equal(writesIn(await gh.calls()).filter(x => x.includes('POST')).length, 5);
+  assert.equal(writesIn(await gh.calls()).filter(x => x.includes('POST')).length, 7);
 
-  // Missing/invalid finding time also fails closed before posting.
+  // Missing/invalid finding time (on the opening comment or a reviewer follow-up) also fails closed before posting.
   const noTimeDir = await project(t);
-  const noTime = await stubGh(t, { threads: [{ id: 'PRRT_notime', path: 'a.js', line: 1, comments: [{ databaseId: 1, author: 'acme-reviewer', body: 'Broken.', createdAt: 'not-iso' }] }], writes: true });
+  const noTime = await stubGh(t, { threads: [
+    { id: 'PRRT_notime', path: 'a.js', line: 1, comments: [{ databaseId: 1, author: 'acme-reviewer', body: 'Broken.', createdAt: 'not-iso' }] },
+    { id: 'PRRT_badfollow', path: 'b.js', line: 2, comments: [c(2, 'acme-reviewer', 'Initial.', '2026-10-04'), { databaseId: 3, author: 'acme-reviewer', body: 'Follow-up.', createdAt: 'not-iso' }] },
+  ], writes: true });
   plates(noTimeDir, noTime, ['acme/app#3']);
   assert.equal(plates(noTimeDir, noTime, ['acme/app#3', '--close', 'PRRT_notime', '--fixed', 'abc1234']).code, 2);
+  assert.equal(plates(noTimeDir, noTime, ['acme/app#3', '--close', 'PRRT_badfollow', '--fixed', 'abc1234']).code, 2);
   assert.equal(writesIn(await noTime.calls()).length, 0);
 
   // Post-push reviews (<repo>@<sha> --close --fixed) enforce the same chronology against the review issue's creation time.
