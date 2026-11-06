@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { KINDS, kindOf, looseItems, fleetOf, reviewItems, WRITERS, itemKey, answersFor, homeSnapshot, homeSections, notNowRecord, takesMinutes, DEFAULT_MINUTES, QUICK_MINUTES, phaseSets, rollbackItems, backlogOf, BACKLOG_LANES, NEEDS_SHAPING } from '../lib/work-items.mjs';
+import { KINDS, kindOf, looseItems, fleetOf, reviewItems, WRITERS, itemKey, answersFor, homeSnapshot, homeSections, notNowRecord, takesMinutes, DEFAULT_MINUTES, QUICK_MINUTES, phaseSets, rollbackItems, backlogOf, BACKLOG_LANES, BACKLOG_STALE_DAYS, NEEDS_SHAPING } from '../lib/work-items.mjs';
 import { deployResults, openRollbacks, rollbackLine } from '../practices/night/files/scripts/plates/morning.mjs';
 
 const repo = fileURLToPath(new URL('..', import.meta.url));
@@ -374,7 +374,7 @@ function backlogFixture() {
 }
 const laneOf = (backlog, key) => backlog.lanes.find(l => l.items.some(i => i.key === key))?.lane ?? null;
 
-test("a phase owing a walk is yours, not an agent's", () => {
+test("a phase owing a walk is yours, not an agent's", async () => {
   const { snapshot, roadmaps } = backlogFixture();
   const backlog = backlogOf(snapshot, roadmaps, { now: NOW });
   assert.deepEqual(backlog.lanes.map(l => l.lane), BACKLOG_LANES.map(l => l.id));
@@ -410,6 +410,10 @@ test("a phase owing a walk is yours, not an agent's", () => {
   assert.equal(all['anvils:phase:8'].presence, 'claimed');
   assert.equal(all['anvils:phase:8'].holder.provider, 'claude');
   assert.equal(all['anvils:phase:8'].ageLeft, 5);
+  // The default is lib/claim.mjs's STALE_DAYS (kept as its own constant so plates home's closure stays bounded); a caller may pass another.
+  const { STALE_DAYS } = await import('../lib/claim.mjs');
+  assert.equal(BACKLOG_STALE_DAYS, STALE_DAYS);
+  assert.equal(backlogOf(snapshot, roadmaps, { now: NOW, staleDays: 3 }).lanes[0].items[0].ageLeft, 1);
   // What a phase unblocks comes from depends:.
   assert.deepEqual(all['anvils:phase:4'].unblocks, ['6']);
   assert.deepEqual(all['anvils:phase:4'].why, ['Unblocks 1 phase', 'G1', 'Waiting 16 days']);
