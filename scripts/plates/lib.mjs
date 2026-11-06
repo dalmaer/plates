@@ -580,6 +580,23 @@ export function gateWorkflowOf(config) {
 }
 
 /**
+ * A workflow line without its comment: a `#` at the line's start or after
+ * whitespace, outside quotes, starts one, in YAML and in the shell of a `run:`
+ * block alike (plates#94: `run: echo deploy # npm run check happens elsewhere`
+ * runs echo). A quoted `#`, or one inside a word (`a#b`), is kept.
+ */
+export function uncommented(line) {
+  let quote = null;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (quote) { if (c === quote) quote = null; }
+    else if (c === '"' || c === "'") quote = c;
+    else if (c === '#' && (i === 0 || /\s/.test(line[i - 1]))) return line.slice(0, i);
+  }
+  return line;
+}
+
+/**
  * The workflow that runs the gate on pushes: the one .plates/plates.json names
  * (gateWorkflowOf: no guess beats the project saying), else check.yml, else
  * one whose file runs the check command (a project that gates in its own
@@ -594,10 +611,10 @@ export async function gateWorkflowIn(root, config, check = 'npm run check') {
   const names = (await readdir(dir).catch(() => [])).filter(n => /\.ya?ml$/.test(n)).sort();
   if (names.includes('check.yml')) return { name: 'check.yml' };
   const command = config?.check ?? check;
-  // The command as a whole word on a line that is not a comment (#92): `npm run check` is not `npm run check:deploy`.
+  // The command as a whole word outside a comment (#92, #94): `npm run check` is not `npm run check:deploy`.
   const runs = new RegExp(`(^|[^\\w:.-])${command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w:.-])`);
   for (const n of names) {
-    const lines = (await readFile(join(dir, n), 'utf8')).split('\n').filter(l => !l.trim().startsWith('#'));
+    const lines = (await readFile(join(dir, n), 'utf8')).split('\n').map(uncommented);
     if (lines.some(l => runs.test(l))) return { name: n };
   }
   return null;

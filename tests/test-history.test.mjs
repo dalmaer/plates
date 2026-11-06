@@ -421,6 +421,23 @@ test('issue #91 review: gateWorkflowIn finds the workflow running the check itse
   assert.equal(await gateWorkflowIn(root, { check: 'npm run check:all' }), null, 'no workflow runs check:all');
 });
 
+// plates#94 (3): an inline comment that names the check is not a step that runs it; a quoted # is not a comment.
+test('plates#94: gateWorkflowIn skips an inline comment naming the check, and keeps a quoted #', async t => {
+  const { gateWorkflowIn, uncommented } = await import(new URL('../practices/night/files/scripts/plates/lib.mjs', import.meta.url).href);
+  const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const root = await mkdtemp(join(tmpdir(), 'plates-gate-wf-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, '.github/workflows'), { recursive: true });
+  await writeFile(join(root, '.github/workflows/a-deploy.yml'), 'jobs:\n  x:\n    steps:\n      - run: echo deploy # npm run check happens elsewhere\n      - run: |\n          ./deploy.sh  # after npm run check\n');
+  await writeFile(join(root, '.github/workflows/b-ci.yml'), 'jobs:\n  x:\n    steps:\n      - run: npm ci && npm run check # the gate\n');
+  assert.deepEqual(await gateWorkflowIn(root, { check: 'npm run check' }), { name: 'b-ci.yml' }, 'the earlier file only names it in comments');
+  await writeFile(join(root, '.github/workflows/a-deploy.yml'), 'jobs:\n  x:\n    steps:\n      - run: "echo \'#1\' && npm run check"\n');
+  assert.deepEqual(await gateWorkflowIn(root, { check: 'npm run check' }), { name: 'a-deploy.yml' }, 'a quoted # starts no comment');
+  assert.deepEqual(['a#b # c', "x: '# not' # yes", '# all', 'run: echo "a # b" && go', '\t#tab'].map(uncommented), ['a#b ', "x: '# not' ", '', 'run: echo "a # b" && go', '\t']);
+});
+
 test('history merges legacy and renamed artifact inventories without rewriting old ledger bytes', async t => {
   const root=await project(t),f=fixture([{id:1,kind:'night',legacy:true},{id:2,kind:'ci',legacy:true},{id:3,kind:'ci'},{id:4,kind:'night',date:'2026-10-08T01:00:00Z'}]);
   const old=JSON.stringify({date:'2026-10-09T01:00:00Z',workflow:'keel-night',tests:[],acme:'unchanged legacy receipt'});
