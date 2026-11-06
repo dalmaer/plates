@@ -37,7 +37,7 @@ On the hosted workspace, a step's **Done** and **Hand to an agent** write from t
 - [ ] A step's Done on the web previews and writes a `drop` mark to `.plates/loose-ends.json`, and the step leaves Home: `tests/web-home-answers.test.mjs`
 - [ ] A Done whose step changed since its preview writes nothing: `tests/web-home-answers.test.mjs`
 - [ ] Hand to an agent files the CLI's issue when `issueWrites` is on, and says which permission is missing when it is off: `tests/web-home-answers.test.mjs`
-- [ ] No web view renders an answer's command: `tests/web-review-session.test.mjs`
+- [ ] No web view renders an answer's command: `tests/web-review.test.mjs`
 - [ ] ⚑ by hand: the owner presses Done on a step from their phone, and it leaves Home.
 
 ## Your part
@@ -52,7 +52,7 @@ On the hosted workspace, a step's **Done** and **Hand to an agent** write from t
 
 ## Proof
 
-`npm run check:focused -- tests/web-home-answers.test.mjs tests/web-review-session.test.mjs tests/work-items-answers.test.mjs`
+`npm run check:focused -- tests/web-home-answers.test.mjs tests/web-review.test.mjs`
 
 ## Deliberately open
 
