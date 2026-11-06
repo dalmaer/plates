@@ -60,10 +60,17 @@ import {markerDiagnostic,identityEnvironmentValue,scrubEnvironment} from './name
 // ledger reads it after the run, as its own command in the gate:
 //
 //   plates_status=0; rm -f .plates/test-runs/junit.xml; mkdir -p .plates/test-runs && \
-//     bun test --reporter=junit --reporter-outfile=.plates/test-runs/junit.xml || plates_status=$?; \
-//     node scripts/plates/test-ledger.mjs --junit .plates/test-runs/junit.xml --runner bun --status $plates_status
+//     bun test --reporter=junit --reporter-outfile=.plates/test-runs/junit.xml --timeout=10000 || plates_status=$?; \
+//     node scripts/plates/test-ledger.mjs --junit .plates/test-runs/junit.xml --runner bun --status $plates_status -- --timeout=10000
 //
 // (vitest: --reporter=default --reporter=junit --outputFile.junit=<file>.)
+// What follows `--` is the runner's own words, written as they are in its
+// step, so the shell gives the ledger what it gave the runner (plates#63):
+// its options, but the run's own (reporters and their files, a name filter,
+// a shard, watching, coverage, snapshot updates) and no file, are recorded as
+// the setting's `args` and are part of the config hash (only when there are
+// some), and a finding's run-alone command repeats them. A flag written
+// with a secret-looking word is never recorded.
 // The runner's exit code is kept by `|| plates_status=$?`, so a shell under
 // set -e (GitHub's bash -e) still reaches the ledger after a red run, and the
 // old file is removed first, so a run that writes none is "no tests ran".
@@ -187,6 +194,52 @@ export function flagsIn(words) {
 
 /** The node flags a run of the suite carries over to a stalled one: all but the run's own (files, names, reporters, time limit). */
 export const runnerFlags = words => flagsIn(words).filter(f => !DROPPED.has(f.name)).flatMap(f => f.words);
+
+// ---- a bun or vitest run's own options (plates#63) ----------------------------
+
+/** bun's and vitest's flags that take the next word as their value when written without `=` (any other: write `--flag=value`). */
+const JUNIT_VALUED = {
+  bun: new Set(['--timeout', '--preload', '--rerun-each', '--seed', '--max-concurrency', '--conditions', '--define', '-d', '--env-file', '--tsconfig-override',
+    '--cwd', '--config', '-c', '--coverage-reporter', '--coverage-dir', '--reporter', '--reporter-outfile', '-t', '--test-name-pattern']),
+  vitest: new Set(['--config', '-c', '--root', '-r', '--dir', '--project', '--environment', '--pool', '--testTimeout', '--hookTimeout', '--retry', '--mode',
+    '--maxWorkers', '--minWorkers', '--exclude', '--globalSetup', '--reporter', '--outputFile', '-t', '--testNamePattern', '--shard', '--changed', '--related']),
+};
+/**
+ * The run's own, never repeated by a run-alone command: what it reports and where, which tests (a name filter,
+ * a shard, changed or related files, only), watching, coverage, and what rewrites the project's files (snapshots).
+ */
+const JUNIT_DROPPED = {
+  bun: new Set(['--reporter', '--reporter-outfile', '-t', '--test-name-pattern', '--only', '--watch', '--update-snapshots', '-u', '--coverage',
+    '--coverage-reporter', '--coverage-dir', '--bail']),
+  vitest: new Set(['--reporter', '--outputFile', '-t', '--testNamePattern', '--shard', '--changed', '--related', '--watch', '-w', '--update', '-u',
+    '--coverage', '--ui', '--run', '--bail', '--silent']),
+};
+
+/**
+ * The options a bun or vitest run was given, from the runner's own words
+ * (what follows `--` on the ledger's command line, as the shell gave them to
+ * the runner): its flags, as written, but the run's own (JUNIT_DROPPED; a
+ * vitest dotted option such as --outputFile.junit is its base's), and no
+ * file or folder. A flag with a secret-looking word (token=, secret=, key=,
+ * password=) is never recorded: records are uploaded, and findings print.
+ */
+export function runnerOptions(words, runner) {
+  const valued = JUNIT_VALUED[runner], dropped = JUNIT_DROPPED[runner];
+  if (!valued || !Array.isArray(words)) return [];
+  const out = [];
+  for (let i = 0; i < words.length; i++) {
+    const w = String(words[i]);
+    if (w === '--') break;
+    if (!w.startsWith('-') || w === '-') continue;
+    const eq = w.indexOf('=');
+    const name = eq > 0 ? w.slice(0, eq) : w;
+    const flag = eq < 0 && valued.has(name) && i + 1 < words.length ? [w, String(words[++i])] : [w];
+    const base = runner === 'vitest' ? name.replace(/^(--[^.]+)\..*$/, '$1') : name;
+    if (dropped.has(base) || flag.some(x => SECRETISH.test(x))) continue;
+    out.push(...flag);
+  }
+  return out;
+}
 
 // ---- machine context and failure memory --------------------------------------
 
@@ -613,8 +666,10 @@ export function aloneCommand(test, preload = [], { here = '.' } = {}) {
   const rel = test.file ? posix.relative(dir === '.' ? '' : dir, test.file) || test.file : '';
   // One shell word, whatever the path holds (a space, a quote).
   const file = rel && !/^[\w./@+-]+$/.test(rel) ? quote(rel) : rel;
-  const run = runner === 'bun' ? ['bun', 'test', file, '-t', quote(pattern)]
-    : runner === 'vitest' ? ['npx', 'vitest', 'run', file, '-t', quote(pattern)]
+  // A bun or vitest run's own options (plates#63: --timeout=10000, a vitest config), each one shell word.
+  const args = runner === 'node' ? [] : (Array.isArray(test.setting?.args) ? test.setting.args : []).map(a => /^[\w./@+=:,-]+$/.test(a) ? a : quote(a));
+  const run = runner === 'bun' ? ['bun', 'test', ...args, file, '-t', quote(pattern)]
+    : runner === 'vitest' ? ['npx', 'vitest', 'run', ...args, file, '-t', quote(pattern)]
     : ['node', ...(test.setting?.preload ?? preload), '--test', `--test-name-pattern=${quote(pattern)}`, file];
   const command = [...env, ...(unset.length ? ['env', ...unset] : []), ...run].filter(Boolean).join(' ');
   return dir === here ? command : `cd "$(git rev-parse --show-toplevel)"${dir === '.' ? '' : `/${quote(dir)}`} && ${command}`;
@@ -827,9 +882,10 @@ async function projectConfig(root, { strict = false, redaction = false } = {}) {
  * differ), and the runner when it is not node (node's hash is as it was).
  * Two runs under different configs never make a test flaky or slower.
  */
-export function configHash({ env = process.env, preload = preloads(), configEnv = [], runner = 'node' } = {}) {
+export function configHash({ env = process.env, preload = preloads(), configEnv = [], runner = 'node', args = [] } = {}) {
   const vars = Object.fromEntries(settingNames(configEnv).map(n => [n, env[n] ?? null]));
-  return createHash('sha256').update(JSON.stringify({ vars, preload, ...(runner === 'node' ? {} : { runner }) })).digest('hex').slice(0, 12);
+  // A bun or vitest run's options (plates#63) are part of its lane only when it has some: a run without is the lane it was.
+  return createHash('sha256').update(JSON.stringify({ vars, preload, ...(args.length ? { args } : {}), ...(runner === 'node' ? {} : { runner }) })).digest('hex').slice(0, 12);
 }
 
 const settingNames = configEnv => [...new Set(['NODE_OPTIONS', ...configEnv])].sort();
@@ -1286,9 +1342,12 @@ const gateStart = env => { const raw=identityEnvironmentValue('variable:KEEL_RUN
  * say the hygiene block: { lines, code }. `junit` is relative to `cwd` (the
  * folder the tests ran in), else .plates/plates.json "tests".junit, else JUNIT,
  * relative to the repo's root; `runner` is bun or vitest, else "tests".runner,
- * else what the file says; `status` is the runner's own exit code, or null.
+ * else what the file says; `status` is the runner's own exit code, or null;
+ * `words` are the runner's own words (after `--`), whose options
+ * (runnerOptions) are recorded as the setting's `args`, so a finding's
+ * run-alone command repeats them (plates#63).
  */
-export async function junitRun({ junit, runner, status = null, cwd = process.cwd(), sample = busySample, start = null, env = process.env } = {}) {
+export async function junitRun({ junit, runner, status = null, cwd = process.cwd(), sample = busySample, start = null, env = process.env, words = [] } = {}) {
   const root = rootOf(cwd);
   const knownConfig = await projectConfig(root, { redaction: true });
   const config = knownConfig ?? {};
@@ -1341,10 +1400,12 @@ export async function junitRun({ junit, runner, status = null, cwd = process.cwd
   try {
     const workflow = process.env.GITHUB_ACTIONS === 'true' && process.env.GITHUB_WORKFLOW ? { workflow: process.env.GITHUB_WORKFLOW } : {};
     const here = relative(root, real(cwd)).split(sep).join('/') || '.';
+    const args = runnerOptions(words, kind);
     const run = {
       busy: busyBetween(start, await sample()),
       ...where(root, { exclude: shown === at ? [] : [shown] }), runner: kind, dir: here,
-      config: configHash({ configEnv, preload: [], runner: kind }), setting: settingOf({ configEnv, preload: [] }),
+      config: configHash({ configEnv, preload: [], runner: kind, args }),
+      setting: { ...settingOf({ configEnv, preload: [] }), ...(args.length ? { args } : {}) },
       // The gate invocation it ran under, as a node run's: gate.mjs reuses a CI result only with its test runs.
       parentInvocationId: identityEnvironmentValue('variable:KEEL_GATE_INVOCATION',env) ?? null,
       ...workflow, junit: hash, date: new Date().toISOString(), tests: parsed.tests,
@@ -1362,12 +1423,13 @@ export async function junitRun({ junit, runner, status = null, cwd = process.cwd
   return done(parsed.ran, parsed.failed);
 }
 
-export const USAGE = 'usage: node scripts/plates/test-ledger.mjs --junit <file> [--runner bun|vitest] [--status <exit code>] [--start <sample-json>] | --sample | --gate | --run <shell-command>';
+export const USAGE = 'usage: node scripts/plates/test-ledger.mjs --junit <file> [--runner bun|vitest] [--status <exit code>] [--start <sample-json>] [-- <the runner\'s own words>] | --sample | --gate | --run <shell-command>';
 
-/** The command line's { junit, runner?, status? }; throws on anything else. */
+/** The command line's { junit, runner?, status?, start?, words? } (words: all after `--`, the runner's own); throws on anything else. */
 export function junitArgs(argv) {
   const out = {};
   for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--') { out.words = argv.slice(i + 1); break; }
     const eq = argv[i].indexOf('=');
     const flag = eq > 0 ? argv[i].slice(0, eq) : argv[i];
     const value = () => { const v = eq > 0 ? argv[i].slice(eq + 1) : argv[++i]; if (v === undefined || v === '') throw new Error(`${flag} needs a value`); return v; };

@@ -564,9 +564,12 @@ test('adopt detects the stack, says it in the dry run, records it, and doctor ag
 
 const J = '.plates/test-runs/junit.xml';
 const posixDir = p => p.slice(0, p.lastIndexOf('/'));
-/** The runner's step as adopt proposes it: the old file removed, the directory made (bun), the runner, its code kept, the ledger. */
-const stepOf = (runner, runCmd, { junit = J, mkdir = runner === 'bun' ? posixDir(junit) : null } = {}) =>
-  `plates_status=0; rm -f ${junit}; plates_start="$(node scripts/plates/test-ledger.mjs --sample)" || plates_start=; ${mkdir ? `mkdir -p ${mkdir} && ` : ''}${runCmd} || plates_status=$?; node scripts/plates/test-ledger.mjs --junit ${junit} --runner ${runner} --status $plates_status --start "$plates_start"`;
+/**
+ * The runner's step as adopt proposes it: the old file removed, the directory made (bun), the runner, its code kept, the ledger;
+ * `words` are the runner's own words from its step, handed to the ledger again after `--` (plates#63).
+ */
+const stepOf = (runner, runCmd, { junit = J, mkdir = runner === 'bun' ? posixDir(junit) : null, words = '' } = {}) =>
+  `plates_status=0; rm -f ${junit}; plates_start="$(node scripts/plates/test-ledger.mjs --sample)" || plates_start=; ${mkdir ? `mkdir -p ${mkdir} && ` : ''}${runCmd} || plates_status=$?; node scripts/plates/test-ledger.mjs --junit ${junit} --runner ${runner} --status $plates_status --start "$plates_start"${words ? ` --${words}` : ''}`;
 const BUN_STEP = stepOf('bun', `bun test --reporter=junit --reporter-outfile=${J}`);
 
 test('adopt detects bun test or vitest in the gate, records the runner, and proposes the ledger\'s reporter flags without rewriting the gate', async t => {
@@ -599,7 +602,7 @@ test('adopt detects bun test or vitest in the gate, records the runner, and prop
   await writeFile(join(v, 'package.json'), JSON.stringify({ name: 'acme-vite', scripts: { check: 'tsc && npx vitest run --coverage && eslint .' } }));
   const vd = (await adopt({ dir: v, dryRun: true }, { version: VERSION })).data;
   assert.deepEqual([vd.tests.runner, vd.tests.from], ['vitest', 'package.json scripts.check']);
-  assert.equal(vd.tests.proposal.to, `tsc && { ${stepOf('vitest', `npx vitest run --reporter=default --reporter=junit --outputFile.junit=${J} --coverage`)}; } && eslint .`);
+  assert.equal(vd.tests.proposal.to, `tsc && { ${stepOf('vitest', `npx vitest run --reporter=default --reporter=junit --outputFile.junit=${J} --coverage`, { words: ' --coverage' })}; } && eslint .`);
   // node --test: the reporter is node's own (init, migration 0004); nothing recorded, nothing proposed.
   const n = await scratch(t);
   await writeFile(join(n, 'package.json'), JSON.stringify({ name: 'acme-node', scripts: { check: 'npm test', test: 'node --test' } }));
@@ -698,12 +701,12 @@ test('the proposed gate runs: the ledger records the bun run, and the gate fails
 
 /** A proposal is a shell line sh can parse, and keeps every byte of the project's own steps. */
 function assertProposals(make = ledgerCommand) {
-  const bun = args => stepOf('bun', `bun test --reporter=junit --reporter-outfile=${J}${args}`);
+  const bun = args => stepOf('bun', `bun test --reporter=junit --reporter-outfile=${J}${args}`, { words: args });
   const cases = [
     // A quoted operator is part of a word, not a step's end (review on #56).
     ["bun test -t 'one|two' && echo done", `{ ${bun(" -t 'one|two'")}; } && echo done`],
     ['echo "a && b; c" && bun test', `echo "a && b; c" && { ${bun('')}; }`],
-    ["vitest run -t 'x;y' --coverage", stepOf('vitest', `vitest run --reporter=default --reporter=junit --outputFile.junit=${J} -t 'x;y' --coverage`)],
+    ["vitest run -t 'x;y' --coverage", stepOf('vitest', `vitest run --reporter=default --reporter=junit --outputFile.junit=${J} -t 'x;y' --coverage`, { words: " -t 'x;y' --coverage" })],
     ['tsc && bun test a\\&b.test.ts && echo ok', `tsc && { ${bun(' a\\&b.test.ts')}; } && echo ok`],
     ['pnpm exec vitest run; echo ok', `{ ${stepOf('vitest', `pnpm exec vitest run --reporter=default --reporter=junit --outputFile.junit=${J}`)}; }; echo ok`],
   ];

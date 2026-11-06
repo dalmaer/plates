@@ -1095,6 +1095,59 @@ test('a bun or vitest finding\'s run-alone command is that runner\'s, from its s
   }
 });
 
+// ---- plates#63: a bun or vitest run's own options -------------------------------
+
+test('plates#63: the runner\'s own options are kept, but the run\'s own (reporters, a filter, files, snapshots) and anything secret-looking', () => {
+  const { runnerOptions } = ledger;
+  assert.deepEqual(runnerOptions(['--reporter=junit', '--reporter-outfile', '.plates/test-runs/junit.xml', '--timeout=10000', 'unit', '-t', 'save', '--preload', './setup.ts', '-u', '--coverage'], 'bun'),
+    ['--timeout=10000', '--preload', './setup.ts'], 'bun: a valued flag keeps its value; reporters, -t, files, -u and coverage are the run\'s own');
+  assert.deepEqual(runnerOptions(['--reporter=default', '--outputFile.junit=x.xml', '-c', 'vitest.ci.config.ts', '--testTimeout', '20000', '--coverage.enabled', 'src', '--pool=forks', '--shard=1/2'], 'vitest'),
+    ['-c', 'vitest.ci.config.ts', '--testTimeout', '20000', '--pool=forks'], 'vitest: a dotted option is its base\'s, and a shard is the run\'s own');
+  assert.deepEqual(runnerOptions(['--timeout=10000', '--define', 'API_TOKEN=abc', '--env-file=secret=x'], 'bun'), ['--timeout=10000'], 'a secret-looking flag is never recorded, nor its value');
+  assert.deepEqual(runnerOptions(['--timeout=1', '--', '--bail'], 'bun'), ['--timeout=1'], 'nothing after a further --');
+  assert.deepEqual(runnerOptions(['--pool=forks', '--testTimeout'], 'vitest'), ['--pool=forks', '--testTimeout'], 'a valued flag last has no value to take');
+  assert.deepEqual([runnerOptions(['--timeout=1'], 'node'), runnerOptions(undefined, 'bun')], [[], []]);
+  assert.deepEqual(ledger.junitArgs(['--junit', 'j.xml', '--runner', 'bun', '--', '--timeout=10000', '--status', '3']),
+    { junit: 'j.xml', runner: 'bun', words: ['--timeout=10000', '--status', '3'] }, 'all after -- is the runner\'s, never the ledger\'s own flags');
+  assert.equal(ledger.configHash({ preload: [], runner: 'bun', args: [] }), ledger.configHash({ preload: [], runner: 'bun' }), 'no options: the lane it was');
+  assert.notEqual(ledger.configHash({ preload: [], runner: 'bun', args: ['--timeout=10000'] }), ledger.configHash({ preload: [], runner: 'bun' }), 'options: a lane of their own');
+  assert.equal(aloneCommand({ file: 'web/a.test.ts', name: 'save', runner: 'vitest', dir: 'web', setting: { args: ['-c', 'vitest ci.config.ts', '--pool=forks'] } }, [], { here: 'web' }),
+    "npx vitest run -c 'vitest ci.config.ts' --pool=forks a.test.ts -t '^ ?save$'", 'each option one shell word');
+  assert.equal(aloneCommand({ file: 'tests/a.test.mjs', name: 'x', setting: { args: ['--bogus'] } }), "node --test --test-name-pattern='^x$' tests/a.test.mjs", 'a node finding has no runner options');
+});
+
+/** A gate of `bun test --timeout=10000` with a flaky test (the issue's own case), read by `mod`: the hygiene line's command has --timeout. */
+async function assertOptionsKept(dir, mod) {
+  const sample = async () => ({ load: [0, 0, 0], cores: 4 });
+  const words = ['--timeout=10000', 'a.test.ts'];
+  await junitAt(dir, 'junit.xml', passing(await fixture('bun.xml')));
+  await mod.junitRun({ junit: 'junit.xml', runner: 'bun', cwd: dir, start: null, sample, env: {}, words });
+  await junitAt(dir, 'junit.xml', await fixture('bun.xml'));
+  const r = await mod.junitRun({ junit: 'junit.xml', runner: 'bun', cwd: dir, start: null, sample, env: {}, words });
+  const { runs } = await readRuns(dir);
+  assert.deepEqual(runs.map(x => x.setting.args), [['--timeout=10000'], ['--timeout=10000']], 'the options are recorded with each run; the file is not');
+  assert.equal(runs[0].config, runs[1].config);
+  assert.ok(r.lines.some(l => l.trim() === "env -u NODE_OPTIONS bun test --timeout=10000 a.test.ts -t '^ ?fails on purpose$'"), `the run-alone command repeats --timeout:\n${r.lines.join('\n')}`);
+}
+
+test('plates#63: a flaky bun test under --timeout=10000 prints a run-alone command with --timeout=10000', async t => {
+  const { dir } = await acmeRepo(t);
+  await mkdir(join(dir, '.plates'), { recursive: true });
+  await assertOptionsKept(dir, ledger);
+});
+
+test('mutations: options not recorded, or not repeated, fail the options test', async t => {
+  for (const [from, to] of [
+    ['...(args.length ? { args } : {}) },', '},'],
+    ["['bun', 'test', ...args, file,", "['bun', 'test', file,"],
+  ]) {
+    const { dir } = await acmeRepo(t);
+    await mkdir(join(dir, '.plates'), { recursive: true });
+    const m = await mutant(t, from, to);
+    await assert.rejects(assertOptionsKept(dir, m), assert.AssertionError, `mutant survived: ${to}`);
+  }
+});
+
 // ---- phase 55: inconclusive, and files pinned to stalls ---------------------------
 
 const INCONCLUSIVE_TESTS = `import { test } from 'node:test';
