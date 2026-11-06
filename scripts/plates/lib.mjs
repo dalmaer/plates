@@ -1450,7 +1450,7 @@ export class IncompleteRead extends Error {
 export const reviewFragment = ({ threads = 100, replies = 100, comments = 100, reviews = 100 } = {}) => `fragment PlatesReview on PullRequest {
   number title url state mergedAt updatedAt headRefName headRefOid body repository { nameWithOwner } headRepository { nameWithOwner } author { __typename login }
   reviewThreads(first: ${threads}) { pageInfo { hasNextPage } nodes { id isResolved path line originalLine
-    comments(first: ${replies}) { pageInfo { hasNextPage } nodes { databaseId author { login } body createdAt url originalCommit { oid } } } } }
+    comments(first: ${replies}) { pageInfo { hasNextPage } nodes { databaseId author { __typename login } body createdAt url originalCommit { oid } } } } }
   comments(first: ${comments}) { pageInfo { hasNextPage } nodes { id databaseId author { __typename login } body createdAt url } }
   reviews(first: ${reviews}) { pageInfo { hasNextPage endCursor } nodes { id databaseId author { __typename login } commit { oid } body state submittedAt url } }
 }`;

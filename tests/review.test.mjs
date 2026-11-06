@@ -42,8 +42,8 @@ const save = () => fs.writeFileSync(${JSON.stringify(statePath)}, JSON.stringify
 const field = k => (argv.find(a => a.startsWith(k + '=')) ?? '').slice(k.length + 1);
 const deny = () => { console.error('stub gh: a write the test did not expect: ' + argv.join(' ')); process.exit(1); };
 if (s.down) { console.error('error connecting to api.github.com'); process.exit(1); }
-const node = c => {
-  const value = { databaseId: c.databaseId, author: { ...(s.windowAuthor ? { __typename: 'User' } : {}), login: c.author }, body: c.body, createdAt: c.createdAt, url: 'https://github.com/acme/app/pull/3#c' + c.databaseId };
+const node = (c, withType = false) => {
+  const value = { databaseId: c.databaseId, author: { ...(s.windowAuthor ? { __typename: 'User' } : (withType && c.typename) ? { __typename: c.typename } : {}), login: c.author }, body: c.body, createdAt: c.createdAt, url: 'https://github.com/acme/app/pull/3#c' + c.databaseId };
   return s.reorder ? Object.fromEntries(Object.entries(value).reverse()) : value;
 };
 if (argv[0] === 'api' && argv.includes('--include')) {
@@ -84,13 +84,13 @@ if (argv[0] === 'api' && argv.includes('--include')) {
     const n = node;
     console.log(JSON.stringify({ data: { repository: { pullRequest: { reviews: { pageInfo: { hasNextPage: !!s.endless, endCursor: s.endless ? 'C' + field('after') : null }, nodes: (s.laterBodies ?? []).map(r => ({ id: r.id, databaseId: r.databaseId, author: { login: r.author }, body: r.body, state: r.state ?? 'COMMENTED', submittedAt: r.createdAt, url: 'https://github.com/acme/app/pull/3#pullrequestreview-' + r.databaseId })) } } } } }));
   } else if (s.noPr) console.log(JSON.stringify({ data: { repository: { pullRequest: null } } }));
-  else console.log(JSON.stringify({ data: { ...(s.rate ? { rateLimit: s.rate } : {}), repository: { pullRequest: {
+  else { const threadType = /databaseId author \\{ __typename login \\} body createdAt url originalCommit/.test(q); console.log(JSON.stringify({ data: { ...(s.rate ? { rateLimit: s.rate } : {}), repository: { pullRequest: {
     number: 3, title: 'Acme rocket skates', url: 'https://github.com/acme/app/pull/3', state: 'OPEN', mergedAt: null, headRefOid: s.head,
     author: { login: s.prAuthor ?? 'acme-owner' },
-    reviewThreads: { pageInfo: { hasNextPage: !!s.moreThreads }, nodes: s.threads.map(t => ({ id: t.id, isResolved: !!t.isResolved, path: t.path ?? null, line: t.line ?? null, comments: { pageInfo: { hasNextPage: !!t.more }, nodes: t.comments.map(node) } })) },
-    comments: { pageInfo: { hasNextPage: !!s.moreComments }, nodes: s.comments.map(c => ({ id: c.id, ...node(c) })) },
+    reviewThreads: { pageInfo: { hasNextPage: !!s.moreThreads }, nodes: s.threads.map(t => ({ id: t.id, isResolved: !!t.isResolved, path: t.path ?? null, line: t.line ?? null, comments: { pageInfo: { hasNextPage: !!t.more }, nodes: t.comments.map(c => node(c, threadType)) } })) },
+    comments: { pageInfo: { hasNextPage: !!s.moreComments }, nodes: s.comments.map(c => ({ id: c.id, ...node(c, true) })) },
     reviews: { pageInfo: { hasNextPage: !!s.moreReviews, endCursor: s.cursor ?? null }, nodes: (s.bodies ?? []).map(r => ({ id: r.id, databaseId: r.databaseId, author: { login: r.author }, body: r.body, state: r.state ?? 'COMMENTED', submittedAt: r.createdAt, url: 'https://github.com/acme/app/pull/3#pullrequestreview-' + r.databaseId })) },
-  } } } }));
+  } } } })); }
 } else if (argv[0] === 'api' && argv[1] === '-X' && argv[2] === 'POST') {
   if (!s.writes) deny();
   const m = /comments\\/(\\d+)\\/replies$/.exec(argv[3]);
@@ -696,6 +696,20 @@ test('#217: APPROVED review bodies are status notes, and canonical plates answer
     reviews: conn([{ id: 'PRR_robot_app', databaseId: 12, author: bot, state: 'APPROVED', commit: { oid: rHead }, submittedAt: '2026-10-01T00:00:00Z', url: 'https://github.com/acme/app/pull/8#r12', body: `<!-- keel:robot-review ${rHead} codex -->\nReviewed by codex; built by claude.\n\n[P1] Defect.` }]),
   };
   assert.deepEqual(reviewComments(rPr).map(x => [x.status, x.answered]), [[false, false]], 'robot review ignores APPROVED state');
+  // End-to-end --gate fetches __typename on inline thread authors via reviewFragment, so a suffixless Bot cannot self-answer.
+  for (const fragment of [reviewFragment(), windowFragment()]) {
+    assert.match(fragment, /databaseId author \{ __typename login \} body createdAt url originalCommit/);
+  }
+  const botThreadGh = await stubGh(t, {
+    prAuthor: 'renovate',
+    threads: [{ id: 'PRRT_app_bot', path: 'a.js', line: 2, comments: [
+      { ...c(230, 'helper-app', 'App bot inline finding.', '2026-10-05'), typename: 'Bot' },
+      { ...c(231, 'helper-app', '**Not valid:** bot self close.', '2026-10-06'), typename: 'Bot' },
+    ] }],
+  });
+  const botGate = plates(approveDir, botThreadGh, ['acme/app#3', '--gate', '--json']);
+  assert.equal(botGate.code, 1, botGate.out + botGate.err);
+  assert.deepEqual(botGate.json().comments.map(x => [x.id, x.answered]), [['PRRT_app_bot', false]]);
 });
 
 test('a reviewer\'s conversation comment is answered only by a later comment that references it, never by an unrelated one', () => {
@@ -1021,9 +1035,9 @@ test('review content receipts accept reordered properties and sequential own ans
   assert.ok(state.threads.every(thread => thread.isResolved && thread.comments.length === 2));
 });
 test('review content receipts tolerate actual window/full author projections but reject edits at both checks', async t => {
-  // These are the actual differing thread-comment selections, not property ordering.
+  // Both fragments select __typename; receipts still tolerate author projections with or without it.
   assert.match(windowFragment(), /databaseId author \{ __typename login \} body/);
-  assert.match(reviewFragment(), /databaseId author \{ login \} body/);
+  assert.match(reviewFragment(), /databaseId author \{ __typename login \} body/);
   for (const during of [false, true]) for (const edited of [false, true]) await t.test(`${during ? 'post-creation' : 'fresh close'} ${edited ? 'edited' : 'unchanged'}`, async t => {
     const dir = await project(t), gh = await stubGh(t, {
       threads: [UNANSWERED], writes: true, windowAuthor: true,
