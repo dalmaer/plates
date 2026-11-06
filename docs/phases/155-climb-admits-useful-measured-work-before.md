@@ -4,8 +4,8 @@ since: 2026-11-01
 goal: G4
 spec: 2
 depends: [35, 43]
-note: "Local admission, interruption and regression proof pass; observe the next scheduled run after reviewed installation."
-evidence: ["evidence/2026-11-01-climb-useful-work.md"]
+note: "The five failed scheduled climbs (1–5 Nov) were one cause: the agent ran, then the night was blocked on Bash permission denials. The brief now says a denial blocks the night. Waits on the next scheduled run."
+evidence: ["evidence/2026-11-01-climb-useful-work.md", "evidence/2026-11-06-climb-denials.md"]
 ---
 
 # Climb admits useful measured work before spending its night
@@ -43,9 +43,10 @@ The provider's final explanation was not retained in the downloaded artifacts. D
 
 ## Next action
 
-Agent work: every scheduled climb failed from 1 to 5 November (latest run 42010228882). Diagnose and fix that first, then observe the next scheduled run and record its admission, attempts and outcome.
+Observe the next scheduled climb (10:17 UTC) for 0 permission denials, a green "Did the agent run?" and a compared attempt in `tried`. If denials persist, bring the owner a reviewed classifier or allowlist change.
 
 ## Trajectory
 
 - **2026-11-01** — The long night was baseline work, not prolonged agent execution. Budget admission now uses independent wall duration; review added durable pending receipts and unconditional finalization so interrupted probes remain visible. Local proof passes; scheduled usefulness remains open.
 - **2026-11-06** Moved out of the owner's lane: observing a climb run is agent work. Every scheduled climb failed 1–5 November.
+- **2026-11-06** All five failed nights (1–5 Nov) were one cause: admitted work, the agent ran, then the night was blocked on 5–10 Bash permission denials. The brief never said a denial is fatal; now it names the denied shapes. Allowlist and gate unchanged.
