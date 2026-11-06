@@ -399,8 +399,10 @@ plates adopt ../acme-app             # then on a branch, for a PR a person merge
   ledger's part and never writes it: the old JUnit file removed, the
   runner's step with its JUnit flags and `|| plates_status=$?` (so `set -e`
   never skips the ledger), then `node scripts/plates/test-ledger.mjs --junit
-  <file> --runner <r> --status $plates_status`, in braces when the step is one
-  of several, with paths from `$plates_root` (git's top level) when a step
+  <file> --runner <r> --status $plates_status -- <the runner's own words>` (the
+  words only when the step has some: the ledger records their options, so a
+  finding's run-alone command repeats them, plates#63), in braces when the
+  step is one of several, with paths from `$plates_root` (git's top level) when a step
   before it runs `cd` or `pushd` (the dry run's `Tests:` line,
   `data.tests.proposal`, and `docs/plates-adoption.md`). Only where the night
   practice is on, or the project already has `scripts/plates/test-ledger.mjs`:
@@ -841,7 +843,12 @@ plates_status=$?; node scripts/plates/test-ledger.mjs --junit
 adopt` proposes it; `|| plates_status=$?` survives `set -e`; after a `cd` the
 paths start from `$plates_root`, git's top level). The record is a node run's
 plus `runner` and `junit` (a short hash of the file's path and bytes), with
-each top-level test or describe. A report is fresh when it was last written
+each top-level test or describe. Words after `--` are the runner's own, as
+its step writes them: their options, but the run's own (reporters and their
+files, a name filter, a shard, watching, coverage, snapshot updates) and no
+file, are the setting's `args`, part of the config (when there are any), and
+a finding's run-alone command repeats them (plates#63: `bun test
+--timeout=10000`); a flag with a secret-looking word is never recorded. A report is fresh when it was last written
 after this run began (`--start '<json>'`, the line `test-ledger.mjs --sample`
 prints just before the runner, passed verbatim; else the gate's
 `PLATES_RUN_START`; 2 s allowed for coarse file times), so a deterministic suite's byte-identical

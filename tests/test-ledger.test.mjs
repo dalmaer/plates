@@ -1095,6 +1095,82 @@ test('a bun or vitest finding\'s run-alone command is that runner\'s, from its s
   }
 });
 
+// ---- plates#63: a bun or vitest run's own options -------------------------------
+
+test('plates#63: the runner\'s own options are kept, but the run\'s own (reporters, a filter, files, snapshots) and anything secret-looking', () => {
+  const { runnerOptions } = ledger;
+  assert.deepEqual(runnerOptions(['--reporter=junit', '--reporter-outfile', '.plates/test-runs/junit.xml', '--timeout=10000', 'unit', '-t', 'save', '--preload', './setup.ts', '-u', '--coverage'], 'bun'),
+    ['--timeout=10000', '--preload', './setup.ts'], 'bun: a valued flag keeps its value; reporters, -t, files, -u and coverage are the run\'s own');
+  assert.deepEqual(runnerOptions(['--reporter=default', '--outputFile.junit=x.xml', '-c', 'vitest.ci.config.ts', '--testTimeout', '20000', '--coverage.enabled', 'src', '--pool=forks', '--shard=1/2'], 'vitest'),
+    ['-c', 'vitest.ci.config.ts', '--testTimeout', '20000', '--pool=forks'], 'vitest: a dotted option is its base\'s, and a shard is the run\'s own');
+  assert.deepEqual(runnerOptions(['--timeout=10000', '--define', 'API_TOKEN=abc', '--env-file=secret=x'], 'bun'), ['--timeout=10000'], 'a secret-looking flag is never recorded, nor its value');
+  assert.deepEqual(runnerOptions(['--timeout=1', '--', '--bail'], 'bun'), ['--timeout=1'], 'nothing after a further --');
+  assert.deepEqual(runnerOptions(['--pool=forks', '--testTimeout'], 'vitest'), ['--pool=forks', '--testTimeout'], 'a valued flag last has no value to take');
+  // Review on #368 (P2): a dotted valued option keeps its value; an unknown flag before a bare word (its value, or a file?) is left out, never split.
+  assert.deepEqual(runnerOptions(['--sequence.shuffle', '--sequence.seed', '42', 'src'], 'vitest'), ['--sequence.shuffle', '--sequence.seed', '42']);
+  assert.deepEqual(runnerOptions(['--acme-mode', 'fast', '--acme-flag', '--acme-level=2', 'unit'], 'bun'), ['--acme-flag', '--acme-level=2'], 'ambiguous: left out; = form and a flag before a flag: kept');
+  assert.equal(aloneCommand({ file: 'a.test.ts', name: 'save', runner: 'vitest', setting: { args: runnerOptions(['--sequence.seed', '42'], 'vitest') } }),
+    "npx vitest run --sequence.seed 42 a.test.ts -t '^ ?save$'", 'the seed is followed by its value, not the file');
+  // Review on #368 (P1): a configured or environment secret's value, as any part of a flag, is never kept.
+  const env = { ACME_AUTH: 'acme-private-value', ACME_API_TOKEN: 'tok-123', HOME: '/home/acme' };
+  assert.deepEqual(runnerOptions(['--define', 'process.env.AUTH:"acme-private-value"', '--define=X:tok-123', '--timeout=1', '--cwd', '/home/acme'], 'bun', { env, configEnv: ['ACME_AUTH'] }),
+    ['--timeout=1', '--cwd', '/home/acme'], 'the secret groups go, value and all; an ordinary environment value stays');
+  assert.deepEqual(runnerOptions(['--define', 'process.env.ACME_MODE:"fast"'], 'bun', { env: {}, configEnv: [] }), ['--define', 'process.env.ACME_MODE:"fast"'], 'an ordinary define stays');
+  // Review on #368 (Codex P1): bun's K:V define of a secret-looking name is a secret, whatever the environment holds.
+  for (const define of ['process.env.API_KEY:"acme-literal"', "process.env.ACME_TOKEN:'x'", 'AUTH_HEADER:"Bearer y"']) {
+    assert.deepEqual(runnerOptions(['--define', define, '--timeout=1'], 'bun', { env: {} }), ['--timeout=1'], define);
+  }
+  // Review on #368 (Codex P2): bun's preload aliases keep their module.
+  assert.deepEqual(runnerOptions(['-r', './setup.ts', '--require', './more.ts', 'a.test.ts'], 'bun'), ['-r', './setup.ts', '--require', './more.ts']);
+  assert.deepEqual([runnerOptions(['--timeout=1'], 'node'), runnerOptions(undefined, 'bun')], [[], []]);
+  assert.deepEqual(ledger.junitArgs(['--junit', 'j.xml', '--runner', 'bun', '--', '--timeout=10000', '--status', '3']),
+    { junit: 'j.xml', runner: 'bun', words: ['--timeout=10000', '--status', '3'] }, 'all after -- is the runner\'s, never the ledger\'s own flags');
+  assert.equal(ledger.configHash({ preload: [], runner: 'bun', args: [] }), ledger.configHash({ preload: [], runner: 'bun' }), 'no options: the lane it was');
+  assert.notEqual(ledger.configHash({ preload: [], runner: 'bun', args: ['--timeout=10000'] }), ledger.configHash({ preload: [], runner: 'bun' }), 'options: a lane of their own');
+  assert.equal(aloneCommand({ file: 'web/a.test.ts', name: 'save', runner: 'vitest', dir: 'web', setting: { args: ['-c', 'vitest ci.config.ts', '--pool=forks'] } }, [], { here: 'web' }),
+    "npx vitest run -c 'vitest ci.config.ts' --pool=forks a.test.ts -t '^ ?save$'", 'each option one shell word');
+  assert.equal(aloneCommand({ file: 'tests/a.test.mjs', name: 'x', setting: { args: ['--bogus'] } }), "node --test --test-name-pattern='^x$' tests/a.test.mjs", 'a node finding has no runner options');
+});
+
+/** A gate of `bun test --timeout=10000` with a flaky test (the issue's own case), read by `mod`: the hygiene line's command has --timeout. */
+async function assertOptionsKept(dir, mod) {
+  const sample = async () => ({ load: [0, 0, 0], cores: 4 });
+  const words = ['--timeout=10000', 'a.test.ts'];
+  await junitAt(dir, 'junit.xml', passing(await fixture('bun.xml')));
+  await mod.junitRun({ junit: 'junit.xml', runner: 'bun', cwd: dir, start: null, sample, env: {}, words });
+  await junitAt(dir, 'junit.xml', await fixture('bun.xml'));
+  const r = await mod.junitRun({ junit: 'junit.xml', runner: 'bun', cwd: dir, start: null, sample, env: {}, words });
+  const { runs } = await readRuns(dir);
+  assert.deepEqual(runs.map(x => x.setting.args), [['--timeout=10000'], ['--timeout=10000']], 'the options are recorded with each run; the file is not');
+  assert.equal(runs[0].config, runs[1].config);
+  assert.ok(r.lines.some(l => l.trim() === "env -u NODE_OPTIONS bun test --timeout=10000 a.test.ts -t '^ ?fails on purpose$'"), `the run-alone command repeats --timeout:\n${r.lines.join('\n')}`);
+  // Review on #368 (P1): a configured secret's value in an option never reaches the record or a printed line.
+  await writeFile(join(dir, '.plates', 'plates.json'), JSON.stringify({ tests: { configEnv: ['ACME_AUTH'] } }));
+  await junitAt(dir, 'junit.xml', again(await fixture('bun.xml'), 3));
+  const s = await mod.junitRun({ junit: 'junit.xml', runner: 'bun', cwd: dir, start: null, sample, env: { ACME_AUTH: 'acme-private-value' },
+    words: ['--timeout=10000', '--define', 'process.env.AUTH:"acme-private-value"'] });
+  assert.ok(!JSON.stringify((await readRuns(dir)).runs).includes('acme-private-value') && !s.lines.join('\n').includes('acme-private-value'), 'the secret is in no record and no line');
+  await rm(join(dir, '.plates', 'plates.json'));
+}
+
+test('plates#63: a flaky bun test under --timeout=10000 prints a run-alone command with --timeout=10000', async t => {
+  const { dir } = await acmeRepo(t);
+  await mkdir(join(dir, '.plates'), { recursive: true });
+  await assertOptionsKept(dir, ledger);
+});
+
+test('mutations: options not recorded, or not repeated, fail the options test', async t => {
+  for (const [from, to] of [
+    ['...(args.length ? { args } : {}) },', '},'],
+    ["['bun', 'test', ...args, file,", "['bun', 'test', file,"],
+  ]) {
+    const { dir } = await acmeRepo(t);
+    await mkdir(join(dir, '.plates'), { recursive: true });
+    const m = await mutant(t, from, to);
+    await assert.rejects(assertOptionsKept(dir, m), assert.AssertionError, `mutant survived: ${to}`);
+  }
+});
+
 // ---- phase 55: inconclusive, and files pinned to stalls ---------------------------
 
 const INCONCLUSIVE_TESTS = `import { test } from 'node:test';
