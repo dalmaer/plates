@@ -1,0 +1,45 @@
+{
+  "date": "2026-10-30T22:59:16.560Z",
+  "upstream": "3f3224faaeff2da774417293e4a847aa421365a5",
+  "binarySHA256": "18094f4291795c850cb835fa718e3ade6f2730932a4d15b477fd9cc7c78443de",
+  "sourceSHA256": {
+    "experiments/gas-city/full-loop.mjs": "c3e56fb68f1d3d6a3b1bb153067f00e5f650524dbc610ca8af1e4cf32b0a9437",
+    "experiments/gas-city/loop-common.mjs": "dc541ddeb413fb57aa2310d9db2156107d23399241d63a8ae86f4b8a0a052c87",
+    "experiments/gas-city/loop-coordinator.mjs": "dc3be8c520e423eaf42781f62aefc2023c93e05a8c18c4aaab485bd265fc6b04",
+    "experiments/gas-city/loop-driver/main.go": "0e3fc55340a5c6257ad292e2cf648168623a55358182c5f0669feb3b59f2422a",
+    "experiments/gas-city/loop-learning.mjs": "e32851deea6d3319ea5678e6635a99ca135592e7f0339f26de3e54b3f9a73a55",
+    "experiments/gas-city/loop-view.mjs": "40c1c0e04ee6c5f367ca2cf24e4ac8f1f34901196dee32335454baefcfbe2ba4",
+    "experiments/gas-city/loop-worker.mjs": "8d9ab36b210ed5d7a086aad6288923c653239b81ddd6f3e8bb595bfc9c605859",
+    "lib/web/private-learning.mjs": "53966f86cc9fea8bebec9f1d59fb50b71d8d2c42b703ec0150931b3a5c837206",
+    "lib/web/private-learning-store.mjs": "bec54b307e0bfb193a7ce5e5ee847cc0f71f82481787bd812612faf0a2300b9b",
+    "lib/web/migrations/016-private-lessons.sql": "9a6e238e5ee718df558000f599e5ead171fd751217b8b73ae38f63471cd4a3d5"
+  },
+  "reportSHA256": "84cbe8efb07f21a5a243b78a08d1258639b7035875e1837126210b8b8a02c742",
+  "uiVerified": {
+    "visibleEvents": 51,
+    "sharedFilterVisibleEvents": 1,
+    "screenshot": "2026-10-30-gas-city-full-loop.jpg",
+    "ephemeralServerClosed": true
+  },
+  "validation": {
+    "unitTests": 6,
+    "passed": 6,
+    "failed": 0,
+    "independentSourceReview": "No remaining blocker after lesson interpreter and measured process/effect fixes; reviewer did not run demonstration.",
+    "focusedPreflight": {
+      "exitCode": 0,
+      "passed": 140,
+      "failed": 0,
+      "skipped": 0,
+      "guards": [
+        "conventions",
+        "roadmap",
+        "render",
+        "inbox",
+        "whitespace"
+      ],
+      "command": "npm run check:focused -- tests/gas-city-evaluation.test.mjs tests/gas-city-runtime-trial.test.mjs tests/gas-city-full-loop.test.mjs tests/gas-city-loop-learning.test.mjs",
+      "logSHA256": "6c2fc176d148b1548fe715a4b4a2382ee240babbf450231e197482ebc1c680eb"
+    }
+  }
+}

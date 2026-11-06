@@ -1,0 +1,171 @@
+{
+  "date": "2026-10-30",
+  "baseline": "037e13b4f78c061405cef899b528badb536584ad",
+  "preparation": {
+    "schema": 1,
+    "mode": "preparation-only",
+    "baseline": "037e13b4f78c061405cef899b528badb536584ad",
+    "modelExecution": "not-authorized",
+    "selection": "pending-parent-reconciliation",
+    "arms": [
+      {
+        "id": "task-a",
+        "task": "task-a",
+        "lesson": false,
+        "path": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-3/gas-city-real-trial-preparation-2/task-a",
+        "initialHead": "037e13b4f78c061405cef899b528badb536584ad"
+      },
+      {
+        "id": "task-b-control",
+        "task": "task-b",
+        "lesson": false,
+        "path": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-3/gas-city-real-trial-preparation-2/task-b-control",
+        "initialHead": "037e13b4f78c061405cef899b528badb536584ad"
+      },
+      {
+        "id": "task-b-treatment",
+        "task": "task-b",
+        "lesson": true,
+        "path": "/Users/dionalmaer/Documents/Codex/2026-10-30/task-3/gas-city-real-trial-preparation-2/task-b-treatment",
+        "initialHead": "037e13b4f78c061405cef899b528badb536584ad"
+      }
+    ],
+    "backend": "Gas City pinned subprocess component",
+    "agent": null,
+    "account": null,
+    "budget": null,
+    "permission": "Future explicit account/model/cost/data/sandbox approval required; no agent command is implemented here.",
+    "sourceRepo": "/Users/dionalmaer/code/plates",
+    "specSHA256": "ab5375a5abaae561cbf3ae064f488842180d3137cdbd1f638b7c4b17b16fccdc",
+    "startedAt": "2026-10-30T23:07:27.575Z",
+    "status": "prepared",
+    "checks": [
+      {
+        "task": "task-a",
+        "command": [
+          "/Users/dionalmaer/.local/share/fnm/node-versions/v24.22.1/installation/bin/node",
+          "--import",
+          "./tests/helpers/hermetic.mjs",
+          "--test",
+          "tests/web-operations.test.mjs"
+        ],
+        "exitCode": 0,
+        "signal": null,
+        "error": null,
+        "logSHA256": "76ade358e33359d9d027cf4cc1510e9034eeaa9ae7a1a8fa65a4200dd64885f5"
+      },
+      {
+        "task": "task-b",
+        "command": [
+          "/Users/dionalmaer/.local/share/fnm/node-versions/v24.22.1/installation/bin/node",
+          "--import",
+          "./tests/helpers/hermetic.mjs",
+          "--test",
+          "tests/web-migration.test.mjs"
+        ],
+        "exitCode": 0,
+        "signal": null,
+        "error": null,
+        "logSHA256": "76f99611b4cbec6235bb24d4601dfefd58763185d04f44463940245b4ee1f7f3"
+      }
+    ],
+    "independentObjects": true,
+    "postTestArmsVerified": true
+  },
+  "finalLaunchSpecSHA256": "0b7610603f865b91b59f680b485aea544e154a4571e15dd7044cd3c7753d531c",
+  "finalLaunchSpec": "task-3/real-trial-launch-spec.json",
+  "note": "Final launch spec adds immutable fixture policy after baseline worktree preparation. No worker launched; prepared original spec remains retained. Parent task selection pending.",
+  "baselineExistingSuites": {
+    "task-a": {
+      "passed": 19,
+      "failed": 0
+    },
+    "task-b": {
+      "passed": 15,
+      "failed": 0
+    }
+  },
+  "evaluator": {
+    "schema": 2,
+    "date": "2026-10-30",
+    "baseline": "037e13b4f78c061405cef899b528badb536584ad",
+    "frozenEvaluatorSHA256": "723feab106853c71b2016f65904ec9f7880379ddde4804ec4c1dfb0400037548",
+    "previousEvaluatorSHA256": "47b265d8dc34205aed34df15b69b9ba841679b7ee73a1a32583824511a527ed7",
+    "previousEvidenceManifest": "real-trial-evaluator-manifest-v1.json",
+    "artifactSHA256": {
+      "real-trial-evaluator.mjs": "723feab106853c71b2016f65904ec9f7880379ddde4804ec4c1dfb0400037548",
+      "real-trial-baseline-2-task-a-acceptance.json": "675ab1822902cbc3516772e902ead99ce90f6638d5ee55e714e68237b406f143",
+      "real-trial-baseline-2-task-b-acceptance.json": "ce0866534ed955b088a4aa4c038d6e8bb124da5411022110534582eec6789066",
+      "real-trial-integrity-refusal.json": "2f010ca835927b052c453af8ba73a6f9a213a687ef2f03138d65c3b1cba8bfcc",
+      "real-task-a-public.md": "86c73d43adbbe1ea7b7beea42750e6ac1aae210138e5d66608b3214ae4a24866",
+      "real-task-b-sealed.md": "d5b08568ca8b427a2d6d72b70cd735076e8d6a65c1f43edbdb6b72e9876adda2"
+    },
+    "fixtureIntegrity": {
+      "required": true,
+      "phase": "before-candidate-import",
+      "baselineHelperTree": "7cadb6a00169ebc31296ee42e39a456f1df8238e",
+      "existingMjsFiles": 59,
+      "editsAdditionsRemovalsAndAliasesRefused": true,
+      "refusalExitCode": 2,
+      "candidateCommitsAllowed": true,
+      "qualification": "Protects causal fixture evidence; not a general malicious-code sandbox."
+    },
+    "results": [
+      {
+        "artifact": "real-trial-baseline-2-task-a-acceptance.json",
+        "task": "task-a",
+        "phase": "acceptance",
+        "integrityPassed": true,
+        "total": 6,
+        "passed": 4,
+        "failed": 2,
+        "exitCode": 1,
+        "acceptancePassed": false
+      },
+      {
+        "artifact": "real-trial-baseline-2-task-b-acceptance.json",
+        "task": "task-b",
+        "phase": "acceptance",
+        "integrityPassed": true,
+        "total": 7,
+        "passed": 4,
+        "failed": 3,
+        "exitCode": 1,
+        "acceptancePassed": false
+      },
+      {
+        "artifact": "real-trial-integrity-refusal.json",
+        "task": "task-a",
+        "phase": "before-candidate-import",
+        "integrityPassed": false,
+        "total": null,
+        "passed": null,
+        "failed": null,
+        "exitCode": 2,
+        "acceptancePassed": false
+      }
+    ]
+  },
+  "unitValidation": {
+    "passed": 3,
+    "failed": 0,
+    "initialFailure": "test compared canonical /private/var destination with /var alias; expectation corrected; original failing log and interrupted preflight retained"
+  },
+  "sourceReview": "Original containment/object-dependence/post-test integrity findings resolved; no remaining safety blocker.",
+  "focusedValidation": {
+    "command": "npm run check:focused -- tests/gas-city-real-trial-plan.test.mjs",
+    "exitCode": 0,
+    "passed": 117,
+    "failed": 0,
+    "skipped": 0,
+    "guards": [
+      "conventions",
+      "roadmap",
+      "render",
+      "inbox",
+      "whitespace"
+    ],
+    "logSHA256": "939a519474b426db6f3ed570ee400c0da093d3d77654774856aaa03a37d60fa2",
+    "unchangedFullSuiteRepeated": false
+  }
+}

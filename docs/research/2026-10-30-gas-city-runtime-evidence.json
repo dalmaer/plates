@@ -1,0 +1,121 @@
+{
+  "date": "2026-10-30",
+  "upstream": "3f3224faaeff2da774417293e4a847aa421365a5",
+  "baselineExperiment": "0c584d7fb24cb6650cb1d84d77e518c4d47c0eeb",
+  "module": {
+    "Path": "golang.org/x/sys",
+    "Version": "v0.49.0",
+    "Sum": "h1:XbzkgYJHdqh/8m2Uu0W/dQv8nktxx4BFHp1M0gROTXA=",
+    "GoModSum": "h1:hNLxWAXmnKAxqDtdwIYC4bM9oQPEecfsnNMuSxOs3og=",
+    "Origin": {
+      "VCS": "git",
+      "URL": "https://go.googlesource.com/sys",
+      "Hash": "b6b8557e8e2974925aec7a136ba0e323eedc5f43",
+      "Ref": "refs/tags/v0.49.0"
+    }
+  },
+  "upstreamPackages": [
+    "internal/loopbackport",
+    "internal/overlay",
+    "internal/pathutil",
+    "internal/pidutil",
+    "internal/runtime",
+    "internal/runtime/proctable",
+    "internal/runtime/runtimetest",
+    "internal/runtime/subprocess",
+    "internal/testenv",
+    "internal/testutil"
+  ],
+  "unchangedUpstreamGoFiles": 221,
+  "upstreamFileManifestSHA256": "60ce59bc16701dca78f4483dfecb83432dddc56998fa407c68e761118292c26c",
+  "upstreamTests": {
+    "exitCode": 0,
+    "passed": [
+      "TestSubprocessFencedInputChecksTheLiveProcess",
+      "TestSubprocessRespawnBetweenCheckAndSendIsRefused",
+      "TestSubprocessFencedInputToAnExitedChildIsADeadMiss",
+      "TestSeamsLifecycle",
+      "TestSeamsInterrupt",
+      "TestSeamsStage",
+      "TestSeamsMetaStore",
+      "TestSeamsTransportShape",
+      "TestTerminateRuntimeBindsKillToScannedIdentity"
+    ],
+    "logSHA256": "7c41f1dcea8fffeb68480d789aca4fbb0b05c0501609f3987d8573203cba1e8f"
+  },
+  "finalHarness": {
+    "revision": "3f3224faaeff2da774417293e4a847aa421365a5",
+    "binarySHA256": "abf03da5b2cf288ce3703e8d7bd187a486cbb97f1712b93ea1609bac7794c57f",
+    "scope": "real subprocess provider + local Plates bridge; not supervisor API",
+    "coordinatorKilled": "SIGKILL",
+    "originalPID": 16161,
+    "startIdentity": "1793397704501209000",
+    "createCount": 1,
+    "checks": {
+      "restartRetainsOriginalWorker": true,
+      "earlyTerminationRefused": true,
+      "typedStaleNativeInterruptRefused": true,
+      "staleInterruptDidNotKillWorker": true,
+      "stopAcknowledgmentRetainsLane": true,
+      "kernelExitConfirmed": true,
+      "staleCallbackRefused": true,
+      "confirmedExitReleasesLane": true,
+      "unknownFundingRetained": true
+    },
+    "status": "passed",
+    "failure": null,
+    "cleanupFailure": null,
+    "retainedRoot": null,
+    "cleanup": {
+      "cleanup": true,
+      "observation": {
+        "session": "acme-run",
+        "pid": 16161,
+        "startIdentity": "1793397704501209000",
+        "fence": "f28ad426-a786-4ce9-9652-e096fcd8aa76",
+        "inputFenceDigest": "4c3581ffc6250e3f",
+        "creates": 1,
+        "running": false,
+        "exitConfirmed": true
+      },
+      "observeError": "<nil>",
+      "stopError": "<nil>"
+    },
+    "stderr": ""
+  },
+  "firstHarnessFailure": {
+    "phase": "before native receipt persisted",
+    "reason": "driver used legacy session-name socket path; pin uses s + first four SHA256 bytes",
+    "bridgeState": "launch-uncertain",
+    "executionHold": true,
+    "record": "/tmp/bt/gcp-t3e8z7/journal.sqlite",
+    "termination": "provider Stop executed; independent PID proof unavailable in first run; first run not counted as pass"
+  },
+  "cleanupRegressionTests": {
+    "passed": 3,
+    "failed": 0
+  },
+  "scope": "actual subprocess component, synthetic finite sleep worker, actual Node coordinator SIGKILL/restart; not a full Gas City supervisor or model integration",
+  "focusedValidation": {
+    "command": "npm run check:focused -- tests/gas-city-evaluation.test.mjs tests/gas-city-runtime-trial.test.mjs",
+    "exitCode": 0,
+    "tests": 134,
+    "passed": 134,
+    "failed": 0,
+    "skipped": 0,
+    "guards": [
+      "conventions",
+      "roadmap",
+      "render",
+      "inbox",
+      "whitespace"
+    ],
+    "logSHA256": "e1e0888841e599494ae8f41c99fedda9ca96744adb56671d26d91bdd2429728f",
+    "fullSuiteRepeated": false
+  },
+  "independentReview": {
+    "scope": "final source review of driver, coordinator, runner and cleanup regression tests",
+    "result": "no remaining blocker for bounded local component trial",
+    "executedByReviewer": false
+  }
+}

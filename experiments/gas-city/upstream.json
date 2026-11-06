@@ -1,0 +1,27 @@
+{
+  "repository": "https://github.com/gastownhall/gascity",
+  "revision": "3f3224faaeff2da774417293e4a847aa421365a5",
+  "platesBaseline": "037e13b4f78c061405cef899b528badb536584ad",
+  "license": "MIT",
+  "go": "1.27.3",
+  "files": {
+    "LICENSE": "8bab40f7557b5ed6936f146436bb10d07f7688c1b1cb83e009ef0376565e31dc",
+    "go.mod": "c11b5a95c53c4343b2c82f52dad94759bf894b207380e037fca34f0b531573ef",
+    "go.sum": "e57f5dadf7c762e44c866ec248706dbe8d613767718e21b3240641be87cf59d2",
+    "docs/guides/connected-clients.md": "f4e68f888bcb259a36615fec9e4bb52d1a591cba7a76aa082dec909e7d8aa79e",
+    "docs/reference/api.md": "61a167598f1dbdbe9e4ddc6fd117417b575fc8ddad6d2bb7e2220a2663000b08",
+    "docs/reference/herdr-provider.md": "c378673e6ead6c213488f359478c86d27c489b276612e54d3460480c5bea16b8",
+    "docs/reference/trust-boundaries.md": "f66c284479dfc49854cc1dcb13f24969af4763553e05cf07efd2c854062dd34d",
+    "internal/api/huma_types_sessions.go": "b617daba83e19a7fdf1c92d96ab7cc6da3c3f73cf1c090f0eab202e1550c3ade",
+    "internal/api/huma_types_extmsg.go": "45a30295b40cc9dd2bd30645b2ac278368d6678a6f49815b159858fa7fa509f0",
+    "internal/api/huma_types_events.go": "7993fe29355f83190953ee0ee31bd3da22f4c9ebb7098d410182807cf9f0d1c1",
+    "internal/api/huma_handlers_extmsg.go": "8bdaef76c2028b18fbf54ef4ccd7dfe36d75131b1efde0e6f1b64ea2d2175f7f",
+    "internal/api/handler_extmsg.go": "40c71fcfbd340c63fd44344797c26680b1931a55cae90346962a53a1cd6e3a0f",
+    "internal/api/server.go": "0dde693843ac5f67722de3df39375984fda492acd86dcf5be1901b5cb17c5a62",
+    "internal/api/webhook_dedup.go": "4d859c9dc68915867441ad8ea7237a8d6589709cfc56298b5544ca18ebaa95c9",
+    "internal/api/idempotency.go": "682b16bad8ea7a7c15f6cdf2cd908e9df34743dd7dca365f255aef42c25877b1",
+    "internal/api/idempotency_hash.go": "7c1b37eed765c8863b21d861f494480ec6c68aed09c145c0d63a27f65dc60ccc",
+    "internal/api/http_helpers.go": "c35ae36e22429e1f4eef73382d9dc094dc566c7cd9a673b3cb4638f8d7bf9b9b",
+    "internal/api/idempotency_test.go": "14e8f1a1651b8e180076060f2d5df70dbd85173355bb2f4ab7fe95fc0a2d5a55"
+  }
+}
