@@ -452,3 +452,31 @@ test('a merge is refused when the head moved', async () => {
   assert.equal(settled.state, 'committed'); assert.equal(settled.receipt.commit, 'f'.repeat(40));
   assert.equal(s.merges.length, 1, 'recovery never merges again');
 });
+
+// Phase 187: a web view never tells the owner to run a terminal command to
+// answer. An unavailable answer says what is missing (its reason); the CLI keeps
+// the command in its own form. The question heading takes focus for screen
+// readers without drawing the focus ring.
+test('no web view renders an answer\'s command', async () => {
+  const { homeView } = await import('../lib/web/views.mjs');
+  const { reviewSessionStyles } = await import('../lib/web/review-views.mjs');
+  const snapshot = reviewSnapshot({ decisionWrites: false }), items = docketItems(snapshot);
+  const commands = items.flatMap(e => e.item.answers.filter(a => a.unavailable).map(a => a.unavailable.command));
+  assert.ok(commands.length > 0, 'the fixture has unavailable answers, each with its CLI command in the shared model');
+  const access = { workspace: { id: 'acme', name: 'Acme' }, userId: 1, projects: [{ id: 'studio', repo: 'acme/studio', name: 'Acme Studio' }], sourceRevision: 'a'.repeat(40), csrf: 'x' };
+  const failed = await createWebSender({ fetch: async () => Response.json({ error: 'answer_unavailable' }, { status: 409 }), csrf: 'x' })
+    .send({ entry: items[0], answer: { ...items[0].item.answers[0], writer: 'not now' } });
+  assert.equal(failed.state, 'failed'); assert.ok(!('command' in failed), 'a failed write carries its reason, not a command');
+  const again = items.map(e => ({ item: e.item, key: e.key, reason: 'The write was refused.', command: 'plates home --answer x done' }));
+  const pages = [homeView(access, snapshot), reviewView(access, snapshot), ...items.map(e => renderReviewCard(e)),
+    renderReviewEnd({ settled: [], putOff: [], again, skipped: [], home: '/' }, { complete: true })];
+  for (const html of pages) {
+    for (const command of [...commands, 'plates home --answer x done']) assert.ok(!html.includes(command), `no page renders ${command}`);
+    assert.doesNotMatch(html, /plates home --answer|Run <code>/);
+  }
+  // The browser's note for an unavailable answer: its reason only.
+  const client = await readFile(new URL('../lib/web/review-client.mjs', import.meta.url), 'utf8');
+  assert.doesNotMatch(client, /unavailable\??\.command|Run <code>/, 'the review client never reads an answer\'s command');
+  assert.match(client, /is not written from here\.<\/strong> \$\{esc\(result\.answer\.unavailable\.reason\)\}`/);
+  assert.match(reviewSessionStyles, /\.review-ask:focus\{outline:none\}/, 'the focused question draws no ring');
+});
