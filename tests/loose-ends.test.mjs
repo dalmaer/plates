@@ -583,3 +583,13 @@ test('under the quota floor loose-ends leaves the reviews unread and says why', 
   assert.equal(await asked(w, 'reviews'), 0, 'no review read under the floor');
   assert.ok(item(d, 'acme/app', 'pr:https://github.com/acme/app/pull/1'), 'the rest still read');
 });
+
+// Phase 187: the CLI and the hosted Done on a step write marks through one shape.
+test('the loose-ends marks module and the scanner name the same file and moves', async () => {
+  const shared = await import('../lib/loose-ends-marks.mjs'), cli = await import('../lib/looseends.mjs');
+  assert.equal(shared.MARKS, cli.MARKS); assert.deepEqual(shared.MOVES, cli.MOVES);
+  const entry = shared.markEntry({ fingerprint: 'phase:3', kind: 'phase', move: 'drop', reason: ' Done. ', today: '2026-11-06' });
+  assert.deepEqual(entry, { fingerprint: 'phase:3', kind: 'phase', move: 'drop', date: '2026-11-06', reason: 'Done.' });
+  assert.equal(shared.withMark([{ fingerprint: 'phase:3', move: 'park' }, { fingerprint: 'x', move: 'drop' }], entry), `${JSON.stringify({ marks: [{ fingerprint: 'x', move: 'drop' }, entry] }, null, 2)}\n`, 'a new mark replaces its fingerprint\'s');
+  assert.throws(() => shared.marksIn('{ not json'));
+});

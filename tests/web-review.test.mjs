@@ -156,9 +156,11 @@ test('an answer that needs a why waits for it', async () => {
   // A walk choice that asks for words ("Close, but (say what)") needs one too; an unavailable answer explains itself.
   const step = items.find(e => e.kind === 'step');
   while (session.current() && session.current().entry.key !== step.key) session.choose('not-now');
-  const off = session.choose('done', { why: 'did it' });
-  assert.equal(off.error, 'unavailable'); assert.match(off.answer.unavailable.command, /^plates home --answer studio:step:5 done/);
-  assert.match(renderReviewCard(step), /data-answer="done" aria-disabled="true"/, 'shown as off, never disabled');
+  // Done on a step writes from the web under decisionWrites (phase 187); Hand to an agent still says what is missing.
+  assert.ok(!step.item.answers.find(a => a.id === 'done').unavailable);
+  const off = session.choose('hand', { why: 'the agent can do it' });
+  assert.equal(off.error, 'unavailable'); assert.match(off.answer.unavailable.reason, /Issues write permission/);
+  assert.match(renderReviewCard(step), /data-answer="hand" aria-disabled="true"/, 'shown as off, never disabled');
   assert.doesNotMatch(renderReviewCard(step), /\sdisabled[\s>]/);
 });
 
@@ -479,4 +481,20 @@ test('no web view renders an answer\'s command', async () => {
   assert.doesNotMatch(client, /unavailable\??\.command|Run <code>/, 'the review client never reads an answer\'s command');
   assert.match(client, /is not written from here\.<\/strong> \$\{esc\(result\.answer\.unavailable\.reason\)\}`/);
   assert.match(reviewSessionStyles, /\.review-ask:focus\{outline:none\}/, 'the focused question draws no ring');
+});
+
+// Phase 187: Done on a step is previewed and confirmed through the apply route, as a walk answer is.
+test('a step\'s Done is held as a preview and applied through its route', async () => {
+  const urls = [];
+  const fetch = async (url, o) => { urls.push(url); const body = JSON.parse(o.body);
+    return url === '/api/home/answer' ? Response.json({ state: 'preview', preview: { id: 'p'.repeat(64), digest: 'd'.repeat(64), canSubmit: true, consequence: 'Mark phase 5 done: a drop mark in .plates/loose-ends.json' } })
+      : Response.json({ state: 'committed', receipt: { url: 'https://github.com/acme/studio/commit/abc123' }, ack: body.publicAcknowledgement }); };
+  const step = docketItems(reviewSnapshot()).find(e => e.kind === 'step'), done = step.item.answers.find(a => a.id === 'done');
+  assert.equal(done.writer, 'loose-ends mark'); assert.ok(!done.unavailable);
+  const sender = createWebSender({ fetch, csrf: 'x' });
+  const prepared = await sender.prepare({ entry: step, answer: done, why: 'Approved it.' });
+  assert.match(prepared.summary, /drop mark/);
+  const result = await sender.send({ entry: step, answer: done, why: 'Approved it.', prepared: Promise.resolve(prepared) });
+  assert.deepEqual(urls, ['/api/home/answer', '/api/projects/studio/decisions/apply']);
+  assert.equal(result.state, 'settled'); assert.equal(result.link, 'https://github.com/acme/studio/commit/abc123');
 });
