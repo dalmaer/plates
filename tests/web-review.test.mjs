@@ -369,3 +369,86 @@ test('/review/yours is the backlog\'s lane, in its order', async t => {
   assert.equal((await s.web(s.h.request('/review/yours?x=1', { cookie: s.signed.cookie }))).status, 400);
   assert.notEqual((await s.web(s.h.request('/review/yours'))).status, 200, 'signed out: no lane');
 });
+
+// Phase 176: a ready PR merged through the App, on the decisions' operation path. Synthetic Acme PR 7 on the
+// decision harness's fake App API and operation store; the merge endpoint is recorded, never reached.
+test('a merge is refused when the head moved', async () => {
+  const { decisionHarness, token } = await import('./helpers/web-decisions.mjs');
+  const { createMerges, mergeDigest } = await import('../lib/web/pr-merges.mjs');
+  const { createOperations } = await import('../lib/web/operations.mjs');
+  const HEAD = 'a'.repeat(40), MOVED = 'e'.repeat(40);
+  const setup = () => {
+    const h = decisionHarness(), pr = { head: HEAD, state: 'open', merged: false, draft: false, checks: 'SUCCESS', mergeReply: 'merged' }, merges = [];
+    h.access.pullRequestsPermission = 'write';
+    const fetcher = async (url, options = {}) => {
+      const path = new URL(url).pathname;
+      if (path === '/repos/acme/studio/pulls/7') return Response.json({ number: 7, state: pr.state, merged: pr.merged, draft: pr.draft, title: 'Acme anvils', html_url: 'https://github.com/acme/studio/pull/7', head: { sha: pr.head }, base: { repo: { id: 102 } }, merge_commit_sha: pr.merged ? 'f'.repeat(40) : null });
+      if (path === '/repositories/102' && !options.method) return Response.json({ id: 102, full_name: 'acme/studio', allow_squash_merge: true, allow_merge_commit: true, allow_rebase_merge: false });
+      if (path === '/graphql' && JSON.parse(options.body).query.includes('PlatesReadyChecks')) return Response.json({ data: { repository: { p7: { number: 7, state: pr.state.toUpperCase(), isDraft: pr.draft, headRefOid: pr.head, additions: 1, deletions: 0, changedFiles: 1, commits: { nodes: [{ commit: { oid: pr.head, statusCheckRollup: { state: pr.checks } } }] } } } } });
+      if (path === '/repos/acme/studio/pulls/7/merge') {
+        merges.push(JSON.parse(options.body));
+        if (pr.mergeReply === 'network') { pr.merged = true; throw new TypeError('lost after merging'); }
+        if (pr.mergeReply === 'push') pr.head = MOVED;
+        if (JSON.parse(options.body).sha !== pr.head) return Response.json({ message: 'Head branch was modified.' }, { status: 409 });
+        pr.merged = true; pr.state = 'closed';
+        return Response.json({ merged: true, sha: 'f'.repeat(40) });
+      }
+      return h.fetcher(url, options);
+    };
+    const opts = { fetcher, now: () => h.state.now };
+    const item = { key: 'studio:merge:7', merge: { number: 7, head: HEAD } };
+    const preview = () => createMerges(h.config, opts).preview(h.access, token, h.project, item);
+    const apply = (p, ack = p.digest) => createOperations(h.config, opts).apply(h.access, token, h.project, p.id, { reauthorize: async () => h.access, publicAcknowledgement: ack });
+    const recover = id => createOperations(h.config, opts).recover(h.access, token, h.project, id);
+    return { h, pr, merges, preview, apply, recover };
+  };
+
+  // The preview names the PR, its head and the method, and binds them in its digest.
+  let s = setup();
+  const p = await s.preview();
+  assert.equal(p.canSubmit, true);
+  assert.deepEqual([p.pr.head, p.method], [HEAD, 'squash']);
+  assert.equal(p.digest, mergeDigest({ repoId: 102, number: 7, head: HEAD, method: 'squash', operationId: p.operationId }));
+  assert.match(p.consequence, /only if its head is still aaaaaaa/);
+  // A push after the preview: the apply re-reads the PR and refuses, and GitHub is never asked to merge.
+  s.pr.head = MOVED;
+  const moved = await s.apply(p);
+  assert.deepEqual([moved.state, moved.reason], ['refused', 'stale_preview']);
+  assert.equal(s.merges.length, 0, 'nothing was sent to the merge endpoint');
+  assert.deepEqual(await s.apply(p), moved, 'the refused operation is the answer again, never a second try');
+  // A card shown at an older head cannot even be previewed.
+  await assert.rejects(s.preview(), e => e.code === 'stale_preview');
+
+  // The same head: merged once, at the previewed head, by the repo's method.
+  s = setup();
+  const done = await s.apply(await s.preview());
+  assert.equal(done.state, 'committed');
+  assert.deepEqual(s.merges, [{ sha: HEAD, merge_method: 'squash' }]);
+  assert.equal(done.receipt.commit, 'f'.repeat(40));
+  // A push lands between the apply's read and the merge: GitHub's own head check refuses it, and it stays refused.
+  s = setup();
+  const raced = await s.preview();
+  s.pr.mergeReply = 'push';
+  const late = await s.apply(raced);
+  assert.equal(late.state, 'refused'); assert.match(late.reason, /head moved since the preview/);
+  assert.equal(s.pr.merged, false, 'nothing merged');
+
+  // Without its digest, or without the App's permission, nothing is merged.
+  s = setup();
+  const unacked = await s.preview();
+  await assert.rejects(s.apply(unacked, 'b'.repeat(64)), e => e.code === 'merge_acknowledgement_required');
+  s.h.access.pullRequestsPermission = null;
+  const denied = await s.preview();
+  assert.equal(denied.canSubmit, false); assert.match(denied.refusal, /Pull requests: Read and write/);
+  assert.equal((await s.apply(denied)).reason, 'access_changed'); assert.equal(s.merges.length, 0);
+
+  // An answer that never came back is uncertain; recovery reads the PR and settles it, and nothing is merged twice.
+  s = setup();
+  const lost = await s.preview();
+  s.pr.mergeReply = 'network';
+  const uncertain = await s.apply(lost);
+  assert.equal(uncertain.state, 'uncertain');
+  const settled = await s.recover(uncertain.id);
+  assert.equal(settled.state, 'committed'); assert.equal(settled.receipt.commit, 'f'.repeat(40));
+  assert.equal(s.merges.length, 1, 'recovery never merges again');
+});

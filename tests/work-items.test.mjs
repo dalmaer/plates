@@ -6,6 +6,8 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { KINDS, kindOf, looseItems, fleetOf, reviewItems, WRITERS, itemKey, answersFor, homeSnapshot, homeSections, notNowRecord, takesMinutes, DEFAULT_MINUTES, QUICK_MINUTES, phaseSets, rollbackItems, backlogOf, BACKLOG_LANES, BACKLOG_STALE_DAYS, NEEDS_SHAPING } from '../lib/work-items.mjs';
 import { deployResults, openRollbacks, rollbackLine } from '../practices/night/files/scripts/plates/morning.mjs';
+import { readRepoReviews, unansweredPrs } from '../practices/night/files/scripts/plates/lib.mjs';
+import { homeReviews, MERGE_PERMISSION } from '../lib/work-items.mjs';
 
 const repo = fileURLToPath(new URL('..', import.meta.url));
 
@@ -62,6 +64,47 @@ test('every item kind is defined once, in the model', () => {
   assert.equal(kindOf({ kind: 'toString' }), undefined, 'only listed kinds, never a prototype key');
 });
 
+// Phase 176: Acme's open PRs as the repo-wide review read returns them (the window's shape).
+const HEAD = 'a'.repeat(40);
+const prNode = (number, { answered = true, reviewed = true } = {}) => ({ keelWindow: 'PullRequest', number, title: `Acme anvil ${number}`, url: `https://github.com/acme/studio/pull/${number}`, state: 'OPEN', mergedAt: null, updatedAt: '2026-11-04T00:00:00Z', headRefOid: HEAD, author: { login: 'acme-owner' },
+  reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [{ id: `T${number}`, isResolved: answered, tail: { totalCount: answered ? 2 : 1, nodes: [
+    { databaseId: number * 10, author: { login: 'acme-reviewer' }, body: 'Check the brakes.', createdAt: '2026-11-01T09:00:00Z', url: `https://github.com/acme/studio/pull/${number}#c` },
+    ...(answered ? [{ databaseId: number * 10 + 1, author: { login: 'acme-owner' }, body: '**Fixed** in abc1234.', createdAt: '2026-11-02T09:00:00Z', url: `https://github.com/acme/studio/pull/${number}#r` }] : [])] } }] },
+  comments: { pageInfo: { hasPreviousPage: false }, nodes: [] },
+  reviews: { pageInfo: { hasPreviousPage: false }, nodes: reviewed ? [{ id: `R${number}`, databaseId: number, author: { login: 'acme-reviewer' }, commit: { oid: HEAD }, body: '', state: 'COMMENTED', submittedAt: '2026-11-03T00:00:00Z', url: `https://github.com/acme/studio/pull/${number}#v` }] : [] } });
+
+test('only a ready pull request reaches the docket', async () => {
+  const today = '2026-11-05';
+  // 7 is ready; 8 has a finding unanswered; 9 nobody but its author reviewed; 10 is a draft; 11's checks fail; 12's head moved since the review read.
+  const repository = { open: { pageInfo: { hasNextPage: false }, nodes: [prNode(7), prNode(8, { answered: false }), prNode(9, { reviewed: false }), prNode(10), prNode(11), prNode(12)] }, merged: { pageInfo: { hasNextPage: false }, nodes: [] } };
+  const state = unansweredPrs(await readRepoReviews(async () => repository, today, {}), [], today);
+  assert.deepEqual(state.ready.map(p => p.number), [7, 10, 11, 12], 'the merge rule: findings answered and the head reviewed by someone other than its author');
+  const checked = { open: true, draft: false, head: HEAD, checks: 'SUCCESS', additions: 12, deletions: 3, files: 2 };
+  const asked = [];
+  const checks = async (source, numbers) => { asked.push(numbers); return { 7: checked, 10: { ...checked, draft: true }, 11: { ...checked, checks: 'FAILURE' }, 12: { ...checked, head: 'b'.repeat(40) } }; };
+  const project = { id: 'studio', name: 'Acme Studio', revision: 'c'.repeat(40) };
+  const got = await homeReviews(project, { repo: 'acme/studio', reviewers: [], rounds: 3 }, { read: async () => state, checks, me: 'acme-owner', today });
+  assert.deepEqual(asked, [[7, 10, 11, 12]], 'only the merge rule\'s candidates have their checks read');
+  const merges = got.reviews.filter(i => i.itemKind === 'merge');
+  assert.deepEqual(merges.map(i => i.ref), ['7'], 'one card, for the one ready PR');
+  assert.equal(merges[0].merge.head, HEAD, 'the card carries the head it was shown at');
+  assert.match(merges[0].why, /checks pass on aaaaaaa, every one of its 1 review finding answered, reviewed by acme-reviewer\. It changes 2 files \(\+12 −3\)/);
+  assert.equal(merges[0].link, 'https://github.com/acme/studio/pull/7/files', 'a link to the diff');
+  assert.deepEqual(got.reviews.filter(i => i.itemKind === 'review').map(i => i.ref), ['8'], 'the unanswered PR is a review item, not a merge');
+  const model = homeSnapshot([{ ...project, gaps: [], changes: [], state: 'complete', decisions: [], walks: [], reviews: got.reviews, waiting: got.waiting }], { sections: [], today });
+  assert.deepEqual(model.docket.map(e => e.key).sort(), ['studio:merge:7', 'studio:review:8'], 'one card per PR');
+  const merge = model.reviews.find(i => i.key === 'studio:merge:7'), review = model.reviews.find(i => i.key === 'studio:review:8');
+  assert.deepEqual(merge.answers.map(a => [a.id, a.writer, a.needsWhy]), [['merge', 'pr merge', 'never'], ['request-changes', 'pr comment', 'always'], ['not-now', 'not now', 'never']]);
+  assert.ok(!review.answers.some(a => a.writer === 'pr merge'), 'a PR with a finding unanswered never shows Merge');
+  // On the web, Merge needs the instance's write setting and the App's permission, and says which is missing.
+  assert.equal(answersFor(merge, { form: 'web', decisionWrites: true }).find(a => a.id === 'merge').unavailable.reason, MERGE_PERMISSION);
+  assert.ok(!answersFor(merge, { form: 'web', decisionWrites: true, mergeWrites: true }).find(a => a.id === 'merge').unavailable);
+  // Without a checks read, nothing is shown ready, and the gap says why.
+  const unread = await homeReviews(project, { repo: 'acme/studio', reviewers: [], rounds: 3 }, { read: async () => state, me: 'acme-owner', today });
+  assert.deepEqual(unread.reviews.map(i => i.itemKind), ['review']);
+  assert.match(unread.gap.reason, /checks are not read here, so no pull request is shown ready to merge/);
+});
+
 test('review items carry their kind from the model', async () => {
   const r = await reviewItems([{ repo: 'acme/studio', rounds: 3 }], { me: 'acme', read: async () => ({ prs: [{ number: 2, title: 'Acme', state: 'open', url: 'https://github.com/acme/studio/pull/2', author: 'acme', unanswered: 1, oldest: '2026-11-01' }], rounds: [] }) });
   assert.equal(r.items.length, 1); assert.equal(kindOf(r.items[0]).label, 'Review');
@@ -87,6 +130,7 @@ test('every owner item can be answered', () => {
     { projectId: 'studio', itemKind: 'step', ref: '1' },
     { projectId: 'studio', itemKind: 'proposal', ref: 'docs/health/2026-11-01.md', decisionTarget: { kind: 'health', path: 'docs/health/2026-11-01.md' } },
     { projectId: 'studio', itemKind: 'review', ref: '7' },
+    { projectId: 'studio', itemKind: 'merge', ref: '8', merge: { number: 8, head: 'a'.repeat(40) } },
     ...looseItems({ projects: [{ repo: 'acme/studio', dir: '/acme/studio', items: [
       { kind: 'session', title: 'Acme chat', ending: 'question', id: 'aa1' }, { kind: 'repo', title: 'acme/tidy', id: 'aa2' }, { kind: 'phase', title: 'phase 1', move: '⚑ yours', id: 'aa3' },
       { kind: 'lessons', title: 'lessons', id: 'aa4' }, { kind: 'health', title: 'health', id: 'aa5' }, { kind: 'inbox', title: 'inbox', id: 'aa6' },

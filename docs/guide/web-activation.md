@@ -225,6 +225,14 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
    - Needs first: phase 171.
    - Rollback: Nothing to roll back: the script runs locally against fixture data, writes images only to a temporary folder outside the repo, and changes nothing deployed.
    - Proof to record: The owner's answer (useful, or not worth it), and which design change was reviewed, recorded in docs/evidence/2026-11-04-look-captured.md.
+55. **github-app-pull-requests-write** (phase 176, github-app, owner attends). Owner grants the Plates GitHub App "Pull requests: Read and write" on the plates installation (with the Contents: Read and write already granted for decisions, which GitHub's merge endpoint requires) and Checks: Read, so a ready pull request's card can show its checks and Merge can be submitted. Merging also needs decisionWrites on; until both hold, Merge is listed unavailable with this reason.
+   - Needs first: phase 97.
+   - Rollback: Owner removes Pull requests write in the App's settings; Merge returns to unavailable with its reason, and nothing else changes.
+   - Proof to record: A GitHub API read of the installation's permissions (pull_requests: write, contents: write, checks: read), sanitized.
+56. **merge-from-docket** (phase 176, decision, owner attends). After deploying a build with phase 176 and the Pull requests write grant, the owner opens a review session on the phone, merges one ready pull request from its card, and says whether what was being merged was clear before the tap.
+   - Needs first: phase 174.
+   - Rollback: A merge is reverted with an ordinary revert PR; redeploying the previous build removes Merge from the card.
+   - Proof to record: The deployed revision, the merged PR and its merge commit from the operation receipt, and the owner answer (merged, clear; merged, but unclear; or didn't trust it), recorded in phase 176's evidence.
 
 ## Still open
 
