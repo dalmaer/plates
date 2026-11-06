@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "date": "2026-11-05",
+  "date": "2026-11-06",
   "shapedBy": "default",
   "readyBy": null,
   "willNotTouch": [],
@@ -9,25 +9,25 @@
   "items": [
     {
       "id": "measures",
-      "title": "Measure the practice: 41 measures; outside or broken on 2026-11-04: drafts_waiting, long_files, phases_without_issue, phases_stuck, proofs_hold, escapes, lessons_without_guard, inbox_waiting, issues_unnamed, reviews_unanswered, dependency_age",
+      "title": "Measure the practice: 41 measures; outside or broken on 2026-11-05: drafts_waiting, long_files, record_contradictions, phases_without_issue, phases_stuck, proofs_hold, escapes, lessons_without_guard, inbox_waiting, issues_unnamed, reviews_unanswered, dependency_age",
       "kind": "measure",
       "source": "default",
       "number": null,
       "lane": "night",
       "budget": null,
-      "status": "failed",
+      "status": "done",
       "result": {
-        "note": "10 ok, 11 outside, 19 n/a, 1 broken (record_contradictions)",
-        "link": "docs/health/2026-11-05.md"
+        "note": "11 ok, 12 outside, 18 n/a, 0 broken",
+        "link": "docs/health/2026-11-06.md"
       }
     },
     {
-      "id": "health-phases-without-issue",
-      "title": "Proposal from 2026-11-04: Open issues on dalmaer/plates for phases 50, 88, 94, 98, 99, 100, 101, 102, 103, 104 and 41 more and set `issue:` in each one's front matter.",
+      "id": "health-record-contradictions",
+      "title": "Proposal from 2026-11-05: Fix the record_contradictions instrument: reconciliation incomplete: GitHub PR observation unavailable: dalmaer/ledger#130; GitHub PR observation unavailable: dalmaer/ledger#162; GitHub PR observation unavailable: dalmaer/ledger#169; GitHub PR observation unavailable: dalm…",
       "kind": "review",
-      "source": "health:phases_without_issue",
+      "source": "health:record_contradictions",
       "number": {
-        "measure": "phases_without_issue",
+        "measure": "record_contradictions",
         "bound": 0,
         "better": "lower"
       },
@@ -50,28 +50,12 @@
       "budget": {
         "minutes": 45
       },
-      "status": "failed",
-      "result": {
-        "note": "blocked: runner preflight or execution evidence refused the climb; inspect the retained sanitized receipt",
-        "link": "https://github.com/dalmaer/plates/actions/runs/42010228882"
-      }
-    },
-    {
-      "id": "robot-60",
-      "title": "Robot: #60 keel review --close --fixed refuses a thread posted after the fixing commit",
-      "kind": "triage",
-      "source": "robot:#60",
-      "number": null,
-      "lane": "robot:#60",
-      "budget": null,
       "status": "planned",
-      "result": {
-        "note": "Names no number, so it is triage, not build: a build item names its number first."
-      }
+      "result": null
     },
     {
       "id": "persona-performance--published-package",
-      "title": "published package: back to at most 1000kB (measured 2365kB)",
+      "title": "published package: back to at most 1000kB (measured 2410kB)",
       "kind": "triage",
       "source": "persona:performance",
       "number": {
