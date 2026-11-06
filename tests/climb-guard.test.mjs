@@ -839,45 +839,61 @@ test('sandbox: a merge that alters a binary lockfile byte is refused, though the
 test('#90: guard isolates node_modules in worktrees so base-gate writes cannot pass a broken candidate', async t => {
   const depFiles = {
     'node_modules/acme-dep/package.json': '{"name":"acme-dep","type":"module","exports":"./index.js"}\n',
-    'node_modules/acme-dep/index.js': "export const dep = 'acme';\n",
+    'node_modules/acme-dep/index.js': "export const dep = 'acme';\nexport const token = { id: 'acme' };\n",
     'node_modules/acme-dep/cache.txt': 'clean\n',
   };
   const baseSuite = `import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
-import { dep } from 'acme-dep';
+import { dep, token } from 'acme-dep';
 import { label } from 'acme-ws';
-import { appDep, scopedPeer, inStore, extNote } from './app/use.mjs';
+import { ancPeer, symAncPeer, dirtyAncPeer } from 'acme-linked';
+import { clientToken } from './client/use.mjs';
+import { webStoreToken } from './web/use.mjs';
+import { appDep, scopedPeer, inStore, storeMod, appStoreToken, extNote } from './app/use.mjs';
 test('acme adds', () => {
   assert.equal(dep, 'acme');
+  assert.equal(clientToken, token);
+  assert.equal(webStoreToken, appStoreToken);
   assert.equal(label, 'base-ws');
+  assert.equal(ancPeer(), 'anc-clean');
+  assert.equal(symAncPeer, 'sym-anc-clean');
   assert.equal(appDep, 'app-clean');
   assert.equal(scopedPeer, 'peer-clean');
   assert.equal(inStore, 'in-store-clean');
+  assert.equal(storeMod(), 'store-mod-clean');
   assert.equal(extNote, 'note-clean');
   writeFileSync('node_modules/base-cache', 'from-base\\n');
   writeFileSync('node_modules/acme-dep/cache.txt', 'dirtied-by-base\\n');
   writeFileSync('app/node_modules/acme-app/state.txt', 'dirtied-app\\n');
   writeFileSync('app/node_modules/in-store/val.txt', 'dirtied-in-store\\n');
+  writeFileSync('app/node_modules/in-store-mod/state.txt', 'dirtied-store-mod\\n');
   writeFileSync('app/node_modules/ext-note.txt', 'dirtied-note\\n');
+  dirtyAncPeer('dirtied-anc\\n');
 });
 `;
   const dir = await acme(t, {
     climb: { jobs: ['test-time'], testCommand: LEDGER_TEST },
     config: { check: LEDGER_TEST },
     files: {
-      '.gitignore': 'node_modules/\napp/node_modules\n',
-      'package.json': JSON.stringify({ name: 'acme', private: true, workspaces: ['packages/*'] }),
+      '.gitignore': 'node_modules/\nweb/node_modules\napp/node_modules\nclient/node_modules\n',
+      'package.json': JSON.stringify({ name: 'acme', private: true, type: 'module', workspaces: ['packages/*'] }),
       'packages/ws/package.json': '{"name":"acme-ws","type":"module","exports":"./index.js"}\n',
       'packages/ws/index.js': "export const label = 'base-ws';\n",
+      'client/package.json': '{"name":"acme-client-dir","private":true,"type":"module"}\n',
+      'client/use.mjs': "export { token as clientToken } from 'acme-dep';\n",
+      'web/package.json': '{"name":"acme-web-dir","private":true,"type":"module"}\n',
+      'web/use.mjs': "export { storeToken as webStoreToken } from 'in-store-mod';\n",
       'app/package.json': '{"name":"acme-app-dir","private":true,"type":"module"}\n',
       'app/use.mjs': [
         "import { readFileSync } from 'node:fs';",
+        "import { storeMod, storeToken as appStoreToken } from 'acme-app';",
         "const read = p => readFileSync(new URL(p, import.meta.url), 'utf8').trim();",
         "export const appDep = read('./node_modules/acme-app/self/state.txt');",
         "export const scopedPeer = read('./node_modules/@acme/app/peer/peer.txt');",
         "export const inStore = read('./node_modules/acme-app/in-nm/val.txt');",
         "export const extNote = read('./node_modules/ext-note.txt');",
+        'export { storeMod, appStoreToken };',
         '',
       ].join('\n'),
       'acme.test.mjs': baseSuite,
@@ -885,12 +901,30 @@ test('acme adds', () => {
   });
   await write(dir, depFiles);
   const sharedInstall = await mkdtemp(join(tmpdir(), 'plates-climb-install-'));
+  const extRepo = await mkdtemp(join(tmpdir(), 'plates-climb-ext-repo-'));
   t.after(() => rm(sharedInstall, { recursive: true, force: true }));
+  t.after(() => rm(extRepo, { recursive: true, force: true }));
   await write(sharedInstall, {
+    'ext-pkg/package.json': '{"name":"acme-app","type":"module","exports":"./index.js"}\n',
+    'ext-pkg/index.js': "export { storeMod, storeToken } from 'in-store-mod';\n",
     'ext-pkg/state.txt': 'app-clean\n',
     'ext-peer/peer.txt': 'peer-clean\n',
     'ext-note.txt': 'note-clean\n',
     'node_modules/in-store/val.txt': 'in-store-clean\n',
+    'node_modules/in-store-mod/package.json': '{"name":"in-store-mod","type":"module","exports":"./index.js"}\n',
+    'node_modules/in-store-mod/index.js': "import { readFileSync } from 'node:fs';\nexport const storeToken = { id: 'store' };\nexport const storeMod = () => readFileSync(new URL('./state.txt', import.meta.url), 'utf8').trim();\n",
+    'node_modules/in-store-mod/state.txt': 'store-mod-clean\n',
+  });
+  await write(extRepo, {
+    'packages/acme-linked/package.json': '{"name":"acme-linked","type":"module","exports":"./index.js"}\n',
+    'packages/acme-linked/index.js': "export { ancPeer, dirtyAncPeer } from 'acme-anc-peer';\nexport { symAncPeer } from 'acme-sym-anc';\n",
+    'node_modules/acme-anc-peer/package.json': '{"name":"acme-anc-peer","type":"module","exports":"./index.js"}\n',
+    'node_modules/acme-anc-peer/index.js': "import { readFileSync, writeFileSync } from 'node:fs';\nexport const ancPeer = () => readFileSync(new URL('./state.txt', import.meta.url), 'utf8').trim();\nexport const dirtyAncPeer = v => writeFileSync(new URL('./state.txt', import.meta.url), v);\n",
+    'node_modules/acme-anc-peer/state.txt': 'anc-clean\n',
+    'sym-parent/packages/acme-sym-anc/package.json': '{"name":"acme-sym-anc","type":"module","exports":"./index.js"}\n',
+    'sym-parent/packages/acme-sym-anc/index.js': "export { symAncPeer } from 'acme-sym-peer';\n",
+    'sym-store/acme-sym-peer/package.json': '{"name":"acme-sym-peer","type":"module","exports":"./index.js"}\n',
+    'sym-store/acme-sym-peer/index.js': "export const symAncPeer = 'sym-anc-clean';\n",
   });
   const { symlink } = await import('node:fs/promises');
   await mkdir(join(sharedInstall, 'node_modules/@acme'), { recursive: true });
@@ -901,7 +935,13 @@ test('acme adds', () => {
   await symlink('../ext-pkg', join(sharedInstall, 'node_modules/acme-app'));
   await symlink('../ext-note.txt', join(sharedInstall, 'node_modules/ext-note.txt'));
   await symlink('../missing-ext', join(sharedInstall, 'node_modules/dangling'));
+  await symlink('../sym-store', join(extRepo, 'sym-parent/node_modules'), 'dir');
+  await symlink('../sym-parent/packages/acme-sym-anc', join(extRepo, 'node_modules/acme-sym-anc'));
+  await symlink('../packages/acme-linked', join(extRepo, 'node_modules/acme-linked'));
   await symlink(join('..', 'packages', 'ws'), join(dir, 'node_modules', 'acme-ws'));
+  await symlink(join(extRepo, 'packages', 'acme-linked'), join(dir, 'node_modules', 'acme-linked'));
+  await symlink('../node_modules', join(dir, 'client', 'node_modules'), 'dir');
+  await symlink(join(sharedInstall, 'node_modules'), join(dir, 'web', 'node_modules'), 'dir');
   await symlink(join(sharedInstall, 'node_modules'), join(dir, 'app', 'node_modules'), 'dir');
   const base = git(dir, ['rev-parse', 'HEAD']);
 
@@ -921,7 +961,9 @@ test('acme adds', () => { assert.equal(existsSync('node_modules/base-cache'), tr
   assert.equal(await readFile(join(dir, 'node_modules/acme-dep/cache.txt'), 'utf8'), 'clean\n');
   assert.equal(await readFile(join(sharedInstall, 'ext-pkg/state.txt'), 'utf8'), 'app-clean\n');
   assert.equal(await readFile(join(sharedInstall, 'node_modules/in-store/val.txt'), 'utf8'), 'in-store-clean\n');
+  assert.equal(await readFile(join(sharedInstall, 'node_modules/in-store-mod/state.txt'), 'utf8'), 'store-mod-clean\n');
   assert.equal(await readFile(join(sharedInstall, 'ext-note.txt'), 'utf8'), 'note-clean\n');
+  assert.equal(await readFile(join(extRepo, 'node_modules/acme-anc-peer/state.txt'), 'utf8'), 'anc-clean\n');
 
   // Candidate 2: depends on an existing file in node_modules (or symlinked app/node_modules) mutated by base's gate.
   git(dir, ['checkout', '-q', '-f', '-B', 'needs-mutated-file', base]);
@@ -943,15 +985,23 @@ test('acme adds', () => { assert.equal(readFileSync('node_modules/acme-dep/cache
     'acme.test.mjs': `import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { dep } from 'acme-dep';
+import { dep, token } from 'acme-dep';
 import { label } from 'acme-ws';
-import { appDep, scopedPeer, inStore, extNote } from './app/use.mjs';
+import { ancPeer, symAncPeer } from 'acme-linked';
+import { clientToken } from './client/use.mjs';
+import { webStoreToken } from './web/use.mjs';
+import { appDep, scopedPeer, inStore, storeMod, appStoreToken, extNote } from './app/use.mjs';
 test('acme adds', () => {
   assert.equal(dep, 'acme');
+  assert.equal(clientToken, token);
+  assert.equal(webStoreToken, appStoreToken);
   assert.equal(label, 'cand-ws');
+  assert.equal(ancPeer(), 'anc-clean');
+  assert.equal(symAncPeer, 'sym-anc-clean');
   assert.equal(appDep, 'app-clean');
   assert.equal(scopedPeer, 'peer-clean');
   assert.equal(inStore, 'in-store-clean');
+  assert.equal(storeMod(), 'store-mod-clean');
   assert.equal(extNote, 'note-clean');
   assert.equal(existsSync('node_modules/base-cache'), false);
   assert.equal(readFileSync('node_modules/acme-dep/cache.txt', 'utf8'), 'clean\\n');
