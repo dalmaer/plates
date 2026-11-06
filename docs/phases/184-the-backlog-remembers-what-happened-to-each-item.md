@@ -12,7 +12,7 @@ evidence: []
 
 ## Done when
 
-`backlog_events` records attach, assist, dispatch, release, answer and not-now with its reason, locally and hosted, and `plates backlog --since` reads them back. See [the backlog spec](../specs/web-backlog.md).
+`backlog_events` records attach, assist, dispatch, release, answer and not-now with its reason, locally and hosted, and `plates home --backlog --since` reads them back. See [the backlog spec](../specs/web-backlog.md).
 
 ## Scope
 

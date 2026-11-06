@@ -20,7 +20,7 @@ Attach on an agent-ready phase previews, claims and starts the `session` or `ton
 - Routes `session` (claim, then the `/spin <n>` brief for the owner to open) and `tonight` (an item in tonight's plan).
 - The `agents` policy in `.plates/plates.json`; absent means session only. Autonomy levels govern confirmation.
 - Presence: claimed, active (last push), running (only from an execution source), ready/integrating/blocked, stale.
-- CLI `backlog attach <key> --route <r> [--provider <p>] [--yes]` (or the flag form the budget allows).
+- CLI `plates home --attach <key> --route <r> [--provider <p>] [--yes]` (the verb budget is full).
 - Later increment: `robot`, with the rubric generated from the phase, only where `robot.on`.
 
 ## Integration increments

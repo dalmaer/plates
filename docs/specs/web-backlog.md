@@ -165,10 +165,53 @@ reconstruct the order. Optional summaries must not change it.
 
 ## Views
 
+### The shape: a list beside a sidebar
+
+The backlog is an inbox-style list, not a board. The owner reads it top to
+bottom, the way a person reads a mail inbox:
+
+- **Sections, not columns.** Each lane is a section header with its count
+  (*In flight 2*, *Yours 12*, *Agent-ready 10*, *Waiting 40*), in lane
+  order except that **In flight comes first**, because it changes fastest. A
+  section collapses; an empty one shows its header and "none", never vanishes.
+- **One row per item**, one line high on desktop:
+  - the position in its section, then the state glyph (open, half for in
+    flight, done);
+  - the plate and phase or PR number (`plates #178`), then the title;
+  - chips on the right: linked PRs (`#353`), comment count, the agent that
+    holds it (provider name and its presence);
+  - the right edge says *time left on the claim* for in-flight rows
+    (`STALE_DAYS` minus age, "lease 9.8h left" reads as "claim 6d left") and
+    *how long ago it appeared* for the rest;
+  - on hover or focus, the row's one primary action replaces the time:
+    *Start* (attach, phase 181; until then shown unavailable with its reason),
+    *Answer*, *Open walk* or *Open PR*.
+- **The row opens the card** (anatomy below) in place; the why-keys and the
+  ordering trace live there, so the list stays one line per item.
+- At 360px the chips wrap under the title and the action is a trailing button.
+
+The **sidebar** is the workspace's navigation, the same on every page:
+
+| Sidebar entry | Shows | Read from | Phase |
+| --- | --- | --- | --- |
+| **Backlog** *(count)* | This list | `backlogOf` | 178 |
+| **Recurring** | Every plate's routines: night, climb, tend, morning, robot, cross-review, publish; schedule, next run, last result, budget | workflow `schedule:` crons, `.plates/plates.json` (`climb.schedule`, `tend.schedule`, `robot`, `morning`, budgets), night journal and receipts | 185 |
+| **Humans** | The owner and anyone with access | the workspace's auth | 185 |
+| **Agents** *(count)* | Each provider and route that may work: name, what it is on now ("working on plates #273"), or idle; off routes greyed with their reason | the `agents` provider map, the `backlog` policy, claims, presence | 186 |
+| **Pending review** | Open PRs across the fleet that are not set to auto-merge, oldest first | the GitHub App installation that already reads each plate; no personal token | 186 |
+| **Links** | Each plate's repo, canvas and production URL | `.plates/plates.json` (`repo`, `canvas.home`, `production`) | 185 |
+
+Recurring and Agents are read-only views of records that already exist; they
+start, stop and reschedule nothing. A routine's schedule changes in its
+workflow file, through the existing schedule path (`job-schedules.mjs`), never
+here.
+
+### Arrangements
+
 One model, three arrangements. Each is a density or arrangement, not a separate
 application:
 
-- **Lanes:** columns on desktop, stacked sections at 360px.
+- **List:** the sections above; the default.
 - **By goal:** goal headers with counts per lane, collapsed after 7 items.
 - **One at a time:** the owner lane as a session. It extends `/review` (phase
   174) with:
@@ -249,15 +292,21 @@ Each presence value carries its source and its read time.
 
 ### Policy
 
-Routes and assists are switched on per plate in `.plates/plates.json`:
+`.plates/plates.json` already has an `"agents"` key: the provider map
+(`{"claude": {}, "codex": {}}`) that cross-review, climb and tend read. The
+backlog keeps it as the one list of **providers** and does not reshape it.
+Routes and assists are switched on per plate in a separate `"backlog"` key:
 
 ```json
-"agents": {
+"agents": { "claude": {}, "codex": {} },
+"backlog": {
   "routes": ["session", "tonight"],
-  "assists": ["walk-prep", "decision-draft", "shape"],
-  "providers": ["claude", "codex", "local-host"]
+  "assists": ["walk-prep", "decision-draft", "shape"]
 }
 ```
+
+A local agent host is a route (`local-host`), not a provider: it claims with
+the provider name it reports, which must be a key of `agents`.
 
 - The policy is nonsecret and absent by default.
 - Absent means **session only**, so today's behavior is unchanged.
@@ -289,14 +338,19 @@ It never changes ordering without a visible, owner-chosen rule.
 
 ## CLI parity
 
-- `plates backlog [--lane <l>] [--goal <g>] [--project <id>] [--json]` prints
-  the same items as the web. The isomorphism test extends to it.
-- `plates backlog attach <key> --route <r> [--provider <p>] [--yes]`.
-- `plates backlog assist <key> <assist> [--yes]`.
+`.plates/surface.json` allows 50 verbs and 50 are used (measured 5 November
+2026), so the backlog is a mode of `plates home`, not a new verb:
 
-Each new verb counts against `.plates/surface.json`. If the budget cannot take a
-new verb, use `plates home --backlog` and `plates home --attach` instead (see
-Deliberately open).
+- `plates home --backlog [--lane <l>] [--project <id>] [--json]` prints the
+  same items as the web list. The isomorphism test extends to it.
+- `plates home --recurring [--json]` and `plates home --agents [--json]` print
+  the sidebar's Recurring and Agents (with Pending review) in the same form.
+- `plates home --attach <key> --route <r> [--provider <p>] [--yes]` (181).
+- `plates home --assist <key> <assist> [--yes]` (182).
+
+Each adds flags to `home`, counted against the flag budget (196 of 200 used),
+so 178 adds `--backlog` and `--lane`, and later phases reuse `--route` and
+`--provider` where `phase claim` already names them or retire a flag first.
 
 ## Phases (goal G7)
 
@@ -312,17 +366,21 @@ and read-only until its write increment.
 | 182 | Agents prepare my walks and draft my decisions | 181, 98, 97 |
 | 183 | A local agent host can take a phase | 181 |
 | 184 | The backlog remembers what happened to each item | 181 |
+| 185 | Recurring shows every routine each plate runs, and when it next runs | 178 |
+| 186 | The sidebar shows which agents can work, what each is on, and what waits for review | 178 |
 
 ### 178. The backlog shows every plate's work in lanes, with reasons
 
-- **Done when:** `plates backlog --json` and `/backlog` list the same items in
-  the five lanes, each with why-keys, for every authorized plate.
+- **Done when:** `plates home --backlog --json` and `/backlog` list the same
+  items in the lane sections, each with why-keys, for every authorized plate,
+  as the one-line-per-row list beside the sidebar (Views).
 - **Scope:**
   - `backlogOf(snapshot, phases, claims)` in `lib/work-items.mjs`;
-  - a Lanes view in `views.mjs`;
+  - the List view and the sidebar shell in `views.mjs` (Backlog live; the
+    other entries arrive with 185 and 186);
   - plate chips;
   - coverage states.
-  - No writes. Attach is shown unavailable with its reason.
+  - No writes. Start is shown unavailable with its reason.
 - **Acceptance:**
   - [ ] A phase owing a walk appears under Yours with the walk as its child,
     and not under Agent-ready: `tests/work-items.test.mjs: "a phase owing a walk is yours, not an agent's"`.
@@ -449,13 +507,61 @@ and read-only until its write increment.
 ### 184. The backlog remembers what happened to each item
 
 - **Done when:** `backlog_events` records attach, assist, dispatch, release,
-  answer and not-now(reason) locally and hosted. `plates backlog --since`
-  reads it back.
+  answer and not-now(reason) locally and hosted. `plates home --backlog
+  --since` reads it back.
 - **Acceptance:**
   - [ ] Events hold no source text or owner words:
     `tests/backlog-events.test.mjs: "metadata only"`.
   - [ ] Ordering is identical with and without events:
     `tests/work-items.test.mjs: "events never reorder"`.
+
+### 185. Recurring shows every routine each plate runs, and when it next runs
+
+- **Done when:** the sidebar's Recurring and `plates home --recurring --json`
+  list, per plate, each scheduled routine (night, climb, tend, morning, robot,
+  cross-review, publish) with its schedule in the owner's time zone, its next
+  run, its last result and its budget; the sidebar also carries Humans and
+  Links.
+- **Scope:**
+  - `routinesOf(plate)`: a pure reader over the workflow files' `schedule:`
+    crons and `.plates/plates.json`; last result from the night journal and
+    receipts the fleet already reads;
+  - a routine whose config says one schedule and whose workflow says another
+    shows both, never a guess;
+  - read-only: nothing here starts, stops or reschedules a routine.
+- **Acceptance:**
+  - [ ] Every scheduled workflow appears once, with its next run computed from
+    its cron: `tests/backlog-recurring.test.mjs: "each routine once, next run from its cron"`.
+  - [ ] A routine switched off in config shows off with the key that says so:
+    `tests/backlog-recurring.test.mjs: "an off routine says why"`.
+  - [ ] CLI and web match: `tests/home-isomorphism.test.mjs: "recurring matches in both forms"`.
+- **Real surfaces:** hosted Home on Vercel with the GitHub App, read-only.
+
+### 186. The sidebar shows which agents can work, what each is on, and what waits for review
+
+- **Done when:** the sidebar's Agents lists each provider in `agents` and each
+  route in `backlog`, with what it is on now from claims and presence, or idle,
+  and off routes greyed with their reason; Pending review lists the fleet's
+  open PRs that are not set to auto-merge, through the GitHub App.
+- **Scope:**
+  - `agentsOf(config, claims, presence)`: pure; the agent's line is the item it
+    holds ("working on plates #273") and its presence word from Agent presence;
+  - Pending review reads `autoMergeRequest` on open PRs with the installation
+    token the hosted workspace already holds. No personal access token; a plate
+    the App cannot read shows "not read";
+  - read-only.
+- **Acceptance:**
+  - [ ] An agent with a claim shows that item; one without shows idle:
+    `tests/backlog-agents.test.mjs: "an agent shows what it holds"`.
+  - [ ] A PR set to auto-merge is not pending review:
+    `tests/backlog-agents.test.mjs: "auto-merge is not waiting on you"`.
+  - [ ] CLI and web match: `tests/home-isomorphism.test.mjs: "agents match in both forms"`.
+- **Your part:**
+  - **Ask:** Open the sidebar and say whether Agents and Pending review match
+    what you know is running and waiting.
+  - **Choices:** Matches | Something missing (say what) | Something wrong
+  - **Takes:** About 3 minutes.
+- **Real surfaces:** hosted Home on Vercel with the GitHub App, read-only.
 
 ## Boundaries
 
@@ -473,9 +579,6 @@ and read-only until its write increment.
 
 ## Deliberately open
 
-- **Verb or flag.** `plates backlog` is clearer, but `.plates/surface.json` may
-  not take a new verb. Settled by the surface budget check at the start of
-  phase 178.
 - **Whether Recently done belongs in the backlog or stays on Home.** Settled by
   the owner's walk on phase 178.
 - **Agent-ready needs `spec: 2`.** Some useful phases are older specs. Showing
