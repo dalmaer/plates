@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**72 of 179 phases built; 75 owe a walk.** Built means implemented and checked; planned is not available.
+**72 of 179 phases built; 76 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -335,7 +335,7 @@ Each change is verified in parallel and published one at a time; production move
 
 From mobile and desktop, an authenticated owner operates every authorized Plates project: decisions, guided tests, visual changes, routine history and execution, fleet lessons and updates, scoped credentials and policy-bound model capacity, with source-backed evidence and private data.
 
-8/44 built; 29 owe a walk.
+8/44 built; 30 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -379,7 +379,7 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 | [180. My lane is a session I can finish](phases/180-my-lane-is-a-session-i-can-finish.md) | partial, walk owed | 2026-11-06 | [178](phases/178-the-backlog-shows-every-plate-s-work-in-lanes.md), [174](phases/174-a-review-session-takes-me-through-my-docket.md) | Built: /review/yours runs the Yours lane with a peek, an honest running total, Not now with a reason (already sealed in SQL017, no migration) and 'All caught up' only after a complete read. Owes the owner's walk. |
 | [181. I can attach an agent to a phase, and see it working](phases/181-i-can-attach-an-agent-to-a-phase-and-see-it.md) | partial | 2026-11-06 | [178](phases/178-the-backlog-shows-every-plate-s-work-in-lanes.md) | The attach contract and the CLI session route are built: plates home --attach previews, claims create-only, journals and hands over the /spin brief. Web attach, tonight and robot remain. |
 | [182. Agents prepare my walks and draft my decisions](phases/182-agents-prepare-my-walks-and-draft-my-decisions.md) | partial | 2026-11-06 | [181](phases/181-i-can-attach-an-agent-to-a-phase-and-see-it.md), [98](phases/98-guided-walks-preserve-what-was-tested.md), [97](phases/97-decisions-change-the-reviewed-source.md) | Decision drafts are built for the CLI: an agent records a recommendation with evidence, withdrawn when the phase file moves; nothing answers. Still to build: walk-prep, shape, and a store the web can read drafts from. |
-| [183. A local agent host can take a phase](phases/183-a-local-agent-host-can-take-a-phase.md) | planned | 2026-11-05 | [181](phases/181-i-can-attach-an-agent-to-a-phase-and-see-it.md) | Specified in docs/specs/web-backlog.md. Runs only on the owner's machine; off unless the plate lists local-host. |
+| [183. A local agent host can take a phase](phases/183-a-local-agent-host-can-take-a-phase.md) | partial, walk owed | 2026-11-06 | [181](phases/181-i-can-attach-an-agent-to-a-phase-and-see-it.md) | Built: the local-host route runs the owner's privately configured command with the brief, once, and shows the state it reports. Owes the owner's walk with a real host. |
 | [184. The backlog remembers what happened to each item](phases/184-the-backlog-remembers-what-happened-to-each-item.md) | planned | 2026-11-05 | [181](phases/181-i-can-attach-an-agent-to-a-phase-and-see-it.md) | Specified in docs/specs/web-backlog.md. Metadata only. |
 | [185. Recurring shows every routine each plate runs, and when it next runs](phases/185-recurring-shows-every-routine-each-plate-runs.md) | partial | 2026-11-05 | [178](phases/178-the-backlog-shows-every-plate-s-work-in-lanes.md) | Built in two increments: routinesOf, and plates home --recurring with the hosted /recurring and the sidebar's Humans and Links. Waits on the hosted read after deploy. |
 | [186. The sidebar shows which agents can work, what each is on, and what waits for review](phases/186-the-sidebar-shows-which-agents-can-work-what.md) | partial, walk owed | 2026-11-05 | [178](phases/178-the-backlog-shows-every-plate-s-work-in-lanes.md) | Built in two increments: agentsOf and pending review, then plates home --agents, the hosted /agents and the live sidebar. Owes the owner's look after deploy. |

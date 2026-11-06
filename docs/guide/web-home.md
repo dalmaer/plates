@@ -162,6 +162,28 @@ draft is withdrawn and the backlog says so. A plate's `"backlog": { "assists":
 [...] }` policy can turn it off (with no policy, `decision-draft` is offered).
 Drafts are local to the checkout: the hosted backlog does not read them yet.
 
+`plates home --attach <plate>:phase:<n> --route local-host --provider <p>`
+(phase 183) hands the phase to a local agent host you run on your own
+machine. The route is off unless the plate's `"backlog": { "routes": [...] }`
+lists `local-host`. The host is configured privately, never in a repo, in
+`$XDG_CONFIG_HOME/plates/local-hosts.json` (else
+`~/.config/plates/local-hosts.json`), keyed by the provider name it claims
+with, which must also be a key of the plate's `agents`:
+`{ "hosts": { "<p>": { "start": ["/abs/path/host", ...], "state": ["/abs/path/host", "state"] } } }`.
+The preview prints the brief whole: the phase's Done when, its Acceptance and
+its current decisions (`plates decision context`). With `--yes` Plates claims
+the phase, then runs `start... <checkout path>` once, in the checkout, with
+those exact bytes on stdin. The host prints a session id on one line and exits
+0. Both commands run as argv with no shell, bounded in time and output, and
+with only PATH, HOME, user, shell, locale and temp in their environment: no
+token Plates holds passes to them. A host is never run twice for one phase: a
+second `--yes` returns the receipt, and a run whose answer was lost is
+recorded as uncertain, not repeated. If the host has a `state` command, Plates
+runs `state... <session id>` when it reads the backlog. An answer of
+`starting`, `running`, `waiting`, `finished` or `failed` becomes the card's
+presence, with the host and session as its source. A host with no state
+command, or one that answers anything else, leaves the card at "claimed".
+
 `plates home --agents` (phase 186) lists each provider in the plates'
 `agents` maps with the item it holds now, from claims ("working on plates
 #178", with its presence: claimed, or stale after seven days without a push),

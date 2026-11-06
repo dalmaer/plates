@@ -558,5 +558,5 @@ test('a claim is not a running agent', async () => {
   // Only an execution source says running, and says which.
   assert.deepEqual([at([{ phase: 8, state: 'running', source: 'night journal 2026-11-05' }]).presence, at([{ phase: 8, state: 'running', source: 'night journal 2026-11-05' }]).presenceSource], ['running', 'night journal 2026-11-05']);
   assert.equal(at([{ phase: 9, state: 'running', source: 'night journal' }]).presence, 'claimed', 'another phase\'s run is not this one\'s');
-  assert.deepEqual(EXECUTION_STATES, ['running', 'ready', 'integrating', 'blocked']);
+  assert.deepEqual(EXECUTION_STATES, ['running', 'ready', 'integrating', 'blocked', 'starting', 'waiting', 'finished', 'failed']);
 });
