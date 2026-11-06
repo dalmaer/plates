@@ -17,7 +17,7 @@ The `local-host` route claims with the host's provider name and hands the spin b
 ## Scope
 
 - An adapter behind the route interface, with a small documented host contract: Plates runs the configured command with the checkout path and the brief on stdin; the command prints a session id, and may answer a state query (`starting`, `running`, `waiting`, `finished`, `failed`).
-- The host command lives in the owner's private local configuration, never in a committed file; off unless `agents.providers` lists `local-host`.
+- The host command lives in the owner's private local configuration, never in a committed file; off unless the plate's `backlog.routes` lists `local-host`.
 - The owner's machine only; no credentials pass through Plates.
 - Out of scope: hosted dispatch to a local host.
 
@@ -36,13 +36,15 @@ The `local-host` route claims with the host's provider name and hands the spin b
 
 ## Your part
 
-- **Ask:** Attach your local agent host to one ready phase and let it land.
-- **Why:** It settles whether an agent host beyond the built-in providers can work as a Plates agent.
-- **Look at:** The brief in the preview.
-- **Choices:** It landed | It started but stalled (say where) | It didn't start
-- **Takes:** About 10 minutes, plus the agent's time.
-- **Then:** Landed: built. Otherwise the adapter or host contract changes here.
-- **Ready when:** phase 181 is built and a local agent host is configured on the owner's machine.
+- **Ask:** Attach your own local agent host to one ready phase, and let it land through `plates ready` and `plates integrate`.
+- **Why:** Only you have a host configured on your machine. It settles whether an agent host beyond Claude Code and Codex can work as a Plates agent.
+- **Look at:** The brief in the preview: it is the exact bytes your host gets on stdin. Then the card's presence while it works.
+- **Choices:** It landed | It started but stalled (say where) | It didn't start (say why)
+- **Recommend:** It landed
+- **Keeps it open:** It didn't start (say why)
+- **Takes:** About 15 minutes to write `~/.config/plates/local-hosts.json` and attach, plus the agent's time.
+- **Then:** It landed: built. Stalled or didn't start: the adapter or the host contract changes here.
+- **Ready when:** the automated boxes are built, the plate's `backlog.routes` lists `local-host`, and `~/.config/plates/local-hosts.json` names your host under the provider it claims with.
 
 ## Real surfaces
 
