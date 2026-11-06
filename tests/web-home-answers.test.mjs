@@ -167,3 +167,33 @@ test('a web walk answer is refused at apply when the box text changed since its 
   const bad = await web(postJson(h, '/api/home/answer', { key: walk.key, answer: 'choice-nope', csrf: signed.session.csrf }, signed.cookie));
   assert.equal(bad.status, 404);
 });
+
+// Phase 187: a plate with 190 phases (plates itself passed 180). The walk's
+// preview and its apply read the whole inventory; one blob GET at a time ran
+// past the 25s source deadline in production (upstream_unavailable). Reads run
+// at most READ_CONCURRENCY at a time, within the call budget, and the
+// inventory bound fits. Counted, never timed.
+test('a 190-phase plate previews and applies a walk answer, reading its blobs a bounded few at a time', async () => {
+  const READ_CONCURRENCY = 8, CALL_BUDGET = 600; // lib/web/decision-github.mjs READ_CONCURRENCY, PHASE_INVENTORY_LIMIT + 200
+  const h = walkWeb();
+  let inFlight = 0, most = 0, blobs = 0, counting = false;
+  const fetcher = async (url, options) => {
+    if (!counting || !String(url).includes('/git/blobs/')) return h.fetcher(url, options);
+    blobs++; inFlight++; most = Math.max(most, inFlight);
+    try { await new Promise(r => setImmediate(r)); return await h.fetcher(url, options); } finally { inFlight--; }
+  };
+  const web = createWebService(h.config, { fetcher, now: () => h.state.now }), signed = await h.login();
+  const home = await (await web(h.request('/api/home', { cookie: signed.cookie }))).json();
+  const walk = home.walks.find(w => w.key === 'studio:walk:2'), choice = walk.answers.find(a => a.id.startsWith('choice-'));
+  // Home's own reader is not under test: the inventory grows after it read the plate (the walk is still waiting).
+  for (let n = 3; n <= 190; n++) h.source.files[`docs/phases/${String(n).padStart(3, '0')}-acme-${n}.md`] = phaseFile(n, { status: 'built' });
+  counting = true;
+  const answered = await web(postJson(h, '/api/home/answer', { key: walk.key, answer: choice.id, why: 'Tried it on the Acme phone.', csrf: signed.session.csrf }, signed.cookie));
+  assert.equal(answered.status, 200, await answered.clone().text());
+  const { preview } = await answered.json();
+  assert.ok(most > 1 && most <= READ_CONCURRENCY, `at most ${READ_CONCURRENCY} blob reads in flight (saw ${most})`);
+  assert.ok(blobs >= 190 && blobs <= CALL_BUDGET, `the preview's ${blobs} blob reads fit the call budget`);
+  const applied = await web(postJson(h, '/api/projects/studio/decisions/apply', { previewId: preview.id, publicAcknowledgement: preview.digest, csrf: signed.session.csrf }, signed.cookie));
+  assert.equal((await applied.json()).state, 'committed', 'its apply re-reads the same inventory and writes');
+  assert.ok(most <= READ_CONCURRENCY);
+});
