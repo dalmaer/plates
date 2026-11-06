@@ -73,6 +73,10 @@ if (argv[0] === 'api' && argv[1] === 'graphql') {
 } else if (argv[0] === 'api' && /\\/pulls\\/\\d+\\/reviews/.test(argv[1])) {
   const pg = Number((/[?&]page=(\\d+)/.exec(argv[1]) ?? [])[1] ?? 1);
   console.log(JSON.stringify(pg > 1 ? [] : s.reviews.map(r => ({ user: { login: r.user }, state: r.state ?? 'COMMENTED', commit_id: r.commit_id, submitted_at: '2026-10-10T10:00:00Z' }))));
+} else if (argv[0] === 'api' && /^repos\\/[\\w.-]+\\/[\\w.-]+\\/commits\\//.test(argv[1])) {
+  const ref = argv[1].split('/').pop();
+  const sha = /^[0-9a-f]{7,40}$/i.test(ref) ? ref.toLowerCase().padEnd(40, '0') : 'f'.repeat(40);
+  console.log(JSON.stringify({ sha, commit: { committer: { date: new Date().toISOString() } } }));
 } else if (argv[0] === 'api' && ['/contents/.plates/plates.json', '/contents/.keel/keel.json'].some(path => argv[1].endsWith(path))) {
   const legacy = argv[1].endsWith('/contents/.keel/keel.json');
   const contents = legacy ? s.legacyContents : s.contents;

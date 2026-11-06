@@ -104,6 +104,19 @@ if (argv[0] === 'api' && argv.includes('--include')) {
   // GitHub's pages: 100 a page, page=N (1 when none is named).
   const pg = Number((/[?&]page=(\\d+)/.exec(argv[1]) ?? [])[1] ?? 1);
   console.log(JSON.stringify(s.reviews.filter(r => (r.after ?? 0) <= s.reviewReads).slice((pg - 1) * 100, pg * 100).map(r => ({ user: { login: r.user }, state: r.state ?? 'COMMENTED', commit_id: r.commit_id, submitted_at: '2026-10-06T10:00:00Z' }))));
+} else if (argv[0] === 'api' && /^repos\\/[\\w.-]+\\/[\\w.-]+\\/commits\\//.test(argv[1])) {
+  const [, repo, ref] = /^repos\\/([\\w.-]+\\/[\\w.-]+)\\/commits\\/(.+)$/.exec(argv[1]);
+  const commits = s.commits ?? {};
+  const has = Object.prototype.hasOwnProperty.call(commits, repo + '@' + ref) ? repo + '@' + ref : Object.prototype.hasOwnProperty.call(commits, ref) ? ref : null;
+  const entry = has ? commits[has] : undefined;
+  if (entry === false || (s.commitsOnly && has === null)) { console.error('gh: No commit found for SHA: ' + ref + ' (HTTP 422)'); process.exit(1); }
+  if (entry === 'down') { console.error('gh: Server Error (HTTP 502)'); process.exit(1); }
+  if (entry === 'bad-json') { console.log('not json'); process.exit(0); }
+  const raw = typeof entry === 'string' || entry === null ? { date: entry } : (entry ?? { date: new Date().toISOString() });
+  const hex = /^[0-9a-f]{7,40}$/i.test(ref) ? ref.toLowerCase().padEnd(40, '0') : 'f'.repeat(40);
+  const sha = raw.sha === undefined ? hex : raw.sha;
+  const commit = raw.authorOnly ? { committer: { date: raw.committerDate ?? '' }, author: { date: raw.date } } : { committer: { date: raw.date } };
+  console.log(JSON.stringify({ sha, commit }));
 } else if (argv[0] === 'api' && (argv[1].endsWith('/contents/.plates/plates.json') || argv[1].endsWith('/contents/.keel/keel.json'))) {
   if (!s.contents) { console.error('gh: Not Found (HTTP 404)'); process.exit(1); }
   console.log(JSON.stringify({ content: Buffer.from(JSON.stringify(s.contents)).toString('base64') }));
@@ -320,6 +333,105 @@ test('--close refuses a not-valid with no reason, a fixed with no commit, and an
   assert.throws(() => answerOf({ notValid: '   ' }), /needs the reason/);
   assert.deepEqual(answerOf({ fixed: 'acme/app@abc1234' }), { kind: 'fixed', value: 'acme/app@abc1234' });
   assert.deepEqual(answerOf({ tracked: 'v0.9.0' }), { kind: 'tracked', value: 'v0.9.0' });
+});
+
+test('#60: --close --fixed refuses a finding posted after the fixing commit, fails closed on unavailable commit time, and handles release tags', async t => {
+  const dir = await project(t);
+  const early = { id: 'PRRT_early', path: 'anvil.js', line: 4, comments: [c(10, 'acme-reviewer', 'Check the anvil.', '2026-10-04')] };
+  const late = { id: 'PRRT_late', path: 'skates.js', line: 12, comments: [c(11, 'acme-reviewer', 'Check the brakes.', '2026-10-06')] };
+  const reopened = { id: 'PRRT_reopen', path: 'lid.js', line: 8, comments: [
+    c(12, 'acme-reviewer', 'Close the lid.', '2026-10-04'),
+    c(13, 'acme-owner', 'Closed in def5678.', '2026-10-04'),
+    c(14, 'acme-reviewer', 'Still open on resize.', '2026-10-06'),
+  ] };
+  const gh = await stubGh(t, {
+    threads: [early, late, reopened],
+    bodies: [{ id: 'PRR_late', databaseId: 77, author: 'acme-reviewer', body: 'Acme body finding.', createdAt: '2026-10-06T09:00:00Z' }],
+    reviews: [ON_HEAD],
+    writes: true,
+    commitsOnly: true,
+    commits: {
+      abc1234: '2026-10-05T09:00:00Z',
+      def5678: '2026-10-06T11:30:00+02:30',
+      fedcba9: { date: '2026-10-06T07:30:01-01:30', authorOnly: true },
+      'acme/other@1122334': '2026-10-04T00:00:00Z',
+      'acme/other@5566778': '2026-10-06T12:00:00Z',
+      'refs/tags/v0.7.0': false,
+      'refs/tags/0.7.0': '2026-10-06T09:00:00Z',
+      'refs/tags/v0.8.0': '2026-10-05T09:00:00Z',
+      'refs/tags/v0.9.0': '2026-10-06T09:00:00Z',
+      'refs/tags/0.9.0': false,
+      'refs/tags/v0.9.1': 'down',
+      'refs/tags/v0.9.2': 'bad-json',
+      bad1111: 'down',
+      bad2222: 'bad-json',
+      bad3333: null,
+      bad4444: '1234',
+      bad5555: '2026-99-99T09:00:00Z',
+      bad6666: { date: '2026-10-07T09:00:00Z', sha: '1'.repeat(40) },
+      bad7777: { date: '2026-10-07T09:00:00Z', sha: 'short' },
+      bad8888: '2026-02-31T09:00:00Z',
+      bad9999: '2026-10-06T09:00:00+25:00',
+    },
+  });
+  assert.equal(plates(dir, gh, ['acme/app#3']).code, 1);
+
+  // Older commit: exits 2, names the thread, its date and the commit's date, and posts nothing (even alongside an older valid thread).
+  const old = plates(dir, gh, ['acme/app#3', '--close', 'PRRT_late', '--fixed', 'abc1234']);
+  assert.equal(old.code, 2, old.out + old.err);
+  assert.match(old.err, /PRRT_late \(acme-reviewer, skates\.js:12\) was posted at 2026-10-06T09:00:00Z, after abc1234 was committed \(2026-10-05T09:00:00Z\)/);
+  assert.match(old.err, /nothing posted/);
+  for (const bad of ['../acme@abc1234', './acme@abc1234', 'acme/..@abc1234', 'acme/.@abc1234']) {
+    assert.throws(() => answerOf({ fixed: bad }), /--fixed needs the commit/);
+  }
+
+  const mixed = plates(dir, gh, ['acme/app#3', '--close', 'PRRT_early,PRRT_late', '--fixed', 'abc1234', '--json']);
+  assert.equal(mixed.code, 2);
+  assert.match(mixed.json().error, /PRRT_late/);
+  assert.doesNotMatch(mixed.json().error, /PRRT_early/);
+
+  // Reopened thread, review body, cross-repo older commit, and older release tag are all refused before any write.
+  assert.equal(plates(dir, gh, ['acme/app#3', '--close', 'PRRT_reopen', '--fixed', 'abc1234']).code, 2);
+  assert.equal(plates(dir, gh, ['acme/app#3', '--close', 'PRR_late', '--fixed', 'abc1234']).code, 2);
+  assert.equal(plates(dir, gh, ['acme/app#3', '--close', 'PRRT_late', '--fixed', 'acme/other@1122334']).code, 2);
+  assert.equal(plates(dir, gh, ['acme/app#3', '--close', 'PRRT_late', '--fixed', 'v0.8.0']).code, 2);
+
+  // Unavailable or malformed commit/tag metadata fails closed (exit 2, nothing posted).
+  for (const bad of ['9999999', 'bad1111', 'bad2222', 'bad3333', 'bad4444', 'bad5555', 'bad6666', 'bad7777', 'bad8888', 'bad9999', 'v0.9.9', 'v0.9.1', 'v0.9.2']) {
+    const r = plates(dir, gh, ['acme/app#3', '--close', 'PRRT_early', '--fixed', bad]);
+    assert.equal(r.code, 2, `${bad}: ${r.out}${r.err}`);
+  }
+  assert.equal(writesIn(await gh.calls()).length, 0, 'every refused or unverifiable close posted nothing');
+
+  // Commit at the finding's exact timestamp, commit after (via author date fallback), cross-repo commit, and release tags (v0.9.0, bare 0.9.0 -> v0.9.0, and v0.7.0 -> bare 0.7.0) succeed.
+  assert.equal(plates(dir, gh, ['acme/app#3', '--close', 'PRRT_late', '--fixed', 'def5678']).code, 0);
+  assert.equal(plates(dir, gh, ['acme/app#3', '--close', 'PRRT_reopen', '--fixed', 'fedcba9']).code, 0);
+  assert.equal(plates(dir, gh, ['acme/app#3', '--close', 'PRR_late', '--fixed', 'acme/other@5566778']).code, 0);
+  assert.equal(plates(dir, gh, ['acme/app#3', '--close', 'PRRT_early', '--fixed', '0.9.0']).code, 0);
+  assert.equal(plates(dir, gh, ['acme/app#3', '--close', 'PRRT_early', '--fixed', 'v0.7.0']).code, 0);
+  assert.equal(writesIn(await gh.calls()).filter(x => x.includes('POST')).length, 5);
+
+  // Missing/invalid finding time also fails closed before posting.
+  const noTimeDir = await project(t);
+  const noTime = await stubGh(t, { threads: [{ id: 'PRRT_notime', path: 'a.js', line: 1, comments: [{ databaseId: 1, author: 'acme-reviewer', body: 'Broken.', createdAt: 'not-iso' }] }], writes: true });
+  plates(noTimeDir, noTime, ['acme/app#3']);
+  assert.equal(plates(noTimeDir, noTime, ['acme/app#3', '--close', 'PRRT_notime', '--fixed', 'abc1234']).code, 2);
+  assert.equal(writesIn(await noTime.calls()).length, 0);
+
+  // Post-push reviews (<repo>@<sha> --close --fixed) enforce the same chronology against the review issue's creation time.
+  const pushDir = await project(t);
+  const pgh = await pushGh(t, {
+    issues: [pushIssue([F1, F2])],
+    writes: true,
+    commits: { [PUSHED.slice(0, 7)]: '2026-10-09T09:55:00Z', ccccccc: '2026-10-09T10:05:00Z' },
+  });
+  const pushAt = `acme/app@${PUSHED.slice(0, 7)}`;
+  assert.equal(plates(pushDir, pgh, [pushAt]).code, 1);
+  const pushOld = plates(pushDir, pgh, [pushAt, '--close', 'F1', '--fixed', PUSHED.slice(0, 7)]);
+  assert.equal(pushOld.code, 2, pushOld.out + pushOld.err);
+  assert.match(pushOld.err, /F1 \(codex, src\/lid\.js:12\) was posted at 2026-10-09T10:00:00Z, after bbbbbbb was committed \(2026-10-09T09:55:00Z\)/);
+  assert.equal((await pgh.calls()).filter(x => x.includes('POST')).length, 0);
+  assert.equal(plates(pushDir, pgh, [pushAt, '--close', 'F1', '--fixed', 'ccccccc']).code, 0);
 });
 
 // ---- not a gate ----------------------------------------------------------------------
@@ -854,6 +966,13 @@ if (argv[0] === 'api' && argv[1] === '-X' && argv[2] === 'PATCH' && argv[3] === 
   if (!s.writes) deny();
   s.issues[0].state = 'CLOSED'; save();
   console.log('{}'); process.exit(0);
+}
+if (argv[0] === 'api' && /^repos\\/[\\w.-]+\\/[\\w.-]+\\/commits\\//.test(argv[1])) {
+  const ref = argv[1].split('/commits/')[1];
+  const date = (s.commits ?? {})[ref] ?? new Date().toISOString();
+  const sha = /^[0-9a-f]{7,40}$/i.test(ref) ? ref.toLowerCase().padEnd(40, '0') : 'f'.repeat(40);
+  console.log(JSON.stringify({ sha, commit: { committer: { date } } }));
+  process.exit(0);
 }
 console.error('stub gh: unknown ' + argv.join(' ')); process.exit(1);
 `);
