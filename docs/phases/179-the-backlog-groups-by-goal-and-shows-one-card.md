@@ -1,11 +1,11 @@
 ---
-status: planned
-since: 2026-11-05
+status: built
+since: 2026-11-06
 goal: G7
 spec: 2
 depends: [178]
-note: "Specified in docs/specs/web-backlog.md."
-evidence: []
+note: "Built: a grouping module gives each item one card, and By goal shows in plates home --backlog --by-goal and on /backlog/goals."
+evidence: ["evidence/2026-11-06-backlog-goals.md"]
 ---
 
 # The backlog groups by goal and shows one card per phase
@@ -27,9 +27,9 @@ The By goal arrangement shows a header per goal with lane counts, and each phase
 
 ## Acceptance
 
-- [ ] Every item appears in exactly one card: `tests/backlog-grouping.test.mjs: "each item has one home"`
-- [ ] Similar items in different plates are never merged: `tests/backlog-grouping.test.mjs: "plates never merge across projects"`
-- [ ] Both source links survive a dedupe: `tests/backlog-grouping.test.mjs: "a merged item keeps both sources"`
+- [x] Every item appears in exactly one card: `tests/backlog-grouping.test.mjs: "each item has one home"`
+- [x] Similar items in different plates are never merged: `tests/backlog-grouping.test.mjs: "plates never merge across projects"`
+- [x] Both source links survive a dedupe: `tests/backlog-grouping.test.mjs: "a merged item keeps both sources"`
 
 ## Real surfaces
 
@@ -47,4 +47,7 @@ Whether nested children are expanded by default on phones. Settled by the first 
 
 ## Next action
 
-Write the golden fixture from plates's own phases 166–177 and their walks.
+None: built. Whether nested items start collapsed on phones stays open (Deliberately open).
+
+## Trajectory
+- **2026-11-06** Goals are per plate, so headers read "Plate · Goal"; a goal with no cards gets no header. HOME_MODEL_VERSION 17.
