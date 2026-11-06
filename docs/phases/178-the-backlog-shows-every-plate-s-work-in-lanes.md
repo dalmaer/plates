@@ -77,3 +77,4 @@ Deploy, then the owner's walk on phone and laptop (Your part).
 - **2026-11-05** Increment 3: the web reads claims with one App GraphQL query per plate (claim branches, then open PRs), and both forms take phases from projectFromSource's roadmap; HOME_MODEL_VERSION is 13.
 - **2026-11-05** backlog.css is counted apart from the phase-171 CSS bound, with its own 2600-byte cap.
 - **2026-11-05** The owner's first look found every plate "not read": `/backlog` rendered cache-only after a model-version bump, and stale counted as not read. The page now loads like Home, and stale plates stay readable with "at least" counts.
+- **2026-11-06** From the owner's "coherent questions" ask: `Recommend` became a Your part field that must equal a choice, and a Yours row leads with its Ask and marks the recommended answer, in the CLI, /backlog and /review. HOME_MODEL_VERSION 14; backlog.css cap 2900.
