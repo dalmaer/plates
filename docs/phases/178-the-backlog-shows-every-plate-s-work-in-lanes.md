@@ -76,3 +76,4 @@ Deploy, then the owner's walk on phone and laptop (Your part).
 - **2026-11-05** `plates home --backlog` reads each plate's roadmap from its working tree through `collect` and `nextFree`, while the snapshot reads the default branch; a dirty or behind tree can disagree.
 - **2026-11-05** Increment 3: the web reads claims with one App GraphQL query per plate (claim branches, then open PRs), and both forms take phases from projectFromSource's roadmap; HOME_MODEL_VERSION is 13.
 - **2026-11-05** backlog.css is counted apart from the phase-171 CSS bound, with its own 2600-byte cap.
+- **2026-11-05** The owner's first look found every plate "not read": `/backlog` rendered cache-only after a model-version bump, and stale counted as not read. The page now loads like Home, and stale plates stay readable with "at least" counts.
