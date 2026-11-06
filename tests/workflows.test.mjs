@@ -699,6 +699,18 @@ test('the night refreshes an existing PR body by exact number, or creates a new 
   }
 });
 
+// Phase 75: the persona run in the night's plan writes docs/reviews/<date>-<persona>.md; the night's PR carries those pages,
+// so the owner reads them after the night. A project with no personas has no docs/reviews, and its commit is as before.
+test("the night's PR carries the personas' review pages, and a project without personas is unaffected", async t => {
+  const night = await readFile(join(PLATES, 'practices/night/files/.github/workflows/plates-night.yml'), 'utf8');
+  const withPages = await nightCommit(t, night, { after: async dir => { await mkdir(join(dir, 'docs/reviews'), { recursive: true }); await writeFile(join(dir, 'docs/reviews/2026-10-05-speed.md'), '# speed — 2026-10-05\n'); } });
+  assert.equal(withPages.status, 0, withPages.out);
+  assert.deepEqual(withPages.files, ['.plates/bounds.json', 'docs/health/2026-10-05.md', 'docs/reviews/2026-10-05-speed.md'], 'the review page rides with the health page');
+  const without = await nightCommit(t, night, {});
+  assert.equal(without.status, 0, without.out);
+  assert.deepEqual(without.files, ['.plates/bounds.json', 'docs/health/2026-10-05.md'], 'no personas: the same commit as before');
+});
+
 test('the night fails on PR lookup or edit errors without creating a replacement', async t => {
   const night = await readFile(join(PLATES, 'practices/night/files/.github/workflows/plates-night.yml'), 'utf8');
   for (const [options, code, message, verbs] of [

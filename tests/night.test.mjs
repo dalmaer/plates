@@ -96,6 +96,9 @@ const writes = calls => calls.filter(c => c[0] === 'pr' && ['merge', 'close'].in
 test('isData and checkPrefix', () => {
   for (const p of ['docs/health/2026-09-30.md', 'docs/inbox/x.md', 'docs/INBOX.md', '.plates/bounds.json']) assert.ok(isData(p), p);
   for (const p of ['docs/healthy.md', 'docs/INBOX.md.bak', '.plates/plates.json', 'lib/acme.mjs', 'docs/health']) assert.ok(!isData(p), p);
+  // Phase 75: a persona's dated review page is the night's data (its plan's persona run writes it); the directory's other files are not.
+  assert.ok(isData('docs/reviews/2026-10-05-speed.md'), 'a persona review page');
+  for (const p of ['docs/reviews/lessons.md', 'docs/reviews/2026-10-05-speed.mjs', 'docs/reviews/2026-10-05-Speed.md', 'docs/reviews/2026-10-05-speed/x.md']) assert.ok(!isData(p), p);
   assert.equal(checkPrefix('keel-night/'), 'keel-night/');
   assert.equal(checkPrefix('keel/update-v'), 'keel/update-v');
   for (const bad of ['', 'plates', '/', '/x', 'a b/']) assert.throws(() => checkPrefix(bad), e => e.exitCode === 2, bad);
