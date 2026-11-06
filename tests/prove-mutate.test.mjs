@@ -467,13 +467,71 @@ test('#185: a dynamically imported module loaded through a preload has parse and
   assert.equal(m.total, 6);
 });
 
-test('#185: a module that requires test-body setup to import still has behavioral mutants caught', async t => {
-  const base = ["if (process.env.ACME_READY !== '1') throw new Error('missing ACME_READY');", 'export const value = 2;', ''].join('\n');
-  const fix = ["if (process.env.ACME_READY !== '1') throw new Error('missing ACME_READY');", 'export const value = 3;', ''].join('\n');
-  const tst = [...TESTHEAD, "test('Acme setup before import', async () => { process.env.ACME_READY = '1'; const { value } = await import('../lib/runtime.mjs'); assert.equal(value, 3); });", ''].join('\n');
-  const repo = await fixRepo(t, { base: { 'lib/runtime.mjs': base }, fix: { 'lib/runtime.mjs': fix }, tests: { 'tests/runtime.test.mjs': tst } });
-  const { j } = await mutate(repo, ['tests/runtime.test.mjs', '--fix', 'lib/runtime.mjs'], 0);
-  assert.deepEqual(j.mutate.invalid, []);
-  assert.equal(j.mutate.caught, 1);
-  assert.equal(j.mutate.total, 1);
+test('#185: import probes run in an isolated scratch tree so module filesystem side effects never pollute test runs', async t => {
+  const base = ["import { appendFileSync } from 'node:fs';", "appendFileSync('acme-init.log', 'init\\n');", 'export const limit = 2;', ''].join('\n');
+  const fix = ["import { appendFileSync } from 'node:fs';", "appendFileSync('acme-init.log', 'init\\n');", 'export const limit = 3;', "if (limit < 0) throw new Error('negative limit');", ''].join('\n');
+  const tst = [...TESTHEAD, "import { readFileSync } from 'node:fs';",
+    "test('Acme one init record', async () => { const { limit } = await import('../lib/init.mjs'); assert.equal(readFileSync('acme-init.log', 'utf8'), 'init\\n'); assert.equal(limit, 3); });", ''].join('\n');
+  const repo = await fixRepo(t, { base: { 'lib/init.mjs': base }, fix: { 'lib/init.mjs': fix }, tests: { 'tests/init.test.mjs': tst } });
+  const { j } = await mutate(repo, ['tests/init.test.mjs', '--fix', 'lib/init.mjs'], 0);
+  const m = j.mutate;
+  assert.equal(m.status, 'ran', m.reason);
+  assert.deepEqual(m.invalid.map(where), ['lib/init.mjs:4 condition negate `limit < 0`', 'lib/init.mjs:4 condition drop `limit < 0` (always true)']);
+  assert.equal(m.caught, 1);
+  assert.equal(m.total, 5);
+});
+
+test('#185: standalone import failures are confirmed in the test context before marking a mutant invalid', async t => {
+  const { tapEntries } = await import('../lib/prove.mjs');
+  const parsed = tapEntries("not ok 1 - x\n  ---\n  error: 'boom'\n  stack: |-\n    f (file:///a.mjs:1:1)\n  ...\n");
+  assert.deepEqual(parsed[0].stack, ['f (file:///a.mjs:1:1)']);
+  const singleLineStack = tapEntries("not ok 1 - x\n  ---\n  stack: 'g (file:///b.mjs:1:1)'\n  ...\n");
+  assert.deepEqual(singleLineStack[0].stack, ['g (file:///b.mjs:1:1)']);
+
+  // 1. Standalone probe fails (ACME_READY unset), but in the test ACME_READY='1' lets import() succeed:
+  //    both assertion/call failures (same 'unready' message, no module-loader frame) and post-import dynamic
+  //    import failures (different error, module-loader frame) remain caught, never short-circuited as invalid.
+  const baseMod = ['export const value = 2;', 'export function check() {}', 'export async function loadPlugin(p) { return import(p); }', ''].join('\n');
+  const fixMod = [
+    'export const value = 3;',
+    "if (process.env.ACME_READY !== '1' && value > 3) throw new Error('unready');",
+    "export function check() { if (value > 3) throw new Error('unready'); }",
+    'export async function loadPlugin(p) { return import(p); }',
+    '',
+  ].join('\n');
+  const callTest = [...TESTHEAD,
+    "test('Acme call after setup import', async () => { process.env.ACME_READY = '1'; const { value, check } = await import('../lib/mod.mjs'); check(); assert.equal(value, 3); });", ''].join('\n');
+  const repoCall = await fixRepo(t, { base: { 'lib/mod.mjs': baseMod }, fix: { 'lib/mod.mjs': fixMod }, tests: { 'tests/mod.test.mjs': callTest } });
+  const rCall = await mutate(repoCall, ['tests/mod.test.mjs', '--fix', 'lib/mod.mjs'], 0);
+  const numMutant = rCall.j.mutate.mutants.find(x => where(x) === 'lib/mod.mjs:1 number `3` → `4`');
+  assert.equal(numMutant.result, 'caught', 'imports under ACME_READY=1 and fails inside check(), not during module load');
+  const logicalMutant = rCall.j.mutate.mutants.find(x => where(x) === 'lib/mod.mjs:2 logical `&&` → `||`');
+  assert.equal(logicalMutant.result, 'survivor', 'imports and passes under ACME_READY=1 despite throwing standalone');
+  const dropGuard = rCall.j.mutate.mutants.find(x => where(x) === 'lib/mod.mjs:2 condition drop `process.env.ACME_READY !== \'1\' && value > 3` (always true)');
+  assert.equal(dropGuard.result, 'invalid', 'throws unconditionally both standalone and inside the test');
+
+  const pluginBase = ['export const value = 2;', 'export async function loadPlugin(p) { return import(p); }', ''].join('\n');
+  const pluginFix = [
+    'export const value = 3;',
+    "if (process.env.ACME_READY !== '1' && value > 3) throw new Error('unready');",
+    'export async function loadPlugin(p) { return import(p); }',
+    '',
+  ].join('\n');
+  const pluginTest = [...TESTHEAD,
+    "test('Acme plugin import after setup', async () => { process.env.ACME_READY = '1'; const { value, loadPlugin } = await import('../lib/mod.mjs'); await loadPlugin(`./p-${value}.mjs`); });", ''].join('\n');
+  const repoPlugin = await fixRepo(t, { base: { 'lib/p-3.mjs': 'export default 3;\n', 'lib/mod.mjs': pluginBase }, fix: { 'lib/mod.mjs': pluginFix }, tests: { 'tests/mod.test.mjs': pluginTest } });
+  const rPlugin = await mutate(repoPlugin, ['tests/mod.test.mjs', '--fix', 'lib/mod.mjs'], 0);
+  assert.equal(rPlugin.j.mutate.mutants.find(x => where(x) === 'lib/mod.mjs:1 number `3` → `4`').result, 'caught', 'fails resolving ./p-4.mjs, not unready');
+
+  // 2. Module whose unmutated standalone import fails without test-body setup: import-guard mutants tested by the test remain caught,
+  //    and a test timeout (caught.length === 0) still reports inconclusive rather than entering caught/import handling.
+  const guardBase = ["if (process.env.ACME_READY !== '1') throw new Error('bad env');", 'export const ok = false;', ''].join('\n');
+  const guardFix = ["if (process.env.ACME_READY !== '1' || process.env.ACME_ROLE === 'guest') throw new Error('bad env');", 'export const delayMs = 0;', 'export const ok = true;', ''].join('\n');
+  const guardTest = [...TESTHEAD,
+    "test('Acme guard allows member', async () => { process.env.ACME_READY = '1'; process.env.ACME_ROLE = 'member'; const { ok } = await import('../lib/guard.mjs'); assert.equal(ok, true); });",
+    "test('Acme fast import', { timeout: 250 }, async () => { process.env.ACME_READY = '1'; process.env.ACME_ROLE = 'member'; const { delayMs } = await import('../lib/guard.mjs'); if (delayMs > 0) await new Promise(r => setTimeout(r, 500)); });", ''].join('\n');
+  const repoGuard = await fixRepo(t, { base: { 'lib/guard.mjs': guardBase }, fix: { 'lib/guard.mjs': guardFix }, tests: { 'tests/guard.test.mjs': guardTest } });
+  const rGuard = await mutate(repoGuard, ['tests/guard.test.mjs', '--fix', 'lib/guard.mjs'], 0);
+  assert.equal(rGuard.j.mutate.mutants.find(x => where(x) === 'lib/guard.mjs:1 comparison `===` → `!==`').result, 'caught');
+  assert.equal(rGuard.j.mutate.mutants.find(x => where(x) === 'lib/guard.mjs:2 number `0` → `1`').result, 'inconclusive');
 });
