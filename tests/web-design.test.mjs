@@ -427,11 +427,18 @@ test('controls are styled once', () => {
 // Phase 171: the bytes of every served stylesheet (plates.css and keel.css
 // each count) at origin/main 54d67ac0, before controls moved into the design
 // layer. Measured with the same sum; after this phase the total is 79063.
-const CSS_BYTES_BEFORE_171 = 81780;
+// Phase 178: a page added since has its own sheet and its own cap, counted
+// apart, so the bound above still holds every sheet it was measured over.
+const CSS_BYTES_BEFORE_171 = 81780, PAGE_SHEETS_SINCE = { '/assets/backlog.css': 2600 };
 test('the design layer does not grow the stylesheets', () => {
   const table = assets.buildAssetTable(assets.defaultSources());
-  const total = [...table.entries.values()].filter(entry => entry.type.startsWith('text/css')).reduce((sum, entry) => sum + Buffer.byteLength(entry.body), 0);
+  const css = [...table.entries].filter(([, entry]) => entry.type.startsWith('text/css'));
+  const total = css.filter(([path]) => !Object.hasOwn(PAGE_SHEETS_SINCE, path)).reduce((sum, [, entry]) => sum + Buffer.byteLength(entry.body), 0);
   assert.ok(total < CSS_BYTES_BEFORE_171, `served CSS is ${total} bytes, under the ${CSS_BYTES_BEFORE_171} before phase 171`);
+  for (const [path, cap] of Object.entries(PAGE_SHEETS_SINCE)) {
+    const size = Buffer.byteLength(table.entries.get(path)?.body ?? '');
+    assert.ok(size > 0 && size <= cap, `${path} is ${size} bytes, within its ${cap}`);
+  }
 });
 
 // ---- phone toolbars fit ------------------------------------------------------

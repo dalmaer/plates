@@ -6,9 +6,10 @@ import { homeView, projectView, signinView } from '../../lib/web/views.mjs';
 import { decisionView } from '../../lib/web/decision-views.mjs';
 import { changeIndexView } from '../../lib/web/change-views.mjs';
 import { reviewView } from '../../lib/web/review-views.mjs';
+import { backlogView } from '../../lib/web/backlog-views.mjs';
 import { changesHarness, token } from './web-changes.mjs';
 import { reviewSnapshot } from './review-fixture.mjs';
-import { itemKey, docketOf, homeSnapshot } from '../../lib/work-items.mjs';
+import { itemKey, docketOf, homeSnapshot, backlogFor, roadmapOf, phaseRoadmap } from '../../lib/work-items.mjs';
 
 export const access = { workspace: { id: 'acme', name: 'Acme workspace' }, userId: 1, projects: [{ id: 'studio', repo: 'acme/studio', name: 'Acme Studio' }], sourceRevision: 'a'.repeat(40), csrf: 'fake-csrf-acme' };
 export const project = { id: 'studio', repo: 'acme/studio', name: 'Acme Studio' };
@@ -24,6 +25,18 @@ export function snapshot() {
   // Phase 166: home's four sections, as the server's model builds them from this plate.
   value.home = homeSnapshot([{ ...value.projects[0], decisions: [decision], walks: [walk], waiting: [waiting], changes: [change], reviews: [] }], { can: { form: 'web' }, today: '2026-10-21' }).home;
   return value;
+}
+/** The backlog's model from Acme phases: one claimed, one owing a walk, two free (one not yet spec: 2), one waiting, one built this week; and a plate not read. */
+export function backlog() {
+  const now = '2026-10-21T16:00:00.000Z', phase = (id, status, more = {}) => ({ id, file: `${id}-acme.md`, title: `Acme phase ${id}: publish from every screen`, status, goal: 'G1', depends: [], since: '2026-10-01', spec: 2, next: 'Build it.', ...more });
+  const phases = [phase(1, 'partial'), phase(2, 'partial', { owes: 'walk' }), phase(3, 'planned', { depends: [2] }), phase(4, 'planned', { spec: 1 }), phase(5, 'planned', { depends: [9] }), phase(9, 'planned', { goal: 'G2' }), phase(8, 'built', { since: '2026-10-20' })];
+  const walk = { id: 'studio:phase:2:walk', projectId: 'studio', projectName: 'Acme Studio', kind: 'walk', itemKind: 'walk', ref: '2', phase: '2', since: '2026-10-11', ready: true, title: 'Publish from a phone', details: { takes: 'About five minutes', choices: ['Works', 'Needs changes'] }, sets: [] };
+  const studio = { id: 'studio', repoId: 100, repo: 'acme/studio', name: 'Acme Studio', revision: 'b'.repeat(40), readAt: now, state: 'complete', gaps: [], changes: [], decisions: [], walks: [walk], reviews: [], waiting: [], roadmap: phaseRoadmap(phases, [{ id: 'G1' }, { id: 'G2' }]) };
+  const unread = { id: 'anvils', repo: 'acme/anvils', name: 'Acme Anvils', state: 'unavailable', gaps: [{ source: 'project', reason: 'The App cannot read acme/anvils.' }], changes: [], decisions: [], walks: [], reviews: [], waiting: [] };
+  const model = homeSnapshot([studio, unread], { can: { form: 'web' }, today: '2026-10-21' });
+  const claims = { state: 'read', claims: [{ phase: 1, branch: 'claims/phase-1', provider: 'claude', machine: 'acme-mac', at: '2026-10-19T16:00:00.000Z' }], prs: [] };
+  const roadmaps = [roadmapOf(studio, claims, { now }), roadmapOf(unread, null, { now })];
+  return { schema: 1, generatedAt: now, lane: null, ...backlogFor(model, roadmaps, { now }) };
 }
 const decision = () => ({ schema: 1, project, source: { path: 'docs/reviews/2026-10-21.md', head: 'c'.repeat(40), blob: 'd'.repeat(40), branch: 'main', visibility: 'public', link: 'https://github.com/acme/studio/blob/main/docs/reviews/2026-10-21.md' }, target: { kind: 'shaping', path: 'docs/shaping/next.json', question: 'scope' },
   question: { title: 'Which Acme scope should we build?', body: 'The owner chooses.', choices: [], recommendation: { text: 'Build the broader scope.', evidence: ['docs/evidence/acme.md'], alternatives: ['Keep this release small.'] } } });
@@ -41,6 +54,8 @@ export async function designPages() {
     // Phase 174: the review session's first card, and its end when nothing waits.
     review: { html: reviewView(access, review, null), api: { '/api/home': review } },
     reviewEmpty: { html: reviewView(access, reviewEmpty, project), api: { '/api/projects/studio/home': reviewEmpty } },
+    // Phase 178: the backlog, a list beside the sidebar, with a row in four lanes and one plate not read.
+    backlog: { html: backlogView(access, backlog()), api: { '/api/backlog': backlog() } },
   };
 }
 
