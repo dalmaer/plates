@@ -123,3 +123,31 @@ test('the hosted page loads like Home: cache first, then the client', async () =
   const after = await (await s.get('/backlog')).text();
   assert.match(after, /data-loading="false"/); assert.doesNotMatch(after, /: loading</);
 });
+
+// Ten minutes after a read, Home calls a cached plate stale (GH_TTL). The backlog keeps listing it, with its claims
+// read now, says it is stale and counts "at least", and the page reads again until it is fresh.
+test('a stale plate keeps its items, is never "not read", and its claims are read', async () => {
+  const s = await hosted();
+  const fresh = await (await s.get('/api/backlog')).json();
+  const items = fresh.lanes.flatMap(l => l.items.map(i => i.key));
+  assert.ok(items.length > 2);
+  s.h.state.now += 11 * 60_000;
+  const before = s.graphql.length;
+  const html = await (await s.get('/backlog')).text();
+  assert.equal(s.graphql.length, before + 1, 'the stale plate\'s claims are read');
+  for (const key of items) assert.ok(html.includes(`data-backlog-item="${key}"`), `${key} is still listed`);
+  assert.doesNotMatch(html, /not read/);
+  assert.match(html, /<li>Acme Studio: stale, read 11 min ago · \d+ yours · \d+ agent-ready · 1 in flight \(at least\)<\/li>/);
+  assert.match(html, /Acme Studio: stale, read 11 min ago, so its counts are at least these/);
+  assert.match(html, /data-backlog-root data-loading="true"/, 'the page reads again until the plate is fresh');
+  assert.match(html, /claim 6d left/, 'the claim read now still puts phase 1 in flight');
+  // Its model: stale, partial coverage, counts kept.
+  const { createHomeReader } = await import('../lib/web/home.mjs');
+  const signedAccess = { ...s.h.access, login: 'acme-owner' };
+  const reader = createHomeReader(s.h.config, { fetcher: async (url, options) => new URL(url).pathname === '/graphql' && JSON.parse(options.body).query.includes('PlatesClaims')
+    ? Response.json({ data: { repository: { refs: { totalCount: 0, nodes: [] } } } }) : s.h.fetcher(url, options), now: () => s.h.state.now });
+  await reader(signedAccess, 'fake-user-access-token-for-tests', { backlog: true });
+  s.h.state.now += 11 * 60_000;
+  const plate = (await reader(signedAccess, 'fake-user-access-token-for-tests', { cacheOnly: true, backlog: true })).backlog.plates[0];
+  assert.deepEqual([plate.state, plate.coverage, typeof plate.readAt, Number.isSafeInteger(plate.counts.yours)], ['stale', 'partial', 'string', true]);
+});

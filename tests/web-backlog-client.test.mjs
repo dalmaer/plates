@@ -16,7 +16,7 @@ function page(loading = 'true') {
   return { root, list, side, status, document, window, timers, run };
 }
 const model = states => ({ schema: 1, generatedAt: '2026-11-05T12:00:00.000Z', lane: null, needsShaping: 0, claims: [],
-  lanes: [{ lane: 'yours', title: 'Yours', count: 0, items: [] }], plates: states.map((state, i) => ({ projectId: `app${i}`, projectName: `Acme ${i}`, state, counts: state === 'read' ? { 'in-flight': 0, yours: 0, 'agent-ready': 0, waiting: 0, done: 0 } : null })) });
+  lanes: [{ lane: 'yours', title: 'Yours', count: 0, items: [] }], plates: states.map((state, i) => ({ projectId: `app${i}`, projectName: `Acme ${i}`, state, readAt: '2026-11-05T11:49:00.000Z', counts: ['read', 'stale'].includes(state) ? { 'in-flight': 0, yours: 0, 'agent-ready': 0, waiting: 0, done: 0 } : null })) });
 
 test('the page reads until no plate is loading, then stops', async () => {
   const p = page(), answers = [{ status: 200, body: model(['read', 'loading']) }, { status: 503 }, { status: 200, body: model(['read', 'read']) }], asked = [];
@@ -46,4 +46,15 @@ test('a page with nothing loading reads nothing; a lost session or too many read
   while (slow.timers.length) await slow.run();
   assert.equal(n, MAX_READS); assert.match(slow.status.textContent, /Reload this page/);
   assert.ok(BACKLOG_DELAYS.every((d, i) => i === 0 || d > BACKLOG_DELAYS[i - 1]) && nextDelay(99) === BACKLOG_DELAYS.at(-1));
+});
+
+test('the page keeps reading while a plate is stale', async () => {
+  const p = page(), answers = [model(['stale', 'read']), model(['stale', 'read']), model(['read', 'read'])];
+  const fetch = async () => ({ status: 200, json: async () => answers.shift() });
+  startBacklogClient({ document: p.document, window: p.window, fetch, renderBacklog, renderSidebar });
+  await p.run();
+  assert.equal(p.timers.length, 1, 'stale: read again'); assert.match(p.side.outerHTML, /<li>Acme 0: stale, /);
+  await p.run(); assert.equal(p.timers.length, 1);
+  await p.run(); assert.equal(p.timers.length, 0, 'fresh: stop');
+  assert.equal(p.root.dataset.loading, 'false');
 });
