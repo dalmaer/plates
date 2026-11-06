@@ -498,3 +498,20 @@ test('a step\'s Done is held as a preview and applied through its route', async 
   assert.deepEqual(urls, ['/api/home/answer', '/api/projects/studio/decisions/apply']);
   assert.equal(result.state, 'settled'); assert.equal(result.link, 'https://github.com/acme/studio/commit/abc123');
 });
+
+// Phase 187: Merge is previewed (its digest binds the head and method) and confirmed through the apply route.
+test('a held Merge answer is previewed and applied through its route', async () => {
+  const calls = [];
+  const fetch = async (url, o) => { const body = JSON.parse(o.body); calls.push({ url, body });
+    return url === '/api/home/answer' ? Response.json({ state: 'preview', preview: { id: 'p'.repeat(64), kind: 'merge', digest: 'd'.repeat(64), canSubmit: true, consequence: 'Merge acme/studio#7 (Acme anvils) by squash, only if its head is still aaaaaaa.' } })
+      : Response.json({ state: 'committed', receipt: { url: 'https://github.com/acme/studio/pull/7' } }); };
+  const merge = { key: 'studio:merge:7', kind: 'merge', label: 'Ready to merge', item: { key: 'studio:merge:7', itemKind: 'merge', title: 'Acme anvils', answers: [{ id: 'merge', label: 'Merge', writer: 'pr merge', needsWhy: 'never', recommended: true }] } };
+  const c = clock(), sender = createWebSender({ fetch, csrf: 'x' });
+  const session = createReviewSession({ items: [merge], send: sender.send, prepare: sender.prepare, timers: c.timers });
+  const held = session.choose('merge').held;
+  assert.match((await held.prepared).summary, /only if its head is still/, 'the merge preview is shown before it is sent');
+  await c.tick(); await settledOf(session);
+  assert.deepEqual(calls.map(x => x.url), ['/api/home/answer', '/api/projects/studio/decisions/apply']);
+  assert.equal(calls[1].body.publicAcknowledgement, 'd'.repeat(64), 'its digest is the acknowledgement the merge apply requires');
+  assert.deepEqual(session.settled.map(s => s.link), ['https://github.com/acme/studio/pull/7']);
+});
