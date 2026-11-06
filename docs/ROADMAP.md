@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**72 of 179 phases built; 77 owe a walk.** Built means implemented and checked; planned is not available.
+**72 of 180 phases built; 77 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -335,7 +335,7 @@ Each change is verified in parallel and published one at a time; production move
 
 From mobile and desktop, an authenticated owner operates every authorized Plates project: decisions, guided tests, visual changes, routine history and execution, fleet lessons and updates, scoped credentials and policy-bound model capacity, with source-backed evidence and private data.
 
-8/44 built; 31 owe a walk.
+8/45 built; 31 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -383,6 +383,7 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 | [184. The backlog remembers what happened to each item](phases/184-the-backlog-remembers-what-happened-to-each-item.md) | partial | 2026-11-06 | [181](phases/181-i-can-attach-an-agent-to-a-phase-and-see-it.md) | Built: metadata-only events, written locally and (after migration 019) hosted, read back the same in plates home --backlog --since and /backlog/history. Waits on applying 019. |
 | [185. Recurring shows every routine each plate runs, and when it next runs](phases/185-recurring-shows-every-routine-each-plate-runs.md) | partial | 2026-11-05 | [178](phases/178-the-backlog-shows-every-plate-s-work-in-lanes.md) | Built in two increments: routinesOf, and plates home --recurring with the hosted /recurring and the sidebar's Humans and Links. Waits on the hosted read after deploy. |
 | [186. The sidebar shows which agents can work, what each is on, and what waits for review](phases/186-the-sidebar-shows-which-agents-can-work-what.md) | partial, walk owed | 2026-11-05 | [178](phases/178-the-backlog-shows-every-plate-s-work-in-lanes.md) | Built in two increments: agentsOf and pending review, then plates home --agents, the hosted /agents and the live sidebar. Owes the owner's look after deploy. |
+| [187. Every answer on a card is a button that works](phases/187-every-answer-on-a-card-is-a-button-that-works.md) | partial | 2026-11-06 | [173](phases/173-every-item-waiting-on-the-owner-can-be-answered.md), [174](phases/174-a-review-session-takes-me-through-my-docket.md) | Built: hosted walk previews read eight blobs at a time (the 503), no web view shows a command, Done on a step writes its mark from the card, and Merge from Review completes. Hand to an agent stays unavailable on the web (increment 3). Owes the owner's phone walk after deploy. |
 
 - **93 done when:** An explicitly configured external workspace can be inspected and initialized from the installed CLI without writing private data into application or project Git trees.
 - **94 done when:** The owner has an approved deployment recipe and verified private workspace repository, host and selected-repository GitHub App binding, with credentials stored only in the deployment secret store.
@@ -428,6 +429,7 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 - **184 done when:** `backlog_events` records attach, assist, dispatch, release, answer and not-now with its reason, locally and hosted, and `plates home --backlog --since` reads them back. See [the backlog spec](../specs/web-backlog.md).
 - **185 done when:** The sidebar's Recurring and `plates home --recurring --json` list, per plate, each scheduled routine (night, climb, tend, morning, robot, cross-review, publish) with its schedule in the owner's time zone, its next run, its last result and its budget. The sidebar also carries Humans and Links. See [the backlog spec](../specs/web-backlog.md).
 - **186 done when:** The sidebar's Agents lists each provider in `agents` and each route in `backlog`, with the item it holds now (from claims and presence) or idle, and off routes greyed with their reason. Pending review lists the fleet's open PRs that are not set to auto-merge. `plates home --agents --json` prints the same. See [the backlog spec](../specs/web-backlog.md).
+- **187 done when:** On the hosted workspace, a step's **Done** and **Hand to an agent** write from the card, through the same preview-then-confirm flow as a walk's answer. No web surface tells the owner to run a terminal command to answer. An answer the web still cannot write says what is missing (a permission, a setting) in plain words, never as a command. The CLI writes the same records as before.
 
 ## G9 — Plates owns the judgment layer and rents the rest
 

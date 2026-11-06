@@ -156,9 +156,11 @@ test('an answer that needs a why waits for it', async () => {
   // A walk choice that asks for words ("Close, but (say what)") needs one too; an unavailable answer explains itself.
   const step = items.find(e => e.kind === 'step');
   while (session.current() && session.current().entry.key !== step.key) session.choose('not-now');
-  const off = session.choose('done', { why: 'did it' });
-  assert.equal(off.error, 'unavailable'); assert.match(off.answer.unavailable.command, /^plates home --answer studio:step:5 done/);
-  assert.match(renderReviewCard(step), /data-answer="done" aria-disabled="true"/, 'shown as off, never disabled');
+  // Done on a step writes from the web under decisionWrites (phase 187); Hand to an agent still says what is missing.
+  assert.ok(!step.item.answers.find(a => a.id === 'done').unavailable);
+  const off = session.choose('hand', { why: 'the agent can do it' });
+  assert.equal(off.error, 'unavailable'); assert.match(off.answer.unavailable.reason, /Issues write permission/);
+  assert.match(renderReviewCard(step), /data-answer="hand" aria-disabled="true"/, 'shown as off, never disabled');
   assert.doesNotMatch(renderReviewCard(step), /\sdisabled[\s>]/);
 });
 
@@ -451,4 +453,65 @@ test('a merge is refused when the head moved', async () => {
   const settled = await s.recover(uncertain.id);
   assert.equal(settled.state, 'committed'); assert.equal(settled.receipt.commit, 'f'.repeat(40));
   assert.equal(s.merges.length, 1, 'recovery never merges again');
+});
+
+// Phase 187: a web view never tells the owner to run a terminal command to
+// answer. An unavailable answer says what is missing (its reason); the CLI keeps
+// the command in its own form. The question heading takes focus for screen
+// readers without drawing the focus ring.
+test('no web view renders an answer\'s command', async () => {
+  const { homeView } = await import('../lib/web/views.mjs');
+  const { reviewSessionStyles } = await import('../lib/web/review-views.mjs');
+  const snapshot = reviewSnapshot({ decisionWrites: false }), items = docketItems(snapshot);
+  const commands = items.flatMap(e => e.item.answers.filter(a => a.unavailable).map(a => a.unavailable.command));
+  assert.ok(commands.length > 0, 'the fixture has unavailable answers, each with its CLI command in the shared model');
+  const access = { workspace: { id: 'acme', name: 'Acme' }, userId: 1, projects: [{ id: 'studio', repo: 'acme/studio', name: 'Acme Studio' }], sourceRevision: 'a'.repeat(40), csrf: 'x' };
+  const failed = await createWebSender({ fetch: async () => Response.json({ error: 'answer_unavailable' }, { status: 409 }), csrf: 'x' })
+    .send({ entry: items[0], answer: { ...items[0].item.answers[0], writer: 'not now' } });
+  assert.equal(failed.state, 'failed'); assert.ok(!('command' in failed), 'a failed write carries its reason, not a command');
+  const again = items.map(e => ({ item: e.item, key: e.key, reason: 'The write was refused.', command: 'plates home --answer x done' }));
+  const pages = [homeView(access, snapshot), reviewView(access, snapshot), ...items.map(e => renderReviewCard(e)),
+    renderReviewEnd({ settled: [], putOff: [], again, skipped: [], home: '/' }, { complete: true })];
+  for (const html of pages) {
+    for (const command of [...commands, 'plates home --answer x done']) assert.ok(!html.includes(command), `no page renders ${command}`);
+    assert.doesNotMatch(html, /plates home --answer|Run <code>/);
+  }
+  // The browser's note for an unavailable answer: its reason only.
+  const client = await readFile(new URL('../lib/web/review-client.mjs', import.meta.url), 'utf8');
+  assert.doesNotMatch(client, /unavailable\??\.command|Run <code>/, 'the review client never reads an answer\'s command');
+  assert.match(client, /is not written from here\.<\/strong> \$\{esc\(result\.answer\.unavailable\.reason\)\}`/);
+  assert.match(reviewSessionStyles, /\.review-ask:focus\{outline:none\}/, 'the focused question draws no ring');
+});
+
+// Phase 187: Done on a step is previewed and confirmed through the apply route, as a walk answer is.
+test('a step\'s Done is held as a preview and applied through its route', async () => {
+  const urls = [];
+  const fetch = async (url, o) => { urls.push(url); const body = JSON.parse(o.body);
+    return url === '/api/home/answer' ? Response.json({ state: 'preview', preview: { id: 'p'.repeat(64), digest: 'd'.repeat(64), canSubmit: true, consequence: 'Mark phase 5 done: a drop mark in .plates/loose-ends.json' } })
+      : Response.json({ state: 'committed', receipt: { url: 'https://github.com/acme/studio/commit/abc123' }, ack: body.publicAcknowledgement }); };
+  const step = docketItems(reviewSnapshot()).find(e => e.kind === 'step'), done = step.item.answers.find(a => a.id === 'done');
+  assert.equal(done.writer, 'loose-ends mark'); assert.ok(!done.unavailable);
+  const sender = createWebSender({ fetch, csrf: 'x' });
+  const prepared = await sender.prepare({ entry: step, answer: done, why: 'Approved it.' });
+  assert.match(prepared.summary, /drop mark/);
+  const result = await sender.send({ entry: step, answer: done, why: 'Approved it.', prepared: Promise.resolve(prepared) });
+  assert.deepEqual(urls, ['/api/home/answer', '/api/projects/studio/decisions/apply']);
+  assert.equal(result.state, 'settled'); assert.equal(result.link, 'https://github.com/acme/studio/commit/abc123');
+});
+
+// Phase 187: Merge is previewed (its digest binds the head and method) and confirmed through the apply route.
+test('a held Merge answer is previewed and applied through its route', async () => {
+  const calls = [];
+  const fetch = async (url, o) => { const body = JSON.parse(o.body); calls.push({ url, body });
+    return url === '/api/home/answer' ? Response.json({ state: 'preview', preview: { id: 'p'.repeat(64), kind: 'merge', digest: 'd'.repeat(64), canSubmit: true, consequence: 'Merge acme/studio#7 (Acme anvils) by squash, only if its head is still aaaaaaa.' } })
+      : Response.json({ state: 'committed', receipt: { url: 'https://github.com/acme/studio/pull/7' } }); };
+  const merge = { key: 'studio:merge:7', kind: 'merge', label: 'Ready to merge', item: { key: 'studio:merge:7', itemKind: 'merge', title: 'Acme anvils', answers: [{ id: 'merge', label: 'Merge', writer: 'pr merge', needsWhy: 'never', recommended: true }] } };
+  const c = clock(), sender = createWebSender({ fetch, csrf: 'x' });
+  const session = createReviewSession({ items: [merge], send: sender.send, prepare: sender.prepare, timers: c.timers });
+  const held = session.choose('merge').held;
+  assert.match((await held.prepared).summary, /only if its head is still/, 'the merge preview is shown before it is sent');
+  await c.tick(); await settledOf(session);
+  assert.deepEqual(calls.map(x => x.url), ['/api/home/answer', '/api/projects/studio/decisions/apply']);
+  assert.equal(calls[1].body.publicAcknowledgement, 'd'.repeat(64), 'its digest is the acknowledgement the merge apply requires');
+  assert.deepEqual(session.settled.map(s => s.link), ['https://github.com/acme/studio/pull/7']);
 });

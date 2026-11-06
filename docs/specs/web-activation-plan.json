@@ -735,6 +735,20 @@
       "proof": "The deployed revision and the owner answer (faster, same, or slower and where), recorded in docs/evidence/2026-11-06-lane-session.md."
     },
     {
+      "id": "step-done-web",
+      "phase": 187,
+      "kind": "decision",
+      "what": "After deploying a build with phase 187, the owner opens Review on their phone, presses Done on a step with a one-line why, confirms, and says whether the step left Home.",
+      "prerequisites": [
+        173,
+        174,
+        187
+      ],
+      "ownerAttended": true,
+      "rollback": "Redeploy the previous build; the mark is an ordinary commit to .plates/loose-ends.json that can be reverted.",
+      "proof": "The deployed revision and the owner answer (It worked, still listed, or asked to run something), recorded in docs/evidence/2026-11-06-hosted-answers.md."
+    },
+    {
       "id": "docket-notify",
       "phase": 175,
       "kind": "decision",
