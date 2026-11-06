@@ -221,23 +221,27 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
    - Needs first: phases 174, 178.
    - Rollback: Redeploy the previous build; each answer is an ordinary commit that can be reverted, and Not now rows are per owner.
    - Proof to record: The deployed revision and the owner answer (faster, same, or slower and where), recorded in docs/evidence/2026-11-06-lane-session.md.
-54. **docket-notify** (phase 175, decision, owner attends). After deploying a build with phase 175 and adding quietHours (timeZone, from, to) to PLATES_WEB_CONFIG, the owner gets "N new for you" on the phone outside quiet hours, taps it, does the quick ones, and says whether it is fast enough.
+54. **step-done-web** (phase 187, decision, owner attends). After deploying a build with phase 187, the owner opens Review on their phone, presses Done on a step with a one-line why, confirms, and says whether the step left Home.
+   - Needs first: phases 173, 174.
+   - Rollback: Redeploy the previous build; the mark is an ordinary commit to .plates/loose-ends.json that can be reverted.
+   - Proof to record: The deployed revision and the owner answer (It worked, still listed, or asked to run something), recorded in docs/evidence/2026-11-06-hosted-answers.md.
+55. **docket-notify** (phase 175, decision, owner attends). After deploying a build with phase 175 and adding quietHours (timeZone, from, to) to PLATES_WEB_CONFIG, the owner gets "N new for you" on the phone outside quiet hours, taps it, does the quick ones, and says whether it is fast enough.
    - Needs first: phases 151, 152, 174.
    - Rollback: Remove quietHours from PLATES_WEB_CONFIG: nothing is sent without it. Redeploying the previous build also stops it.
    - Proof to record: The deployed revision, the push delivery record, and the owner answer (fast enough, too many nudges, or too slow to get in), recorded in docs/evidence/2026-11-03-docket-order-and-notify.md.
-55. **look-captures** (phase 172, decision, owner attends). With one design change pending, the owner runs npm run look, opens the printed folder, and reviews the change from its captures in light and dark at phone and laptop widths instead of opening the app; then says whether the captures are useful or not worth keeping.
+56. **look-captures** (phase 172, decision, owner attends). With one design change pending, the owner runs npm run look, opens the printed folder, and reviews the change from its captures in light and dark at phone and laptop widths instead of opening the app; then says whether the captures are useful or not worth keeping.
    - Needs first: phase 171.
    - Rollback: Nothing to roll back: the script runs locally against fixture data, writes images only to a temporary folder outside the repo, and changes nothing deployed.
    - Proof to record: The owner's answer (useful, or not worth it), and which design change was reviewed, recorded in docs/evidence/2026-11-04-look-captured.md.
-56. **local-host-walk** (phase 183, decision, owner attends). The owner lists local-host in a plate's backlog.routes, writes ~/.config/plates/local-hosts.json for one agent host on their machine, attaches one ready phase with plates home --attach <key> --route local-host --provider <p> --yes, and watches its card.
+57. **local-host-walk** (phase 183, decision, owner attends). The owner lists local-host in a plate's backlog.routes, writes ~/.config/plates/local-hosts.json for one agent host on their machine, attaches one ready phase with plates home --attach <key> --route local-host --provider <p> --yes, and watches its card.
    - Needs first: phase 181.
    - Rollback: Remove local-host from backlog.routes and release the claim; nothing hosted changes.
    - Proof to record: The claim, the receipt, the host's session id, and the owner answer, recorded in docs/evidence/2026-11-06-local-host.md.
-57. **github-app-pull-requests-write** (phase 176, github-app, owner attends). Owner grants the Plates GitHub App "Pull requests: Read and write" on the plates installation (with the Contents: Read and write already granted for decisions, which GitHub's merge endpoint requires) and Checks: Read, so a ready pull request's card can show its checks and Merge can be submitted. Merging also needs decisionWrites on; until both hold, Merge is listed unavailable with this reason.
+58. **github-app-pull-requests-write** (phase 176, github-app, owner attends). Owner grants the Plates GitHub App "Pull requests: Read and write" on the plates installation (with the Contents: Read and write already granted for decisions, which GitHub's merge endpoint requires) and Checks: Read, so a ready pull request's card can show its checks and Merge can be submitted. Merging also needs decisionWrites on; until both hold, Merge is listed unavailable with this reason.
    - Needs first: phase 97.
    - Rollback: Owner removes Pull requests write in the App's settings; Merge returns to unavailable with its reason, and nothing else changes.
    - Proof to record: A GitHub API read of the installation's permissions (pull_requests: write, contents: write, checks: read), sanitized.
-58. **merge-from-docket** (phase 176, decision, owner attends). After deploying a build with phase 176 and the Pull requests write grant, the owner opens a review session on the phone, merges one ready pull request from its card, and says whether what was being merged was clear before the tap.
+59. **merge-from-docket** (phase 176, decision, owner attends). After deploying a build with phase 176 and the Pull requests write grant, the owner opens a review session on the phone, merges one ready pull request from its card, and says whether what was being merged was clear before the tap.
    - Needs first: phase 174.
    - Rollback: A merge is reverted with an ordinary revert PR; redeploying the previous build removes Merge from the card.
    - Proof to record: The deployed revision, the merged PR and its merge commit from the operation receipt, and the owner answer (merged, clear; merged, but unclear; or didn't trust it), recorded in phase 176's evidence.

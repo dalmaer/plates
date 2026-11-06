@@ -1,10 +1,11 @@
 ---
-status: planned
+status: partial
 since: 2026-11-06
 goal: G7
 spec: 2
 depends: [173, 174]
-note: "The owner pressed Done on a step on the web and was told to run a command. Done and Hand to an agent get hosted writers."
+note: "Built: hosted walk previews read eight blobs at a time (the 503), no web view shows a command, Done on a step writes its mark from the card, and Merge from Review completes. Hand to an agent stays unavailable on the web (increment 3). Owes the owner's phone walk after deploy."
+evidence: ["evidence/2026-11-06-hosted-answers.md"]
 ---
 
 # Every answer on a card is a button that works
@@ -34,10 +35,10 @@ On the hosted workspace, a step's **Done** and **Hand to an agent** write from t
 
 ## Acceptance
 
-- [ ] A step's Done on the web previews and writes a `drop` mark to `.plates/loose-ends.json`, and the step leaves Home: `tests/web-home-answers.test.mjs`
-- [ ] A Done whose step changed since its preview writes nothing: `tests/web-home-answers.test.mjs`
+- [x] A step's Done on the web previews and writes a `drop` mark to `.plates/loose-ends.json`, and the step leaves Home: `tests/web-home-answers.test.mjs`
+- [x] A Done whose step changed since its preview writes nothing: `tests/web-home-answers.test.mjs`
 - [ ] Hand to an agent files the CLI's issue when `issueWrites` is on, and says which permission is missing when it is off: `tests/web-home-answers.test.mjs`
-- [ ] No web view renders an answer's command: `tests/web-review.test.mjs`
+- [x] No web view renders an answer's command: `tests/web-review.test.mjs`
 - [ ] ⚑ by hand: the owner presses Done on a step from their phone, and it leaves Home.
 
 ## Your part
@@ -60,4 +61,10 @@ On the hosted workspace, a step's **Done** and **Hand to an agent** write from t
 
 ## Next action
 
-Build increment 1, then 2.
+The owner walks Done on a step from their phone after deploy. Then increment 3: a hosted agent issue (the intent and lock in the operation store, an App-token adapter for lookup and recovery, a label decision without a checkout, an issues permission in access and `issueWrites`).
+
+## Trajectory
+
+- **2026-11-06** — Hosted walk answers returned 503 upstream_unavailable: the preview read all 180 phase files one blob at a time under a 25s deadline. Reads now run eight at a time and the inventory limit is 400, so a long-lived plate keeps working.
+- **2026-11-06** — Hand to an agent cannot simply move to the web: `ensureRobotIssue` keeps its intents and locks as files in a checkout and labels through it. It needs its own increment, not a wrapper.
+- **2026-11-06** — Merge from the Review session never completed: its preview reply was counted as a failure because `pr merge` was missing from the client's previewed writers. Found while building this phase; fixed with a test.
