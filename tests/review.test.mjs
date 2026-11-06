@@ -436,20 +436,76 @@ test('#60: --close --fixed refuses a finding posted after the fixing commit, fai
   assert.equal(plates(noTimeDir, noTime, ['acme/app#3', '--close', 'PRRT_badfollow', '--fixed', 'abc1234']).code, 2);
   assert.equal(writesIn(await noTime.calls()).length, 0);
 
-  // Post-push reviews (<repo>@<sha> --close --fixed) enforce the same chronology against the review issue's creation time.
+  // Post-push reviews (<repo>@<sha> --close --fixed) enforce chronology against the review issue and relevant substantive follow-ups, with negative controls.
   const pushDir = await project(t);
   const pgh = await pushGh(t, {
     issues: [pushIssue([F1, F2])],
+    comments: [
+      { id: 701, user: { login: 'acme-reviewer' }, body: 'F1 is still broken after ccccccc.', created_at: '2026-10-11T10:00:00Z', html_url: 'https://github.com/acme/app/issues/12#issuecomment-701' },
+      { id: 702, user: { login: 'github-actions[bot]' }, body: '<!-- keel:review-after-note -->\nAcme workflow note.', created_at: '2026-10-13T10:00:00Z', html_url: 'https://github.com/acme/app/issues/12#issuecomment-702' },
+    ],
     writes: true,
-    commits: { [PUSHED.slice(0, 7)]: '2026-10-09T09:55:00Z', ccccccc: '2026-10-09T10:05:00Z' },
+    commits: { [PUSHED.slice(0, 7)]: '2026-10-09T09:55:00Z', ccccccc: '2026-10-10T10:00:00Z', ddddddd: '2026-10-12T10:00:00Z' },
   });
   const pushAt = `acme/app@${PUSHED.slice(0, 7)}`;
   assert.equal(plates(pushDir, pgh, [pushAt]).code, 1);
-  const pushOld = plates(pushDir, pgh, [pushAt, '--close', 'F1', '--fixed', PUSHED.slice(0, 7)]);
-  assert.equal(pushOld.code, 2, pushOld.out + pushOld.err);
-  assert.match(pushOld.err, /F1 \(codex, src\/lid\.js:12\) was posted at 2026-10-09T10:00:00Z, after bbbbbbb was committed \(2026-10-09T09:55:00Z\)/);
+  assert.equal(plates(pushDir, pgh, [pushAt, '--close', 'F2', '--fixed', PUSHED.slice(0, 7)]).code, 2, 'older than issue.createdAt is refused');
+  const pushFollow = plates(pushDir, pgh, [pushAt, '--close', 'F1', '--fixed', 'ccccccc']);
+  assert.equal(pushFollow.code, 2, pushFollow.out + pushFollow.err);
+  assert.match(pushFollow.err, /F1 \(codex, src\/lid\.js:12\) was posted at 2026-10-11T10:00:00Z, after ccccccc was committed \(2026-10-10T10:00:00Z\)/);
   assert.equal((await pgh.calls()).filter(x => x.includes('POST')).length, 0);
-  assert.equal(plates(pushDir, pgh, [pushAt, '--close', 'F1', '--fixed', 'ccccccc']).code, 0);
+  // Negative controls: F1's follow-up does not block F2, workflow notes/applied answers do not advance time, and tracked answers bypass fixed chronology.
+  assert.equal(plates(pushDir, pgh, [pushAt, '--close', 'F2', '--fixed', 'ccccccc']).code, 0, 'negative control: F1 follow-up does not block F2');
+  assert.equal(plates(pushDir, pgh, [pushAt, '--close', 'F1', '--tracked', '#44']).code, 0);
+  assert.equal(plates(pushDir, pgh, [pushAt, '--close', 'F1', '--fixed', 'ddddddd']).code, 0, 'commit after F1 follow-up succeeds despite later workflow note and F2 answer');
+
+  // Post-push follow-ups matched by file path, quoted line, or unattributed general comment also advance chronology; malformed follow-up time fails closed.
+  for (const [body, expectF2Blocked] of [
+    ['In `src/lid.js` the hinge is still unchecked.', false],
+    ['> The hinge is never checked.\n\nStill reproduces.', false],
+    ['Still broken on main after the push.', true],
+  ]) {
+    const subDir = await project(t);
+    const subGh = await pushGh(t, {
+      issues: [pushIssue([F1, F2])],
+      comments: [{ id: 801, user: { login: 'acme-reviewer' }, body, created_at: '2026-10-11T10:00:00Z', html_url: 'https://github.com/acme/app/issues/12#issuecomment-801' }],
+      writes: true,
+      commits: { ccccccc: '2026-10-10T10:00:00Z' },
+    });
+    plates(subDir, subGh, [pushAt]);
+    assert.equal(plates(subDir, subGh, [pushAt, '--close', 'F1', '--fixed', 'ccccccc']).code, 2, body);
+    assert.equal(plates(subDir, subGh, [pushAt, '--close', 'F2', '--fixed', 'ccccccc']).code, expectF2Blocked ? 2 : 0, body);
+  }
+  const badPushDir = await project(t);
+  const badPushGh = await pushGh(t, {
+    issues: [pushIssue([F1])],
+    comments: [{ id: 802, user: { login: 'acme-reviewer' }, body: 'F1 still broken.', created_at: 'not-iso', html_url: 'https://github.com/acme/app/issues/12#issuecomment-802' }],
+    writes: true,
+    commits: { ccccccc: '2026-10-12T10:00:00Z' },
+  });
+  plates(badPushDir, badPushGh, [pushAt]);
+  assert.equal(plates(badPushDir, badPushGh, [pushAt, '--close', 'F1', '--fixed', 'ccccccc']).code, 2);
+
+  // PR review-body and conversation-comment follow-ups via references() also advance chronology, while unrelated comments and author/class notes do not.
+  const convoDir = await project(t);
+  const convoGh = await stubGh(t, {
+    bodies: [
+      { id: 'PRR_other', databaseId: 87, author: 'wile-e', body: '### Other Review\n\nPaint the rocket.', createdAt: '2026-10-04T08:00:00Z' },
+      { id: 'PRR_early', databaseId: 88, author: 'wile-e', body: '### Acme Review\n\nThe crate has no lid.', createdAt: '2026-10-04T09:00:00Z' },
+    ],
+    comments: [
+      { id: 'IC_quote', ...c(91, 'wile-e', '> The crate has no lid.\n\nStill missing after abc1234.', '2026-10-06') },
+      { id: 'IC_unrelated', ...c(92, 'acme-reviewer', 'Unrelated conversation finding.', '2026-10-08') },
+      { id: 'IC_owner', ...c(93, 'acme-owner', '> The crate has no lid.\n\nChecking now.', '2026-10-08') },
+    ],
+    reviews: [ON_HEAD],
+    writes: true,
+    commitsOnly: true,
+    commits: { abc1234: '2026-10-05T09:00:00Z', '0123456': '2026-10-07T09:00:00Z' },
+  });
+  plates(convoDir, convoGh, ['acme/app#3']);
+  assert.equal(plates(convoDir, convoGh, ['acme/app#3', '--close', 'PRR_early', '--fixed', 'abc1234']).code, 2);
+  assert.equal(plates(convoDir, convoGh, ['acme/app#3', '--close', 'PRR_early', '--fixed', '0123456']).code, 0, 'negative control: unrelated 2026-10-08 comment and owner note do not block PRR_early');
 });
 
 // ---- not a gate ----------------------------------------------------------------------
