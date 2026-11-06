@@ -847,14 +847,19 @@ import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { dep } from 'acme-dep';
 import { label } from 'acme-ws';
-import { appDep } from './app/use.mjs';
+import { appDep, scopedPeer, inStore, extNote } from './app/use.mjs';
 test('acme adds', () => {
   assert.equal(dep, 'acme');
   assert.equal(label, 'base-ws');
   assert.equal(appDep, 'app-clean');
+  assert.equal(scopedPeer, 'peer-clean');
+  assert.equal(inStore, 'in-store-clean');
+  assert.equal(extNote, 'note-clean');
   writeFileSync('node_modules/base-cache', 'from-base\\n');
   writeFileSync('node_modules/acme-dep/cache.txt', 'dirtied-by-base\\n');
   writeFileSync('app/node_modules/acme-app/state.txt', 'dirtied-app\\n');
+  writeFileSync('app/node_modules/in-store/val.txt', 'dirtied-in-store\\n');
+  writeFileSync('app/node_modules/ext-note.txt', 'dirtied-note\\n');
 });
 `;
   const dir = await acme(t, {
@@ -866,17 +871,38 @@ test('acme adds', () => {
       'packages/ws/package.json': '{"name":"acme-ws","type":"module","exports":"./index.js"}\n',
       'packages/ws/index.js': "export const label = 'base-ws';\n",
       'app/package.json': '{"name":"acme-app-dir","private":true,"type":"module"}\n',
-      'app/use.mjs': "import { readFileSync } from 'node:fs';\nexport const appDep = readFileSync(new URL('./node_modules/acme-app/state.txt', import.meta.url), 'utf8').trim();\n",
+      'app/use.mjs': [
+        "import { readFileSync } from 'node:fs';",
+        "const read = p => readFileSync(new URL(p, import.meta.url), 'utf8').trim();",
+        "export const appDep = read('./node_modules/acme-app/self/state.txt');",
+        "export const scopedPeer = read('./node_modules/@acme/app/peer/peer.txt');",
+        "export const inStore = read('./node_modules/acme-app/in-nm/val.txt');",
+        "export const extNote = read('./node_modules/ext-note.txt');",
+        '',
+      ].join('\n'),
       'acme.test.mjs': baseSuite,
     },
   });
   await write(dir, depFiles);
   const sharedInstall = await mkdtemp(join(tmpdir(), 'plates-climb-install-'));
   t.after(() => rm(sharedInstall, { recursive: true, force: true }));
-  await write(sharedInstall, { 'acme-app/state.txt': 'app-clean\n' });
+  await write(sharedInstall, {
+    'ext-pkg/state.txt': 'app-clean\n',
+    'ext-peer/peer.txt': 'peer-clean\n',
+    'ext-note.txt': 'note-clean\n',
+    'node_modules/in-store/val.txt': 'in-store-clean\n',
+  });
   const { symlink } = await import('node:fs/promises');
+  await mkdir(join(sharedInstall, 'node_modules/@acme'), { recursive: true });
+  await symlink('.', join(sharedInstall, 'ext-pkg/self'));
+  await symlink('../ext-peer', join(sharedInstall, 'ext-pkg/peer'));
+  await symlink('../node_modules/in-store', join(sharedInstall, 'ext-pkg/in-nm'));
+  await symlink('../../ext-pkg', join(sharedInstall, 'node_modules/@acme/app'));
+  await symlink('../ext-pkg', join(sharedInstall, 'node_modules/acme-app'));
+  await symlink('../ext-note.txt', join(sharedInstall, 'node_modules/ext-note.txt'));
+  await symlink('../missing-ext', join(sharedInstall, 'node_modules/dangling'));
   await symlink(join('..', 'packages', 'ws'), join(dir, 'node_modules', 'acme-ws'));
-  await symlink(sharedInstall, join(dir, 'app', 'node_modules'), 'dir');
+  await symlink(join(sharedInstall, 'node_modules'), join(dir, 'app', 'node_modules'), 'dir');
   const base = git(dir, ['rev-parse', 'HEAD']);
 
   // Candidate 1: depends on node_modules/base-cache left behind by the base's gate.
@@ -893,7 +919,9 @@ test('acme adds', () => { assert.equal(existsSync('node_modules/base-cache'), tr
   assert.match(json(cached).problems[0], /the gate `.*` failed \(exit 1\)/);
   assert.equal(existsSync(join(dir, 'node_modules/base-cache')), false);
   assert.equal(await readFile(join(dir, 'node_modules/acme-dep/cache.txt'), 'utf8'), 'clean\n');
-  assert.equal(await readFile(join(sharedInstall, 'acme-app/state.txt'), 'utf8'), 'app-clean\n');
+  assert.equal(await readFile(join(sharedInstall, 'ext-pkg/state.txt'), 'utf8'), 'app-clean\n');
+  assert.equal(await readFile(join(sharedInstall, 'node_modules/in-store/val.txt'), 'utf8'), 'in-store-clean\n');
+  assert.equal(await readFile(join(sharedInstall, 'ext-note.txt'), 'utf8'), 'note-clean\n');
 
   // Candidate 2: depends on an existing file in node_modules (or symlinked app/node_modules) mutated by base's gate.
   git(dir, ['checkout', '-q', '-f', '-B', 'needs-mutated-file', base]);
@@ -917,11 +945,14 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { dep } from 'acme-dep';
 import { label } from 'acme-ws';
-import { appDep } from './app/use.mjs';
+import { appDep, scopedPeer, inStore, extNote } from './app/use.mjs';
 test('acme adds', () => {
   assert.equal(dep, 'acme');
   assert.equal(label, 'cand-ws');
   assert.equal(appDep, 'app-clean');
+  assert.equal(scopedPeer, 'peer-clean');
+  assert.equal(inStore, 'in-store-clean');
+  assert.equal(extNote, 'note-clean');
   assert.equal(existsSync('node_modules/base-cache'), false);
   assert.equal(readFileSync('node_modules/acme-dep/cache.txt', 'utf8'), 'clean\\n');
 });

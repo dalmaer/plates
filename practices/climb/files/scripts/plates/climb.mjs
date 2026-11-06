@@ -85,13 +85,13 @@ import { environmentValue, writeName, branchSuffix } from './names.mjs';
 // the lessons table, and any finding decided tonight: deciding is the owner's
 // (lesson 53). Loop unreachable is a notice, never red.
 import { denialEvidence, durations, completion } from './climb-execution.mjs';
-import { readFile, readdir, writeFile, mkdir, mkdtemp, rm, cp, realpath, stat, open, rename } from 'node:fs/promises';
+import { readFile, readdir, writeFile, mkdir, mkdtemp, rm, cp, realpath, stat, lstat, readlink, symlink, open, rename } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { constants, existsSync, readFileSync, rmSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { join, resolve, dirname, isAbsolute, normalize, sep } from 'node:path';
+import { join, resolve, dirname, relative, parse, isAbsolute, normalize, sep } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { gateEnv, healthDirOf, cells, isMain, rootOf, main, climbRetiring, passAgentProblems, agentGitArgs, codexVerdict } from './lib.mjs';
 import { readRuns, flaky, testsConfigOf, aloneCommand, KEEP } from './test-ledger.mjs';
@@ -843,6 +843,43 @@ async function dropWorktree(root, dir) {
   await rm(dir, { recursive: true, force: true });
 }
 
+const within = (p, base) => `${p}${sep}`.startsWith(`${base}${sep}`);
+
+async function cloneInstall(rootReal, dirReal, from, to) {
+  const srcRoot = await realpath(from);
+  await cp(srcRoot, to, { recursive: true, verbatimSymlinks: true, mode: constants.COPYFILE_FICLONE });
+  const toReal = await realpath(to), extRoot = join(toReal, '.plates-climb-ext');
+  const cloned = new Set();
+  async function cloneExt(extReal) {
+    const dest = join(extRoot, relative(parse(extReal).root, extReal));
+    if (cloned.has(extReal)) return dest;
+    cloned.add(extReal);
+    await mkdir(dirname(dest), { recursive: true });
+    await cp(extReal, dest, { recursive: true, force: true, verbatimSymlinks: true, mode: constants.COPYFILE_FICLONE });
+    if ((await lstat(dest)).isDirectory()) await fixLinks(extReal, dest);
+    return dest;
+  }
+  async function fixLinks(rootSrc, rootDst, curSrc = rootSrc, curDst = rootDst) {
+    for (const e of await readdir(curDst, { withFileTypes: true })) {
+      if (e.name === '.plates-climb-ext') continue;
+      const srcPath = join(curSrc, e.name), dstPath = join(curDst, e.name);
+      if (e.isDirectory()) { await fixLinks(rootSrc, rootDst, srcPath, dstPath); continue; }
+      if (!e.isSymbolicLink()) continue;
+      const lex = resolve(dirname(srcPath), await readlink(srcPath));
+      const inRoot = within(lex, rootSrc);
+      const real = inRoot ? lex : await realpath(srcPath).catch(() => null);
+      if (!real) continue;
+      const target = inRoot ? join(rootDst, relative(rootSrc, lex))
+        : within(real, srcRoot) ? join(toReal, relative(srcRoot, real))
+        : within(real, rootReal) ? join(dirReal, relative(rootReal, real))
+        : await cloneExt(real);
+      await rm(dstPath, { force: true });
+      await symlink(relative(dirname(dstPath), target) || '.', dstPath);
+    }
+  }
+  await fixLinks(srcRoot, toReal);
+}
+
 async function worktree(root, dir, ref) {
   git(root, ['worktree', 'add', '--detach', '--quiet', dir, ref]);
   // The candidate adds no dependency (protocol rule 4; the sandbox refuses an
@@ -851,10 +888,11 @@ async function worktree(root, dir, ref) {
   // cache or mutated file for the candidate): the root's and each app or
   // workspace folder's own (ledger's web/node_modules, from `npm ci --prefix
   // web`), where the worktree has that folder.
+  const rootReal = await realpath(root), dirReal = await realpath(dir);
   for (const d of ['.', ...await packageDirs(root)]) {
     const from = join(root, d, 'node_modules'), to = join(dir, d, 'node_modules');
     if (existsSync(from) && existsSync(join(dir, d)) && !existsSync(to)) {
-      await cp(await realpath(from), to, { recursive: true, verbatimSymlinks: true, mode: constants.COPYFILE_FICLONE });
+      await cloneInstall(rootReal, dirReal, from, to);
     }
   }
 }
