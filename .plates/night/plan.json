@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "date": "2026-11-06",
+  "date": "2026-11-07",
   "shapedBy": "default",
   "readyBy": null,
   "willNotTouch": [],
@@ -9,7 +9,7 @@
   "items": [
     {
       "id": "measures",
-      "title": "Measure the practice: 41 measures; outside or broken on 2026-11-05: drafts_waiting, long_files, record_contradictions, phases_without_issue, phases_stuck, proofs_hold, escapes, lessons_without_guard, inbox_waiting, issues_unnamed, reviews_unanswered, dependency_age",
+      "title": "Measure the practice: 41 measures; outside or broken on 2026-11-06: drafts_waiting, long_files, phases_without_issue, phases_stuck, proofs_hold, escapes, lessons_without_guard, inbox_waiting, issues_unnamed, reviews_unanswered, dependency_age, failures_untaught",
       "kind": "measure",
       "source": "default",
       "number": null,
@@ -17,17 +17,17 @@
       "budget": null,
       "status": "done",
       "result": {
-        "note": "11 ok, 12 outside, 18 n/a, 0 broken",
-        "link": "docs/health/2026-11-06.md"
+        "note": "12 ok, 12 outside, 17 n/a, 0 broken",
+        "link": "docs/health/2026-11-07.md"
       }
     },
     {
-      "id": "health-record-contradictions",
-      "title": "Proposal from 2026-11-05: Fix the record_contradictions instrument: reconciliation incomplete: GitHub PR observation unavailable: dalmaer/ledger#130; GitHub PR observation unavailable: dalmaer/ledger#162; GitHub PR observation unavailable: dalmaer/ledger#169; GitHub PR observation unavailable: dalm…",
+      "id": "health-phases-without-issue",
+      "title": "Proposal from 2026-11-06: Open issues on dalmaer/plates for phases 50, 88, 94, 98, 99, 100, 101, 102, 103, 104 and 49 more and set `issue:` in each one's front matter.",
       "kind": "review",
-      "source": "health:record_contradictions",
+      "source": "health:phases_without_issue",
       "number": {
-        "measure": "record_contradictions",
+        "measure": "phases_without_issue",
         "bound": 0,
         "better": "lower"
       },
@@ -38,7 +38,7 @@
     },
     {
       "id": "climb-test-time",
-      "title": "Climb test-time: rotation, the first job; no measure tied to a job is outside its bound",
+      "title": "Climb test-time: rotation, after test-time; no measure tied to a job is outside its bound",
       "kind": "build",
       "source": "default",
       "number": {
@@ -50,15 +50,12 @@
       "budget": {
         "minutes": 45
       },
-      "status": "done",
-      "result": {
-        "note": "climb test-time 2026-11-06: kept 1 of 1 tried; `node --import ./tests/helpers/hermetic.mjs --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/plates/test-ledger.mjs --test-reporter-destination=stdout tests/improve.test.mjs` 65.0 s → 39.5 s (−39.3%); 70 min",
-        "link": "https://github.com/dalmaer/plates/pull/363"
-      }
+      "status": "planned",
+      "result": null
     },
     {
       "id": "persona-performance--published-package",
-      "title": "published package: back to at most 1000kB (measured 2410kB)",
+      "title": "published package: back to at most 1000kB (measured 2469kB)",
       "kind": "triage",
       "source": "persona:performance",
       "number": {
