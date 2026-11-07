@@ -4,7 +4,7 @@ since: 2026-11-06
 goal: G7
 spec: 2
 depends: [181]
-note: "Built: metadata-only events, written locally and (after migration 019) hosted, read back the same in plates home --backlog --since and /backlog/history. Waits on applying 019."
+note: "Built: metadata-only events, written locally and (after migration 019) hosted, read back the same in plates home --backlog --since and /backlog/history. Migration 019 applied 2026-11-07 and its hosted proof passed; waits on one event written from the web read back on /backlog/history."
 evidence: ["evidence/2026-11-06-backlog-events.md"]
 ---
 
