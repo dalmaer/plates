@@ -1299,6 +1299,9 @@ const groupOutcome = os => os.length === 1 ? os[0] : os.includes('fail') ? 'fail
  * `failed` every testcase that failed. A nested <testsuite> is a describe.
  * `fileOf` turns a JUnit path into the record's (root-relative).
  */
+/** The suite vitest writes for errors raised outside any test (vitest 4+), each a testcase with an <error>. */
+const UNHANDLED_SUITE = 'vitest unhandled errors';
+
 export function junitTests(root, runner, fileOf = f => f, { configEnv = [], env = process.env } = {}) {
   const redact = value => failureText(value, env, { configEnv });
   if (root?.name !== 'testsuites' && root?.name !== 'testsuite') throw new Error(`its root is <${root?.name}>, not <testsuites>`);
@@ -1311,7 +1314,14 @@ export function junitTests(root, runner, fileOf = f => f, { configEnv = [], env 
     if (!own && (o === 'pass' || o === 'fail')) ran++;
     return o;
   };
+  const unhandled = [];
   for (const suite of suites) {
+    // vitest's report of an error raised outside any test (an unhandled rejection): its own suite, one testcase per
+    // error, at a file that may not exist. Not a test: it fails the run, and never stands in for one that ran.
+    if (runner === 'vitest' && suite.attrs.name === UNHANDLED_SUITE) {
+      for (const c of casesIn(suite)) { failed++; unhandled.push(redact(c.attrs.name ?? 'Unhandled error')); }
+      continue;
+    }
     const groups = new Map();
     const add = (key, file, name) => groups.get(key) ?? groups.set(key, { file, name, describe: key.split('\u0000')[1] === 'd', outcomes: [], ms: 0 }).get(key);
     for (const child of suite.children) {
@@ -1338,7 +1348,7 @@ export function junitTests(root, runner, fileOf = f => f, { configEnv = [], env 
       if (g.outcomes.length) tests.push({ file: g.file, name: g.name, ...(g.describe ? { describe: true } : {}), outcome: groupOutcome(g.outcomes), ...(g.error ? { error: g.error } : {}), ms: Math.round(g.ms * 10) / 10 });
     }
   }
-  return { tests, ran, failed };
+  return { tests, ran, failed, ...(unhandled.length ? { unhandled } : {}) };
 }
 
 /**
@@ -1399,6 +1409,7 @@ export async function junitRun({ junit, runner, status = null, cwd = process.cwd
     lines.push(`${LABEL}: ${shown} is not JUnit the ledger can read (${e.message}); nothing recorded.`);
     return { lines, code: status || 1 };
   }
+  for (const u of parsed.unhandled ?? []) lines.push(`${LABEL}: vitest reported an error outside any test: ${u}. The run fails; it is not recorded as a test.`);
   if (knownConfig === null) { lines.push(`${LABEL}: redaction configuration unavailable; nothing recorded.`); return done(parsed.ran, parsed.failed); }
   // The file's own identity, recorded: its path and its bytes.
   const hash = sha12(`${shown}\u0000${xml}`);

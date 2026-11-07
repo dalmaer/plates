@@ -602,7 +602,7 @@ test('adopt detects bun test or vitest in the gate, records the runner, and prop
   await writeFile(join(v, 'package.json'), JSON.stringify({ name: 'acme-vite', scripts: { check: 'tsc && npx vitest run --coverage && eslint .' } }));
   const vd = (await adopt({ dir: v, dryRun: true }, { version: VERSION })).data;
   assert.deepEqual([vd.tests.runner, vd.tests.from], ['vitest', 'package.json scripts.check']);
-  assert.equal(vd.tests.proposal.to, `tsc && { ${stepOf('vitest', `npx vitest run --reporter=default --reporter=junit --outputFile.junit=${J} --coverage`, { words: ' --coverage' })}; } && eslint .`);
+  assert.equal(vd.tests.proposal.to, `tsc && { ${stepOf('vitest', `npx vitest run --reporter=default --reporter=junit --outputFile.junit="$PWD/${J}" --coverage`, { words: ' --coverage' })}; } && eslint .`);
   // node --test: the reporter is node's own (init, migration 0004); nothing recorded, nothing proposed.
   const n = await scratch(t);
   await writeFile(join(n, 'package.json'), JSON.stringify({ name: 'acme-node', scripts: { check: 'npm test', test: 'node --test' } }));
@@ -706,9 +706,9 @@ function assertProposals(make = ledgerCommand) {
     // A quoted operator is part of a word, not a step's end (review on #56).
     ["bun test -t 'one|two' && echo done", `{ ${bun(" -t 'one|two'")}; } && echo done`],
     ['echo "a && b; c" && bun test', `echo "a && b; c" && { ${bun('')}; }`],
-    ["vitest run -t 'x;y' --coverage", stepOf('vitest', `vitest run --reporter=default --reporter=junit --outputFile.junit=${J} -t 'x;y' --coverage`, { words: " -t 'x;y' --coverage" })],
+    ["vitest run -t 'x;y' --coverage", stepOf('vitest', `vitest run --reporter=default --reporter=junit --outputFile.junit="$PWD/${J}" -t 'x;y' --coverage`, { words: " -t 'x;y' --coverage" })],
     ['tsc && bun test a\\&b.test.ts && echo ok', `tsc && { ${bun(' a\\&b.test.ts')}; } && echo ok`],
-    ['pnpm exec vitest run; echo ok', `{ ${stepOf('vitest', `pnpm exec vitest run --reporter=default --reporter=junit --outputFile.junit=${J}`)}; }; echo ok`],
+    ['pnpm exec vitest run; echo ok', `{ ${stepOf('vitest', `pnpm exec vitest run --reporter=default --reporter=junit --outputFile.junit="$PWD/${J}"`)}; }; echo ok`],
   ];
   for (const [command, want] of cases) {
     const got = make(command, command.includes('vitest') ? 'vitest' : 'bun');
@@ -730,7 +730,9 @@ function assertProposals(make = ledgerCommand) {
   for (const [command, runner] of [['if bun test; then echo ok; fi', 'bun'], ['! bun test', 'bun'], ['while bun test; do :; done', 'bun'],
     ['bun test || true', 'bun'], ['bun test | tee out.txt', 'bun'], ['bun test &', 'bun'], ['ACME_MODE=fast bun test', 'bun'],
     ['NODE_OPTIONS=--max-old-space-size=64 vitest run', 'vitest'], ['time bun test', 'bun'], ['env CI=1 bun test', 'bun'],
-    ['npm run vitest:unit', 'vitest'], ['npx vitest-preview', 'vitest']]) {
+    ['npm run vitest:unit', 'vitest'], ['npx vitest-preview', 'vitest'],
+    // plates#86: a second call to the runner would write the same report and record as one run.
+    ['bun test web && bun test api', 'bun'], ['vitest run web; npx vitest run api', 'vitest']]) {
     assert.equal(make(command, runner), null, command);
   }
   // What plates will not split by hand gets no proposal, never a broken one.
@@ -757,7 +759,7 @@ test('a proposal parses in sh: a quoted operator or runner is a word, and a comm
   // A script whose name holds "vitest" is followed to its body, which is what gets the flags (review on #56).
   const unit = testsPlan({}, 'npm run vitest:unit', { 'vitest:unit': 'vitest run' });
   assert.deepEqual([unit.runner, unit.from, unit.proposal?.where], ['vitest', 'package.json scripts.vitest:unit', 'package.json scripts.vitest:unit']);
-  assert.equal(unit.proposal.to, stepOf('vitest', `vitest run --reporter=default --reporter=junit --outputFile.junit=${J}`));
+  assert.equal(unit.proposal.to, stepOf('vitest', `vitest run --reporter=default --reporter=junit --outputFile.junit="$PWD/${J}"`));
   for (const junit of ['reports/test results.xml', 'out/$HOME.xml', '-x.xml', '.', '.plates/test-runs', 'reports/']) assert.ok(testsConfigProblems({ tests: { junit } }).length, junit);
   // A step that already picks a reporter or its output file: plates's flags would fight it (the last one wins), so none (review on #56).
   for (const [command, runner] of [['bun test --reporter=junit --reporter-outfile=reports/current.xml', 'bun'], ['bun test --reporter-outfile reports/current.xml', 'bun'],
@@ -773,6 +775,11 @@ test('a proposal parses in sh: a quoted operator or runner is a word, and a comm
     assert.ok(line.endsWith('--start "$plates_start"'), `${command}: no words handed on\n${line}`);
   }
   assert.ok(testsConfigProblems({ tests: { junit: 'reports/junit-1.xml' } }).length);
+  // plates#86: a runner counts only as a step's command, never as an argument or a file name.
+  const named = testsPlan({}, 'bun test -t vitest', {});
+  assert.deepEqual([named.runner, Boolean(named.proposal)], ['bun', true]);
+  assert.equal(testsPlan({}, 'eslint . --ignore-pattern vitest.config.ts', {}), null);
+  assert.equal(testsPlan({}, 'eslint . && cd web && pnpm exec vitest run', {}).runner, 'vitest');
   // More than one runner in the gate (`npm test` runs bun, then vitest runs): record none, propose none (review on #56).
   const two = testsPlan({}, 'npm test && npx vitest run', { test: 'bun test' });
   assert.deepEqual([two.runner, two.proposal], [null, null]);
