@@ -455,6 +455,15 @@ test('a third provider: the first listed that is not the author reviews; a pass\
   assert.deepEqual(crossReviewerProblems({ agents: { acmebot: {} }, crossReview: { for: ['acmebot/'] } }, { agents }), [], 'alone, it reviews its own');
 });
 
+test('plates#66: a robot branch prefix in a Codex-only project\'s "crossReview".for needs no default reviewer: cross-review never reviews a robot PR', () => {
+  for (const robot of ['plates/robot-', 'keel/robot-', 'plates/robot-12']) {
+    assert.deepEqual(passAgentProblems({ agents: { codex: {} }, crossReview: { for: [robot, 'codex/'] } }, 'crossReview'), [], robot);
+  }
+  // A prefix that also names other branches still needs one: only the robot's own branches are left out.
+  assert.match(passAgentProblems({ agents: { codex: {} }, crossReview: { for: ['plates/'] } }, 'crossReview').join('\n'), /reviews plates\/ with claude \(the default/);
+  assert.match(passAgentProblems({ agents: { codex: {} }, crossReview: { for: ['plates/rob'] } }, 'crossReview').join('\n'), /reviews plates\/rob with claude/);
+});
+
 // ---- phase 60: a push to main is reviewed by a provider other than its commits' ------
 
 test('phase 60: who wrote a push is its commits\' authors and Co-authored-by trailers; the reviewer is never their provider while another is available; a person\'s push goes to the first listed', async () => {
