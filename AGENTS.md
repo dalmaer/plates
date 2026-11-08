@@ -198,6 +198,21 @@ against a versioned coverage profile. Retain its gaps and separate cache/harness
 bindings; its child telemetry never establishes a complete configured gate.
 It changes neither nightly manifest scope nor reuse policy.
 
+## Coordinate independent builders
+
+Each independent builder needs a unique stable `PLATES_SESSION`; native thread
+identity is a fallback, not proof that parallel children are distinct. Do not
+inherit one parent session ID across parallel writers. Use isolated worktrees,
+claim before building, and keep the original claim receipt private. With no
+session identity, resuming a claim requires its explicit token in the original
+worktree. A matching provider or a Rex terminal is not ownership.
+
+Machine handoffs preserve the exact branch, commit, checks, remaining work and
+user-authorized scope, and verify the old writer has stopped. A token alone does
+not transfer a claim to another checkout. Unknown presence or dispatch outcome
+stays unknown; never start a duplicate to recover a lost response. See
+[Spin a phase](docs/guide/spin-a-phase.md) for the supported claim recovery path.
+
 ## Distributed project verification
 
 Each plate owns its gate and record verification. Retain the report's source

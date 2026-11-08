@@ -378,7 +378,7 @@ then gives the commands and every flag by the reason you'd pass it.
 | [Start a project](docs/guide/start-a-project.md) | you have an idea and an empty directory |
 | [Bring a project under plates](docs/guide/bring-a-project-under-plates.md) | a repo already exists, perhaps with its own copy of the practice |
 | [Plan with phases and goals](docs/guide/plan-with-phases-and-goals.md) | you are lining up the work and saying what done means |
-| [Spin a phase](docs/guide/spin-a-phase.md) | a phase is specified and you want it built without trusting the builder's word |
+| [Spin a phase](docs/guide/spin-a-phase.md) | build a specified phase, keep independent session ownership, and recover a local claim |
 | [The night shift](docs/guide/the-night-shift.md) | you want to know each morning whether the practice is holding |
 | [Validation evidence audit](docs/development/validation-audit.md) | you want read-only findings from retained validation evidence without running suites |
 | [Validation planning and admission](docs/development/validation-preflight.md) | you want source-only capability checks, conservative focused suggestions and opt-in shared host admission |

@@ -88,7 +88,7 @@ process.stdout.write(fs.readFileSync(${JSON.stringify(list)}, 'utf8'));
   const prs = async value => value === null ? rm(list, { force: true }) : writeFile(list, JSON.stringify(value));
   await prs([]);
   // A session's environment, said whole: its provider and session id are the test's, never those of the agent running the suite.
-  const env = (machine = 'acme-host', { provider = 'claude', session = '' } = {}) => {
+  const env = (machine = 'acme-host', { provider = 'claude', session = 'acme-session' } = {}) => {
     const e = { ...process.env, PLATES_GH: gh, PLATES_MACHINE: machine, PLATES_PROVIDER: provider, PLATES_SESSION: session };
     for (const k of Object.keys(e)) if (/^(CLAUDE|CODEX_)/.test(k)) delete e[k];
     return e;
@@ -477,9 +477,10 @@ test('two claims racing in the same checkout: the loser never removes or overwri
   await rename(join(dir, kept[0]), join(dir, 'aside'));
   assert.equal((await again(1)).refused, true, 'no token: not ours');
   await writeFile(resolve(x.a, git(x.a, 'rev-parse', '--git-path', 'keel-claims/phase-1')), `${kept[0]}\n`);
-  assert.equal((await again(1)).held, true);
+  assert.equal((await again(1)).refused, true, 'legacy token files need explicit recovery, not provider identity');
+  assert.equal((await claim({ root: x.a, phase: '1', token: kept[0] }, { env })).data.held, true);
   // Release removes the claim and its token, and nothing else.
-  assert.equal((await claim({ root: x.a, phase: '1', release: true }, { env })).data.released, true);
+  assert.equal((await claim({ root: x.a, phase: '1', release: true, token: kept[0] }, { env })).data.released, true);
   assert.deepEqual(await readdir(dir), ['aside']);
 });
 
@@ -571,7 +572,7 @@ test('a second session started in the same working tree after a claim landed is 
   }
   assert.equal(plates(['phase', 'claim', '1', '--provider', 'codex', '--json'], x.a, B).code, 1, 'the provider it names is checked before it is told anything');
   // A session with no id cannot be shown to be the claimer of a claim that recorded one.
-  assert.equal(plates(['phase', 'claim', '1', '--json'], x.a, x.env('acme-laptop', { provider: 'claude' })).code, 1);
+  assert.equal(plates(['phase', 'claim', '1', '--json'], x.a, x.env('acme-laptop', { provider: 'claude', session: '' })).code, 1);
   assert.match(plates(['phase', 'claim', '2'], x.a, A).out, /\nToken: [0-9a-f]{32} \(this session needs no flag; another session in this working tree resumes or releases the claim only with --token\)\n$/);
   assert.equal(plates(['phase', 'claim', '2', '--release', '--json'], x.a, A).code, 0);
 
@@ -603,7 +604,7 @@ test('a second session started in the same working tree after a claim landed is 
   assert.equal(remoteClaim(x.origin, 1), null);
 });
 
-test('one session claims, loses the read-back, resumes and releases in its own tree with no extra flag; with no session id at all, only the provider tells sessions apart', async t => {
+test('one session recovers a lost read-back; without a session id, only the explicit local token establishes ownership', async t => {
   const x = await acme(t);
   // The common case, with a session id, through the lost read-back: the same session is told it holds the claim.
   const A = x.env('acme-laptop', { provider: 'claude', session: 'acme-session-a' });
@@ -613,24 +614,75 @@ test('one session claims, loses the read-back, resumes and releases in its own t
   assert.equal((await claim({ root: x.a, phase: '1' }, { env: A })).data.held, true);
   assert.equal((await claim({ root: x.a, phase: '1', release: true }, { env: A })).data.released, true);
 
-  // No session id anywhere (an agent that exposes none): claim, resume and release still work with no flag.
-  const plain = x.env('acme-laptop', { provider: 'codex' });
-  assert.equal(plates(['phase', 'claim', '2', '--json'], x.a, plain).code, 0);
-  assert.equal(plates(['phase', 'claim', '2', '--json'], x.a, plain).json().held, true);
-  // The known limit: a second session of the same provider, also with no id, is not told apart...
-  assert.equal(plates(['phase', 'claim', '2', '--json'], x.a, x.env('acme-laptop', { provider: 'codex' })).json().held, true);
-  // ...but another provider is, and so is a caller that names none.
-  assert.equal(plates(['phase', 'claim', '2', '--json'], x.a, x.env('acme-laptop', { provider: 'claude', session: 'acme-session-a' })).code, 1);
-  assert.equal(plates(['phase', 'claim', '2', '--release', '--json'], x.a, x.env('acme-laptop', { provider: '' })).code, 1);
-  assert.equal(plates(['phase', 'claim', '2', '--release', '--json'], x.a, plain).code, 0);
+  // No session id anywhere: acquisition still works, but no automatic ownership is inferred.
+  const plain = x.env('acme-laptop', { provider: 'codex', session: '' });
+  const first = plates(['phase', 'claim', '2', '--json'], x.a, plain);
+  assert.equal(first.code, 0, first.out + first.err);
+  const { token, sha } = first.json();
+  for (const caller of [plain, x.env('acme-laptop', { provider: 'codex', session: 'acme-new-session' })]) {
+    const resumed = plates(['phase', 'claim', '2', '--json'], x.a, caller);
+    assert.equal(resumed.code, 1, resumed.out + resumed.err);
+    assert.deepEqual([resumed.json().holder.mine, resumed.json().holder.here], [false, true]);
+    assert.equal(plates(['phase', 'claim', '2', '--release', '--json'], x.a, caller).code, 1);
+    assert.equal(plates(['next', '--json'], x.a, caller).json().claimed[0].holder.mine, false);
+    assert.equal(remoteClaim(x.origin, 2), sha);
+  }
+  assert.equal(plates(['phase', 'claim', '2', '--token', 'wrong-token', '--json'], x.a, plain).code, 1);
+  // A token is a local recovery handle, never a portable bearer credential.
+  assert.equal(plates(['phase', 'claim', '2', '--token', token, '--json'], x.b, plain).code, 1);
+  assert.equal(plates(['phase', 'claim', '2', '--release', '--token', token, '--json'], x.b, plain).code, 1);
+  assert.equal(plates(['phase', 'claim', '2', '--token', token, '--json'], x.a, plain).json().held, true);
+  assert.equal(plates(['phase', 'claim', '2', '--release', '--token', token, '--json'], x.a, plain).code, 0);
   assert.equal(remoteClaim(x.origin, 2), null);
+  const text = plates(['phase', 'claim', '2'], x.a, plain).out;
+  assert.match(text, /no session id is available; resume or release in this working tree only with --token/);
 });
 
-test('the session is PLATES_SESSION, else the id Claude Code sets; nothing else is guessed', async () => {
+test('session-less acquisition retains explicit local recovery after an uncertain push', async t => {
+  const x = await acme(t), env = x.env('acme-laptop', { provider: 'codex', session: '' });
+  const token = 'acme-recovery-token';
+  await assert.rejects(claim({ root: x.a, phase: '1' }, { env, token, afterPush: async () => {
+    git(x.a, 'remote', 'set-url', 'origin', join(x.dir, 'gone.git'));
+  } }), /run plates phase claim 1 --token acme-recovery-token again in this working tree/);
+  git(x.a, 'remote', 'set-url', 'origin', x.origin);
+  assert.equal((await claim({ root: x.a, phase: '1' }, { env })).data.refused, true);
+  assert.equal((await claim({ root: x.a, phase: '1', token }, { env })).data.held, true);
+});
+
+test('Codex thread identities separate callers in one worktree and never transfer ownership to another', async t => {
+  const x = await acme(t), plain = x.env('acme-laptop', { provider: 'codex', session: '' });
+  const A = { ...plain, CODEX_THREAD_ID: 'acme-thread-a' };
+  const B = { ...plain, CODEX_THREAD_ID: 'acme-thread-b' };
+  const first = await claim({ root: x.a, phase: '1' }, { env: A });
+  assert.equal(first.data.claimed, true);
+  const { token, sha } = first.data;
+  assert.equal((await claim({ root: x.a, phase: '1' }, { env: A })).data.held, true);
+  for (const env of [B, plain]) {
+    assert.equal((await claim({ root: x.a, phase: '1' }, { env })).data.refused, true);
+    assert.equal((await claim({ root: x.a, phase: '1', release: true }, { env })).data.refused, true);
+    const seen = plates(['next', '--json'], x.a, env).json();
+    assert.deepEqual([seen.claimed[0].holder.mine, seen.claimed[0].holder.here], [false, true]);
+  }
+  const sibling = join(x.dir, 'sibling');
+  git(x.a, 'worktree', 'add', '--detach', sibling);
+  for (const root of [x.b, sibling]) {
+    assert.equal((await claim({ root, phase: '1', token }, { env: A })).data.refused, true);
+    assert.equal((await claim({ root, phase: '1', release: true, token }, { env: A })).data.refused, true);
+  }
+  assert.equal(remoteClaim(x.origin, 1), sha);
+  assert.equal((await claim({ root: x.a, phase: '1', token }, { env: B })).data.held, true);
+  assert.equal((await claim({ root: x.a, phase: '1', release: true }, { env: A })).data.released, true);
+});
+
+test('session identity prefers the explicit override, then known Claude and Codex ids; nothing else is guessed', async () => {
   const { sessionOf } = await import('../lib/claim.mjs');
   assert.equal(sessionOf({ CLAUDE_CODE_SESSION_ID: 'acme-1' }), 'acme-1');
-  assert.equal(sessionOf({ CLAUDE_CODE_SESSION_ID: 'acme-1', PLATES_SESSION: 'acme-2' }), 'acme-2');
-  assert.equal(sessionOf({ CODEX_HOME: '/acme', CLAUDECODE: '1' }), null);
+  assert.equal(sessionOf({ CODEX_THREAD_ID: 'acme-thread' }), 'acme-thread');
+  assert.equal(sessionOf({ CLAUDE_CODE_SESSION_ID: 'acme-1', CODEX_THREAD_ID: 'acme-thread' }), 'acme-1');
+  assert.equal(sessionOf({ CLAUDE_CODE_SESSION_ID: 'acme-1', CODEX_THREAD_ID: 'acme-thread', PLATES_SESSION: 'acme-2' }), 'acme-2');
+  assert.equal(sessionOf({ CODEX_THREAD_ID: 'acme-thread', KEEL_SESSION: 'acme-legacy' }), 'acme-legacy');
+  assert.equal(sessionOf({ CODEX_HOME: '/acme', CLAUDECODE: '1', CODEX_SESSION_ID: 'not-the-thread' }), null);
+  assert.equal(sessionOf({ PLATES_SESSION: '', CLAUDE_CODE_SESSION_ID: '', CODEX_THREAD_ID: '' }), null);
 });
 
 for (const namespace of ['plates', 'keel']) test(`phase128 claim token ${namespace} location keeps ownership and exact release`, async t => {
