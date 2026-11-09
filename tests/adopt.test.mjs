@@ -737,7 +737,9 @@ function assertProposals(make = ledgerCommand) {
     ['env CI=1 bun test web && bun test api', 'bun'], ['bun test web && env CI=1 bun test api', 'bun'],
     ['NODE_OPTIONS="--trace-warnings --enable-source-maps" vitest run web; vitest run api', 'vitest'],
     // #376 follow-up: env's option operands are read, and a step whose env options plates cannot read may run the runner too.
-    ['env -u NODE_ENV bun test web && bun test api', 'bun'], ["env -S 'bun test web' && bun test api", 'bun'], ['env -x bun test web; bun test api', 'bun']]) {
+    ['env -u NODE_ENV bun test web && bun test api', 'bun'], ["env -S 'bun test web' && bun test api", 'bun'], ['env -x bun test web; bun test api', 'bun'],
+    // #382 review: an option's attached path is the option's, not the command's.
+    ['env -S./scripts/test-bun && bun test api', 'bun']]) {
     assert.equal(make(command, runner), null, command);
   }
   // What plates will not split by hand gets no proposal, never a broken one.
@@ -806,9 +808,16 @@ test('a proposal parses in sh: a quoted operator or runner is a word, and a comm
     assert.equal(testsPlan({}, command, {})?.runner, 'vitest', command);
   }
   assert.equal(testsPlan({}, 'env -u vitest bun test', {})?.runner, 'bun', "-u's operand is a name, not the command");
+  for (const command of ['./node_modules/.bin/vitest run && bun test', 'env -u NODE_ENV ./node_modules/.bin/vitest run && bun test']) {
+    assert.match(testsPlan({}, command, {}).declined, /^the gate runs more than one test runner \(vitest, bun\)/, `${command}: a command's own path is still read`);
+  }
   // An option plates does not read (-S hands env a whole command line; anything else is unknown): the runner found
   // beside it is not known to be the only one, so none is recorded and no line proposed.
-  for (const command of ["env -S 'vitest run' && bun test", "bun test && env --split-string='vitest run'", 'env -x vitest run && bun test', 'time -Z vitest run; bun test']) {
+  for (const command of ["env -S 'vitest run' && bun test", "bun test && env --split-string='vitest run'", 'env -x vitest run && bun test', 'time -Z vitest run; bun test',
+    // #382 review (comment 4509311577): the command's path prefix is taken only after the wrapper's options are read,
+    // so an option with an attached path (-S./scripts/test-vitest) is still one plates does not read.
+    'env -S./scripts/test-vitest && bun test', 'env -u NODE_ENV -S./scripts/test-vitest && bun test', 'bun test && env -S../bin/vitest',
+    'env --split-string=./scripts/test-vitest && bun test', 'time -Z./bin/vitest; bun test']) {
     const plan = testsPlan({}, command, {});
     assert.deepEqual([plan?.runner, plan?.proposal], [null, null], command);
     assert.match(plan.declined, /through env or time options plates does not read/, command);
