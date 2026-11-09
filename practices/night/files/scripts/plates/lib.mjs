@@ -1336,7 +1336,8 @@ export function stepUse(jobs, { step, check, minutes }) {
   for (const job of Array.isArray(jobs) ? jobs : []) {
     const steps = Array.isArray(job?.steps) ? job.steps : [];
     if (check && steps.some(s => s?.name === check && s.conclusion === 'failure')) return null;
-    for (const s of steps) {
+    // The last of the pass's agent steps that ran: after a provider could not start, its fallback (same name) did the work.
+    for (const s of [...steps].reverse()) {
       if (s?.name !== step || s.conclusion === 'skipped') continue;
       const from = stamp(s, 'started_at', 'startedAt'), to = stamp(s, 'completed_at', 'completedAt');
       if (!Number.isFinite(from) || !Number.isFinite(to) || to < from) continue;
@@ -2467,6 +2468,79 @@ export function codexVerdict({ outcome, message, elapsedSec, minutes }) {
   const check = 'check OPENAI_API_KEY, the model, and that the run\'s actor has write access (codex-action refuses anyone else)';
   if (outcome === 'success') return { ok: false, line: `Codex did not start: the agent step succeeded after ${took} with no final message, before its ${minutes}-minute budget; ${check}. Nothing is judged or posted.` };
   return { ok: false, line: `Codex ${said ? 'stopped with an error' : 'did not start'}: the agent step ended ${outcome || 'without an outcome'} after ${took}, before its ${minutes}-minute budget, ${said ? 'with a final message' : 'with no final message'}; ${check}. Nothing is judged or posted.` };
+}
+
+// ---- a provider that could not start, and who runs instead ------------------------
+//
+// The owner's rule (2026-11-08): when a provider cannot run because its credit is low or
+// its secret is refused, another listed provider with its secret runs the job instead
+// of failing it. One classifier and one choice, shared by every agent job.
+
+/**
+ * Why a provider's error text says it refused to start, pure: 'credit' (its credit,
+ * billing or quota: top it up), 'rate' (a rate limit or an overload: wait, or raise
+ * it), 'auth' (the secret itself was refused: rotate it), 'model' (the model was
+ * refused), or null (none of these: a real error, which another provider would not
+ * fix). Credit before auth: a billing refusal often says 401 or 403 as well, and the
+ * owner's fix is a top-up, not a new secret.
+ */
+export function startFailureKind(text) {
+  const t = String(text ?? '');
+  if (/credit[ _-]?balance|insufficient[ _-]?(?:quota|credits?|funds)|\bquota\b|billing|payment[ _-]?required|\b402\b|out of credits?|usage[ _-]?limit|spend(?:ing)?[ _-]?limit/i.test(t)) return 'credit';
+  if (/\b429\b|rate[ _-]?limit|too many requests|overloaded|\b529\b/i.test(t)) return 'rate';
+  if (/\b(?:401|403)\b|auth|token|credential|api[ _-]?key|oauth|unauthori[sz]ed|forbidden|permission|login/i.test(t)) return 'auth';
+  if (/\bmodel\b|not[ _]found|\b404\b/i.test(t)) return 'model';
+  return null;
+}
+
+/** What each start failure means for the owner: what happened, and what to do. */
+export const START_FAILURES = Object.freeze({
+  credit: Object.freeze({ said: 'its credit, billing or quota ran out', fix: 'top up its account; the secret itself was accepted' }),
+  rate: Object.freeze({ said: 'it was rate-limited or overloaded at the start', fix: 'wait, or raise its rate limit' }),
+  auth: Object.freeze({ said: 'its secret was refused', fix: 'rotate the secret' }),
+  unread: Object.freeze({ said: 'its step ended at once, and nothing plates can read says why', fix: 'check its secret and its credit' }),
+});
+
+/**
+ * Whether an agent step could not start, and why, pure: { kind, said, fix } or null.
+ * Only a start failure counts, never a real error: Claude's result is_error within its
+ * first turn and its text names credit, a rate limit or the secret (errorText's
+ * `text`), or a failed step with no result at all; Codex's step ended with no final
+ * message (codex-action writes nothing else plates can read, so its kind is unread).
+ * A run past its budget, out of its turns, stopped after it started, or refusing the
+ * model (the next provider has its own; the owner's fix is the config) is null.
+ */
+export function startFailure({ agent, outcome, result = null, text = '', message = null, elapsedSec, minutes }) {
+  const budget = minutes * 60;
+  if (Number.isFinite(elapsedSec) && Number.isFinite(budget) && elapsedSec > 0 && elapsedSec >= Math.max(budget - 60, budget * 0.9)) return null;
+  const of = kind => ({ kind, ...START_FAILURES[kind] });
+  if (agent === 'codex') return String(message ?? '').trim() ? null : of('unread');
+  if (!result) return outcome === 'success' ? null : of('unread');
+  if (!result.is_error || Number(result.num_turns ?? 0) > 1 || result.subtype === 'error_max_turns') return null;
+  if (!String(text ?? '').trim()) return of('unread');
+  const kind = startFailureKind(text);
+  return kind && kind !== 'model' ? of(kind) : null;
+}
+
+/**
+ * Who runs a job instead when the providers in `tried` could not start, pure: the
+ * first provider `order` lists ("agents" order) that does `pass`, was not tried and
+ * has its secret (`has`, when given), the job's own providers (`own`: the author of
+ * the PR a review reads) last; null when none is left.
+ */
+export function fallbackAgent({ order = [], tried = [], has, own = [], pass, agents = AGENTS }) {
+  const able = order.filter(n => agents[n]?.passes.includes(pass) && !tried.includes(n) && (!has || has[n] !== false));
+  return able.find(n => !own.includes(n)) ?? able[0] ?? null;
+}
+
+/**
+ * The one line a fallback is said in, naming the kind so the owner knows to top up or rotate:
+ * 'Claude could not start: its credit, billing or quota ran out ("Credit balance is too low"); reviewed by Codex instead. For Claude: top up its account; the secret itself was accepted.'
+ */
+export function fallbackLine({ from, to, failure, text = '', doing = 'run', agents = AGENTS }) {
+  const said = String(text ?? '').replace(/\s+/g, ' ').trim().slice(0, 160);
+  const name = agents[from]?.name ?? from;
+  return `${name} could not start: ${failure.said}${said ? ` ("${said}")` : ''}; ${doing} by ${agents[to]?.name ?? to} instead. For ${name}: ${failure.fix}.`;
 }
 
 

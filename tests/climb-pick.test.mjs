@@ -149,7 +149,8 @@ test('off: with no climb key the workflow does nothing; with no secret the run e
     const cond = /(?:^ {6}- |\n {8})if: (.+)/.exec(s)?.[1] ?? '';
     // A step for one job (hygiene's gather, its issue) runs only when that job was picked: a job, so climb is on.
     // Tonight's plan is kept only when the pick ran one (phase 76): a pick, so climb is on and configured.
-    assert.match(cond, /steps\.configured\.outputs\.enabled == 'true'|steps\.pick\.outputs\.job != ''|steps\.pick\.outputs\.job == '[a-z-]+'|steps\.pick\.outputs\.plan_used == 'true'/, `step without the guard: ${s.split('\n')[0]}`);
+    // A fallback's steps wait on "Could the agent start?", which waits on the pick.
+    assert.match(cond, /steps\.configured\.outputs\.enabled == 'true'|steps\.pick\.outputs\.job != ''|steps\.pick\.outputs\.job == '[a-z-]+'|steps\.pick\.outputs\.plan_used == 'true'|^steps\.start\.outputs\.fallback == 'codex'$/, `step without the guard: ${s.split('\n')[0]}`);
   }
   assert.match(steps.find(s => s.includes('name: Configured?')), /if: steps\.on\.outputs\.on == 'true'/);
   assert.match(text, /\n  judge:\n    needs: agent\n    if: needs\.agent\.outputs\.job != '' && needs\.agent\.outputs\.execution == 'executed'\n/, 'no job picked or no verified execution, no judge');
@@ -319,4 +320,58 @@ test('perf: reads the last line\'s number, honours "better" both ways past the m
   const g = climb(dir, ['guard', '--json']);
   assert.equal(g.status, 1, g.stdout + g.stderr);
   assert.match(json(g).problems[0], /the project's own perf check `node -e "process\.exit\(4\)"` failed \(exit 4\)/);
+});
+
+// The owner's rule (2026-11-08): a Claude that could not start (its credit, its secret) hands the climb or tend pass to
+// Codex when "agents" lists it and its secret is set. These passes write, so only a start failure plates can read hands
+// over, and only on the branch and tree the agent was handed; anything else is judged as before.
+test('fallback: a climb or tend Claude that could not start hands the pass to Codex; an unread failure, a changed tree or no Codex does not', async t => {
+  const dir = await acme(t);
+  const m = await load(dir);
+  const file = join(dir, '..', `${dir.split('/').pop()}-start-execution.json`);
+  t.after(() => rm(file, { force: true }));
+  const now = Math.floor(Date.now() / 1000);
+  const both = { agents: { claude: {}, codex: {} } };
+  const credit = { is_error: true, num_turns: 1, duration_ms: 900, subtype: 'success', result: 'Credit balance is too low' };
+  await writeFile(file, execution(credit));
+  const start = (over = {}) => m.agentStart({ config: both, pass: 'climb', outcome: 'failure', file, minutes: 45, started: now - 4, agent: 'claude', has: { claude: true, codex: true }, ...over });
+  const handed = await start();
+  assert.deepEqual([handed.agent, handed.fallback, handed.kind], ['codex', 'codex', 'credit']);
+  assert.equal(handed.note, 'Claude could not start: its credit, billing or quota ran out ("Credit balance is too low"); climbed by Codex instead. For Claude: top up its account; the secret itself was accepted.');
+  assert.match((await start({ pass: 'tend' })).note, /; tended by Codex instead\./);
+  assert.equal((await start({ has: { claude: true, codex: false } })).fallback, null, 'no Codex secret');
+  assert.equal((await start({ config: { agents: { claude: {} } } })).fallback, null, '"agents" lists no Codex');
+  assert.equal((await start({ config: {} })).fallback, null, 'no "agents": Claude alone');
+  // Unread failures may be a crash after the agent wrote: they stay red.
+  assert.equal((await start({ file: join(dir, 'none.json') })).fallback, null, 'Claude with no result');
+  assert.equal((await start({ agent: 'codex', file: join(dir, 'none.json') })).fallback, null, 'Codex with no final message');
+  await writeFile(file, execution({ ...credit, num_turns: 9 }));
+  assert.equal((await start()).fallback, null, 'it started: judged as before');
+  await writeFile(file, execution({ ...credit, result: "TypeError: Cannot read properties of undefined (reading 'acme')" }));
+  assert.equal((await start()).fallback, null, 'a real error');
+  // The workflow's step: the kept scripts and the run's own config, as the workflow archives them before the agent runs.
+  await writeFile(file, execution(credit));
+  const kept = await mkdtemp(join(tmpdir(), 'plates-kept-'));
+  t.after(() => rm(kept, { recursive: true, force: true }));
+  await cp(join(dir, 'scripts/plates'), join(kept, 'plates/scripts/plates'), { recursive: true });
+  await mkdir(join(kept, 'plates/.plates'), { recursive: true });
+  await writeFile(join(kept, 'plates/.plates/plates.json'), JSON.stringify({ ...JSON.parse(await readFile(join(dir, '.plates/plates.json'), 'utf8')), ...both }));
+  const head = git(dir, ['rev-parse', 'HEAD']);
+  const tree = run('bash', ['-c', 'git status --porcelain --untracked-files=normal | git hash-object --stdin'], { cwd: dir }).stdout.trim();
+  const env = over => ({ RUNNER_TEMP: kept, AGENT: 'claude', OUTCOME: 'failure', EXECUTION: file, MINUTES: '45', STARTED: String(now - 4), HEAD_BEFORE: head, TREE_BEFORE: tree, HAS_CLAUDE: 'true', HAS_CODEX: 'true', ...over });
+  const s = await step(t, dir, 'Could the agent start?', env());
+  assert.equal(s.status, 0, s.out);
+  assert.deepEqual([s.outputs.agent, s.outputs.fallback], ['codex', 'codex']);
+  assert.match(s.out, /^::warning::Claude could not start: its credit, billing or quota ran out/m);
+  assert.doesNotMatch(s.out, /acme private session text/);
+  const noKey = await step(t, dir, 'Could the agent start?', env({ HAS_CODEX: 'false' }));
+  assert.deepEqual([noKey.outputs.agent, noKey.outputs.fallback], ['claude', '']);
+  // The tree the agent was handed changed: nothing is handed on, and the warning says why.
+  await writeFile(join(dir, 'acme-left-behind.txt'), 'x\n');
+  const dirty = await step(t, dir, 'Could the agent start?', env());
+  assert.deepEqual([dirty.outputs.agent, dirty.outputs.fallback], ['claude', '']);
+  assert.match(dirty.out, /Not handed on: the branch or the working tree changed after the agent was handed it\./);
+  // The same step in tend, on its own workflow.
+  const tend = runBlocks(await readFile(join(dirname(WORKFLOW), 'plates-tend.yml'), 'utf8')).find(b => b.step === 'Could the agent start?');
+  assert.ok(tend && /agent-start --pass tend/.test(tend.script), 'tend checks with --pass tend');
 });

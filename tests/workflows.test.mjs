@@ -1169,7 +1169,13 @@ export function agentRanProblems(text, { step, id }) {
   const body = steps[check];
   if (/continue-on-error/.test(body)) out.push('"Did the agent run?" is continue-on-error: its red would be swallowed');
   // Phase 47: Codex's step (id <id>_codex) when the pass names codex, else Claude's.
-  if (!new RegExp(`OUTCOME: \\$\\{\\{ (?:steps\\.on\\.outputs\\.agent == 'codex' && steps\\.${id}_codex\\.outcome \\|\\| )?steps\\.${id}\\.outcome \\}\\}`).test(body)) out.push(`"Did the agent run?" does not read steps.${id}.outcome`);
+  // After a fallback (a Claude that could not start hands the pass to Codex), the outcome judged is the fallback's.
+  if (!new RegExp(`OUTCOME: \\$\\{\\{ (?:steps\\.start\\.outputs\\.fallback == 'codex' && steps\\.${id}_fallback_codex\\.outcome \\|\\| )?(?:steps\\.on\\.outputs\\.agent == 'codex' && steps\\.${id}_codex\\.outcome \\|\\| )?steps\\.${id}\\.outcome \\}\\}`).test(body)) out.push(`"Did the agent run?" does not read steps.${id}.outcome`);
+  const fallbackStep = steps.find(s => new RegExp(`\\n {8}id: ${id}_fallback_codex\\n`).test(s));
+  if (fallbackStep) {
+    if (!body.includes(`steps.${id}_fallback_codex.outcome`) || !/AGENT: \$\{\{ steps\.start\.outputs\.agent \|\| steps\.on\.outputs\.agent \}\}/.test(body)) out.push('"Did the agent run?" does not judge the fallback when it ran');
+    if (steps.indexOf(fallbackStep) > check) out.push('"Did the agent run?" runs before the fallback');
+  }
   const codexStep = steps.find(s => new RegExp(`\\n {8}id: ${id}_codex\\n`).test(s));
   if (codexStep) {
     if (!body.includes(`steps.${id}_codex.outcome`)) out.push(`"Did the agent run?" does not read steps.${id}_codex.outcome`);
@@ -1199,8 +1205,9 @@ test('lesson 29: plates-climb.yml and plates-tend.yml end red when the agent fai
     for (const [why, text] of [
       ['no check', t.replace(check, '')],
       ['the check swallowed', t.replace(check, check.replace('        run: |', '        continue-on-error: true\n        run: |'))],
-      ['another step\'s outcome', t.replace(`steps.${opts.id}.outcome`, 'steps.brief.outcome')],
-      ['no execution file', t.replace(`EXECUTION: \${{ steps.${opts.id}.outputs.execution_file }}`, 'EXECUTION: none')],
+      // In the check's own block: "Could the agent start?" reads the first agent's outcome too.
+      ['another step\'s outcome', t.replace(check, check.replace(`steps.${opts.id}.outcome`, 'steps.brief.outcome'))],
+      ['no execution file', t.replace(check, check.replace(`EXECUTION: \${{ steps.${opts.id}.outputs.execution_file }}`, 'EXECUTION: none'))],
       ['its exit ignored', t.replace(check, check.includes('exit "$status"') ? check.replace('exit "$status"', 'exit 0 || true') : check.replace(/--started "\$STARTED"\n/, '--started "$STARTED" || true\n'))],
       ['the agent step has no id', t.replace(`\n        id: ${opts.id}\n`, '\n')],
     ]) {
@@ -1914,13 +1921,15 @@ export function crossReviewProblems(text) {
   const types = name => /types: \[([^\]]*)\]/.exec(on.split(new RegExp(`^ {2}${name}:`, 'm'))[1]?.split(/^ {2}\S/m)[0] ?? '')?.[1].split(',').map(s => s.trim());
   if (JSON.stringify(types('pull_request')) !== JSON.stringify(['opened', 'ready_for_review'])) out.push(`pull_request types ${JSON.stringify(types('pull_request'))}: only opened and ready_for_review, never a push`);
   if (JSON.stringify(types('issue_comment')) !== JSON.stringify(['created'])) out.push('issue_comment types: only created');
-  const tools = /--allowedTools "([^"]*)"/.exec(text)?.[1];
-  if (!tools) out.push('the agent has no --allowedTools list');
-  else for (const t of tools.split(',').map(s => s.trim())) if (!CROSS_REVIEW_TOOLS.includes(t)) out.push(`the agent may use ${t}: only ${CROSS_REVIEW_TOOLS.join(', ')}`);
-  if ((text.match(/--allowedTools/g) ?? []).length !== 1 || /--(?:dangerously-skip-permissions|permission-mode)/.test(text)) out.push('one --allowedTools list, and no way around it');
+  // Claude reviews in two steps, the first and the fallback (a reviewer that could not start): each one list, the same tools.
+  const claudeSteps = stepsOf(text).filter(st => /\n\s+uses:\s*anthropics\/claude-code-action@/.test(`\n${st}`)).length;
+  const lists = [...text.matchAll(/--allowedTools "([^"]*)"/g)].map(m => m[1]);
+  if (!lists.length) out.push('the agent has no --allowedTools list');
+  for (const tools of lists) for (const t of tools.split(',').map(s => s.trim())) if (!CROSS_REVIEW_TOOLS.includes(t)) out.push(`the agent may use ${t}: only ${CROSS_REVIEW_TOOLS.join(', ')}`);
+  if ((text.match(/--allowedTools/g) ?? []).length !== claudeSteps || /--(?:dangerously-skip-permissions|permission-mode)/.test(text)) out.push('one --allowedTools list per Claude step, and no way around it');
   // plates#65: Claude reads the push's diff from a folder of its own (the Brief step writes it there), granted alone; no other directory.
   const addDirs = code(text).flatMap(({ line }) => [...line.matchAll(/--add-dir[ \t]+(.+?)[ \t]*$/g)].map(m => m[1]));
-  if (JSON.stringify(addDirs) !== JSON.stringify(['${{ runner.temp }}/plates-diff'])) out.push(`Claude may read ${addDirs.join(', ') || 'no folder'} beyond the checkout: only the push diff's own folder, \${{ runner.temp }}/plates-diff`);
+  if (addDirs.length !== claudeSteps || addDirs.some(d => d !== '${{ runner.temp }}/plates-diff')) out.push(`Claude may read ${addDirs.join(', ') || 'no folder'} beyond the checkout: only the push diff's own folder, \${{ runner.temp }}/plates-diff, once per Claude step`);
   if (!/cp "\$RUNNER_TEMP\/pr\.diff" "\$RUNNER_TEMP\/plates-diff\/push\.diff"/.test(text) || !/brief --push "\$RUNNER_TEMP\/push\.json" --agent "\$AGENT" --diff "\$RUNNER_TEMP\/plates-diff\/push\.diff"/.test(text)) out.push('the push\'s brief does not point the agent at the diff in the folder it may read');
   // Phase 46: each job asks for its own (crossReviewSandboxProblems holds which); no job may write contents or actions.
   if (!/^permissions: \{\}$/m.test(text)) out.push('the workflow\'s permissions must be {}: each job asks for its own');
@@ -1941,12 +1950,16 @@ export function crossReviewProblems(text) {
   if (!/node "\$review_scripts\/cross-review\.mjs" summary [^\n]*--out "\$RUNNER_TEMP\/review\.json"/.test(text)) out.push('the summary review is not the script\'s (cross-review.mjs summary): its event would be the workflow\'s to get wrong');
   const reviewStep = /\n {6}- name: Review\n[\s\S]*?(?=\n {6}(?:#|- )|$)/.exec(text)?.[0] ?? '';
   if (!/\n\s+timeout-minutes: \$\{\{ fromJSON\(steps\.which\.outputs\.minutes\) \}\}\n/.test(reviewStep) || !/\n\s+uses: anthropics\/claude-code-action@v\d+\n/.test(reviewStep)) out.push('the agent\'s step is not time-boxed by the budget (steps.which.outputs.minutes)');
-  // Phase 45: one agent step per provider, each run only when the config names it; Codex's in its read-only sandbox.
+  // Phase 45: two agent steps per provider: the first, run only when the config names it, and the fallback, run only
+  // when "Could the reviewer start?" hands the review to it; Codex's in its read-only sandbox.
   const agents = stepsOf(text).filter(st => /\n\s+uses:\s*(?:anthropics\/claude-code-action|openai\/codex-action)@/.test(`\n${st}`));
   for (const [provider, action] of [['claude', 'anthropics/claude-code-action'], ['codex', 'openai/codex-action']]) {
     const mine = agents.filter(st => st.includes(`uses: ${action}@`));
-    if (mine.length !== 1) out.push(`${mine.length} ${provider} steps; one`);
-    else if (!mine[0].includes(`\n        if: steps.which.outputs.review == 'true' && steps.which.outputs.agent == '${provider}'\n`)) out.push(`the ${provider} step does not run only when the config names ${provider}`);
+    if (mine.length !== 2) out.push(`${mine.length} ${provider} steps; a first and a fallback`);
+    else {
+      if (!mine[0].includes(`\n        if: steps.which.outputs.review == 'true' && steps.which.outputs.agent == '${provider}'\n`)) out.push(`the ${provider} step does not run only when the config names ${provider}`);
+      if (!mine[1].includes(`\n        if: steps.start.outputs.fallback == '${provider}'\n`)) out.push(`the ${provider} fallback step does not run only when the review is handed to ${provider}`);
+    }
   }
   out.push(...codexStepProblems(text, { sandbox: 'read-only' }));
   if (/pull_request_target/.test(text)) out.push('pull_request_target runs a fork\'s PR with this repo\'s secrets');
@@ -1977,7 +1990,8 @@ test('plates-cross-review.yml runs only for a same-repo PR opened or made ready,
   const which = steps.findIndex(s => s.includes('- name: Which pull request or push?'));
   assert.ok(which > 0);
   assert.match(steps[which], /node "\$review_scripts\/cross-review\.mjs" which --pr "\$RUNNER_TEMP\/pr\.json" --event "\$EVENT"/);
-  for (const s of steps.slice(which + 1)) assert.match(s, /\n {8}if: steps\.which\.outputs\.review == 'true'(?: && steps\.which\.outputs\.agent == '(?:claude|codex)')?\n/, s.split('\n')[0]);
+  // The fallback reviewer's steps wait on "Could the reviewer start?", which waits on the review.
+  for (const s of steps.slice(which + 1)) assert.match(s, /\n {8}if: (?:steps\.which\.outputs\.review == 'true'(?: && steps\.which\.outputs\.agent == '(?:claude|codex)')?|steps\.start\.outputs\.fallback == '(?:claude|codex)')\n/, s.split('\n')[0]);
   assert.deepEqual(crossReviewProblems(t), []);
   // The evaluator itself: each guard in the if: is load-bearing.
   for (const [why, from, to, ctx] of [
@@ -2411,8 +2425,10 @@ export function budgetedAgentSteps(text) {
       next = nameOf(lines[j]);
       let k = j + 1;
       for (; k < lines.length && !(lines[k].trim() && /^(\s*)/.exec(lines[k])[1].length <= indent); k++) if (next === null && /^\s*name:/.test(lines[k])) next = nameOf(lines[k]);
-      if (next !== agent || agent === null) break;
-      next = null; j = k; // another provider's step of this pass: look past it
+      // Another provider's step of this pass, or the fallback's (its start check, its git dir, its brief): look past it.
+      const fallback = next === 'Could the agent start?' || next === 'Could the reviewer start?' || / \(fallback\)$/.test(next ?? '');
+      if ((next !== agent && !fallback) || agent === null) break;
+      next = null; j = k;
     }
     if (!out.some(o => o.agent === agent && o.check === next)) out.push({ agent, check: next });
   }
@@ -2442,8 +2458,8 @@ test('the Budget line\'s step map equals each shipped workflow\'s budgeted claud
   // The reader sees a rename (the step's name is what GitHub's record of a run carries).
   const tend = all.find(w => w.name === 'plates-tend.yml').template;
   assert.match(tend, /^ {6}- name: Tend$/m);
-  // Phase 47: Claude's step and Codex's both carry the name, so a rename renames both.
-  assert.equal(tend.match(/^ {6}- name: Tend$/gm).length, 2);
+  // Phase 47: Claude's step and Codex's both carry the name, and so does Codex's fallback, so a rename renames all three.
+  assert.equal(tend.match(/^ {6}- name: Tend$/gm).length, 3);
   assert.deepEqual(budgetedAgentSteps(tend.replace(/^ {6}- name: Tend$/gm, '      - name: Tend the repo')), [{ agent: 'Tend the repo', check: 'Did the agent run?' }]);
   assert.deepEqual(budgetedAgentSteps(tend.replace(/^ {6}- name: Did the agent run\?$/m, '      - name: Did Claude run?')), [{ agent: 'Tend', check: 'Did Claude run?' }]);
   // An unbudgeted claude-code-action (claude.yml's) is not a budgeted pass.
@@ -2468,7 +2484,8 @@ export function codexEditProblems(text, { step, id, cond }) {
   const named = n => all.findIndex(s => s.startsWith(`- name: ${n}\n`) || new RegExp(`^\\s*- name: ${n.replace(/[?()]/g, '\\$&')}\\n`).test(s));
   for (const [provider, action] of [['claude', 'anthropics/claude-code-action'], ['codex', 'openai/codex-action']]) {
     const mine = all.filter(s => s.includes(`uses: ${action}@`));
-    if (mine.length !== 1) { out.push(`${mine.length} ${provider} steps; one`); continue; }
+    // Codex has a second step: the fallback for a Claude that could not start (checked below).
+    if (mine.length !== (provider === 'codex' ? 2 : 1)) { out.push(`${mine.length} ${provider} steps; ${provider === 'codex' ? 'a first and a fallback' : 'one'}`); continue; }
     if (!mine[0].includes(`\n  if: ${cond} && steps.on.outputs.agent == '${provider}'\n`) && !mine[0].includes(`\n        if: ${cond} && steps.on.outputs.agent == '${provider}'\n`)) out.push(`the ${provider} step does not run only when the pass names ${provider}`);
     if (!new RegExp(`^\\s*- name: ${step}\\n`).test(mine[0])) out.push(`the ${provider} step is not named ${step}: the Budget line finds it by name`);
   }
@@ -2480,10 +2497,24 @@ export function codexEditProblems(text, { step, id, cond }) {
   const jobs = jobsOf(text);
   const agentJob = jobs.find(j => j.text.includes('uses: openai/codex-action@'));
   if (agentJob?.id !== 'agent') out.push(`Codex runs in the ${agentJob?.id} job, not the agent's`);
+  // The fallback (a Claude that could not start hands the pass to Codex): the same step name, its own id and brief, run
+  // only when "Could the agent start?" hands it on. fallbackAgent never names the provider tried, so a Codex fallback
+  // means Claude ran first and the first Codex step was skipped: no Codex has run before it.
+  const fallback = all.findIndex((s, i) => i > codex && s.includes('uses: openai/codex-action@'));
+  const fbGive = named("Give Codex its git dir (fallback)"), start = named("Could the agent start?");
+  if (fallback >= 0) {
+    if (!new RegExp(`^\\s*- name: ${step}\\n`).test(all[fallback])) out.push(`the Codex fallback step is not named ${step}: the Budget line finds it by name`);
+    if (!new RegExp(`\\n\\s+id: ${id}_fallback_codex\\n`).test(all[fallback])) out.push(`the Codex fallback step has no id ${id}_fallback_codex`);
+    if (!all[fallback].includes("\n        if: steps.start.outputs.fallback == 'codex'\n")) out.push('the Codex fallback step does not run only when the pass is handed to Codex');
+    if (stepMap(all[fallback], 'with')['prompt-file'] !== '${{ runner.temp }}/prompt-fallback.md') out.push('the Codex fallback is not given its brief (prompt-fallback.md)');
+    if (start < 0 || start < codex || start > fallback || !/climb\.mjs" agent-start --pass (?:climb|tend) --agent "\$AGENT"/.test(all[start])) out.push('no "Could the agent start?" (climb.mjs agent-start) between the first agent and the fallback');
+    if (fbGive < 0 || fbGive < start || fbGive > fallback) out.push('no plates step gives the Codex fallback its git dir before it runs');
+    else if (!all[fbGive].includes("\n        if: steps.start.outputs.fallback == 'codex'\n") || !/\n {10}rm -rf \.plates\/agent-git\n {10}git init -q --bare \.plates\/agent-git\n/.test(all[fbGive]) || !/info\/exclude/.test(all[fbGive])) out.push('the fallback\'s git dir is not made fresh (rm -rf, git init --bare) and ignored, only for a Codex fallback');
+  }
   const give = named('Give Codex its git dir'), take = named('Take Codex\'s commits, objects only');
   if (give < 0 || give > codex) out.push('no plates step gives Codex its git dir (.plates/agent-git) before it runs');
   else if (!/git init -q --bare \.plates\/agent-git/.test(all[give]) || !/info\/exclude/.test(all[give])) out.push('the git dir is not made, or not ignored, before Codex runs');
-  if (take < 0 || take < codex) return [...out, 'no plates step after Codex takes its commits from its git dir'];
+  if (take < 0 || take < codex || (fallback >= 0 && take < fallback)) return [...out, 'no plates step after Codex takes its commits from its git dir'];
   const t = all[take];
   if (!/\n\s+if: always\(\) && /.test(t)) out.push('the take is not always(): a night whose agent failed keeps no record of its commits');
   if (!/export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=\/dev\/null\n/.test(t)) out.push('the take reads a system or global git config');
@@ -2491,7 +2522,8 @@ export function codexEditProblems(text, { step, id, cond }) {
   if (!/git init -q --bare "\$dst"/.test(t)) out.push('the take does not make its own repo');
   if (!/g merge-base --is-ancestor "\$GITHUB_SHA" "\$tip"/.test(t)) out.push('the take does not refuse a head off the run\'s commit');
   if (/objects\/info\/alternates/.test(t) && !/echo "\$PWD\/\.git\/objects" > "\$dst\/objects\/info\/alternates"/.test(t)) out.push('the take borrows objects from somewhere other than .git');
-  for (const s of all.slice(codex + 1)) for (const line of s.split('\n')) {
+  // After a Codex step, no plates step runs git on its git dir; the fallback's own, made fresh before it, is the one exception.
+  for (const s of all.slice(codex + 1)) if (all.indexOf(s) !== fbGive) for (const line of s.split('\n')) {
     if (/\bgit\b[^\n]*(?:--git-dir[= ]"?(?:\$src|\.plates\/agent-git)|-C "?(?:\$src|\.plates\/agent-git))/.test(line) || /GIT_DIR=/.test(line)) out.push(`a step after Codex runs git on its git dir: ${line.trim()}`);
   }
   const hand = all.findIndex((s, i) => i > take && /git bundle create/.test(s));

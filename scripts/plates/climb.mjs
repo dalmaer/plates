@@ -93,7 +93,7 @@ import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { join, resolve, dirname, relative, parse, isAbsolute, normalize, sep } from 'node:path';
 import { performance } from 'node:perf_hooks';
-import { gateEnv, healthDirOf, cells, isMain, rootOf, main, climbRetiring, passAgentProblems, agentGitArgs, codexVerdict } from './lib.mjs';
+import { gateEnv, healthDirOf, cells, isMain, rootOf, main, climbRetiring, passAgentProblems, agentGitArgs, codexVerdict, startFailureKind, startFailure, fallbackAgent, fallbackLine, listedAgents } from './lib.mjs';
 import { readRuns, flaky, testsConfigOf, aloneCommand, KEEP } from './test-ledger.mjs';
 import { prBody } from './pr-body.mjs';
 import { tendConfigOf, tendPick, tendInput, openPass, tendNote, tendGuard, tendReport, tendPage, worksheetText, PASS, sandboxProblems, tendCheck, scriptsChanged, treeState, heldProblems, changesOf, pathsOf, SAFE_GIT, OFF_LIMITS, INSTALL_FILES, recordBase } from './tend.mjs';
@@ -2039,10 +2039,16 @@ export function errorText(result) {
   return text.length > ERROR_CHARS ? `${text.slice(0, ERROR_CHARS - 1)}…` : text;
 }
 
-/** Which of the two likely causes the error text names: the secret, the model, or (unnamed) both to check. */
+/**
+ * Which cause the error text names (lib.mjs startFailureKind), so the owner knows what to do:
+ * credit (top up), a rate limit (wait), the secret (rotate), the model, or (unnamed) both to check.
+ */
 export function errorCause(text) {
-  if (/\b(401|403)\b|auth|token|credential|api[ _-]?key|oauth|unauthori[sz]ed|forbidden|permission|login|billing|credit/i.test(text ?? '')) return 'the secret was refused: check CLAUDE_CODE_OAUTH_TOKEN (claude setup-token) or ANTHROPIC_API_KEY';
-  if (/\bmodel\b|not[ _]found|\b404\b/i.test(text ?? '')) return 'the model was refused: check the model the action asks for (none is pinned here; the action\'s default)';
+  const kind = startFailureKind(text);
+  if (kind === 'credit') return 'its credit, billing or quota ran out: top up the account behind CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY (the secret itself was accepted)';
+  if (kind === 'rate') return 'it was rate-limited or overloaded at the start: wait, or raise the account\'s rate limit';
+  if (kind === 'auth') return 'the secret was refused: check CLAUDE_CODE_OAUTH_TOKEN (claude setup-token) or ANTHROPIC_API_KEY';
+  if (kind === 'model') return 'the model was refused: check the model the action asks for (none is pinned here; the action\'s default)';
   return 'check the secret / model';
 }
 
@@ -2082,10 +2088,46 @@ export async function agentRan({ outcome, file, minutes, started, agent, now = D
   return { state: verdict.ok ? 'executed' : 'blocked', evidence, denials: denialEvidence(result), outcome: outcome ?? null, result: result ? { is_error: Boolean(result.is_error), num_turns: Number.isSafeInteger(result.num_turns) ? result.num_turns : null, duration_ms: Number.isFinite(result.duration_ms) ? result.duration_ms : null, subtype: ['success', 'error_max_turns', 'error_during_execution'].includes(result.subtype) ? result.subtype : null } : null, elapsedSec: Number.isFinite(elapsedSec) ? Math.round(elapsedSec) : null, ...verdict };
 }
 
+/**
+ * Whether the agent of a climb or tend pass could start, and who runs it
+ * instead when it could not (the owner's rule: a provider whose credit is low
+ * or whose secret is refused hands the pass on, never fails it): { agent,
+ * fallback, note, kind, line }. The fallback is the next provider "agents"
+ * lists for `pass` with its secret (`has`: the workflow's HAS_ variables),
+ * never one tried. Only a start failure hands over (lib.mjs startFailure): a
+ * run that started, ran out its budget or stopped with a real error stays
+ * with its provider, and agent-ran judges it as before. These passes write,
+ * so only a start failure plates can read hands over (Claude's credit, secret
+ * or rate limit at its first turn): an unread one (no result, or Codex's
+ * empty final message) may be a crash after the agent changed files, so it
+ * stays red. The workflow also hands over only on a clean working tree; the
+ * fallback starts from the same branch the first was given.
+ */
+export async function agentStart({ config, pass, outcome, file, minutes, started, agent = 'claude', has, now = Date.now() }) {
+  const ran = await agentRan({ outcome, file, minutes, started, agent, now });
+  const stay = { agent, fallback: null, note: null, kind: null, line: ran.line };
+  const fallback = fallbackAgent({ order: listedAgents(config), tried: [agent], has, pass });
+  if (ran.ok || ran.evidence === 'oversized' || !fallback) return stay;
+  const raw = file ? await readFile(file, 'utf8').catch(() => null) : null;
+  const result = agent === 'claude' ? lastResult(raw) : null;
+  const text = result ? errorText(result) : '';
+  const elapsedSec = Number.isFinite(started) ? now / 1000 - started : NaN;
+  const failure = startFailure({ agent, outcome, result, text, message: agent === 'codex' ? raw : null, elapsedSec, minutes });
+  if (!failure || failure.kind === 'unread') return stay;
+  const note = fallbackLine({ from: agent, to: fallback, failure, text, doing: pass === 'tend' ? 'tended' : 'climbed' });
+  return { agent: fallback, fallback, note, kind: failure.kind, line: note };
+}
+
+/** Which providers' secrets the workflow says are set ({ claude: true, codex: false }), from HAS_CLAUDE and HAS_CODEX; undefined when it says none. */
+const hasOf = env => {
+  const named = ['claude', 'codex'].filter(n => env[`HAS_${n.toUpperCase()}`] !== undefined && env[`HAS_${n.toUpperCase()}`] !== '');
+  return named.length ? Object.fromEntries(named.map(n => [n, env[`HAS_${n.toUpperCase()}`] === 'true'])) : undefined;
+};
+
 // ---- the command line ------------------------------------------------------------
 
-const USAGE = 'usage: node scripts/plates/climb.mjs config|pick|measure <job>|compare|prove-steady|harmless|revert|settle|guard|sandbox|held|report|agent-ran|distill [propose]|loop-pull|tend-pick|tend-input|tend-note|tend-page|tend-report [--json]';
-const FLAGS = { '--date': 'date', '--runs': 'runs', '--rounds': 'rounds', '--base': 'base', '--head': 'head', '--candidate': 'candidate', '--what': 'what', '--why': 'why', '--input': 'input', '--body': 'body', '--test': 'test', '--path': 'path', '--job': 'job', '--issue': 'issue', '--outcome': 'outcome', '--file': 'file', '--minutes': 'minutes', '--started': 'started', '--agent': 'agent', '--finding': 'finding', '--propose': 'propose', '--tried': 'tried', '--last-night': 'lastNight', '--since': 'since', '--plan': 'plan',
+const USAGE = 'usage: node scripts/plates/climb.mjs config|pick|measure <job>|compare|prove-steady|harmless|revert|settle|guard|sandbox|held|report|agent-ran|agent-start --pass climb|tend|distill [propose]|loop-pull|tend-pick|tend-input|tend-note|tend-page|tend-report [--json]';
+const FLAGS = { '--date': 'date', '--runs': 'runs', '--rounds': 'rounds', '--base': 'base', '--head': 'head', '--candidate': 'candidate', '--what': 'what', '--why': 'why', '--input': 'input', '--body': 'body', '--test': 'test', '--path': 'path', '--job': 'job', '--issue': 'issue', '--outcome': 'outcome', '--file': 'file', '--minutes': 'minutes', '--started': 'started', '--agent': 'agent', '--pass': 'pass', '--finding': 'finding', '--propose': 'propose', '--tried': 'tried', '--last-night': 'lastNight', '--since': 'since', '--plan': 'plan',
   // distill propose (lessons)
   '--kind': 'kind', '--name': 'name', '--rule': 'rule', '--guard': 'guard', '--rows': 'rows', '--row': 'row', '--shape': 'shape', '--cost': 'cost', '--check': 'check', '--family': 'family', '--note': 'note', '--read': 'read' };
 const SWITCHES = { '--force': 'force', '--baseline': 'baseline', '--decide': 'decide', '--final': 'final', '--state': 'state', '--record': 'record' };
@@ -2128,6 +2170,12 @@ export async function cli(args, { root = rootOf(import.meta), env = process.env 
     case 'agent-ran': {
       const r = await agentRan({ outcome: o.outcome, file: o.file ? resolve(o.file) : undefined, minutes: o.minutes, started: o.started, agent: o.agent });
       return { data: r, text: r.ok ? r.line : `::error::${r.line}`, exitCode: r.ok ? 0 : 1 };
+    }
+    case 'agent-start': {
+      if (o.pass !== 'climb' && o.pass !== 'tend') throw new ClimbError('agent-start needs --pass climb or --pass tend');
+      if (o.agent !== undefined && o.agent !== 'claude' && o.agent !== 'codex') throw new ClimbError(`agent-start --agent must be claude or codex (got ${o.agent})`);
+      const r = await agentStart({ config, pass: o.pass, outcome: o.outcome, file: o.file ? resolve(o.file) : undefined, minutes: o.minutes, started: o.started, agent: o.agent ?? 'claude', has: hasOf(env) });
+      return { data: r, text: r.fallback ? `::warning::${r.note}` : `the agent stays ${r.agent}` };
     }
     case 'tend-pick': {
       const p = await tendPick({ ...ctx, date: o.date });
