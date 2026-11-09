@@ -85,13 +85,13 @@ import { environmentValue, writeName, branchSuffix } from './names.mjs';
 // the lessons table, and any finding decided tonight: deciding is the owner's
 // (lesson 53). Loop unreachable is a notice, never red.
 import { denialEvidence, durations, completion } from './climb-execution.mjs';
-import { readFile, readdir, writeFile, mkdir, mkdtemp, rm, symlink, stat, open, rename } from 'node:fs/promises';
+import { readFile, readdir, writeFile, mkdir, mkdtemp, rm, cp, realpath, stat, lstat, readlink, symlink, open, rename } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { constants, existsSync, readFileSync, rmSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { join, resolve, dirname, isAbsolute, normalize, sep } from 'node:path';
+import { join, resolve, dirname, relative, parse, isAbsolute, normalize, sep } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { gateEnv, healthDirOf, cells, isMain, rootOf, main, climbRetiring, passAgentProblems, agentGitArgs, codexVerdict } from './lib.mjs';
 import { readRuns, flaky, testsConfigOf, aloneCommand, KEEP } from './test-ledger.mjs';
@@ -843,15 +843,97 @@ async function dropWorktree(root, dir) {
   await rm(dir, { recursive: true, force: true });
 }
 
+const within = (p, base) => `${p}${sep}`.startsWith(`${base}${sep}`);
+const mapped = (cloned, p, hit = [...cloned].find(([s]) => within(p, s))) => (hit ? join(hit[1], relative(hit[0], p)) : null);
+
+async function cloneInstall(rootReal, dirReal, cloned, from, to, rebound = new Set()) {
+  const srcRoot = await realpath(from);
+  const existing = mapped(cloned, srcRoot);
+  if (existing) {
+    await symlink(relative(dirname(to), existing), to);
+    return;
+  }
+  await cp(srcRoot, to, { recursive: true, verbatimSymlinks: true, mode: constants.COPYFILE_FICLONE });
+  const toReal = await realpath(to), extRoot = join(toReal, '.plates-climb-ext');
+  const mapExt = p => join(extRoot, relative(parse(p).root, p));
+  cloned.set(srcRoot, toReal);
+  async function cloneExt(extReal) {
+    const hit = mapped(cloned, extReal);
+    if (hit) return hit;
+    const dest = mapExt(extReal);
+    cloned.set(extReal, dest);
+    await mkdir(dirname(dest), { recursive: true });
+    await cp(extReal, dest, { recursive: true, force: true, verbatimSymlinks: true, mode: constants.COPYFILE_FICLONE });
+    if ((await lstat(dest)).isDirectory()) await fixLinks(extReal, dest);
+    for (let anc = dirname(extReal); anc !== dirname(anc); anc = dirname(anc)) {
+      const ancNm = join(anc, 'node_modules');
+      const ancNmReal = await realpath(ancNm).catch(() => null);
+      if (!ancNmReal) continue;
+      const dstAncNm = mapExt(ancNm), targetNm = await cloneExt(ancNmReal);
+      if (targetNm !== dstAncNm && !(await lstat(dstAncNm).catch(() => null))) {
+        await mkdir(dirname(dstAncNm), { recursive: true });
+        await symlink(relative(dirname(dstAncNm), targetNm), dstAncNm);
+      }
+    }
+    return dest;
+  }
+  async function fixLinks(rootSrc, rootDst, curSrc = rootSrc, curDst = rootDst) {
+    for (const e of await readdir(curDst, { withFileTypes: true })) {
+      if (e.name === '.plates-climb-ext') continue;
+      const srcPath = join(curSrc, e.name), dstPath = join(curDst, e.name);
+      if (e.isDirectory()) { await fixLinks(rootSrc, rootDst, srcPath, dstPath); continue; }
+      if (!e.isSymbolicLink()) continue;
+      const lex = resolve(dirname(srcPath), await readlink(srcPath));
+      const inRoot = within(lex, rootSrc);
+      const real = inRoot ? lex : await realpath(srcPath).catch(() => null);
+      if (!real) continue;
+      const inCheckout = !inRoot && !mapped(cloned, real) && within(real, rootReal);
+      if (inCheckout) rebound.add(relative(rootReal, real));
+      const target = inRoot ? join(rootDst, relative(rootSrc, lex))
+        : mapped(cloned, real) ?? (inCheckout ? join(dirReal, relative(rootReal, real)) : await cloneExt(real));
+      await rm(dstPath, { force: true });
+      await symlink(relative(dirname(dstPath), target) || '.', dstPath);
+    }
+  }
+  await fixLinks(srcRoot, toReal);
+}
+
 async function worktree(root, dir, ref) {
   git(root, ['worktree', 'add', '--detach', '--quiet', dir, ref]);
   // The candidate adds no dependency (protocol rule 4; the sandbox refuses an
-  // install file), so both sides share the tree's installs: the root's and
-  // each app or workspace folder's own (ledger's web/node_modules, from
-  // `npm ci --prefix web`), where the worktree has that folder.
+  // install file), so each worktree gets its own cloned copy of the tree's
+  // installs (#90: never a shared symlink where the base's gate can leave a
+  // cache or mutated file for the candidate): the root's and each app or
+  // workspace folder's own (ledger's web/node_modules, from `npm ci --prefix
+  // web`), where the worktree has that folder.
+  const rootReal = await realpath(root), dirReal = await realpath(dir), cloned = new Map(), rebound = new Set();
   for (const d of ['.', ...await packageDirs(root)]) {
     const from = join(root, d, 'node_modules'), to = join(dir, d, 'node_modules');
-    if (existsSync(from) && existsSync(join(dir, d)) && !existsSync(to)) await symlink(from, to, 'dir');
+    if (existsSync(from) && existsSync(join(dir, d)) && !existsSync(to)) {
+      await cloneInstall(rootReal, dirReal, cloned, from, to, rebound);
+    }
+  }
+  // An install link into the checkout (a workspace package) now names the worktree's own folder, where git made
+  // only the tracked source: its ignored build output (packages/ws/dist, which the package exports) is copied in too.
+  for (const rel of rebound) await copyIgnoredOutput(rootReal, dirReal, rel);
+}
+
+/**
+ * The checkout's ignored files under `rel` (a folder an install link names), copied into the worktree (#362 review):
+ * a clone each side owns, never a link the base's gate could write through. Never over what the worktree's commit
+ * has, never an install (each is cloned, its links fixed, on its own), and only where the worktree has the folder.
+ * A link to the checkout's root is not a package: nothing is copied for it.
+ */
+async function copyIgnoredOutput(rootReal, dirReal, rel) {
+  if (!rel || rel.split(sep).includes('..')) return;
+  const listed = git(rootReal, ['ls-files', '-z', '--others', '--ignored', '--exclude-standard', '--directory', '--', rel], { allowFail: true });
+  if (listed.status !== 0) return;
+  for (const entry of listed.stdout.split('\0').filter(Boolean)) {
+    const path = entry.replace(/\/$/, '');
+    if (path.split('/').includes('node_modules')) continue;
+    const from = join(rootReal, path), to = join(dirReal, path);
+    if (existsSync(to) || !existsSync(dirname(to))) continue;
+    await cp(from, to, { recursive: true, verbatimSymlinks: true, mode: constants.COPYFILE_FICLONE });
   }
 }
 
