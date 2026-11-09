@@ -459,6 +459,26 @@ test('plates#370: gateWorkflowIn keeps a check after an escaped quote and a quot
   );
 });
 
+// plates#370 review (Codex): a run block is one shell script, so a quoted string that spans lines keeps its quote state.
+test('plates#370: gateWorkflowIn keeps a check after a quoted # on a later line of a run block', async t => {
+  const { gateWorkflowIn, uncommentedLines } = await import(new URL('../practices/night/files/scripts/plates/lib.mjs', import.meta.url).href);
+  const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const root = await mkdtemp(join(tmpdir(), 'plates-gate-multi-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, '.github/workflows'), { recursive: true });
+  const wf = join(root, '.github/workflows/ci.yml');
+  const found = async body => { await writeFile(wf, body); return gateWorkflowIn(root, { check: 'npm run check' }); };
+  const steps = 'jobs:\n  x:\n    steps:\n';
+  assert.deepEqual(await found(`${steps}      - run: |\n          echo "banner\n          footer #1" && npm run check\n`), { name: 'ci.yml' }, 'a double-quoted string across two lines');
+  assert.deepEqual(await found(`${steps}      - run: >-\n          echo 'a\n          # b' && npm run check\n`), { name: 'ci.yml' }, 'a single-quoted string across lines, in a folded block');
+  assert.equal(await found(`${steps}      - run: |\n          echo "a\n          b" # npm run check\n`), null, 'a comment after the closed string is still a comment');
+  assert.equal(await found(`${steps}      - run: |\n          echo "open\n      - name: later\n        # npm run check\n`), null, 'the quote state ends with the block');
+  assert.equal(await found(`${steps}      - name: Don't deploy\n        # npm run check\n`), null, 'outside a run block an apostrophe opens nothing on the next line');
+  assert.deepEqual(uncommentedLines('a: "x # y" # z\nrun: |\n  echo "p\n  q # r" # s\n'), ['a: "x # y" ', 'run: |', '  echo "p', '  q # r" ', '']);
+});
+
 test('history merges legacy and renamed artifact inventories without rewriting old ledger bytes', async t => {
   const root=await project(t),f=fixture([{id:1,kind:'night',legacy:true},{id:2,kind:'ci',legacy:true},{id:3,kind:'ci'},{id:4,kind:'night',date:'2026-10-08T01:00:00Z'}]);
   const old=JSON.stringify({date:'2026-10-09T01:00:00Z',workflow:'keel-night',tests:[],acme:'unchanged legacy receipt'});

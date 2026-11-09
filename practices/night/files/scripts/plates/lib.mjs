@@ -589,14 +589,46 @@ export function gateWorkflowOf(config) {
  * quotes take no escapes (YAML's `''` closes and reopens, which reads the same).
  */
 export function uncommented(line) {
-  let quote = null;
+  return withoutComment(line, null).line;
+}
+
+/** uncommented, starting inside `quote` (a quote character, or null); also returns the quote still open at the line's end. */
+function withoutComment(line, quote) {
   for (let i = 0; i < line.length; i++) {
     const c = line[i];
     if (quote) { if (quote === '"' && c === '\\') i++; else if (c === quote) quote = null; }
     else if (c === '"' || c === "'") quote = c;
-    else if (c === '#' && (i === 0 || /\s/.test(line[i - 1]))) return line.slice(0, i);
+    else if (c === '#' && (i === 0 || /\s/.test(line[i - 1]))) return { line: line.slice(0, i), quote: null };
   }
-  return line;
+  return { line, quote };
+}
+
+/**
+ * A workflow's lines, each without its comment. The lines of a `run:` block
+ * scalar (`|` or `>`) are one shell script, so a quoted string that spans
+ * lines stays open into the next one (`echo "banner<newline>footer #1" && npm
+ * run check` runs the check). The block ends at the first non-blank line
+ * indented no deeper than its `run:` line, and the quote state ends with it.
+ * Every other line stands alone, as YAML reads it, so an apostrophe in a name
+ * never reaches the next line.
+ */
+export function uncommentedLines(text) {
+  const out = [];
+  let block = null, quote = null;
+  for (const line of text.split('\n')) {
+    if (block !== null && line.trim() && line.length - line.trimStart().length <= block) block = quote = null;
+    if (block !== null) {
+      const read = withoutComment(line, quote);
+      out.push(read.line);
+      quote = read.quote;
+      continue;
+    }
+    const kept = uncommented(line);
+    out.push(kept);
+    const opens = /^(\s*)(?:-\s+)?run:\s*[|>][-+0-9]*\s*$/.exec(kept);
+    if (opens) block = opens[1].length;
+  }
+  return out;
 }
 
 /**
@@ -617,7 +649,7 @@ export async function gateWorkflowIn(root, config, check = 'npm run check') {
   // The command as a whole word outside a comment (#92, #94): `npm run check` is not `npm run check:deploy`.
   const runs = new RegExp(`(^|[^\\w:.-])${command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w:.-])`);
   for (const n of names) {
-    const lines = (await readFile(join(dir, n), 'utf8')).split('\n').map(uncommented);
+    const lines = uncommentedLines(await readFile(join(dir, n), 'utf8'));
     if (lines.some(l => runs.test(l))) return { name: n };
   }
   return null;
