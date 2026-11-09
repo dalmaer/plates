@@ -1011,3 +1011,47 @@ test('acme adds', () => {
   const ok = climb(dir, ['guard', '--base', base, '--json']);
   assert.equal(ok.status, 0, ok.stdout + ok.stderr);
 });
+
+// #362 review: a workspace package that exports an ignored build artifact (packages/ws/dist) is rebound to the
+// worktree's own packages/ws, where git made only the tracked source. Each worktree gets its own copy of that ignored
+// output, so the base can import the package, and a write the base's gate leaves there never reaches the candidate.
+test('#362: a workspace package\'s ignored build output is in each worktree, copied, not shared', async t => {
+  const usesDist = extra => `import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { existsSync, writeFileSync } from 'node:fs';
+import { label } from 'acme-ws';
+test('acme adds', () => {
+  assert.equal(label, 'built-ws');
+  ${extra}
+});
+`;
+  const dir = await acme(t, {
+    climb: { jobs: ['test-time'], testCommand: LEDGER_TEST },
+    config: { check: LEDGER_TEST },
+    files: {
+      '.gitignore': 'node_modules/\ndist/\n',
+      'package.json': JSON.stringify({ name: 'acme', private: true, type: 'module', workspaces: ['packages/*'] }),
+      'packages/ws/package.json': '{"name":"acme-ws","type":"module","exports":"./dist/index.js"}\n',
+      'packages/ws/src/index.js': "export const label = 'built-ws';\n",
+      'acme.test.mjs': usesDist("writeFileSync('packages/ws/dist/base-was-here', 'x');"),
+    },
+  });
+  await write(dir, { 'packages/ws/dist/index.js': "export const label = 'built-ws';\n" });
+  const { symlink } = await import('node:fs/promises');
+  await mkdir(join(dir, 'node_modules'), { recursive: true });
+  await symlink(join('..', 'packages', 'ws'), join(dir, 'node_modules', 'acme-ws'));
+  const base = git(dir, ['rev-parse', 'HEAD']);
+
+  // A harmless candidate: the unchanged base and the candidate both import the built package.
+  git(dir, ['checkout', '-q', '-b', 'harmless', base]);
+  await commit(dir, { 'acme.test.mjs': usesDist('// harmless: reads the package, writes nothing') }, 'acme: harmless');
+  const ok = climb(dir, ['guard', '--base', base, '--json']);
+  assert.equal(ok.status, 0, ok.stdout + ok.stderr);
+
+  // A candidate that passes only on what the base's gate wrote into the artifact folder: refused, since its copy is its own.
+  git(dir, ['checkout', '-q', '-f', '-B', 'needs-base-write', base]);
+  await commit(dir, { 'acme.test.mjs': usesDist("assert.equal(existsSync('packages/ws/dist/base-was-here'), true);") }, 'acme: needs the base write');
+  const leaked = climb(dir, ['guard', '--base', base, '--json']);
+  assert.equal(leaked.status, 1, leaked.stdout + leaked.stderr);
+  assert.equal(existsSync(join(dir, 'packages/ws/dist/base-was-here')), false, "the checkout's own build output is untouched");
+});

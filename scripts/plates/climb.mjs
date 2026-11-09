@@ -846,7 +846,7 @@ async function dropWorktree(root, dir) {
 const within = (p, base) => `${p}${sep}`.startsWith(`${base}${sep}`);
 const mapped = (cloned, p, hit = [...cloned].find(([s]) => within(p, s))) => (hit ? join(hit[1], relative(hit[0], p)) : null);
 
-async function cloneInstall(rootReal, dirReal, cloned, from, to) {
+async function cloneInstall(rootReal, dirReal, cloned, from, to, rebound = new Set()) {
   const srcRoot = await realpath(from);
   const existing = mapped(cloned, srcRoot);
   if (existing) {
@@ -887,8 +887,10 @@ async function cloneInstall(rootReal, dirReal, cloned, from, to) {
       const inRoot = within(lex, rootSrc);
       const real = inRoot ? lex : await realpath(srcPath).catch(() => null);
       if (!real) continue;
+      const inCheckout = !inRoot && !mapped(cloned, real) && within(real, rootReal);
+      if (inCheckout) rebound.add(relative(rootReal, real));
       const target = inRoot ? join(rootDst, relative(rootSrc, lex))
-        : mapped(cloned, real) ?? (within(real, rootReal) ? join(dirReal, relative(rootReal, real)) : await cloneExt(real));
+        : mapped(cloned, real) ?? (inCheckout ? join(dirReal, relative(rootReal, real)) : await cloneExt(real));
       await rm(dstPath, { force: true });
       await symlink(relative(dirname(dstPath), target) || '.', dstPath);
     }
@@ -904,12 +906,34 @@ async function worktree(root, dir, ref) {
   // cache or mutated file for the candidate): the root's and each app or
   // workspace folder's own (ledger's web/node_modules, from `npm ci --prefix
   // web`), where the worktree has that folder.
-  const rootReal = await realpath(root), dirReal = await realpath(dir), cloned = new Map();
+  const rootReal = await realpath(root), dirReal = await realpath(dir), cloned = new Map(), rebound = new Set();
   for (const d of ['.', ...await packageDirs(root)]) {
     const from = join(root, d, 'node_modules'), to = join(dir, d, 'node_modules');
     if (existsSync(from) && existsSync(join(dir, d)) && !existsSync(to)) {
-      await cloneInstall(rootReal, dirReal, cloned, from, to);
+      await cloneInstall(rootReal, dirReal, cloned, from, to, rebound);
     }
+  }
+  // An install link into the checkout (a workspace package) now names the worktree's own folder, where git made
+  // only the tracked source: its ignored build output (packages/ws/dist, which the package exports) is copied in too.
+  for (const rel of rebound) await copyIgnoredOutput(rootReal, dirReal, rel);
+}
+
+/**
+ * The checkout's ignored files under `rel` (a folder an install link names), copied into the worktree (#362 review):
+ * a clone each side owns, never a link the base's gate could write through. Never over what the worktree's commit
+ * has, never an install (each is cloned, its links fixed, on its own), and only where the worktree has the folder.
+ * A link to the checkout's root is not a package: nothing is copied for it.
+ */
+async function copyIgnoredOutput(rootReal, dirReal, rel) {
+  if (!rel || rel.split(sep).includes('..')) return;
+  const listed = git(rootReal, ['ls-files', '-z', '--others', '--ignored', '--exclude-standard', '--directory', '--', rel], { allowFail: true });
+  if (listed.status !== 0) return;
+  for (const entry of listed.stdout.split('\0').filter(Boolean)) {
+    const path = entry.replace(/\/$/, '');
+    if (path.split('/').includes('node_modules')) continue;
+    const from = join(rootReal, path), to = join(dirReal, path);
+    if (existsSync(to) || !existsSync(dirname(to))) continue;
+    await cp(from, to, { recursive: true, verbatimSymlinks: true, mode: constants.COPYFILE_FICLONE });
   }
 }
 
