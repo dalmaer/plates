@@ -183,7 +183,7 @@
     },
     "scripts/plates/climb.mjs": {
       "practice": "climb",
-      "sha256": "2d94008076eaceaff4eb1ef1abb551825b4ed17532199fe5385f5998fe4ef338"
+      "sha256": "53498464247b4a7c65af238d9352c2bb3a14ad10c018a6030a757091766e3402"
     },
     "scripts/plates/cross-review.mjs": {
       "practice": "cross-review",
