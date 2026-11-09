@@ -438,6 +438,27 @@ test('plates#94: gateWorkflowIn skips an inline comment naming the check, and ke
   assert.deepEqual(['a#b # c', "x: '# not' # yes", '# all', 'run: echo "a # b" && go', '\t#tab'].map(uncommented), ['a#b ', "x: '# not' ", '', 'run: echo "a # b" && go', '\t']);
 });
 
+// plates#370 review: an escaped double quote does not close the quoted span, in a YAML double-quoted scalar or a block's shell.
+test('plates#370: gateWorkflowIn keeps a check after an escaped quote and a quoted #', async t => {
+  const { gateWorkflowIn, uncommented } = await import(new URL('../practices/night/files/scripts/plates/lib.mjs', import.meta.url).href);
+  const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const root = await mkdtemp(join(tmpdir(), 'plates-gate-esc-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, '.github/workflows'), { recursive: true });
+  const wf = join(root, '.github/workflows/a-ci.yml');
+  await writeFile(wf, 'jobs:\n  x:\n    steps:\n      - run: "echo \\" #1\\" && npm run check"\n');
+  assert.deepEqual(await gateWorkflowIn(root, { check: 'npm run check' }), { name: 'a-ci.yml' }, 'a YAML double-quoted scalar with an escaped quote');
+  await writeFile(wf, 'jobs:\n  x:\n    steps:\n      - run: |\n          echo "a \\" # b" && npm run check\n');
+  assert.deepEqual(await gateWorkflowIn(root, { check: 'npm run check' }), { name: 'a-ci.yml' }, "a block's shell with an escaped quote");
+  assert.deepEqual(
+    ['"a \\\\" # c', '"a \\" # b" # c', "'a \\' # c", "'it''s # x' # y"].map(uncommented),
+    ['"a \\\\" ', '"a \\" # b" ', "'a \\' ", "'it''s # x' "],
+    'an escaped backslash ends the span; single quotes take no escapes',
+  );
+});
+
 test('history merges legacy and renamed artifact inventories without rewriting old ledger bytes', async t => {
   const root=await project(t),f=fixture([{id:1,kind:'night',legacy:true},{id:2,kind:'ci',legacy:true},{id:3,kind:'ci'},{id:4,kind:'night',date:'2026-10-08T01:00:00Z'}]);
   const old=JSON.stringify({date:'2026-10-09T01:00:00Z',workflow:'keel-night',tests:[],acme:'unchanged legacy receipt'});

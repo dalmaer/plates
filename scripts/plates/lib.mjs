@@ -583,13 +583,16 @@ export function gateWorkflowOf(config) {
  * A workflow line without its comment: a `#` at the line's start or after
  * whitespace, outside quotes, starts one, in YAML and in the shell of a `run:`
  * block alike (plates#94: `run: echo deploy # npm run check happens elsewhere`
- * runs echo). A quoted `#`, or one inside a word (`a#b`), is kept.
+ * runs echo). A quoted `#`, or one inside a word (`a#b`), is kept. Inside
+ * double quotes a backslash escapes the next character, as in YAML and the
+ * shell (`"echo \" #1\" && npm run check"` is one quoted span); single
+ * quotes take no escapes (YAML's `''` closes and reopens, which reads the same).
  */
 export function uncommented(line) {
   let quote = null;
   for (let i = 0; i < line.length; i++) {
     const c = line[i];
-    if (quote) { if (c === quote) quote = null; }
+    if (quote) { if (quote === '"' && c === '\\') i++; else if (c === quote) quote = null; }
     else if (c === '"' || c === "'") quote = c;
     else if (c === '#' && (i === 0 || /\s/.test(line[i - 1]))) return line.slice(0, i);
   }
