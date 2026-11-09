@@ -86,7 +86,7 @@ import { environmentValue, writeName, branchSuffix } from './names.mjs';
 // (lesson 53). Loop unreachable is a notice, never red.
 import { denialEvidence, durations, completion } from './climb-execution.mjs';
 import { readFile, readdir, writeFile, mkdir, mkdtemp, rm, cp, realpath, stat, lstat, readlink, symlink, open, rename } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { constants, existsSync, readFileSync, rmSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
@@ -846,6 +846,31 @@ async function dropWorktree(root, dir) {
 const within = (p, base) => `${p}${sep}`.startsWith(`${base}${sep}`);
 const mapped = (cloned, p, hit = [...cloned].find(([s]) => within(p, s))) => (hit ? join(hit[1], relative(hit[0], p)) : null);
 
+/**
+ * The source tree a package outside the checkout belongs to (#362 follow-up): its source may reach a sibling by a
+ * relative path (packages/linked/index.cjs requires ../shared/value.cjs), so the clone is of the whole tree, laid out
+ * as it is. The tree is the nearest folder above the package that is a workspace root (a package.json with
+ * "workspaces", a pnpm-workspace.yaml or a lerna.json) or holds a node_modules (where the package's own imports
+ * resolve), within its git top level; else that top level; else the package alone. Never the home folder, the
+ * filesystem's root, or a folder that holds the checkout.
+ */
+async function linkedTree(pkgReal, rootReal) {
+  if (!(await lstat(pkgReal).catch(() => null))?.isDirectory()) return pkgReal;
+  const top = git(pkgReal, ['rev-parse', '--show-toplevel'], { allowFail: true });
+  const topReal = top.status === 0 && top.stdout.trim() ? await realpath(top.stdout.trim()).catch(() => null) : null;
+  const ok = p => p !== dirname(p) && p !== homedir() && p !== rootReal && !within(rootReal, p) && (!topReal || p === topReal || within(p, topReal));
+  const marks = async p => {
+    if (existsSync(join(p, 'pnpm-workspace.yaml')) || existsSync(join(p, 'lerna.json')) || existsSync(join(p, 'node_modules'))) return true;
+    const pkg = await readFile(join(p, 'package.json'), 'utf8').then(JSON.parse).catch(() => null);
+    return Boolean(pkg?.workspaces);
+  };
+  for (let p = dirname(pkgReal); ok(p); p = dirname(p)) {
+    if (await marks(p)) return p;
+    if (p === topReal) break;
+  }
+  return topReal && ok(topReal) && within(pkgReal, topReal) ? topReal : pkgReal;
+}
+
 async function cloneInstall(rootReal, dirReal, cloned, from, to, rebound = new Set()) {
   const srcRoot = await realpath(from);
   const existing = mapped(cloned, srcRoot);
@@ -857,31 +882,50 @@ async function cloneInstall(rootReal, dirReal, cloned, from, to, rebound = new S
   const toReal = await realpath(to), extRoot = join(toReal, '.plates-climb-ext');
   const mapExt = p => join(extRoot, relative(parse(p).root, p));
   cloned.set(srcRoot, toReal);
-  async function cloneExt(extReal) {
+  async function cloneExt(extReal, whole = true) {
     const hit = mapped(cloned, extReal);
     if (hit) return hit;
-    const dest = mapExt(extReal);
-    cloned.set(extReal, dest);
+    // The package's whole source tree, so a relative import of a sibling resolves in the clone as in the original.
+    // An ancestor's node_modules (below) is an install, cloned alone.
+    const tree = whole ? await linkedTree(extReal, rootReal) : extReal;
+    const dest = mapExt(tree);
+    // What this worktree cloned already inside the tree (an install, or a subtree a link reached first) is not copied
+    // twice: the tree names that clone, so a module imported both ways is one module. Only the outermost such clones
+    // count (#383 review: one inside another is reached through it). A subtree cloned first sits where the tree's clone
+    // puts it (mapExt keeps the absolute layout), so it is kept as it is, its links already fixed; any other is linked.
+    const inside = [...cloned.keys()].filter(s => within(s, tree));
+    const outer = inside.filter(s => !inside.some(o => o !== s && within(s, o)));
+    const placed = new Set(outer.map(s => cloned.get(s)).filter((d, i) => d === join(dest, relative(tree, outer[i]))));
+    cloned.set(tree, dest);
     await mkdir(dirname(dest), { recursive: true });
-    await cp(extReal, dest, { recursive: true, force: true, verbatimSymlinks: true, mode: constants.COPYFILE_FICLONE });
-    if ((await lstat(dest)).isDirectory()) await fixLinks(extReal, dest);
-    for (let anc = dirname(extReal); anc !== dirname(anc); anc = dirname(anc)) {
+    await cp(tree, dest, { recursive: true, force: true, verbatimSymlinks: true, mode: constants.COPYFILE_FICLONE,
+      filter: src => !src.endsWith(`${sep}.git`) && !outer.includes(src) });
+    if ((await lstat(dest)).isDirectory()) await fixLinks(tree, dest, tree, dest, placed);
+    for (const s of outer) {
+      const at = join(dest, relative(tree, s));
+      if (placed.has(at) || await lstat(at).catch(() => null)) continue;
+      await mkdir(dirname(at), { recursive: true });
+      await symlink(relative(dirname(at), cloned.get(s)), at);
+    }
+    for (let anc = dirname(tree); anc !== dirname(anc); anc = dirname(anc)) {
       const ancNm = join(anc, 'node_modules');
       const ancNmReal = await realpath(ancNm).catch(() => null);
       if (!ancNmReal) continue;
-      const dstAncNm = mapExt(ancNm), targetNm = await cloneExt(ancNmReal);
+      const dstAncNm = mapExt(ancNm), targetNm = await cloneExt(ancNmReal, false);
       if (targetNm !== dstAncNm && !(await lstat(dstAncNm).catch(() => null))) {
         await mkdir(dirname(dstAncNm), { recursive: true });
         await symlink(relative(dirname(dstAncNm), targetNm), dstAncNm);
       }
     }
-    return dest;
+    return join(dest, relative(tree, extReal));
   }
-  async function fixLinks(rootSrc, rootDst, curSrc = rootSrc, curDst = rootDst) {
+  // `placed`: clones already inside rootDst, whose links were fixed when they were made; left as they are.
+  async function fixLinks(rootSrc, rootDst, curSrc = rootSrc, curDst = rootDst, placed = new Set()) {
     for (const e of await readdir(curDst, { withFileTypes: true })) {
       if (e.name === '.plates-climb-ext') continue;
       const srcPath = join(curSrc, e.name), dstPath = join(curDst, e.name);
-      if (e.isDirectory()) { await fixLinks(rootSrc, rootDst, srcPath, dstPath); continue; }
+      if (placed.has(dstPath)) continue;
+      if (e.isDirectory()) { await fixLinks(rootSrc, rootDst, srcPath, dstPath, placed); continue; }
       if (!e.isSymbolicLink()) continue;
       const lex = resolve(dirname(srcPath), await readlink(srcPath));
       const inRoot = within(lex, rootSrc);
