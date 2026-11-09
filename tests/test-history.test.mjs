@@ -520,6 +520,26 @@ test('plates#370: gateWorkflowIn keeps a check after a heredoc holding a lone qu
   assert.deepEqual(uncommentedLines('run: |\n  cat <<EOF\n  "\n  EOF\n  echo " # b" # c\n'), ['run: |', '  cat <<EOF', '  "', '  EOF', '  echo " # b" ', '']);
 });
 
+// plates#370 review (comment 4509686800): a # starts a comment only at the start of a shell word, and an escaped space
+// does not end a word.
+test('plates#370: gateWorkflowIn keeps a check after an escaped space before a #', async t => {
+  const { gateWorkflowIn, uncommentedLines } = await import(new URL('../practices/night/files/scripts/plates/lib.mjs', import.meta.url).href);
+  const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const root = await mkdtemp(join(tmpdir(), 'plates-gate-word-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, '.github/workflows'), { recursive: true });
+  const found = async body => { await writeFile(join(root, '.github/workflows/ci.yml'), body); return gateWorkflowIn(root, { check: 'npm run check' }); };
+  const block = line => `jobs:\n  x:\n    steps:\n      - run: |\n          ${line}\n`;
+  assert.deepEqual(await found(block('echo banner\\ #1 && npm run check')), { name: 'ci.yml' }, 'an escaped space, then #');
+  assert.deepEqual(await found(block('echo a\\\t#1 && npm run check')), { name: 'ci.yml' }, 'an escaped tab, then #');
+  assert.deepEqual(await found(block('echo "x"#1 && npm run check')), { name: 'ci.yml' }, 'a # right after a closing quote is in the word');
+  assert.equal(await found(block('echo banner\\\\ # npm run check')), null, 'an escaped backslash, then a real space: the # is a comment');
+  assert.equal(await found(block('echo banner # npm run check')), null, 'a # after a plain space is a comment');
+  assert.deepEqual(uncommentedLines('run: |\n  echo a\\ #b # c\n'), ['run: |', '  echo a\\ #b ', '']);
+});
+
 test('history merges legacy and renamed artifact inventories without rewriting old ledger bytes', async t => {
   const root=await project(t),f=fixture([{id:1,kind:'night',legacy:true},{id:2,kind:'ci',legacy:true},{id:3,kind:'ci'},{id:4,kind:'night',date:'2026-10-08T01:00:00Z'}]);
   const old=JSON.stringify({date:'2026-10-09T01:00:00Z',workflow:'keel-night',tests:[],acme:'unchanged legacy receipt'});

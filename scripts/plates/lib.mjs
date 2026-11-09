@@ -600,17 +600,23 @@ export function uncommented(line) {
  */
 function withoutComment(line, quote, shell = false) {
   const heredocs = [];
+  // Whether the next character starts a word: a # starts a comment only there. An escaped space (a backslash and a
+  // space, in the shell) is part of its word (#370 review: `echo banner\ #1 && npm run check` echoes "banner #1",
+  // then runs the check).
+  let wordStart = true;
   for (let i = 0; i < line.length; i++) {
     const c = line[i];
-    if (quote) { if (quote === '"' && c === '\\') i++; else if (c === quote) quote = null; }
-    else if (shell && c === '\\') i++;
+    if (quote) { if (quote === '"' && c === '\\') i++; else if (c === quote) quote = null; wordStart = false; }
+    else if (shell && c === '\\') { i++; wordStart = false; }
     else if (shell && c === '<' && line[i + 1] === '<' && line[i + 2] !== '<' && line[i - 1] !== '<') {
       // The delimiter is a word, quoted or not; quoting it only stops expansion, which a comment scan never does.
       const op = /^<<-?[ \t]*(?:'([^']*)'|"((?:[^"\\]|\\.)*)"|((?:\\.|[^\s;&|<>()'"])+))/.exec(line.slice(i));
       if (op) { heredocs.push((op[1] ?? op[2] ?? op[3]).replace(/\\(.)/g, '$1')); i += op[0].length - 1; }
+      wordStart = false;
     }
-    else if (c === '"' || c === "'") quote = c;
-    else if (c === '#' && (i === 0 || /\s/.test(line[i - 1]))) return { line: line.slice(0, i), quote: null, heredocs };
+    else if (c === '"' || c === "'") { quote = c; wordStart = false; }
+    else if (c === '#' && wordStart) return { line: line.slice(0, i), quote: null, heredocs };
+    else wordStart = /\s/.test(c);
   }
   return { line, quote, heredocs };
 }
