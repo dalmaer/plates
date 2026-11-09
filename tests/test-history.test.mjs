@@ -479,6 +479,25 @@ test('plates#370: gateWorkflowIn keeps a check after a quoted # on a later line 
   assert.deepEqual(uncommentedLines('a: "x # y" # z\nrun: |\n  echo "p\n  q # r" # s\n'), ['a: "x # y" ', 'run: |', '  echo "p', '  q # r" ', '']);
 });
 
+// plates#370 review (comment 4509245530): in a run block's shell, a backslash outside quotes escapes the next character,
+// so an escaped quote opens no span.
+test('plates#370: gateWorkflowIn keeps a check after an escaped quote outside quotes in a run block', async t => {
+  const { gateWorkflowIn, uncommentedLines } = await import(new URL('../practices/night/files/scripts/plates/lib.mjs', import.meta.url).href);
+  const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const root = await mkdtemp(join(tmpdir(), 'plates-gate-bare-esc-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, '.github/workflows'), { recursive: true });
+  const found = async body => { await writeFile(join(root, '.github/workflows/ci.yml'), body); return gateWorkflowIn(root, { check: 'npm run check' }); };
+  const block = line => `jobs:\n  x:\n    steps:\n      - run: |\n          ${line}\n`;
+  assert.deepEqual(await found(block('echo \\" " # banner" && npm run check')), { name: 'ci.yml' }, 'an escaped double quote outside quotes');
+  assert.deepEqual(await found(block("echo it\\'s \" # x\" && npm run check")), { name: 'ci.yml' }, 'an escaped single quote outside quotes');
+  assert.deepEqual(await found(block('echo a\\\\ "# x" && npm run check')), { name: 'ci.yml' }, 'an escaped backslash, then a real quote');
+  assert.equal(await found(block('echo \\" # npm run check')), null, 'an escaped quote opens nothing, so the comment is still one');
+  assert.deepEqual(uncommentedLines('run: |\n  echo \\" " # b" # c\n'), ['run: |', '  echo \\" " # b" ', '']);
+});
+
 test('history merges legacy and renamed artifact inventories without rewriting old ledger bytes', async t => {
   const root=await project(t),f=fixture([{id:1,kind:'night',legacy:true},{id:2,kind:'ci',legacy:true},{id:3,kind:'ci'},{id:4,kind:'night',date:'2026-10-08T01:00:00Z'}]);
   const old=JSON.stringify({date:'2026-10-09T01:00:00Z',workflow:'keel-night',tests:[],acme:'unchanged legacy receipt'});

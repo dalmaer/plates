@@ -592,11 +592,16 @@ export function uncommented(line) {
   return withoutComment(line, null).line;
 }
 
-/** uncommented, starting inside `quote` (a quote character, or null); also returns the quote still open at the line's end. */
-function withoutComment(line, quote) {
+/**
+ * uncommented, starting inside `quote` (a quote character, or null); also returns the quote still open at the line's
+ * end. `shell`: the line is a run block's shell, where a backslash outside quotes escapes the next character too
+ * (#370 review: in `echo \" " # banner" && npm run check` the first quote is literal); YAML keeps it literal.
+ */
+function withoutComment(line, quote, shell = false) {
   for (let i = 0; i < line.length; i++) {
     const c = line[i];
     if (quote) { if (quote === '"' && c === '\\') i++; else if (c === quote) quote = null; }
+    else if (shell && c === '\\') i++;
     else if (c === '"' || c === "'") quote = c;
     else if (c === '#' && (i === 0 || /\s/.test(line[i - 1]))) return { line: line.slice(0, i), quote: null };
   }
@@ -618,7 +623,7 @@ export function uncommentedLines(text) {
   for (const line of text.split('\n')) {
     if (block !== null && line.trim() && line.length - line.trimStart().length <= block) block = quote = null;
     if (block !== null) {
-      const read = withoutComment(line, quote);
+      const read = withoutComment(line, quote, true);
       out.push(read.line);
       quote = read.quote;
       continue;
