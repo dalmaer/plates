@@ -839,9 +839,12 @@ rm -f .plates/test-runs/junit.xml; mkdir -p .plates/test-runs && bun test
 --reporter=junit --reporter-outfile=.plates/test-runs/junit.xml ||
 plates_status=$?; node scripts/plates/test-ledger.mjs --junit
 .plates/test-runs/junit.xml --runner bun --status $plates_status` (vitest:
-`--reporter=default --reporter=junit --outputFile.junit=<file>`; `plates
-adopt` proposes it; `|| plates_status=$?` survives `set -e`; after a `cd` the
-paths start from `$plates_root`, git's top level). The record is a node run's
+`--reporter=default --reporter=junit --outputFile.junit="$PWD/<file>"`,
+absolute because vitest resolves it against its config's `root`; `plates
+adopt` proposes it for one call to the runner, as a step's own command;
+`|| plates_status=$?` survives `set -e`; after a `cd` the paths start from
+`$plates_root`, git's top level). vitest's "vitest unhandled errors" suite
+(an error outside any test) fails the run and is not recorded as a test. The record is a node run's
 plus `runner` and `junit` (a short hash of the file's path and bytes), with
 each top-level test or describe. Words after `--` are the runner's own, as
 its step writes them: their options, but the run's own (reporters and their
