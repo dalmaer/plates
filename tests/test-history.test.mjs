@@ -498,6 +498,28 @@ test('plates#370: gateWorkflowIn keeps a check after an escaped quote outside qu
   assert.deepEqual(uncommentedLines('run: |\n  echo \\" " # b" # c\n'), ['run: |', '  echo \\" " # b" ', '']);
 });
 
+// plates#370 review (comment 4509245532): a heredoc's lines are data, so a quote inside one changes nothing after it.
+test('plates#370: gateWorkflowIn keeps a check after a heredoc holding a lone quote', async t => {
+  const { gateWorkflowIn, uncommentedLines } = await import(new URL('../practices/night/files/scripts/plates/lib.mjs', import.meta.url).href);
+  const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const root = await mkdtemp(join(tmpdir(), 'plates-gate-heredoc-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, '.github/workflows'), { recursive: true });
+  const found = async body => { await writeFile(join(root, '.github/workflows/ci.yml'), body); return gateWorkflowIn(root, { check: 'npm run check' }); };
+  const block = (...lines) => `jobs:\n  x:\n    steps:\n      - run: |\n${lines.map(l => `          ${l}\n`).join('')}`;
+  const gate = 'echo " # banner" && npm run check';
+  for (const open of ["cat <<'EOF' > notes.txt", 'cat <<EOF', 'cat <<-"EOF"', 'cat << EOF', 'cat <<\\EOF']) {
+    assert.deepEqual(await found(block(open, '"', 'EOF', gate)), { name: 'ci.yml' }, open);
+  }
+  assert.deepEqual(await found(block("cat <<'A' <<'B'", "'", 'A', '"', 'B', gate)), { name: 'ci.yml' }, 'two heredocs on one line, read in order');
+  assert.deepEqual(await found(block('cat <<EOF', "it's", 'EOF', 'echo "a', 'b # c" && npm run check')), { name: 'ci.yml' }, 'the quote state resumes after the heredoc');
+  assert.equal(await found(block('cat <<<"x" # npm run check')), null, 'a here-string opens no heredoc, and its comment is a comment');
+  assert.equal(await found(block("echo '<<EOF' # npm run check")), null, 'a quoted << opens nothing');
+  assert.deepEqual(uncommentedLines('run: |\n  cat <<EOF\n  "\n  EOF\n  echo " # b" # c\n'), ['run: |', '  cat <<EOF', '  "', '  EOF', '  echo " # b" ', '']);
+});
+
 test('history merges legacy and renamed artifact inventories without rewriting old ledger bytes', async t => {
   const root=await project(t),f=fixture([{id:1,kind:'night',legacy:true},{id:2,kind:'ci',legacy:true},{id:3,kind:'ci'},{id:4,kind:'night',date:'2026-10-08T01:00:00Z'}]);
   const old=JSON.stringify({date:'2026-10-09T01:00:00Z',workflow:'keel-night',tests:[],acme:'unchanged legacy receipt'});

@@ -596,16 +596,23 @@ export function uncommented(line) {
  * uncommented, starting inside `quote` (a quote character, or null); also returns the quote still open at the line's
  * end. `shell`: the line is a run block's shell, where a backslash outside quotes escapes the next character too
  * (#370 review: in `echo \" " # banner" && npm run check` the first quote is literal); YAML keeps it literal.
+ * `heredocs`: in the shell, the delimiters of the heredocs the line opens (`cat <<'EOF'`), in order.
  */
 function withoutComment(line, quote, shell = false) {
+  const heredocs = [];
   for (let i = 0; i < line.length; i++) {
     const c = line[i];
     if (quote) { if (quote === '"' && c === '\\') i++; else if (c === quote) quote = null; }
     else if (shell && c === '\\') i++;
+    else if (shell && c === '<' && line[i + 1] === '<' && line[i + 2] !== '<' && line[i - 1] !== '<') {
+      // The delimiter is a word, quoted or not; quoting it only stops expansion, which a comment scan never does.
+      const op = /^<<-?[ \t]*(?:'([^']*)'|"((?:[^"\\]|\\.)*)"|((?:\\.|[^\s;&|<>()'"])+))/.exec(line.slice(i));
+      if (op) { heredocs.push((op[1] ?? op[2] ?? op[3]).replace(/\\(.)/g, '$1')); i += op[0].length - 1; }
+    }
     else if (c === '"' || c === "'") quote = c;
-    else if (c === '#' && (i === 0 || /\s/.test(line[i - 1]))) return { line: line.slice(0, i), quote: null };
+    else if (c === '#' && (i === 0 || /\s/.test(line[i - 1]))) return { line: line.slice(0, i), quote: null, heredocs };
   }
-  return { line, quote };
+  return { line, quote, heredocs };
 }
 
 /**
@@ -614,18 +621,27 @@ function withoutComment(line, quote, shell = false) {
  * lines stays open into the next one (`echo "banner<newline>footer #1" && npm
  * run check` runs the check). The block ends at the first non-blank line
  * indented no deeper than its `run:` line, and the quote state ends with it.
+ * A heredoc's lines are data, not shell (#370 review: a lone `"` inside
+ * `cat <<'EOF'` quotes nothing): each is read alone, and none changes the
+ * quote state, up to the line that is its delimiter.
  * Every other line stands alone, as YAML reads it, so an apostrophe in a name
  * never reaches the next line.
  */
 export function uncommentedLines(text) {
   const out = [];
-  let block = null, quote = null;
+  let block = null, quote = null, heredocs = [];
   for (const line of text.split('\n')) {
-    if (block !== null && line.trim() && line.length - line.trimStart().length <= block) block = quote = null;
+    if (block !== null && line.trim() && line.length - line.trimStart().length <= block) { block = quote = null; heredocs = []; }
+    if (block !== null && heredocs.length) {
+      out.push(uncommented(line));
+      if (line.trim() === heredocs[0]) heredocs.shift();
+      continue;
+    }
     if (block !== null) {
       const read = withoutComment(line, quote, true);
       out.push(read.line);
       quote = read.quote;
+      heredocs = read.heredocs;
       continue;
     }
     const kept = uncommented(line);
