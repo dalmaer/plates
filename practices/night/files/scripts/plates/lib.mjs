@@ -630,13 +630,23 @@ function withoutComment(line, quote, shell = false) {
  * A heredoc's lines are data, not shell (#370 review: a lone `"` inside
  * `cat <<'EOF'` quotes nothing): each is read alone, and none changes the
  * quote state, up to the line that is its delimiter.
- * Every other line stands alone, as YAML reads it, so an apostrophe in a name
- * never reaches the next line.
+ * Outside a block, a YAML quoted scalar that opens a value (`run: "…`,
+ * `- '…`) and does not close on its line runs on to the lines after it, as
+ * YAML reads it (#370 review: in `run: "echo 'banner<newline>  #1' && npm
+ * run check"` the # is inside the scalar). A quote anywhere else in a plain
+ * value is a character, so an apostrophe in a name never reaches the next line.
  */
+const OPENS_SCALAR = /^\s*(?:-\s+)?(?:[^\s"'#][^:#]*:\s+)?["']/;
 export function uncommentedLines(text) {
   const out = [];
-  let block = null, quote = null, heredocs = [];
+  let block = null, quote = null, heredocs = [], scalar = null;
   for (const line of text.split('\n')) {
+    if (scalar) {
+      const read = withoutComment(line, scalar);
+      out.push(read.line);
+      scalar = read.quote;
+      continue;
+    }
     if (block !== null && line.trim() && line.length - line.trimStart().length <= block) { block = quote = null; heredocs = []; }
     if (block !== null && heredocs.length) {
       out.push(uncommented(line));
@@ -650,9 +660,10 @@ export function uncommentedLines(text) {
       heredocs = read.heredocs;
       continue;
     }
-    const kept = uncommented(line);
-    out.push(kept);
-    const opens = /^(\s*)(?:-\s+)?run:\s*[|>][-+0-9]*\s*$/.exec(kept);
+    const read = withoutComment(line, null);
+    out.push(read.line);
+    if (read.quote && OPENS_SCALAR.test(line)) { scalar = read.quote; continue; }
+    const opens = /^(\s*)(?:-\s+)?run:\s*[|>][-+0-9]*\s*$/.exec(read.line);
     if (opens) block = opens[1].length;
   }
   return out;

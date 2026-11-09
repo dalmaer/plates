@@ -540,6 +540,28 @@ test('plates#370: gateWorkflowIn keeps a check after an escaped space before a #
   assert.deepEqual(uncommentedLines('run: |\n  echo a\\ #b # c\n'), ['run: |', '  echo a\\ #b ', '']);
 });
 
+// plates#370 review (comment 4509686798): a YAML quoted scalar that opens a value runs on across its lines, so a #
+// on a continuation line inside it is not a comment; a quote inside a plain value opens nothing.
+test('plates#370: gateWorkflowIn keeps a check inside a YAML quoted scalar that spans lines', async t => {
+  const { gateWorkflowIn, uncommentedLines } = await import(new URL('../practices/night/files/scripts/plates/lib.mjs', import.meta.url).href);
+  const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const root = await mkdtemp(join(tmpdir(), 'plates-gate-scalar-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, '.github/workflows'), { recursive: true });
+  const found = async body => { await writeFile(join(root, '.github/workflows/ci.yml'), body); return gateWorkflowIn(root, { check: 'npm run check' }); };
+  const steps = 'jobs:\n  x:\n    steps:\n';
+  assert.deepEqual(await found(`${steps}      - run: "echo 'banner\n          #1' && npm run check"\n`), { name: 'ci.yml' }, 'a double-quoted scalar across two lines');
+  assert.deepEqual(await found(`${steps}      - run: 'echo "banner\n          #1" && npm run check'\n`), { name: 'ci.yml' }, 'a single-quoted scalar across two lines');
+  assert.deepEqual(await found(`${steps}      - run: "echo \\"a\n          #1\\" &&\n          npm run check"\n`), { name: 'ci.yml' }, 'escaped quotes, three lines');
+  assert.deepEqual(await found(`${steps}      - run: 'echo it''s\n          #1 && npm run check'\n`), { name: 'ci.yml' }, "YAML's '' inside a single-quoted scalar");
+  assert.equal(await found(`${steps}      - run: "echo a\n          b" # npm run check\n`), null, 'after the scalar closes, a # is a comment again');
+  assert.equal(await found(`${steps}      - name: Don't deploy\n        # npm run check\n`), null, 'an apostrophe inside a plain value opens nothing');
+  assert.equal(await found(`${steps}      - run: echo "a\n        # npm run check\n`), null, 'a quote after a plain value\'s start opens nothing');
+  assert.deepEqual(uncommentedLines('a: "x\n  # y" # z\nb: c # d\n'), ['a: "x', '  # y" ', 'b: c ', '']);
+});
+
 test('history merges legacy and renamed artifact inventories without rewriting old ledger bytes', async t => {
   const root=await project(t),f=fixture([{id:1,kind:'night',legacy:true},{id:2,kind:'ci',legacy:true},{id:3,kind:'ci'},{id:4,kind:'night',date:'2026-10-08T01:00:00Z'}]);
   const old=JSON.stringify({date:'2026-10-09T01:00:00Z',workflow:'keel-night',tests:[],acme:'unchanged legacy receipt'});
