@@ -735,7 +735,11 @@ function assertProposals(make = ledgerCommand) {
     ['bun test web && bun test api', 'bun'], ['vitest run web; npx vitest run api', 'vitest'],
     // #376 review: a wrapped call is a call, though plates would not rewrite it; a quoted value with spaces is one word.
     ['env CI=1 bun test web && bun test api', 'bun'], ['bun test web && env CI=1 bun test api', 'bun'],
-    ['NODE_OPTIONS="--trace-warnings --enable-source-maps" vitest run web; vitest run api', 'vitest']]) {
+    ['NODE_OPTIONS="--trace-warnings --enable-source-maps" vitest run web; vitest run api', 'vitest'],
+    // #376 follow-up: env's option operands are read, and a step whose env options plates cannot read may run the runner too.
+    ['env -u NODE_ENV bun test web && bun test api', 'bun'], ["env -S 'bun test web' && bun test api", 'bun'], ['env -x bun test web; bun test api', 'bun'],
+    // #382 review: an option's attached path is the option's, not the command's.
+    ['env -S./scripts/test-bun && bun test api', 'bun']]) {
     assert.equal(make(command, runner), null, command);
   }
   // What plates will not split by hand gets no proposal, never a broken one.
@@ -790,6 +794,37 @@ test('a proposal parses in sh: a quoted operator or runner is a word, and a comm
   }
   const mixed = testsPlan({}, 'NODE_OPTIONS="--trace-warnings --enable-source-maps" vitest run && bun test', {});
   assert.deepEqual([mixed.runner, mixed.proposal], [null, null], 'a quoted assignment does not hide vitest from the two-runner refusal');
+  // #376 follow-up (review comment 4508751499): env's options take their operands, so the runner after them is still the
+  // step's command, and the mixed-runner gate is still refused.
+  for (const command of ['env -u NODE_ENV vitest run && bun test', 'env --unset=NODE_ENV vitest run && bun test', 'env --unset NODE_ENV vitest run && bun test',
+    'env -uNODE_ENV vitest run && bun test', 'env -iu NODE_ENV vitest run && bun test', 'env -i -u A -u B CI=1 vitest run && bun test',
+    'env -C web vitest run && bun test', "env -u NODE_ENV -C 'my web' npx vitest run && bun test", 'env -- vitest run && bun test', 'env - vitest run && bun test',
+    'time -p vitest run && bun test', 'time -o times.txt vitest run && bun test', 'time --format="%e s" vitest run && bun test']) {
+    const plan = testsPlan({}, command, {});
+    assert.deepEqual([plan?.runner, plan?.proposal], [null, null], command);
+    assert.match(plan.declined, /^the gate runs more than one test runner \(vitest, bun\)/, command);
+  }
+  for (const command of ['env -u NODE_ENV vitest run', 'env --unset=NODE_ENV -i vitest run', 'time -o t.txt vitest run']) {
+    assert.equal(testsPlan({}, command, {})?.runner, 'vitest', command);
+  }
+  assert.equal(testsPlan({}, 'env -u vitest bun test', {})?.runner, 'bun', "-u's operand is a name, not the command");
+  for (const command of ['./node_modules/.bin/vitest run && bun test', 'env -u NODE_ENV ./node_modules/.bin/vitest run && bun test']) {
+    assert.match(testsPlan({}, command, {}).declined, /^the gate runs more than one test runner \(vitest, bun\)/, `${command}: a command's own path is still read`);
+  }
+  // An option plates does not read (-S hands env a whole command line; anything else is unknown): the runner found
+  // beside it is not known to be the only one, so none is recorded and no line proposed.
+  for (const command of ["env -S 'vitest run' && bun test", "bun test && env --split-string='vitest run'", 'env -x vitest run && bun test', 'time -Z vitest run; bun test',
+    // #382 review (comment 4509311577): the command's path prefix is taken only after the wrapper's options are read,
+    // so an option with an attached path (-S./scripts/test-vitest) is still one plates does not read.
+    'env -S./scripts/test-vitest && bun test', 'env -u NODE_ENV -S./scripts/test-vitest && bun test', 'bun test && env -S../bin/vitest',
+    'env --split-string=./scripts/test-vitest && bun test', 'time -Z./bin/vitest; bun test']) {
+    const plan = testsPlan({}, command, {});
+    assert.deepEqual([plan?.runner, plan?.proposal], [null, null], command);
+    assert.match(plan.declined, /through env or time options plates does not read/, command);
+  }
+  assert.match(testsPlan({}, 'npm test && bun test', { test: "env -S 'vitest run'" }).declined, /^package\.json scripts\.test runs `env -S 'vitest run'`/);
+  assert.equal(testsPlan({}, "env -S 'vitest run'", {}), null, 'nothing read, nothing recorded, as before');
+  assert.equal(testsPlan({ tests: { runner: 'bun' } }, "env -S 'bun test web' && bun test api", {}).proposal, null, 'a recorded runner gets no line beside an unread step');
   // More than one runner in the gate (`npm test` runs bun, then vitest runs): record none, propose none (review on #56).
   const two = testsPlan({}, 'npm test && npx vitest run', { test: 'bun test' });
   assert.deepEqual([two.runner, two.proposal], [null, null]);
