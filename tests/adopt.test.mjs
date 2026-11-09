@@ -732,7 +732,10 @@ function assertProposals(make = ledgerCommand) {
     ['NODE_OPTIONS=--max-old-space-size=64 vitest run', 'vitest'], ['time bun test', 'bun'], ['env CI=1 bun test', 'bun'],
     ['npm run vitest:unit', 'vitest'], ['npx vitest-preview', 'vitest'],
     // plates#86: a second call to the runner would write the same report and record as one run.
-    ['bun test web && bun test api', 'bun'], ['vitest run web; npx vitest run api', 'vitest']]) {
+    ['bun test web && bun test api', 'bun'], ['vitest run web; npx vitest run api', 'vitest'],
+    // #376 review: a wrapped call is a call, though plates would not rewrite it; a quoted value with spaces is one word.
+    ['env CI=1 bun test web && bun test api', 'bun'], ['bun test web && env CI=1 bun test api', 'bun'],
+    ['NODE_OPTIONS="--trace-warnings --enable-source-maps" vitest run web; vitest run api', 'vitest']]) {
     assert.equal(make(command, runner), null, command);
   }
   // What plates will not split by hand gets no proposal, never a broken one.
@@ -780,6 +783,13 @@ test('a proposal parses in sh: a quoted operator or runner is a word, and a comm
   assert.deepEqual([named.runner, Boolean(named.proposal)], ['bun', true]);
   assert.equal(testsPlan({}, 'eslint . --ignore-pattern vitest.config.ts', {}), null);
   assert.equal(testsPlan({}, 'eslint . && cd web && pnpm exec vitest run', {}).runner, 'vitest');
+  // #376 review: an assignment's quoted value holds spaces, and is still one word before the runner.
+  for (const command of ['NODE_OPTIONS="--trace-warnings --enable-source-maps" vitest run', "NODE_OPTIONS='--a --b' vitest run",
+    'env NODE_OPTIONS="--a \\"b c\\"" vitest run', 'A="x y" B=\'p q\' npx vitest run']) {
+    assert.equal(testsPlan({}, command, {})?.runner, 'vitest', command);
+  }
+  const mixed = testsPlan({}, 'NODE_OPTIONS="--trace-warnings --enable-source-maps" vitest run && bun test', {});
+  assert.deepEqual([mixed.runner, mixed.proposal], [null, null], 'a quoted assignment does not hide vitest from the two-runner refusal');
   // More than one runner in the gate (`npm test` runs bun, then vitest runs): record none, propose none (review on #56).
   const two = testsPlan({}, 'npm test && npx vitest run', { test: 'bun test' });
   assert.deepEqual([two.runner, two.proposal], [null, null]);
