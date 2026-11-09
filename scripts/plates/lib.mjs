@@ -587,6 +587,11 @@ export function gateWorkflowOf(config) {
  * double quotes a backslash escapes the next character, as in YAML and the
  * shell (`"echo \" #1\" && npm run check"` is one quoted span); single
  * quotes take no escapes (YAML's `''` closes and reopens, which reads the same).
+ * Shell syntax the scan does not model (`$( )`, backticks, `${ }`, `$'…'`)
+ * keeps the rest of the line whole (#370 review: in `echo "$(printf "%s # %s"
+ * a b)" && npm run check` the inner quotes nest): a missed gate refuses a
+ * publish, while a comment kept by mistake only risks matching a check
+ * command's name, which the gate's own checks still catch.
  */
 export function uncommented(line) {
   return withoutComment(line, null).line;
@@ -606,6 +611,7 @@ function withoutComment(line, quote, shell = false) {
   let wordStart = true;
   for (let i = 0; i < line.length; i++) {
     const c = line[i];
+    if (opaque(line, i, quote)) return { line, quote: shell && /<<(?!<)/.test(line.slice(i)) ? UNKNOWN : settled(line.slice(i), quote), heredocs };
     if (quote) { if (quote === '"' && c === '\\') i++; else if (c === quote) quote = null; wordStart = false; }
     else if (shell && c === '\\') { i++; wordStart = false; }
     else if (shell && c === '<' && line[i + 1] === '<' && line[i + 2] !== '<' && line[i - 1] !== '<') {
@@ -619,6 +625,45 @@ function withoutComment(line, quote, shell = false) {
     else wordStart = /\s/.test(c);
   }
   return { line, quote, heredocs };
+}
+
+/** Whether line[i] starts shell syntax withoutComment does not model: `$(`, `${` or a backtick outside single quotes, `$'` outside any. */
+function opaque(line, i, quote) {
+  if (quote === "'") return false;
+  const c = line[i], next = line[i + 1];
+  if (c === '`') return true;
+  if (c !== '$') return false;
+  return next === '(' || next === '{' || (next === "'" && !quote);
+}
+
+/**
+ * The quote open at the end of `tail`, read with nesting (a quote inside `$( )` or a backtick opens a new span), from
+ * inside `quote`: null when everything closes, the quote when only that one plain quote stays open, else UNKNOWN. A
+ * # at the start of a word outside every quote ends the reading.
+ */
+const UNKNOWN = Symbol('unknown quote state');
+function settled(tail, quote) {
+  const stack = quote === '"' ? ['"'] : quote === "'" ? ["'"] : [];
+  let wordStart = true;
+  for (let i = 0; i < tail.length; i++) {
+    const c = tail[i], top = stack.at(-1), next = tail[i + 1];
+    if (top === "'") { if (c === "'") stack.pop(); continue; }
+    if (top === "$'") { if (c === '\\') i++; else if (c === "'") stack.pop(); continue; }
+    if (c === '\\') { i++; wordStart = false; continue; }
+    if (c === '$' && next === '(') { stack.push(')'); i++; wordStart = true; continue; }
+    if (c === '$' && next === '{') { stack.push('}'); i++; wordStart = false; continue; }
+    if (c === '`') { if (top === '`') stack.pop(); else stack.push('`'); wordStart = false; continue; }
+    if (top === '"') { if (c === '"') stack.pop(); continue; }
+    if (c === '$' && next === "'") { stack.push("$'"); i++; continue; }
+    if (c === '"' || c === "'") { stack.push(c); wordStart = false; continue; }
+    if (c === '#' && wordStart && top !== '}') break;
+    if (top === ')' && c === '(') stack.push(')');
+    else if (top === '}' && c === '{') stack.push('}');
+    else if (c === top) stack.pop();
+    wordStart = /[\s;&|(]/.test(c);
+  }
+  if (!stack.length) return null;
+  return stack.length === 1 && (stack[0] === '"' || stack[0] === "'") ? stack[0] : UNKNOWN;
 }
 
 /**
@@ -635,19 +680,26 @@ function withoutComment(line, quote, shell = false) {
  * YAML reads it (#370 review: in `run: "echo 'banner<newline>  #1' && npm
  * run check"` the # is inside the scalar). A quote anywhere else in a plain
  * value is a character, so an apostrophe in a name never reaches the next line.
+ * When a line's unmodelled syntax (see uncommented) leaves the quote state
+ * unknown, the lines after it are kept whole until the block or scalar ends:
+ * no line indented deeper than the one that opened it.
  */
 const OPENS_SCALAR = /^\s*(?:-\s+)?(?:[^\s"'#][^:#]*:\s+)?["']/;
 export function uncommentedLines(text) {
   const out = [];
-  let block = null, quote = null, heredocs = [], scalar = null;
+  let block = null, quote = null, heredocs = [], scalar = null, scalarIndent = 0;
+  const indent = line => line.length - line.trimStart().length;
   for (const line of text.split('\n')) {
+    if (scalar === UNKNOWN && line.trim() && indent(line) <= scalarIndent) scalar = null;
+    if (scalar === UNKNOWN) { out.push(line); continue; }
     if (scalar) {
       const read = withoutComment(line, scalar);
       out.push(read.line);
       scalar = read.quote;
       continue;
     }
-    if (block !== null && line.trim() && line.length - line.trimStart().length <= block) { block = quote = null; heredocs = []; }
+    if (block !== null && line.trim() && indent(line) <= block) { block = quote = null; heredocs = []; }
+    if (block !== null && quote === UNKNOWN) { out.push(line); continue; }
     if (block !== null && heredocs.length) {
       out.push(uncommented(line));
       if (line.trim() === heredocs[0]) heredocs.shift();
@@ -662,7 +714,7 @@ export function uncommentedLines(text) {
     }
     const read = withoutComment(line, null);
     out.push(read.line);
-    if (read.quote && OPENS_SCALAR.test(line)) { scalar = read.quote; continue; }
+    if (read.quote && OPENS_SCALAR.test(line)) { scalar = read.quote; scalarIndent = indent(line); continue; }
     const opens = /^(\s*)(?:-\s+)?run:\s*[|>][-+0-9]*\s*$/.exec(read.line);
     if (opens) block = opens[1].length;
   }

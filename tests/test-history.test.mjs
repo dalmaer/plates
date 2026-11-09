@@ -562,6 +562,36 @@ test('plates#370: gateWorkflowIn keeps a check inside a YAML quoted scalar that 
   assert.deepEqual(uncommentedLines('a: "x\n  # y" # z\nb: c # d\n'), ['a: "x', '  # y" ', 'b: c ', '']);
 });
 
+// plates#370 review (comment 4509946449): a quote inside $( ) opens a new span in the shell. The scan does not model
+// $( ), backticks, ${ } or $'…', so wherever it meets them it keeps the rest of the line, and a line whose quote state
+// it then cannot tell keeps the lines after it whole until its block ends.
+test('plates#370: gateWorkflowIn keeps a check after shell syntax the comment scan does not model', async t => {
+  const { gateWorkflowIn, uncommentedLines } = await import(new URL('../practices/night/files/scripts/plates/lib.mjs', import.meta.url).href);
+  const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const root = await mkdtemp(join(tmpdir(), 'plates-gate-subst-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, '.github/workflows'), { recursive: true });
+  const found = async body => { await writeFile(join(root, '.github/workflows/ci.yml'), body); return gateWorkflowIn(root, { check: 'npm run check' }); };
+  const block = (...lines) => 'jobs:\n  x:\n    steps:\n      - run: |\n' + lines.map(l => '          ' + l + '\n').join('');
+  const kept = async (why, ...lines) => assert.deepEqual(await found(block(...lines)), { name: 'ci.yml' }, why);
+  await kept('the review\'s case: quotes inside $( ) inside quotes', 'echo "Build: $(printf "%s # %s" hello world)" && npm run check');
+  await kept('nested $( )', 'echo "$(echo "$(printf "%s # %s" a b)")" && npm run check');
+  await kept('backticks', 'echo "`printf "%s # %s" a b`" && npm run check');
+  await kept('${var#prefix} is not a comment', 'echo ${GITHUB_REF#refs/heads/} && npm run check');
+  await kept('${var#prefix} inside quotes', 'echo "${GITHUB_REF#refs/} #1" && npm run check');
+  await kept("ANSI-C quoting", "echo $'it\\'s # one' && npm run check");
+  await kept('an expression', 'echo ${{ github.sha }} # built && npm run check');
+  await kept('a quote state left unknown keeps the next line whole', 'echo "$(printf "%s" `date`', '#1)" && npm run check');
+  await kept('a heredoc after a substitution', 'cat > "$(mktemp)" <<EOF', '"', 'EOF', 'echo " #1" && npm run check');
+  await kept('a quoted span opened after a substitution, closed on the next line', 'echo "$(date) a', '#1" && npm run check');
+  assert.equal(await found(block('echo "$(date)"', '# npm run check')), null, 'a substitution that closes on its line leaves the next line\'s comment a comment');
+  assert.equal(await found(block("echo '$(' # npm run check")), null, 'single quotes keep $( literal, so the # is a comment');
+  assert.equal(await found(block('echo "$(printf `date`', '- run: echo deploy # npm run check').replace('          - run', '      - run')), null, 'the block\'s end ends the scan\'s doubt');
+  assert.deepEqual(uncommentedLines('run: |\n  echo "$(printf "#" a)" # c\n  echo x # y\n'), ['run: |', '  echo "$(printf "#" a)" # c', '  echo x ', '']);
+});
+
 test('history merges legacy and renamed artifact inventories without rewriting old ledger bytes', async t => {
   const root=await project(t),f=fixture([{id:1,kind:'night',legacy:true},{id:2,kind:'ci',legacy:true},{id:3,kind:'ci'},{id:4,kind:'night',date:'2026-10-08T01:00:00Z'}]);
   const old=JSON.stringify({date:'2026-10-09T01:00:00Z',workflow:'keel-night',tests:[],acme:'unchanged legacy receipt'});
