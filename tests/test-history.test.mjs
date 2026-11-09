@@ -421,6 +421,177 @@ test('issue #91 review: gateWorkflowIn finds the workflow running the check itse
   assert.equal(await gateWorkflowIn(root, { check: 'npm run check:all' }), null, 'no workflow runs check:all');
 });
 
+// plates#94 (3): an inline comment that names the check is not a step that runs it; a quoted # is not a comment.
+test('plates#94: gateWorkflowIn skips an inline comment naming the check, and keeps a quoted #', async t => {
+  const { gateWorkflowIn, uncommented } = await import(new URL('../practices/night/files/scripts/plates/lib.mjs', import.meta.url).href);
+  const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const root = await mkdtemp(join(tmpdir(), 'plates-gate-wf-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, '.github/workflows'), { recursive: true });
+  await writeFile(join(root, '.github/workflows/a-deploy.yml'), 'jobs:\n  x:\n    steps:\n      - run: echo deploy # npm run check happens elsewhere\n      - run: |\n          ./deploy.sh  # after npm run check\n');
+  await writeFile(join(root, '.github/workflows/b-ci.yml'), 'jobs:\n  x:\n    steps:\n      - run: npm ci && npm run check # the gate\n');
+  assert.deepEqual(await gateWorkflowIn(root, { check: 'npm run check' }), { name: 'b-ci.yml' }, 'the earlier file only names it in comments');
+  await writeFile(join(root, '.github/workflows/a-deploy.yml'), 'jobs:\n  x:\n    steps:\n      - run: "echo \'#1\' && npm run check"\n');
+  assert.deepEqual(await gateWorkflowIn(root, { check: 'npm run check' }), { name: 'a-deploy.yml' }, 'a quoted # starts no comment');
+  assert.deepEqual(['a#b # c', "x: '# not' # yes", '# all', 'run: echo "a # b" && go', '\t#tab'].map(uncommented), ['a#b ', "x: '# not' ", '', 'run: echo "a # b" && go', '\t']);
+});
+
+// plates#370 review: an escaped double quote does not close the quoted span, in a YAML double-quoted scalar or a block's shell.
+test('plates#370: gateWorkflowIn keeps a check after an escaped quote and a quoted #', async t => {
+  const { gateWorkflowIn, uncommented } = await import(new URL('../practices/night/files/scripts/plates/lib.mjs', import.meta.url).href);
+  const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const root = await mkdtemp(join(tmpdir(), 'plates-gate-esc-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, '.github/workflows'), { recursive: true });
+  const wf = join(root, '.github/workflows/a-ci.yml');
+  await writeFile(wf, 'jobs:\n  x:\n    steps:\n      - run: "echo \\" #1\\" && npm run check"\n');
+  assert.deepEqual(await gateWorkflowIn(root, { check: 'npm run check' }), { name: 'a-ci.yml' }, 'a YAML double-quoted scalar with an escaped quote');
+  await writeFile(wf, 'jobs:\n  x:\n    steps:\n      - run: |\n          echo "a \\" # b" && npm run check\n');
+  assert.deepEqual(await gateWorkflowIn(root, { check: 'npm run check' }), { name: 'a-ci.yml' }, "a block's shell with an escaped quote");
+  assert.deepEqual(
+    ['"a \\\\" # c', '"a \\" # b" # c', "'a \\' # c", "'it''s # x' # y"].map(uncommented),
+    ['"a \\\\" ', '"a \\" # b" ', "'a \\' ", "'it''s # x' "],
+    'an escaped backslash ends the span; single quotes take no escapes',
+  );
+});
+
+// plates#370 review (Codex): a run block is one shell script, so a quoted string that spans lines keeps its quote state.
+test('plates#370: gateWorkflowIn keeps a check after a quoted # on a later line of a run block', async t => {
+  const { gateWorkflowIn, uncommentedLines } = await import(new URL('../practices/night/files/scripts/plates/lib.mjs', import.meta.url).href);
+  const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const root = await mkdtemp(join(tmpdir(), 'plates-gate-multi-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, '.github/workflows'), { recursive: true });
+  const wf = join(root, '.github/workflows/ci.yml');
+  const found = async body => { await writeFile(wf, body); return gateWorkflowIn(root, { check: 'npm run check' }); };
+  const steps = 'jobs:\n  x:\n    steps:\n';
+  assert.deepEqual(await found(`${steps}      - run: |\n          echo "banner\n          footer #1" && npm run check\n`), { name: 'ci.yml' }, 'a double-quoted string across two lines');
+  assert.deepEqual(await found(`${steps}      - run: >-\n          echo 'a\n          # b' && npm run check\n`), { name: 'ci.yml' }, 'a single-quoted string across lines, in a folded block');
+  assert.equal(await found(`${steps}      - run: |\n          echo "a\n          b" # npm run check\n`), null, 'a comment after the closed string is still a comment');
+  assert.equal(await found(`${steps}      - run: |\n          echo "open\n      - name: later\n        # npm run check\n`), null, 'the quote state ends with the block');
+  assert.equal(await found(`${steps}      - name: Don't deploy\n        # npm run check\n`), null, 'outside a run block an apostrophe opens nothing on the next line');
+  assert.deepEqual(uncommentedLines('a: "x # y" # z\nrun: |\n  echo "p\n  q # r" # s\n'), ['a: "x # y" ', 'run: |', '  echo "p', '  q # r" ', '']);
+});
+
+// plates#370 review (comment 4509245530): in a run block's shell, a backslash outside quotes escapes the next character,
+// so an escaped quote opens no span.
+test('plates#370: gateWorkflowIn keeps a check after an escaped quote outside quotes in a run block', async t => {
+  const { gateWorkflowIn, uncommentedLines } = await import(new URL('../practices/night/files/scripts/plates/lib.mjs', import.meta.url).href);
+  const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const root = await mkdtemp(join(tmpdir(), 'plates-gate-bare-esc-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, '.github/workflows'), { recursive: true });
+  const found = async body => { await writeFile(join(root, '.github/workflows/ci.yml'), body); return gateWorkflowIn(root, { check: 'npm run check' }); };
+  const block = line => `jobs:\n  x:\n    steps:\n      - run: |\n          ${line}\n`;
+  assert.deepEqual(await found(block('echo \\" " # banner" && npm run check')), { name: 'ci.yml' }, 'an escaped double quote outside quotes');
+  assert.deepEqual(await found(block("echo it\\'s \" # x\" && npm run check")), { name: 'ci.yml' }, 'an escaped single quote outside quotes');
+  assert.deepEqual(await found(block('echo a\\\\ "# x" && npm run check')), { name: 'ci.yml' }, 'an escaped backslash, then a real quote');
+  assert.equal(await found(block('echo \\" # npm run check')), null, 'an escaped quote opens nothing, so the comment is still one');
+  assert.deepEqual(uncommentedLines('run: |\n  echo \\" " # b" # c\n'), ['run: |', '  echo \\" " # b" ', '']);
+});
+
+// plates#370 review (comment 4509245532): a heredoc's lines are data, so a quote inside one changes nothing after it.
+test('plates#370: gateWorkflowIn keeps a check after a heredoc holding a lone quote', async t => {
+  const { gateWorkflowIn, uncommentedLines } = await import(new URL('../practices/night/files/scripts/plates/lib.mjs', import.meta.url).href);
+  const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const root = await mkdtemp(join(tmpdir(), 'plates-gate-heredoc-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, '.github/workflows'), { recursive: true });
+  const found = async body => { await writeFile(join(root, '.github/workflows/ci.yml'), body); return gateWorkflowIn(root, { check: 'npm run check' }); };
+  const block = (...lines) => `jobs:\n  x:\n    steps:\n      - run: |\n${lines.map(l => `          ${l}\n`).join('')}`;
+  const gate = 'echo " # banner" && npm run check';
+  for (const open of ["cat <<'EOF' > notes.txt", 'cat <<EOF', 'cat <<-"EOF"', 'cat << EOF', 'cat <<\\EOF']) {
+    assert.deepEqual(await found(block(open, '"', 'EOF', gate)), { name: 'ci.yml' }, open);
+  }
+  assert.deepEqual(await found(block("cat <<'A' <<'B'", "'", 'A', '"', 'B', gate)), { name: 'ci.yml' }, 'two heredocs on one line, read in order');
+  assert.deepEqual(await found(block('cat <<EOF', "it's", 'EOF', 'echo "a', 'b # c" && npm run check')), { name: 'ci.yml' }, 'the quote state resumes after the heredoc');
+  assert.equal(await found(block('cat <<<"x" # npm run check')), null, 'a here-string opens no heredoc, and its comment is a comment');
+  assert.equal(await found(block("echo '<<EOF' # npm run check")), null, 'a quoted << opens nothing');
+  assert.deepEqual(uncommentedLines('run: |\n  cat <<EOF\n  "\n  EOF\n  echo " # b" # c\n'), ['run: |', '  cat <<EOF', '  "', '  EOF', '  echo " # b" ', '']);
+});
+
+// plates#370 review (comment 4509686800): a # starts a comment only at the start of a shell word, and an escaped space
+// does not end a word.
+test('plates#370: gateWorkflowIn keeps a check after an escaped space before a #', async t => {
+  const { gateWorkflowIn, uncommentedLines } = await import(new URL('../practices/night/files/scripts/plates/lib.mjs', import.meta.url).href);
+  const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const root = await mkdtemp(join(tmpdir(), 'plates-gate-word-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, '.github/workflows'), { recursive: true });
+  const found = async body => { await writeFile(join(root, '.github/workflows/ci.yml'), body); return gateWorkflowIn(root, { check: 'npm run check' }); };
+  const block = line => `jobs:\n  x:\n    steps:\n      - run: |\n          ${line}\n`;
+  assert.deepEqual(await found(block('echo banner\\ #1 && npm run check')), { name: 'ci.yml' }, 'an escaped space, then #');
+  assert.deepEqual(await found(block('echo a\\\t#1 && npm run check')), { name: 'ci.yml' }, 'an escaped tab, then #');
+  assert.deepEqual(await found(block('echo "x"#1 && npm run check')), { name: 'ci.yml' }, 'a # right after a closing quote is in the word');
+  assert.equal(await found(block('echo banner\\\\ # npm run check')), null, 'an escaped backslash, then a real space: the # is a comment');
+  assert.equal(await found(block('echo banner # npm run check')), null, 'a # after a plain space is a comment');
+  assert.deepEqual(uncommentedLines('run: |\n  echo a\\ #b # c\n'), ['run: |', '  echo a\\ #b ', '']);
+});
+
+// plates#370 review (comment 4509686798): a YAML quoted scalar that opens a value runs on across its lines, so a #
+// on a continuation line inside it is not a comment; a quote inside a plain value opens nothing.
+test('plates#370: gateWorkflowIn keeps a check inside a YAML quoted scalar that spans lines', async t => {
+  const { gateWorkflowIn, uncommentedLines } = await import(new URL('../practices/night/files/scripts/plates/lib.mjs', import.meta.url).href);
+  const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const root = await mkdtemp(join(tmpdir(), 'plates-gate-scalar-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, '.github/workflows'), { recursive: true });
+  const found = async body => { await writeFile(join(root, '.github/workflows/ci.yml'), body); return gateWorkflowIn(root, { check: 'npm run check' }); };
+  const steps = 'jobs:\n  x:\n    steps:\n';
+  assert.deepEqual(await found(`${steps}      - run: "echo 'banner\n          #1' && npm run check"\n`), { name: 'ci.yml' }, 'a double-quoted scalar across two lines');
+  assert.deepEqual(await found(`${steps}      - run: 'echo "banner\n          #1" && npm run check'\n`), { name: 'ci.yml' }, 'a single-quoted scalar across two lines');
+  assert.deepEqual(await found(`${steps}      - run: "echo \\"a\n          #1\\" &&\n          npm run check"\n`), { name: 'ci.yml' }, 'escaped quotes, three lines');
+  assert.deepEqual(await found(`${steps}      - run: 'echo it''s\n          #1 && npm run check'\n`), { name: 'ci.yml' }, "YAML's '' inside a single-quoted scalar");
+  assert.equal(await found(`${steps}      - run: "echo a\n          b" # npm run check\n`), null, 'after the scalar closes, a # is a comment again');
+  assert.equal(await found(`${steps}      - name: Don't deploy\n        # npm run check\n`), null, 'an apostrophe inside a plain value opens nothing');
+  assert.equal(await found(`${steps}      - run: echo "a\n        # npm run check\n`), null, 'a quote after a plain value\'s start opens nothing');
+  assert.deepEqual(uncommentedLines('a: "x\n  # y" # z\nb: c # d\n'), ['a: "x', '  # y" ', 'b: c ', '']);
+});
+
+// plates#370 review (comment 4509946449): a quote inside $( ) opens a new span in the shell. The scan does not model
+// $( ), backticks, ${ } or $'…', so wherever it meets them it keeps the rest of the line, and a line whose quote state
+// it then cannot tell keeps the lines after it whole until its block ends.
+test('plates#370: gateWorkflowIn keeps a check after shell syntax the comment scan does not model', async t => {
+  const { gateWorkflowIn, uncommentedLines } = await import(new URL('../practices/night/files/scripts/plates/lib.mjs', import.meta.url).href);
+  const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const root = await mkdtemp(join(tmpdir(), 'plates-gate-subst-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, '.github/workflows'), { recursive: true });
+  const found = async body => { await writeFile(join(root, '.github/workflows/ci.yml'), body); return gateWorkflowIn(root, { check: 'npm run check' }); };
+  const block = (...lines) => 'jobs:\n  x:\n    steps:\n      - run: |\n' + lines.map(l => '          ' + l + '\n').join('');
+  const kept = async (why, ...lines) => assert.deepEqual(await found(block(...lines)), { name: 'ci.yml' }, why);
+  await kept('the review\'s case: quotes inside $( ) inside quotes', 'echo "Build: $(printf "%s # %s" hello world)" && npm run check');
+  await kept('nested $( )', 'echo "$(echo "$(printf "%s # %s" a b)")" && npm run check');
+  await kept('backticks', 'echo "`printf "%s # %s" a b`" && npm run check');
+  await kept('${var#prefix} is not a comment', 'echo ${GITHUB_REF#refs/heads/} && npm run check');
+  await kept('${var#prefix} inside quotes', 'echo "${GITHUB_REF#refs/} #1" && npm run check');
+  await kept("ANSI-C quoting", "echo $'it\\'s # one' && npm run check");
+  await kept('an expression', 'echo ${{ github.sha }} # built && npm run check');
+  await kept('a quote state left unknown keeps the next line whole', 'echo "$(printf "%s" `date`', '#1)" && npm run check');
+  await kept('a heredoc after a substitution', 'cat > "$(mktemp)" <<EOF', '"', 'EOF', 'echo " #1" && npm run check');
+  await kept('a quoted span opened after a substitution, closed on the next line', 'echo "$(date) a', '#1" && npm run check');
+  assert.equal(await found(block('echo "$(date)"', '# npm run check')), null, 'a substitution that closes on its line leaves the next line\'s comment a comment');
+  assert.equal(await found(block("echo '$(' # npm run check")), null, 'single quotes keep $( literal, so the # is a comment');
+  assert.equal(await found(block('echo "$(printf `date`', '- run: echo deploy # npm run check').replace('          - run', '      - run')), null, 'the block\'s end ends the scan\'s doubt');
+  assert.deepEqual(uncommentedLines('run: |\n  echo "$(printf "#" a)" # c\n  echo x # y\n'), ['run: |', '  echo "$(printf "#" a)" # c', '  echo x ', '']);
+});
+
 test('history merges legacy and renamed artifact inventories without rewriting old ledger bytes', async t => {
   const root=await project(t),f=fixture([{id:1,kind:'night',legacy:true},{id:2,kind:'ci',legacy:true},{id:3,kind:'ci'},{id:4,kind:'night',date:'2026-10-08T01:00:00Z'}]);
   const old=JSON.stringify({date:'2026-10-09T01:00:00Z',workflow:'keel-night',tests:[],acme:'unchanged legacy receipt'});

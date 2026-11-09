@@ -580,6 +580,148 @@ export function gateWorkflowOf(config) {
 }
 
 /**
+ * A workflow line without its comment: a `#` at the line's start or after
+ * whitespace, outside quotes, starts one, in YAML and in the shell of a `run:`
+ * block alike (plates#94: `run: echo deploy # npm run check happens elsewhere`
+ * runs echo). A quoted `#`, or one inside a word (`a#b`), is kept. Inside
+ * double quotes a backslash escapes the next character, as in YAML and the
+ * shell (`"echo \" #1\" && npm run check"` is one quoted span); single
+ * quotes take no escapes (YAML's `''` closes and reopens, which reads the same).
+ * Shell syntax the scan does not model (`$( )`, backticks, `${ }`, `$'…'`)
+ * keeps the rest of the line whole (#370 review: in `echo "$(printf "%s # %s"
+ * a b)" && npm run check` the inner quotes nest): a missed gate refuses a
+ * publish, while a comment kept by mistake only risks matching a check
+ * command's name, which the gate's own checks still catch.
+ */
+export function uncommented(line) {
+  return withoutComment(line, null).line;
+}
+
+/**
+ * uncommented, starting inside `quote` (a quote character, or null); also returns the quote still open at the line's
+ * end. `shell`: the line is a run block's shell, where a backslash outside quotes escapes the next character too
+ * (#370 review: in `echo \" " # banner" && npm run check` the first quote is literal); YAML keeps it literal.
+ * `heredocs`: in the shell, the delimiters of the heredocs the line opens (`cat <<'EOF'`), in order.
+ */
+function withoutComment(line, quote, shell = false) {
+  const heredocs = [];
+  // Whether the next character starts a word: a # starts a comment only there. An escaped space (a backslash and a
+  // space, in the shell) is part of its word (#370 review: `echo banner\ #1 && npm run check` echoes "banner #1",
+  // then runs the check).
+  let wordStart = true;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (opaque(line, i, quote)) return { line, quote: shell && /<<(?!<)/.test(line.slice(i)) ? UNKNOWN : settled(line.slice(i), quote), heredocs };
+    if (quote) { if (quote === '"' && c === '\\') i++; else if (c === quote) quote = null; wordStart = false; }
+    else if (shell && c === '\\') { i++; wordStart = false; }
+    else if (shell && c === '<' && line[i + 1] === '<' && line[i + 2] !== '<' && line[i - 1] !== '<') {
+      // The delimiter is a word, quoted or not; quoting it only stops expansion, which a comment scan never does.
+      const op = /^<<-?[ \t]*(?:'([^']*)'|"((?:[^"\\]|\\.)*)"|((?:\\.|[^\s;&|<>()'"])+))/.exec(line.slice(i));
+      if (op) { heredocs.push((op[1] ?? op[2] ?? op[3]).replace(/\\(.)/g, '$1')); i += op[0].length - 1; }
+      wordStart = false;
+    }
+    else if (c === '"' || c === "'") { quote = c; wordStart = false; }
+    else if (c === '#' && wordStart) return { line: line.slice(0, i), quote: null, heredocs };
+    else wordStart = /\s/.test(c);
+  }
+  return { line, quote, heredocs };
+}
+
+/** Whether line[i] starts shell syntax withoutComment does not model: `$(`, `${` or a backtick outside single quotes, `$'` outside any. */
+function opaque(line, i, quote) {
+  if (quote === "'") return false;
+  const c = line[i], next = line[i + 1];
+  if (c === '`') return true;
+  if (c !== '$') return false;
+  return next === '(' || next === '{' || (next === "'" && !quote);
+}
+
+/**
+ * The quote open at the end of `tail`, read with nesting (a quote inside `$( )` or a backtick opens a new span), from
+ * inside `quote`: null when everything closes, the quote when only that one plain quote stays open, else UNKNOWN. A
+ * # at the start of a word outside every quote ends the reading.
+ */
+const UNKNOWN = Symbol('unknown quote state');
+function settled(tail, quote) {
+  const stack = quote === '"' ? ['"'] : quote === "'" ? ["'"] : [];
+  let wordStart = true;
+  for (let i = 0; i < tail.length; i++) {
+    const c = tail[i], top = stack.at(-1), next = tail[i + 1];
+    if (top === "'") { if (c === "'") stack.pop(); continue; }
+    if (top === "$'") { if (c === '\\') i++; else if (c === "'") stack.pop(); continue; }
+    if (c === '\\') { i++; wordStart = false; continue; }
+    if (c === '$' && next === '(') { stack.push(')'); i++; wordStart = true; continue; }
+    if (c === '$' && next === '{') { stack.push('}'); i++; wordStart = false; continue; }
+    if (c === '`') { if (top === '`') stack.pop(); else stack.push('`'); wordStart = false; continue; }
+    if (top === '"') { if (c === '"') stack.pop(); continue; }
+    if (c === '$' && next === "'") { stack.push("$'"); i++; continue; }
+    if (c === '"' || c === "'") { stack.push(c); wordStart = false; continue; }
+    if (c === '#' && wordStart && top !== '}') break;
+    if (top === ')' && c === '(') stack.push(')');
+    else if (top === '}' && c === '{') stack.push('}');
+    else if (c === top) stack.pop();
+    wordStart = /[\s;&|(]/.test(c);
+  }
+  if (!stack.length) return null;
+  return stack.length === 1 && (stack[0] === '"' || stack[0] === "'") ? stack[0] : UNKNOWN;
+}
+
+/**
+ * A workflow's lines, each without its comment. The lines of a `run:` block
+ * scalar (`|` or `>`) are one shell script, so a quoted string that spans
+ * lines stays open into the next one (`echo "banner<newline>footer #1" && npm
+ * run check` runs the check). The block ends at the first non-blank line
+ * indented no deeper than its `run:` line, and the quote state ends with it.
+ * A heredoc's lines are data, not shell (#370 review: a lone `"` inside
+ * `cat <<'EOF'` quotes nothing): each is read alone, and none changes the
+ * quote state, up to the line that is its delimiter.
+ * Outside a block, a YAML quoted scalar that opens a value (`run: "…`,
+ * `- '…`) and does not close on its line runs on to the lines after it, as
+ * YAML reads it (#370 review: in `run: "echo 'banner<newline>  #1' && npm
+ * run check"` the # is inside the scalar). A quote anywhere else in a plain
+ * value is a character, so an apostrophe in a name never reaches the next line.
+ * When a line's unmodelled syntax (see uncommented) leaves the quote state
+ * unknown, the lines after it are kept whole until the block or scalar ends:
+ * no line indented deeper than the one that opened it.
+ */
+const OPENS_SCALAR = /^\s*(?:-\s+)?(?:[^\s"'#][^:#]*:\s+)?["']/;
+export function uncommentedLines(text) {
+  const out = [];
+  let block = null, quote = null, heredocs = [], scalar = null, scalarIndent = 0;
+  const indent = line => line.length - line.trimStart().length;
+  for (const line of text.split('\n')) {
+    if (scalar === UNKNOWN && line.trim() && indent(line) <= scalarIndent) scalar = null;
+    if (scalar === UNKNOWN) { out.push(line); continue; }
+    if (scalar) {
+      const read = withoutComment(line, scalar);
+      out.push(read.line);
+      scalar = read.quote;
+      continue;
+    }
+    if (block !== null && line.trim() && indent(line) <= block) { block = quote = null; heredocs = []; }
+    if (block !== null && quote === UNKNOWN) { out.push(line); continue; }
+    if (block !== null && heredocs.length) {
+      out.push(uncommented(line));
+      if (line.trim() === heredocs[0]) heredocs.shift();
+      continue;
+    }
+    if (block !== null) {
+      const read = withoutComment(line, quote, true);
+      out.push(read.line);
+      quote = read.quote;
+      heredocs = read.heredocs;
+      continue;
+    }
+    const read = withoutComment(line, null);
+    out.push(read.line);
+    if (read.quote && OPENS_SCALAR.test(line)) { scalar = read.quote; scalarIndent = indent(line); continue; }
+    const opens = /^(\s*)(?:-\s+)?run:\s*[|>][-+0-9]*\s*$/.exec(read.line);
+    if (opens) block = opens[1].length;
+  }
+  return out;
+}
+
+/**
  * The workflow that runs the gate on pushes: the one .plates/plates.json names
  * (gateWorkflowOf: no guess beats the project saying), else check.yml, else
  * one whose file runs the check command (a project that gates in its own
@@ -594,10 +736,10 @@ export async function gateWorkflowIn(root, config, check = 'npm run check') {
   const names = (await readdir(dir).catch(() => [])).filter(n => /\.ya?ml$/.test(n)).sort();
   if (names.includes('check.yml')) return { name: 'check.yml' };
   const command = config?.check ?? check;
-  // The command as a whole word on a line that is not a comment (#92): `npm run check` is not `npm run check:deploy`.
+  // The command as a whole word outside a comment (#92, #94): `npm run check` is not `npm run check:deploy`.
   const runs = new RegExp(`(^|[^\\w:.-])${command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w:.-])`);
   for (const n of names) {
-    const lines = (await readFile(join(dir, n), 'utf8')).split('\n').filter(l => !l.trim().startsWith('#'));
+    const lines = uncommentedLines(await readFile(join(dir, n), 'utf8'));
     if (lines.some(l => runs.test(l))) return { name: n };
   }
   return null;
