@@ -889,16 +889,21 @@ async function cloneInstall(rootReal, dirReal, cloned, from, to, rebound = new S
     // An ancestor's node_modules (below) is an install, cloned alone.
     const tree = whole ? await linkedTree(extReal, rootReal) : extReal;
     const dest = mapExt(tree);
-    // What this worktree cloned already inside the tree (an install) is not copied twice: the tree names that clone,
-    // so a module imported by both ways is one module.
+    // What this worktree cloned already inside the tree (an install, or a subtree a link reached first) is not copied
+    // twice: the tree names that clone, so a module imported both ways is one module. Only the outermost such clones
+    // count (#383 review: one inside another is reached through it). A subtree cloned first sits where the tree's clone
+    // puts it (mapExt keeps the absolute layout), so it is kept as it is, its links already fixed; any other is linked.
     const inside = [...cloned.keys()].filter(s => within(s, tree));
+    const outer = inside.filter(s => !inside.some(o => o !== s && within(s, o)));
+    const placed = new Set(outer.map(s => cloned.get(s)).filter((d, i) => d === join(dest, relative(tree, outer[i]))));
     cloned.set(tree, dest);
     await mkdir(dirname(dest), { recursive: true });
     await cp(tree, dest, { recursive: true, force: true, verbatimSymlinks: true, mode: constants.COPYFILE_FICLONE,
-      filter: src => !src.endsWith(`${sep}.git`) && !inside.includes(src) });
-    if ((await lstat(dest)).isDirectory()) await fixLinks(tree, dest);
-    for (const s of inside) {
+      filter: src => !src.endsWith(`${sep}.git`) && !outer.includes(src) });
+    if ((await lstat(dest)).isDirectory()) await fixLinks(tree, dest, tree, dest, placed);
+    for (const s of outer) {
       const at = join(dest, relative(tree, s));
+      if (placed.has(at) || await lstat(at).catch(() => null)) continue;
       await mkdir(dirname(at), { recursive: true });
       await symlink(relative(dirname(at), cloned.get(s)), at);
     }
@@ -914,11 +919,13 @@ async function cloneInstall(rootReal, dirReal, cloned, from, to, rebound = new S
     }
     return join(dest, relative(tree, extReal));
   }
-  async function fixLinks(rootSrc, rootDst, curSrc = rootSrc, curDst = rootDst) {
+  // `placed`: clones already inside rootDst, whose links were fixed when they were made; left as they are.
+  async function fixLinks(rootSrc, rootDst, curSrc = rootSrc, curDst = rootDst, placed = new Set()) {
     for (const e of await readdir(curDst, { withFileTypes: true })) {
       if (e.name === '.plates-climb-ext') continue;
       const srcPath = join(curSrc, e.name), dstPath = join(curDst, e.name);
-      if (e.isDirectory()) { await fixLinks(rootSrc, rootDst, srcPath, dstPath); continue; }
+      if (placed.has(dstPath)) continue;
+      if (e.isDirectory()) { await fixLinks(rootSrc, rootDst, srcPath, dstPath, placed); continue; }
       if (!e.isSymbolicLink()) continue;
       const lex = resolve(dirname(srcPath), await readlink(srcPath));
       const inRoot = within(lex, rootSrc);
