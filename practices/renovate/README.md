@@ -40,8 +40,17 @@ plates:
 
 Neither present, the file is the template byte for byte.
 
-**What it needs (⚑).** The Renovate GitHub App, installed on the repo by its
-owner (free; https://github.com/apps/renovate). Nothing runs until it is.
+**What it needs (⚑).** The Renovate GitHub App, installed by the repo's owner
+(free; https://github.com/apps/renovate). Nothing runs until it is.
+
+**`renovate.json` is the switch.** Install the app once on all of the
+owner's repositories rather than repo by repo. Then, in the app's settings
+on developer.mend.io, turn "Require config file" on and "Create onboarding
+PRs" off. Renovate then acts only where a `renovate.json` exists, so this
+practice is what turns it on: rendering it adds the file, and a repo without
+it, new or old, gets no dashboard, no PRs and no setup PR. Remove the file
+to turn Renovate off again. A setup PR ("Configure Renovate") left from an
+earlier install can be closed.
 
 **Its files.** `renovate.json` (managed). `plates adopt` keeps the practice
 local where a project already has a Renovate or Dependabot config.
