@@ -15,7 +15,7 @@ import operations, { mkdir, readFile, rm, writeFile, realpath, chmod } from 'nod
 import { syncBuiltinESMExports } from 'node:module';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { fleet, fleetUpdate, healthOf, gateName, gateOf, runCommands, onPush, parseFleet, pauseOf, rehearse, rehearseOne, pool, REHEARSE_AT_ONCE } from '../lib/fleet.mjs';
+import { fleet, fleetUpdate, healthOf, needsOf as needsOfRows, gateName, gateOf, runCommands, onPush, parseFleet, pauseOf, rehearse, rehearseOne, pool, REHEARSE_AT_ONCE } from '../lib/fleet.mjs';
 import { execFileSync } from 'node:child_process';
 import { cpSync } from 'node:fs';
 import { init } from '../lib/init.mjs';
@@ -292,6 +292,12 @@ test('a paused project (plates.json "paused", optional "pausedUntil") is still r
   assert.ok(needsOf(r, 'acme/behind').includes('2 open plates-night/ PRs (plates drain plates-night/)'));
   assert.deepEqual(rowOf(r, 'acme/quiet').paused, { until: '2026-12-01' });
   assert.ok(!needsOf(r, 'acme/quiet').includes('no health page'));
+  // A stale or missing verification report is the night being off as asked; a failing one still needs you.
+  assert.ok(['stale', 'missing'].includes(behind.verification.state), 'still read');
+  for (const repo of ['acme/behind', 'acme/quiet']) assert.ok(!needsOf(r, repo).some(w => /^verification (stale|missing):/.test(w)), repo);
+  assert.ok(needsOf(r, 'acme/fresh').some(w => w.startsWith('verification missing:')), 'unpaused, it still needs you');
+  const failing = { ...behind, verification: { state: 'current', healthy: false, reason: 'current observation has failures, findings or coverage gaps', url: 'https://example.test/v' } };
+  assert.ok(needsOfRows([failing]).some(n => n.why.startsWith('verification current: current observation has failures')), 'a real failure while paused still needs you');
   assert.equal(rowOf(r, 'acme/fresh').paused, undefined);
   assert.match(r.text, /acme\/behind\s+yes\s+0\.1\.0 → 0\.2\.0; paused\s/);
   assert.match(r.text, /acme\/quiet\s+yes\s+0\.2\.0 current; paused until 2026-12-01\s/);
