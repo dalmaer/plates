@@ -677,7 +677,7 @@ test('fleet update opens no PR for a paused project: not planned, with why; the 
   const r = await fleetUpdate({ dir: unpaused }, updateDeps(gh));
   assert.equal(r.exitCode, 3, r.text);
   assert.deepEqual(r.data.plans.map(p => p.repo), ['acme/ledger', 'acme/waiting', 'acme/gone']);
-  assert.match(r.text, re(`acme/notes: paused until 2027-01-01: no update PR while paused (${BEHIND} → ${CLI}); remove "paused" in plates.json to resume`));
+  assert.match(r.text, re(`acme/notes: paused until 2027-01-01: no update PR while paused (${BEHIND} → ${CLI}); remove "paused" and "pausedUntil" in plates.json to resume`));
   await rm(join(unpaused, 'practices'), { recursive: true, force: true });
   for (const d of ['practices', 'migrations', 'lib']) cpSync(join(PLATES, d), join(unpaused, d), { recursive: true });
   const rh = await rehearse({ dir: unpaused }, { env: gh.env, now: NOW, cli: CLI, rehearseOne: async u => ({ ...u, status: 'passed' }) });
