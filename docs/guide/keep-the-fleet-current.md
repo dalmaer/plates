@@ -80,8 +80,10 @@ plates fleet update --rehearse   # run each update and check in a clone; push no
   entry in `plates.json`, and `"pausedUntil": "YYYY-MM-DD"` if it should
   resume by itself on that date. It stays in the table, but gets no update PR
   and no rehearsal, and its being behind or quiet is not in "Needs you".
-  Remove `paused` (and `pausedUntil`, if set) to resume. Its own night and morning workflows are the
-  project's: turn those off in the project if it should spend nothing at all.
+  Its own scheduled workflows (night, morning, and climb, robot, tend or loop
+  where installed) are the project's: turn those off in the project too, or
+  it keeps spending. `plates --agent-help pause` has both
+  halves, pausing and resuming.
 - `plates fleet update` without `--yes` is the plan: each project it would
   update, and why the rest are not planned. With `--yes` it clones each into
   a temp directory, installs as that project's night would, and runs
