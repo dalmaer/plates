@@ -363,7 +363,7 @@
     },
     "scripts/plates/verification.mjs": {
       "practice": "night",
-      "sha256": "0e9a267193e25af2a691df8edd8d3535332af53a987397f5149af513955878c8"
+      "sha256": "6428b9bb959e198f05e89bf2d4c284efa7196b9785e977cdc8ce991e7277f4f7"
     },
     "scripts/plates/verify.mjs": {
       "practice": "delivery",
