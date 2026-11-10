@@ -298,6 +298,11 @@ test('a paused project (plates.json "paused", optional "pausedUntil") is still r
   assert.ok(needsOf(r, 'acme/fresh').some(w => w.startsWith('verification missing:')), 'unpaused, it still needs you');
   const failing = { ...behind, verification: { state: 'current', healthy: false, reason: 'current observation has failures, findings or coverage gaps', url: 'https://example.test/v' } };
   assert.ok(needsOfRows([failing]).some(n => n.why.startsWith('verification current: current observation has failures')), 'a real failure while paused still needs you');
+  // Stale is only age when the retained receipt itself was clean; a failure it recorded does not age away.
+  const receipt = ok => ({ source: { dirty: false }, gate: { state: 'ok', status: 0, source: 'local-command' }, reconciliation: { state: ok ? 'ok' : 'broken', findings: ok ? [] : [{ rule: 'acme-rule', path: 'docs/phases/1-acme.md' }], unknown: [] }, gaps: [], claims: [] });
+  const stale = ok => ({ ...behind, verification: { state: 'stale', healthy: false, reason: 'latest observation is older than two days', url: 'https://example.test/v', receipt: receipt(ok) } });
+  assert.ok(!needsOfRows([stale(true)]).some(n => n.why.startsWith('verification stale')), 'old and clean: quiet while paused');
+  assert.ok(needsOfRows([stale(false)]).some(n => n.why.startsWith('verification stale')), 'old with a recorded failure: still needs you');
   assert.equal(rowOf(r, 'acme/fresh').paused, undefined);
   assert.match(r.text, /acme\/behind\s+yes\s+0\.1\.0 → 0\.2\.0; paused\s/);
   assert.match(r.text, /acme\/quiet\s+yes\s+0\.2\.0 current; paused until 2026-12-01\s/);

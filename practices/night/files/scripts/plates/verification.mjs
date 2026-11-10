@@ -144,6 +144,11 @@ export function verificationSummary(receipt) {
     receipt.claims.map(c=>`- Phase ${c.phase}: ${c.findings.join(', ') || 'explicit claim'}; open PRs ${c.prs.join(', ') || 'none observed'}; activity unknown. Inspect https://github.com/${receipt.repo}/tree/${encodeURIComponent(c.branch)} before any owner action.`).join('\n');
 }
 
+/** A validated receipt's own result, whatever its age or revision: a clean tree, a passing gate, no findings or gaps. */
+export function receiptClean(r) {
+  return r.source.dirty===false && r.gate.state==='ok' && r.gate.status===0 && r.gate.source!=='unavailable' && r.reconciliation.state==='ok' && !r.reconciliation.findings.length && !r.reconciliation.unknown.length && !r.gaps.length && !r.claims.some(c=>c.findings.some(f=>f!=='open-pr-ownership'));
+}
+
 /** Untrusted receipt validation; exact current source is required, even for report commits. */
 export function assessVerification(text, {repo,branch,sha,now=new Date().toISOString(),maxAgeMs=2*86400000}) {
   const out = (state,reason,receipt=null) => ({state,reason,receipt,healthy:false});
@@ -168,7 +173,7 @@ export function assessVerification(text, {repo,branch,sha,now=new Date().toISOSt
   if(Date.parse(now)-Date.parse(r.observedAt)>maxAgeMs)return out('stale','latest observation is older than two days',r);
   if(!r.remote || !r.source.sha)return out('unavailable','source or remote observation unavailable',r);
   if(r.remote.branch!==branch || r.remote.sha!==sha || r.source.sha!==sha || r.gate.sha!==sha)return out('behind','checked source differs from current default branch',r);
-  const healthy=r.source.dirty===false && r.gate.state==='ok' && r.gate.status===0 && r.gate.source!=='unavailable' && r.reconciliation.state==='ok' && !r.reconciliation.findings.length && !r.reconciliation.unknown.length && !r.gaps.length && !r.claims.some(c=>c.findings.some(f=>f!=='open-pr-ownership'));
+  const healthy=receiptClean(r);
   return {state:'current',healthy,reason:healthy?'current configured checks; local session activity remains unknown':'current observation has failures, findings or coverage gaps',receipt:r};
 }
 
