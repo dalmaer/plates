@@ -1578,7 +1578,7 @@ A managed entry may carry `"paused": true`, with an optional `"pausedUntil":
 practice cell; `fleet update` opens no PR for it and says why under "Not
 planned", the rehearsal skips it, and being behind, pending, silent or without
 health while paused is not in Needs you. Pausing and resuming, including the
-project's own night and morning runs: `plates --agent-help pause`.
+project's own scheduled workflows: `plates --agent-help pause`.
 
 - `managed`: adopted (`.plates/plates.json` on the default branch; 404 is not
   adopted), practice against this CLI's (`0.1.0 → 0.2.0` or `current`),
@@ -1669,14 +1669,16 @@ To pause:
    and `pausedUntil` needs `paused` and a real date (`plates fleet` exits 2
    otherwise). `plates fleet` then marks the practice cell `paused` or
    `paused until <date>`.
-2. In the project, turn off its own night and morning runs: remove the
-   `schedule:` block from `.github/workflows/plates-night.yml` and from
-   `.github/workflows/plates-morning.yml`, and leave a comment there that says
-   it is paused and how to resume. Both still run by hand
-   (`workflow_dispatch`). The morning also starts after a night, climb or
-   robot run, so if the project has a climb or robot workflow on a schedule,
-   turn that off too. Without this step the project keeps spending: the pause
-   in `plates.json` only changes what plates does.
+2. In the project, turn off every plates workflow that runs on a schedule:
+   remove the `schedule:` block from each of these that it has, under
+   `.github/workflows/`: `plates-night.yml` and `plates-morning.yml` (night),
+   `plates-climb.yml`, `plates-robot.yml` and `plates-tend.yml` (climb), and
+   `plates-loop.yml` (loop). Leave a comment in each that says it is paused
+   and how to resume. They still run by hand (`workflow_dispatch`). The
+   morning also starts after a night, climb or robot run, so it stays quiet
+   once those have no schedule. Tend and loop decide for themselves whether to
+   spend, and neither reads the pause. Without this step the project keeps
+   spending: the pause in `plates.json` only changes what plates does.
 
 While paused, `plates fleet update` opens no PR and lists the project under
 "Not planned", `--rehearse` skips it, and Needs you leaves out being behind,
@@ -1686,15 +1688,17 @@ failing current observation, still shows.
 
 To resume:
 
-1. In the project, put the schedules back:
+1. In the project, put back each schedule you removed, one restore per file:
 
    ```bash
    plates doctor --fix .github/workflows/plates-night.yml restore --yes
    plates doctor --fix .github/workflows/plates-morning.yml restore --yes
    ```
 
-   Each rewrites the file from the practice's template, schedule included;
-   without `--yes` it exits 3 with the plan. `plates update` will not do this,
+   and the same for `plates-climb.yml`, `plates-robot.yml`, `plates-tend.yml`
+   or `plates-loop.yml` if step 2 of the pause turned them off. Each rewrites
+   the file from the practice's template, schedule included; without `--yes`
+   it exits 3 with the plan. `plates update` will not do this,
    because it never overwrites a file the project changed.
 2. On plates, remove `"paused"` (and `"pausedUntil"`, if set) from the entry
    in `plates.json`. The next `plates fleet update` plans the project again.
