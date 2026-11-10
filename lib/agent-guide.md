@@ -1573,6 +1573,14 @@ Fleet verification pins configuration and report reads to the observed default S
 reads `plates.json` at plates's root, `[{repo, kind, role, note}]`, and asks gh
 about every repo at once.
 
+A managed entry may carry `"paused": true`, with an optional `"pausedUntil":
+"YYYY-MM-DD"` (it resumes on that date by itself). A paused project stays in
+the table, marked paused in its practice cell; `fleet update` opens no PR for
+it and says why under "Not planned", the rehearsal skips it, and being behind,
+pending, silent or without health while paused is not in Needs you. The pause
+lives only in plates's own list: the project's own night and morning workflows
+still run until they are turned off there.
+
 - `managed`: adopted (`.plates/plates.json` on the default branch; 404 is not
   adopted), practice against this CLI's (`0.1.0 → 0.2.0` or `current`),
   migrations not in its `migrations` list ("unrecorded"; only `fleet

@@ -15,7 +15,7 @@ import operations, { mkdir, readFile, rm, writeFile, realpath, chmod } from 'nod
 import { syncBuiltinESMExports } from 'node:module';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { fleet, fleetUpdate, healthOf, gateName, gateOf, runCommands, onPush, parseFleet, rehearse, rehearseOne, pool, REHEARSE_AT_ONCE } from '../lib/fleet.mjs';
+import { fleet, fleetUpdate, healthOf, needsOf as needsOfRows, gateName, gateOf, runCommands, onPush, parseFleet, pauseOf, rehearse, rehearseOne, pool, REHEARSE_AT_ONCE } from '../lib/fleet.mjs';
 import { execFileSync } from 'node:child_process';
 import { cpSync } from 'node:fs';
 import { init } from '../lib/init.mjs';
@@ -278,6 +278,54 @@ test('health is read from the project\'s configured dir (.plates/plates.json `he
   fresh.files['.plates/plates.json'] = cfg({ repo: 'acme/fresh', practice: '0.2.0', health: '../elsewhere' });
   const bad = await go(await home(t, LIST), await stubGh(t, st));
   assert.match(rowOf(bad, 'acme/fresh').health.unreadable, /"health" cannot leave the repo/);
+});
+
+test('a paused project (plates.json "paused", optional "pausedUntil") is still read and shown, and being behind or silent while paused does not need you', async t => {
+  const list = LIST.map(e => e.repo === 'acme/behind' ? { ...e, paused: true } : e.repo === 'acme/quiet' ? { ...e, paused: true, pausedUntil: '2026-12-01' } : e);
+  const r = await go(await home(t, list), await stubGh(t, state()));
+  const behind = rowOf(r, 'acme/behind');
+  assert.deepEqual(behind.paused, { until: null });
+  assert.equal(behind.practice.behind, '0.1.0 → 0.2.0', 'still read');
+  assert.equal(behind.health.state, 'silent', 'still read');
+  assert.ok(!needsOf(r, 'acme/behind').some(w => w.startsWith('behind:') || w.startsWith('silent:')), 'behind and silent are what a pause asks for');
+  assert.ok(needsOf(r, 'acme/behind').some(w => w.startsWith('red: check failure')), 'a red default branch still needs you');
+  assert.ok(needsOf(r, 'acme/behind').includes('2 open plates-night/ PRs (plates drain plates-night/)'));
+  assert.deepEqual(rowOf(r, 'acme/quiet').paused, { until: '2026-12-01' });
+  assert.ok(!needsOf(r, 'acme/quiet').includes('no health page'));
+  // A stale or missing verification report is the night being off as asked; a failing one still needs you.
+  assert.ok(['stale', 'missing'].includes(behind.verification.state), 'still read');
+  for (const repo of ['acme/behind', 'acme/quiet']) assert.ok(!needsOf(r, repo).some(w => /^verification (stale|missing):/.test(w)), repo);
+  assert.ok(needsOf(r, 'acme/fresh').some(w => w.startsWith('verification missing:')), 'unpaused, it still needs you');
+  const failing = { ...behind, verification: { state: 'current', healthy: false, reason: 'current observation has failures, findings or coverage gaps', url: 'https://example.test/v' } };
+  assert.ok(needsOfRows([failing]).some(n => n.why.startsWith('verification current: current observation has failures')), 'a real failure while paused still needs you');
+  // Stale is only age when the retained receipt itself was clean; a failure it recorded does not age away.
+  const receipt = ok => ({ source: { dirty: false }, gate: { state: 'ok', status: 0, source: 'local-command' }, reconciliation: { state: ok ? 'ok' : 'broken', findings: ok ? [] : [{ rule: 'acme-rule', path: 'docs/phases/1-acme.md' }], unknown: [] }, gaps: [], claims: [] });
+  const stale = ok => ({ ...behind, verification: { state: 'stale', healthy: false, reason: 'latest observation is older than two days', url: 'https://example.test/v', receipt: receipt(ok) } });
+  assert.ok(!needsOfRows([stale(true)]).some(n => n.why.startsWith('verification stale')), 'old and clean: quiet while paused');
+  assert.ok(needsOfRows([stale(false)]).some(n => n.why.startsWith('verification stale')), 'old with a recorded failure: still needs you');
+  assert.equal(rowOf(r, 'acme/fresh').paused, undefined);
+  assert.match(r.text, /acme\/behind\s+yes\s+0\.1\.0 → 0\.2\.0; paused\s/);
+  assert.match(r.text, /acme\/quiet\s+yes\s+0\.2\.0 current; paused until 2026-12-01\s/);
+  // On its date it resumes by itself: the same entry, read that day, is not paused.
+  const resumed = await fleet({ dir: await home(t, list) }, { env: (await stubGh(t, state())).env, now: '2026-12-01T00:00:00.000Z', cli: '0.2.0', migrations: MIGRATIONS });
+  assert.equal(rowOf(resumed, 'acme/quiet').paused, undefined);
+  assert.deepEqual(rowOf(resumed, 'acme/behind').paused, { until: null }, 'no date: paused until the owner resumes it');
+});
+
+test('plates.json checks a pause: a boolean, on a managed project, and pausedUntil only with it, as a real date', () => {
+  const one = e => parseFleet(JSON.stringify([{ repo: 'acme/a', role: 'managed', ...e }]))[0];
+  assert.deepEqual(one({ paused: true, pausedUntil: '2027-01-31' }), { repo: 'acme/a', kind: 'other', role: 'managed', note: '', paused: true, pausedUntil: '2027-01-31' });
+  assert.equal(one({ paused: false }).paused, undefined);
+  assert.equal(one({}).paused, undefined);
+  assert.throws(() => one({ paused: 'yes' }), /paused must be true or false/);
+  assert.throws(() => one({ pausedUntil: '2027-01-31' }), /pausedUntil needs "paused": true/);
+  assert.throws(() => one({ paused: true, pausedUntil: '2027-02-30' }), /pausedUntil must be a date/);
+  assert.throws(() => one({ paused: true, pausedUntil: 'next month' }), /pausedUntil must be a date/);
+  assert.throws(() => parseFleet(JSON.stringify([{ repo: 'acme/up', role: 'source', paused: true }])), /only a managed project can be paused/);
+  assert.deepEqual(pauseOf({ paused: true }, '2026-11-10'), { until: null });
+  assert.deepEqual(pauseOf({ paused: true, pausedUntil: '2026-11-11' }, '2026-11-10'), { until: '2026-11-11' });
+  assert.equal(pauseOf({ paused: true, pausedUntil: '2026-11-11' }, '2026-11-11'), null);
+  assert.equal(pauseOf({ paused: false }, '2026-11-10'), null);
 });
 
 test('a health page older than two days is silent, not healthy; none says so', async t => {
@@ -625,6 +673,21 @@ test('fleet update: a current project whose unrecorded migrations do not apply i
     assert.match(r.text, /acme\/quiet: current; nothing applies \(asked 0001-milestone-to-goal, 0002-projects-run-on-their-own, 0003-phases-gain-goals, 0004-test-ledger, 0005-test-ledger-reach, 0006-lived-in-kept, 0007-phase-guard-reach\)/);
   }
   assert.equal((await gh.calls()).filter(c => c[0] === 'repo' || (c[0] === 'pr' && c[1] === 'create')).length, 0, 'nothing cloned, no PR');
+});
+
+test('fleet update opens no PR for a paused project: not planned, with why; the rehearsal skips it too', async t => {
+  const { dir: unpaused, gh } = await fleetOfUpdates(t);
+  const list = JSON.parse(await readFile(join(unpaused, 'plates.json'), 'utf8')).map(e => e.repo === 'acme/notes' ? { ...e, paused: true, pausedUntil: '2027-01-01' } : e);
+  await writeFile(join(unpaused, 'plates.json'), JSON.stringify(list));
+  const r = await fleetUpdate({ dir: unpaused }, updateDeps(gh));
+  assert.equal(r.exitCode, 3, r.text);
+  assert.deepEqual(r.data.plans.map(p => p.repo), ['acme/ledger', 'acme/waiting', 'acme/gone']);
+  assert.match(r.text, re(`acme/notes: paused until 2027-01-01: no update PR while paused (${BEHIND} → ${CLI}); remove "paused" and "pausedUntil" in plates.json to resume`));
+  await rm(join(unpaused, 'practices'), { recursive: true, force: true });
+  for (const d of ['practices', 'migrations', 'lib']) cpSync(join(PLATES, d), join(unpaused, d), { recursive: true });
+  const rh = await rehearse({ dir: unpaused }, { env: gh.env, now: NOW, cli: CLI, rehearseOne: async u => ({ ...u, status: 'passed' }) });
+  assert.deepEqual(rh.data.rows.map(x => x.repo), ['acme/ledger', 'acme/waiting', 'acme/gone']);
+  assert.ok(rh.data.resting.some(x => x.repo === 'acme/notes' && x.why.startsWith('paused until 2027-01-01')));
 });
 
 test('fleet update plans only real work: applies() is asked over the default branch through the contents API', async t => {

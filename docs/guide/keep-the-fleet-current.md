@@ -76,6 +76,12 @@ plates fleet update --rehearse   # run each update and check in a clone; push no
   newest health page (old means the night has gone silent), CI on the
   default branch, unsent lessons, open machine PRs. It ends in a "Needs
   you" list. A cell it could not read says so; it is never shown as healthy.
+- To rest a quiet project without dropping it, add `"paused": true` to its
+  entry in `plates.json`, and `"pausedUntil": "YYYY-MM-DD"` if it should
+  resume by itself on that date. It stays in the table, but gets no update PR
+  and no rehearsal, and its being behind or quiet is not in "Needs you".
+  Remove `paused` (and `pausedUntil`, if set) to resume. Its own night and morning workflows are the
+  project's: turn those off in the project if it should spend nothing at all.
 - `plates fleet update` without `--yes` is the plan: each project it would
   update, and why the rest are not planned. With `--yes` it clones each into
   a temp directory, installs as that project's night would, and runs
