@@ -9,5 +9,6 @@
   { "repo": "dalmaer/papa-tapes", "kind": "static", "role": "managed", "note": "Existing 0.8.32 adoption discovered in the owner-requested all-project audit; prepared migration follows the original six-project rollout (phase 129)." },
   { "repo": "dalmaer/family-hub", "kind": "node", "role": "managed", "note": "Already adopted with CI and night practices; current installation and verification are read from the project." },
   { "repo": "dalmaer/switchboard", "kind": "node", "role": "managed", "note": "Already adopted with CI and night practices; current installation and verification are read from the project." },
-  { "repo": "dalmaer/homeroom", "kind": "node", "role": "managed", "note": "Initialised by plates init on 0.8.38 (2 Nov 2026); risk tolerance High, landing on main." }
+  { "repo": "dalmaer/homeroom", "kind": "node", "role": "managed", "note": "Initialised by plates init on 0.8.38 (2 Nov 2026); risk tolerance High, landing on main." },
+  { "repo": "dalmaer/park", "kind": "node", "role": "managed", "note": "Initialised by plates init on 0.8.38 (11 Nov 2026): an offline-first iOS app built with Exact (expo/exact); check.yml ejected to install dependencies." }
 ]
