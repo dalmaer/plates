@@ -91,7 +91,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.2
+          node-version: 24.22.3
       - name: Observe pull requests
         id: observe
         env:
@@ -547,7 +547,8 @@ jobs:
           # check-ignore refuses literal pathspecs; every git call after it reads paths literally.
           export GIT_LITERAL_PATHSPECS=1
           PATHS=("${HEALTH_PATHS[@]}")
-          for p in docs/inbox docs/INBOX.md .plates/bounds.json; do
+          # docs/reviews: the personas' pages the plan's persona run wrote (phase 75); a project without personas has none.
+          for p in docs/inbox docs/INBOX.md .plates/bounds.json docs/reviews; do
             if [ -e "$p" ] || [ -n "$(git ls-files -- "$p")" ]; then PATHS+=("$p"); fi
           done
           if [ "${#PATHS[@]}" = 0 ] || [ -z "$(git status --porcelain -- "${PATHS[@]}")" ]; then

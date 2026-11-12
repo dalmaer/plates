@@ -880,3 +880,30 @@ test('phase 82: doctor names a bad "delivery".promote and says plates promote re
   assert.ok((await lstat(join(dir, 'scripts/plates/promote.mjs'))).isFile());
   assert.deepEqual(configs(), []);
 });
+
+test('#212: doctor skips verify-deploy and ci-alert workflows, holds behavioral test and deploy workflows, and honours "delivery".workflows', async t => {
+  const dir = await project(t);
+  const cfgPath = join(dir, '.plates', 'plates.json');
+  const cfg = JSON.parse(await readFile(cfgPath, 'utf8'));
+  await writeFile(join(dir, '.github/workflows/ship.yml'), 'name: ship\non:\n  workflow_run:\n    workflows: [plates-publish]\nconcurrency:\n  group: production\n  cancel-in-progress: true\njobs:\n  ship:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npx vercel deploy --prod\n');
+  assert.deepEqual(doctor(dir).data.lint.filter(l => l.rule === 'workflow-concurrency'), [], 'delivery off and no delivery keys: not checked');
+  // Even without delivery on, a bad "delivery".workflows is checked and attributes plates doctor.
+  await writeFile(cfgPath, JSON.stringify({ ...cfg, delivery: { workflows: { 'deploy.yml': 'wrong' } } }, null, 2));
+  const badCfg = doctor(dir).data.lint.filter(l => l.rule === 'delivery-config').map(l => l.message);
+  assert.ok(badCfg.some(m => /"delivery"\.workflows\["deploy\.yml"\].*; plates doctor \(workflow-concurrency\) reads it$/.test(m)), JSON.stringify(badCfg));
+
+  await writeFile(cfgPath, JSON.stringify({ ...cfg, check: 'make acme-gate', practices: [...cfg.practices, 'delivery'] }, null, 2));
+  assert.equal(plates(['render'], dir).code, 0);
+  await rm(join(dir, '.github/workflows/ship.yml'));
+  await writeFile(join(dir, '.github/workflows/verify-deploy.yml'), 'name: Verify deploy\non:\n  workflow_run:\n    workflows: ["check"]\n    types: [completed]\nconcurrency:\n  group: verify-deploy\n  cancel-in-progress: true\njobs:\n  verify:\n    runs-on: ubuntu-latest\n    steps:\n      - run: curl -fsS https://anvils.acme.example/api/version\n');
+  await writeFile(join(dir, '.github/workflows/ci-alert.yml'), 'name: CI alert\non:\n  workflow_run:\n    workflows: ["check", "Deploy"]\n    types: [completed]\njobs:\n  alert:\n    runs-on: ubuntu-latest\n    steps:\n      - run: curl -fsS https://anvils.acme.example/hooks/alert\n');
+  assert.deepEqual(doctor(dir).data.lint.filter(l => l.rule === 'workflow-concurrency'), [], 'verify-deploy and ci-alert produce no false findings');
+
+  await writeFile(join(dir, '.github/workflows/pr.yml'), 'name: pr\non: pull_request\njobs:\n  suite:\n    runs-on: ubuntu-latest\n    steps:\n      - run: make acme-gate\n');
+  await writeFile(join(dir, '.github/workflows/ship.yml'), 'name: ship\non:\n  workflow_run:\n    workflows: [plates-publish]\nconcurrency:\n  group: production\n  cancel-in-progress: true\njobs:\n  ship:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npx vercel deploy --prod\n');
+  const flagged = doctor(dir).data.lint.filter(l => l.rule === 'workflow-concurrency');
+  assert.deepEqual(flagged.map(l => l.path).sort(), ['.github/workflows/pr.yml', '.github/workflows/ship.yml'], JSON.stringify(flagged));
+
+  await writeFile(cfgPath, JSON.stringify({ ...cfg, check: 'make acme-gate', practices: [...cfg.practices, 'delivery'], delivery: { workflows: { 'pr.yml': 'none', 'ship.yml': 'none' } } }, null, 2));
+  assert.deepEqual(doctor(dir).data.lint.filter(l => l.rule === 'workflow-concurrency' || l.rule === 'delivery-config'), []);
+});

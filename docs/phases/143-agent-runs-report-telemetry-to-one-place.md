@@ -41,11 +41,12 @@ a run without a configured backend still runs and says telemetry is off.
 ## Your part
 
 - **Ask:** Pick where agent run telemetry goes.
-- **Why:** Cost, tokens and failures per project become visible without Plates building dashboards.
+- **Why:** Cost, tokens and failures per project become visible without Plates building dashboards. Langfuse Cloud's free tier has nothing to host: you only sign up and make a key.
 - **Look at:** the decision's "Building blocks" line in [the research](../research/2026-10-30-own-judgment-rent-the-rest.md).
 - **Choices:** Langfuse Cloud free tier | Self-hosted Langfuse | Grafana with Prometheus | Not yet
+- **Recommend:** Langfuse Cloud free tier
 - **Keeps it open:** Not yet
-- **Takes:** 10 minutes, including making the key.
+- **Takes:** 10 minutes, including signing up and making the key; the conductor reads the key from 1Password, never chat.
 - **Then:** The conductor adds the endpoint as a secret to one fleet project and runs the walk. Not yet: the phase waits.
 - **Ready:** yes
 

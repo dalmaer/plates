@@ -1,10 +1,10 @@
 # Explore changes and keep captures private
 
-Home's **Recently added** cards lead with what you can do now, a real capture or
-its explicit absence, attributed availability, a try link and the corresponding
+Home's **Since you last looked** names each change in a line that opens its
+page. A change's card leads with what you can do now, a real capture or its
+explicit absence, attributed availability, a try link and the corresponding
 guided walk. Open **Changes** within a project for its journal, or **Private
-media** for original capture receipts. Legacy phase/commit cards remain when no
-change packages are authored.
+media** for original capture receipts.
 
 This is implemented application behavior, not proof that a media bucket has been
 activated or that an owner has verified a real deployment. [Phase 99](../phases/99-recent-changes-are-visible-and-testable.md)
@@ -146,11 +146,12 @@ automatic cleanup or public export is assumed.
 
 ## Personal journal filters
 
-**Since last visit** is a personal timestamp preference scoped to the signed-in
-workspace, user and project view. First use explicitly shows the last seven days.
-Publication records have day precision, so the entire previous visit date is
-included; some additions from that day may already be familiar. First use includes
-seven whole publication days. Only up to fifty view timestamps are retained locally; no private snapshots,
-image bytes or credentials enter that preference. Date filtering never changes
-acceptance or hides required decisions and walks. New Home observations remain
+**Since last visit** starts where Home's **Since you last looked** does: the
+owner's stored Home visit ([018-last-looked.sql](../../lib/web/migrations/018-last-looked.sql)),
+which the Changes page reads without recording a visit of its own. The page names
+the range it shows. Publication records have day precision, so the entire previous
+visit date is included; some additions from that day may already be familiar. With
+no stored visit, or before 018 is applied, the page shows all observed additions
+and says so; nothing is hidden by date. Nothing is kept in browser storage. Date
+filtering never changes acceptance or hides required decisions and walks. New Home observations remain
 behind **Show changes**, preserving the card and keyboard focus you are reading.

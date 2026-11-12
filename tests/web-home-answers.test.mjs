@@ -110,17 +110,17 @@ const WALK_FILES = {
 };
 const PLATES = fileURLToPath(new URL('..', import.meta.url));
 
-function walkWeb() {
+function walkWeb(files = WALK_FILES) {
   const h = decisionHarness();
   for (const key of Object.keys(h.source.files)) delete h.source.files[key];
-  Object.assign(h.source.files, WALK_FILES);
+  Object.assign(h.source.files, files);
   h.source.commits.push({ sha: h.source.head, parents: [], commit: { tree: { sha: 'c'.repeat(40) }, message: 'Acme', committer: { date: '2026-10-20T12:00:00Z' } }, files: [] });
   return h;
 }
-async function walkCli(t) {
+async function walkCli(t, files = WALK_FILES) {
   const dir = await mkdtemp(join(tmpdir(), 'plates-walk-answer-')); t.after(() => rm(dir, { recursive: true, force: true }));
   const root = join(dir, 'studio');
-  for (const [path, text] of Object.entries(WALK_FILES)) { await mkdir(dirname(join(root, path)), { recursive: true }); await writeFile(join(root, path), text); }
+  for (const [path, text] of Object.entries(files)) { await mkdir(dirname(join(root, path)), { recursive: true }); await writeFile(join(root, path), text); }
   const env = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_AUTHOR_NAME: 'Acme', GIT_AUTHOR_EMAIL: 'a@example.com', GIT_COMMITTER_NAME: 'Acme', GIT_COMMITTER_EMAIL: 'a@example.com',
     PLATES_GH: join(dir, 'no-gh'), PLATES_CACHE: join(dir, 'cache'), XDG_STATE_HOME: join(dir, 'state') };
   assert.equal(run(process.execPath, [join(PLATES, 'scripts', 'roadmap.mjs'), '--write'], { cwd: root, env }).status, 0);
@@ -166,4 +166,90 @@ test('a web walk answer is refused at apply when the box text changed since its 
   // A choice the walk does not list is refused like the CLI's.
   const bad = await web(postJson(h, '/api/home/answer', { key: walk.key, answer: 'choice-nope', csrf: signed.session.csrf }, signed.cookie));
   assert.equal(bad.status, 404);
+});
+
+// Phase 187: a plate with 190 phases (plates itself passed 180). The walk's
+// preview and its apply read the whole inventory; one blob GET at a time ran
+// past the 25s source deadline in production (upstream_unavailable). Reads run
+// at most READ_CONCURRENCY at a time, within the call budget, and the
+// inventory bound fits. Counted, never timed.
+test('a 190-phase plate previews and applies a walk answer, reading its blobs a bounded few at a time', async () => {
+  const READ_CONCURRENCY = 8, CALL_BUDGET = 600; // lib/web/decision-github.mjs READ_CONCURRENCY, SOURCE_CALL_LIMIT
+  const h = walkWeb();
+  let inFlight = 0, most = 0, blobs = 0, counting = false;
+  const fetcher = async (url, options) => {
+    if (!counting || !String(url).includes('/git/blobs/')) return h.fetcher(url, options);
+    blobs++; inFlight++; most = Math.max(most, inFlight);
+    try { await new Promise(r => setImmediate(r)); return await h.fetcher(url, options); } finally { inFlight--; }
+  };
+  const web = createWebService(h.config, { fetcher, now: () => h.state.now }), signed = await h.login();
+  const home = await (await web(h.request('/api/home', { cookie: signed.cookie }))).json();
+  const walk = home.walks.find(w => w.key === 'studio:walk:2'), choice = walk.answers.find(a => a.id.startsWith('choice-'));
+  // Home's own reader is not under test: the inventory grows after it read the plate (the walk is still waiting).
+  for (let n = 3; n <= 190; n++) h.source.files[`docs/phases/${String(n).padStart(3, '0')}-acme-${n}.md`] = phaseFile(n, { status: 'built' });
+  counting = true;
+  const answered = await web(postJson(h, '/api/home/answer', { key: walk.key, answer: choice.id, why: 'Tried it on the Acme phone.', csrf: signed.session.csrf }, signed.cookie));
+  assert.equal(answered.status, 200, await answered.clone().text());
+  const { preview } = await answered.json();
+  assert.ok(most > 1 && most <= READ_CONCURRENCY, `at most ${READ_CONCURRENCY} blob reads in flight (saw ${most})`);
+  assert.ok(blobs >= 190 && blobs <= CALL_BUDGET, `the preview's ${blobs} blob reads fit the call budget`);
+  const applied = await web(postJson(h, '/api/projects/studio/decisions/apply', { previewId: preview.id, publicAcknowledgement: preview.digest, csrf: signed.session.csrf }, signed.cookie));
+  assert.equal((await applied.json()).state, 'committed', 'its apply re-reads the same inventory and writes');
+  assert.ok(most <= READ_CONCURRENCY);
+});
+
+// Phase 187: Done on a step writes from the card. A partial phase whose next
+// action is the owner's is a step; its Done is the drop mark plates home
+// --answer writes in a checkout, previewed and applied like a walk answer.
+const STEP_FILES = { ...WALK_FILES, 'docs/phases/03-step.md': phaseFile(3, { status: 'partial', next: '⚑ Approve the Acme night lane.' }) };
+const freshHome = async (web, h, signed) => (await web(h.request('/api/home?fresh=1', { cookie: signed.cookie }))).json();
+
+test('a step\'s Done on the web previews and writes a drop mark to .plates/loose-ends.json, and the step leaves Home', async t => {
+  const h = walkWeb(STEP_FILES), web = createWebService(h.config, { fetcher: h.fetcher, now: () => h.state.now }), signed = await h.login();
+  const step = (await (await web(h.request('/api/home', { cookie: signed.cookie }))).json()).decisions.find(d => d.key === 'studio:step:3');
+  const done = step.answers.find(a => a.id === 'done');
+  assert.equal(done.writer, 'loose-ends mark'); assert.ok(!done.unavailable, 'with decisionWrites the web writes a step\'s Done');
+  assert.equal((await web(postJson(h, '/api/home/answer', { key: step.key, answer: 'done', csrf: signed.session.csrf }, signed.cookie))).status, 400, 'Done needs a why');
+  const answered = await web(postJson(h, '/api/home/answer', { key: step.key, answer: 'done', why: 'Approved the Acme lane.', csrf: signed.session.csrf }, signed.cookie));
+  assert.equal(answered.status, 200, await answered.clone().text());
+  const { state, writer, preview } = await answered.json();
+  assert.equal(state, 'preview'); assert.equal(writer, 'loose-ends mark');
+  assert.deepEqual(preview.files.map(f => f.path), ['.plates/loose-ends.json']);
+  const date = new Date(h.state.now).toISOString().slice(0, 10);
+  assert.deepEqual(JSON.parse(preview.files[0].content), { marks: [{ fingerprint: 'phase:3', kind: 'phase', move: 'drop', date, reason: 'Approved the Acme lane.' }] });
+  assert.match(preview.consequence, /phase 3 .*drop mark .*Approved the Acme lane/);
+  assert.equal(h.source.writes.filter(Boolean).length, 0, 'a preview writes nothing');
+  const applied = await (await web(postJson(h, '/api/projects/studio/decisions/apply', { previewId: preview.id, publicAcknowledgement: preview.digest, csrf: signed.session.csrf }, signed.cookie))).json();
+  assert.equal(applied.state, 'committed', JSON.stringify(applied));
+  assert.equal(h.source.files['.plates/loose-ends.json'], preview.files[0].content, 'the previewed bytes, on the default branch');
+  // Home reads the plate again past its refresh interval; the fake App's commit list carries the new head as GitHub's would.
+  Object.assign(h.source.commits[0].commit, { tree: { sha: 'c'.repeat(40) }, committer: { date: new Date(h.state.now).toISOString() } });
+  h.source.commits.splice(1);
+  h.state.now += 120_000;
+  assert.ok(!(await freshHome(web, h, signed)).decisions.some(d => d.key === step.key), 'and the step leaves Home');
+  // The CLI, on the same files, writes the same mark (its date is its own today).
+  const cli = await walkCli(t, STEP_FILES);
+  const r = run(process.execPath, [join(PLATES, 'bin', 'plates.mjs'), 'home', '--answer', step.key, 'done', '--why', 'Approved the Acme lane.', '--yes', '--json'], { cwd: cli.root, env: cli.env });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const { readFile: readText } = await import('node:fs/promises');
+  const local = await readText(join(cli.root, '.plates/loose-ends.json'), 'utf8');
+  assert.equal(local.replace(/"date": "[^"]+"/, `"date": "${date}"`), preview.files[0].content, 'the same bytes in both forms');
+});
+
+test('a Done whose step changed since its preview writes nothing', async () => {
+  const h = walkWeb(STEP_FILES), web = createWebService(h.config, { fetcher: h.fetcher, now: () => h.state.now }), signed = await h.login();
+  await web(h.request('/api/home', { cookie: signed.cookie }));
+  const ask = () => web(postJson(h, '/api/home/answer', { key: 'studio:step:3', answer: 'done', why: 'Approved it.', csrf: signed.session.csrf }, signed.cookie));
+  const { preview } = await (await ask()).json();
+  // Someone edits the step on the default branch.
+  h.source.files['docs/phases/03-step.md'] = h.source.files['docs/phases/03-step.md'].replace('⚑ Approve the Acme night lane.', '⚑ Approve the Acme night and day lanes.');
+  h.source.head = 'e'.repeat(40);
+  const applied = await (await web(postJson(h, '/api/projects/studio/decisions/apply', { previewId: preview.id, publicAcknowledgement: preview.digest, csrf: signed.session.csrf }, signed.cookie))).json();
+  assert.equal(applied.state, 'refused');
+  assert.equal(h.source.writes.filter(Boolean).length, 0, 'nothing written');
+  assert.ok(!('.plates/loose-ends.json' in h.source.files));
+  // A marks file that is not JSON is refused at preview, never overwritten.
+  h.source.files['.plates/loose-ends.json'] = '{ not json';
+  const bad = await ask();
+  assert.equal(bad.status, 409); assert.equal((await bad.json()).error, 'invalid_marks_file');
 });

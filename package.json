@@ -39,10 +39,11 @@
     "keel": "node bin/plates.mjs",
     "check:focused": "node scripts/check-focused.mjs",
     "test:installed:node": "node --import ./tests/helpers/hermetic.mjs --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/plates/test-ledger.mjs --test-reporter-destination=stdout --test-concurrency=1 tests/installed/evaluation-live-cli.test.mjs tests/installed/evaluation-live-deadlines.test.mjs tests/installed/evaluation-live-transfer.test.mjs tests/installed/validation-request-budget.test.mjs tests/installed/evaluation-credential-pipe.test.mjs",
-    "test:installed": "node scripts/check-installed.mjs"
+    "test:installed": "node scripts/check-installed.mjs",
+    "look": "node scripts/look.mjs"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.5.14",
+    "@electric-sql/pglite": "0.5.16",
     "@types/node": "24.19.2",
     "typescript": "7.0.2"
   }

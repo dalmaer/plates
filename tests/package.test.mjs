@@ -8,7 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtemp, readdir, readFile, rm, realpath, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { run, testsRan } from './helpers/run.mjs';
 
 const PLATES = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -70,6 +70,20 @@ test('plates run from its packed tarball inits a project that passes its own che
 
   // The tests and their fixtures stay home; only what plates runs on ships.
   assert.ok(!(await exists(join(pkg, 'tests', 'init.test.mjs'))), 'the test suite is not in the package');
+
+  // improve's synthetic Git fixture is runtime data. Its diagnostic dependency
+  // must resolve from the packed CLI, without the source test helpers present.
+  const selftest = run(process.execPath, ['--input-type=module', '-e', `
+    import { selftest, MEASURES } from ${JSON.stringify(pathToFileURL(join(pkg, 'lib/improve.mjs')).href)};
+    const ids = ['stale_worktrees', 'drafts_waiting', 'long_files'];
+    const result = await selftest({ measures: MEASURES.filter(m => ids.includes(m.id)) });
+    console.log(JSON.stringify(result.data));
+    process.exitCode = result.exitCode;
+  `], { cwd: tmp, env });
+  assert.equal(selftest.status, 0, `hygiene selftest from packed plates failed:\n${selftest.stdout}${selftest.stderr}`);
+  const hygiene = JSON.parse(selftest.stdout);
+  assert.equal(hygiene.ok, true);
+  assert.deepEqual(hygiene.measures.map(m => [m.id, m.state]), [['stale_worktrees', 'outside'], ['drafts_waiting', 'outside'], ['long_files', 'outside']]);
 
   const init = run(process.execPath, [join(pkg, 'bin', 'plates.mjs'), 'init', join(tmp, 'acme'), '--description', 'Acme. A probe.', '--kind', 'node'], { cwd: tmp, env });
   assert.equal(init.status, 0, `init from the packed plates failed:\n${init.stdout}${init.stderr}`);

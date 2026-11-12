@@ -5,7 +5,7 @@
 // compare what each renders. Neither side is compared with itself.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, mkdir, chmod, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, mkdir, chmod, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -15,7 +15,10 @@ import { projectHarness, phaseFile } from './helpers/web-projects.mjs';
 import { createHash } from 'node:crypto';
 import { createHomeReader } from '../lib/web/home.mjs';
 import { renderHomeSnapshot } from '../lib/web/views.mjs';
-import { HOME_SECTIONS } from '../lib/work-items.mjs';
+import { HOME_SECTIONS, BACKLOG_LANES, MERGE_PERMISSION } from '../lib/work-items.mjs';
+import { backlogView, START_UNAVAILABLE } from '../lib/web/backlog-views.mjs';
+import { claimMessage } from '../lib/claim.mjs';
+import { waitsFixture } from './helpers/waits.mjs';
 
 const bin = fileURLToPath(new URL('../bin/plates.mjs', import.meta.url));
 const token = 'fake-user-access-token-for-tests';
@@ -32,16 +35,18 @@ const reviewRepository = { open: { pageInfo: { hasNextPage: false }, nodes: [{ k
 const rate = { cost: 1, remaining: 4000, resetAt: new Date(Date.now() + 3600_000).toISOString() };
 
 /** The same sources, twice: the web's fake App API and a git checkout with a fake gh. */
-async function sources({ reviews = true, files = {} } = {}) {
+async function sources({ reviews = true, files = {}, issues = null, waits = null, runs = null, prs = null, config = {}, review = reviewRepository, ready = null, checksRead = !!waits, decisionWrites = false } = {}) {
   const h = projectHarness();
   Object.assign(h.source.files, files);
-  h.source.files['.plates/plates.json'] = JSON.stringify({ name: 'Acme Studio', repo: 'acme/studio', tagline: 'Publish useful things.', practice: '0.8.32', stack: ['node'], phases: { shape: 'files' } });
+  h.source.files['.plates/plates.json'] = JSON.stringify({ name: 'Acme Studio', repo: 'acme/studio', tagline: 'Publish useful things.', practice: '0.8.32', stack: ['node'], phases: { shape: 'files' },
+    ...(waits ? { practices: ['phases', 'delivery'], delivery: { tested: 'green', promote: 'vercel:studio' } } : {}), ...config });
   const dir = await mkdtemp(join(tmpdir(), 'plates-home-iso-')), root = join(dir, 'studio');
   for (const [path, content] of Object.entries(h.source.files)) { await mkdir(dirname(join(root, path)), { recursive: true }); await writeFile(join(root, path), content); }
   const git = args => execFileSync('git', ['-C', root, ...args], { env: gitEnv, encoding: 'utf8' }).trim();
   git(['init', '-q', '-b', 'main']); git(['add', '-A']); git(['commit', '-q', '-m', MESSAGE]);
   h.source.revision = git(['rev-parse', 'HEAD']);
   // The web: GraphQL through the App answers the review read.
+  const claimRefs = [];
   const fetcher = async (url, options) => {
     if (new URL(url).pathname === '/graphql') {
       h.source.requests.push({ url, options });
@@ -53,8 +58,19 @@ async function sources({ reviews = true, files = {} } = {}) {
         const repository = Object.fromEntries(blobs.map(([, alias, oid]) => { const text = byOid.get(oid); return [alias, text === undefined ? null : { oid, byteSize: Buffer.byteLength(text), isBinary: false, isTruncated: false, text }]; }));
         return Response.json({ data: { rateLimit: rate, repository } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
       }
-      return Response.json({ data: { rateLimit: rate, ...(query.includes('PlatesReviewWindow') ? { repository: reviewRepository } : {}) } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
+      // The backlog's claims read (phase 178): the claim branches the test pushed to the checkout's remote, and no open PRs.
+      // Pending review's read (phase 186): the same open PRs the fake gh lists.
+      if (query.includes('PlatesPending')) return Response.json({ data: { rateLimit: rate, repository: { pullRequests: { totalCount: (prs ?? []).length, nodes: prs ?? [] } } } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
+      if (query.includes('PlatesClaims')) return Response.json({ data: { rateLimit: rate, repository: { refs: { totalCount: claimRefs.length, nodes: claimRefs }, pullRequests: { totalCount: 0, nodes: [] } } } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
+      // The ready PRs' checks read (phase 176): the same answer the fake gh gives.
+      if (query.includes('PlatesReadyChecks')) return Response.json({ data: { rateLimit: rate, repository: ready } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
+      return Response.json({ data: { rateLimit: rate, ...(query.includes('PlatesReviewWindow') ? { repository: review } : {}) } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
     }
+    // The waits' REST reads (phase 158): the same answers the fake gh gives.
+    const u = new URL(url), key = `${u.pathname}${u.search}`;
+    // Recurring's runs read (phase 185): the same runs the fake gh lists, for both of the App's lists.
+    if (runs && u.pathname === '/repos/acme/studio/actions/runs') { h.source.requests.push({ url, options }); return Response.json({ workflow_runs: runs.map(r => ({ path: r.path, name: r.workflowName, status: r.status, conclusion: r.conclusion, created_at: r.createdAt, html_url: r.url })) }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } }); }
+    if (waits && Object.hasOwn(waits, key)) { h.source.requests.push({ url, options }); return Response.json(waits[key], { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } }); }
     return h.fetcher(url, options);
   };
   // The CLI: a gh that answers the same review read, the viewer's login, and nothing else.
@@ -62,16 +78,27 @@ async function sources({ reviews = true, files = {} } = {}) {
   await writeFile(gh, `#!${process.execPath}
 const argv = process.argv.slice(2), q = (argv.find(a => a.startsWith('query=')) ?? '').slice(6);
 if (argv[0] === 'api' && argv[1] === 'user') console.log('acme-owner');
-else if (argv[0] === 'api' && argv[1] === 'graphql' && q.includes('PlatesReviewWindow')) console.log(JSON.stringify({ data: { rateLimit: ${JSON.stringify(rate)}, repository: ${JSON.stringify(reviewRepository)} } }));
+else if (argv[0] === 'api' && argv[1] === 'graphql' && q.includes('PlatesReviewWindow')) console.log(JSON.stringify({ data: { rateLimit: ${JSON.stringify(rate)}, repository: ${JSON.stringify(review)} } }));
+else if (argv[0] === 'api' && argv[1] === 'graphql' && q.includes('PlatesReadyChecks')) console.log(JSON.stringify({ data: { repository: ${JSON.stringify(ready)} } }));
 else if (argv[0] === 'api' && argv[1] === 'graphql') console.log(JSON.stringify({ data: { rateLimit: ${JSON.stringify(rate)} } }));
+else if (argv[0] === 'api' && argv[1] === '-X' && argv[2] === 'GET' && Object.hasOwn(${JSON.stringify(waits ?? {})}, '/' + argv[3])) console.log(JSON.stringify(${JSON.stringify(waits ?? {})}['/' + argv[3]]));
+else if (argv[0] === 'api' && argv[1] === '-X') { console.error('gh: Not Found (HTTP 404)'); process.exit(1); }
+else if (argv[0] === 'pr' && argv[1] === 'list' && process.env.ACME_GH_PRS) console.log(process.env.ACME_GH_PRS);
+else if (argv[0] === 'api' && argv[1] === 'repos/acme/studio') console.log(JSON.stringify({ allow_squash_merge: true, allow_merge_commit: true, allow_rebase_merge: false }));
+else if (argv[0] === 'pr' && argv[1] === 'merge' && process.env.ACME_GH_LOG) require('node:fs').appendFileSync(process.env.ACME_GH_LOG, JSON.stringify(argv) + String.fromCharCode(10));
+else if (argv[0] === 'run' && argv[1] === 'list' && ${JSON.stringify(!!runs)}) console.log(JSON.stringify(${JSON.stringify((runs ?? []).map(({ path, ...r }) => r))}));
+else if (argv[0] === 'issue' && argv[1] === 'list' && ${JSON.stringify(!!issues)}) console.log(JSON.stringify(argv.includes('plates:agent') ? ${JSON.stringify(issues ?? [])} : []));
 else { console.error('fake gh: offline'); process.exit(1); }
 `);
   await chmod(gh, 0o755);
-  const web = await createHomeReader(h.config, { fetcher, now: () => Date.now() })({ ...h.access, login: 'acme-owner', pullRequestsRead: reviews }, token);
-  const run = runNode(process.execPath, [bin, 'home', '--json'], { cwd: root, timeout: 120_000,
-    env: { ...gitEnv, PLATES_GH: gh, PLATES_CACHE: join(dir, 'cache'), PLATES_STATE: join(dir, 'state'), XDG_STATE_HOME: join(dir, 'state') } });
+  const readWeb = createHomeReader(decisionWrites ? { ...h.config, decisionWrites: true } : h.config, { fetcher, now: () => Date.now() }), webAccess = { ...h.access, login: 'acme-owner', pullRequestsRead: reviews, checksRead, ...(runs ? { actionsPermission: 'read' } : {}) };
+  const web = await readWeb(webAccess, token);
+  const cliEnv = (state = 'state') => ({ ...gitEnv, PLATES_GH: gh, PLATES_CACHE: join(dir, 'cache'), PLATES_STATE: join(dir, state), XDG_STATE_HOME: join(dir, state) });
+  const run = runNode(process.execPath, [bin, 'home', '--json'], { cwd: root, timeout: 120_000, env: cliEnv() });
   assert.equal(run.status, 0, run.stderr);
-  return { web, cli: JSON.parse(run.stdout), dir, done: () => rm(dir, { recursive: true, force: true }) };
+  // More plates home runs in the same checkout; `state` keeps their last-looked time apart from the first run's.
+  const again = (args, { state = 'state-again', env = {} } = {}) => runNode(process.execPath, [bin, 'home', ...args], { cwd: root, timeout: 120_000, env: { ...cliEnv(state), ...env } });
+  return { web, cli: JSON.parse(run.stdout), dir, root, git, gitEnv, claimRefs, again, access: webAccess, readWeb: options => readWeb(webAccess, token, options), done: () => rm(dir, { recursive: true, force: true }) };
 }
 
 // What a reader adds about its own read, not the sources: when it read, and the App's numeric repository id.
@@ -93,12 +120,9 @@ test('the CLI and the web render one read model', async () => {
     for (const key of ['decisions', 'walks', 'reviews', 'waiting', 'changes']) assert.deepEqual(cli[key], web[key], `${key}: the same items in both forms`);
     assert.deepEqual(cli.projects, web.projects, 'the same plate, planning and gaps');
     assert.deepEqual(cli.coverage, web.coverage, 'the same coverage');
-    // Same sections, same counts: the terminal says each count the HTML says.
-    const html = renderHomeSnapshot(s.web), text = runNode(process.execPath, [bin, 'home'], { cwd: join(s.dir, 'studio'),
-      env: { ...gitEnv, PLATES_GH: join(s.dir, 'gh'), PLATES_CACHE: join(s.dir, 'cache'), PLATES_STATE: join(s.dir, 'state'), XDG_STATE_HOME: join(s.dir, 'state') } }).stdout;
-    for (const [title, n] of [['Decisions that need you', web.decisions.length], ['Ready to test', web.walks.filter(w => w.ready).length], ['Reviews waiting on you', web.reviews.length], ['In progress / waiting', web.waiting.length]]) {
-      assert.match(html, new RegExp(`>${title}</h2>`)); assert.match(text, new RegExp(`^${title.replace('/', '\\/')} \\((at least )?${n}\\)$`, 'm'), `${title}: ${n} in the terminal`);
-    }
+    // The hosted page renders the model's four sections (phase 166), and the terminal the same headings.
+    const html = renderHomeSnapshot(s.web);
+    for (const title of ['Needs you', 'Since you last looked', 'What should happen next?', 'Your plates']) assert.ok(html.includes(`>${title}</h2>`), title);
   } finally { await s.done(); }
 });
 
@@ -242,4 +266,430 @@ test('the terminal session writes only after a yes, asks for a why, and brings a
   assert.deepEqual(r.data.docket, model.docket.map(e => e.key));
   assert.equal(r.data.settled.length, 1); assert.equal(r.data.putOff.length, 1); assert.equal(r.data.again.length, 1); assert.match(r.data.again[0].reason, /not open/);
   assert.match(r.text, /1 settled · 1 put off · 1 needs another look/); assert.match(r.text, /^Needs another look$/m);
+});
+
+// Phase 166: home is four sections, in order, from one model. The web's /api/home and plates home --json carry the
+// same sections, items and counts for the same sources; the terminal says each count. What one form cannot read yet
+// (tonight's plan, agent issues) is a row in both, with its reason and command, as phase 156's sections are.
+test('the four home sections are one model', async () => {
+  const today = new Date().toISOString().slice(0, 10), day = n => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
+  const { nightOf } = await import('../practices/night/files/scripts/plates/night-plan.mjs');
+  const item = (id, title, status) => ({ id, title, kind: 'triage', source: 'owner', number: null, lane: 'night', budget: null, status, result: null });
+  const plan = (date, items) => `${JSON.stringify({ schema: 1, date, shapedBy: 'owner', readyBy: null, willNotTouch: [], settledToday: [], leftOpen: [], items }, null, 2)}\n`;
+  const files = { ...HEALTH,
+    // Built today: it happened since any window. Last night's record has a failed item: a Fix, and a line under Since.
+    'docs/phases/05-today.md': phaseFile(5, { status: 'built' }).replace('since: 2026-10-20', `since: ${today}`),
+    [`docs/night/${day(-1)}.json`]: plan(day(-1), [item('acme-measure', 'Measure the Acme anvil', 'failed'), item('acme-triage', 'Triage Acme', 'done')]),
+    // Tonight's plan as plates goodnight --yes left it in the checkout: the CLI reads it, the App does not.
+    '.plates/night/plan.json': plan(nightOf(new Date()), [item('acme-sort', 'Sort the Acme findings', 'planned')]) };
+  const issues = [{ number: 12, title: 'Acme: shorten the anvil page', url: 'https://github.com/acme/studio/issues/12', createdAt: '2026-11-01T00:00:00Z' }];
+  const s = await sources({ files, issues });
+  try {
+    const four = form => form.home.sections, sec = (form, id) => four(form).find(x => x.id === id);
+    for (const form of [s.web, s.cli]) assert.deepEqual(four(form).map(x => x.title), ['Needs you', 'Since you last looked', 'What should happen next?', 'Your plates'], 'the four, in order');
+    // Needs you: the same ranked rows (fix, decide, try), only what the shared sources hold; answers less what a form can run.
+    const shared = form => sec(form, 'needs-you').items.filter(i => !i.section).map(i => ({ ...i, answers: i.answers.map(({ unavailable, ...a }) => a) }));
+    const web = shared(s.web);
+    assert.deepEqual(web.map(i => i.verb), ['fix', 'decide', 'decide', 'decide', 'try'], 'the fixture has a fix, decisions and a walk, in rank');
+    assert.deepEqual(web.map(i => i.kind), ['night', 'step', 'proposal', 'review', 'walk']);
+    assert.deepEqual(shared(s.cli), web, 'the same rows in both forms');
+    assert.equal(sec(s.cli, 'needs-you').count, sec(s.cli, 'needs-you').items.length);
+    assert.equal(sec(s.web, 'needs-you').count, web.length);
+    assert.equal(sec(s.cli, 'needs-you').known, sec(s.web, 'needs-you').known);
+    // Since you last looked: neither form has a stored visit here, so both use the fixed window and say so.
+    // (Phase 166 increment 4: the fixture's web has no visit store, SQL018, so it says so; the lines are the same.)
+    const { unavailable, ...webSince } = sec(s.web, 'since');
+    assert.equal(unavailable, 'Visits are not stored yet');
+    assert.deepEqual(sec(s.cli, 'since'), webSince);
+    assert.equal(sec(s.web, 'since').window, 'fixed');
+    const lines = sec(s.web, 'since').plates.flatMap(p => p.lines.map(l => l.text));
+    assert.ok(lines.includes('Phase 5 built: Acme phase 5'), lines.join(' | '));
+    assert.ok(lines.includes(`The night of ${day(-1)}: 1 done, 1 failed`), lines.join(' | '));
+    assert.ok(!lines.some(l => l.includes('Phase 4 built')), 'phase 4 was built before the window');
+    // Your plates: one status each, the same in both forms.
+    assert.deepEqual(sec(s.cli, 'plates'), sec(s.web, 'plates'));
+    assert.equal(sec(s.web, 'plates').items[0].status, 'broken');
+    // What should happen next?: the same rows in both; the CLI reads what is queued, the web names why it cannot and the command that can.
+    assert.deepEqual(sec(s.cli, 'next').sources.map(r => [r.id, r.command]), sec(s.web, 'next').sources.map(r => [r.id, r.command]));
+    assert.ok(sec(s.web, 'next').sources.every(r => r.state === 'unavailable' && r.reason));
+    assert.equal(sec(s.web, 'next').known, true);
+    assert.deepEqual(sec(s.cli, 'next').queued.map(q => [q.queue, q.title]), [['night', 'Sort the Acme findings'], ['agent', 'Acme: shorten the anvil page']]);
+    assert.equal(sec(s.cli, 'next').count, 2);
+    // The terminal says the four headings in order, with the model's counts, and the hedges once, in the footer.
+    const text = runNode(process.execPath, [bin, 'home'], { cwd: join(s.dir, 'studio'),
+      env: { ...gitEnv, PLATES_GH: join(s.dir, 'gh'), PLATES_CACHE: join(s.dir, 'cache'), PLATES_STATE: join(s.dir, 'other-state'), XDG_STATE_HOME: join(s.dir, 'other-state') } }).stdout;
+    const at = ['Needs you', 'Since you last looked', 'What should happen next', 'Your plates'].map(t => text.search(new RegExp(`^${t.replace('?', '\\?')}`, 'm')));
+    assert.ok(at.every((n, i) => n >= 0 && (i === 0 || n > at[i - 1])), text);
+    assert.match(text, new RegExp(`^Needs you \\(${sec(s.cli, 'needs-you').count}\\)$`, 'm'));
+    // The start line and the web's Start panel count what Needs you counts, the failed night's Fix (no answers) too.
+    assert.ok(sec(s.web, 'needs-you').count > s.web.docket.length, 'the fixture has a row with no answers');
+    assert.match(text, new RegExp(`^ {2}${sec(s.cli, 'needs-you').count} need you · about \\d+ min — plates home --review`, 'm'));
+    const { renderReviewStart } = await import('../lib/web/review-views.mjs');
+    assert.match(renderReviewStart(s.web), new RegExp(`<strong>${sec(s.web, 'needs-you').count} need you · `));
+    assert.match(text, new RegExp(`^Since you last looked \\(${sec(s.web, 'since').count}\\) — the last 7 days$`, 'm'));
+    assert.match(text, /^What should happen next\? \(2 queued\)$/m);
+    assert.match(text, /^ {2}Fix · Acme Studio: The night of/m);
+    assert.match(text, /^ {2}Acme Studio: broken\b/m);
+    assert.doesNotMatch(text, /at least|At least|in this source read|Inspection only/);
+  } finally { await s.done(); }
+});
+
+test('since you last looked, in the terminal, starts at its last run', async () => {
+  const s = await sources();
+  try {
+    const env = { ...gitEnv, PLATES_GH: join(s.dir, 'gh'), PLATES_CACHE: join(s.dir, 'cache'), PLATES_STATE: join(s.dir, 'state'), XDG_STATE_HOME: join(s.dir, 'state') };
+    // sources() ran plates home --json once: the second run starts where it looked, and keeps only a time.
+    const again = JSON.parse(runNode(process.execPath, [bin, 'home', '--json'], { cwd: join(s.dir, 'studio'), env }).stdout);
+    const since = again.home.sections.find(x => x.id === 'since');
+    assert.equal(since.window, 'last-run');
+    assert.ok(Date.parse(since.from) >= Date.parse(s.cli.generatedAt) - 1000 && Date.parse(since.from) <= Date.parse(again.generatedAt), since.from);
+    const { readFile } = await import('node:fs/promises');
+    const kept = JSON.parse(await readFile(join(s.dir, 'state', 'plates', 'last-looked.json'), 'utf8'));
+    assert.deepEqual(Object.keys(kept).sort(), ['at', 'schema']);
+  } finally { await s.done(); }
+});
+
+// Phase 158: a plate's changes in flight are one model too. The same waits answers, through the CLI's gh and the
+// web's App, give the same items, states, next actions and Fixes; only when each read is its own (readAt, ages).
+test('the CLI and the web show the same changes in flight', async () => {
+  const s = await sources({ waits: waitsFixture('acme/studio', Date.now()) });
+  try {
+    const timeless = form => {
+      const w = structuredClone(form.projects[0].waits);
+      for (const i of w.items) { delete i.ageMs; delete i.branchAgeMs; }
+      delete w.now; delete w.source.readAt; delete w.source.window.to; delete w.tested.lagMs;
+      return w;
+    };
+    assert.equal(s.web.projects[0].waits.state, 'read');
+    assert.deepEqual(timeless(s.cli), timeless(s.web), 'the same waits in both forms');
+    assert.deepEqual(s.cli.projects[0].waits.items.map(i => [i.branch, i.state]), [['claude/phase-7', 'integration'], ['claude/phase-4', 'deploy'], ['claude/phase-5', 'ci'], ['codex/phase-9', 'ci']]);
+    const fixes = form => form.home.sections.find(x => x.id === 'needs-you').items.filter(n => n.kind === 'waits').map(n => [n.verb, n.key, n.title]);
+    assert.deepEqual(fixes(s.cli), fixes(s.web));
+    assert.deepEqual(fixes(s.web).map(f => f[1]), ['studio:waits:lock', 'studio:waits:main']);
+    const rows = form => form.home.sections.find(x => x.id === 'plates').items[0].waits.rows.map(r => [r.branch, r.words, r.age, r.next]);
+    assert.deepEqual(rows(s.cli), rows(s.web));
+    // Each renderer prints the model's rows: the plate's page and plates home --project.
+    const html = renderHomeSnapshot(s.web, { projectId: 'studio' });
+    assert.match(html, />Changes in flight<\/h2>[\s\S]*waiting on integration · 2 h · past its target[\s\S]*claude\/phase-7/);
+    const text = runNode(process.execPath, [bin, 'home', '--project', 'studio'], { cwd: join(s.dir, 'studio'), timeout: 120_000,
+      env: { ...gitEnv, PLATES_GH: join(s.dir, 'gh'), PLATES_CACHE: join(s.dir, 'cache'), PLATES_STATE: join(s.dir, 'state'), XDG_STATE_HOME: join(s.dir, 'state') } });
+    assert.equal(text.status, 0, text.stderr);
+    assert.match(text.stdout, /Changes in flight \(4\)\n  waiting on integration · claude\/phase-7 · 2 h · past its target/);
+    for (const r of rows(s.web)) assert.ok(text.stdout.includes(r[3]), `the terminal prints ${r[0]}'s next action`);
+    assert.ok(!renderHomeSnapshot(s.web).includes('>Changes in flight</h2>'), 'home itself lists no waits: the plate\'s page does');
+  } finally { await s.done(); }
+});
+
+// Phase 178: the backlog is one model too. plates home --backlog --json and /api/backlog are both backlogFor over
+// their own snapshot, with each plate's phases from the same read (projectFromSource) and its claims from where each
+// form reads them: the checkout's remote through git and gh, and the App's GraphQL. Here both see one claim branch.
+// What a read adds about itself: when it read (readAt, and the claim's days left to the tenth), and which writers a form runs.
+const sourceless = backlog => ({ ...backlog, lanes: backlog.lanes.map(l => ({ ...l, items: l.items.map(({ source: { readAt, ...source }, answers, ageLeft, ...item }) => ({ ...item, source, answers: answers.map(({ unavailable, ...a }) => a) })) })) });
+test('backlog matches in both forms', async () => {
+  const s = await sources();
+  try {
+    // A remote for the checkout, and a claim on phase 1 pushed to it as plates phase claim writes one. The App lists the same branch.
+    const remote = join(s.dir, 'remote.git'), at = new Date(Math.floor(Date.now() / 1000) * 1000).toISOString();
+    execFileSync('git', ['init', '-q', '--bare', '-b', 'main', remote], { env: s.gitEnv });
+    s.git(['remote', 'add', 'origin', remote]); s.git(['push', '-q', 'origin', 'main']);
+    const message = claimMessage({ phase: 1, provider: 'claude', machine: 'acme-mac', at, token: 'acme-token' });
+    const sha = execFileSync('git', ['-C', s.root, 'commit-tree', 'HEAD^{tree}', '-p', 'HEAD', '-m', message], { env: { ...s.gitEnv, GIT_COMMITTER_DATE: at, GIT_AUTHOR_DATE: at }, encoding: 'utf8' }).trim();
+    s.git(['push', '-q', 'origin', `${sha}:refs/heads/claims/phase-1`]);
+    s.claimRefs.push({ name: 'phase-1', target: { oid: sha, message, committedDate: at } });
+
+    const run = s.again(['--backlog', '--json'], { env: { ACME_GH_PRS: '[]' } });
+    assert.equal(run.status, 0, run.stderr);
+    const cli = JSON.parse(run.stdout);
+    const web = await s.readWeb({ backlog: true }), api = { schema: 1, generatedAt: web.generatedAt, lane: null, ...web.backlog };
+    assert.deepEqual(cli.lanes.map(l => l.lane), BACKLOG_LANES.map(l => l.id), 'every lane, in order');
+    assert.deepEqual(sourceless({ ...api, generatedAt: null }), sourceless({ ...cli, generatedAt: null }), 'the same lanes, items, why-keys, plates and claims in both forms');
+    // The fixture puts something in three lanes, so equality is not two empty backlogs agreeing.
+    const lanes = Object.fromEntries(cli.lanes.map(l => [l.lane, l.items.map(i => i.key)]));
+    assert.deepEqual(lanes['in-flight'], ['studio:phase:1'], 'the claimed phase is in flight');
+    assert.deepEqual(cli.lanes[0].items[0].holder, { by: 'branch', branch: 'claims/phase-1', provider: 'claude', machine: 'acme-mac', at, pr: null });
+    assert.ok(Math.abs(cli.lanes[0].items[0].ageLeft - 7) <= 0.1 && Math.abs(api.lanes[0].items[0].ageLeft - 7) <= 0.1, 'a fresh claim has its seven days');
+    assert.ok(lanes.yours.includes('studio:phase:2'), 'the walk nests under its phase');
+    assert.deepEqual(lanes.waiting, ['studio:phase:3'], 'the walk that is not ready waits');
+    assert.deepEqual(lanes.done, [], 'phase 4 was built before the seven-day window');
+    assert.deepEqual(cli.claims, [{ projectId: 'studio', read: true }]);
+    // The web page renders those items: every lane's header and count, one row per item, and Start off with its reason.
+    const html = backlogView(s.access, api);
+    for (const l of api.lanes) assert.match(html, new RegExp(`id="lane-${l.lane}">${l.title} <span class="meta">${l.items.length}</span>`));
+    for (const item of api.lanes.flatMap(l => l.items)) assert.ok(html.includes(`data-backlog-item="${item.key}"`), item.key);
+    assert.match(html, /claim 6d left|claim 7d left/);
+    assert.match(html, /<span class="p-badge">claude · claimed<\/span>/);
+    if (lanes['agent-ready'].length) assert.ok(html.includes(`title="${START_UNAVAILABLE.replace("'", "&#39;")}: plates home --attach `));
+    // The terminal renders the same items, one line each, under its lane's header and count.
+    const text = s.again(['--backlog'], { env: { ACME_GH_PRS: '[]' } });
+    assert.equal(text.status, 0, text.stderr);
+    for (const l of cli.lanes) assert.match(text.stdout, new RegExp(`^${l.title} ${l.count}$`, 'm'));
+    for (const item of cli.lanes.flatMap(l => l.items)) assert.ok(text.stdout.split('\n').some(line => line.includes(item.title)), item.key);
+    assert.match(text.stdout, /^ {2}1\. Acme Studio #1 {2}Acme phase 1 · G1 {2}\[claude · claimed\] {2}— claim [67]d left$/m);
+    assert.match(text.stdout, /^ {2}\d\. Try the Acme preview on your phone\. {2}\[\+walk\] {2}— added \d+ days ago\n {7}Acme Studio #2 · Acme phase 2 · G1 · ~5 min\n {7}Works \| Needs changes$/m);
+  } finally { await s.done(); }
+});
+
+// Phase 184: what happened to each item is one read model too. The CLI reads the checkout's events; the web reads the
+// hosted store's (SQL019, here its RPC answering with the same records). Both compute historyOf over their own backlog,
+// so the readout (counts, routes attached and landed, minutes per week) and each card's history are the same, and
+// each form says them with the same lines (readoutLines, history.text). Before 019 the web says so once, never a zero.
+test('history matches in both forms', async () => {
+  const s = await sources();
+  try {
+    const { createBacklogEventStore } = await import('../lib/backlog-events.mjs');
+    const { createBacklogEventStore: hostedStore } = await import('../lib/web/backlog-events-store.mjs');
+    const { historyOf, readoutLines } = await import('../lib/web/backlog-history.mjs');
+    const local = await createBacklogEventStore({ root: s.root }), day = Date.now() - 86_400_000;
+    await local.append({ actor: 'agent:claude', key: 'studio:phase:3', action: 'attach', route: 'session', lane: 'agent-ready', outcome: 'attached' }, { now: day });
+    await local.append({ actor: 'owner', key: 'studio:phase:2', action: 'answer', takes: 5, outcome: 'choice-1' }, { now: day + 60000 });
+    await local.append({ actor: 'owner', key: 'studio:phase:2', action: 'not-now', reason: 'stated', outcome: 'not-now' }, { now: day + 120000 });
+    const since = new Date(day - 86_400_000).toISOString().slice(0, 10);
+    const run = s.again(['--backlog', '--since', since, '--json'], { env: { ACME_GH_PRS: '[]' } });
+    assert.equal(run.status, 0, run.stderr);
+    const cli = JSON.parse(run.stdout);
+    // The hosted store holds the same records (its own ids); the web's model is historyOf over its backlog and them.
+    const rows = (await local.list()).map(({ schema, id, ...e }, n) => ({ ...e, id: n + 1 }));
+    const hosted = hostedStore(s.webConfig ?? { appId: 1, installationId: 2, workspace: { id: 'acme', repoId: 3 }, storageUrl: 'https://store.acme.test', storageKey: 'k' }, async () => Response.json({ events: rows }));
+    const web = await s.readWeb({ backlog: true }), backlog = { schema: 1, generatedAt: web.generatedAt, lane: null, ...web.backlog };
+    const api = historyOf(backlog, await hosted.list(7, `${since}T00:00:00.000Z`), { since: `${since}T00:00:00.000Z` });
+    const plain = ({ events, ...r }) => ({ ...r, events: events.map(({ id, ...e }) => e) });
+    assert.deepEqual(plain(api.events), plain(cli.events), 'the same readout in both forms');
+    assert.equal(cli.events.count, 3, 'three events, so equality is not two empty readouts agreeing');
+    assert.deepEqual(cli.events.weeks.reduce((n, w) => n + w.unknown, 0), 1, 'the Not now has no estimate: at least');
+    const histories = b => Object.fromEntries(b.lanes.flatMap(l => l.items).filter(i => i.history).map(i => [i.key, i.history]));
+    assert.deepEqual(histories(api), histories(cli), 'each card\'s history');
+    assert.deepEqual(Object.keys(histories(cli)).toSorted(), ['studio:phase:2', 'studio:phase:3']);
+    assert.deepEqual(api.lanes.map(l => l.items.map(i => i.key)), backlog.lanes.map(l => l.items.map(i => i.key)), 'events never move a card');
+    // Each form says the same lines.
+    const lines = readoutLines(cli.events), said = [lines.title, lines.summary, ...lines.routes, ...lines.weeks];
+    const html = backlogView(s.access, api, { arrangement: 'history' });
+    const text = s.again(['--backlog', '--since', since], { env: { ACME_GH_PRS: '[]' } });
+    assert.equal(text.status, 0, text.stderr);
+    for (const line of said) { assert.ok(text.stdout.includes(line), `terminal: ${line}`); assert.ok(html.includes(line.replace(/'/g, '&#39;')), `web: ${line}`); }
+    for (const h of Object.values(histories(cli))) { assert.ok(text.stdout.includes(`[${h.text}]`), h.text); assert.ok(html.includes(`data-backlog-history>${h.text}</span>`), h.text); }
+    // Before 019: the web says it once and shows no counts; the terminal, whose store is read, still has them.
+    const unstored = backlogView(s.access, historyOf(backlog, null, { since: `${since}T00:00:00.000Z`, note: 'Events are not stored yet, so what happened is not shown.' }), { arrangement: 'history' });
+    assert.equal(unstored.match(/Events are not stored yet/g).length, 1);
+    assert.doesNotMatch(unstored, /\(0 events\)|nothing recorded|data-backlog-history>/);
+  } finally { await s.done(); }
+});
+
+// The owner's feedback (phase 178): a backlog of questions to work through. A Yours row with an Ask leads with it, its
+// phase number and title as context, and its choices under it with the Your part's Recommend marked, in both forms.
+test('a question leads its row in Yours', async () => {
+  const walk = phaseFile(2, { status: 'partial', owes: true }).replace('- **Choices:** Works | Needs changes\n', '- **Choices:** Works | Needs changes\n- **Recommend:** Works\n');
+  assert.match(walk, /\*\*Recommend:\*\* Works\n/);
+  const s = await sources({ files: { 'docs/phases/02-walk.md': walk } });
+  try {
+    const run = s.again(['--backlog', '--json']);
+    assert.equal(run.status, 0, run.stderr);
+    const cli = JSON.parse(run.stdout), web = (await s.readWeb({ backlog: true })).backlog;
+    const card = form => form.lanes.find(l => l.lane === 'yours').items.find(i => i.key === 'studio:phase:2');
+    for (const [name, form] of [['cli', cli], ['web', web]]) {
+      assert.deepEqual(card(form).question, { ask: 'Try the Acme preview on your phone.', choices: ['Works', 'Needs changes'], recommend: 'Works' }, `${name}: the question`);
+      assert.equal(card(form).title, 'Acme phase 2', `${name}: the title stays, as context`);
+      assert.deepEqual(card(form).answers.filter(a => a.recommended).map(a => a.label), ['Works'], `${name}: the recommended answer`);
+    }
+    assert.deepEqual(card(web).question, card(cli).question);
+    // Items with no Ask keep their title as the headline: the review.
+    for (const form of [cli, web]) assert.equal(form.lanes.find(l => l.lane === 'yours').items.find(i => i.kind === 'review').question, null);
+    // The terminal: the question, then the context, then the choices with the recommendation marked.
+    const text = s.again(['--backlog']).stdout;
+    assert.match(text, /^ {2}\d\. Try the Acme preview on your phone\. {2}\[\+walk\] {2}— added \d+ days ago\n {7}Acme Studio #2 · Acme phase 2 · G1 · ~5 min\n {7}Works \(Recommended\) \| Needs changes$/m);
+    // The web: the question as the row's headline, the context under it, the choices linking to where Home answers.
+    const html = backlogView(s.access, { schema: 1, generatedAt: new Date().toISOString(), lane: null, ...web });
+    assert.match(html, /<span class="backlog-what backlog-q"[^>]*><strong>Try the Acme preview on your phone\.<\/strong><span class="backlog-ref">Acme Studio #2 · Acme phase 2<\/span><span class="backlog-choices"><a class="p-badge" href="\/review" data-recommended>Works · Recommended<\/a><a class="p-badge" href="\/review">Needs changes<\/a><\/span><\/span>/);
+    assert.match(html, /<span class="backlog-ref">Acme Studio PR #7<\/span>acme\/studio#7: 1 review comment unanswered/, 'a review keeps its title');
+  } finally { await s.done(); }
+});
+
+// Phase 185: Recurring is one model too. plates home --recurring --json and /api/recurring are both recurringOf over
+// the plate's workflows and plates.json from Home's own read, its night record, and its latest runs (gh, or the App).
+const WORKFLOWS = {
+  '.github/workflows/plates-night.yml': 'name: plates-night\non:\n  schedule:\n    - cron: "23 7 * * *"\n  workflow_dispatch:\njobs: {}\n',
+  '.github/workflows/plates-robot.yml': 'name: plates-robot\non:\n  schedule:\n    - cron: "37 11 * * 1"\njobs: {}\n',
+  '.github/workflows/plates-publish.yml': 'name: plates-publish\non:\n  workflow_run:\n    workflows: [check]\n    types: [completed]\njobs: {}\n',
+  '.github/workflows/acme-sweep.yml': 'name: Acme sweep\non:\n  schedule:\n    - cron: "0 */6 * * *"\njobs: {}\n',
+};
+const RUNS = [
+  { path: '.github/workflows/plates-night.yml', workflowName: 'plates-night', status: 'completed', conclusion: 'success', createdAt: '2026-11-05T07:31:00Z', url: 'https://github.com/acme/studio/actions/runs/11' },
+  { path: '.github/workflows/plates-publish.yml', workflowName: 'plates-publish', status: 'completed', conclusion: 'failure', createdAt: '2026-11-05T09:00:00Z', url: 'https://github.com/acme/studio/actions/runs/12' },
+];
+test('recurring matches in both forms', async () => {
+  const s = await sources({ files: WORKFLOWS, runs: RUNS });
+  try {
+    const run = s.again(['--recurring', '--json']);
+    assert.equal(run.status, 0, run.stderr);
+    const cli = JSON.parse(run.stdout), web = await s.readWeb({ recurring: true });
+    const plates = form => form.plates.map(p => ({ ...p, routines: p.routines?.map(({ nextRun, shapes, ...r }) => ({ ...r, shapes: shapes.map(({ next, ...x }) => x) })) }));
+    assert.deepEqual(plates(web.recurring), plates(cli), 'the same routines, schedules, states, budgets and last results');
+    assert.deepEqual(web.links, cli.links, 'the same links');
+    // Next runs come from the same crons; each form computed them at its own moment, so they agree to the minute's cron.
+    for (const [a, b] of web.recurring.plates[0].routines.map((r, i) => [r.nextRun, cli.plates[0].routines[i].nextRun])) assert.ok(a === b || Math.abs(Date.parse(a) - Date.parse(b)) <= 6 * 3_600_000, `${a} ~ ${b}`);
+    // The fixture exercises a scheduled routine, an off one, an event one and one plates does not ship, so equality is not two empty lists agreeing.
+    const by = Object.fromEntries(cli.plates[0].routines.map(r => [r.id, r]));
+    assert.deepEqual(cli.plates[0].routines.map(r => r.id), ['night', 'robot', 'publish', '.github/workflows/acme-sweep.yml']);
+    assert.equal(by.night.last.from, 'workflow run', 'no night record in the fixture: the latest run answers');
+    assert.equal(by.night.last.result, 'success');
+    assert.deepEqual([by.robot.state, by.robot.off.key], ['off', 'robot.on']);
+    assert.equal(by.publish.last.result, 'failure');
+    assert.equal(by['.github/workflows/acme-sweep.yml'].last.none, 'no run in the latest runs read');
+    assert.deepEqual(cli.links, [{ projectId: 'studio', projectName: 'Acme Studio', repo: 'https://github.com/acme/studio', canvas: null, production: null }]);
+    // The page renders the same routines, and the terminal says each one.
+    const { recurringView } = await import('../lib/web/backlog-views.mjs');
+    const html = recurringView(s.access, { ...web.recurring, sidebar: { humans: [{ login: 'acme-owner', role: 'owner' }], links: web.links } });
+    for (const r of web.recurring.plates[0].routines) assert.ok(html.includes(`data-routine="${r.id}"`), r.id);
+    assert.match(html, /<strong>Robot<\/strong>[^]*?<strong>off<\/strong>: robot.on is not true[^<]*\(<code>robot.on<\/code>\)/);
+    assert.match(html, /<li>acme-owner <small>owner<\/small><\/li>/);
+    const text = s.again(['--recurring']).stdout;
+    assert.match(text, /^Acme Studio — 4 routines$/m);
+    assert.match(text, /^ {2}Night: daily at \d\d:23 \S+ · next /m);
+    assert.match(text, /^ {2}Robot: weekly on \w{3}, \d\d:37 \S+ · off: robot\.on is not true/m);
+    assert.match(text, /^ {6}last failure \(2026-11-05 09:00 UTC\)$/m);
+  } finally { await s.done(); }
+});
+
+// Phase 186: Agents and Pending review are one model too. plates home --agents --json and /api/agents are both agentsFor
+// over each plate's config and phases from Home's read, its claims (git and gh, or the App) and its open PRs (gh, or the App).
+const PRS = [
+  { number: 21, title: 'Acme anvils, sharper', url: 'https://github.com/acme/studio/pull/21', createdAt: '2026-11-01T10:00:00Z', isDraft: false, reviewDecision: 'REVIEW_REQUIRED', autoMergeRequest: null, author: { login: 'acme-owner' }, headRefName: 'claude/anvils', state: 'OPEN' },
+  { number: 22, title: 'Acme bump', url: 'https://github.com/acme/studio/pull/22', createdAt: '2026-10-30T10:00:00Z', isDraft: false, reviewDecision: null, autoMergeRequest: { enabledAt: '2026-10-30T11:00:00Z' }, author: { login: 'renovate' }, headRefName: 'renovate/x', state: 'OPEN' },
+];
+test('agents match in both forms', async () => {
+  const s = await sources({ prs: PRS, config: { agents: { claude: {}, codex: {} }, backlog: { routes: ['session', 'tonight'] } } });
+  try {
+    const remote = join(s.dir, 'remote.git'), at = new Date(Math.floor(Date.now() / 1000) * 1000).toISOString();
+    execFileSync('git', ['init', '-q', '--bare', '-b', 'main', remote], { env: s.gitEnv });
+    s.git(['remote', 'add', 'origin', remote]); s.git(['push', '-q', 'origin', 'main']);
+    const message = claimMessage({ phase: 1, provider: 'claude', machine: 'acme-mac', at, token: 'acme-token' });
+    const sha = execFileSync('git', ['-C', s.root, 'commit-tree', 'HEAD^{tree}', '-p', 'HEAD', '-m', message], { env: { ...s.gitEnv, GIT_COMMITTER_DATE: at, GIT_AUTHOR_DATE: at }, encoding: 'utf8' }).trim();
+    s.git(['push', '-q', 'origin', `${sha}:refs/heads/claims/phase-1`]);
+    s.claimRefs.push({ name: 'phase-1', target: { oid: sha, message, committedDate: at } });
+
+    const run = s.again(['--agents', '--json'], { env: { ACME_GH_PRS: JSON.stringify(PRS) } });
+    assert.equal(run.status, 0, run.stderr);
+    const cli = JSON.parse(run.stdout), web = (await s.readWeb({ agents: true })).agents;
+    const ageless = m => ({ ...m, generatedAt: null, pending: { ...m.pending, items: m.pending.items.map(({ ageDays, ...i }) => i) } });
+    assert.deepEqual(ageless(web), ageless(cli), 'the same agents, routes and pending reviews in both forms');
+    // The fixture: claude holds phase 1, codex is idle; session and tonight on, the robot off; one PR waits, the auto-merge one does not.
+    const by = Object.fromEntries(cli.agents.providers.map(p => [p.id, p]));
+    assert.deepEqual(by.claude.holds.map(h => [h.projectId, h.phase, h.title, h.presence]), [['studio', 1, 'Acme phase 1', 'claimed']]);
+    assert.equal(by.codex.state, 'idle');
+    assert.deepEqual(cli.agents.routes.filter(r => r.state === 'on').map(r => r.id), ['session', 'tonight']);
+    assert.deepEqual(cli.pending.items.map(i => [i.number, i.review]), [[21, 'review required']]);
+    // The page renders the same, and the terminal says it.
+    const { agentsView } = await import('../lib/web/backlog-views.mjs');
+    const html = agentsView(s.access, { ...web, sidebar: { humans: [], links: [], counts: {} } });
+    assert.match(html, /data-agent="claude"[^]*?working on <strong>Acme Studio #1<\/strong> Acme phase 1/);
+    assert.match(html, /data-agent="codex"[^]*?<p class="backlog-none">idle<\/p>/);
+    assert.match(html, /data-pending="studio:review:21"/); assert.doesNotMatch(html, /studio:review:22/);
+    assert.match(html, /<a href="\/agents" aria-current="page">Agents <span class="p-badge">1<\/span><\/a><a href="\/agents#pending">Pending review <span class="p-badge">1<\/span><\/a>/);
+    const text = s.again(['--agents'], { env: { ACME_GH_PRS: JSON.stringify(PRS) } }).stdout;
+    assert.match(text, /^ {2}claude: working on Acme Studio #1 Acme phase 1 · claimed on acme-mac$/m);
+    assert.match(text, /^ {2}Acme Studio #21 {2}Acme anvils, sharper · review required {2}— \d+ days old$/m);
+  } finally { await s.done(); }
+});
+
+// Phase 179: By goal is the same backlog arranged by the same pure rules, so both forms make the same cards and groups.
+test('by goal matches in both forms', async () => {
+  const s = await sources({ files: { 'docs/goals.json': JSON.stringify([{ id: 'G1', title: 'A dependable studio', outcome: 'People publish confidently.' }]) } });
+  try {
+    const run = s.again(['--backlog', '--by-goal', '--json']);
+    assert.equal(run.status, 0, run.stderr);
+    const cli = JSON.parse(run.stdout), web = (await s.readWeb({ backlog: true })).backlog;
+    const { byGoal } = await import('../lib/web/backlog-grouping.mjs');
+    const shape = groups => groups.map(g => ({ key: g.key, title: g.title, counts: g.counts, cards: g.cards.map(c => ({ key: c.key, lane: c.lane, keys: c.keys, members: c.members.map(m => m.identity) })) }));
+    assert.equal(cli.arrangement, 'by-goal');
+    assert.deepEqual(shape(byGoal(web).groups), shape(cli.groups));
+    assert.deepEqual(cli.groups.map(g => [g.key, g.title]), [['studio:goal:G1', 'A dependable studio'], ['studio:goal:none', null]]);
+    const walk = cli.groups[0].cards.find(c => c.key === 'studio:phase:2');
+    assert.deepEqual(walk.members.map(m => m.kinds), [['walk']], 'the walk nests in its phase\'s one card');
+    // The page arranges the same, and the terminal says it.
+    const { backlogView } = await import('../lib/web/backlog-views.mjs');
+    const html = backlogView(s.access, { schema: 1, generatedAt: new Date().toISOString(), lane: null, ...web }, { arrangement: 'goals' });
+    assert.match(html, /<a href="\/backlog\/goals" aria-current="page">By goal<\/a>/);
+    for (const g of cli.groups) assert.ok(html.includes(`data-goal="${g.key}"`), g.key);
+    assert.match(s.again(['--backlog', '--by-goal']).stdout, /^Acme Studio · G1 — A dependable studio {2}\(/m);
+    assert.equal(s.again(['--backlog', '--by-goal', '--lane', 'yours']).status, 2, '--by-goal takes no --lane');
+  } finally { await s.done(); }
+});
+
+test('a plate with no remote holds no claims, in the terminal', async () => {
+  const s = await sources({ reviews: false });
+  try {
+    const run = s.again(['--backlog', '--json']);
+    assert.equal(run.status, 0, run.stderr);
+    const cli = JSON.parse(run.stdout);
+    assert.deepEqual(cli.claims, [{ projectId: 'studio', read: false, why: 'no git remote here, so there is nowhere to hold a claim' }]);
+    assert.equal(cli.plates[0].state, 'read');
+    assert.deepEqual(cli.lanes[0].items, [], 'nothing in flight');
+    assert.match(s.again(['--backlog']).stdout, /^In flight 0\n {2}none$/m, 'an empty lane says none');
+  } finally { await s.done(); }
+});
+
+test('the backlog keeps one lane, and refuses one it does not have', async () => {
+  const s = await sources({ reviews: false });
+  try {
+    const one = s.again(['--backlog', '--lane', 'waiting', '--json']);
+    assert.equal(one.status, 0, one.stderr);
+    const data = JSON.parse(one.stdout);
+    assert.deepEqual([data.lane, data.lanes.map(l => l.lane)], ['waiting', ['waiting']]);
+    assert.deepEqual(data.lanes[0].items.map(i => i.key), ['studio:phase:3']);
+    assert.ok(Object.values(data.plates[0].counts).reduce((a, b) => a + b) > 1, 'the plate\'s counts stay whole');
+    const text = s.again(['--backlog', '--lane', 'waiting']);
+    assert.match(text.stdout, /^Waiting 1$/m); assert.doesNotMatch(text.stdout, /^Yours /m);
+    for (const args of [['--backlog', '--lane', 'someday'], ['--backlog', '--lane'], ['--backlog', '--answer', 'x']]) {
+      const bad = s.again([...args, '--json']);
+      assert.equal(bad.status, 2, `${args.join(' ')}: ${bad.stdout}${bad.stderr}`);
+    }
+    assert.match(s.again(['--backlog', '--lane', 'someday']).stderr, /--lane is one of in-flight, yours, agent-ready, waiting, done/);
+  } finally { await s.done(); }
+});
+
+// Phase 176: Acme PR 7, its one finding answered and its head reviewed, with green checks: ready to merge.
+const HEAD7 = 'a'.repeat(40);
+const readyRepository = { open: { pageInfo: { hasNextPage: false }, nodes: [{ ...reviewRepository.open.nodes[0], headRefOid: HEAD7,
+  reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [{ id: 'T1', isResolved: true, tail: { totalCount: 2, nodes: [reviewRepository.open.nodes[0].reviewThreads.nodes[0].tail.nodes[0],
+    { databaseId: 2, author: { login: 'acme-owner' }, body: '**Fixed** in abc1234.', createdAt: '2026-10-02T09:00:00Z', url: 'https://github.com/acme/studio/pull/7#c2' }] } }] },
+  reviews: { pageInfo: { hasPreviousPage: false }, nodes: [{ id: 'R1', databaseId: 1, author: { login: 'acme-reviewer' }, commit: { oid: HEAD7 }, body: '', state: 'COMMENTED', submittedAt: '2026-10-03T00:00:00Z', url: 'https://github.com/acme/studio/pull/7#r1' }] } }] },
+  merged: { pageInfo: { hasNextPage: false }, nodes: [] } };
+const readyChecks = { p7: { number: 7, state: 'OPEN', isDraft: false, headRefOid: HEAD7, additions: 4, deletions: 1, changedFiles: 2, commits: { nodes: [{ commit: { oid: HEAD7, statusCheckRollup: { state: 'SUCCESS' } } }] } } };
+
+test('merge says why it is unavailable', async () => {
+  const s = await sources({ review: readyRepository, ready: readyChecks, checksRead: true, decisionWrites: true });
+  try {
+    const card = form => form.reviews.find(i => i.key === 'studio:merge:7');
+    assert.ok(card(s.web) && card(s.cli), 'the ready PR is one card in both forms');
+    assert.deepEqual(formless(card(s.cli)), formless(card(s.web)), 'the same card, item by item');
+    assert.equal(s.web.reviews.filter(i => i.ref === '7').length, 1, 'one card per PR');
+    // The hosted workspace has decision writes but not the App's Pull requests write: Merge says so, on the card and in the API.
+    const merge = form => card(form).answers.find(a => a.id === 'merge');
+    assert.equal(merge(s.web).unavailable.reason, MERGE_PERMISSION);
+    assert.equal(merge(s.web).unavailable.command, 'plates home --answer studio:merge:7 merge', 'and how to do it from the terminal');
+    assert.ok(!merge(s.cli).unavailable, 'the terminal merges through the owner\'s gh');
+    const { docketItems, renderReviewCard } = await import('../lib/web/review-views.mjs');
+    const { reviewCardText } = await import('../lib/home-review.mjs');
+    const entry = docketItems(s.web).find(e => e.key === 'studio:merge:7');
+    const html = renderReviewCard(entry);
+    assert.match(html, /data-answer="merge" data-recommended aria-disabled="true"/, 'shown, and disabled');
+    assert.ok(html.includes('Merge is not available here: The Plates GitHub App needs &quot;Pull requests: Read and write&quot;'), 'the web card says why');
+    assert.match(html, /href="https:\/\/github.com\/acme\/studio\/pull\/7\/files"[^>]*>Look at: Open the diff/);
+    assert.match(reviewCardText(entry, { index: 0, total: 1 }), /1\) Merge \(not from here: The Plates GitHub App needs "Pull requests: Read and write"/, 'the terminal card says the same of the hosted model');
+    // The terminal: plates home --answer <pr-key> merge previews (exit 3) until --yes, then merges with gh at the card's head.
+    const log = join(s.dir, 'gh-merge.log');
+    const preview = s.again(['--answer', 'studio:merge:7', 'merge'], { env: { ACME_GH_LOG: log } });
+    assert.equal(preview.status, 3, preview.stderr);
+    assert.match(preview.stdout + preview.stderr, /Would merge acme\/studio#7 .* at head aaaaaaa, by squash, only if its head is still aaaaaaa/);
+    assert.equal(await readFile(log, 'utf8').catch(() => ''), '', 'the preview merges nothing');
+    const yes = s.again(['--answer', 'studio:merge:7', 'merge', '--yes', '--json'], { env: { ACME_GH_LOG: log } });
+    assert.equal(yes.status, 0, yes.stderr);
+    assert.deepEqual((await readFile(log, 'utf8')).trim().split('\n').map(l => JSON.parse(l)), [['pr', 'merge', '7', '-R', 'acme/studio', '--squash', '--match-head-commit', HEAD7]]);
+  } finally { await s.done(); }
+  // Where the checks are not read, neither form shows the PR ready, and both say why.
+  const unread = await sources({ review: readyRepository, ready: null, checksRead: false });
+  try {
+    for (const form of [unread.web, unread.cli]) assert.ok(!form.reviews.some(i => i.itemKind === 'merge'), 'no merge card without a checks read');
+    assert.ok(unread.web.coverage && unread.web.projects[0].gaps.some(g => g.source === 'reviews' && /no pull request is shown ready to merge/.test(g.reason)), 'the web says why');
+    assert.ok(unread.cli.projects[0].gaps.some(g => g.source === 'reviews' && /no pull request is shown ready to merge/.test(g.reason)), 'the terminal says why');
+  } finally { await unread.done(); }
 });

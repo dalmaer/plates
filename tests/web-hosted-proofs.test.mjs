@@ -1,4 +1,4 @@
-// Phase 151: each migration still to be applied to the hosted database (006–016)
+// Phase 151: each migration still to be applied to the hosted database (006 onward)
 // has a hosted proof SQL ready to paste into the Supabase SQL editor. Here each
 // proof runs on a fresh PGlite with migrations 001..N applied, exactly as the
 // owner would run it after step N: the single-connection part must pass and leave
@@ -55,6 +55,12 @@ const PROOFS = [
   { migration: '017-not-now.sql', proof: '2026-11-03-web-not-now-hosted-proof.sql',
     wrong: 'grant usage on schema plates_home to anon',
     refused: /a browser role can use schema plates_home/ },
+  { migration: '018-last-looked.sql', proof: '2026-11-04-web-last-looked-hosted-proof.sql',
+    wrong: 'grant execute on function public.plates_last_looked_rpc(text,text) to authenticated',
+    refused: /a browser role can execute public\.plates_last_looked_rpc/ },
+  { migration: '019-backlog-events.sql', proof: '2026-11-06-web-backlog-events-hosted-proof.sql',
+    wrong: 'drop trigger backlog_events_append_only on plates_home.backlog_events',
+    refused: /plates_home\.backlog_events is not append-only/ },
 ];
 
 const RACE = '/* TWO-CONNECTION RACE';

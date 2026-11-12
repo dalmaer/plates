@@ -1,12 +1,11 @@
 ---
-status: partial
-since: 2026-10-24
-owes: walk
+status: built
+since: 2026-11-06
 goal: G2
 spec: 2
 depends: [124]
-note: "Branch and concurrency source implemented with dual readers; #218 fixed first. Owner disable/drain/install barrier required before merging active workflows; phase 129 supplies dispatched-night and fleet proof."
-evidence: ["evidence/2026-10-24-branch-name-transition.md"]
+note: "Built: the rename is live on plates itself (observed 2026-11-06); the fleet's move is phase 129."
+evidence: ["evidence/2026-10-24-branch-name-transition.md", "evidence/2026-11-06-owner-questions.md"]
 issue: 241
 ---
 
@@ -20,7 +19,7 @@ Plates writes `plates-night/<date>`, `plates-night/<date>-final`, `plates-night-
 
 The design is [Name transition](../specs/name-transition.md), "Hazards".
 
-- **First, #218.** The finalize step rewrites the health page without the production-monitoring lines and the `keel:health-report:end` marker it did not write. Fix it, with its regression test, before the prefix changes, because both touch `plates-morning.yml` and `morning.mjs`.
+- **First, [issue 218](https://github.com/dalmaer/plates/issues/218).** The finalize step rewrites the health page without the production-monitoring lines and the `keel:health-report:end` marker it did not write. Fix it, with its regression test, before the prefix changes, because both touch `plates-morning.yml` and `morning.mjs`.
 - **Writers** (the table rows in phase 124 go from `held` to `dual`):
   - `plates-night.yml` and `plates-morning.yml` (the night and final PRs);
   - `night-plan.mjs` and `goodnight` (the plan branch and its blob path);
@@ -40,7 +39,7 @@ The design is [Name transition](../specs/name-transition.md), "Hazards".
 
 ## Acceptance
 
-- [x] #218 is fixed: a health page's lines outside the plan table survive finalize byte for byte. `tests/morning.test.mjs`: "finalize keeps the sections it did not write"
+- [x] [issue 218](https://github.com/dalmaer/plates/issues/218) is fixed: a health page's lines outside the plan table survive finalize byte for byte. `tests/morning.test.mjs`: "finalize keeps the sections it did not write"
 - [x] A fresh project's night, final, plan, climb, tend, loop, robot, update and verify writes use only plates names. `tests/night-box.test.mjs`: "a new project's whole night writes no keel name"
 - [x] An upgraded project with an open `keel-night/<date>` PR and a `keel-night-plan` dated tonight runs that plan. Its `-final` lands on `keel-night/<date>-final`, and drain merges both prefixes' PRs as one queue. `tests/night-box.test.mjs`: "a night started under keel's names finishes under them, and drains with plates's"
 - [x] Both plan branches dated tonight: the plates plan runs, and the record names the one it skipped. `tests/night-plan.test.mjs`: "two plans for one night: plates wins, and says so"
@@ -49,7 +48,7 @@ The design is [Name transition](../specs/name-transition.md), "Hazards".
 
 - [x] A live old-group run blocks a concurrency-name switch across both branch prefixes; completed cancellation permits it, requested cancellation and incomplete run coverage do not. `tests/workflows.test.mjs`: "old-group runs block the concurrency transition"
 
-- [ ] Owner-approved disable/drain/install barrier is held through merging the active workflows; phase 129 records the real dispatched-night and fleet walk. ⚑ by hand: the owner
+- [x] On plates itself the night writes `plates-night/<date>` branches, the night plan and verify branches under plates names, and every Actions artifact is named `plates-*` (observed 2026-11-06: 21 `plates-night/*` branches, `plates-night-plan`, `plates-verify`; one old `keel-night-plan` left, read under both names). The fleet's move is phase 129's walk; evidence/2026-11-06-owner-questions.md: `git ls-remote --heads origin 'plates-*' 'keel-*'`
 
 ## Real surfaces
 
@@ -69,7 +68,7 @@ By hand: phase 129's dispatched nights.
 
 ## Next action
 
-Complete exact-head review and the required integrated gate, then obtain the owner's approval to disable the exact affected workflows, drain active runs or observe completed cancellation, install this change while the barrier remains held, and re-enable. Keep this PR unmerged until that barrier is established: merging self-rendered workflows is installation. After release, phase 129 performs the owner-led dispatched-night and fleet verification. Phase 128 handles the held private claim-token path.
+None here: the fleet's move and its walk are phase 129's.
 
 ## Trajectory
 
@@ -78,3 +77,4 @@ Complete exact-head review and the required integrated gate, then obtain the own
 - **2026-10-24** — Current retry eligibility uses a separate exact source closure; historical retry pins remain unchanged. Neither closure is approval to dispatch or install renamed concurrency groups.
 
 - **2026-10-24** — Review exposed that an invalid legacy plan could authorize a canonical default. Selection now carries refusal and source provenance through publication, retry and morning recovery; missing files require successful tree evidence. The review correction has a VERIFIED red/green proof and retained two-direction mutation observations. See the phase evidence.
+- **2026-11-06** The owner's install barrier was overtaken: release v0.8.34 installed the rename, and plates itself writes and reads the plates names. Observed, not asked.

@@ -87,7 +87,7 @@ walk (a run on a real surface, an owner's read, a week of nights) says
 skips it, while it stays partial until the walk is done. Beside it,
 `waits: owner | time | external` says whose walk it is (absent: the owner's;
 a week of nights is `time`, a secret someone else sets is `external`), and
-home files it by that: the owner's walk under Ready to test, the rest under In progress / waiting. A phase that is not buildable before
+home files it by that: the owner's walk under Needs you (Try it), the rest on the plate's page under Waiting on time or agents. A phase that is not buildable before
 a day says `after: 2026-11-01`: `plates next` skips it until that day, and home
 lists it as waiting. The generated roadmap never reads the clock (a day
 passing must not make it stale): it names a dated phase "on or after" its date.
@@ -108,15 +108,20 @@ about. How can we make it clear what we want the user to do?":
 - **Why:** <one sentence: what it settles or unblocks>
 - **Look at:** <one line; it may hold a Markdown link>
 - **Choices:** <Choice A> | <Choice B> | …
+- **Recommend:** <Choice A>   (optional)
 - **Keeps it open:** <Choice B>   (optional)
 - **Takes:** <about how long, e.g. 5 minutes>
 - **Then:** <Choice A: what happens. Choice B: what happens.>
 - **Ready:** yes
 ```
 
-Keep the choices real and few (two to five). `**Ready when:** <what must
+Keep the choices real and few (two to five). **Recommend** names the one
+choice you would pick, spelled exactly as in Choices
+(`npm run roadmap -- --check` refuses any other), and Why keeps the reason;
+Home, the backlog, `plates home --backlog` and the review session mark that
+answer "Recommended". `**Ready when:** <what must
 happen first>` in place of `**Ready:** yes` says the owner cannot act yet:
-home lists it under In progress / waiting with that reason, never as the owner's. A
+the plate's page lists it under Waiting on time or agents with that reason, never as the owner's. A
 Markdown table of the data may follow the bullets.
 Two walk boxes: one `### ` sub-heading per box, in order. The owner answers
 with `plates walk done <phase> --choice "<choice>"` (or its walk on the hosted home), which records the choice and ticks the walk's box (a choice listed under

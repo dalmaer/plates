@@ -3,7 +3,7 @@
   "files": {
     ".agents/climb/PROTOCOL.md": {
       "practice": "climb",
-      "sha256": "d31221d9abfa51053d5dae3564d6bd2c670401ee547fff4fafa86082c035bd35"
+      "sha256": "42d14a46b85303a99d01402101a2a6439b9fb14adf2559abdae421506d81236f"
     },
     ".agents/climb/TEND.md": {
       "practice": "climb",
@@ -31,7 +31,7 @@
     },
     ".agents/climb/jobs/test-time.md": {
       "practice": "climb",
-      "sha256": "f70c28edb4ca379ef4ee932fe18c464e820b8127f723241934cf7ea813715d78"
+      "sha256": "3eedb2f645d123f9f8b93186c52abfd566a220cb72cfa632aac4f0865e896bd2"
     },
     ".agents/cross-review/REVIEW.md": {
       "practice": "cross-review",
@@ -67,7 +67,7 @@
     },
     ".github/workflows/check.yml": {
       "practice": "ci",
-      "sha256": "997e697726a31c07f6c989dc98bbe30cba1476d9b5ecf430a792ff0d35a1f4b1"
+      "sha256": "c89ca25998780d950dc2cc70dd4669ed2cc9b9c84b1c6cbe771ea22268265baa"
     },
     ".github/workflows/claude.yml": {
       "practice": "claude",
@@ -91,7 +91,7 @@
     },
     ".github/workflows/plates-night.yml": {
       "practice": "night",
-      "sha256": "f2b457d28b6716a60c5f0ea2f54aefb205ae918be14dbdc89beedfa0d9241dfe"
+      "sha256": "991d5a1ef6663e29759800bc781bb9d40d4921cdbfae5346b4ff672a71e01a28"
     },
     ".github/workflows/plates-publish.yml": {
       "practice": "delivery",
@@ -99,7 +99,7 @@
     },
     ".github/workflows/plates-robot-route.yml": {
       "practice": "climb",
-      "sha256": "8cd2c61ee42aa19fd38a0771f690d8fce17d70eb07d8cd4aa78c107b94807ff3"
+      "sha256": "f105b16f77fa704b7f41a9b4081f285ed3737492e0ce59b5afbc6764b5ed429c"
     },
     ".github/workflows/plates-robot.yml": {
       "practice": "climb",
@@ -155,7 +155,7 @@
     },
     "docs/templates/phase.md": {
       "practice": "phases",
-      "sha256": "cdeab6ef0bce8ab9fb7946d2a5d0c688e2d0eef2b9b0e70eabb85e21c211b499"
+      "sha256": "5bcd3fca90ae060d07350b51d25a47a6b8c3e496bab3d59f04ecf1e740416044"
     },
     "renovate.json": {
       "practice": "renovate",
@@ -183,7 +183,7 @@
     },
     "scripts/plates/climb.mjs": {
       "practice": "climb",
-      "sha256": "f17528ed8e3a3a07f17825022de612a56f2eb83e0a7b42fffcd3fce54a683188"
+      "sha256": "a0764de4942b0baa490d456014fd3da8609ced93aa309b29643e10c60223a9f7"
     },
     "scripts/plates/cross-review.mjs": {
       "practice": "cross-review",
@@ -195,7 +195,7 @@
     },
     "scripts/plates/delivery.mjs": {
       "practice": "delivery",
-      "sha256": "1dae0e51adeb9830f8fd6b906c867a240e83cfc110596e935429922eb7f99c39"
+      "sha256": "a153759cb1c8f7b08e80064d2d12c82899e9c0cd33396550063ae6390bd3d7ac"
     },
     "scripts/plates/distill.mjs": {
       "practice": "climb",
@@ -203,11 +203,11 @@
     },
     "scripts/plates/drain.mjs": {
       "practice": "night",
-      "sha256": "6e3a6dd608df90bec8c77da181798c8482208e477070a3cb445264fdd4395d10"
+      "sha256": "7e09f5990b0369b0aea6a9f72be45d3e756a08ef2b15891563ef3316e6ef13d4"
     },
     "scripts/plates/gate.mjs": {
       "practice": "night",
-      "sha256": "0ccdfbfcfd985ca3dfd83ae4cd785c2c79cbe284735860818eb7f31d2c9e8179"
+      "sha256": "1f9de1a31b2d1c08b6a6e7bc58fc546f95403e2b38f5eaf3d0da5719c475c2ee"
     },
     "scripts/plates/generated.mjs": {
       "practice": "phases",
@@ -227,7 +227,7 @@
     },
     "scripts/plates/lib.mjs": {
       "practice": "night",
-      "sha256": "52461ef8eac3d39c3af5ac8b2cc7ee07d386ba47d3ee214d36e882923aa51bc0"
+      "sha256": "2c71c6f9efa480f1533359359dbc88f44118e8f99f9f4c731106e0e607bed4c3"
     },
     "scripts/plates/milestones.mjs": {
       "practice": "night",
@@ -235,7 +235,7 @@
     },
     "scripts/plates/morning.mjs": {
       "practice": "night",
-      "sha256": "54bba5c8f87fa33b42eeeb2aebb8554bbf8a18da1c9f644c04a36eadc7049aa7"
+      "sha256": "a66aa9d00e4109c7cd23f13513e0a528480559d80a7c561b11d316e3a7c8cd9a"
     },
     "scripts/plates/names-environment.d.mts": {
       "practice": "night",
@@ -251,7 +251,7 @@
     },
     "scripts/plates/night-plan.mjs": {
       "practice": "night",
-      "sha256": "9611ed5e7ed273263c6b75e1c17888745eab0b6072662818c5f8602057b8a926"
+      "sha256": "9d14c74e6d450e8ffc7c86ff955b1903f8f15b07a02291ba523d2f17dd81411e"
     },
     "scripts/plates/persona.mjs": {
       "practice": "personas",
@@ -339,7 +339,7 @@
     },
     "scripts/plates/test-ledger.mjs": {
       "practice": "night",
-      "sha256": "8e6f58ab701d5441cb76e2f8b7be7dafbafabceed03fe0cefb380b499758bb96"
+      "sha256": "429371ccdfc9ab7c3c11c09042ad5d7e7105c8f895e55baa29f4528631566422"
     },
     "scripts/plates/time-measures.mjs": {
       "practice": "night",
@@ -367,7 +367,7 @@
     },
     "scripts/plates/verify.mjs": {
       "practice": "delivery",
-      "sha256": "ce04f740798a7df89d9fc1dce10e6a48bbf688d2dc52fea411bf7173a20189e5"
+      "sha256": "6d7aca45c162723aa4aa063aaf0c53c8600e1f546fd8fe8d983adad402ac4b83"
     },
     "scripts/plates/workflows.mjs": {
       "practice": "ci",
@@ -375,7 +375,7 @@
     },
     "scripts/roadmap.mjs": {
       "practice": "phases",
-      "sha256": "42aa630f51a884f4d1066cd19972c41d3a7365741cfcd84d78b5e7a6706ccf42"
+      "sha256": "2afcb9c18209b2489a4ec12af5aff4942006fca2190b30ae6516a621e5bddd05"
     },
     "tests/plates-generated.test.mjs": {
       "practice": "phases",
@@ -387,7 +387,7 @@
     },
     "tests/roadmap.test.mjs": {
       "practice": "phases",
-      "sha256": "37d80ceabcd455a3985c168373a7ff0a32b2948ad92e2b845f94ba8f403f0786"
+      "sha256": "dc82f4c05ade321a49a450f5a011885f0277ca22fdbccf7ff3986ed1c4f1529a"
     }
   }
 }

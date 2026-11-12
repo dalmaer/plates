@@ -7,15 +7,16 @@
 // tree, where the night's scripts are not beside it.
 //
 //   deliveryOf(config)        .plates/plates.json "delivery": { tested, gateWorkflow,
-//                             site, version, smoke, promote, vercel, migrations,
-//                             grant }, validated, each error naming its key (site,
+//                             workflows, site, version, smoke, promote, vercel,
+//                             migrations, grant }, validated, each error naming its
+//                             key (workflows: plates doctor workflow-concurrency; site,
 //                             version and smoke: phase 81's verifier,
 //                             scripts/plates/verify.mjs; promote: phase 82's plates
 //                             promote, scripts/plates/promote.mjs; vercel,
 //                             migrations and grant: phase 177's Vercel target,
 //                             scripts/plates/vercel.mjs)
 //   concurrencyOf(text)       a workflow's concurrency blocks, read as text
-//   workflowKind(file, text, { gate })  'test', 'publish' or null
+//   workflowKind(file, text, { gate, check, workflows })  'test', 'publish' or null
 //   concurrencyProblems(file, text, kind)  the rule, broken: [string]
 //
 // The rule (design item 6; isocan's test/workflows.test.ts is the model):
@@ -31,6 +32,10 @@ export const TESTED = 'green';
 export const PUBLISH_WORDS = Object.freeze(['publish', 'deploy', 'deployment', 'release', 'promote']);
 /** Words that make it a test or gate workflow (when not a publish one). */
 export const TEST_WORDS = Object.freeze(['test', 'tests', 'check', 'checks', 'ci', 'gate']);
+/** Words that name a verifier, smoke check or alerter rather than a deploy or test suite (#212). */
+export const OBSERVER_WORDS = Object.freeze(['verify', 'verification', 'verifier', 'smoke', 'alert', 'alerts', 'alerter', 'notify', 'notifier', 'notification', 'notifications']);
+const CODE_TRIGGERS = ['push', 'pull_request', 'pull_request_target', 'merge_group'];
+const WORKFLOW_KINDS = ['test', 'publish', 'deploy', 'none'];
 
 /**
  * A group expression that names the ref or the commit: two runs of different
@@ -116,7 +121,7 @@ export function jobKeys(text) {
       if (at !== indent) continue;
       const m = /^\s*(if|needs):[ \t]*(.*?)[ \t]*$/.exec(l);
       if (!m) continue;
-      if (m[1] === 'if') { const s = scalar(m[2]); keys.if = s.error || !s.value ? null : normExpr(s.value); continue; }
+      if (m[1] === 'if') { const s = scalar(m[2]); keys.if = s.error || !s.value ? false : normExpr(s.value); continue; }
       const v = m[2].replace(/[ \t]+#.*$/, '');
       if (v.startsWith('[')) keys.needs = v.replace(/^\[|\]$/g, '').split(',').map(x => x.trim().replace(/^(["'])(.*)\1$/, '$2')).filter(Boolean);
       else if (v) keys.needs = [scalar(v).value].filter(Boolean);
@@ -129,15 +134,16 @@ export function jobKeys(text) {
 
 /**
  * Whether a job runs only on `cond`: its own `if:` is `cond`, or it needs a
- * job that does and its `if:` (when set) has no always(), failure() or
- * cancelled(), so a skipped need skips it too.
+ * job that does and its `if:` (when set) is readable and has no status
+ * function (always(), failure(), cancelled(), success()), so a skipped need
+ * skips it too (#189).
  */
 function jobOnlyOn(keys, name, cond, seen = new Set()) {
   const j = keys[name];
   if (!j || seen.has(name)) return false;
   seen.add(name);
   if (j.if === cond) return true;
-  if (j.if && /\b(always|failure|cancelled)\s*\(/.test(j.if)) return false;
+  if (j.if === false || (j.if && /\b(always|failure|cancelled|success)\s*\(/i.test(j.if.replace(/'(?:[^']|'')*'/g, '')))) return false;
   return j.needs.some(n => jobOnlyOn(keys, n, cond, seen));
 }
 
@@ -192,6 +198,13 @@ export function deliveryProblems(config) {
   }
   if (d.gateWorkflow !== undefined && (typeof d.gateWorkflow !== 'string' || !d.gateWorkflow.trim() || d.gateWorkflow !== d.gateWorkflow.trim() || /[\r\n\0"\\]/.test(d.gateWorkflow))) {
     out.push('.plates/plates.json "delivery".gateWorkflow must be the gate workflow\'s file (like "check.yml") or the name GitHub shows for it');
+  }
+  if (d.workflows !== undefined) {
+    if (!d.workflows || typeof d.workflows !== 'object' || Array.isArray(d.workflows)) out.push('.plates/plates.json "delivery".workflows must be an object mapping a workflow\'s file or name to "test", "publish", "deploy" or "none"');
+    else for (const [k, v] of Object.entries(d.workflows)) {
+      if (!k.trim() || k !== k.trim() || /[\r\n\0"\\]/.test(k)) out.push(`.plates/plates.json "delivery".workflows key ${JSON.stringify(k)} must be a workflow's file (like "deploy.yml") or the name GitHub shows for it`);
+      if (!WORKFLOW_KINDS.includes(v)) out.push(`.plates/plates.json "delivery".workflows[${JSON.stringify(k)}] must be "test", "publish", "deploy" or "none" (got ${JSON.stringify(v)})`);
+    }
   }
   // The verifier's keys (phase 81): where production is, which path reports its commit, and what to smoke-test.
   if (d.site !== undefined) {
@@ -339,7 +352,8 @@ export function deliveryOf(config) {
   const d = config?.delivery ?? {};
   const smoke = (d.smoke ?? []).map(c => typeof c === 'string' ? { path: c, status: [200] } : { path: c.path, status: c.status === undefined ? [200] : [c.status].flat() });
   return { tested: d.tested ?? TESTED, gateWorkflow: d.gateWorkflow ?? null, site: d.site ? new URL(d.site).origin : null, version: d.version ?? null, smoke, promote: promoteRefOf(d.promote),
-    // A Vercel target's keys (phase 177), only with one; the grant, only when the owner set it.
+    // Explicit workflow roles (#212), a Vercel target's keys (phase 177), and the grant, only when set.
+    ...(d.workflows ? { workflows: Object.fromEntries(Object.entries(d.workflows).map(([k, v]) => [k, v === 'deploy' ? 'publish' : v === 'none' ? null : v])) } : {}),
     ...(d.vercel ? { vercel: { scope: d.vercel.scope, checkout: d.vercel.checkout, globalConfig: d.vercel.globalConfig ?? null }, migrations: d.migrations ?? MIGRATIONS } : {}),
     ...(d.grant ? { grant: { agentPromote: d.grant.agentPromote, since: d.grant.since } } : {}) };
 }
@@ -360,6 +374,9 @@ const bool = v => v === 'true' ? true : v === 'false' ? false : v;
  * form this reader does not take (an anchor, alias, tag, block scalar, flow
  * collection, or an unclosed quote). Never a guess.
  */
+/** A YAML double-quoted scalar's single-character escapes (§5.7); `\\x`, `\\u` and `\\U` take hex digits. */
+const YAML_ESCAPES = { 0: '\0', a: '\x07', b: '\b', t: '\t', '\t': '\t', n: '\n', v: '\v', f: '\f', r: '\r', e: '\x1b', ' ': ' ', N: '\x85', _: '\xa0', L: '\u2028', P: '\u2029' };
+
 export function scalar(raw) {
   const v = (raw ?? '').trim();
   if (!v) return { value: '' };
@@ -368,7 +385,12 @@ export function scalar(raw) {
     let k = 1, out = '';
     for (; k < v.length; k++) {
       if (q === "'" && v[k] === "'" && v[k + 1] === "'") { out += "'"; k++; continue; }
-      if (q === '"' && v[k] === '\\' && k + 1 < v.length) { out += v[++k]; continue; }
+      if (q === '"' && v[k] === '\\' && k + 1 < v.length) {
+        const e = v[++k], hex = { x: 2, u: 4, U: 8 }[e];
+        if (hex && /^[0-9a-fA-F]+$/.test(v.slice(k + 1, k + 1 + hex)) && v.length > k + hex) { out += String.fromCodePoint(parseInt(v.slice(k + 1, k + 1 + hex), 16)); k += hex; continue; }
+        out += YAML_ESCAPES[e] ?? e;
+        continue;
+      }
       if (v[k] === q) break;
       out += v[k];
     }
@@ -475,20 +497,224 @@ export function concurrencyOf(text) {
 
 const words = s => (s ?? '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
 
+/** Strip an unquoted YAML `#` comment from one line. */
+function stripYamlComment(line) {
+  let quote = null;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (quote === "'") { if (c === "'" && line[i + 1] === "'") i++; else if (c === "'") quote = null; continue; }
+    if (quote === '"') { if (c === '\\') i++; else if (c === '"') quote = null; continue; }
+    if ((c === "'" || c === '"') && (!i || /[\s[{,:-]/.test(line[i - 1]))) { quote = c; continue; }
+    if (c === '#' && (!i || /[ \t]/.test(line[i - 1]))) return line.slice(0, i);
+  }
+  return line;
+}
+
+/** Fold a YAML `>` block scalar's indent-stripped lines, keeping blank and more-indented breaks. */
+function foldYaml(lines) {
+  const first = lines.findIndex(Boolean);
+  if (first < 0) return '';
+  const normal = s => s[0] !== ' ' && s[0] !== '\t';
+  let out = lines[first], prevNormal = normal(out), empties = 0;
+  for (const l of lines.slice(first + 1)) {
+    if (!l) { empties++; continue; }
+    const curNormal = normal(l);
+    out += (prevNormal && curNormal ? (empties ? '\n'.repeat(empties) : ' ') : '\n'.repeat(empties + 1)) + l;
+    prevNormal = curNormal;
+    empties = 0;
+  }
+  return out;
+}
+
+/** Strip unquoted POSIX-shell `#` comments (tracking words, quotes, `${…}` and `\` escapes). */
+function stripShellComments(text) {
+  let out = '', quote = null, word = false, dollar = false, param = 0;
+  const heredocs = [];
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    // A heredoc body is data, copied as is up to its delimiter line: no quote state, no comments.
+    if (c === '\n' && !quote && heredocs.length) {
+      while (heredocs.length && i < text.length) {
+        const { delim, tabs } = heredocs.shift();
+        for (;;) {
+          out += text[i++];
+          if (i >= text.length) break;
+          const end = text.indexOf('\n', i), line = text.slice(i, end < 0 ? text.length : end);
+          if ((tabs ? line.replace(/^\t+/, '') : line) === delim) { out += line; i += line.length; break; }
+          out += line;
+          i += line.length;
+          if (i >= text.length) break;
+        }
+      }
+      if (i >= text.length) break;
+      out += text[i];
+      word = false;
+      dollar = false;
+      continue;
+    }
+    const here = !quote && !param && c === '<' && text[i + 1] === '<' && text[i + 2] !== '<' && text[i - 1] !== '<'
+      ? /^<<(-?)[ \t]*((?:[^\s;&|()<>'"\\]|\\.|'[^']*'|"[^"]*")+)/.exec(text.slice(i)) : null;
+    if (here) {
+      heredocs.push({ delim: here[2].replace(/'([^']*)'|"([^"]*)"|\\(.)/g, (_, a, b, e) => a ?? b ?? e), tabs: Boolean(here[1]) });
+      out += here[0];
+      i += here[0].length - 1;
+      word = true;
+      dollar = false;
+      continue;
+    }
+    if (quote === "'") { out += c; if (c === "'") quote = null; continue; }
+    if (c === '\\') {
+      dollar = false;
+      if (text[i + 1] === '\n') { i++; continue; }
+      out += c + (text[++i] ?? '');
+      word = true;
+      continue;
+    }
+    if (quote) { out += c; if (c === quote.at(-1)) quote = null; continue; }
+    if (c === "'" || c === '"') { quote = c === "'" && dollar ? "$'" : c; word = true; dollar = false; out += c; continue; }
+    if ((dollar || param) && c === '{') { param++; word = true; dollar = false; out += c; continue; }
+    if (param && c === '}') { param--; word = true; dollar = false; out += c; continue; }
+    if (c === '#' && !word && !param) {
+      while (text[i + 1] && text[i + 1] !== '\n') i++;
+      continue;
+    }
+    out += c;
+    dollar = c === '$';
+    word = !/[\s;&|()<>]/.test(c);
+  }
+  return out;
+}
+
+/** A workflow's top-level `on:` event names, or null when `on:` is absent or unreadable. */
+export function workflowTriggers(text) {
+  const lines = (text ?? '').split('\n');
+  const at = lines.findIndex(l => /^(on|"on"|'on'):([ \t]|$)/.test(l));
+  if (at < 0) return null;
+  let start = at;
+  let inline = stripYamlComment(lines[at].replace(/^[^:]*:/, '')).trim();
+  if (!inline) {
+    const next = lines.findIndex((l, i) => i > at && Boolean(stripYamlComment(l).trim()));
+    if (next > at && /^\s+[[{]/.test(lines[next])) {
+      start = next;
+      inline = stripYamlComment(lines[next]).trim();
+    }
+  }
+  if (inline[0] === '[' || inline[0] === '{') {
+    for (const l of lines.slice(start + 1)) {
+      if (inline[closing(inline)]) break;
+      const raw = stripYamlComment(l);
+      const next = raw.trim();
+      if (!next) continue;
+      if (!/^\s/.test(raw) && next[0] !== ']' && next[0] !== '}') break;
+      inline += ' ' + next;
+    }
+    const end = closing(inline);
+    if (inline[end] !== (inline[0] === '[' ? ']' : '}') || inline.slice(end + 1).trim()) return null;
+    const isMap = inline[0] === '{';
+    const out = [];
+    for (const part of topLevel(inline.slice(1, end), ',').map(p => p.trim()).filter(Boolean)) {
+      const s = scalar(isMap ? topLevel(part, ':')[0] : part);
+      if (s.error || !/^[A-Za-z_]\w*$/.test(s.value)) return null;
+      out.push(s.value);
+    }
+    return out;
+  }
+  if (inline) {
+    const s = scalar(inline);
+    return s.error || !/^[A-Za-z_]\w*$/.test(s.value) ? null : [s.value];
+  }
+  const out = [];
+  let indent = null;
+  for (const l of lines.slice(at + 1)) {
+    const clean = stripYamlComment(l);
+    if (!clean.trim()) continue;
+    if (!/^\s/.test(clean)) break;
+    const m = /^(\s+)(?:-\s+)?["']?([A-Za-z_]\w*)["']?\s*(?::|$)/.exec(clean);
+    if (!m) continue;
+    indent ??= m[1].length;
+    if (m[1].length === indent) out.push(m[2]);
+  }
+  return out.length ? out : null;
+}
+
+/** Every step's `uses:` and non-comment `run:` lines under `jobs:`: { uses: [string], runs: [string] }. */
+export function workflowSteps(text) {
+  const lines = (text ?? '').split('\n');
+  const uses = [], runs = [];
+  for (const job of jobsOf(text)) {
+    for (let i = job.line; i < job.end; i++) {
+      const l = lines[i];
+      if (!l.trim() || /^\s*#/.test(l)) continue;
+      const u = /^\s*(?:-\s+)?uses:[ \t]*(.+?)[ \t]*$/.exec(l);
+      if (u) { const s = scalar(u[1]); if (s.value) uses.push(s.value); continue; }
+      const r = /^(\s*)(-\s+)?run:[ \t]*(.*?)[ \t]*$/.exec(l);
+      if (!r) continue;
+      const keyIndent = r[1].length + (r[2] ? r[2].length : 0);
+      const block = r[3].replace(/(?:^|[ \t]+)#.*$/, '').trim();
+      if (/^[|>][-+]?\d*$/.test(block)) {
+        const rawBlock = [];
+        let j = i + 1;
+        for (; j < job.end; j++) {
+          const bl = lines[j];
+          if (bl.trim() && bl.search(/\S/) <= keyIndent) break;
+          rawBlock.push(bl);
+        }
+        while (rawBlock.length && !rawBlock.at(-1).trim()) rawBlock.pop();
+        const indDigit = /[1-9]/.exec(block)?.[0];
+        const firstNonEmpty = rawBlock.find(b => b.trim());
+        const baseIndent = indDigit ? keyIndent + Number(indDigit) : (firstNonEmpty ? firstNonEmpty.search(/\S/) : keyIndent + 1);
+        const sliced = rawBlock.map(b => b.slice(baseIndent));
+        const script = block[0] === '>' ? foldYaml(sliced) : sliced.join('\n');
+        for (const code of stripShellComments(script).split('\n')) {
+          if (code.trim()) runs.push(code.trim());
+        }
+        i = j - 1;
+      } else {
+        const s = scalar(r[3]);
+        const code = s.value ? stripShellComments(s.value).trim() : '';
+        if (code) runs.push(code);
+      }
+    }
+  }
+  return { uses, runs };
+}
+
+const PUBLISH_USES = /(?:^|\/)(?:deploy-[\w-]+|[\w-]+-deploy|[\w-]*vercel-action|wrangler-action|action-gh-release|actions-gh-pages|changesets\/action)@/i;
+const PUBLISH_RUN = /\bscripts\/(?:plates|keel)\/(?:publish|promote|vercel)\.mjs\b|\bvercel\b[^\n;|&]*\s(?:deploy|promote|--prod)\b|\b(?:wrangler|flyctl|railway|netlify|firebase)\s+deploy\b|\bgcloud\s+(?:run|app|functions)\s+deploy\b|\b(?:npm|pnpm|yarn|bun|cargo)\s+publish\b|\bgh\s+release\s+create\b|(?:^|[;&|]\s*|\bthen\s+|\belse\s+)(?:(?:\.\/|(?:ba)?sh\s+|node\s+)(?:scripts\/)?(?:deploy|publish|release|promote)(?:\.(?:sh|mjs|js|ts))?|scripts\/(?:deploy|publish|release|promote)\.(?:sh|mjs|js|ts))(?=\s|$)|\b(?:npm|pnpm|yarn|bun)\s+run\s+(?:deploy|publish|release|promote)(?::[\w-]+)?\b/;
+const VERIFY_RUN = /\bscripts\/(?:plates|keel)\/verify\.mjs\b|\bverify-production\.(?:mjs|js|ts)\b/;
+const TEST_RUN = /\bscripts\/(?:plates|keel)\/(?:gate|test-ledger)\.mjs\b|\b(?:npm|pnpm|yarn|bun)\s+(?:test|run\s+test(?::[\w-]+)?)\b|\bnode\s+(?:[^\n;|&]*\s)?--test\b|\b(?:npx\s+|pnpm\s+exec\s+|yarn\s+)?(?:vitest|jest|mocha)\b|\b(?:pytest|cargo\s+test|go\s+test)\b/;
+
 /**
- * What the rule holds a workflow to: 'publish' when its file name or `name:`
- * says publish, deploy, release or promote; else 'test' when it is the gate
- * workflow (`gate`: its file or name) or says test, check, ci or gate; else
- * null (not checked). Found by reading, so a workflow added next month is held
- * to the rule without anyone listing it.
+ * What the rule holds a workflow to (#212): `"delivery".workflows` when named;
+ * else 'publish' when a step publishes/deploys or its file/`name:` says publish,
+ * deploy, release or promote (and is not a verifier or alerter); else 'test'
+ * on code refs (`push`, `pull_request`, `pull_request_target`, `merge_group`,
+ * or unset `on:`) when it is the gate workflow, runs the gate/test suite, or
+ * says test, check, ci or gate (and is not a verifier or alerter); else null.
  */
-export function workflowKind(file, text, { gate = null } = {}) {
+export function workflowKind(file, text, { gate = null, check = null, workflows = null } = {}) {
   const base = file.split('/').pop();
+  const stem = base.replace(/\.ya?ml$/, '');
   const name = workflowName(text);
-  const said = [...words(base.replace(/\.ya?ml$/, '')), ...words(name)];
-  if (said.some(w => PUBLISH_WORDS.includes(w))) return 'publish';
-  if (gate && [base, file, name].includes(gate)) return 'test';
-  if (said.some(w => TEST_WORDS.includes(w))) return 'test';
+  if (workflows && typeof workflows === 'object' && !Array.isArray(workflows)) {
+    for (const k of [file, base, stem, name]) {
+      if (k && Object.hasOwn(workflows, k) && WORKFLOW_KINDS.includes(workflows[k])) {
+        const v = workflows[k];
+        return v === 'publish' || v === 'deploy' ? 'publish' : v === 'test' ? 'test' : null;
+      }
+    }
+  }
+  const said = [...words(stem), ...words(name)];
+  const { uses, runs } = workflowSteps(text);
+  if (uses.some(u => PUBLISH_USES.test(u)) || runs.some(r => PUBLISH_RUN.test(r))) return 'publish';
+  const observer = said.some(w => OBSERVER_WORDS.includes(w));
+  if (said.some(w => PUBLISH_WORDS.includes(w)) && !observer && !runs.some(r => VERIFY_RUN.test(r))) return 'publish';
+  const triggers = workflowTriggers(text);
+  if (triggers !== null && !triggers.some(t => CODE_TRIGGERS.includes(t))) return null;
+  if (gate && [base, file, stem, name].includes(gate)) return 'test';
+  const checkRe = typeof check === 'string' && check.trim() ? new RegExp(`(^|[^\\w:.-])${check.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w:.-])`) : null;
+  if (runs.some(r => TEST_RUN.test(r) || (checkRe !== null && checkRe.test(r)))) return 'test';
+  if (said.some(w => TEST_WORDS.includes(w)) && !observer) return 'test';
   return null;
 }
 

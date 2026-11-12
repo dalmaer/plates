@@ -13,7 +13,7 @@ import { run } from './helpers/run.mjs';
 import {
   MEASURES, selftest, measure, propose, proposalText, tighten, conductCost, commandKind, exitCode, FIXTURE,
 } from '../lib/improve.mjs';
-import { PLATES, BIN, ENV, plates, byId, scratch, project, snapshot, ghStub, setConfig } from './helpers/improve.mjs';
+import { PLATES, BIN, ENV, plates, byId, scratch, project, projectQuickGate, snapshot, ghStub, setConfig } from './helpers/improve.mjs';
 
 test('selftest: every measure reports outside on the unhealthy fixture', async () => {
   const r = await selftest();
@@ -52,7 +52,7 @@ test('a healthy fresh project: within bounds, exit 0, and every n/a says why', a
 });
 
 test('n/a says which: gh missing, gh not authenticated, phases a local variant', async t => {
-  const dir = await project(t);
+  const dir = await projectQuickGate(t);
   await setConfig(dir, { repo: 'acme/storefront' });
   let r = plates(['improve', '--json'], dir, { ...ENV, PLATES_GH: '/nonexistent/gh' });
   assert.match(byId(r.json(), 'ci_red_streak').detail, /gh is not installed/);
@@ -70,7 +70,7 @@ test('n/a says which: gh missing, gh not authenticated, phases a local variant',
 });
 
 test('a broken instrument is broken, exits 2, and is never a zero', async t => {
-  const dir = await project(t);
+  const dir = await projectQuickGate(t);
   let r = plates(['improve', '--transcripts', join(dir, 'no-such-dir'), '--json'], dir);
   assert.equal(r.code, 2, r.out);
   const cost = byId(r.json(), 'conduct_cost');
@@ -115,7 +115,7 @@ test('the ratchet tightens to a better value and never loosens', async t => {
   assert.equal(tighten([{ id: 'machine_prs', state: 'ok', value: 0 }], {}).bounds.machine_prs, 1);
 
   // End to end: a loose project bound tightens; a worse value later stays outside it.
-  const dir = await project(t);
+  const dir = await projectQuickGate(t);
   await writeFile(join(dir, '.plates', 'bounds.json'), JSON.stringify({ lessons_without_guard: 5 }));
   let r = plates(['improve', '--report', '--json'], dir);
   assert.equal(r.code, 0, r.out);
@@ -132,7 +132,7 @@ test('the ratchet tightens to a better value and never loosens', async t => {
 });
 
 test('--report writes that day\'s page and the bounds, nothing else; the one proposal is deterministic', async t => {
-  const dir = await project(t);
+  const dir = await projectQuickGate(t);
   await setConfig(dir, { repo: 'acme/storefront' });
   // Opened today: none is stale (prs_stale), so the proposal is machine_prs.
   const prs = JSON.stringify(['keel-night/a', 'keel-night/b', 'keel-night/c', 'renovate/a', 'renovate/b'].map((headRefName, i) => ({ number: i + 1, title: headRefName, createdAt: new Date().toISOString(), headRefName })));
@@ -167,7 +167,7 @@ test('--report writes that day\'s page and the bounds, nothing else; the one pro
 });
 
 test('--report with tonight\'s plan: the measure item is ticked, the plan as it ended is docs/night/<date>.json, and the page shows each item and its outcome', async t => {
-  const dir = await project(t);
+  const dir = await projectQuickGate(t);
   const env = { ...ENV, PLATES_GH: await ghStub(t) };
   // improve dates its page by the local date; the night's runner is UTC, where the two agree.
   const d = new Date(), date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

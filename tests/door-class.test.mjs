@@ -148,9 +148,11 @@ test('home declares the doors of every writer its answers reach', async () => {
     'claim release': ['delete', 'local edit'],
     // Not now is the owner's private state, outside every project.
     'not now': ['local edit'],
+    // Phase 176: a ready PR merged at the card's head, and changes requested as a comment review.
+    'pr merge': ['merge'], 'pr comment': ['comment'],
   };
-  // The three writers plates never runs, in either form (lib/work-items.mjs ELSEWHERE).
-  const never = ['repo delete', 'pr merge', 'feedback resolve'];
+  // The writers plates never runs, in either form (lib/work-items.mjs ELSEWHERE).
+  const never = ['repo delete', 'feedback resolve'];
   assert.deepEqual(Object.keys(WRITERS).filter(w => !never.includes(w)).sort(), Object.keys(reaches).sort(), 'every writer home runs is classified here');
   for (const [writer, ops] of Object.entries(reaches)) {
     assert.ok(ops.length, `${writer} performs something`);

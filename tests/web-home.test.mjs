@@ -1,87 +1,113 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { homeView, projectView, renderHomeSnapshot, safeSourceLink, isLoadingOnly, signinView, errorView, styles } from '../lib/web/views.mjs';
+import { homeSnapshot, homeSections } from '../lib/work-items.mjs';
 const access = { workspace:{name:'Acme workspace'},projects:[{id:'studio',repo:'acme/studio'}],sourceRevision:'a'.repeat(40),csrf:'fake-csrf-acme' };
-const action = (id,kind,projectId='studio') => ({id,projectId,projectName:projectId === 'studio' ? 'Acme Studio' : 'Acme API',kind,title:`Acme ${kind} ${id}`,why:'Source asks for an owner observation.',next:'Read the current source.',link:'https://github.com/acme/studio/blob/main/docs/phases/1.md',phase:'1',ready:true,details:{ask:'Does publishing work?',why:'A human uses the real surface.',look:'Open the preview.',then:'Record what happened.',takes:'About five minutes',choices:['Verified','Needs changes','Cannot check yet']} });
-function snapshot() {
-  const decision=action('decision-one','decision'), walk=action('walk-one','walk'), waiting=action('wait-one','waiting');
-  return {schema:1,cursor:'a'.repeat(64),cursorState:'initial',generatedAt:'2026-10-21T16:00:00.000Z',coverage:{state:'complete',gaps:[]},projects:[{id:'studio',repoId:100,repo:'acme/studio',name:'Acme Studio',tagline:'Publishing, made reliable.',stack:['node','web'],version:'0.8.32',revision:'b'.repeat(40),readAt:'2026-10-21T15:59:00.000Z',state:'complete',gaps:[],planning:{source:'files',built:8,total:12,livedIn:3,headline:'Make publishing reliable on every screen',goals:[],next:'Review publishing on a phone'},decisions:[decision],walks:[walk],waiting:[waiting],changes:[]}],decisions:[decision],walks:[walk],waiting:[waiting],changes:[{id:'change-one',projectId:'studio',projectName:'Acme Studio',title:'Publish from a phone',date:'2026-10-21',revision:'b'.repeat(40),link:'https://github.com/acme/studio/commit/abc',kind:'commit',media:null,previewUrl:null,acceptance:'not established'}],quota:{remaining:150,resetAt:'2026-10-21T17:00:00.000Z',state:'known'}};
+const TODAY = '2026-10-21';
+const action = (id,kind,projectId='studio',more={}) => ({id,projectId,projectName:projectId === 'studio' ? 'Acme Studio' : 'Acme API',kind,itemKind:kind === 'walk' ? 'walk' : kind === 'decision' ? 'step' : 'phase',ref:id,title:`Acme ${kind} ${id}`,why:'Source asks for an owner observation.',next:'Read the current source.',link:'https://github.com/acme/studio/blob/main/docs/phases/1.md',phase:'1',ready:true,details:{ask:'Does publishing work?',why:'A human uses the real surface.',look:'Open the preview.',then:'Record what happened.',takes:'About five minutes',choices:['Verified','Needs changes','Cannot check yet']},...more});
+const plate = (more={}) => ({id:'studio',repoId:100,repo:'acme/studio',name:'Acme Studio',tagline:'Publishing, made reliable.',stack:['node','web'],version:'0.8.32',revision:'b'.repeat(40),readAt:'2026-10-21T15:59:00.000Z',state:'complete',gaps:[],
+  planning:{source:'files',built:8,total:12,livedIn:3,headline:'Make publishing reliable on every screen',goals:[],next:'Review publishing on a phone'},
+  decisions:[action('decision-one','decision',undefined,{since:'2026-10-02'})],walks:[action('walk-one','walk',undefined,{since:'2026-10-01'}),action('walk-later','walk',undefined,{ready:false})],waiting:[action('wait-one','waiting')],reviews:[],
+  changes:[{id:'studio:phase-change:4',projectId:'studio',projectName:'Acme Studio',title:'Publish from a phone',date:'2026-10-20',revision:'b'.repeat(40),link:'https://github.com/acme/studio/blob/main/docs/phases/4.md',kind:'phase',media:null,previewUrl:null,acceptance:'source claim'},
+    {id:'studio:phase-change:2',projectId:'studio',projectName:'Acme Studio',title:'An old Acme phase',date:'2026-09-01',revision:'b'.repeat(40),link:null,kind:'phase',media:null,previewUrl:null,acceptance:'source claim'}],
+  daily:{state:'read',date:'2026-10-20',from:'docs/night/2026-10-20.json',counts:{planned:0,running:0,done:2,failed:1,skipped:0,'left-alone':0},readiness:{why:'every build item is terminal'}},...more});
+/** What /api/home returns for these plates: the model's own snapshot, built as the server builds it. */
+function snapshot(projects=[plate()],options={}) {
+  return {schema:1,cursor:'a'.repeat(64),cursorState:'initial',generatedAt:'2026-10-21T16:00:00.000Z',...homeSnapshot(projects,{sections:homeSections(),can:{form:'web'},today:TODAY,...options}),quota:{remaining:150,resetAt:'2026-10-21T17:00:00.000Z',state:'known'}};
 }
 function freeze(value) { if (value && typeof value === 'object') { Object.freeze(value); Object.values(value).forEach(freeze); } return value; }
-test('Home prioritizes decisions, ready walks, changes, projects and waiting without mutating its snapshot', () => {
-  const data=freeze(snapshot()), before=JSON.stringify(data), html=homeView(access,data);
-  const positions=['Decisions that need you','Ready to test','Recently added','Your plates','In progress / waiting'].map(title => html.indexOf(`>${title}</h2>`));
-  assert.ok(positions.every(p=>p>0)); assert.deepEqual([...positions].sort((a,b)=>a-b),positions);
-  assert.match(html,/Does publishing work\?/); assert.match(html,/Open walk instructions ↗/);
-  assert.match(html,/8 \/ 12 built · 3 lived-in/); assert.match(html,/Review publishing on a phone/);
-  assert.equal(JSON.stringify(data),before); assert.match(html,/data-record="action-decision-one"/);
+const headings = html => [...html.matchAll(/<h2 id="[^"]+">([^<]+)<\/h2>/g)].map(m => m[1]);
+
+// Phase 166, increment 2: the hosted page is the model's four sections, in order, with its items and counts.
+test('the page shows the four sections in order with the model\'s items and counts', () => {
+  const data=freeze(snapshot()), before=JSON.stringify(data), html=homeView(access,data), four=data.home.sections, sec=id=>four.find(s=>s.id===id);
+  assert.deepEqual(headings(html), ['Your plates','Needs you','Since you last looked','What should happen next?','Your plates']);
+  // Needs you: one row per model row, in the model's order, each with its one verb.
+  const rows=[...html.matchAll(/<li class="need p-card" data-record="([^"]+)" data-verb="([^"]+)"[\s\S]*?<span class="verb[^"]*">([^<]+)<\/span>[\s\S]*?<h3>([^<]+)<\/h3>/g)].map(m=>[m[2],m[3],m[4]]);
+  assert.deepEqual(rows, sec('needs-you').items.map(r=>[r.verb,r.label,r.title]));
+  assert.deepEqual(rows.map(r=>r[0]), ['fix','decide','try'], 'the fixture has one of each, in rank');
+  assert.match(html, new RegExp(`id="needs-you-title">Needs you</h2><span class="meta">${sec('needs-you').count}</span>`));
+  // The Start panel counts what Needs you counts, the Fix with no answers too; its minutes and session cover the answerable ones.
+  assert.ok(sec('needs-you').count > data.docket.length, 'the fixture has a row with no answers');
+  assert.equal(Number(/<p class="review-start p-card"><strong>(\d+) need/.exec(html)[1]), sec('needs-you').count);
+  // Phase 173's answers are kept: each answerable row names them and opens the review session.
+  assert.match(html,/data-answers>Answers: Verified · Needs changes · Cannot check yet · Not yet|data-answers>Answers: [^<]*Not now/);
+  assert.match(html,/<a href="\/review" data-focus="answer-need-studio:walk:walk-one">Answer →<\/a>/);
+  assert.match(html,/Guided walks →/); assert.match(html,/What to check/);
+  // Nothing waiting on time or agents is on home: it is on the plate's page.
+  assert.doesNotMatch(html,/Acme waiting wait-one|Acme walk walk-later/);
+  // Since you last looked: grouped by plate, only inside the window, with the count.
+  assert.match(html,new RegExp(`id="since-title">Since you last looked</h2><span class="meta">${sec('since').count} · the last 7 days</span>`));
+  assert.match(html,/<h3>Acme Studio<\/h3><ul class="since-lines"><li><time>2026-10-20<\/time><span>Phase 4 built: Publish from a phone/);
+  assert.match(html,/The night of 2026-10-20: 2 done, 1 failed/); assert.doesNotMatch(html,/An old Acme phase/);
+  // What should happen next?: the web cannot read what is queued yet; each source is one quiet line with its command.
+  assert.match(html,/<p class="meta quiet-line" data-queue="night">Tonight&#39;s plan: not read here · <code>plates goodnight<\/code><\/p>/);
+  assert.match(html,/data-queue="agent">Open agent issues: not read here · <code>plates home<\/code>/);
+  assert.match(html,/id="next-title">What should happen next\?<\/h2><span class="meta">0 known queued<\/span>/);
+  // Your plates: one compact chip each, with the model's status.
+  assert.match(html,/<a class="plate-chip p-card" data-status="broken" data-focus="project-studio" href="\/projects\/studio"><strong>Acme Studio<\/strong><span>broken · 2 waiting<\/span><\/a>/);
+  // The hedges are one footer line, after the four.
+  assert.ok(html.indexOf('data-home-footer') > html.indexOf('id="plates"'));
+  assert.doesNotMatch(html,/At least|in this source read|Inspection only/);
+  assert.equal(JSON.stringify(data),before,'rendering never mutates the snapshot');
   assert.match(html,/data-cursor="a{64}"/); assert.match(html,/data-endpoint="\/api\/home"/);
   assert.match(html,/<script type="module" src="\/assets\/home-client.mjs"><\/script>/);
   assert.doesNotMatch(html,/<script(?![^>]*src=)|\sonclick=|\soninput=/);
 });
-test('missing coverage stays prominent outside filterable cards and never means no work', () => {
-  const data=snapshot(); data.coverage={state:'partial',gaps:[{projectId:'studio',source:'GitHub milestones',reason:'Read unavailable'}]};
-  data.decisions=[]; data.walks=[]; data.projects[0].state='unavailable'; data.projects[0].planning={source:'unknown',built:null,total:null,livedIn:null};
-  const html=renderHomeSnapshot(data);
-  assert.match(html,/Some sources need attention/); assert.match(html,/Acme Studio<\/strong> · GitHub milestones: Read unavailable/);
-  assert.match(html,/No known items\. Incomplete sources may contain more/); assert.match(html,/Progress unavailable/);
-  assert.match(html,/At least 0 known/); assert.doesNotMatch(html,/No decisions need you|0 \/ 0 built/);
-  const coverage=html.match(/<section class="coverage[\s\S]*?<\/section>/)[0];
-  assert.doesNotMatch(coverage,/data-filterable|hidden/); assert.ok(html.indexOf('Source coverage') < html.indexOf('Decisions that need you'));
+test('source problems sit under Your plates, never above Needs you, and never mean no work', () => {
+  const unread={...plate(),state:'unavailable',gaps:[{source:'project',reason:'Read unavailable'}],decisions:[],walks:[],waiting:[],changes:[],daily:null,planning:{source:'unknown',built:null,total:null,livedIn:null}};
+  const html=renderHomeSnapshot(snapshot([unread]));
+  assert.match(html,/Nothing known needs you\./); assert.doesNotMatch(html,/Nothing needs you\./);
+  assert.match(html,/id="needs-you-title">Needs you<\/h2><span class="meta">0 known<\/span>/);
+  const problems=html.match(/<details class="source-problems"[\s\S]*?<\/details>/)[0];
+  assert.match(problems,/1 source problem: Acme Studio/); assert.match(problems,/<strong>Acme Studio<\/strong> · project: Read unavailable/);
+  assert.ok(html.indexOf('source-problems') > html.indexOf('id="plates"'), 'under Your plates');
+  assert.match(html,/data-status="unread"[^>]*><strong>Acme Studio<\/strong><span>not read<\/span>/);
+  assert.match(html,/Counts marked &quot;known&quot; are what was read/);
 });
 test('all source text is escaped and only explicit HTTPS GitHub links become anchors', () => {
-  const data=snapshot(), attack='<img src=x onerror="alert(1)">';
-  data.decisions[0].title=attack; data.decisions[0].id='bad" onclick="alert(1)'; data.decisions[0].details.ask=attack;
-  data.decisions[0].link='javascript:alert(1)'; data.changes[0].link='https://github.com.evil.test/acme';
-  data.projects[0].name=attack; data.projects[0].repo='evil.test/repo';
-  data.coverage={state:'partial',gaps:[{projectId:'studio',source:attack,reason:attack}]};
-  const html=homeView({...access,workspace:{name:attack}},data);
+  const attack='<img src=x onerror="alert(1)">', p=plate();
+  p.decisions[0]={...p.decisions[0],title:attack,id:'bad" onclick="alert(1)',ref:'bad" onclick="alert(1)',link:'javascript:alert(1)',details:{...p.decisions[0].details,ask:attack}};
+  p.changes[0].link='https://github.com.evil.test/acme'; p.name=attack; p.repo='evil.test/repo'; p.gaps=[{source:attack,reason:attack}]; p.state='partial';
+  const html=homeView({...access,workspace:{name:attack}},snapshot([p]));
   assert.doesNotMatch(html,/<img|href="javascript:|href="https:\/\/github\.com\.evil| onclick="/);
   assert.match(html,/&lt;img src=x onerror=&quot;alert\(1\)&quot;&gt;/);
   assert.match(html,/Source link unavailable/);
   for(const value of ['javascript:alert(1)','http://github.com/acme','https://github.com.evil.test/acme','https://fake:secret@github.com/acme','https://github.com:123/acme','//github.com/acme']) assert.equal(safeSourceLink(value),null);
   assert.equal(safeSourceLink('https://github.com/acme/studio/blob/main/README.md'),'https://github.com/acme/studio/blob/main/README.md');
 });
-test('changes disclose missing captures and acceptance instead of inventing product media', () => {
-  const data=snapshot(), html=renderHomeSnapshot(data);
-  assert.match(html,/No capture yet/); assert.match(html,/Human acceptance not established/);
-  assert.doesNotMatch(html,/<img|<svg|<iframe|Try it|Start guided test|This works/);
-  data.changes[0].acceptance='source claim'; assert.match(renderHomeSnapshot(data),/Source status claim; acceptance evidence stays with the project/);
-});
-test('waiting walks are never promoted to ready and project lens filters unrelated actions', () => {
-  const data=snapshot(); data.walks.push({...action('not-ready','walk'),ready:false}); data.decisions.push(action('api-decision','decision','api'));
-  const html=projectView({id:'studio',repo:'acme/studio'},access,data);
-  assert.match(html,/data-endpoint="\/api\/projects\/studio\/home"/); assert.match(html,/Plate context/);
-  assert.doesNotMatch(html,/Acme walk not-ready|Acme decision api-decision/); assert.match(html,/Acme decision decision-one/);
+test('a plate\'s page keeps what waits on time or agents, and only that plate\'s rows', () => {
+  const api={...plate({id:'api',repo:'acme/api',name:'Acme API'}),decisions:[action('api-decision','decision','api')],walks:[],waiting:[],changes:[],daily:null};
+  const html=projectView({id:'studio',repo:'acme/studio'},access,snapshot([plate(),api]));
+  assert.match(html,/data-endpoint="\/api\/projects\/studio\/home"/); assert.match(html,/>Plate context<\/h2>/);
+  assert.match(html,/>Waiting on time or agents<\/h2>/); assert.match(html,/Acme waiting wait-one/); assert.match(html,/Acme walk walk-later/);
+  assert.doesNotMatch(html,/Acme decision api-decision/); assert.match(html,/Acme decision decision-one/);
+  assert.match(html,/href="\/projects\/studio\/review" data-focus="answer-/);
 });
 test('empty/fallback pages, account controls, keyboard affordances and reduced-motion styles remain usable', () => {
   assert.match(homeView(access),/Plates you can access/); assert.match(projectView(access.projects[0],access),/Project connected/);
   assert.match(signinView('fake-csrf-acme'),/Continue with GitHub/); assert.match(errorView(401,'acme'),/Please sign in/);
   const html=homeView(access,snapshot()); assert.match(html,/aria-live="polite"/); assert.match(html,/Skip to content/);
   assert.match(html,/<label>Search this view<input type="search"/); assert.match(html,/<summary data-focus=/);
+  assert.match(html,/<option value="fix">Fix<\/option><option value="decide">Decide<\/option><option value="try">Try it<\/option>/);
   assert.equal((html.match(/fake-csrf-acme/g)||[]).length,1); assert.match(html,/method="post" action="\/api\/auth\/logout"/);
-  assert.match(styles,/@media\(max-width:400px\)/); assert.match(styles,/prefers-reduced-motion:reduce/);
+  assert.match(styles,/@media\(max-width:400px\)/); assert.match(styles,/@media\(max-width:600px\)\{\.need\{grid-template-columns:minmax\(0,1fr\)\}/); assert.match(styles,/prefers-reduced-motion:reduce/);
 });
 
 // Palette contrast, in both themes and over the wash, is tests/web-design.test.mjs.
 
-test('uncached projects show loading, never unavailable or empty action counts', () => {
-  const data=snapshot();
-  data.coverage={state:'partial',gaps:[]}; data.decisions=[]; data.walks=[]; data.waiting=[]; data.changes=[];
-  Object.assign(data.projects[0],{state:'loading',planning:{source:'unknown',built:null,total:null,livedIn:null},readAt:null,revision:null,decisions:[],walks:[],waiting:[],changes:[]});
-  const html=homeView(access,data);
-  assert.match(html,/Loading project sources/); assert.match(html,/Loading sources/); assert.match(html,/Progress loading/);
-  assert.match(html,/Decisions, walks and waiting items are loading/); assert.match(html,/Loading recent additions/);
-  assert.match(html,/Awaiting the first project source read/);
-  assert.doesNotMatch(html,/No known items|No recent additions|No decisions need you|0 decisions|0 ready walks|At least 0|Progress unavailable|Source coverage unavailable|No gaps reported/);
-  const coverage=html.match(/<section class="coverage[\s\S]*?<\/section>/)[0]; assert.doesNotMatch(coverage,/data-filterable/);
+test('uncached projects show loading, never empty counts', () => {
+  const loading={...plate(),state:'loading',planning:{source:'unknown',built:null,total:null,livedIn:null},readAt:null,revision:null,decisions:[],walks:[],waiting:[],changes:[],daily:null,gaps:[{source:'project',reason:'Project sources are loading within the bounded fleet refresh.'}]};
+  const html=homeView(access,snapshot([loading]));
+  assert.match(html,/Reading what needs you…/); assert.match(html,/0 known · more loading/);
+  assert.match(html,/data-status="loading"[^>]*><strong>Acme Studio<\/strong><span>loading<\/span>/);
+  assert.doesNotMatch(html,/Nothing needs you\.|Progress unavailable/);
+  // Without the model (an older cached response), the page says it is reading, never empty work.
+  assert.match(renderHomeSnapshot({projects:[loading]}),/Reading your plates…/);
 });
-test('a mixed cached and loading view keeps known human work and identifies pending reads separately', () => {
-  const data=snapshot(); data.coverage={state:'partial',gaps:[]};
-  data.projects.push({id:'api',repo:'acme/api',name:'Acme API',state:'loading',planning:{},decisions:[],walks:[],waiting:[],gaps:[]});
-  const html=renderHomeSnapshot(data);
-  assert.match(html,/Some project sources are loading/); assert.match(html,/Acme decision decision-one/);
-  assert.match(html,/At least 1 known · more loading/); assert.match(html,/1 project is loading/);
+test('a mixed cached and loading view keeps known human work', () => {
+  const html=renderHomeSnapshot(snapshot([plate(),{id:'api',repo:'acme/api',name:'Acme API',state:'loading',planning:{},decisions:[],walks:[],waiting:[],changes:[],gaps:[]}]));
+  assert.match(html,/Acme decision decision-one/); assert.match(html,/ known · more loading<\/span>/);
 });
 
 test('automatic first-render eligibility excludes partial data and any real card in a loading view', () => {
@@ -95,11 +121,11 @@ test('automatic first-render eligibility excludes partial data and any real card
   data.decisions=[]; data.projects[0].walks=[action('first-walk','walk')]; assert.equal(isLoadingOnly(data),false);
   data.projects=[]; assert.equal(isLoadingOnly(data),false);
 });
-test('card text renders source markdown, never raw markers or markup', () => {
-  const data=snapshot();
-  data.decisions[0].why='**`phases_stuck`** (outside) — move *phase 0* and set `since:`. <img src=x onerror=alert(1)> **`a<b`**';
-  data.decisions[0].next='Inspect **the source** first.';
-  const html=renderHomeSnapshot(data), card=html.match(/<article class="attention-card decision p-card"[\s\S]*?<\/article>/)[0];
+test('row text renders source markdown, never raw markers or markup', () => {
+  const p=plate();
+  p.decisions[0].why='**`phases_stuck`** (outside) — move *phase 0* and set `since:`. <img src=x onerror=alert(1)> **`a<b`**';
+  p.decisions[0].next='Inspect **the source** first.';
+  const html=renderHomeSnapshot(snapshot([p])), card=html.match(/<li class="need p-card" data-record="need-studio:step:decision-one"[\s\S]*?<\/li>(?=<li class="need|<\/ol>)/)[0];
   assert.match(card,/<strong><code>phases_stuck<\/code><\/strong> \(outside\)/);
   assert.match(card,/<em>phase 0<\/em>/); assert.match(card,/<code>since:<\/code>/);
   assert.match(card,/<strong><code>a&lt;b<\/code><\/strong>/); assert.match(card,/&lt;img src=x onerror=alert\(1\)&gt;/);
@@ -107,9 +133,9 @@ test('card text renders source markdown, never raw markers or markup', () => {
   assert.doesNotMatch(card.replace(/<[^>]+>/g,''),/\*\*|`/);
 });
 
-test('lessons waiting and reviews at their limit have a home section', async () => {
-  const { projectReviews } = await import('../lib/web/projects.mjs'), { homeSnapshot, homeSections } = await import('../lib/work-items.mjs');
-  const plate = (id, name) => ({ ...snapshot().projects[0], id, repo: `acme/${id}`, name, reviewSource: { repo: `acme/${id}`, reviewers: [], rounds: 3 }, decisions: [], walks: [], waiting: [], changes: [], reviews: [] });
+test('lessons waiting are named and reviews at their limit are a fix', async () => {
+  const { projectReviews } = await import('../lib/web/projects.mjs');
+  const platesOf = (id, name) => ({ ...plate(), id, repo: `acme/${id}`, name, reviewSource: { repo: `acme/${id}`, reviewers: [], rounds: 3 }, decisions: [], walks: [], waiting: [], changes: [], reviews: [], daily: null });
   // Phase 133's verdicts and the merge rule's counts, read once per plate.
   const reads = {
     'acme/studio': { prs: [], rounds: [{ number: 12, title: 'Acme glue', url: 'https://github.com/acme/studio/pull/12', author: 'acme-owner', rounds: 3, open: 3, fixFirst: 1, track: 1, unsorted: 1,
@@ -119,13 +145,14 @@ test('lessons waiting and reviews at their limit have a home section', async () 
         { round: 4, path: 'a.js', line: 1, severity: 3 }, { round: 5, path: 'a.js', line: 1, severity: 3 }, { round: 6, path: 'a.js', line: 1, severity: 3 }] }] },
   };
   const read = async source => reads[source.repo];
-  const projects = [await projectReviews(plate('studio', 'Acme Studio'), { login: 'acme-owner', read }), await projectReviews(plate('api', 'Acme API'), { login: 'acme-owner', read })];
-  const data = { ...snapshot(), ...homeSnapshot(projects, { sections: homeSections() }) };
+  const projects = [await projectReviews(platesOf('studio', 'Acme Studio'), { login: 'acme-owner', read }), await projectReviews(platesOf('api', 'Acme API'), { login: 'acme-owner', read })];
+  const data = snapshot(projects);
   assert.deepEqual(data.reviews.map(r => [r.projectId, r.review.number, r.review.verdict]), [['api', 13, 'extended: progress'], ['api', 4, null], ['studio', 12, 'stopped: repeating']]);
   assert.deepEqual(data.reviews.find(r => r.review.number === 12).review.mergeRule, { fixFirst: 1, track: 1, unsorted: 1 });
   // Fleet-wide: every plate's reviews, with the verdict and the counts; and the lessons row with its reason and command.
   const fleet = renderHomeSnapshot(data);
-  assert.match(fleet, />Reviews waiting on you<\/h2>/);
+  // Phase 166: reviews are Needs you rows; one at its round limit is a Fix, one with findings unanswered a Decide.
+  assert.match(fleet, /data-verb="fix"[\s\S]*?Round 3 of 3 · Stopped: repeating/);
   assert.match(fleet, /Round 3 of 3 · Stopped: repeating · 1 fix first · 1 track · 1 unsorted/);
   assert.match(fleet, /Round 6 of 6 · Extended: progress · 0 fix first · 2 track · 0 unsorted/);
   assert.match(fleet, /data-home-section="lessons"><strong>Lessons waiting<\/strong> <span class="meta">Unavailable here · plates-inbox is not readable by the App yet<\/span><p class="meta">Read it with <code>plates learn<\/code>/);
@@ -134,7 +161,126 @@ test('lessons waiting and reviews at their limit have a home section', async () 
   assert.match(studio, /Stopped: repeating/); assert.doesNotMatch(studio, /Extended: progress|Acme hooks/);
   assert.match(studio, /data-home-section="lessons"/);
   // Without the App's Pull requests read, reviews are a named gap, never an empty "nothing waiting".
-  const unread = await projectReviews(plate('studio', 'Acme Studio'), { read: null, unavailable: 'The Plates GitHub App has no Pull requests read permission on this plate.' });
+  const unread = await projectReviews(platesOf('studio', 'Acme Studio'), { read: null, unavailable: 'The Plates GitHub App has no Pull requests read permission on this plate.' });
   assert.deepEqual(unread.reviews, []); assert.equal(unread.state, 'partial');
-  assert.match(renderHomeSnapshot({ ...snapshot(), ...homeSnapshot([unread]) }), /reviews: The Plates GitHub App has no Pull requests read permission on this plate\./);
+  assert.match(renderHomeSnapshot(snapshot([unread])), /reviews: The Plates GitHub App has no Pull requests read permission on this plate\./);
+});
+
+// Phase 166, increment 3: the ask box queues through the existing writers only. Tonight's plan goes through the
+// hosted night-plan publication's own preview and approval (against a fake GitHub); an agent issue has no hosted
+// writer, so the answer is the CLI command with the ask filled in.
+test('an ask is queued only after its preview is approved', async () => {
+  const { nightPlanHarness, plan, token } = await import('./helpers/web-night-plan.mjs');
+  const { createHomeAsk } = await import('../lib/web/home-ask.mjs');
+  const { shape, parseArgs } = await import('../lib/goodnight.mjs');
+  const ASK = "Find out why Acme's anvil page is slow";
+  const fresh = () => { const h = nightPlanHarness(); h.state.now = Date.parse('2026-10-21T05:00:00Z'); return h; }; // before 07:23 UTC: tonight is the night of 2026-10-21, the plan on the branch
+  const apply = (h, previewId, extra = {}) => h.nightPlan.apply(h.access, token, h.project, previewId, { reauthorize: async () => h.access, ...extra });
+  // What the CLI path adds: plates goodnight add --title <ask> --kind triage, from the same plan.
+  const cli = shape(plan(), parseArgs(['add', '--title', ASK, '--kind', 'triage']), { settled: { prs: [], phases: [], findings: [] } }).plan;
+  const expected = cli.items.at(-1);
+  assert.deepEqual(expected, { id: 'find-out-why-acme-s-anvil-page-is-slow', title: ASK, kind: 'triage', source: 'owner', number: null, lane: 'night', budget: null, status: 'planned', result: null });
+
+  // The preview writes nothing, and names exactly the item the CLI would add.
+  let h = fresh(); const ask = createHomeAsk({ daily: h.daily, nightPlan: h.nightPlan, now: () => h.state.now });
+  const previewed = await ask(h.access, token, h.project, { ask: ASK, destination: 'night' });
+  assert.equal(previewed.state, 'preview'); assert.deepEqual(previewed.item, expected);
+  assert.equal(previewed.command, `plates goodnight add --title 'Find out why Acme'\\''s anvil page is slow' --kind triage && plates goodnight --yes`);
+  assert.deepEqual(JSON.parse(previewed.preview.content).items, cli.items, 'the plan it would publish is the CLI path\'s');
+  assert.equal(h.planState.writes.length, 0, 'a preview writes nothing');
+  // A missing preview, or a public one without its digest, is refused and writes nothing.
+  await assert.rejects(apply(h, undefined), e => e.code === 'invalid_preview');
+  await assert.rejects(apply(h, 'f'.repeat(64)), e => e.code === 'invalid_preview');
+  await assert.rejects(apply(h, previewed.preview.id, { publicAcknowledgement: 'a'.repeat(64) }), e => e.code === 'public_acknowledgement_required');
+  assert.equal(h.planState.writes.length, 0);
+  // A stale preview (the plan changed after it was read) is refused and writes nothing.
+  h.branch.files['.plates/night/plan.json'] = `${JSON.stringify({ ...plan(), leftOpen: ['Acme changed elsewhere'] }, null, 2)}\n`; h.branch.head = 'f'.repeat(40);
+  const stale = await apply(h, previewed.preview.id, { publicAcknowledgement: previewed.preview.digest });
+  assert.equal(stale.state, 'refused'); assert.equal(stale.reason, 'daily_source_changed', 'the reviewed source digest no longer matches'); assert.equal(h.planState.writes.length, 0);
+  // Approved with its digest: one write, exactly the plan the CLI path would publish.
+  h = fresh(); const again = createHomeAsk({ daily: h.daily, nightPlan: h.nightPlan, now: () => h.state.now });
+  const ok = await again(h.access, token, h.project, { ask: ASK, destination: 'night' });
+  const done = await apply(h, ok.preview.id, { publicAcknowledgement: ok.preview.digest });
+  assert.equal(done.state, 'committed'); assert.equal(h.planState.writes.length, 1);
+  assert.deepEqual(JSON.parse(h.branch.files['.plates/night/plan.json']), cli);
+  // An agent issue: no hosted writer; the CLI command, filled in, and nothing written.
+  const issue = await again(h.access, token, h.project, { ask: ASK, destination: 'agent' });
+  assert.equal(issue.state, 'command'); assert.match(issue.command, /^plates issue new --agent --title 'Find out why Acme'\\''s anvil page is slow' --rubric <rubric\.md>$/);
+  assert.equal(h.planState.writes.length, 1);
+  // Nothing else is accepted.
+  for (const input of [{ ask: '', destination: 'night' }, { ask: 'x'.repeat(201), destination: 'night' }, { ask: ASK, destination: 'merge' }, { ask: ASK, destination: 'night', plan: {} }])
+    await assert.rejects(again(h.access, token, h.project, input), e => e.code === 'invalid_input');
+  // The form: a plate, the ask, the two destinations (tonight the default), and the command each runs.
+  const html = renderHomeSnapshot(snapshot());
+  const form = html.match(/<form class="ask-form p-card" data-ask-form[\s\S]*?<\/form>/)[0];
+  assert.ok(html.indexOf('data-ask-form') > html.indexOf('id="next-title"') && html.indexOf('data-ask-form') < html.indexOf('id="plates"'), 'in What should happen next?');
+  assert.match(form, /value="night" data-command="plates goodnight add --title \{ask\} --kind triage &amp;&amp; plates goodnight --yes" checked> Tonight&#39;s plan/);
+  assert.match(form, /value="agent" data-command="plates issue new --agent --title \{ask\} --rubric &lt;rubric\.md&gt;"> An agent issue now <span class="meta">\(a command to run\)<\/span>/);
+  assert.match(form, /<code data-ask-command>plates goodnight add --title &quot;&lt;ask&gt;&quot; --kind triage &amp;&amp; plates goodnight --yes<\/code>/);
+  const { renderAskResult } = await import('../lib/web/views.mjs');
+  assert.match(renderAskResult(ok), /<input type="checkbox" data-ask-approve>[\s\S]*<button type="button" data-ask-apply disabled>Publish to tonight&#39;s plan<\/button>/);
+  assert.doesNotMatch(renderAskResult(issue), /data-ask-apply/);
+});
+
+// Phase 166, increment 4: the hosted home keeps each owner's visits (SQL018, here on PGlite as service_role) and
+// starts Since you last looked at the last load of the visit before this one. Before 018 is applied, the RPC is
+// missing: Home uses the fixed window and says so, never an error.
+test('since you last looked starts at the last visit', async t => {
+  const { PGlite } = await import('@electric-sql/pglite');
+  const { readFile } = await import('node:fs/promises');
+  const { projectHarness, phaseFile } = await import('./helpers/web-projects.mjs');
+  const { createHomeReader } = await import('../lib/web/home.mjs');
+  const db = new PGlite(); t.after(() => db.close());
+  await db.exec('CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;');
+  for (const file of ['017-not-now.sql', '018-last-looked.sql']) await db.exec(await readFile(new URL(`../lib/web/migrations/${file}`, import.meta.url), 'utf8'));
+  const calls = [];
+  const rpc = async options => {
+    const p = JSON.parse(options.body); calls.push(p.p_operation);
+    await db.exec('SET ROLE service_role');
+    try { return Response.json((await db.query('SELECT public.plates_last_looked_rpc($1,$2) v', [p.p_operation, p.p_scope])).rows[0].v); } finally { await db.exec('RESET ROLE'); }
+  };
+  const h = projectHarness(); h.state.now = Date.parse('2026-10-24T12:00:00Z');
+  // Phase 4 was built on 2026-10-20, phase 5 on 2026-10-22; the harness's today is within a week of both.
+  h.source.files['docs/phases/05-later.md'] = phaseFile(5, { status: 'built' }).replace('since: 2026-10-20', 'since: 2026-10-22').replace('# Acme phase 5', '# Acme later');
+  let stored = true;
+  const fetcher = async (url, options) => {
+    const path = new URL(url).pathname;
+    if (path === '/rest/v1/rpc/plates_last_looked_rpc') return stored ? rpc(options) : new Response('{"message":"Could not find the function public.plates_last_looked_rpc"}', { status: 404 });
+    if (path === '/rest/v1/rpc/plates_not_now_rpc') return new Response('{"message":"function not found"}', { status: 404 });
+    return h.fetcher(url, options);
+  };
+  const read = createHomeReader(h.config, { fetcher, now: () => h.state.now });
+  const since = home => home.home.sections.find(s => s.id === 'since');
+  const lines = home => since(home).plates.flatMap(p => p.lines.map(l => l.text));
+  const today = new Date(h.state.now).toISOString().slice(0, 10);
+  assert.ok(today >= '2026-10-22' && today <= '2026-10-27', `the harness's today (${today}) keeps both phases in the fixed window`);
+
+  // The first visit: nothing stored before it, so the fixed window, and the visit is recorded.
+  const first = await read(h.access, 'token', { visit: true });
+  assert.equal(since(first).window, 'fixed'); assert.equal(since(first).days, 7);
+  assert.ok(lines(first).includes('Phase 4 built: Acme phase 4') && lines(first).includes('Phase 5 built: Acme later'));
+  assert.deepEqual(calls, ['visit']);
+  // The owner's previous visit last loaded Home on 2026-10-21; this visit starts there and lists only what came after.
+  await db.exec("UPDATE plates_home.last_looked SET seen_at = '2026-10-21T09:00:00Z'");
+  const second = await read(h.access, 'token', { visit: true });
+  assert.equal(since(second).window, 'last-visit'); assert.equal(since(second).from, '2026-10-21T09:00:00.000Z');
+  assert.deepEqual(lines(second).filter(l => l.startsWith('Phase')), ['Phase 5 built: Acme later'], 'only what happened after the stored visit');
+  assert.match(renderHomeSnapshot(second), /<span class="meta">\d+(?: known)? · since your last visit, 2026-10-21 09:00 UTC<\/span>/);
+  // A background refresh, a reload within the visit, and a plate's page never move it.
+  const refresh = await read(h.access, 'token', {});
+  assert.equal(since(refresh).from, since(second).from);
+  const reload = await read(h.access, 'token', { visit: true });
+  assert.equal(since(reload).from, since(second).from);
+  assert.deepEqual(calls, ['visit', 'visit', 'read', 'visit']);
+  // Only a time is stored: an owner digest and two timestamps, no project content.
+  assert.deepEqual((await db.query("SELECT column_name FROM information_schema.columns WHERE table_schema='plates_home' AND table_name='last_looked' ORDER BY ordinal_position")).rows.map(r => r.column_name), ['scope', 'seen_at', 'previous_at', 'updated_at']);
+  // Before 018 is applied: the fixed window, said once in the footer, and the page still renders.
+  stored = false;
+  const missing = await read(h.access, 'token', { visit: true });
+  assert.equal(since(missing).window, 'fixed'); assert.equal(since(missing).unavailable, 'Visits are not stored yet');
+  assert.match(missing.home.footer, /Visits are not stored yet, so Since you last looked shows the last 7 days\./);
+  assert.match(renderHomeSnapshot(missing), /id="since-title">Since you last looked<\/h2><span class="meta">\d+(?: known)? · the last 7 days<\/span>/);
+  // The route records a visit only for the Home page itself.
+  const server = await readFile(new URL('../lib/web/server.mjs', import.meta.url), 'utf8');
+  assert.match(server, /visit: url\.pathname === '\/', backlog: Boolean\(selectedId\) \}/);
 });
