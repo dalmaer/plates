@@ -15,6 +15,7 @@ async function acme(t) {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'plates-focused-acme-')));
   t.after(() => rm(root, { recursive: true, force: true }));
   await mkdir(join(root, 'tests'));
+  await writeFile(join(root, 'package.json'), await readFile(join(ROOT, 'package.json')));
   for (const file of [...REQUIRED, 'tests/acme.test.mjs']) await writeFile(join(root, file), '// Acme\n');
   return root;
 }
@@ -26,9 +27,10 @@ test('every plan unconditionally includes source conventions and its own regress
     for (const file of REQUIRED) assert.equal(plan.tests.filter(t => t === file).length, 1, file);
     assert.deepEqual(plan.tests, [...new Set([...REQUIRED, ...files])]);
     assert.equal(plan.authority, 'feedback-only');
-    assert.deepEqual(plan.stages[0].args, ['--import', './tests/helpers/hermetic.mjs', '--test', '--test-concurrency=2', ...plan.tests]);
-    assert.deepEqual(plan.stages.slice(1).map(s => [s.command, ...s.args]), [
-      ['npm', 'run', 'roadmap:check'], ['npm', 'run', 'render:check'], ['npm', 'run', 'inbox:check'], ['git', '-c', 'core.fsmonitor=false', 'diff', '--check', 'HEAD'],
+    assert.equal(plan.stages[0].id, 'render', 'managed drift fails before the convention suite');
+    assert.deepEqual(plan.stages[1].args, ['--import', './tests/helpers/hermetic.mjs', '--test', '--test-concurrency=2', ...plan.tests]);
+    assert.deepEqual(plan.stages.filter(s => s.id !== 'focused-and-conventions').map(s => [s.command, ...s.args]), [
+      ['npm', 'run', 'render:check'], ['npm', 'run', 'roadmap:check'], ['npm', 'run', 'inbox:check'], ['git', '-c', 'core.fsmonitor=false', 'diff', '--check', 'HEAD'],
     ]);
     assert.equal(plan.stages.some(s => s.command === 'npm' && (s.args.includes('test') || s.args.includes('check'))), false, 'never runs the integrated gate');
   }
@@ -169,4 +171,26 @@ test('unavailable source loopback capability refuses execution before the first 
     },
   }), /loopback capability unavailable \(EPERM\)/);
   assert.equal(probes, 1); assert.equal(stages, 0);
+});
+
+test('package dependency drift refuses focused execution before probes or stages without refreshing the binding', async t => {
+  const root = await acme(t), plan = await focusedPlan([], root);
+  const path = join(root, 'package.json'), original = JSON.parse(await readFile(path, 'utf8'));
+  const bindingPath = join(ROOT, 'lib/web/capability-source-data.mjs');
+  const bindingBefore = await readFile(bindingPath, 'utf8');
+  for (const pkg of [
+    { ...original, devDependencies: { ...original.devDependencies, 'acme-tool': '1.0.0' } },
+    { ...original, dependencies: { 'acme-runtime': '1.0.0' } },
+    { ...original, scripts: { ...original.scripts, check: 'node acme.mjs' } },
+    { ...original, version: 'invalid' },
+  ]) {
+    const bytes = JSON.stringify(pkg);
+    await writeFile(path, bytes);
+    let calls = 0;
+    const forbidden = () => { calls++; throw Error('must refuse before execution'); };
+    assert.throws(() => runFocusedPlan(plan, { execute: forbidden, capabilityExecute: forbidden }), /source package capability binding (changed|unavailable)/);
+    assert.equal(calls, 0);
+    assert.equal(await readFile(path, 'utf8'), bytes);
+    assert.equal(await readFile(bindingPath, 'utf8'), bindingBefore);
+  }
 });

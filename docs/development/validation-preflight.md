@@ -86,6 +86,12 @@ package coverage and validation planner tests, plus the affected dependency test
 before the full gate. Do not exclude dependencies from the binding or refresh the
 whole inventory merely to make an automated update pass.
 
+The focused runner verifies that package binding before probes or test stages,
+then runs `render:check` before the convention suite. A dependency update or a
+rendered workflow pin without its source change therefore fails early. Neither
+check repairs files or refreshes bindings automatically. The remaining focused
+checks and the final full gate are still required.
+
 `--help --json` describes flags. Exit 0 means an advisory plan is ready, including
 a plan requiring broad coverage; 1 means capability or snapshot instability
 blocks readiness; 2 means invalid or unavailable input. None means a gate passed.
