@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**72 of 180 phases built; 77 owe a walk.** Built means implemented and checked; planned is not available.
+**72 of 181 phases built; 77 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -430,6 +430,18 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 - **185 done when:** The sidebar's Recurring and `plates home --recurring --json` list, per plate, each scheduled routine (night, climb, tend, morning, robot, cross-review, publish) with its schedule in the owner's time zone, its next run, its last result and its budget. The sidebar also carries Humans and Links. See [the backlog spec](../specs/web-backlog.md).
 - **186 done when:** The sidebar's Agents lists each provider in `agents` and each route in `backlog`, with the item it holds now (from claims and presence) or idle, and off routes greyed with their reason. Pending review lists the fleet's open PRs that are not set to auto-merge. `plates home --agents --json` prints the same. See [the backlog spec](../specs/web-backlog.md).
 - **187 done when:** On the hosted workspace, a step's **Done** and **Hand to an agent** write from the card, through the same preview-then-confirm flow as a walk's answer. No web surface tells the owner to run a terminal command to answer. An answer the web still cannot write says what is missing (a permission, a setting) in plain words, never as a command. The CLI writes the same records as before.
+
+## G8 — A project set and its routines share one operating surface
+
+Plates provides one management experience from project sets to each plate, its work, runs, reviews, health and lessons, with personal or organizational capacity kept distinct from shared project policy and safe, reversible consolidation of Switchboard capabilities.
+
+0/1 built.
+
+| Phase | Status | Since | Depends on | Why it stands here |
+| --- | --- | --- | --- | --- |
+| [137. A project set shows its routines and what actually ran](phases/137-a-project-set-shows-its-routines.md) | partial | 2026-11-05 | [93](phases/93-workspace-data-stays-outside-public-code.md), [102](phases/102-routines-have-a-complete-observed-history.md) | First increment: optional project-set registry and authorization intersection only. Home/history selection, observation transport and hosted features remain in draft PR324; no interface or executor is enabled by this contract. |
+
+- **137 done when:** An authorized owner can inspect existing routines and observations through a project-set lens without adding access, executors or pooled funding authority.
 
 ## G9 — Plates owns the judgment layer and rents the rest
 
