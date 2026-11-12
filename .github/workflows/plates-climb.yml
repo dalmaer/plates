@@ -425,20 +425,24 @@ jobs:
           else
             printf '\nProject autonomy context unavailable; existing task and role gates still apply.\n' >> "$RUNNER_TEMP/prompt.md"
           fi
-          if [ "$AGENT" = codex ]; then
-            {
-              echo
-              echo "## Your git dir (Codex)"
-              echo
-              echo "Your sandbox keeps \`.git\` read-only, so your git dir is \`.plates/agent-git\`, a clone the workflow made of \`$BRANCH\`. Run every git command as \`git --git-dir=.plates/agent-git --work-tree=. <command>\`, and every climb.mjs command as \`PLATES_AGENT_GIT=.plates/agent-git node scripts/plates/climb.mjs …\`, so its commits, resets and worktrees use it too. Commit on \`$BRANCH\`: only that branch's commits leave this job, as objects (the git dir's config and hooks never do). Never change the git dir's config, hooks or \`info/\`, and never touch \`.git\`."
-            } >> "$RUNNER_TEMP/prompt.md"
-          fi
+          # Codex's part, kept on its own: a Codex that takes the night over from a Claude that could not start reads it too.
+          {
+            echo
+            echo "## Your git dir (Codex)"
+            echo
+            echo "Your sandbox keeps \`.git\` read-only, so your git dir is \`.plates/agent-git\`, a clone the workflow made of \`$BRANCH\`. Run every git command as \`git --git-dir=.plates/agent-git --work-tree=. <command>\`, and every climb.mjs command as \`PLATES_AGENT_GIT=.plates/agent-git node scripts/plates/climb.mjs …\`, so its commits, resets and worktrees use it too. Commit on \`$BRANCH\`: only that branch's commits leave this job, as objects (the git dir's config and hooks never do). Never change the git dir's config, hooks or \`info/\`, and never touch \`.git\`."
+          } > "$RUNNER_TEMP/prompt-codex.md"
+          cp "$RUNNER_TEMP/prompt.md" "$RUNNER_TEMP/prompt-base.md"
+          if [ "$AGENT" = codex ]; then cat "$RUNNER_TEMP/prompt-codex.md" >> "$RUNNER_TEMP/prompt.md"; fi
           eof="PLATES_EOF_$(date +%s%N)"
           {
             echo "prompt<<$eof"
             cat "$RUNNER_TEMP/prompt.md"
             echo "$eof"
             echo "started=$(date +%s)"
+            # The tree the agent is handed: a fallback runs only if it is the same after a start failure.
+            echo "head=$(git rev-parse HEAD)"
+            echo "tree=$(git status --porcelain --untracked-files=normal | git hash-object --stdin)"
           } >> "$GITHUB_OUTPUT"
 
       - name: Telemetry
@@ -479,6 +483,81 @@ jobs:
           sandbox: workspace-write
           safety-strategy: drop-sudo
 
+      # A Claude that could not start (its credit or quota ran out, its secret
+      # was refused, a rate limit at its first turn) hands the night to Codex
+      # when "agents" lists it and OPENAI_API_KEY is set, said in a warning
+      # naming which it was, so the owner knows to top up or to rotate. Only a
+      # failure plates can read hands over (climb.mjs agent-start), and only
+      # when the branch and the working tree are as the agent was handed them:
+      # nothing a first agent did is carried on. Anything else stays with its
+      # provider and is judged below as before.
+      - name: Could the agent start?
+        id: start
+        if: steps.pick.outputs.job != '' && steps.admission.outputs.state == 'admitted'
+        env:
+          AGENT: ${{ steps.on.outputs.agent }}
+          OUTCOME: ${{ steps.on.outputs.agent == 'codex' && steps.climb_codex.outcome || steps.climb.outcome }}
+          EXECUTION: ${{ steps.climb.outputs.execution_file }}
+          MINUTES: ${{ steps.pick.outputs.minutes }}
+          STARTED: ${{ steps.brief.outputs.started }}
+          HEAD_BEFORE: ${{ steps.brief.outputs.head }}
+          TREE_BEFORE: ${{ steps.brief.outputs.tree }}
+          HAS_CLAUDE: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' || secrets.ANTHROPIC_API_KEY != '' }}
+          HAS_CODEX: ${{ secrets.OPENAI_API_KEY != '' }}
+        run: |
+          if [ "$AGENT" = codex ]; then file="$RUNNER_TEMP/codex-final-message.md"; else file="${EXECUTION:-$RUNNER_TEMP/claude-execution-output.json}"; fi
+          node "$RUNNER_TEMP/plates/scripts/plates/climb.mjs" agent-start --pass climb --agent "$AGENT" --outcome "$OUTCOME" --file "$file" --minutes "$MINUTES" --started "$STARTED" --json > "$RUNNER_TEMP/start.json"
+          HEAD_NOW="$(git rev-parse HEAD)" TREE_NOW="$(git status --porcelain --untracked-files=normal | git hash-object --stdin)" node -e '
+            const fs = require("fs");
+            const [file, out] = process.argv.slice(1);
+            const s = JSON.parse(fs.readFileSync(file, "utf8")), e = process.env;
+            const same = e.HEAD_NOW === e.HEAD_BEFORE && e.TREE_NOW === e.TREE_BEFORE;
+            const fallback = s.fallback && same ? s.fallback : "";
+            const note = fallback ? String(s.note ?? "").replace(/[\r\n]+/g, " ") : "";
+            fs.appendFileSync(out, `agent=${fallback || e.AGENT}\nfallback=${fallback}\nnote=${note}\n`);
+            if (s.fallback && !same) console.log(`::warning::${String(s.note ?? "").replace(/[\r\n]+/g, " ")} Not handed on: the branch or the working tree changed after the agent was handed it.`);
+            else console.log(fallback ? `::warning::${note}` : `the agent stays ${e.AGENT}`);
+          ' "$RUNNER_TEMP/start.json" "$GITHUB_OUTPUT"
+      - name: Give Codex its git dir (fallback)
+        if: steps.start.outputs.fallback == 'codex'
+        env:
+          BRANCH: ${{ steps.pick.outputs.branch }}
+        run: |
+          rm -rf .plates/agent-git
+          git init -q --bare .plates/agent-git
+          mkdir -p /tmp/plates-codex
+          git --git-dir=.plates/agent-git fetch -q --no-tags "$PWD/.git" "refs/heads/$BRANCH:refs/heads/$BRANCH"
+          git --git-dir=.plates/agent-git symbolic-ref HEAD "refs/heads/$BRANCH"
+          git --git-dir=.plates/agent-git config user.name "plates-climb"
+          git --git-dir=.plates/agent-git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git --git-dir=.plates/agent-git --work-tree=. reset -q
+          mkdir -p .plates/agent-git/info .git/info
+          echo "/.plates/agent-git/" >> .plates/agent-git/info/exclude
+          echo "/.plates/agent-git/" >> .git/info/exclude
+          echo "Codex's git dir: .plates/agent-git, on $(git --git-dir=.plates/agent-git symbolic-ref --short HEAD) at $(git --git-dir=.plates/agent-git rev-parse --short HEAD)"
+      - name: Brief (fallback)
+        id: brief_fallback
+        if: steps.start.outputs.fallback == 'codex'
+        run: |
+          cat "$RUNNER_TEMP/prompt-base.md" "$RUNNER_TEMP/prompt-codex.md" > "$RUNNER_TEMP/prompt-fallback.md"
+          echo "started=$(date +%s)" >> "$GITHUB_OUTPUT"
+      - name: Climb
+        id: climb_fallback_codex
+        if: steps.start.outputs.fallback == 'codex'
+        continue-on-error: true
+        timeout-minutes: ${{ fromJSON(steps.pick.outputs.minutes) }}
+        uses: openai/codex-action@v1
+        env:
+          GH_TOKEN: ""
+          PLATES_AGENT_GIT: .plates/agent-git
+          TMPDIR: /tmp/plates-codex
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: ${{ runner.temp }}/prompt-fallback.md
+          output-file: ${{ runner.temp }}/codex-final-message.md
+          sandbox: workspace-write
+          safety-strategy: drop-sudo
+
       # An agent that failed before its budget ran out (no secret, a bad
       # model: is_error after one turn) is red, and nothing is judged or
       # pushed: a run that did nothing never reports success (lesson 29). A
@@ -488,11 +567,11 @@ jobs:
         id: execution
         if: steps.pick.outputs.job != '' && steps.admission.outputs.state == 'admitted'
         env:
-          AGENT: ${{ steps.on.outputs.agent }}
-          OUTCOME: ${{ steps.on.outputs.agent == 'codex' && steps.climb_codex.outcome || steps.climb.outcome }}
+          AGENT: ${{ steps.start.outputs.agent || steps.on.outputs.agent }}
+          OUTCOME: ${{ steps.start.outputs.fallback == 'codex' && steps.climb_fallback_codex.outcome || steps.on.outputs.agent == 'codex' && steps.climb_codex.outcome || steps.climb.outcome }}
           EXECUTION: ${{ steps.climb.outputs.execution_file }}
           MINUTES: ${{ steps.pick.outputs.minutes }}
-          STARTED: ${{ steps.brief.outputs.started }}
+          STARTED: ${{ steps.start.outputs.fallback == 'codex' && steps.brief_fallback.outputs.started || steps.brief.outputs.started }}
         run: |
           status=0
           if [ "$AGENT" = codex ]; then
@@ -517,7 +596,7 @@ jobs:
       # hooks and fsmonitor off. A head not on top of the run's commit is
       # refused, as the judge would; the night's commits leave as a bundle from plates's repo.
       - name: Take Codex's commits, objects only
-        if: always() && steps.pick.outputs.job != '' && steps.admission.outputs.state == 'admitted' && steps.on.outputs.agent == 'codex'
+        if: always() && steps.pick.outputs.job != '' && steps.admission.outputs.state == 'admitted' && (steps.start.outputs.agent || steps.on.outputs.agent) == 'codex'
         env:
           BRANCH: ${{ steps.pick.outputs.branch }}
         run: |
@@ -598,7 +677,7 @@ jobs:
         if: always() && steps.pick.outputs.job != ''
         env:
           BRANCH: ${{ steps.pick.outputs.branch }}
-          AGENT: ${{ steps.on.outputs.agent }}
+          AGENT: ${{ steps.start.outputs.agent || steps.on.outputs.agent }}
         run: |
           out="$RUNNER_TEMP/handoff"
           mkdir -p "$out/record" "$out/test-runs"
