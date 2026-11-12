@@ -832,3 +832,348 @@ test('sandbox: a merge that alters a binary lockfile byte is refused, though the
   const honest = climb(dir, ['sandbox', '--base', b3, '--head', 'HEAD', '--json']);
   assert.equal(honest.status, 0, honest.stdout + honest.stderr);
 });
+
+// #90: the base's gate runs before the candidate's, so a shared symlinked node_modules would let a base test write
+// node_modules/base-cache (or mutate an installed file in place) and make a broken candidate pass, or dereference a
+// workspace symlink in node_modules to the candidate's checkout instead of the base's.
+test('#90: guard isolates node_modules in worktrees so base-gate writes cannot pass a broken candidate', async t => {
+  const depFiles = {
+    'node_modules/acme-dep/package.json': '{"name":"acme-dep","type":"module","exports":"./index.js"}\n',
+    'node_modules/acme-dep/index.js': "export const dep = 'acme';\nexport const token = { id: 'acme' };\n",
+    'node_modules/acme-dep/cache.txt': 'clean\n',
+  };
+  const baseSuite = `import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { writeFileSync } from 'node:fs';
+import { dep, token } from 'acme-dep';
+import { label } from 'acme-ws';
+import { ancPeer, symAncPeer, dirtyAncPeer } from 'acme-linked';
+import { clientToken } from './client/use.mjs';
+import { webStoreToken } from './web/use.mjs';
+import { appDep, scopedPeer, inStore, storeMod, appStoreToken, extNote } from './app/use.mjs';
+test('acme adds', () => {
+  assert.equal(dep, 'acme');
+  assert.equal(clientToken, token);
+  assert.equal(webStoreToken, appStoreToken);
+  assert.equal(label, 'base-ws');
+  assert.equal(ancPeer(), 'anc-clean');
+  assert.equal(symAncPeer, 'sym-anc-clean');
+  assert.equal(appDep, 'app-clean');
+  assert.equal(scopedPeer, 'peer-clean');
+  assert.equal(inStore, 'in-store-clean');
+  assert.equal(storeMod(), 'store-mod-clean');
+  assert.equal(extNote, 'note-clean');
+  writeFileSync('node_modules/base-cache', 'from-base\\n');
+  writeFileSync('node_modules/acme-dep/cache.txt', 'dirtied-by-base\\n');
+  writeFileSync('app/node_modules/acme-app/state.txt', 'dirtied-app\\n');
+  writeFileSync('app/node_modules/in-store/val.txt', 'dirtied-in-store\\n');
+  writeFileSync('app/node_modules/in-store-mod/state.txt', 'dirtied-store-mod\\n');
+  writeFileSync('app/node_modules/ext-note.txt', 'dirtied-note\\n');
+  dirtyAncPeer('dirtied-anc\\n');
+});
+`;
+  const dir = await acme(t, {
+    climb: { jobs: ['test-time'], testCommand: LEDGER_TEST },
+    config: { check: LEDGER_TEST },
+    files: {
+      '.gitignore': 'node_modules/\nweb/node_modules\napp/node_modules\nclient/node_modules\n',
+      'package.json': JSON.stringify({ name: 'acme', private: true, type: 'module', workspaces: ['packages/*'] }),
+      'packages/ws/package.json': '{"name":"acme-ws","type":"module","exports":"./index.js"}\n',
+      'packages/ws/index.js': "export const label = 'base-ws';\n",
+      'client/package.json': '{"name":"acme-client-dir","private":true,"type":"module"}\n',
+      'client/use.mjs': "export { token as clientToken } from 'acme-dep';\n",
+      'web/package.json': '{"name":"acme-web-dir","private":true,"type":"module"}\n',
+      'web/use.mjs': "export { storeToken as webStoreToken } from 'in-store-mod';\n",
+      'app/package.json': '{"name":"acme-app-dir","private":true,"type":"module"}\n',
+      'app/use.mjs': [
+        "import { readFileSync } from 'node:fs';",
+        "import { storeMod, storeToken as appStoreToken } from 'acme-app';",
+        "const read = p => readFileSync(new URL(p, import.meta.url), 'utf8').trim();",
+        "export const appDep = read('./node_modules/acme-app/self/state.txt');",
+        "export const scopedPeer = read('./node_modules/@acme/app/peer/peer.txt');",
+        "export const inStore = read('./node_modules/acme-app/in-nm/val.txt');",
+        "export const extNote = read('./node_modules/ext-note.txt');",
+        'export { storeMod, appStoreToken };',
+        '',
+      ].join('\n'),
+      'acme.test.mjs': baseSuite,
+    },
+  });
+  await write(dir, depFiles);
+  const sharedInstall = await mkdtemp(join(tmpdir(), 'plates-climb-install-'));
+  const extRepo = await mkdtemp(join(tmpdir(), 'plates-climb-ext-repo-'));
+  t.after(() => rm(sharedInstall, { recursive: true, force: true }));
+  t.after(() => rm(extRepo, { recursive: true, force: true }));
+  await write(sharedInstall, {
+    'ext-pkg/package.json': '{"name":"acme-app","type":"module","exports":"./index.js"}\n',
+    'ext-pkg/index.js': "export { storeMod, storeToken } from 'in-store-mod';\n",
+    'ext-pkg/state.txt': 'app-clean\n',
+    'ext-peer/peer.txt': 'peer-clean\n',
+    'ext-note.txt': 'note-clean\n',
+    'node_modules/in-store/val.txt': 'in-store-clean\n',
+    'node_modules/in-store-mod/package.json': '{"name":"in-store-mod","type":"module","exports":"./index.js"}\n',
+    'node_modules/in-store-mod/index.js': "import { readFileSync } from 'node:fs';\nexport const storeToken = { id: 'store' };\nexport const storeMod = () => readFileSync(new URL('./state.txt', import.meta.url), 'utf8').trim();\n",
+    'node_modules/in-store-mod/state.txt': 'store-mod-clean\n',
+  });
+  await write(extRepo, {
+    'packages/acme-linked/package.json': '{"name":"acme-linked","type":"module","exports":"./index.js"}\n',
+    'packages/acme-linked/index.js': "export { ancPeer, dirtyAncPeer } from 'acme-anc-peer';\nexport { symAncPeer } from 'acme-sym-anc';\n",
+    'node_modules/acme-anc-peer/package.json': '{"name":"acme-anc-peer","type":"module","exports":"./index.js"}\n',
+    'node_modules/acme-anc-peer/index.js': "import { readFileSync, writeFileSync } from 'node:fs';\nexport const ancPeer = () => readFileSync(new URL('./state.txt', import.meta.url), 'utf8').trim();\nexport const dirtyAncPeer = v => writeFileSync(new URL('./state.txt', import.meta.url), v);\n",
+    'node_modules/acme-anc-peer/state.txt': 'anc-clean\n',
+    'sym-parent/packages/acme-sym-anc/package.json': '{"name":"acme-sym-anc","type":"module","exports":"./index.js"}\n',
+    'sym-parent/packages/acme-sym-anc/index.js': "export { symAncPeer } from 'acme-sym-peer';\n",
+    'sym-store/acme-sym-peer/package.json': '{"name":"acme-sym-peer","type":"module","exports":"./index.js"}\n',
+    'sym-store/acme-sym-peer/index.js': "export const symAncPeer = 'sym-anc-clean';\n",
+  });
+  const { symlink } = await import('node:fs/promises');
+  await mkdir(join(sharedInstall, 'node_modules/@acme'), { recursive: true });
+  await symlink('.', join(sharedInstall, 'ext-pkg/self'));
+  await symlink('../ext-peer', join(sharedInstall, 'ext-pkg/peer'));
+  await symlink('../node_modules/in-store', join(sharedInstall, 'ext-pkg/in-nm'));
+  await symlink('../../ext-pkg', join(sharedInstall, 'node_modules/@acme/app'));
+  await symlink('../ext-pkg', join(sharedInstall, 'node_modules/acme-app'));
+  await symlink('../ext-note.txt', join(sharedInstall, 'node_modules/ext-note.txt'));
+  await symlink('../missing-ext', join(sharedInstall, 'node_modules/dangling'));
+  await symlink('../sym-store', join(extRepo, 'sym-parent/node_modules'), 'dir');
+  await symlink('../sym-parent/packages/acme-sym-anc', join(extRepo, 'node_modules/acme-sym-anc'));
+  await symlink('../packages/acme-linked', join(extRepo, 'node_modules/acme-linked'));
+  await symlink(join('..', 'packages', 'ws'), join(dir, 'node_modules', 'acme-ws'));
+  await symlink(join(extRepo, 'packages', 'acme-linked'), join(dir, 'node_modules', 'acme-linked'));
+  await symlink('../node_modules', join(dir, 'client', 'node_modules'), 'dir');
+  await symlink(join(sharedInstall, 'node_modules'), join(dir, 'web', 'node_modules'), 'dir');
+  await symlink(join(sharedInstall, 'node_modules'), join(dir, 'app', 'node_modules'), 'dir');
+  const base = git(dir, ['rev-parse', 'HEAD']);
+
+  // Candidate 1: depends on node_modules/base-cache left behind by the base's gate.
+  git(dir, ['checkout', '-q', '-b', 'needs-base-cache', base]);
+  await commit(dir, {
+    'acme.test.mjs': `import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
+test('acme adds', () => { assert.equal(existsSync('node_modules/base-cache'), true); });
+`,
+  }, 'acme: needs base-cache');
+  const cached = climb(dir, ['guard', '--base', base, '--json']);
+  assert.equal(cached.status, 1, cached.stdout + cached.stderr);
+  assert.match(json(cached).problems[0], /the gate `.*` failed \(exit 1\)/);
+  assert.equal(existsSync(join(dir, 'node_modules/base-cache')), false);
+  assert.equal(await readFile(join(dir, 'node_modules/acme-dep/cache.txt'), 'utf8'), 'clean\n');
+  assert.equal(await readFile(join(sharedInstall, 'ext-pkg/state.txt'), 'utf8'), 'app-clean\n');
+  assert.equal(await readFile(join(sharedInstall, 'node_modules/in-store/val.txt'), 'utf8'), 'in-store-clean\n');
+  assert.equal(await readFile(join(sharedInstall, 'node_modules/in-store-mod/state.txt'), 'utf8'), 'store-mod-clean\n');
+  assert.equal(await readFile(join(sharedInstall, 'ext-note.txt'), 'utf8'), 'note-clean\n');
+  assert.equal(await readFile(join(extRepo, 'node_modules/acme-anc-peer/state.txt'), 'utf8'), 'anc-clean\n');
+
+  // Candidate 2: depends on an existing file in node_modules (or symlinked app/node_modules) mutated by base's gate.
+  git(dir, ['checkout', '-q', '-f', '-B', 'needs-mutated-file', base]);
+  await commit(dir, {
+    'acme.test.mjs': `import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+test('acme adds', () => { assert.equal(readFileSync('node_modules/acme-dep/cache.txt', 'utf8'), 'dirtied-by-base\\n'); });
+`,
+  }, 'acme: needs mutated cache');
+  const mutated = climb(dir, ['guard', '--base', base, '--json']);
+  assert.equal(mutated.status, 1, mutated.stdout + mutated.stderr);
+  assert.equal(await readFile(join(dir, 'node_modules/acme-dep/cache.txt'), 'utf8'), 'clean\n');
+
+  // Honest candidate: passes from the clean install while base's workspace symlink resolved to base's packages/ws.
+  git(dir, ['checkout', '-q', '-f', '-B', 'honest-clean', base]);
+  await commit(dir, {
+    'packages/ws/index.js': "export const label = 'cand-ws';\n",
+    'acme.test.mjs': `import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
+import { dep, token } from 'acme-dep';
+import { label } from 'acme-ws';
+import { ancPeer, symAncPeer } from 'acme-linked';
+import { clientToken } from './client/use.mjs';
+import { webStoreToken } from './web/use.mjs';
+import { appDep, scopedPeer, inStore, storeMod, appStoreToken, extNote } from './app/use.mjs';
+test('acme adds', () => {
+  assert.equal(dep, 'acme');
+  assert.equal(clientToken, token);
+  assert.equal(webStoreToken, appStoreToken);
+  assert.equal(label, 'cand-ws');
+  assert.equal(ancPeer(), 'anc-clean');
+  assert.equal(symAncPeer, 'sym-anc-clean');
+  assert.equal(appDep, 'app-clean');
+  assert.equal(scopedPeer, 'peer-clean');
+  assert.equal(inStore, 'in-store-clean');
+  assert.equal(storeMod(), 'store-mod-clean');
+  assert.equal(extNote, 'note-clean');
+  assert.equal(existsSync('node_modules/base-cache'), false);
+  assert.equal(readFileSync('node_modules/acme-dep/cache.txt', 'utf8'), 'clean\\n');
+});
+`,
+  }, 'acme: clean candidate');
+  const ok = climb(dir, ['guard', '--base', base, '--json']);
+  assert.equal(ok.status, 0, ok.stdout + ok.stderr);
+});
+
+// #362 review: a workspace package that exports an ignored build artifact (packages/ws/dist) is rebound to the
+// worktree's own packages/ws, where git made only the tracked source. Each worktree gets its own copy of that ignored
+// output, so the base can import the package, and a write the base's gate leaves there never reaches the candidate.
+test('#362: a workspace package\'s ignored build output is in each worktree, copied, not shared', async t => {
+  const usesDist = extra => `import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { existsSync, writeFileSync } from 'node:fs';
+import { label } from 'acme-ws';
+test('acme adds', () => {
+  assert.equal(label, 'built-ws');
+  ${extra}
+});
+`;
+  const dir = await acme(t, {
+    climb: { jobs: ['test-time'], testCommand: LEDGER_TEST },
+    config: { check: LEDGER_TEST },
+    files: {
+      '.gitignore': 'node_modules/\ndist/\n',
+      'package.json': JSON.stringify({ name: 'acme', private: true, type: 'module', workspaces: ['packages/*'] }),
+      'packages/ws/package.json': '{"name":"acme-ws","type":"module","exports":"./dist/index.js"}\n',
+      'packages/ws/src/index.js': "export const label = 'built-ws';\n",
+      'acme.test.mjs': usesDist("writeFileSync('packages/ws/dist/base-was-here', 'x');"),
+    },
+  });
+  await write(dir, { 'packages/ws/dist/index.js': "export const label = 'built-ws';\n" });
+  const { symlink } = await import('node:fs/promises');
+  await mkdir(join(dir, 'node_modules'), { recursive: true });
+  await symlink(join('..', 'packages', 'ws'), join(dir, 'node_modules', 'acme-ws'));
+  const base = git(dir, ['rev-parse', 'HEAD']);
+
+  // A harmless candidate: the unchanged base and the candidate both import the built package.
+  git(dir, ['checkout', '-q', '-b', 'harmless', base]);
+  await commit(dir, { 'acme.test.mjs': usesDist('// harmless: reads the package, writes nothing') }, 'acme: harmless');
+  const ok = climb(dir, ['guard', '--base', base, '--json']);
+  assert.equal(ok.status, 0, ok.stdout + ok.stderr);
+
+  // A candidate that passes only on what the base's gate wrote into the artifact folder: refused, since its copy is its own.
+  git(dir, ['checkout', '-q', '-f', '-B', 'needs-base-write', base]);
+  await commit(dir, { 'acme.test.mjs': usesDist("assert.equal(existsSync('packages/ws/dist/base-was-here'), true);") }, 'acme: needs the base write');
+  const leaked = climb(dir, ['guard', '--base', base, '--json']);
+  assert.equal(leaked.status, 1, leaked.stdout + leaked.stderr);
+  assert.equal(existsSync(join(dir, 'packages/ws/dist/base-was-here')), false, "the checkout's own build output is untouched");
+});
+
+// #362 follow-up (review comment 4508745045): a package linked from outside the checkout may reach a sibling by a
+// relative path (packages/linked/index.cjs requires ../shared/value.cjs). Each worktree gets its own clone of the
+// package's whole source tree, laid out as it is, so the unchanged base loads it, and a write the base's gate leaves in
+// the sibling never reaches the candidate.
+test('#362: a linked package outside the checkout keeps its relative imports of siblings in each worktree, cloned, not shared', async t => {
+  const suiteOf = extra => `import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import linked from 'acme-linked';
+const sibling = createRequire(import.meta.url).resolve('acme-linked').replace(/linked[\\\\/]index\\.cjs$/, 'shared/base-was-here');
+test('acme adds', () => {
+  assert.equal(linked.value, 'shared-clean');
+  ${extra}
+});
+`;
+  for (const how of ['a workspace root', 'a git repository']) {
+    const ext = await realpath(await mkdtemp(join(tmpdir(), 'plates-climb-linked-')));
+    t.after(() => rm(ext, { recursive: true, force: true }));
+    await write(ext, {
+      ...(how === 'a workspace root' ? { 'package.json': JSON.stringify({ name: 'acme-ext', private: true, workspaces: ['packages/*'] }) } : {}),
+      'packages/linked/package.json': '{"name":"acme-linked","main":"./index.cjs"}\n',
+      'packages/linked/index.cjs': "const { value, mark } = require('../shared/value.cjs');\nmodule.exports = { value, mark };\n",
+      'packages/shared/value.cjs': "const { join } = require('node:path');\nconst { writeFileSync } = require('node:fs');\nmodule.exports = { value: 'shared-clean', mark: () => writeFileSync(join(__dirname, 'base-was-here'), 'x') };\n",
+    });
+    if (how === 'a git repository') {
+      const id = ['-c', 'user.name=Acme', '-c', 'user.email=acme@example.com'];
+      git(ext, ['init', '-q']);
+      git(ext, [...id, 'add', '-A']);
+      git(ext, [...id, 'commit', '-q', '-m', 'acme-ext']);
+    }
+    const dir = await acme(t, {
+      climb: { jobs: ['test-time'], testCommand: LEDGER_TEST },
+      config: { check: LEDGER_TEST },
+      files: {
+        '.gitignore': 'node_modules/\n',
+        'package.json': JSON.stringify({ name: 'acme', private: true, type: 'module' }),
+        'acme.test.mjs': suiteOf('linked.mark();'),
+      },
+    });
+    const { symlink } = await import('node:fs/promises');
+    await mkdir(join(dir, 'node_modules'), { recursive: true });
+    await symlink(join(ext, 'packages', 'linked'), join(dir, 'node_modules', 'acme-linked'));
+    const base = git(dir, ['rev-parse', 'HEAD']);
+
+    // A harmless candidate: the unchanged base and the candidate both load the linked package and its sibling.
+    git(dir, ['checkout', '-q', '-b', 'harmless', base]);
+    await commit(dir, { 'acme.test.mjs': suiteOf('// harmless: reads the package, writes nothing') }, 'acme: harmless');
+    const ok = climb(dir, ['guard', '--base', base, '--json']);
+    assert.equal(ok.status, 0, `${how}: ${ok.stdout}${ok.stderr}`);
+
+    // A candidate that passes only on what the base's gate wrote into the sibling: refused, since each clone is its own.
+    git(dir, ['checkout', '-q', '-f', '-B', 'needs-base-write', base]);
+    await commit(dir, { 'acme.test.mjs': suiteOf('assert.equal(existsSync(sibling), true);') }, 'acme: needs the base write');
+    const leaked = climb(dir, ['guard', '--base', base, '--json']);
+    assert.equal(leaked.status, 1, `${how}: ${leaked.stdout}${leaked.stderr}`);
+    assert.equal(existsSync(join(ext, 'packages/shared/base-was-here')), false, `${how}: the original source tree is untouched`);
+  }
+});
+
+// #383 review (comments 4509313695 and 4509323741): a link reached later can widen the clone to an ancestor tree that
+// holds a subtree cloned first. That clone already sits where the wider one puts it, so it is kept, not linked over
+// (EEXIST aborted guard before the gate ran), and the module stays one module.
+test('#383: a clone widened to an ancestor tree keeps the subtree cloned first, in both layouts the review found', async t => {
+  const { symlink } = await import('node:fs/promises');
+  const layouts = {
+    // a/pkg is linked from the checkout; a/node_modules/acme-b reaches ../../b/pkg, whose tree is the workspace root.
+    'a later link to a sibling': async ext => {
+      await write(ext, {
+        'package.json': JSON.stringify({ name: 'acme-ext', private: true, workspaces: ['a/pkg', 'b/pkg'] }),
+        'a/pkg/package.json': '{"name":"acme-a","main":"./index.cjs"}\n',
+        'a/pkg/index.cjs': "module.exports = { value: require('acme-b').value };\n",
+        'b/pkg/package.json': '{"name":"acme-b","main":"./index.cjs"}\n',
+        'b/pkg/index.cjs': "module.exports = { value: 'b-clean' };\n",
+      });
+      await mkdir(join(ext, 'a/node_modules'), { recursive: true });
+      await symlink('../../b/pkg', join(ext, 'a/node_modules/acme-b'));
+      return { 'acme-a': join(ext, 'a/pkg') };
+    },
+    // The checkout's install is ext/inner/node_modules: acme-a -> ../pkg, then acme-b -> ../../other (the workspace root).
+    'an install inside the tree': async ext => {
+      await write(ext, {
+        'package.json': JSON.stringify({ name: 'acme-ext', private: true, workspaces: ['inner/pkg', 'other'] }),
+        'inner/pkg/package.json': '{"name":"acme-a","main":"./index.cjs"}\n',
+        'inner/pkg/index.cjs': "module.exports = { value: require('acme-b').value };\n",
+        'other/package.json': '{"name":"acme-b","main":"./index.cjs"}\n',
+        'other/index.cjs': "module.exports = { value: 'b-clean' };\n",
+      });
+      await mkdir(join(ext, 'inner/node_modules'), { recursive: true });
+      await symlink('../pkg', join(ext, 'inner/node_modules/acme-a'));
+      await symlink('../../other', join(ext, 'inner/node_modules/acme-b'));
+      return { install: join(ext, 'inner/node_modules') };
+    },
+  };
+  const suiteOf = note => `import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import a from 'acme-a';
+test('acme adds', () => { assert.equal(a.value, 'b-clean'); /* ${note} */ });
+`;
+  for (const [how, make] of Object.entries(layouts)) {
+    const ext = await realpath(await mkdtemp(join(tmpdir(), 'plates-climb-nested-')));
+    t.after(() => rm(ext, { recursive: true, force: true }));
+    const links = await make(ext);
+    const dir = await acme(t, {
+      climb: { jobs: ['test-time'], testCommand: LEDGER_TEST },
+      config: { check: LEDGER_TEST },
+      files: { '.gitignore': 'node_modules\n', 'package.json': JSON.stringify({ name: 'acme', private: true, type: 'module' }), 'acme.test.mjs': suiteOf('base') },
+    });
+    if (links.install) await symlink(links.install, join(dir, 'node_modules'), 'dir');
+    else {
+      await mkdir(join(dir, 'node_modules'), { recursive: true });
+      await symlink(links['acme-a'], join(dir, 'node_modules', 'acme-a'));
+    }
+    const base = git(dir, ['rev-parse', 'HEAD']);
+    git(dir, ['checkout', '-q', '-b', 'harmless', base]);
+    await commit(dir, { 'acme.test.mjs': suiteOf('harmless') }, 'acme: harmless');
+    const ok = climb(dir, ['guard', '--base', base, '--json']);
+    assert.equal(ok.status, 0, `${how}: ${ok.stdout}${ok.stderr}`);
+    assert.doesNotMatch(ok.stdout + ok.stderr, /EEXIST/, how);
+  }
+});
