@@ -357,7 +357,7 @@ test('fallback: a climb or tend Claude that could not start hands the pass to Co
   await mkdir(join(kept, 'plates/.plates'), { recursive: true });
   await writeFile(join(kept, 'plates/.plates/plates.json'), JSON.stringify({ ...JSON.parse(await readFile(join(dir, '.plates/plates.json'), 'utf8')), ...both }));
   const head = git(dir, ['rev-parse', 'HEAD']);
-  const tree = run('bash', ['-c', 'git status --porcelain --untracked-files=normal | git hash-object --stdin'], { cwd: dir }).stdout.trim();
+  const tree = m.contentPrint(dir);
   const env = over => ({ RUNNER_TEMP: kept, AGENT: 'claude', OUTCOME: 'failure', EXECUTION: file, MINUTES: '45', STARTED: String(now - 4), HEAD_BEFORE: head, TREE_BEFORE: tree, HAS_CLAUDE: 'true', HAS_CODEX: 'true', ...over });
   const s = await step(t, dir, 'Could the agent start?', env());
   assert.equal(s.status, 0, s.out);
@@ -371,6 +371,27 @@ test('fallback: a climb or tend Claude that could not start hands the pass to Co
   const dirty = await step(t, dir, 'Could the agent start?', env());
   assert.deepEqual([dirty.outputs.agent, dirty.outputs.fallback], ['claude', '']);
   assert.match(dirty.out, /Not handed on: the branch or the working tree changed after the agent was handed it\./);
+  // Codex on #400: an edit to a file already dirty when the agent was handed the tree (the tend worksheet, untracked;
+  // a tracked file already modified) leaves `git status` the same, but it is a change: nothing is handed on.
+  await mkdir(join(dir, '.plates/tend'), { recursive: true });
+  await writeFile(join(dir, '.plates/tend/pass.json'), '{"acme":"worksheet"}\n');
+  const tracked = git(dir, ['ls-files']).split('\n').find(f => f.endsWith('.md') || f.endsWith('.json'));
+  await writeFile(join(dir, tracked), `${await readFile(join(dir, tracked), 'utf8')}\nacme already dirty\n`);
+  const handedDirty = m.contentPrint(dir);
+  const status = git(dir, ['status', '--porcelain', '--untracked-files=normal']);
+  const same = await step(t, dir, 'Could the agent start?', env({ TREE_BEFORE: handedDirty }));
+  assert.deepEqual([same.outputs.agent, same.outputs.fallback], ['codex', 'codex'], 'nothing changed since: handed on');
+  await writeFile(join(dir, '.plates/tend/pass.json'), '{"acme":"half-written by the first agent"}\n');
+  assert.equal(git(dir, ['status', '--porcelain', '--untracked-files=normal']), status, 'git status alone cannot see it');
+  const edited = await step(t, dir, 'Could the agent start?', env({ TREE_BEFORE: handedDirty }));
+  assert.deepEqual([edited.outputs.agent, edited.outputs.fallback], ['claude', ''], 'an untracked file\'s content changed');
+  assert.match(edited.out, /Not handed on: the branch or the working tree changed/);
+  await writeFile(join(dir, '.plates/tend/pass.json'), '{"acme":"worksheet"}\n');
+  assert.equal(m.contentPrint(dir), handedDirty);
+  await writeFile(join(dir, tracked), `${await readFile(join(dir, tracked), 'utf8')}acme more\n`);
+  assert.equal(git(dir, ['status', '--porcelain', '--untracked-files=normal']), status);
+  const trackedEdit = await step(t, dir, 'Could the agent start?', env({ TREE_BEFORE: handedDirty }));
+  assert.deepEqual([trackedEdit.outputs.agent, trackedEdit.outputs.fallback], ['claude', ''], 'an already-modified tracked file\'s content changed');
   // The same step in tend, on its own workflow.
   const tend = runBlocks(await readFile(join(dirname(WORKFLOW), 'plates-tend.yml'), 'utf8')).find(b => b.step === 'Could the agent start?');
   assert.ok(tend && /agent-start --pass tend/.test(tend.script), 'tend checks with --pass tend');

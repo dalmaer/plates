@@ -87,7 +87,7 @@ import { environmentValue, writeName, branchSuffix } from './names.mjs';
 import { denialEvidence, durations, completion } from './climb-execution.mjs';
 import { readFile, readdir, writeFile, mkdir, mkdtemp, rm, cp, realpath, stat, lstat, readlink, symlink, open, rename } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
-import { constants, existsSync, readFileSync, rmSync } from 'node:fs';
+import { constants, existsSync, readFileSync, rmSync, lstatSync, readlinkSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
@@ -292,6 +292,31 @@ function git(cwd, args, { allowFail = false } = {}) {
   return allowFail ? r : r.stdout.trim();
 }
 const sha = (root, ref) => git(root, ['rev-parse', '--verify', `${ref}^{commit}`]);
+
+/**
+ * A print of the working tree's content, not just its status (Codex on #400): HEAD,
+ * the staged and unstaged diffs against it, the status, and each untracked (not
+ * ignored) file's content. An edit to a file that was already dirty or untracked
+ * changes it, so a writer that touched anything never hands its pass on. Anything
+ * it cannot read prints uniquely: never equal, so never handed on.
+ */
+export function contentPrint(root) {
+  try {
+    const h = createHash('sha256');
+    const add = (label, text) => h.update(`${label}\0${text}\0`);
+    const raw = args => { const r = git(root, args, { allowFail: true }); if (r.status !== 0) throw new Error(args[0]); return r.stdout; };
+    add('head', raw(['rev-parse', 'HEAD']));
+    add('status', raw(['status', '--porcelain=v1', '-z', '--untracked-files=all']));
+    add('staged', raw(['diff', '--binary', '--no-ext-diff', '--no-textconv', '--cached', 'HEAD']));
+    add('unstaged', raw(['diff', '--binary', '--no-ext-diff', '--no-textconv']));
+    for (const path of raw(['ls-files', '-z', '--others', '--exclude-standard']).split('\0').filter(Boolean)) {
+      const full = join(root, path);
+      const st = lstatSync(full);
+      add(path, st.isSymbolicLink() ? `link:${readlinkSync(full)}` : st.isFile() ? createHash('sha256').update(readFileSync(full)).digest('hex') : 'other');
+    }
+    return h.digest('hex');
+  } catch { return `unreadable-${process.pid}-${Date.now()}-${Math.random()}`; }
+}
 const isAncestor = (root, a, b) => git(root, ['merge-base', '--is-ancestor', a, b], { allowFail: true }).status === 0;
 const median = xs => { const s = [...xs].sort((a, b) => a - b), h = s.length >> 1; return s.length % 2 ? s[h] : (s[h - 1] + s[h]) / 2; };
 const mean = xs => xs.reduce((a, b) => a + b, 0) / xs.length;
@@ -2078,7 +2103,9 @@ export function agentVerdict({ outcome, result, elapsedSec, minutes, evidence })
 export const ERROR_CHARS = 300;
 export function errorText(result) {
   const pick = v => (typeof v === 'string' ? v : v && typeof v === 'object' && typeof v.message === 'string' ? v.message : null);
-  const parts = [pick(result?.result), pick(result?.error), pick(result?.message)].filter(x => x && x.trim());
+  // The SDK's error result (error_during_execution) carries its text in `errors: string[]`: read a bounded few of them too.
+  const errors = Array.isArray(result?.errors) ? result.errors.slice(0, 8).map(pick) : [];
+  const parts = [pick(result?.result), pick(result?.error), pick(result?.message), ...errors].filter(x => x && x.trim());
   const text = [...new Set(parts.map(x => x.replace(/\s+/g, ' ').trim()))].join(' | ');
   return text.length > ERROR_CHARS ? `${text.slice(0, ERROR_CHARS - 1)}…` : text;
 }
@@ -2174,7 +2201,7 @@ const hasOf = env => {
 
 // ---- the command line ------------------------------------------------------------
 
-const USAGE = 'usage: node scripts/plates/climb.mjs config|pick|measure <job>|compare|prove-steady|harmless|revert|settle|guard|sandbox|held|report|agent-ran|agent-start --pass climb|tend|distill [propose]|loop-pull|tend-pick|tend-input|tend-note|tend-page|tend-report [--json]';
+const USAGE = 'usage: node scripts/plates/climb.mjs config|pick|measure <job>|compare|prove-steady|harmless|revert|settle|guard|sandbox|held|report|agent-ran|agent-start --pass climb|tend|tree-print|distill [propose]|loop-pull|tend-pick|tend-input|tend-note|tend-page|tend-report [--json]';
 const FLAGS = { '--date': 'date', '--runs': 'runs', '--rounds': 'rounds', '--base': 'base', '--head': 'head', '--candidate': 'candidate', '--what': 'what', '--why': 'why', '--input': 'input', '--body': 'body', '--test': 'test', '--path': 'path', '--job': 'job', '--issue': 'issue', '--outcome': 'outcome', '--file': 'file', '--minutes': 'minutes', '--started': 'started', '--agent': 'agent', '--pass': 'pass', '--finding': 'finding', '--propose': 'propose', '--tried': 'tried', '--last-night': 'lastNight', '--since': 'since', '--plan': 'plan',
   // distill propose (lessons)
   '--kind': 'kind', '--name': 'name', '--rule': 'rule', '--guard': 'guard', '--rows': 'rows', '--row': 'row', '--shape': 'shape', '--cost': 'cost', '--check': 'check', '--family': 'family', '--note': 'note', '--read': 'read' };
@@ -2218,6 +2245,11 @@ export async function cli(args, { root = rootOf(import.meta), env = process.env 
     case 'agent-ran': {
       const r = await agentRan({ outcome: o.outcome, file: o.file ? resolve(o.file) : undefined, minutes: o.minutes, started: o.started, agent: o.agent });
       return { data: r, text: r.ok ? r.line : `::error::${r.line}`, exitCode: r.ok ? 0 : 1 };
+    }
+    case 'tree-print': {
+      // The checkout it is run in (the kept copy of this script lives outside it, in RUNNER_TEMP).
+      const print = contentPrint(process.cwd());
+      return { data: { print }, text: print };
     }
     case 'agent-start': {
       if (o.pass !== 'climb' && o.pass !== 'tend') throw new ClimbError('agent-start needs --pass climb or --pass tend');

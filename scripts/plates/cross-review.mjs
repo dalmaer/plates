@@ -433,7 +433,9 @@ export function agentVerdict({ outcome, result, elapsedSec, minutes }) {
 export const ERROR_CHARS = 300;
 export function errorText(result) {
   const pick = v => (typeof v === 'string' ? v : v && typeof v === 'object' && typeof v.message === 'string' ? v.message : null);
-  const parts = [pick(result?.result), pick(result?.error), pick(result?.message)].filter(x => x && x.trim());
+  // The SDK's error result (error_during_execution) carries its text in `errors: string[]`: read a bounded few of them too.
+  const errors = Array.isArray(result?.errors) ? result.errors.slice(0, 8).map(pick) : [];
+  const parts = [pick(result?.result), pick(result?.error), pick(result?.message), ...errors].filter(x => x && x.trim());
   const text = [...new Set(parts.map(x => x.replace(/\s+/g, ' ').trim()))].join(' | ');
   return text.length > ERROR_CHARS ? `${text.slice(0, ERROR_CHARS - 1)}…` : text;
 }

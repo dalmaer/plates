@@ -254,9 +254,9 @@ jobs:
             cat "$RUNNER_TEMP/prompt.md"
             echo "$eof"
             echo "started=$(date +%s)"
-            # The tree the agent is handed: a fallback runs only if it is the same after a start failure.
+            # The tree the agent is handed, by content (climb.mjs tree-print): a fallback runs only if it is the same after a start failure.
             echo "head=$(git rev-parse HEAD)"
-            echo "tree=$(git status --porcelain --untracked-files=normal | git hash-object --stdin)"
+            echo "tree=$(node "$RUNNER_TEMP/plates/scripts/plates/climb.mjs" tree-print)"
           } >> "$GITHUB_OUTPUT"
 
       - name: Telemetry
@@ -321,7 +321,7 @@ jobs:
         run: |
           if [ "$AGENT" = codex ]; then file="$RUNNER_TEMP/codex-final-message.md"; else file="${EXECUTION:-$RUNNER_TEMP/claude-execution-output.json}"; fi
           node "$RUNNER_TEMP/plates/scripts/plates/climb.mjs" agent-start --pass tend --agent "$AGENT" --outcome "$OUTCOME" --file "$file" --minutes "$MINUTES" --started "$STARTED" --json > "$RUNNER_TEMP/start.json"
-          HEAD_NOW="$(git rev-parse HEAD)" TREE_NOW="$(git status --porcelain --untracked-files=normal | git hash-object --stdin)" node -e '
+          HEAD_NOW="$(git rev-parse HEAD)" TREE_NOW="$(node "$RUNNER_TEMP/plates/scripts/plates/climb.mjs" tree-print)" node -e '
             const fs = require("fs");
             const [file, out] = process.argv.slice(1);
             const s = JSON.parse(fs.readFileSync(file, "utf8")), e = process.env;

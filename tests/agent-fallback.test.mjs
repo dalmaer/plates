@@ -177,3 +177,23 @@ test('budget use sums the failed provider and its fallback: 35 + 24 minutes is 5
     assert.doesNotMatch(String(report.suggestion), /shorten/, workflow);
   }
 });
+
+// Codex on #400: the SDK's error result (error_during_execution) carries its text in `errors: string[]`. A refused
+// secret there hands over as one in `result` does; a permission denial beside it still blocks.
+test('an SDK error result reads its errors array: a refused secret hands over, a denial beside it never does', async t => {
+  const sdk = { type: 'result', subtype: 'error_during_execution', is_error: true, num_turns: 0, duration_ms: 300, errors: ['401 Invalid API key'] };
+  for (const m of [cross, climb]) assert.equal(m.errorText(sdk), '401 Invalid API key');
+  assert.equal(climb.errorText({ ...sdk, errors: Array.from({ length: 50 }, (_, i) => `e${i} ${'x'.repeat(40)}`) }).length <= climb.ERROR_CHARS, true, 'bounded');
+  const dir = await mkdtemp(join(tmpdir(), 'plates-sdk-errors-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const file = join(dir, 'execution.json');
+  const now = 1_800_000_000;
+  const climbAt = pass => climb.agentStart({ config: { agents: { claude: {}, codex: {} } }, pass, outcome: 'failure', file, minutes: 45, started: now - 4, agent: 'claude', has: { claude: true, codex: true }, now: now * 1000 });
+  const reviewAt = () => cross.agentStart({ outcome: 'failure', file, minutes: 15, started: now - 4, agent: 'claude', fallback: 'codex', now: now * 1000 });
+  await writeFile(file, JSON.stringify([sdk]));
+  for (const pass of ['climb', 'tend']) assert.deepEqual([(await climbAt(pass)).fallback, (await climbAt(pass)).kind], ['codex', 'auth'], pass);
+  assert.deepEqual([(await reviewAt()).fallback, (await reviewAt()).kind], ['codex', 'auth']);
+  await writeFile(file, JSON.stringify([{ ...sdk, permission_denials: [{ tool_name: 'Bash', tool_input: { command: 'git push' } }] }]));
+  for (const pass of ['climb', 'tend']) assert.equal((await climbAt(pass)).fallback, null, pass);
+  assert.equal((await reviewAt()).fallback, null);
+});

@@ -75,7 +75,7 @@
     },
     ".github/workflows/plates-climb.yml": {
       "practice": "climb",
-      "sha256": "edb8fd5a1e903242fdb08f8f8494805580059f5813e843a4945439d279d499a0"
+      "sha256": "7cf20aab7b8ad67dc8faebf7e2177e662c40a50d3c2f1e50daa0576c8334d0be"
     },
     ".github/workflows/plates-cross-review.yml": {
       "practice": "cross-review",
@@ -107,7 +107,7 @@
     },
     ".github/workflows/plates-tend.yml": {
       "practice": "climb",
-      "sha256": "39110422ac0191e3e54dfa3271c606454e684de6d86abdbf8f02488118695377"
+      "sha256": "291944c65210f2b7618cdcba875b16671d2e81a1f88ad85a73bedfb34caea39d"
     },
     "AGENTS.md#agents-md": {
       "practice": "agents-md",
@@ -183,11 +183,11 @@
     },
     "scripts/plates/climb.mjs": {
       "practice": "climb",
-      "sha256": "a3cc1e797897b44bbc496aaa633dad5347f8ead097d83498043051efb9fed7b7"
+      "sha256": "ed0785c7ba845ac5b7402dfc32c11fb7eff399ba27c85d434b24dafce5bfdab3"
     },
     "scripts/plates/cross-review.mjs": {
       "practice": "cross-review",
-      "sha256": "d4d0da09724ad6d7dc0ae2b2f3f9192051e67c465501e9d32e48a2f76c4bcac6"
+      "sha256": "cf6c9b55b83fa7297349ca783fe51c9ec5baf761d0fa54ccc85bcf87ff1217d4"
     },
     "scripts/plates/decision-context.mjs": {
       "practice": "reconciliation",
