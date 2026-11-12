@@ -1478,14 +1478,18 @@ export function stepUse(jobs, { step, check, minutes }) {
   for (const job of Array.isArray(jobs) ? jobs : []) {
     const steps = Array.isArray(job?.steps) ? job.steps : [];
     if (check && steps.some(s => s?.name === check && s.conclusion === 'failure')) return null;
-    // The last of the pass's agent steps that ran: after a provider could not start, its fallback (same name) did the work.
-    for (const s of [...steps].reverse()) {
+    // Every one of the pass's agent steps that ran, summed: after a provider could not start, its fallback (same name)
+    // ran in what was left of the one budget, so the operation used both, measured against that original budget.
+    let seconds = 0, ran = false, stopped = false;
+    for (const s of steps) {
       if (s?.name !== step || s.conclusion === 'skipped') continue;
       const from = stamp(s, 'started_at', 'startedAt'), to = stamp(s, 'completed_at', 'completedAt');
       if (!Number.isFinite(from) || !Number.isFinite(to) || to < from) continue;
-      const seconds = (to - from) / 1000;
-      return { seconds, ranOut: s.conclusion === 'cancelled' || s.conclusion === 'timed_out' || seconds >= (minutes - 1) * 60 };
+      seconds += (to - from) / 1000;
+      ran = true;
+      if (s.conclusion === 'cancelled' || s.conclusion === 'timed_out') stopped = true;
     }
+    if (ran) return { seconds, ranOut: stopped || seconds >= (minutes - 1) * 60 };
   }
   return null;
 }

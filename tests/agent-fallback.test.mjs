@@ -93,7 +93,7 @@ test('errorCause, in both copies, tells a top-up from a new secret', () => {
   }
 });
 
-test('the Budget line counts the agent that did the work: after a fallback, the last of the pass\'s same-named steps that ran', async () => {
+test('the Budget line counts every agent that ran: after a fallback, the pass\'s same-named steps summed against the one budget', async () => {
   const { stepUse } = await import('../scripts/plates/lib.mjs');
   const at = (s, secs) => ({ started_at: new Date(Date.UTC(2026, 10, 8, 2, 0, s)).toISOString(), completed_at: new Date(Date.UTC(2026, 10, 8, 2, 0, s + secs)).toISOString() });
   const run = steps => [{ steps }];
@@ -104,7 +104,7 @@ test('the Budget line counts the agent that did the work: after a fallback, the 
     { name: 'Climb', conclusion: 'success', ...at(10, 20 * 60) }, // Codex, the fallback
     { name: 'Did the agent run?', conclusion: 'success', ...at(20 * 60 + 11, 1) },
   ]);
-  assert.equal(stepUse(handed, { step: 'Climb', check: 'Did the agent run?', minutes: 45 }).seconds, 20 * 60);
+  assert.equal(stepUse(handed, { step: 'Climb', check: 'Did the agent run?', minutes: 45 }).seconds, 4 + 20 * 60, 'the first provider\'s four seconds count too');
   const plain = run([{ name: 'Climb', conclusion: 'success', ...at(0, 600) }, { name: 'Climb', conclusion: 'skipped' }, { name: 'Climb', conclusion: 'skipped' }]);
   assert.equal(stepUse(plain, { step: 'Climb', check: 'Did the agent run?', minutes: 45 }).seconds, 600, 'no fallback: the one that ran');
 });
@@ -155,4 +155,25 @@ test('fallbackMinutes: what is left of the first budget, in whole minutes; too l
   assert.deepEqual([review.fallback, review.minutes], ['codex', 7]);
   const tooLate = await cross.agentStart({ outcome: 'failure', file, minutes: 15, started: now - 800, agent: 'claude', fallback: 'codex', now: now * 1000 });
   assert.deepEqual([tooLate.agent, tooLate.fallback, tooLate.minutes], ['claude', null, null]);
+});
+
+// Codex on #400: the failed first provider's time counts. 35 minutes failed plus 24 by the fallback is 59 of the one
+// 60-minute budget, not 24; four such runs must never suggest shortening, in cross-review, climb or tend.
+test('budget use sums the failed provider and its fallback: 35 + 24 minutes is 59 of 60, and is never shortened', async () => {
+  const { stepUse, budgetUse, BUDGET_STEPS } = await import('../scripts/plates/lib.mjs');
+  const at = (m, mins) => ({ started_at: new Date(Date.UTC(2026, 10, 8, 2, m)).toISOString(), completed_at: new Date(Date.UTC(2026, 10, 8, 2, m + mins)).toISOString() });
+  for (const [workflow, { agent: step, check }] of Object.entries(BUDGET_STEPS)) {
+    const jobs = [{ steps: [
+      { name: step, conclusion: 'success', ...at(0, 35) }, // the first provider, which could not start (continue-on-error)
+      { name: step, conclusion: 'skipped' },
+      { name: step, conclusion: 'success', ...at(36, 24) }, // its fallback, in the 25 minutes left
+      { name: check, conclusion: 'success', ...at(61, 0) },
+    ] }];
+    const use = stepUse(jobs, { step, check, minutes: 60 });
+    assert.equal(use.seconds, 59 * 60, workflow);
+    assert.equal(use.ranOut, true, `${workflow}: 59 of 60 minutes ran out the budget`);
+    const runs = Array.from({ length: 4 }, () => ({ created_at: '2026-11-08T02:00:00Z', jobs }));
+    const report = budgetUse(runs, { step, check, minutes: 60 });
+    assert.doesNotMatch(String(report.suggestion), /shorten/, workflow);
+  }
 });
