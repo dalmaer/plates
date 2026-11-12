@@ -1,9 +1,10 @@
 // Source-only feedback preflight. This never substitutes for the required full gate.
 import { spawnSync } from 'node:child_process';
 import { realpath, stat } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { assertFocusedRuntime, probeLoopback } from '../lib/validation-capabilities.mjs';
+import { assertFocusedRuntime, packageBinding, probeLoopback } from '../lib/validation-capabilities.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const REQUIRED_CONVENTIONS = Object.freeze([
@@ -20,7 +21,7 @@ export const REQUIRED_CONVENTIONS = Object.freeze([
   'tests/check-focused.test.mjs',
 ]);
 const PATH = /^tests\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-][A-Za-z0-9_.-]*\.test\.mjs$/;
-const usage = 'Usage: node scripts/check-focused.mjs [--plan] [--json] [tests/name.test.mjs ...]\nRuns required source conventions plus explicit focused tests, then roadmap, render, inbox and whitespace checks.\nUnsupported or mismatched process/PATH Node is refused before tests (requires >=24.22.1). Execution also requires an ephemeral 127.0.0.1 bind-and-close probe; --plan does not bind. This is early feedback only; the mandatory integrated gate remains unchanged.\nNew untracked files need explicit git add -N before verification; this command never stages files.';
+const usage = 'Usage: node scripts/check-focused.mjs [--plan] [--json] [tests/name.test.mjs ...]\nChecks the reviewed package binding and rendered files before required source conventions and explicit focused tests, then roadmap, inbox and whitespace checks.\nUnsupported or mismatched process/PATH Node is refused before tests (requires >=24.22.1). Execution also requires an ephemeral 127.0.0.1 bind-and-close probe; --plan does not bind. This is early feedback only; the mandatory integrated gate remains unchanged.\nNew untracked files need explicit git add -N before verification; this command never stages files.';
 
 /** Explicit argv only: no glob expansion, shell, inferred dependency map or gate eligibility. */
 export async function focusedPlan(paths, root = ROOT) {
@@ -38,9 +39,10 @@ export async function focusedPlan(paths, root = ROOT) {
   return {
     schema: 1, authority: 'feedback-only', cwd, tests, runtime,
     stages: [
+      // Reject generated drift before spending time on the convention suite.
+      { id: 'render', command: 'npm', args: ['run', 'render:check'], timeout: 120000 },
       { id: 'focused-and-conventions', command: process.execPath, args: ['--import', './tests/helpers/hermetic.mjs', '--test', '--test-concurrency=2', ...tests], timeout: 900000 },
       { id: 'roadmap', command: 'npm', args: ['run', 'roadmap:check'], timeout: 120000 },
-      { id: 'render', command: 'npm', args: ['run', 'render:check'], timeout: 120000 },
       { id: 'inbox', command: 'npm', args: ['run', 'inbox:check'], timeout: 120000 },
       { id: 'whitespace', command: 'git', args: ['-c', 'core.fsmonitor=false', 'diff', '--check', 'HEAD'], timeout: 120000 },
     ],
@@ -50,6 +52,8 @@ export async function focusedPlan(paths, root = ROOT) {
 /** Run in order and stop on failure. Tests can inject an executor to inspect argv. */
 export function runFocusedPlan(plan, { execute = spawnSync, capabilityExecute = spawnSync, json = false } = {}) {
   const runtime = assertFocusedRuntime(plan.cwd);
+  const binding = packageBinding(readFileSync(resolve(plan.cwd, 'package.json')));
+  if (binding.status !== 'verified') throw new Error(`source package capability binding ${binding.status}; review package.json and its lockfile, then update only the reviewed package entry before focused execution`);
   const loopback = probeLoopback(plan.cwd, runtime.tools.node, { execute: capabilityExecute });
   if (loopback.status !== 'observed') throw new Error(`source loopback capability unavailable (${loopback.code}); cannot bind and close 127.0.0.1 before focused execution`);
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('NODE_TEST_')));
