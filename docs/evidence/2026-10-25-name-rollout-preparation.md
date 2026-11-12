@@ -367,3 +367,70 @@ The next collector change preserves the existing generic failure and adds fixed 
 ### Isocan merge authorization
 
 On 2026-10-25 America/Denver the owner authorized this session to merge Isocan PR #526 at reviewed head `ddce3355b74726fbceb5b21fc2eae6881d9a1399` once Plates, Ledger, Duo and Cajones verify and Isocan's approved pause/drain barrier is satisfied. No check, order, budget or barrier is waived. The exact approval is retained privately; no consumer installation is asserted here.
+
+
+### 2026-11-04: fresh merge facts and retained verification gaps
+
+Read-only GitHub inspection corrects the earlier prepared-only snapshot. The
+following original consumer PRs all merged on 2026-10-26 (UTC):
+
+| Original PR | Merged at | PR branch head reported by GitHub |
+| --- | --- | --- |
+| [Ledger 170](https://github.com/dalmaer/ledger/pull/170) | 03:54:46Z | `191098c2a98d2e3d818fd99209ab9750d0504d20` |
+| [Duo 132](https://github.com/dalmaer/duo/pull/132) | 03:55:28Z | `c0c525934b59844749f8ce358112cba5b760417b` |
+| [Cajones 101](https://github.com/dalmaer/cajones/pull/101) | 03:56:06Z | `c82e22a28bc31db9b97c7a9dd5bb0ba87c258ea4` |
+| [Isocan 526](https://github.com/dglazkov/isocan/pull/526) | 03:56:45Z | `ddce3355b74726fbceb5b21fc2eae6881d9a1399` |
+| [DTV 8](https://github.com/dalmaer/dtv/pull/8) | 03:57:14Z | `bdd8d3c02f4fc47152a4a7f8bd3380bc06715b04` |
+| [Papa Tapes 2](https://github.com/dalmaer/papa-tapes/pull/2) | 03:57:54Z | `deaf9c62634902e6641c5fc851bb97b56c8bc275` |
+
+Each row was read with `gh pr view <number> --repo <owner/repo> --json
+state,mergedAt,headRefOid`. These are merge facts, not fresh independent review,
+installed-source verification, workflow restoration or rollout acceptance.
+Original receipts still own any pause/drain/restore observations. No consumer
+write, new PR, merge, workflow dispatch or security change occurred in this audit.
+
+[Diagnostics PR 274](https://github.com/dalmaer/plates/pull/274) merged at
+03:29:07Z on 2026-10-26 as `5ad82e974bb4ad47e7f80abbb676444442dd3a85`.
+Its additional failure categories are therefore implemented; the missing live
+producer input is still not retrospectively explained. `gh pr view 274 --repo
+dalmaer/plates --json number,headRefOid,mergedAt` and a separate `--json
+mergeCommit` read established those identities.
+
+Bounded `gh run list --repo dalmaer/plates --workflow plates-night.yml --event
+workflow_dispatch --limit 12 --json databaseId,createdAt,conclusion,headSha`
+returned only failed night 40251515967 and successful night 40256668332. The
+corresponding morning query (`plates-morning.yml`, `--limit 10`) returned successful
+[morning 40450842699](https://github.com/dalmaer/plates/actions/runs/40450842699),
+created 2026-10-27T04:38:28Z at source
+`05747bdbcec3a6b3f6be2e2c109757bd5d1d2756`. A successful morning does not establish
+its association with the retained night.
+
+`node bin/plates.mjs names --verify dalmaer/plates --run 40256668332
+--morning-run 40450842699 --json` at source
+`15228c46093c40ea250fdeac5673b13897d58acb` exited 1. The original checkout had
+pre-existing delivery-grant configuration and morning-report files; these were
+preserved, and this is not a clean-checkout gate claim. Night success, artifact-name
+metadata, committed label receipt/current label IDs and the current legacy PR
+drain passed. Night-PR association, source-bound morning linkage, before/after
+fresh-write provenance and home/history consumption remained unknown. The
+reported gap was "Night observation source/producer coverage unavailable";
+activation remained unauthorized by verification. This observation preserves the
+original unavailable improve result and does not infer a new root cause.
+
+The correction was built by the conductor (small phase). It updates attribution
+and the next action only; all acceptance boxes and historical observations remain
+unchanged. Reverting the record commit restores the prior projection without
+changing runtime state. Phase 129 and its original claim remain open.
+
+
+The 2026-11-04 focused preflight, `npm run check:focused --
+tests/names-verify.test.mjs`, exited 0: 169 tests passed, no failures or skips;
+roadmap, render, inbox and whitespace guards passed. The command emitted no
+separate test-ledger hygiene block, so no hygiene classification is inferred.
+`npm run typecheck` passed. An initial `npm run check` was stopped (exit 143)
+after discovering this surviving worktree's installed PGlite was 0.5.11 while
+its current lockfile requires 0.5.14; a separate integrator also held the gate
+lane. Its incomplete log is retained privately, not counted as passing proof.
+`npm ci --ignore-scripts` then installed the current lockfile successfully, and
+`npm run typecheck` passed again. The record correction grants no acceptance;
+its final integrated validation is reported separately on the published PR.
