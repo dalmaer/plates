@@ -159,6 +159,16 @@ plates's files are listed in `.plates/lock.json`; `plates doctor` says if you
 changed one. Everything else is yours.
 <!-- plates:end agents-md -->
 
+## Local output stays out of the checkout
+
+Digests, diagnoses, run logs and other private per-machine output go in
+`$XDG_STATE_HOME/plates/<kind>/<owner>/<repo>/` (default `~/.local/state`),
+never in a project's checkout or its `.plates/`. The root `.gitignore` catches
+`.plates/*-reports/`, `*-diagnostics/` and `*-logs/` as a safety net; when one
+turns up, move it and fix its writer. See
+[where local output goes](docs/guide/local-output.md).
+(why: a daily digest saved under `.plates/` left 25 MB of private, cross-project output untracked in plates's checkout, and the night recorded the checkout as dirty.)
+
 ## Retained validation audits
 
 Use the source-only [validation audit entrypoint](docs/development/validation-audit.md)
