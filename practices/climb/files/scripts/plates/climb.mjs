@@ -93,7 +93,7 @@ import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { join, resolve, dirname, relative, parse, isAbsolute, normalize, sep } from 'node:path';
 import { performance } from 'node:perf_hooks';
-import { gateEnv, healthDirOf, cells, isMain, rootOf, main, climbRetiring, passAgentProblems, agentGitArgs, codexVerdict, startFailureKind, startFailure, fallbackAgent, fallbackLine, listedAgents } from './lib.mjs';
+import { gateEnv, healthDirOf, cells, isMain, rootOf, main, climbRetiring, passAgentProblems, agentGitArgs, codexVerdict, startFailureKind, startFailure, fallbackAgent, fallbackLine, listedAgents, fallbackMinutes, FALLBACK_MIN_MINUTES } from './lib.mjs';
 import { readRuns, flaky, testsConfigOf, aloneCommand, KEEP } from './test-ledger.mjs';
 import { prBody } from './pr-body.mjs';
 import { tendConfigOf, tendPick, tendInput, openPass, tendNote, tendGuard, tendReport, tendPage, worksheetText, PASS, sandboxProblems, tendCheck, scriptsChanged, treeState, heldProblems, changesOf, pathsOf, SAFE_GIT, OFF_LIMITS, INSTALL_FILES, recordBase } from './tend.mjs';
@@ -2145,11 +2145,13 @@ export async function agentRan({ outcome, file, minutes, started, agent, now = D
  * or rate limit at its first turn): an unread one (no result, or Codex's
  * empty final message) may be a crash after the agent changed files, so it
  * stays red. The workflow also hands over only on a clean working tree; the
- * fallback starts from the same branch the first was given.
+ * fallback starts from the same branch the first was given. The handoff keeps
+ * the original deadline: the fallback gets only the whole minutes left of the
+ * budget (`minutes`), and none at all when fewer than FALLBACK_MIN_MINUTES are.
  */
 export async function agentStart({ config, pass, outcome, file, minutes, started, agent = 'claude', has, now = Date.now() }) {
   const ran = await agentRan({ outcome, file, minutes, started, agent, now });
-  const stay = { agent, fallback: null, note: null, kind: null, line: ran.line };
+  const stay = { agent, fallback: null, note: null, kind: null, minutes: null, line: ran.line };
   const fallback = fallbackAgent({ order: listedAgents(config), tried: [agent], has, pass });
   if (ran.ok || ran.evidence === 'oversized' || ran.denials?.count || !fallback) return stay;
   const raw = file ? await readFile(file, 'utf8').catch(() => null) : null;
@@ -2158,8 +2160,10 @@ export async function agentStart({ config, pass, outcome, file, minutes, started
   const elapsedSec = Number.isFinite(started) ? now / 1000 - started : NaN;
   const failure = startFailure({ agent, outcome, result, text, message: agent === 'codex' ? raw : null, elapsedSec, minutes });
   if (!failure || failure.kind === 'unread') return stay;
+  const left = fallbackMinutes({ minutes, elapsedSec });
+  if (!left) return { ...stay, line: `${ran.line} Not handed on: less than ${FALLBACK_MIN_MINUTES} minutes are left of the ${minutes}-minute budget.` };
   const note = fallbackLine({ from: agent, to: fallback, failure, text, doing: pass === 'tend' ? 'tended' : 'climbed' });
-  return { agent: fallback, fallback, note, kind: failure.kind, line: note };
+  return { agent: fallback, fallback, note, kind: failure.kind, minutes: left, line: `${note} It has the ${left} minutes left of the budget.` };
 }
 
 /** Which providers' secrets the workflow says are set ({ claude: true, codex: false }), from HAS_CLAUDE and HAS_CODEX; undefined when it says none. */

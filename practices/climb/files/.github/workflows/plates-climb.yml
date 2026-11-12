@@ -514,7 +514,7 @@ jobs:
             const same = e.HEAD_NOW === e.HEAD_BEFORE && e.TREE_NOW === e.TREE_BEFORE;
             const fallback = s.fallback && same ? s.fallback : "";
             const note = fallback ? String(s.note ?? "").replace(/[\r\n]+/g, " ") : "";
-            fs.appendFileSync(out, `agent=${fallback || e.AGENT}\nfallback=${fallback}\nnote=${note}\n`);
+            fs.appendFileSync(out, `agent=${fallback || e.AGENT}\nfallback=${fallback}\nnote=${note}\nminutes=${fallback ? s.minutes ?? "" : ""}\n`);
             if (s.fallback && !same) console.log(`::warning::${String(s.note ?? "").replace(/[\r\n]+/g, " ")} Not handed on: the branch or the working tree changed after the agent was handed it.`);
             else console.log(fallback ? `::warning::${note}` : `the agent stays ${e.AGENT}`);
           ' "$RUNNER_TEMP/start.json" "$GITHUB_OUTPUT"
@@ -545,7 +545,7 @@ jobs:
         id: climb_fallback_codex
         if: steps.start.outputs.fallback == 'codex'
         continue-on-error: true
-        timeout-minutes: ${{ fromJSON(steps.pick.outputs.minutes) }}
+        timeout-minutes: ${{ fromJSON(steps.start.outputs.minutes || steps.pick.outputs.minutes) }}
         uses: openai/codex-action@v1
         env:
           GH_TOKEN: ""
@@ -570,7 +570,7 @@ jobs:
           AGENT: ${{ steps.start.outputs.agent || steps.on.outputs.agent }}
           OUTCOME: ${{ steps.start.outputs.fallback == 'codex' && steps.climb_fallback_codex.outcome || steps.on.outputs.agent == 'codex' && steps.climb_codex.outcome || steps.climb.outcome }}
           EXECUTION: ${{ steps.climb.outputs.execution_file }}
-          MINUTES: ${{ steps.pick.outputs.minutes }}
+          MINUTES: ${{ steps.start.outputs.fallback == 'codex' && steps.start.outputs.minutes || steps.pick.outputs.minutes }}
           STARTED: ${{ steps.start.outputs.fallback == 'codex' && steps.brief_fallback.outputs.started || steps.brief.outputs.started }}
         run: |
           status=0

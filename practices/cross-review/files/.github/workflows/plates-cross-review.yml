@@ -462,14 +462,24 @@ jobs:
           MINUTES: ${{ steps.which.outputs.minutes }}
           STARTED: ${{ steps.brief.outputs.started }}
         run: |
+          helper="$RUNNER_TEMP/plates/scripts/plates/cross-review.mjs"
+          # The helper is the default branch's: one from before the fallback has
+          # no agent-start (it exits 2 on --fallback), so the review stays with
+          # its reviewer and is judged below as before.
+          if ! node "$helper" capabilities 2>/dev/null | grep -q '"fallback":true'; then
+            printf 'agent=%s\nfallback=\nnote=\nminutes=\n' "$AGENT" >> "$GITHUB_OUTPUT"
+            echo "the reviewer stays $AGENT: the default branch's helper has no fallback yet"
+            exit 0
+          fi
           if [ "$AGENT" = codex ]; then file="$RUNNER_TEMP/codex-final-message.md"; else file="${EXECUTION:-$RUNNER_TEMP/claude-execution-output.json}"; fi
-          node "$RUNNER_TEMP/plates/scripts/plates/cross-review.mjs" agent-start --agent "$AGENT" --fallback "$FALLBACK" --outcome "$OUTCOME" --file "$file" --minutes "$MINUTES" --started "$STARTED" --json > "$RUNNER_TEMP/start.json"
+          node "$helper" agent-start --agent "$AGENT" --fallback "$FALLBACK" --outcome "$OUTCOME" --file "$file" --minutes "$MINUTES" --started "$STARTED" --json > "$RUNNER_TEMP/start.json"
+          # The fallback keeps the original deadline: it gets only the minutes left (minutes), never a fresh budget.
           node -e '
             const fs = require("fs");
             const [file, out] = process.argv.slice(1);
             const s = JSON.parse(fs.readFileSync(file, "utf8"));
             const note = String(s.note ?? "").replace(/[\r\n]+/g, " ");
-            fs.appendFileSync(out, `agent=${s.agent}\nfallback=${s.fallback ?? ""}\nnote=${note}\nstarted=${Math.floor(Date.now() / 1000)}\n`);
+            fs.appendFileSync(out, `agent=${s.agent}\nfallback=${s.fallback ?? ""}\nnote=${note}\nminutes=${s.fallback ? s.minutes ?? "" : ""}\nstarted=${Math.floor(Date.now() / 1000)}\n`);
             console.log(s.fallback ? `::warning::${note}` : `the reviewer stays ${s.agent}`);
           ' "$RUNNER_TEMP/start.json" "$GITHUB_OUTPUT"
       - name: Give Codex its temp dir (fallback)
@@ -479,7 +489,7 @@ jobs:
         id: review_fallback
         if: steps.start.outputs.fallback == 'claude'
         continue-on-error: true
-        timeout-minutes: ${{ fromJSON(steps.which.outputs.minutes) }}
+        timeout-minutes: ${{ fromJSON(steps.start.outputs.minutes || steps.which.outputs.minutes) }}
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -494,7 +504,7 @@ jobs:
         id: review_fallback_codex
         if: steps.start.outputs.fallback == 'codex'
         continue-on-error: true
-        timeout-minutes: ${{ fromJSON(steps.which.outputs.minutes) }}
+        timeout-minutes: ${{ fromJSON(steps.start.outputs.minutes || steps.which.outputs.minutes) }}
         uses: openai/codex-action@v1
         env:
           GH_TOKEN: ""
@@ -518,7 +528,7 @@ jobs:
           AGENT: ${{ steps.start.outputs.agent || steps.which.outputs.agent }}
           OUTCOME: ${{ steps.start.outputs.fallback == 'codex' && steps.review_fallback_codex.outcome || steps.start.outputs.fallback == 'claude' && steps.review_fallback.outcome || steps.which.outputs.agent == 'codex' && steps.review_codex.outcome || steps.review.outcome }}
           EXECUTION: ${{ steps.start.outputs.fallback == 'claude' && steps.review_fallback.outputs.execution_file || steps.review.outputs.execution_file }}
-          MINUTES: ${{ steps.which.outputs.minutes }}
+          MINUTES: ${{ steps.start.outputs.fallback != '' && steps.start.outputs.minutes || steps.which.outputs.minutes }}
           STARTED: ${{ steps.start.outputs.fallback != '' && steps.start.outputs.started || steps.brief.outputs.started }}
         run: |
           if [ "$AGENT" = codex ]; then
@@ -723,7 +733,10 @@ jobs:
           in="$RUNNER_TEMP/review"
           file="$in/claude-execution-output.json"
           if [ "$AGENT" = codex ]; then file="$in/codex-final-message.md"; fi
-          node "$review_scripts/cross-review.mjs" summary --agent "${AGENT:-claude}" --author "$AUTHOR" --reason "$REASON" --fallback-note "$FALLBACK_NOTE" --file "$file" --pr "$in/pr.json" --diff "$in/pr.diff" --minutes "$MINUTES" --out "$RUNNER_TEMP/review.json" --plain "$RUNNER_TEMP/review-plain.json"
+          # A trusted helper from before the fallback has no --fallback-note (it exits 2): the review is still posted, without the note.
+          note=()
+          if node "$review_scripts/cross-review.mjs" capabilities 2>/dev/null | grep -q '"fallbackNote":true'; then note=(--fallback-note "$FALLBACK_NOTE"); fi
+          node "$review_scripts/cross-review.mjs" summary --agent "${AGENT:-claude}" --author "$AUTHOR" --reason "$REASON" "${note[@]}" --file "$file" --pr "$in/pr.json" --diff "$in/pr.diff" --minutes "$MINUTES" --out "$RUNNER_TEMP/review.json" --plain "$RUNNER_TEMP/review-plain.json"
           if ! gh api --method POST "repos/$REPO/pulls/$PR/reviews" --input "$RUNNER_TEMP/review.json" --jq '"posted review \(.id) (\(.state))"'; then
             echo "::warning::GitHub refused the review with its inline comments; posting it with the findings in its summary."
             gh api --method POST "repos/$REPO/pulls/$PR/reviews" --input "$RUNNER_TEMP/review-plain.json" --jq '"posted review \(.id) (\(.state))"'
@@ -751,5 +764,6 @@ jobs:
           in="$RUNNER_TEMP/review"
           file="$in/claude-execution-output.json"
           if [ "$AGENT" = codex ]; then file="$in/codex-final-message.md"; fi
+          # The publisher is the one this workflow was rendered with (its sha256 checked above), so it takes --fallback-note.
           node "$PUBLISHER/cross-review.mjs" push-review --agent "${AGENT:-claude}" --author "$AUTHOR" --reason "$REASON" --fallback-note "$FALLBACK_NOTE" --file "$file" --push "$in/push.json" --diff "$in/pr.diff" --head-diff "$in/head.diff" --minutes "$MINUTES" --repo "$REPO" --out "$RUNNER_TEMP/push-review.json"
           node "$PUBLISHER/cross-review.mjs" push-post --review "$RUNNER_TEMP/push-review.json" --repo "$REPO"

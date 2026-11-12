@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { startFailureKind, startFailure, fallbackAgent, fallbackLine, START_FAILURES } from '../scripts/plates/lib.mjs';
+import { startFailureKind, startFailure, fallbackAgent, fallbackLine, fallbackMinutes, START_FAILURES } from '../scripts/plates/lib.mjs';
 import * as cross from '../scripts/plates/cross-review.mjs';
 import * as climb from '../scripts/plates/climb.mjs';
 
@@ -129,4 +129,30 @@ test('a recorded permission denial blocks: never a start failure, in climb, tend
   }
   const review = await cross.agentStart({ outcome: 'failure', file, minutes: 15, started, agent: 'claude', fallback: 'codex' });
   assert.deepEqual([review.agent, review.fallback, review.note], ['claude', null, null]);
+});
+
+// Codex on #400: a handoff keeps the original deadline. The fallback gets the whole minutes left, never a fresh budget,
+// and none at all when fewer than two are left; climb and tend carry it as cross-review does.
+test('fallbackMinutes: what is left of the first budget, in whole minutes; too little or an unknown start is none', async t => {
+  assert.equal(fallbackMinutes({ minutes: 60, elapsedSec: 30 * 60 }), 30, 'a rate limit after half an hour leaves half');
+  assert.equal(fallbackMinutes({ minutes: 15, elapsedSec: 4 }), 14);
+  assert.equal(fallbackMinutes({ minutes: 15, elapsedSec: 13 * 60 + 1 }), null, 'one whole minute left is too little');
+  assert.equal(fallbackMinutes({ minutes: 15, elapsedSec: NaN }), null, 'the time spent is unknown: no deadline to keep');
+  assert.equal(fallbackMinutes({ minutes: 0, elapsedSec: 1 }), null);
+  const dir = await mkdtemp(join(tmpdir(), 'plates-deadline-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const file = join(dir, 'execution.json');
+  await writeFile(file, JSON.stringify([{ type: 'result', is_error: true, num_turns: 1, duration_ms: 900, subtype: 'success', result: 'Credit balance is too low' }]));
+  const now = 1_800_000_000;
+  for (const pass of ['climb', 'tend']) {
+    const at = started => climb.agentStart({ config: { agents: { claude: {}, codex: {} } }, pass, outcome: 'failure', file, minutes: 45, started, agent: 'claude', has: { claude: true, codex: true }, now: now * 1000 });
+    const handed = await at(now - 20 * 60);
+    assert.deepEqual([handed.fallback, handed.minutes], ['codex', 25], pass);
+    const late = await at(now - 39 * 60);
+    assert.deepEqual([late.fallback, late.minutes], ['codex', 6], pass);
+  }
+  const review = await cross.agentStart({ outcome: 'failure', file, minutes: 15, started: now - 450, agent: 'claude', fallback: 'codex', now: now * 1000 });
+  assert.deepEqual([review.fallback, review.minutes], ['codex', 7]);
+  const tooLate = await cross.agentStart({ outcome: 'failure', file, minutes: 15, started: now - 800, agent: 'claude', fallback: 'codex', now: now * 1000 });
+  assert.deepEqual([tooLate.agent, tooLate.fallback, tooLate.minutes], ['claude', null, null]);
 });

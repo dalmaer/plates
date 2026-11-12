@@ -2667,6 +2667,20 @@ export function startFailure({ agent, outcome, result = null, text = '', message
   return kind && kind !== 'model' ? of(kind) : null;
 }
 
+/** The fewest whole minutes worth handing to a fallback: less than this left and the job stays red with its provider. */
+export const FALLBACK_MIN_MINUTES = 2;
+
+/**
+ * How many whole minutes a fallback gets, pure: what is left of the first provider's
+ * budget (the handoff keeps the original deadline, never a fresh budget), or null when
+ * fewer than FALLBACK_MIN_MINUTES are left or the time already spent is unknown.
+ */
+export function fallbackMinutes({ minutes, elapsedSec }) {
+  if (!Number.isFinite(minutes) || minutes <= 0 || !Number.isFinite(elapsedSec) || elapsedSec < 0) return null;
+  const left = Math.floor(minutes - elapsedSec / 60);
+  return left >= FALLBACK_MIN_MINUTES ? left : null;
+}
+
 /**
  * Who runs a job instead when the providers in `tried` could not start, pure: the
  * first provider `order` lists ("agents" order) that does `pass`, was not tried and

@@ -73,7 +73,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
-import { environmentValue, remoteLabelReceipt, repositoryLabelSelection, markerComment, markerComments, isMain, main, rootOf, lessonsPathOf, AGENTS, agentOf, passAgentProblems, codexVerdict, reviewerOf, listedAgents, pushReviewerOf, commitAuthorOf, secretText, PUSH_LABEL, pushTitle, recordText, recordOf, byWorkflow, fallbackFindingsMark, startFailureKind, startFailure, fallbackAgent, fallbackLine } from './lib.mjs';
+import { environmentValue, remoteLabelReceipt, repositoryLabelSelection, markerComment, markerComments, isMain, main, rootOf, lessonsPathOf, AGENTS, agentOf, passAgentProblems, codexVerdict, reviewerOf, listedAgents, pushReviewerOf, commitAuthorOf, secretText, PUSH_LABEL, pushTitle, recordText, recordOf, byWorkflow, fallbackFindingsMark, startFailureKind, startFailure, fallbackAgent, fallbackLine, fallbackMinutes, FALLBACK_MIN_MINUTES } from './lib.mjs';
 
 export const KEY = 'crossReview';
 export const LIMITS = Object.freeze({ minutes: [5, 60] });
@@ -475,11 +475,13 @@ export async function agentRan({ outcome, file, minutes, started, agent = 'claud
  * Only a start failure hands over (lib.mjs startFailure): a review that ran,
  * ran out its budget or stopped with a real error stays with its reviewer, and
  * "Did the agent run?" judges it as before. `note` names the kind, so the owner
- * knows whether to top up or rotate; the reviewer still only reads.
+ * knows whether to top up or rotate; the reviewer still only reads. The handoff
+ * keeps the original deadline: the fallback gets only the whole minutes left of
+ * the budget (`minutes`), and none at all when fewer than FALLBACK_MIN_MINUTES are.
  */
 export async function agentStart({ outcome, file, minutes, started, agent = 'claude', fallback = null, now = Date.now() }) {
   const ran = await agentRan({ outcome, file, minutes, started, agent, now });
-  const stay = { agent, fallback: null, note: null, kind: null, line: ran.line };
+  const stay = { agent, fallback: null, note: null, kind: null, minutes: null, line: ran.line };
   if (ran.ok || !fallback || fallback === agent) return stay;
   const raw = await readText(file);
   const result = agent === 'claude' ? lastResult(raw) : null;
@@ -487,8 +489,10 @@ export async function agentStart({ outcome, file, minutes, started, agent = 'cla
   const elapsedSec = Number.isFinite(started) ? now / 1000 - started : NaN;
   const failure = startFailure({ agent, outcome, result, text, message: agent === 'codex' ? raw : null, elapsedSec, minutes });
   if (!failure) return stay;
+  const left = fallbackMinutes({ minutes, elapsedSec });
+  if (!left) return { ...stay, line: `${ran.line} Not handed on: less than ${FALLBACK_MIN_MINUTES} minutes are left of the ${minutes}-minute budget.` };
   const note = fallbackLine({ from: agent, to: fallback, failure, text, doing: 'reviewed' });
-  return { agent: fallback, fallback, note, kind: failure.kind, line: note };
+  return { agent: fallback, fallback, note, kind: failure.kind, minutes: left, line: note };
 }
 
 // ---- the findings --------------------------------------------------------------
@@ -788,7 +792,9 @@ export async function pushPost({ review, repo, revision, gh = ghCall }) {
 
 // ---- the command line ------------------------------------------------------------
 
-const USAGE = 'usage: node scripts/plates/cross-review.mjs config | which --pr f --event e | brief (--pr f | --push f) --out f [--agent a --diff f] | agent-ran [--agent a] --outcome o --file f --minutes m --started s | agent-start [--agent a] [--fallback a] --outcome o --file f --minutes m --started s | summary [--agent a] [--author a] --file f --pr f [--diff f] --minutes m --out f [--plain f] | which-push --event push|schedule [--before sha] --issues f | push-review [--agent a] [--author a] --file f --push f --diff f --head-diff f --minutes m --repo r --out f | push-post --review f --repo r [--json]';
+/** What the workflow probes before using a newer flag (`capabilities`): fallback is agent-start --fallback, fallbackNote is summary/push-review --fallback-note, fallbackMinutes is agent-start's `minutes` left. */
+export const CAPABILITIES = Object.freeze({ fallback: true, fallbackNote: true, fallbackMinutes: true });
+const USAGE = 'usage: node scripts/plates/cross-review.mjs capabilities | config | which --pr f --event e | brief (--pr f | --push f) --out f [--agent a --diff f] | agent-ran [--agent a] --outcome o --file f --minutes m --started s | agent-start [--agent a] [--fallback a] --outcome o --file f --minutes m --started s | summary [--agent a] [--author a] --file f --pr f [--diff f] --minutes m --out f [--plain f] | which-push --event push|schedule [--before sha] --issues f | push-review [--agent a] [--author a] --file f --push f --diff f --head-diff f --minutes m --repo r --out f | push-post --review f --repo r [--json]';
 const FLAGS = { '--pr': 'pr', '--event': 'event', '--out': 'out', '--outcome': 'outcome', '--file': 'file', '--minutes': 'minutes', '--started': 'started', '--repo': 'repo', '--agent': 'agent', '--diff': 'diff', '--plain': 'plain', '--author': 'author', '--reason': 'reason', '--push': 'push', '--head-diff': 'headDiff', '--before': 'before', '--issues': 'issues', '--review': 'review', '--fallback': 'fallback', '--fallback-note': 'fallbackNote' };
 
 export function parseArgs(args) {
@@ -827,6 +833,8 @@ const readPush = file => readPr(file, '--push', 'which-push JSON');
 
 export async function cli(args, { root = rootOf(import.meta), env = process.env } = {}) {
   const o = parseArgs(args);
+  // What this helper can do, for a workflow that may run an older trusted one: an older helper exits 2 here.
+  if (o.verb === 'capabilities') return { data: CAPABILITIES, text: JSON.stringify(CAPABILITIES) };
   const config = await readConfig(root);
   switch (o.verb) {
     case 'config': {

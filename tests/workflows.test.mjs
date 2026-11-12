@@ -1875,7 +1875,8 @@ export function codexStepProblems(text, { sandbox }) {
   for (const step of stepsOf(text).filter(st => /\n\s+uses:\s*openai\/codex-action@/.test(`\n${st}`))) {
     const name = /name:\s*(.+)/.exec(step)?.[1] ?? '(unnamed)';
     const w = stepMap(step, 'with'), env = stepMap(step, 'env');
-    if (!/\n\s+timeout-minutes: \$\{\{ fromJSON\(steps\.[\w-]+\.outputs\.minutes\) \}\}/.test(step)) out.push(`${name}: Codex's step is not time-boxed by the budget`);
+    // A fallback's step is time-boxed by what is left of the first budget (steps.start.outputs.minutes), else the budget.
+    if (!/\n\s+timeout-minutes: \$\{\{ fromJSON\((?:steps\.start\.outputs\.minutes \|\| )?steps\.[\w-]+\.outputs\.minutes\) \}\}/.test(step)) out.push(`${name}: Codex's step is not time-boxed by the budget`);
     if (!/\n\s+continue-on-error: true/.test(step)) out.push(`${name}: Codex's step is not continue-on-error, so its check never says whether it ran`);
     if (w.sandbox !== sandbox) out.push(`${name}: Codex's sandbox is ${w.sandbox ?? '(the action\'s default, workspace-write)'}, not ${sandbox}`);
     if (w['safety-strategy'] !== 'drop-sudo') out.push(`${name}: Codex's safety-strategy is ${w['safety-strategy'] ?? '(unset)'}, not drop-sudo: with sudo it can read its key`);

@@ -1569,3 +1569,64 @@ test('fallback: a reviewer that could not start hands the review on, naming why;
   assert.match(review.body, /Reviewed by codex, its own provider: the provider chosen first could not start\./);
   assert.doesNotMatch(m.summaryReview({ message: 'Fine.', agent: 'claude', author: 'codex', pr: prJson(), minutes: 15, diff: DIFF }).body, /could not start/);
 });
+
+// Codex on #400: a fallback keeps the original deadline (only the whole minutes left, none when too few are), and the
+// review job runs the default branch's helper, which before this change has no --fallback or --fallback-note (exit 2):
+// the workflow asks the helper what it can do first, and a successful first review still publishes.
+test('fallback: the handoff keeps the first reviewer\'s deadline; an older trusted helper keeps the old path and still posts', async t => {
+  const dir = await acme(t, { crossReview: { for: ['codex/', 'claude/'], budget: { minutes: 15 } } });
+  const config = JSON.parse(await readFile(join(dir, '.plates/plates.json'), 'utf8'));
+  await writeFile(join(dir, '.plates/plates.json'), JSON.stringify({ ...config, agents: { claude: {}, codex: {} } }));
+  const temp = join(dir, 'runner');
+  const helper = join(temp, 'plates/scripts/plates');
+  await mkdir(helper, { recursive: true });
+  await cp(join(dir, '.plates'), join(temp, 'plates/.plates'), { recursive: true });
+  for (const f of ['cross-review.mjs', 'lib.mjs', 'names.mjs']) await cp(join(dir, 'scripts/plates', f), join(helper, f));
+  const file = join(temp, 'execution.json');
+  await writeFile(file, execution({ is_error: true, num_turns: 1, duration_ms: 900, subtype: 'success', result: 'Credit balance is too low' }));
+  const now = Math.floor(Date.now() / 1000);
+  const start = over => step(t, dir, 'Could the reviewer start?', { RUNNER_TEMP: temp, AGENT: 'claude', FALLBACK: 'codex', OUTCOME: 'failure', EXECUTION: file, MINUTES: '15', ...over });
+  // Seven and a half minutes spent retrying: Codex gets the seven whole minutes left, never a fresh fifteen.
+  const late = await start({ STARTED: String(now - 450) });
+  assert.equal(late.status, 0, late.out);
+  assert.deepEqual([late.outputs.fallback, late.outputs.minutes], ['codex', '7']);
+  const workflow = await readFile(WORKFLOW, 'utf8');
+  for (const id of ['review_fallback', 'review_fallback_codex']) {
+    const block = workflow.slice(workflow.indexOf(`        id: ${id}\n`)).split('\n      - name:')[0];
+    assert.match(block, /timeout-minutes: \$\{\{ fromJSON\(steps\.start\.outputs\.minutes \|\| steps\.which\.outputs\.minutes\) \}\}/, id);
+  }
+  assert.match(workflow, /MINUTES: \$\{\{ steps\.start\.outputs\.fallback != '' && steps\.start\.outputs\.minutes \|\| steps\.which\.outputs\.minutes \}\}/, 'the fallback is judged against what was left');
+  // Both reviewers together stay inside the first budget, which the job's timeout already holds (budget at most 60 of 75).
+  assert.match(workflow, /\n {4}timeout-minutes: 75\n/);
+  // Too little left (13.2 of 15 minutes spent): no fallback, the reviewer stays and is judged as before.
+  const spent = await start({ STARTED: String(now - 792) });
+  assert.deepEqual([spent.outputs.agent, spent.outputs.fallback, spent.outputs.minutes], ['claude', '', '']);
+  const m = await load(t);
+  const left = await m.agentStart({ outcome: 'failure', file, minutes: 15, started: now - 792, agent: 'claude', fallback: 'codex', now: now * 1000 });
+  assert.match(left.line, /Not handed on: less than 2 minutes are left of the 15-minute budget\./);
+  // An older trusted helper: no capabilities, and it refuses --fallback and --fallback-note with exit 2, as the one before this change does.
+  const older = `const args = process.argv.slice(2);
+if (args[0] === 'capabilities' || args.includes('--fallback') || args.includes('--fallback-note')) { console.error('cross-review: unknown argument'); process.exit(2); }
+process.argv[1] = new URL('./cross-review-current.mjs', import.meta.url).pathname;
+await import('./cross-review-current.mjs');
+`;
+  await cp(join(helper, 'cross-review.mjs'), join(helper, 'cross-review-current.mjs'));
+  await writeFile(join(helper, 'cross-review.mjs'), older);
+  const old = await start({ STARTED: String(now - 4) });
+  assert.equal(old.status, 0, old.out);
+  assert.deepEqual([old.outputs.agent, old.outputs.fallback, old.outputs.note], ['claude', '', '']);
+  assert.match(old.out, /the reviewer stays claude: the default branch's helper has no fallback yet/);
+  // The first review ran: the older publisher posts it, without the note it cannot take.
+  await cp(join(dir, 'scripts/plates/cross-review.mjs'), join(dir, 'scripts/plates/cross-review-current.mjs'));
+  await writeFile(join(dir, 'scripts/plates/cross-review.mjs'), older);
+  const pr = prJson();
+  await writeFile(join(temp, 'pr.json'), JSON.stringify(pr));
+  await writeFile(join(temp, 'pr.diff'), '');
+  await writeFile(file, execution({ is_error: false, num_turns: 9, duration_ms: 60_000, result: 'Nothing found in the lid.' }));
+  const gh = await stubGh(t, pr);
+  const posted = await post(t, dir, { PATH: `${gh.path}:${process.env.PATH}`, RUNNER_TEMP: temp, AGENT: 'claude', EXECUTION: file, MINUTES: '15', REPO: 'acme/anvils', PR: '7', FALLBACK_NOTE: '' });
+  assert.equal(posted.status, 0, posted.out);
+  const [call] = await gh.calls();
+  assert.deepEqual(call.args.slice(0, 4), ['api', '--method', 'POST', 'repos/acme/anvils/pulls/7/reviews']);
+  assert.match(call.input.body, /Nothing found in the lid\./);
+});
