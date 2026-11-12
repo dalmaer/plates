@@ -43,7 +43,7 @@
     "look": "node scripts/look.mjs"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.5.15",
+    "@electric-sql/pglite": "0.5.16",
     "@types/node": "24.19.2",
     "typescript": "7.0.2"
   }

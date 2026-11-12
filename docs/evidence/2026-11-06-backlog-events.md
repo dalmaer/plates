@@ -30,3 +30,10 @@ Partial. Still to do:
 - web answers to walks and decisions don't write events yet (only Not now does);
 - nothing records "view" events;
 - retention is not decided.
+
+## Migration 019 applied (2026-11-07)
+
+- Applied `lib/web/migrations/019-backlog-events.sql` to the hosted database (Supabase project plates-workspace) in the SQL editor, at the owner's "apply 019". The editor's text was set from the file at 9b3c234; its SHA-256 in the page was `25cea9a2acb0c6d1904b3979f3369e75899c46861cad8c5617430e70ecc3b597` (5,916 bytes), equal to the source. Result: "Success. No rows returned".
+- Ran `docs/evidence/2026-11-06-web-backlog-events-hosted-proof.sql` (SHA-256 `ca9fea06…fdb10b`, checked in the page). Result: one row, `PASS 019-backlog-events hosted proof`. Its synthetic Acme rows were rolled back.
+- Production serves 9b3c234, which carries 184's hosted writes, so events are stored from now on.
+- Not yet observed: one event written from the deployed web and read back on /backlog/history. It needs the owner's next answer on the web (a Not now, or any written answer).

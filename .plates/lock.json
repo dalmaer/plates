@@ -67,7 +67,7 @@
     },
     ".github/workflows/check.yml": {
       "practice": "ci",
-      "sha256": "997e697726a31c07f6c989dc98bbe30cba1476d9b5ecf430a792ff0d35a1f4b1"
+      "sha256": "c89ca25998780d950dc2cc70dd4669ed2cc9b9c84b1c6cbe771ea22268265baa"
     },
     ".github/workflows/claude.yml": {
       "practice": "claude",
@@ -91,7 +91,7 @@
     },
     ".github/workflows/plates-night.yml": {
       "practice": "night",
-      "sha256": "57638d83bb76b4c391982ffdff68cd8035487cf40bb15a003ceda632d37eb2ac"
+      "sha256": "991d5a1ef6663e29759800bc781bb9d40d4921cdbfae5346b4ff672a71e01a28"
     },
     ".github/workflows/plates-publish.yml": {
       "practice": "delivery",
@@ -99,7 +99,7 @@
     },
     ".github/workflows/plates-robot-route.yml": {
       "practice": "climb",
-      "sha256": "8cd2c61ee42aa19fd38a0771f690d8fce17d70eb07d8cd4aa78c107b94807ff3"
+      "sha256": "f105b16f77fa704b7f41a9b4081f285ed3737492e0ce59b5afbc6764b5ed429c"
     },
     ".github/workflows/plates-robot.yml": {
       "practice": "climb",
@@ -183,7 +183,7 @@
     },
     "scripts/plates/climb.mjs": {
       "practice": "climb",
-      "sha256": "f17528ed8e3a3a07f17825022de612a56f2eb83e0a7b42fffcd3fce54a683188"
+      "sha256": "a0764de4942b0baa490d456014fd3da8609ced93aa309b29643e10c60223a9f7"
     },
     "scripts/plates/cross-review.mjs": {
       "practice": "cross-review",
@@ -227,7 +227,7 @@
     },
     "scripts/plates/lib.mjs": {
       "practice": "night",
-      "sha256": "0d52409db08c1e432af954dc3fcd54eea87806c28126de232361a235dab17603"
+      "sha256": "2c71c6f9efa480f1533359359dbc88f44118e8f99f9f4c731106e0e607bed4c3"
     },
     "scripts/plates/milestones.mjs": {
       "practice": "night",
@@ -339,7 +339,7 @@
     },
     "scripts/plates/test-ledger.mjs": {
       "practice": "night",
-      "sha256": "d13d1362d883df87c21a2accea2fe7ae091b6e06ee413eec5acda1993f156c2a"
+      "sha256": "429371ccdfc9ab7c3c11c09042ad5d7e7105c8f895e55baa29f4528631566422"
     },
     "scripts/plates/time-measures.mjs": {
       "practice": "night",

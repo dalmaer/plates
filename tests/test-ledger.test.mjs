@@ -729,6 +729,10 @@ async function assertFixtures(mod) {
   assert.deepEqual(lost.tests.map(x => [x.file, x.name, x.outcome]), [['empty/broken.test.ts', 'empty/broken.test.ts', 'fail']]);
   assert.deepEqual([lost.ran, lost.failed], [0, 1]);
   assert.deepEqual(mod.junitTests(mod.readXml(await fixture('vitest-empty.xml')), 'vitest'), { tests: [], ran: 0, failed: 0 });
+  // plates#86: vitest's suite for errors outside any test is not a test, at a file that may not exist: it fails the run,
+  // and never counts as one that ran (the run below ran no test).
+  const stray = mod.junitTests(mod.readXml('<testsuites name="vitest tests"><testsuite name="vitest unhandled errors" tests="1" errors="1"><testcase classname="vitest unhandled errors" file="gone.ts" name="Error: boom" time="0"><error message="boom" type="Error"/></testcase></testsuite></testsuites>'), 'vitest');
+  assert.deepEqual(stray, { tests: [], ran: 0, failed: 1, unhandled: ['Error: boom'] });
   // A nested <testsuite> is a describe: one top-level test, of every testcase inside it.
   const nested = mod.junitTests(mod.readXml('<testsuites><testsuite name="t.test.ts"><testsuite name="Acme crates" time="0.5"><testcase name="opens" time="0.1"/><testsuite name="deep"><testcase name="shuts" time="0.2"><error/></testcase></testsuite></testsuite></testsuite></testsuites>'), 'bun');
   assert.deepEqual(nested, { tests: [{ file: 't.test.ts', name: 'Acme crates', describe: true, outcome: 'fail', ms: 500 }], ran: 2, failed: 1 });
