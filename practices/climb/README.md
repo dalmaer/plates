@@ -142,6 +142,18 @@ by git plumbing from the night's job, day and count. The guards refuse the same
 paths. Each job uploads its handoff (`plates-climb-agent`,
 `plates-climb-judged`, kept 7 days); `plates-climb` is the record, as before.
 
+A Claude that could not start, because its credit, billing or quota ran
+out, its secret was refused or a rate limit stopped it at its first turn,
+hands the climb or tend pass to Codex when `"agents"` lists it and
+`OPENAI_API_KEY` is set ("Could the agent start?", `agent-start --pass
+climb|tend`). The warning names which kind it was, so the owner knows to
+top up or to rotate. These passes write, so only a start failure plates
+can read hands over, and only when the branch and the working tree are as
+the agent was handed them; a Codex that fails, or a Claude with no result,
+may have crashed after it changed files, and stays red. The fallback gets
+a fresh `.plates/agent-git` and its own brief, and is judged and its
+commits taken exactly as a Codex night's.
+
 A run whose agent failed before its budget ran out (no secret, a bad
 model: an error after one turn) is red: `agent-ran`, the step after the
 agent's, reads the step's outcome and the action's execution file and

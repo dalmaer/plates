@@ -178,7 +178,8 @@ test('tend off: with no tend key nothing runs and gh is never asked; with no sec
   assert.ok(after.length >= 9);
   for (const s of after) {
     const cond = /(?:^ {6}- |\n {8})if: (.+)/.exec(s)?.[1] ?? '';
-    assert.match(cond, /steps\.configured\.outputs\.enabled == 'true'|steps\.pick\.outputs\.run == 'yes'/, `step without the guard: ${s.split('\n')[0]}`);
+    // A fallback's steps wait on "Could the agent start?", which waits on the pick.
+    assert.match(cond, /steps\.configured\.outputs\.enabled == 'true'|steps\.pick\.outputs\.run == 'yes'|^steps\.start\.outputs\.fallback == 'codex'$/, `step without the guard: ${s.split('\n')[0]}`);
   }
   assert.match(text, /\n  judge:\n    needs: agent\n    if: needs\.agent\.outputs\.run == 'yes'\n/, 'no pass, no judge');
   assert.match(text, /\n  publish:\n    needs: \[agent, judge\]\n    if: always\(\) && needs\.agent\.outputs\.run == 'yes'\n/, 'no pass, nothing published');

@@ -73,7 +73,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
-import { environmentValue, remoteLabelReceipt, repositoryLabelSelection, markerComment, markerComments, isMain, main, rootOf, lessonsPathOf, AGENTS, agentOf, passAgentProblems, codexVerdict, reviewerOf, listedAgents, pushReviewerOf, commitAuthorOf, secretText, PUSH_LABEL, pushTitle, recordText, recordOf, byWorkflow, fallbackFindingsMark } from './lib.mjs';
+import { environmentValue, remoteLabelReceipt, repositoryLabelSelection, markerComment, markerComments, isMain, main, rootOf, lessonsPathOf, AGENTS, agentOf, passAgentProblems, codexVerdict, reviewerOf, listedAgents, pushReviewerOf, commitAuthorOf, secretText, PUSH_LABEL, pushTitle, recordText, recordOf, byWorkflow, fallbackFindingsMark, startFailureKind, startFailure, fallbackAgent, fallbackLine, fallbackMinutes, FALLBACK_MIN_MINUTES } from './lib.mjs';
 
 export const KEY = 'crossReview';
 export const LIMITS = Object.freeze({ minutes: [5, 60] });
@@ -200,7 +200,9 @@ export function shouldReview({ config, event, pr, has, choose = reviewerOf }) {
     return { review: false, notice: true, why: `Skipped: #${pr.number} on ${head} is reviewed by ${AGENTS[who.reviewer].name} (${who.why}); add the ${secret} secret for it to run.` };
   }
   const self = Boolean(who.author) && who.reviewer === who.author;
-  return { review: true, self, ...(self ? { reason: who.reason ?? 'no other is available' } : {}), why: `#${pr.number} on ${head} (${prefix}), head ${pr.headRefOid.slice(0, 7)}; ${who.why}`, number: pr.number, sha: pr.headRefOid, minutes: c.minutes, agent: who.reviewer, author: who.author };
+  // Who reviews instead should the reviewer not start (its credit, its secret): the next listed, its own provider last.
+  const fallback = fallbackAgent({ order: c.agents, tried: [who.reviewer], has, own: who.author ? [who.author] : [], pass: KEY });
+  return { review: true, self, ...(self ? { reason: who.reason ?? 'no other is available' } : {}), why: `#${pr.number} on ${head} (${prefix}), head ${pr.headRefOid.slice(0, 7)}; ${who.why}`, number: pr.number, sha: pr.headRefOid, minutes: c.minutes, agent: who.reviewer, author: who.author, fallback };
 }
 
 /** Which providers' secrets are set, from the step's HAS_<PROVIDER> ("true"/"false"); none given: undefined (not checked). */
@@ -330,6 +332,7 @@ export function shouldReviewPush({ config, event, head, before = null, history, 
     why: `${range.why}, ${plural(commits.length, 'commit')}; ${who.why}`,
     sha: head, base: range.base, alone: false, range: range.why,
     minutes: c.minutes, agent: who.reviewer, author: who.author ?? null, authors, today: h.today, pushes: c.pushes,
+    fallback: fallbackAgent({ order: c.agents, tried: [who.reviewer], has, own: authors, pass: KEY }),
     count: commits.length, commits: commits.slice(0, MAX_COMMITS).map(x => ({ sha: x.sha, subject: x.message.split('\n')[0].slice(0, 200), by: commitAuthorOf(x) })),
   };
 }
@@ -430,15 +433,23 @@ export function agentVerdict({ outcome, result, elapsedSec, minutes }) {
 export const ERROR_CHARS = 300;
 export function errorText(result) {
   const pick = v => (typeof v === 'string' ? v : v && typeof v === 'object' && typeof v.message === 'string' ? v.message : null);
-  const parts = [pick(result?.result), pick(result?.error), pick(result?.message)].filter(x => x && x.trim());
+  // The SDK's error result (error_during_execution) carries its text in `errors: string[]`: read a bounded few of them too.
+  const errors = Array.isArray(result?.errors) ? result.errors.slice(0, 8).map(pick) : [];
+  const parts = [pick(result?.result), pick(result?.error), pick(result?.message), ...errors].filter(x => x && x.trim());
   const text = [...new Set(parts.map(x => x.replace(/\s+/g, ' ').trim()))].join(' | ');
   return text.length > ERROR_CHARS ? `${text.slice(0, ERROR_CHARS - 1)}…` : text;
 }
 
-/** Which of the two likely causes the error text names: the secret, the model, or (unnamed) both to check. */
+/**
+ * Which cause the error text names (lib.mjs startFailureKind), so the owner knows what to do:
+ * credit (top up), a rate limit (wait), the secret (rotate), the model, or (unnamed) both to check.
+ */
 export function errorCause(text) {
-  if (/\b(401|403)\b|auth|token|credential|api[ _-]?key|oauth|unauthori[sz]ed|forbidden|permission|login|billing|credit/i.test(text ?? '')) return 'the secret was refused: check CLAUDE_CODE_OAUTH_TOKEN (claude setup-token) or ANTHROPIC_API_KEY';
-  if (/\bmodel\b|not[ _]found|\b404\b/i.test(text ?? '')) return 'the model was refused: check the model the action asks for (none is pinned here; the action\'s default)';
+  const kind = startFailureKind(text);
+  if (kind === 'credit') return 'its credit, billing or quota ran out: top up the account behind CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY (the secret itself was accepted)';
+  if (kind === 'rate') return 'it was rate-limited or overloaded at the start: wait, or raise the account\'s rate limit';
+  if (kind === 'auth') return 'the secret was refused: check CLAUDE_CODE_OAUTH_TOKEN (claude setup-token) or ANTHROPIC_API_KEY';
+  if (kind === 'model') return 'the model was refused: check the model the action asks for (none is pinned here; the action\'s default)';
   return 'check the secret / model';
 }
 
@@ -456,6 +467,34 @@ export async function agentRan({ outcome, file, minutes, started, agent = 'claud
   }
   const result = lastResult(await readText(file));
   return { outcome: outcome ?? null, result: result ? { is_error: Boolean(result.is_error), num_turns: result.num_turns ?? null, duration_ms: result.duration_ms ?? null, subtype: result.subtype ?? null } : null, elapsedSec: Number.isFinite(elapsedSec) ? Math.round(elapsedSec) : null, ...agentVerdict({ outcome, result, elapsedSec, minutes }) };
+}
+
+/**
+ * Whether the reviewer could start, and who reviews instead when it could not
+ * (the owner's rule: a provider whose credit is low or whose secret is refused
+ * hands the review to another, never fails it): { agent, fallback, note, kind, line }.
+ * `fallback` is the which step's (fallbackAgent); null or empty: none is left.
+ * Only a start failure hands over (lib.mjs startFailure): a review that ran,
+ * ran out its budget or stopped with a real error stays with its reviewer, and
+ * "Did the agent run?" judges it as before. `note` names the kind, so the owner
+ * knows whether to top up or rotate; the reviewer still only reads. The handoff
+ * keeps the original deadline: the fallback gets only the whole minutes left of
+ * the budget (`minutes`), and none at all when fewer than FALLBACK_MIN_MINUTES are.
+ */
+export async function agentStart({ outcome, file, minutes, started, agent = 'claude', fallback = null, now = Date.now() }) {
+  const ran = await agentRan({ outcome, file, minutes, started, agent, now });
+  const stay = { agent, fallback: null, note: null, kind: null, minutes: null, line: ran.line };
+  if (ran.ok || !fallback || fallback === agent) return stay;
+  const raw = await readText(file);
+  const result = agent === 'claude' ? lastResult(raw) : null;
+  const text = result ? errorText(result) : '';
+  const elapsedSec = Number.isFinite(started) ? now / 1000 - started : NaN;
+  const failure = startFailure({ agent, outcome, result, text, message: agent === 'codex' ? raw : null, elapsedSec, minutes });
+  if (!failure) return stay;
+  const left = fallbackMinutes({ minutes, elapsedSec });
+  if (!left) return { ...stay, line: `${ran.line} Not handed on: less than ${FALLBACK_MIN_MINUTES} minutes are left of the ${minutes}-minute budget.` };
+  const note = fallbackLine({ from: agent, to: fallback, failure, text, doing: 'reviewed' });
+  return { agent: fallback, fallback, note, kind: failure.kind, minutes: left, line: note };
 }
 
 // ---- the findings --------------------------------------------------------------
@@ -569,7 +608,7 @@ export const findingBody = f => `${FINDING_MARKER}\n**${f.severity}** ${f.body}`
  * result message; `message` Codex's final message. With `inline: false`
  * (GitHub refused the comments), the findings are listed in the body. Pure.
  */
-export function summaryReview({ result, message, agent = 'claude', author = null, reason = null, pr, minutes, diff = null, inline = true }) {
+export function summaryReview({ result, message, agent = 'claude', author = null, reason = null, fallback = null, pr, minutes, diff = null, inline = true }) {
   const final = agent === 'claude' ? (typeof result?.result === 'string' && !result.is_error ? result.result : '') : (typeof message === 'string' ? message : '');
   const { summary, findings, problem } = findingsOf(final);
   const { kept, dropped } = diff === null && findings.length
@@ -580,7 +619,8 @@ export function summaryReview({ result, message, agent = 'claude', author = null
   const body = said || `The review ran out its ${minutes}-minute budget before writing a summary; the inline comments are what it found.`;
   const where = d => (d.path ? `\`${d.path}${d.line ? `:${d.line}` : ''}\`` : `finding ${d.at + 1}`);
   const notes = [
-    ...(author && author === agent ? ['', `Reviewed by ${agent}, its own provider: ${reason || 'no other is available'}.`] : []),
+    ...(fallback ? ['', fallback] : []),
+    ...(author && author === agent ? ['', `Reviewed by ${agent}, its own provider: ${fallback ? 'the provider chosen first could not start' : reason || 'no other is available'}.`] : []),
     ...(problem ? ['', `Its findings could not be read: ${problem}; none is posted inline.`] : []),
     ...(dropped.length ? ['', `Dropped (${dropped.length}, not posted inline):`, ...dropped.map(d => `- ${where(d)}: ${d.why}`)] : []),
     ...(!inline && kept.length ? ['', fallbackFindingsMark(kept.length), `GitHub refused the inline comments; the findings (${kept.length}), to answer here:`, ...kept.map(f => `- \`${f.path}:${f.line}\` **${f.severity}** ${f.body.replace(/\s+/g, ' ')}`)] : []),
@@ -651,7 +691,7 @@ const capped = (text, n) => (text.length > n ? `${text.slice(0, n - 1)}…` : te
  * is listed in the tracking issue (pushIssueBody), whose first line is the
  * record the next run starts from.
  */
-export function pushReview({ result, message, agent = 'claude', author = null, reason = null, push, minutes, diff = null, headDiff = null, repo }) {
+export function pushReview({ result, message, agent = 'claude', author = null, reason = null, fallback = null, push, minutes, diff = null, headDiff = null, repo }) {
   const final = agent === 'claude' ? (typeof result?.result === 'string' && !result.is_error ? result.result : '') : (typeof message === 'string' ? message : '');
   const { summary, findings, problem } = findingsOf(final);
   const what = 'the push\'s diff';
@@ -674,7 +714,8 @@ export function pushReview({ result, message, agent = 'claude', author = null, r
     `Reviewed: ${push.range}.`,
     '',
     said || `The review ran out its ${minutes}-minute budget before writing a summary.`,
-    ...(author && author === agent ? ['', `Reviewed by ${agent}, its own provider: ${reason || 'no other is available'}.`] : []),
+    ...(fallback ? ['', fallback] : []),
+    ...(author && author === agent ? ['', `Reviewed by ${agent}, its own provider: ${fallback ? 'the provider chosen first could not start' : reason || 'no other is available'}.`] : []),
     ...(problem ? ['', `Its findings could not be read: ${problem}; none is listed.`] : []),
     ...(dropped.length ? ['', `Dropped (${dropped.length}, not listed):`, ...dropped.map(d => `- ${where(d)}: ${d.why}`)] : []),
   ];
@@ -753,8 +794,10 @@ export async function pushPost({ review, repo, revision, gh = ghCall }) {
 
 // ---- the command line ------------------------------------------------------------
 
-const USAGE = 'usage: node scripts/plates/cross-review.mjs config | which --pr f --event e | brief (--pr f | --push f) --out f [--agent a --diff f] | agent-ran [--agent a] --outcome o --file f --minutes m --started s | summary [--agent a] [--author a] --file f --pr f [--diff f] --minutes m --out f [--plain f] | which-push --event push|schedule [--before sha] --issues f | push-review [--agent a] [--author a] --file f --push f --diff f --head-diff f --minutes m --repo r --out f | push-post --review f --repo r [--json]';
-const FLAGS = { '--pr': 'pr', '--event': 'event', '--out': 'out', '--outcome': 'outcome', '--file': 'file', '--minutes': 'minutes', '--started': 'started', '--repo': 'repo', '--agent': 'agent', '--diff': 'diff', '--plain': 'plain', '--author': 'author', '--reason': 'reason', '--push': 'push', '--head-diff': 'headDiff', '--before': 'before', '--issues': 'issues', '--review': 'review' };
+/** What the workflow probes before using a newer flag (`capabilities`): fallback is agent-start --fallback, fallbackNote is summary/push-review --fallback-note, fallbackMinutes is agent-start's `minutes` left. */
+export const CAPABILITIES = Object.freeze({ fallback: true, fallbackNote: true, fallbackMinutes: true });
+const USAGE = 'usage: node scripts/plates/cross-review.mjs capabilities | config | which --pr f --event e | brief (--pr f | --push f) --out f [--agent a --diff f] | agent-ran [--agent a] --outcome o --file f --minutes m --started s | agent-start [--agent a] [--fallback a] --outcome o --file f --minutes m --started s | summary [--agent a] [--author a] --file f --pr f [--diff f] --minutes m --out f [--plain f] | which-push --event push|schedule [--before sha] --issues f | push-review [--agent a] [--author a] --file f --push f --diff f --head-diff f --minutes m --repo r --out f | push-post --review f --repo r [--json]';
+const FLAGS = { '--pr': 'pr', '--event': 'event', '--out': 'out', '--outcome': 'outcome', '--file': 'file', '--minutes': 'minutes', '--started': 'started', '--repo': 'repo', '--agent': 'agent', '--diff': 'diff', '--plain': 'plain', '--author': 'author', '--reason': 'reason', '--push': 'push', '--head-diff': 'headDiff', '--before': 'before', '--issues': 'issues', '--review': 'review', '--fallback': 'fallback', '--fallback-note': 'fallbackNote' };
 
 export function parseArgs(args) {
   const [verb, ...rest] = args;
@@ -769,6 +812,9 @@ export function parseArgs(args) {
   // The author is the which step's output: empty for a PR no provider's branch names.
   if (opts.author === '') delete opts.author;
   if (opts.author !== undefined && !Object.hasOwn(AGENTS, opts.author)) throw new CrossReviewError(`--author must be one of ${Object.keys(AGENTS).join(', ')}`);
+  // The fallback is the which step's output: empty when no other provider is left.
+  if (opts.fallback === '') delete opts.fallback;
+  if (opts.fallback !== undefined && !Object.hasOwn(AGENTS, opts.fallback)) throw new CrossReviewError(`--fallback must be one of ${Object.keys(AGENTS).join(', ')}`);
   for (const k of ['minutes', 'started']) if (opts[k] !== undefined) {
     if (!/^\d+(\.\d+)?$/.test(opts[k])) throw new CrossReviewError(`--${k} must be a number`);
     opts[k] = Number(opts[k]);
@@ -789,6 +835,8 @@ const readPush = file => readPr(file, '--push', 'which-push JSON');
 
 export async function cli(args, { root = rootOf(import.meta), env = process.env } = {}) {
   const o = parseArgs(args);
+  // What this helper can do, for a workflow that may run an older trusted one: an older helper exits 2 here.
+  if (o.verb === 'capabilities') return { data: CAPABILITIES, text: JSON.stringify(CAPABILITIES) };
   const config = await readConfig(root);
   switch (o.verb) {
     case 'config': {
@@ -814,7 +862,7 @@ export async function cli(args, { root = rootOf(import.meta), env = process.env 
       const text = await readText(o.file ? resolve(o.file) : undefined);
       const diff = o.diff ? await readText(resolve(o.diff)) : null;
       const headDiff = o.headDiff ? await readText(resolve(o.headDiff)) : null;
-      const review = pushReview({ ...(agent === 'claude' ? { result: lastResult(text) } : { message: text }), agent, author: o.author ?? null, reason: o.reason || null, push: await readPush(o.push), minutes: o.minutes, diff: diff || null, headDiff, repo: o.repo });
+      const review = pushReview({ ...(agent === 'claude' ? { result: lastResult(text) } : { message: text }), agent, author: o.author ?? null, reason: o.reason || null, fallback: o.fallbackNote || null, push: await readPush(o.push), minutes: o.minutes, diff: diff || null, headDiff, repo: o.repo });
       await writeFile(resolve(o.out), `${JSON.stringify(review, null, 2)}\n`);
       return { data: { out: resolve(o.out), sha: review.sha, findings: review.findings.length, comments: review.comments.length }, text: `the review after the push (${plural(review.findings.length, 'finding')}, ${review.comments.length} on the commit): ${resolve(o.out)}` };
     }
@@ -840,13 +888,17 @@ export async function cli(args, { root = rootOf(import.meta), env = process.env 
       const r = await agentRan({ outcome: o.outcome, file: o.file ? resolve(o.file) : undefined, minutes: o.minutes, started: o.started, agent: o.agent });
       return { data: r, text: r.ok ? r.line : `::error::${r.line}`, exitCode: r.ok ? 0 : 1 };
     }
+    case 'agent-start': {
+      const r = await agentStart({ outcome: o.outcome, file: o.file ? resolve(o.file) : undefined, minutes: o.minutes, started: o.started, agent: o.agent, fallback: o.fallback ?? null });
+      return { data: r, text: r.fallback ? `::warning::${r.note}` : `the reviewer stays ${AGENTS[r.agent]?.name ?? r.agent}: ${r.line}` };
+    }
     case 'summary': {
       if (!o.out) throw new CrossReviewError(`summary needs --out <file>; ${USAGE}`);
       if (!Number.isFinite(o.minutes)) throw new CrossReviewError('summary needs --minutes <the budget>');
       const agent = o.agent ?? 'claude';
       const text = await readText(o.file ? resolve(o.file) : undefined);
       const diff = o.diff ? await readText(resolve(o.diff)) : null;
-      const args = { ...(agent === 'claude' ? { result: lastResult(text) } : { message: text }), agent, author: o.author ?? null, reason: o.reason || null, pr: await readPr(o.pr), minutes: o.minutes, diff: diff || null };
+      const args = { ...(agent === 'claude' ? { result: lastResult(text) } : { message: text }), agent, author: o.author ?? null, reason: o.reason || null, fallback: o.fallbackNote || null, pr: await readPr(o.pr), minutes: o.minutes, diff: diff || null };
       const review = summaryReview(args);
       await writeFile(resolve(o.out), `${JSON.stringify(review, null, 2)}\n`);
       // The same review with the findings in its body: posted when GitHub refuses the inline comments.

@@ -75,11 +75,11 @@
     },
     ".github/workflows/plates-climb.yml": {
       "practice": "climb",
-      "sha256": "0aa7ed796879c337831fa34b8f69de40d4f82f7289278c5e384aea5a51a2ff14"
+      "sha256": "7cf20aab7b8ad67dc8faebf7e2177e662c40a50d3c2f1e50daa0576c8334d0be"
     },
     ".github/workflows/plates-cross-review.yml": {
       "practice": "cross-review",
-      "sha256": "faf7e3daa5d27cd4c8916184a5d80700ff4e5620573219fa78f8d9490156d3da"
+      "sha256": "dd163f8008fa2fb76a4450912d65593ddf03467740a62fa2d23661aa60f74040"
     },
     ".github/workflows/plates-impact.yml": {
       "practice": "reconciliation",
@@ -107,7 +107,7 @@
     },
     ".github/workflows/plates-tend.yml": {
       "practice": "climb",
-      "sha256": "ec5fcef03e5530852b80f2202e4404be97e8be2eab43f7534433d07d8d48ad1a"
+      "sha256": "291944c65210f2b7618cdcba875b16671d2e81a1f88ad85a73bedfb34caea39d"
     },
     "AGENTS.md#agents-md": {
       "practice": "agents-md",
@@ -183,11 +183,11 @@
     },
     "scripts/plates/climb.mjs": {
       "practice": "climb",
-      "sha256": "a0764de4942b0baa490d456014fd3da8609ced93aa309b29643e10c60223a9f7"
+      "sha256": "ed0785c7ba845ac5b7402dfc32c11fb7eff399ba27c85d434b24dafce5bfdab3"
     },
     "scripts/plates/cross-review.mjs": {
       "practice": "cross-review",
-      "sha256": "bc6399b4c87c1a4fd96ca1e4f099d2dade5a2587f21960e8718751255ede5bc1"
+      "sha256": "cf6c9b55b83fa7297349ca783fe51c9ec5baf761d0fa54ccc85bcf87ff1217d4"
     },
     "scripts/plates/decision-context.mjs": {
       "practice": "reconciliation",
@@ -227,7 +227,7 @@
     },
     "scripts/plates/lib.mjs": {
       "practice": "night",
-      "sha256": "2c71c6f9efa480f1533359359dbc88f44118e8f99f9f4c731106e0e607bed4c3"
+      "sha256": "9f740a667d11ab72f6da42156c91f9a1087dcc04da14acd53b76c82033fe7d1f"
     },
     "scripts/plates/milestones.mjs": {
       "practice": "night",
