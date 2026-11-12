@@ -296,7 +296,7 @@ test('moved away from plates: a fresh project runs its own night steps, improve 
 });
 
 test('in the project, drift and lint read its own files; from plates, the full set; a measure that needs plates is never a zero', async t => {
-  const dir = await project(t);
+  const dir = await projectQuickGate(t);
   const env = { ...ENV, PLATES_GH: '/nonexistent/gh' };
   await appendFile(join(dir, 'scripts', 'plates', 'drain.mjs'), '// Acme was here\n');
   await writeFile(join(dir, 'CLAUDE.md'), 'Read AGENTS.md.\nAnd also\nthese\nfour lines.\n');
