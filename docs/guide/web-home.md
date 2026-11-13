@@ -83,6 +83,138 @@ on time or on agents is under `plates home --project <id>`. `--json` carries
 the four as `home`, and `/api/home` carries the same `home`, which the hosted
 page renders.
 
+`plates home --backlog` (phase 178) shows every plate's work in lanes, from the
+same read: **In flight**, **Yours**, **Agent-ready**, **Waiting** and
+**Recently done**, one line per item with the reasons it sits there (its
+why-keys) and, on the right, a claim's days left or how long ago it was added.
+Each plate's phases come from Home's own read of its default branch, and its
+claims from its checkout's remote, as `plates next` reads them. A phase owing a walk is under Yours with the walk nested in
+it; a free phase without `spec: 2` waits for shaping. `--lane <l>` keeps one
+lane (`in-flight`, `yours`, `agent-ready`, `waiting` or `done`), `--project <id>`
+one plate, and `--json` prints the model. A plate that could not be read says
+"not read", never zero; so does one whose claims could not be read. The hosted
+`/backlog` (linked from Home) shows the same items as a list beside a sidebar,
+with `/api/backlog` carrying the same JSON; there the claims are the plate's
+`claims/phase-*` branches and open PRs, read through the GitHub App. Start on an
+agent-ready row is off until agents can be attached (phase 181).
+
+Start at the top of the backlog's Yours lane (or "Your lane, in backlog order"
+on Home) opens the review session at `/review/yours` over exactly that lane, in
+its order (phase 180). Each card says how many are left and about how long
+they take, from each item's Takes or its kind's usual minutes, and "at least"
+when one is unknown. The next card's header shows below the current one. Not
+now takes an optional one-line reason, kept with its date in the same sealed
+record. The session ends in "All caught up" only when every plate and source
+was read; otherwise it says the read was partial.
+
+`plates home --backlog --by-goal` (phase 179) arranges the same backlog
+under each plate's goals, in `docs/goals.json` order, then its items with no
+goal: a header per goal with its lane counts, its first seven cards, and how
+many more. Each phase or pull request is one card; its walk, ⚑ step, stale
+claim and review findings nest under it. Items are deduplicated by plate,
+phase and acceptance item, keeping every source link, and look-alike work in
+two plates is never merged. A card sits in its most pressing member's lane,
+Yours first. `--json` adds the groups. The hosted `/backlog/goals` shows the
+same; List and By goal are links at the top of the backlog.
+
+`plates home --recurring` (phase 185) lists, per plate, every routine it runs
+(night, climb, tend, morning, robot, cross-review, publish, and any other
+scheduled workflow): its schedule in this machine's time zone, its next run
+(computed from the workflow's cron in UTC, never guessed), its last result
+(the night record, else the latest workflow run through `gh`; "last run not
+read" when that read is unavailable) and its budget with the key it comes
+from. A routine switched off names the key that turns it off; a schedule in
+`.plates/plates.json` that disagrees with its workflow's cron shows both. It
+ends with each plate's links (repo, `canvas.home`, production site).
+`--project <id>` keeps one plate and `--json` prints the model. The hosted
+`/recurring` shows the same routines beside the backlog's sidebar, which also
+carries Humans and Links; it reads the latest runs through the App's Actions
+read, and starts, stops and reschedules nothing.
+
+`plates home --attach <plate>:phase:<n> --route session [--provider <p>]`
+(phase 181), run in that plate's checkout, attaches an agent to a phase that
+is ready to build. Without `--yes` it previews the exact effect (the claim
+ref, the agent, the route, the brief's size and digest, the budget charged)
+and exits 3. With `--yes` it makes the same create-only claim as
+`plates phase claim`, reads it back, journals the intent under the
+checkout's git directory, then hands over the `/spin <n>` brief to open in
+Claude Code or Codex; nothing is started. If another agent's claim won, it
+says who holds it and does nothing else. A second `--yes` returns the
+receipt; an attach interrupted after its intent was journaled is recovered,
+never repeated. A plate offers the routes its `"backlog": { "routes": [...] }`
+policy lists (only `session` with no policy). This build starts `session`
+only. The backlog's Start button on an agent-ready row stays off on the web,
+and its tooltip gives this command.
+
+`plates home --assist <plate>:phase:<n> --recommend <choice> --why "<line>"
+--evidence <link> [--evidence <link>...] [--provider <p>]` (phase 182), run in
+that plate's checkout, keeps an agent's draft recommendation on the phase's
+Your part. The choice must be one of its Choices; each evidence link is an
+https link or a path committed in the repo. Without `--yes` it previews the
+draft and its digest and exits 3. With `--yes` it journals the intent and keeps
+the draft under the checkout's git directory, beside the attach journal, by
+route `session`: the agent is your own session, and nothing is started or
+claimed. It never records an answer, ticks a box, moves a status or adds
+evidence. `plates home --backlog` shows it on the card as "Agent recommends: X,
+because Y (evidence) · agent", next to any Recommend the phase file names. The
+draft names the git blob of the phase file it read; once that file changes, the
+draft is withdrawn and the backlog says so. A plate's `"backlog": { "assists":
+[...] }` policy can turn it off (with no policy, `decision-draft` is offered).
+Drafts are local to the checkout: the hosted backlog does not read them yet.
+
+`plates home --attach <plate>:phase:<n> --route local-host --provider <p>`
+(phase 183) hands the phase to a local agent host you run on your own
+machine. The route is off unless the plate's `"backlog": { "routes": [...] }`
+lists `local-host`. The host is configured privately, never in a repo, in
+`$XDG_CONFIG_HOME/plates/local-hosts.json` (else
+`~/.config/plates/local-hosts.json`), keyed by the provider name it claims
+with, which must also be a key of the plate's `agents`:
+`{ "hosts": { "<p>": { "start": ["/abs/path/host", ...], "state": ["/abs/path/host", "state"] } } }`.
+The preview prints the brief whole: the phase's Done when, its Acceptance and
+its current decisions (`plates decision context`). With `--yes` Plates claims
+the phase, then runs `start... <checkout path>` once, in the checkout, with
+those exact bytes on stdin. The host prints a session id on one line and exits
+0. Both commands run as argv with no shell, bounded in time and output, and
+with only PATH, HOME, user, shell, locale and temp in their environment: no
+token Plates holds passes to them. A host is never run twice for one phase: a
+second `--yes` returns the receipt, and a run whose answer was lost is
+recorded as uncertain, not repeated. If the host has a `state` command, Plates
+runs `state... <session id>` when it reads the backlog. An answer of
+`starting`, `running`, `waiting`, `finished` or `failed` becomes the card's
+presence, with the host and session as its source. A host with no state
+command, or one that answers anything else, leaves the card at "claimed".
+
+`plates home --backlog --since YYYY-MM-DD` (phase 184) reads back what
+happened to each item since that date: the counts per action, each route's
+attached phases and how many landed (are in Recently done), and the minutes of
+the answers you gave each week ("at least" when one had no estimate). Each card
+carries its `history` (how many events, the last one); events never reorder the
+backlog. They are written where the actions already happen (attach, assist,
+`plates phase claim --release`, and each answer and Not now from `plates home
+--answer`) into the plate's `.plates/backlog-events/`, private like feedback's
+store (0700/0600, git-ignored, refused when tracked), and they are **metadata
+only**: the item's key, who, the action, route, lane, takes, an outcome code and
+a receipt link; a Not now's reason is the code `stated` or `none`, never your
+words. Writing one never fails the action it records. The hosted workspace
+keeps a Not now answered on the web in SQL019; until 019 is applied events are
+skipped and the server notes it once. The hosted `/backlog/history` (beside List
+and By goal; `/backlog/history/YYYY-MM-DD` for a date, else the last 28 days)
+shows the same readout and card history, computed by the same function
+(`lib/web/backlog-history.mjs`) over the hosted events; before 019 it says once
+that events are not stored yet, and shows no counts.
+
+`plates home --agents` (phase 186) lists each provider in the plates'
+`agents` maps with the item it holds now, from claims ("working on plates
+#178", with its presence: claimed, or stale after seven days without a push),
+or idle; each route an agent may join by (session, local agent host, tonight,
+robot, worker), on for the plates whose `"backlog": { "routes": [...] }`
+policy lists it (session only with no policy) or off with its reason
+(`robot.on`, workers not yet activated, not in policy); and Pending review,
+the fleet's open pull requests not set to auto-merge, oldest first, read
+through `gh`. The hosted `/agents` shows the same, reading pull requests with
+the App's Pull requests read (a plate without it says "not read"), and the
+sidebar's Agents and Pending review carry their counts on every page.
+
 On the web, **Since you last looked** starts at your previous visit. A visit is a
 run of Home page loads less than thirty minutes apart, and "since" is the last
 load of the visit before this one; a reload, the page's background refresh and

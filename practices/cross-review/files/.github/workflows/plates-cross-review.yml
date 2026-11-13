@@ -4,7 +4,9 @@
 # Claude reviews Codex's codex/ PRs, Codex Claude's claude/ PRs, the
 # reviewer chosen per PR from "agents" (the first other provider with its
 # secret; its own provider only when no other is available, said in a
-# notice and in the review): findings
+# notice and in the review); a reviewer that could not start
+# (its credit or quota ran out, its secret was refused) hands the review to
+# the next such provider, said in a warning and in the review: findings
 # tagged P1/P2/P3, each validated against the code before it is written,
 # and a one-paragraph summary, posted by this workflow as one COMMENT review
 # with the findings inline. The brief is
@@ -118,7 +120,9 @@ jobs:
       issues: read
     outputs:
       ran: ${{ steps.ran.outputs.ran }}
-      agent: ${{ steps.which.outputs.agent }}
+      # The reviewer that ran: the which step's, or its fallback's when it could not start.
+      agent: ${{ steps.start.outputs.agent || steps.which.outputs.agent }}
+      fallback_note: ${{ steps.start.outputs.note }}
       author: ${{ steps.which.outputs.author }}
       reason: ${{ steps.which.outputs.reason }}
       minutes: ${{ steps.which.outputs.minutes }}
@@ -246,7 +250,7 @@ jobs:
             const fs = require("fs");
             const [file, out] = process.argv.slice(1);
             const w = JSON.parse(fs.readFileSync(file, "utf8"));
-            fs.appendFileSync(out, `review=${w.review}\nsha=${w.sha ?? ""}\nminutes=${w.minutes ?? ""}\nagent=${w.agent ?? ""}\nauthor=${w.author ?? ""}\nreason=${w.reason ?? ""}\nmode=${w.mode ?? "pr"}\nbase=${w.base ?? ""}\nstart=${w.at ?? ""}\n`);
+            fs.appendFileSync(out, `review=${w.review}\nsha=${w.sha ?? ""}\nminutes=${w.minutes ?? ""}\nagent=${w.agent ?? ""}\nauthor=${w.author ?? ""}\nreason=${w.reason ?? ""}\nmode=${w.mode ?? "pr"}\nbase=${w.base ?? ""}\nstart=${w.at ?? ""}\nfallback=${w.fallback ?? ""}\n`);
             // Its own provider reviews only when no other is available: said, never silent.
             console.log(w.review ? `${w.self ? "::notice::" : ""}review: ${w.why}` : w.notice ? `::notice::${w.why}` : `no review: ${w.why}`);
           ' "$RUNNER_TEMP/which.json" "$GITHUB_OUTPUT"
@@ -262,6 +266,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           AGENT: ${{ steps.which.outputs.agent }}
+          FALLBACK: ${{ steps.which.outputs.fallback }}
           MODE: ${{ steps.which.outputs.mode }}
           BASE: ${{ steps.which.outputs.base }}
           SHA: ${{ steps.which.outputs.sha }}
@@ -282,6 +287,8 @@ jobs:
             mkdir -p "$RUNNER_TEMP/plates-diff"
             cp "$RUNNER_TEMP/pr.diff" "$RUNNER_TEMP/plates-diff/push.diff"
             node "$review_scripts/cross-review.mjs" brief --push "$RUNNER_TEMP/push.json" --agent "$AGENT" --diff "$RUNNER_TEMP/plates-diff/push.diff" --out "$RUNNER_TEMP/prompt.md"
+            # The fallback reviewer's brief, written now from this trusted checkout: the PR's head replaces it before any agent runs.
+            if [ -n "$FALLBACK" ]; then node "$review_scripts/cross-review.mjs" brief --push "$RUNNER_TEMP/push.json" --agent "$FALLBACK" --diff "$RUNNER_TEMP/plates-diff/push.diff" --out "$RUNNER_TEMP/prompt-fallback.md"; fi
           else
             mkdir -p "$RUNNER_TEMP/plates-diff"
             # Read only metadata and objects, with fixed argument arrays and bounds.
@@ -337,16 +344,22 @@ jobs:
           }
           PLATES_PR_DIFF
             node "$review_scripts/cross-review.mjs" brief --pr "$RUNNER_TEMP/pr.json" --agent "$AGENT" --diff "$RUNNER_TEMP/plates-diff/pr.diff" --out "$RUNNER_TEMP/prompt.md"
+            # The fallback reviewer's brief, written now from this trusted checkout: the PR's head replaces it before any agent runs.
+            if [ -n "$FALLBACK" ]; then node "$review_scripts/cross-review.mjs" brief --pr "$RUNNER_TEMP/pr.json" --agent "$FALLBACK" --diff "$RUNNER_TEMP/plates-diff/pr.diff" --out "$RUNNER_TEMP/prompt-fallback.md"; fi
             # Old and new trusted helpers differ in spelling, not trust. Both
             # providers read this same verified snapshot, including Claude when
             # gh pr diff cannot serve it; grant no additional directory or tool.
             node <<'PLATES_PR_PROMPT'
           const fs = require('node:fs');
           const { join } = require('node:path');
-          const root = process.env.RUNNER_TEMP, file = join(root, 'prompt.md');
-          const prompt = fs.readFileSync(file, 'utf8');
-          if ((prompt.match(/^- Read it:.*$/gm) ?? []).length !== 1) throw new Error('Trusted brief has no unique diff instruction.');
-          fs.writeFileSync(file, prompt.replace(/^- Read it:.*$/m, () => `- Read it: the complete saved diff is ${join(root, 'plates-diff/pr.diff')}; the pull request metadata is ${join(root, 'plates-diff/pr.json')}. Read these local snapshots; they match the selected head ${process.env.SHA}. Do not substitute a fresh network diff.`));
+          const root = process.env.RUNNER_TEMP;
+          for (const name of ['prompt.md', 'prompt-fallback.md']) {
+            const file = join(root, name);
+            if (name !== 'prompt.md' && !fs.existsSync(file)) continue;
+            const prompt = fs.readFileSync(file, 'utf8');
+            if ((prompt.match(/^- Read it:.*$/gm) ?? []).length !== 1) throw new Error('Trusted brief has no unique diff instruction.');
+            fs.writeFileSync(file, prompt.replace(/^- Read it:.*$/m, () => `- Read it: the complete saved diff is ${join(root, 'plates-diff/pr.diff')}; the pull request metadata is ${join(root, 'plates-diff/pr.json')}. Read these local snapshots; they match the selected head ${process.env.SHA}. Do not substitute a fresh network diff.`));
+          }
           PLATES_PR_PROMPT
           fi
           mkdir -p "$RUNNER_TEMP/plates/scripts/plates"
@@ -358,6 +371,11 @@ jobs:
             echo "prompt<<$eof"
             cat "$RUNNER_TEMP/prompt.md"
             echo "$eof"
+            if [ -f "$RUNNER_TEMP/prompt-fallback.md" ]; then
+              echo "prompt_fallback<<$eof"
+              cat "$RUNNER_TEMP/prompt-fallback.md"
+              echo "$eof"
+            fi
             echo "started=$(date +%s)"
           } >> "$GITHUB_OUTPUT"
 
@@ -424,18 +442,94 @@ jobs:
           # logins only (lib.mjs AGENTS login), never "*" or allow-bots.
           allow-bot-users: claude[bot]
 
-      # An agent that failed before its budget ran out (no secret, a bad
-      # model: is_error after one turn) is red, printing only the error line,
-      # and the publish job does not run (lesson 29). A budget timeout is not red.
-      - name: Did the agent run?
-        id: ran
+      # A reviewer that could not start (its credit, billing or quota ran out,
+      # its secret was refused, a rate limit at the start) hands the review to
+      # the next provider "agents" lists with its secret, the PR's own provider
+      # last (the which step's fallback): said in a warning and in the review,
+      # naming which it was, so the owner knows to top up or to rotate. A
+      # review that ran, ran out its budget or stopped with a real error stays
+      # with its reviewer and is judged below as before. The fallback reads
+      # only, as the first reviewer does, with the brief this job wrote from
+      # the default branch; only the publish job writes.
+      - name: Could the reviewer start?
+        id: start
         if: steps.which.outputs.review == 'true'
         env:
           AGENT: ${{ steps.which.outputs.agent }}
+          FALLBACK: ${{ steps.which.outputs.fallback }}
           OUTCOME: ${{ steps.which.outputs.agent == 'codex' && steps.review_codex.outcome || steps.review.outcome }}
           EXECUTION: ${{ steps.review.outputs.execution_file }}
           MINUTES: ${{ steps.which.outputs.minutes }}
           STARTED: ${{ steps.brief.outputs.started }}
+        run: |
+          helper="$RUNNER_TEMP/plates/scripts/plates/cross-review.mjs"
+          # The helper is the default branch's: one from before the fallback has
+          # no agent-start (it exits 2 on --fallback), so the review stays with
+          # its reviewer and is judged below as before.
+          if ! node "$helper" capabilities 2>/dev/null | grep -q '"fallback":true'; then
+            printf 'agent=%s\nfallback=\nnote=\nminutes=\n' "$AGENT" >> "$GITHUB_OUTPUT"
+            echo "the reviewer stays $AGENT: the default branch's helper has no fallback yet"
+            exit 0
+          fi
+          if [ "$AGENT" = codex ]; then file="$RUNNER_TEMP/codex-final-message.md"; else file="${EXECUTION:-$RUNNER_TEMP/claude-execution-output.json}"; fi
+          node "$helper" agent-start --agent "$AGENT" --fallback "$FALLBACK" --outcome "$OUTCOME" --file "$file" --minutes "$MINUTES" --started "$STARTED" --json > "$RUNNER_TEMP/start.json"
+          # The fallback keeps the original deadline: it gets only the minutes left (minutes), never a fresh budget.
+          node -e '
+            const fs = require("fs");
+            const [file, out] = process.argv.slice(1);
+            const s = JSON.parse(fs.readFileSync(file, "utf8"));
+            const note = String(s.note ?? "").replace(/[\r\n]+/g, " ");
+            fs.appendFileSync(out, `agent=${s.agent}\nfallback=${s.fallback ?? ""}\nnote=${note}\nminutes=${s.fallback ? s.minutes ?? "" : ""}\nstarted=${Math.floor(Date.now() / 1000)}\n`);
+            console.log(s.fallback ? `::warning::${note}` : `the reviewer stays ${s.agent}`);
+          ' "$RUNNER_TEMP/start.json" "$GITHUB_OUTPUT"
+      - name: Give Codex its temp dir (fallback)
+        if: steps.start.outputs.fallback == 'codex'
+        run: mkdir -p /tmp/plates-codex
+      - name: Review
+        id: review_fallback
+        if: steps.start.outputs.fallback == 'claude'
+        continue-on-error: true
+        timeout-minutes: ${{ fromJSON(steps.start.outputs.minutes || steps.which.outputs.minutes) }}
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          prompt: ${{ steps.brief.outputs.prompt_fallback }}
+          allowed_bots: claude[bot]
+          claude_args: |
+            --allowedTools "Read,Grep,Glob,Bash(gh pr diff:*),Bash(gh pr view:*)"
+            --add-dir ${{ runner.temp }}/plates-diff
+      - name: Review
+        id: review_fallback_codex
+        if: steps.start.outputs.fallback == 'codex'
+        continue-on-error: true
+        timeout-minutes: ${{ fromJSON(steps.start.outputs.minutes || steps.which.outputs.minutes) }}
+        uses: openai/codex-action@v1
+        env:
+          GH_TOKEN: ""
+          TMPDIR: /tmp/plates-codex
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: ${{ runner.temp }}/prompt-fallback.md
+          output-file: ${{ runner.temp }}/codex-final-message.md
+          sandbox: read-only
+          safety-strategy: drop-sudo
+          allow-bot-users: claude[bot]
+
+      # An agent that failed before its budget ran out (no secret, a bad
+      # model: is_error after one turn) is red, printing only the error line,
+      # and the publish job does not run (lesson 29). A budget timeout is not red.
+      # After a fallback, the reviewer judged is the one that ran last.
+      - name: Did the agent run?
+        id: ran
+        if: steps.which.outputs.review == 'true'
+        env:
+          AGENT: ${{ steps.start.outputs.agent || steps.which.outputs.agent }}
+          OUTCOME: ${{ steps.start.outputs.fallback == 'codex' && steps.review_fallback_codex.outcome || steps.start.outputs.fallback == 'claude' && steps.review_fallback.outcome || steps.which.outputs.agent == 'codex' && steps.review_codex.outcome || steps.review.outcome }}
+          EXECUTION: ${{ steps.start.outputs.fallback == 'claude' && steps.review_fallback.outputs.execution_file || steps.review.outputs.execution_file }}
+          MINUTES: ${{ steps.start.outputs.fallback != '' && steps.start.outputs.minutes || steps.which.outputs.minutes }}
+          STARTED: ${{ steps.start.outputs.fallback != '' && steps.start.outputs.started || steps.brief.outputs.started }}
         run: |
           if [ "$AGENT" = codex ]; then
             node "$RUNNER_TEMP/plates/scripts/plates/cross-review.mjs" agent-ran --agent codex --outcome "$OUTCOME" --file "$RUNNER_TEMP/codex-final-message.md" --minutes "$MINUTES" --started "$STARTED"
@@ -450,8 +544,8 @@ jobs:
       - name: Hand the review on
         if: steps.which.outputs.review == 'true'
         env:
-          AGENT: ${{ steps.which.outputs.agent }}
-          EXECUTION: ${{ steps.review.outputs.execution_file }}
+          AGENT: ${{ steps.start.outputs.agent || steps.which.outputs.agent }}
+          EXECUTION: ${{ steps.start.outputs.fallback == 'claude' && steps.review_fallback.outputs.execution_file || steps.review.outputs.execution_file }}
           MODE: ${{ steps.which.outputs.mode }}
         run: |
           out="$RUNNER_TEMP/handoff"
@@ -625,6 +719,7 @@ jobs:
           AGENT: ${{ needs.review.outputs.agent }}
           AUTHOR: ${{ needs.review.outputs.author }}
           REASON: ${{ needs.review.outputs.reason }}
+          FALLBACK_NOTE: ${{ needs.review.outputs.fallback_note }}
           MINUTES: ${{ needs.review.outputs.minutes }}
         run: |
           # Only the already-trusted checkout supplies scripts and their relative imports.
@@ -638,7 +733,10 @@ jobs:
           in="$RUNNER_TEMP/review"
           file="$in/claude-execution-output.json"
           if [ "$AGENT" = codex ]; then file="$in/codex-final-message.md"; fi
-          node "$review_scripts/cross-review.mjs" summary --agent "${AGENT:-claude}" --author "$AUTHOR" --reason "$REASON" --file "$file" --pr "$in/pr.json" --diff "$in/pr.diff" --minutes "$MINUTES" --out "$RUNNER_TEMP/review.json" --plain "$RUNNER_TEMP/review-plain.json"
+          # A trusted helper from before the fallback has no --fallback-note (it exits 2): the review is still posted, without the note.
+          note=()
+          if node "$review_scripts/cross-review.mjs" capabilities 2>/dev/null | grep -q '"fallbackNote":true'; then note=(--fallback-note "$FALLBACK_NOTE"); fi
+          node "$review_scripts/cross-review.mjs" summary --agent "${AGENT:-claude}" --author "$AUTHOR" --reason "$REASON" "${note[@]}" --file "$file" --pr "$in/pr.json" --diff "$in/pr.diff" --minutes "$MINUTES" --out "$RUNNER_TEMP/review.json" --plain "$RUNNER_TEMP/review-plain.json"
           if ! gh api --method POST "repos/$REPO/pulls/$PR/reviews" --input "$RUNNER_TEMP/review.json" --jq '"posted review \(.id) (\(.state))"'; then
             echo "::warning::GitHub refused the review with its inline comments; posting it with the findings in its summary."
             gh api --method POST "repos/$REPO/pulls/$PR/reviews" --input "$RUNNER_TEMP/review-plain.json" --jq '"posted review \(.id) (\(.state))"'
@@ -660,10 +758,12 @@ jobs:
           AGENT: ${{ needs.review.outputs.agent }}
           AUTHOR: ${{ needs.review.outputs.author }}
           REASON: ${{ needs.review.outputs.reason }}
+          FALLBACK_NOTE: ${{ needs.review.outputs.fallback_note }}
           MINUTES: ${{ needs.review.outputs.minutes }}
         run: |
           in="$RUNNER_TEMP/review"
           file="$in/claude-execution-output.json"
           if [ "$AGENT" = codex ]; then file="$in/codex-final-message.md"; fi
-          node "$PUBLISHER/cross-review.mjs" push-review --agent "${AGENT:-claude}" --author "$AUTHOR" --reason "$REASON" --file "$file" --push "$in/push.json" --diff "$in/pr.diff" --head-diff "$in/head.diff" --minutes "$MINUTES" --repo "$REPO" --out "$RUNNER_TEMP/push-review.json"
+          # The publisher is the one this workflow was rendered with (its sha256 checked above), so it takes --fallback-note.
+          node "$PUBLISHER/cross-review.mjs" push-review --agent "${AGENT:-claude}" --author "$AUTHOR" --reason "$REASON" --fallback-note "$FALLBACK_NOTE" --file "$file" --push "$in/push.json" --diff "$in/pr.diff" --head-diff "$in/head.diff" --minutes "$MINUTES" --repo "$REPO" --out "$RUNNER_TEMP/push-review.json"
           node "$PUBLISHER/cross-review.mjs" push-post --review "$RUNNER_TEMP/push-review.json" --repo "$REPO"

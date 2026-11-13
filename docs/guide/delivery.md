@@ -145,7 +145,7 @@ project's smoke checks (after ledger's `verify-production.mjs`). In
 its key, from the verifier (exit 2) and from `plates doctor` (`delivery-config`).
 
 ```bash
-node scripts/plates/verify.mjs <sha> [--within 600] [--every 10] [--record] [--json]
+node scripts/plates/verify.mjs <sha> [--within 600] [--every 10] [--record [--failed "<reason>"]] [--json]
 node scripts/plates/verify.mjs live <sha> [--json]
 ```
 
@@ -156,7 +156,9 @@ node scripts/plates/verify.mjs live <sha> [--json]
   then reads each smoke path once. It passes (exit 0) only on what it saw;
   otherwise it fails (exit 1), naming each check that did not hold: what
   production served, after how many reads, and each smoke path's expected and
-  actual status.
+  actual status. When a project runs checks of its own beyond GET status codes,
+  `verify.mjs <sha> --record --failed "<reason>"` (repeatable) records that
+  failure without polling and exits 1.
 - **live** reads the version path once: exit 0 when production already
   serves that commit or a descendant, 1 otherwise, including when it cannot
   read it. A deploy step skips itself on yes, then verifies:
@@ -261,10 +263,13 @@ its own command, not the ref.
 With delivery on, `plates doctor` reads every workflow in `.github/workflows`
 and reports `workflow-concurrency` when:
 
-- a **test or gate workflow** (the gate workflow, or one named test, check,
-  ci or gate) has no concurrency group per ref (`${{ github.ref }}`) with
+- a **test or gate workflow** (on a code ref: the gate workflow, one that runs
+  the gate or test suite, or one named test, check, ci or gate rather than a
+  verifier or alerter) has no concurrency group per ref (`${{ github.ref }}`) with
   `cancel-in-progress: true`: superseded test runs keep running;
-- a **publish or deploy workflow** (named publish, deploy, release or promote)
+- a **publish or deploy workflow** (one that runs a publish, deploy, release or
+  promote step, or is named publish, deploy, release or promote rather than a
+  verifier or alerter)
   has no concurrency group, a group per ref, commit or run (`github.run_id`,
   `github.run_number`, `github.run_attempt`), or `cancel-in-progress` other than `false`: a
   deploy can be cancelled midway, or two can run at once. A group expression
@@ -283,7 +288,10 @@ Only a workflow-level block covers a whole test workflow. Without one, every
 job needs its own per-ref, cancelling block: one compliant `unit` job does not
 cover an `integration` job with none.
 
-A workflow named neither way is not checked. A gate workflow that also
+A workflow that neither runs nor is named as one (including a post-deploy
+verifier or alerter, or a workflow off code refs that does not publish) is not
+checked; `"delivery".workflows` (`{ "<file or name>": "test" | "publish" | "deploy" | "none" }`)
+overrides classification per workflow. A gate workflow that also
 publishes (isocan's `release.yml`) is held as a publisher.
 
 ## Sessions hand off; one integrator runs the gate

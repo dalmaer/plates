@@ -524,7 +524,7 @@ test('## Your part parses: each field, the choices, ready or ready when, a table
   const p = parsePhase('05-acme.md', asked(plain));
   assert.deepEqual(p.yourPart, {
     heading: null, ask: 'Decide whether Acme keeps the anvil rule.', why: 'It settles whether the rule pays for itself.', look: '[the record](../evidence/acme.md)',
-    choices: ['Keep it', 'Drop it', 'Not enough data yet'], keepsOpen: ['Not enough data yet'], takes: '5 minutes',
+    choices: ['Keep it', 'Drop it', 'Not enough data yet'], recommend: null, keepsOpen: ['Not enough data yet'], takes: '5 minutes',
     then: 'Keep it: nothing changes. Drop it: the conductor drafts a phase. Not enough data yet: read again in November.',
     ready: true, table: { head: ['', 'Before', 'After'], rows: [['Anvils', '3', '5 | 6']] },
   });
@@ -543,6 +543,24 @@ test('## Your part parses: each field, the choices, ready or ready when, a table
   const kept = yourPartOf('<!-- One part per walk box. -->\nA line of preamble.\n\n### Box 2\n\n- **Ask:** Read one.\n- **Choices:** Fine | Not fine\n- **Ready:** yes\n\n### Box 3\n\n- **Ask:** Read two.\n- **Ready:** yes\n');
   assert.equal(kept.ask, 'Read one.');
   assert.deepEqual(kept.parts.map(x => x.heading), ['Box 2', 'Box 3']);
+});
+
+test('a recommendation must be one of the choices', () => {
+  const recommending = choice => asked(plain.replace('- **Keeps it open:**', `- **Recommend:** ${choice}\n- **Keeps it open:**`));
+  // Optional: absent is null, and a Your part without it is as it was.
+  assert.equal(parsePhase('05-acme.md', asked(plain)).yourPart.recommend, null);
+  // One of the Choices, spelled as Choices spells it: read, and nothing to refuse.
+  assert.equal(parsePhase('05-acme.md', recommending('Keep it')).yourPart.recommend, 'Keep it');
+  assert.deepEqual(specProblems('05-acme.md', recommending('Keep it')), []);
+  // Anything else is refused, naming the choices it could have been.
+  for (const wrong of ['Keep', 'keep it', 'Keep it.', 'Retire it']) {
+    assert.deepEqual(specProblems('05-acme.md', recommending(wrong)), [`docs/phases/05-acme.md: ## Your part: **Recommend:** "${wrong}" is not one of its Choices (Keep it | Drop it | Not enough data yet); recommend one of them, spelled as Choices spells it`], wrong);
+  }
+  // Each part is checked against its own Choices.
+  const parts = yourPartOf('### Box 2\n\n- **Ask:** Read one.\n- **Choices:** Fine | Not fine\n- **Recommend:** Fine\n- **Ready:** yes\n\n### Box 3\n\n- **Ask:** Read two.\n- **Choices:** Yes | No\n- **Recommend:** Fine\n- **Ready:** yes\n');
+  assert.deepEqual(parts.parts.map(p => p.recommend), ['Fine', 'Fine']);
+  const two = asked(plain).replace(/## Your part\n[\s\S]*?(?=\n## )/, `## Your part\n\n### Box 2\n\n- **Ask:** Read one.\n- **Choices:** Fine | Not fine\n- **Recommend:** Fine\n- **Ready:** yes\n\n### Box 3\n\n- **Ask:** Read two.\n- **Choices:** Yes | No\n- **Recommend:** Fine\n- **Ready:** yes\n`);
+  assert.deepEqual(specProblems('05-acme.md', two), ['docs/phases/05-acme.md: ## Your part (Box 3): **Recommend:** "Fine" is not one of its Choices (Yes | No); recommend one of them, spelled as Choices spells it']);
 });
 
 test('a walk with no Your part is a note from --check, never a failure; a filled-in Your part is not template text', async () => {

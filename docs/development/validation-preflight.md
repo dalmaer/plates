@@ -77,6 +77,21 @@ stays unavailable. A local Node probe also says nothing about a freshly deployed
 function runtime. Source package metadata is compared with its existing reviewed
 binding; a mismatch is reported, never automatically accepted or refreshed.
 
+Dependency updates also change this package binding: only the release version is
+normalized away. Review the exact `package.json` and lockfile diff, then update
+only the package entry in `lib/web/capability-source-data.mjs` in the same
+candidate. Its SHA-256 input is `JSON.stringify({ ...pkg, version:
+'<release-version>' })`. Keep all other source entries intact and run the focused
+package coverage and validation planner tests, plus the affected dependency tests,
+before the full gate. Do not exclude dependencies from the binding or refresh the
+whole inventory merely to make an automated update pass.
+
+The focused runner verifies that package binding before probes or test stages,
+then runs `render:check` before the convention suite. A dependency update or a
+rendered workflow pin without its source change therefore fails early. Neither
+check repairs files or refreshes bindings automatically. The remaining focused
+checks and the final full gate are still required.
+
 `--help --json` describes flags. Exit 0 means an advisory plan is ready, including
 a plan requiring broad coverage; 1 means capability or snapshot instability
 blocks readiness; 2 means invalid or unavailable input. None means a gate passed.

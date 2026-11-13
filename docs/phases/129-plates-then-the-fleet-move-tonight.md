@@ -4,7 +4,7 @@ since: 2026-10-25
 goal: G2
 spec: 2
 depends: [128]
-note: "Release v0.8.34 and Plates label receipt are published. PRs #271 and #273 merged; private Ledger reads and corrected night 40256668332 passed, with exact-main CI reused. Migration verification still lacks the improve observation packet. Six consumer PRs remain prepared, not installed; current-night and durable legacy refs are retained."
+note: "Six consumer update PRs and observation diagnostics PR #274 are merged. Read-only verification on 2026-11-04 remains unknown for the retained night/morning; installed bytes, workflow restoration and real rollout acceptance remain unverified."
 evidence: ["evidence/2026-10-25-name-rollout-preparation.md"]
 issue: 245
 ---
@@ -83,7 +83,22 @@ By hand: ⚑ the evening's rollout. Each project's dispatched run links and `pla
 
 ## Next action
 
-Diagnose and correct the missing improve producer observation from successful night 40256668332, then verify Plates' source-bound night/morning before installing each consumer update. Preserve failed night 40251515967 and the distinct passing correction; PR #273 fixed context isolation and recovered-ledger CI eligibility, not the remaining observation gap. The owner approved the 17 original consumer workflow barriers, Papa Tapes' additional two-workflow barrier and the conditional exact-head dglazkov/isocan#526 merge above; these approvals do not establish installation or acceptance. Continue Ledger, Duo, Cajones, Isocan and DTV in order, then Papa Tapes. Preserve the earlier Isocan watchdog failure alongside the passing current-candidate checks. Keep current-night and durable legacy refs until their work drains or their state is transferred and verified; hosted and machine retirement remains separately unverified.
+Recover the original rollout receipts and read back installed source, managed bytes
+and restored workflow states for the six already-merged consumer updates. Do not
+reopen or repeat their PRs. The 2026-11-04 read-only verification still reports
+unknown night association, morning linkage, fresh-write provenance and history
+consumption for night 40256668332 and morning 40450842699. Preserve those gaps and
+the original failed night 40251515967. Diagnostics PR #274 is already merged;
+inspect its output on a separately authorized source-bound observation before
+attributing or repairing the missing improve producer evidence.
+
+The original same-evening acceptance remains unproven. Reconcile the retained
+rollout order and owner-approved workflow barriers against their original receipts
+before proposing another walkthrough. Current merge facts establish neither those
+barriers nor installed bytes. Do not transfer the former exact-head approvals to
+new source. Current-night and durable legacy refs remain protected; hosted and
+machine retirement remain separately unverified. See the appended 2026-11-04
+observation in the existing evidence record.
 
 ## Reconciliation
 

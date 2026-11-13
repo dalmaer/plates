@@ -197,22 +197,54 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
    - Needs first: phase 94.
    - Rollback: A failure inside the transaction rolls back by itself. After commit, drop the table plates_home.last_looked and the function public.plates_last_looked_rpc(text,text); Home goes back to the last seven days and says visits are not stored. Leave the plates_home schema: 017's Not now records live in it.
    - Proof to record: The applied version: file name and SHA-256; docs/evidence/2026-11-04-web-last-looked-hosted-proof.sql's result (the table, its grants and the RPC run as the service role); one authenticated Home load, then a second after thirty minutes, and Since you last looked naming the first visit's time.
-48. **answers-from-home** (phase 173, decision, owner attends). After deploying a build with phase 173 and applying migration 017, the owner answers one walk and one health proposal from Home on the phone and puts one item off with Not now, and says whether each landed.
+48. **migration-019** (phase 184, migration, owner attends). Apply 019-backlog-events.sql (plates_home.backlog_events: per owner, an opaque digest, the database's time and the event's short codes, append-only, and plates_backlog_events_rpc) after the build with phase 184's hosted writes, so a Not now answered on the web leaves its backlog event. The build goes first and is safe without it: until 019 is applied each event is skipped, the server notes that once, and every answer is written as before. Events hold no source text and no owner words.
+   - Needs first: phase 94.
+   - Rollback: A failure inside the transaction rolls back by itself. After commit, drop the table plates_home.backlog_events, the function public.plates_backlog_events_rpc(text,text,jsonb,timestamptz) and the trigger function plates_home.backlog_events_append_only(); events are skipped again, noted once, and nothing else changes. Leave the plates_home schema: 017's Not now and 018's visits live in it.
+   - Proof to record: The applied version: file name and SHA-256; docs/evidence/2026-11-06-web-backlog-events-hosted-proof.sql's result (the table, its grants, the append-only trigger and the RPC run as the service role); one Not now answered on the deployed web, and its event read back as the service role, holding codes only.
+49. **answers-from-home** (phase 173, decision, owner attends). After deploying a build with phase 173 and applying migration 017, the owner answers one walk and one health proposal from Home on the phone and puts one item off with Not now, and says whether each landed.
    - Needs first: phase 151.
    - Rollback: Redeploy the previous build; each answer is an ordinary commit that can be reverted, and Not now rows are per owner and can be deleted.
    - Proof to record: The deployed revision, the commits the answers wrote, and the owner answer, recorded in docs/evidence/2026-11-03-every-item-answerable.md.
-49. **review-session** (phase 174, decision, owner attends). After deploying a build with phases 173 and 174 and applying migration 017, the owner taps Start review on Home on the phone, goes through the items waiting, and says whether this is how they want to keep plates moving.
+50. **review-session** (phase 174, decision, owner attends). After deploying a build with phases 173 and 174 and applying migration 017, the owner taps Start review on Home on the phone, goes through the items waiting, and says whether this is how they want to keep plates moving.
    - Needs first: phases 151, 173.
    - Rollback: Redeploy the previous build; each answer is an ordinary commit that can be reverted, and Not now rows are per owner and can be deleted.
    - Proof to record: The deployed revision, the commits the session wrote, and the owner answer (this is it, close but what, or not the right shape), recorded in docs/evidence/2026-11-03-review-session.md.
-50. **docket-notify** (phase 175, decision, owner attends). After deploying a build with phase 175 and adding quietHours (timeZone, from, to) to PLATES_WEB_CONFIG, the owner gets "N new for you" on the phone outside quiet hours, taps it, does the quick ones, and says whether it is fast enough.
+51. **backlog-look** (phase 178, decision, owner attends). After deploying a build with phase 178, the owner opens /backlog on the phone and the laptop, finds the one thing they would do first, and says whether its lane and reasons match how they choose.
+   - Needs first: phase 166.
+   - Rollback: Redeploy the previous build; /backlog is read-only and writes nothing, and Home only gains a link to it.
+   - Proof to record: The deployed revision and the owner answer (found it and the reason was right, found it and the reason was wrong, or could not tell), recorded in docs/evidence/2026-11-05-backlog-lanes.md.
+52. **agents-look** (phase 186, decision, owner attends). After deploying a build with phase 186, the owner opens the sidebar's Agents and Pending review and says whether they match what is running and what waits for review.
+   - Needs first: phase 178.
+   - Rollback: Redeploy the previous build; /agents is read-only and writes nothing.
+   - Proof to record: The deployed revision and the owner answer (matches, something missing, or something wrong), recorded in docs/evidence/2026-11-06-agents.md.
+53. **lane-session** (phase 180, decision, owner attends). After deploying a build with phase 180, the owner taps Start on the Yours lane, clears five items in one sitting, and says whether it was faster than before.
+   - Needs first: phases 174, 178.
+   - Rollback: Redeploy the previous build; each answer is an ordinary commit that can be reverted, and Not now rows are per owner.
+   - Proof to record: The deployed revision and the owner answer (faster, same, or slower and where), recorded in docs/evidence/2026-11-06-lane-session.md.
+54. **step-done-web** (phase 187, decision, owner attends). After deploying a build with phase 187, the owner opens Review on their phone, presses Done on a step with a one-line why, confirms, and says whether the step left Home.
+   - Needs first: phases 173, 174.
+   - Rollback: Redeploy the previous build; the mark is an ordinary commit to .plates/loose-ends.json that can be reverted.
+   - Proof to record: The deployed revision and the owner answer (It worked, still listed, or asked to run something), recorded in docs/evidence/2026-11-06-hosted-answers.md.
+55. **docket-notify** (phase 175, decision, owner attends). After deploying a build with phase 175 and adding quietHours (timeZone, from, to) to PLATES_WEB_CONFIG, the owner gets "N new for you" on the phone outside quiet hours, taps it, does the quick ones, and says whether it is fast enough.
    - Needs first: phases 151, 152, 174.
    - Rollback: Remove quietHours from PLATES_WEB_CONFIG: nothing is sent without it. Redeploying the previous build also stops it.
    - Proof to record: The deployed revision, the push delivery record, and the owner answer (fast enough, too many nudges, or too slow to get in), recorded in docs/evidence/2026-11-03-docket-order-and-notify.md.
-51. **look-captures** (phase 172, decision, owner attends). With one design change pending, the owner runs npm run look, opens the printed folder, and reviews the change from its captures in light and dark at phone and laptop widths instead of opening the app; then says whether the captures are useful or not worth keeping.
+56. **look-captures** (phase 172, decision, owner attends). With one design change pending, the owner runs npm run look, opens the printed folder, and reviews the change from its captures in light and dark at phone and laptop widths instead of opening the app; then says whether the captures are useful or not worth keeping.
    - Needs first: phase 171.
    - Rollback: Nothing to roll back: the script runs locally against fixture data, writes images only to a temporary folder outside the repo, and changes nothing deployed.
    - Proof to record: The owner's answer (useful, or not worth it), and which design change was reviewed, recorded in docs/evidence/2026-11-04-look-captured.md.
+57. **local-host-walk** (phase 183, decision, owner attends). The owner lists local-host in a plate's backlog.routes, writes ~/.config/plates/local-hosts.json for one agent host on their machine, attaches one ready phase with plates home --attach <key> --route local-host --provider <p> --yes, and watches its card.
+   - Needs first: phase 181.
+   - Rollback: Remove local-host from backlog.routes and release the claim; nothing hosted changes.
+   - Proof to record: The claim, the receipt, the host's session id, and the owner answer, recorded in docs/evidence/2026-11-06-local-host.md.
+58. **github-app-pull-requests-write** (phase 176, github-app, owner attends). Owner grants the Plates GitHub App "Pull requests: Read and write" on the plates installation (with the Contents: Read and write already granted for decisions, which GitHub's merge endpoint requires) and Checks: Read, so a ready pull request's card can show its checks and Merge can be submitted. Merging also needs decisionWrites on; until both hold, Merge is listed unavailable with this reason.
+   - Needs first: phase 97.
+   - Rollback: Owner removes Pull requests write in the App's settings; Merge returns to unavailable with its reason, and nothing else changes.
+   - Proof to record: A GitHub API read of the installation's permissions (pull_requests: write, contents: write, checks: read), sanitized.
+59. **merge-from-docket** (phase 176, decision, owner attends). After deploying a build with phase 176 and the Pull requests write grant, the owner opens a review session on the phone, merges one ready pull request from its card, and says whether what was being merged was clear before the tap.
+   - Needs first: phase 174.
+   - Rollback: A merge is reverted with an ordinary revert PR; redeploying the previous build removes Merge from the card.
+   - Proof to record: The deployed revision, the merged PR and its merge commit from the operation receipt, and the owner answer (merged, clear; merged, but unclear; or didn't trust it), recorded in phase 176's evidence.
 
 ## Still open
 

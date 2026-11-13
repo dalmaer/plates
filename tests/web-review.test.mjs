@@ -156,9 +156,11 @@ test('an answer that needs a why waits for it', async () => {
   // A walk choice that asks for words ("Close, but (say what)") needs one too; an unavailable answer explains itself.
   const step = items.find(e => e.kind === 'step');
   while (session.current() && session.current().entry.key !== step.key) session.choose('not-now');
-  const off = session.choose('done', { why: 'did it' });
-  assert.equal(off.error, 'unavailable'); assert.match(off.answer.unavailable.command, /^plates home --answer studio:step:5 done/);
-  assert.match(renderReviewCard(step), /data-answer="done" aria-disabled="true"/, 'shown as off, never disabled');
+  // Done on a step writes from the web under decisionWrites (phase 187); Hand to an agent still says what is missing.
+  assert.ok(!step.item.answers.find(a => a.id === 'done').unavailable);
+  const off = session.choose('hand', { why: 'the agent can do it' });
+  assert.equal(off.error, 'unavailable'); assert.match(off.answer.unavailable.reason, /Issues write permission/);
+  assert.match(renderReviewCard(step), /data-answer="hand" aria-disabled="true"/, 'shown as off, never disabled');
   assert.doesNotMatch(renderReviewCard(step), /\sdisabled[\s>]/);
 });
 
@@ -212,10 +214,11 @@ test('Home starts the session from one panel at its top, or says nothing needs y
   const access = { workspace: { id: 'acme', name: 'Acme' }, userId: 1, projects: [{ id: 'studio', repo: 'acme/studio', name: 'Acme Studio' }], sourceRevision: 'a'.repeat(40), csrf: 'x' };
   const html = homeView(access, reviewSnapshot());
   // Phase 175: how many, about how long (the sum of the model's estimates: 5 + 1 + 2 + 10), and the quick ones beside everything.
-  assert.match(html, /<p class="review-start p-card"><strong>4 need you · about 18 min<\/strong><span><a class="button" href="\/review"[^>]*>Everything<\/a> <a class="button quiet" href="\/review\?quick=1">Quick ones \(2\)<\/a><\/span><\/p>/);
+  assert.match(html, /<p class="review-start p-card"><strong>4 need you · about 18 min<\/strong><span><a class="button" href="\/review"[^>]*>Everything<\/a> <a class="button quiet" href="\/review\?quick=1">Quick ones \(2\)<\/a> <a class="button quiet" href="\/review\/yours" data-review-yours>Your lane, in backlog order<\/a><\/span><\/p>/);
   // Only one kind waiting (all quick, or none quick): one Start review.
   const quickOnly = reviewSnapshot(); quickOnly.docket = quickOnly.docket.filter(e => e.quick);
-  assert.match(renderReviewStart(quickOnly), /<strong>2 need you · about 3 min<\/strong><a class="button" href="\/review"[^>]*>Start review<\/a><\/p>/);
+  assert.match(renderReviewStart(quickOnly), /<strong>2 need you · about 3 min<\/strong><span><a class="button" href="\/review"[^>]*>Start review<\/a> <a class="button quiet" href="\/review\/yours" data-review-yours>Your lane, in backlog order<\/a><\/span><\/p>/);
+  assert.doesNotMatch(renderReviewStart(reviewSnapshot(), { projectId: 'studio' }), /review\/yours/, 'a plate\'s own page starts its own session');
   assert.ok(html.indexOf('review-start') < html.indexOf('home-toolbar'), 'before the toolbar: the first thing under the heading');
   assert.match(renderReviewStart(reviewSnapshot(), { projectId: 'studio' }), /href="\/projects\/studio\/review"/);
   const none = renderReviewStart({ ...reviewSnapshot(), docket: [] });
@@ -294,4 +297,221 @@ test('the arrows flip through the cards, and a card flipped past comes round aga
   const html = renderReviewEnd({ settled: session.settled, putOff: session.putOff, again: session.again, skipped: session.skipped, home: '/' });
   assert.match(html, /0 settled · 3 put off · 1 skipped/);
   assert.match(html, /<h2>Skipped<\/h2><ul><li>[^<]+: still waiting on Home<\/li><\/ul>/);
+});
+
+// Phase 180: the lane as a session the owner can finish. What is left says how long it takes, honestly.
+test('session time is honest', async () => {
+  const { sessionTime, sessionLine } = await import('../lib/web/review-views.mjs');
+  const { DEFAULT_MINUTES, estimateOf, docketOf } = await import('../lib/work-items.mjs');
+  const items = docketItems(reviewSnapshot());
+  // From Takes where an item has one, else its kind's DEFAULT_MINUTES: every fixture item is known, so "~".
+  assert.deepEqual(items.map(e => [e.kind, e.minutes, e.estimate]), [['step', DEFAULT_MINUTES.step, 'kind'], ['claim', DEFAULT_MINUTES.claim, 'kind'], ['proposal', DEFAULT_MINUTES.proposal, 'kind'], ['walk', 10, 'takes']]);
+  assert.equal(sessionLine(sessionTime(items)), `4 left · ~${1 + 5 + 2 + 10} min`);
+  // One item whose minutes are unknown (no Takes, a kind with no default): never a guess, and the total says "at least".
+  assert.deepEqual(estimateOf({ kind: 'acme-odd' }), { minutes: null, from: 'unknown' });
+  const odd = docketOf({ decisions: [{ key: 'studio:acme-odd:1', kind: 'acme-odd', ready: true, title: 'An Acme oddity', waits: 'owner' }] });
+  assert.deepEqual([odd[0].minutes, odd[0].estimate, odd[0].quick], [null, 'unknown', false], 'unknown is not quick either');
+  assert.equal(sessionLine(sessionTime([...items, ...odd])), '5 left · at least 18 min');
+  // The card says what is left, and peeks at the next card's header.
+  const card = renderReviewCard(items[0], { index: 0, total: items.length, next: items[1], remaining: items });
+  assert.match(card, /<p class="review-left" data-review-left>4 left · ~18 min<\/p>/);
+  assert.match(card, new RegExp(`<aside class="review-peek" data-review-peek="${items[1].key}" aria-label="Next card"><span class="review-quiet">Next</span> <span class="p-badge">studio</span> <span class="p-badge">${items[1].label}</span> Stale claim: phase 7</aside>`));
+  assert.doesNotMatch(renderReviewCard(items[3], { index: 3, total: 4, next: null, remaining: [items[3]] }), /review-peek/, 'the last card has nothing to peek at');
+  // The session counts down as cards are answered; Not now takes a reason, sent as its why.
+  const c = clock(), sent = [];
+  const session = createReviewSession({ items, send: async hold => { sent.push(hold); return { state: 'put-off', until: hold.until }; }, timers: c.timers });
+  assert.equal(sessionLine(sessionTime(session.upcoming())), '4 left · ~18 min');
+  const notNow = items[0].item.answers.find(a => a.writer === 'not now');
+  session.choose(notNow.id, { until: '2026-11-12', why: 'Waiting for the Acme delivery' });
+  assert.equal(sessionLine(sessionTime(session.upcoming())), `3 left · ~${18 - items[0].minutes} min`);
+  await c.tick();
+  assert.deepEqual([sent[0].until, sent[0].why], ['2026-11-12', 'Waiting for the Acme delivery']);
+  // The Not now panel offers the reason line, bounded like every why.
+  assert.match(card, /<input type="text" class="p-field" maxlength="300" autocomplete="off" aria-label="Why not now \(optional\)" placeholder="Why not now \(optional\)" data-review-reason>/);
+});
+
+test('caught up needs complete coverage', async () => {
+  const { laneComplete } = await import('../lib/web/review-views.mjs');
+  const needs = known => ({ home: { sections: [{ id: 'needs-you', known, items: [] }] }, projects: [{ id: 'studio', state: 'complete' }] });
+  assert.equal(laneComplete(needs(false)), true);
+  assert.equal(laneComplete(needs(true)), false, 'a source not read: Needs you\'s count is only what was read');
+  assert.equal(laneComplete({ ...needs(false), projects: [{ id: 'studio', state: 'loading' }] }), false, 'a plate still loading');
+  assert.equal(laneComplete({ ...needs(false), projects: [{ id: 'studio', state: 'stale' }] }), false, 'a stale plate');
+  assert.equal(laneComplete({ projects: [] }), false, 'no Needs you at all: not known to be complete');
+  // The end: "All caught up" only on a complete read with nothing coming back or skipped.
+  const settled = [{ item: { title: 'Acme' }, label: 'Done', sets: [] }];
+  assert.match(renderReviewEnd({ settled }, { complete: true }), /<h1 class="review-ask" data-review-caught-up>All caught up<\/h1>/);
+  assert.doesNotMatch(renderReviewEnd({ settled }, { complete: false }), /All caught up/);
+  assert.doesNotMatch(renderReviewEnd({ settled, skipped: [{ item: { title: 'Acme later' } }] }, { complete: true }), /All caught up/, 'a card flipped past still waits');
+  assert.doesNotMatch(renderReviewEnd({ settled, again: [{ item: { title: 'Acme' }, reason: 'stale' }] }, { complete: true }), /All caught up/);
+  assert.match(renderReviewEnd({}, { nothing: true, complete: true }), /All caught up/);
+  assert.match(renderReviewEnd({}, { nothing: true, complete: false }), /<h1 class="review-ask">Nothing needs you in what was read<\/h1>[^]*not all caught up/);
+  // The server's page says the same from the snapshot.
+  const empty = { ...reviewSnapshot(), docket: [] };
+  assert.doesNotMatch(reviewView({ workspace: { name: 'Acme' }, csrf: 'x' }, empty), /All caught up/, 'no Needs you section read: not caught up');
+  assert.match(reviewView({ workspace: { name: 'Acme' }, csrf: 'x' }, { ...empty, home: { sections: [{ id: 'needs-you', known: false, items: [] }] } }), /All caught up/);
+});
+
+test('/review/yours is the backlog\'s lane, in its order', async t => {
+  const s = await hosted(t);
+  await s.home(); await s.fetch('/api/backlog');
+  const backlog = await (await s.fetch('/api/backlog')).json();
+  const { yoursOrder } = await import('../lib/web/review-views.mjs');
+  const order = yoursOrder(backlog);
+  assert.ok(order.length >= 2, 'the fixture lane has several items');
+  const r = await s.web(s.h.request('/review/yours', { cookie: s.signed.cookie }));
+  assert.equal(r.status, 200);
+  const html = await r.text();
+  const docketOrder = docketItems(await s.home(), { order }).map(e => e.key);
+  assert.deepEqual(docketOrder, order.filter(k => docketOrder.includes(k)), 'the docket in the lane\'s order');
+  assert.match(html, new RegExp(`data-review-card="${docketOrder[0]}"`), 'the first card is the lane\'s first');
+  assert.match(html, /data-order="\[/); assert.match(html, /data-home="\/backlog"/, 'the session ends back on the backlog');
+  assert.match(html, /\/assets\/review-session\.[0-9a-f]{12}\.css/);
+  assert.match(await (await s.web(s.h.request('/backlog', { cookie: s.signed.cookie }))).text(), /<a class="button" href="\/review\/yours" data-backlog-start-session>Start · \d+ · (?:~|at least )\d+ min<\/a>/);
+  assert.equal((await s.web(s.h.request('/review/yours?x=1', { cookie: s.signed.cookie }))).status, 400);
+  assert.notEqual((await s.web(s.h.request('/review/yours'))).status, 200, 'signed out: no lane');
+});
+
+// Phase 176: a ready PR merged through the App, on the decisions' operation path. Synthetic Acme PR 7 on the
+// decision harness's fake App API and operation store; the merge endpoint is recorded, never reached.
+test('a merge is refused when the head moved', async () => {
+  const { decisionHarness, token } = await import('./helpers/web-decisions.mjs');
+  const { createMerges, mergeDigest } = await import('../lib/web/pr-merges.mjs');
+  const { createOperations } = await import('../lib/web/operations.mjs');
+  const HEAD = 'a'.repeat(40), MOVED = 'e'.repeat(40);
+  const setup = () => {
+    const h = decisionHarness(), pr = { head: HEAD, state: 'open', merged: false, draft: false, checks: 'SUCCESS', mergeReply: 'merged' }, merges = [];
+    h.access.pullRequestsPermission = 'write';
+    const fetcher = async (url, options = {}) => {
+      const path = new URL(url).pathname;
+      if (path === '/repos/acme/studio/pulls/7') return Response.json({ number: 7, state: pr.state, merged: pr.merged, draft: pr.draft, title: 'Acme anvils', html_url: 'https://github.com/acme/studio/pull/7', head: { sha: pr.head }, base: { repo: { id: 102 } }, merge_commit_sha: pr.merged ? 'f'.repeat(40) : null });
+      if (path === '/repositories/102' && !options.method) return Response.json({ id: 102, full_name: 'acme/studio', allow_squash_merge: true, allow_merge_commit: true, allow_rebase_merge: false });
+      if (path === '/graphql' && JSON.parse(options.body).query.includes('PlatesReadyChecks')) return Response.json({ data: { repository: { p7: { number: 7, state: pr.state.toUpperCase(), isDraft: pr.draft, headRefOid: pr.head, additions: 1, deletions: 0, changedFiles: 1, commits: { nodes: [{ commit: { oid: pr.head, statusCheckRollup: { state: pr.checks } } }] } } } } });
+      if (path === '/repos/acme/studio/pulls/7/merge') {
+        merges.push(JSON.parse(options.body));
+        if (pr.mergeReply === 'network') { pr.merged = true; throw new TypeError('lost after merging'); }
+        if (pr.mergeReply === 'push') pr.head = MOVED;
+        if (JSON.parse(options.body).sha !== pr.head) return Response.json({ message: 'Head branch was modified.' }, { status: 409 });
+        pr.merged = true; pr.state = 'closed';
+        return Response.json({ merged: true, sha: 'f'.repeat(40) });
+      }
+      return h.fetcher(url, options);
+    };
+    const opts = { fetcher, now: () => h.state.now };
+    const item = { key: 'studio:merge:7', merge: { number: 7, head: HEAD } };
+    const preview = () => createMerges(h.config, opts).preview(h.access, token, h.project, item);
+    const apply = (p, ack = p.digest) => createOperations(h.config, opts).apply(h.access, token, h.project, p.id, { reauthorize: async () => h.access, publicAcknowledgement: ack });
+    const recover = id => createOperations(h.config, opts).recover(h.access, token, h.project, id);
+    return { h, pr, merges, preview, apply, recover };
+  };
+
+  // The preview names the PR, its head and the method, and binds them in its digest.
+  let s = setup();
+  const p = await s.preview();
+  assert.equal(p.canSubmit, true);
+  assert.deepEqual([p.pr.head, p.method], [HEAD, 'squash']);
+  assert.equal(p.digest, mergeDigest({ repoId: 102, number: 7, head: HEAD, method: 'squash', operationId: p.operationId }));
+  assert.match(p.consequence, /only if its head is still aaaaaaa/);
+  // A push after the preview: the apply re-reads the PR and refuses, and GitHub is never asked to merge.
+  s.pr.head = MOVED;
+  const moved = await s.apply(p);
+  assert.deepEqual([moved.state, moved.reason], ['refused', 'stale_preview']);
+  assert.equal(s.merges.length, 0, 'nothing was sent to the merge endpoint');
+  assert.deepEqual(await s.apply(p), moved, 'the refused operation is the answer again, never a second try');
+  // A card shown at an older head cannot even be previewed.
+  await assert.rejects(s.preview(), e => e.code === 'stale_preview');
+
+  // The same head: merged once, at the previewed head, by the repo's method.
+  s = setup();
+  const done = await s.apply(await s.preview());
+  assert.equal(done.state, 'committed');
+  assert.deepEqual(s.merges, [{ sha: HEAD, merge_method: 'squash' }]);
+  assert.equal(done.receipt.commit, 'f'.repeat(40));
+  // A push lands between the apply's read and the merge: GitHub's own head check refuses it, and it stays refused.
+  s = setup();
+  const raced = await s.preview();
+  s.pr.mergeReply = 'push';
+  const late = await s.apply(raced);
+  assert.equal(late.state, 'refused'); assert.match(late.reason, /head moved since the preview/);
+  assert.equal(s.pr.merged, false, 'nothing merged');
+
+  // Without its digest, or without the App's permission, nothing is merged.
+  s = setup();
+  const unacked = await s.preview();
+  await assert.rejects(s.apply(unacked, 'b'.repeat(64)), e => e.code === 'merge_acknowledgement_required');
+  s.h.access.pullRequestsPermission = null;
+  const denied = await s.preview();
+  assert.equal(denied.canSubmit, false); assert.match(denied.refusal, /Pull requests: Read and write/);
+  assert.equal((await s.apply(denied)).reason, 'access_changed'); assert.equal(s.merges.length, 0);
+
+  // An answer that never came back is uncertain; recovery reads the PR and settles it, and nothing is merged twice.
+  s = setup();
+  const lost = await s.preview();
+  s.pr.mergeReply = 'network';
+  const uncertain = await s.apply(lost);
+  assert.equal(uncertain.state, 'uncertain');
+  const settled = await s.recover(uncertain.id);
+  assert.equal(settled.state, 'committed'); assert.equal(settled.receipt.commit, 'f'.repeat(40));
+  assert.equal(s.merges.length, 1, 'recovery never merges again');
+});
+
+// Phase 187: a web view never tells the owner to run a terminal command to
+// answer. An unavailable answer says what is missing (its reason); the CLI keeps
+// the command in its own form. The question heading takes focus for screen
+// readers without drawing the focus ring.
+test('no web view renders an answer\'s command', async () => {
+  const { homeView } = await import('../lib/web/views.mjs');
+  const { reviewSessionStyles } = await import('../lib/web/review-views.mjs');
+  const snapshot = reviewSnapshot({ decisionWrites: false }), items = docketItems(snapshot);
+  const commands = items.flatMap(e => e.item.answers.filter(a => a.unavailable).map(a => a.unavailable.command));
+  assert.ok(commands.length > 0, 'the fixture has unavailable answers, each with its CLI command in the shared model');
+  const access = { workspace: { id: 'acme', name: 'Acme' }, userId: 1, projects: [{ id: 'studio', repo: 'acme/studio', name: 'Acme Studio' }], sourceRevision: 'a'.repeat(40), csrf: 'x' };
+  const failed = await createWebSender({ fetch: async () => Response.json({ error: 'answer_unavailable' }, { status: 409 }), csrf: 'x' })
+    .send({ entry: items[0], answer: { ...items[0].item.answers[0], writer: 'not now' } });
+  assert.equal(failed.state, 'failed'); assert.ok(!('command' in failed), 'a failed write carries its reason, not a command');
+  const again = items.map(e => ({ item: e.item, key: e.key, reason: 'The write was refused.', command: 'plates home --answer x done' }));
+  const pages = [homeView(access, snapshot), reviewView(access, snapshot), ...items.map(e => renderReviewCard(e)),
+    renderReviewEnd({ settled: [], putOff: [], again, skipped: [], home: '/' }, { complete: true })];
+  for (const html of pages) {
+    for (const command of [...commands, 'plates home --answer x done']) assert.ok(!html.includes(command), `no page renders ${command}`);
+    assert.doesNotMatch(html, /plates home --answer|Run <code>/);
+  }
+  // The browser's note for an unavailable answer: its reason only.
+  const client = await readFile(new URL('../lib/web/review-client.mjs', import.meta.url), 'utf8');
+  assert.doesNotMatch(client, /unavailable\??\.command|Run <code>/, 'the review client never reads an answer\'s command');
+  assert.match(client, /is not written from here\.<\/strong> \$\{esc\(result\.answer\.unavailable\.reason\)\}`/);
+  assert.match(reviewSessionStyles, /\.review-ask:focus\{outline:none\}/, 'the focused question draws no ring');
+});
+
+// Phase 187: Done on a step is previewed and confirmed through the apply route, as a walk answer is.
+test('a step\'s Done is held as a preview and applied through its route', async () => {
+  const urls = [];
+  const fetch = async (url, o) => { urls.push(url); const body = JSON.parse(o.body);
+    return url === '/api/home/answer' ? Response.json({ state: 'preview', preview: { id: 'p'.repeat(64), digest: 'd'.repeat(64), canSubmit: true, consequence: 'Mark phase 5 done: a drop mark in .plates/loose-ends.json' } })
+      : Response.json({ state: 'committed', receipt: { url: 'https://github.com/acme/studio/commit/abc123' }, ack: body.publicAcknowledgement }); };
+  const step = docketItems(reviewSnapshot()).find(e => e.kind === 'step'), done = step.item.answers.find(a => a.id === 'done');
+  assert.equal(done.writer, 'loose-ends mark'); assert.ok(!done.unavailable);
+  const sender = createWebSender({ fetch, csrf: 'x' });
+  const prepared = await sender.prepare({ entry: step, answer: done, why: 'Approved it.' });
+  assert.match(prepared.summary, /drop mark/);
+  const result = await sender.send({ entry: step, answer: done, why: 'Approved it.', prepared: Promise.resolve(prepared) });
+  assert.deepEqual(urls, ['/api/home/answer', '/api/projects/studio/decisions/apply']);
+  assert.equal(result.state, 'settled'); assert.equal(result.link, 'https://github.com/acme/studio/commit/abc123');
+});
+
+// Phase 187: Merge is previewed (its digest binds the head and method) and confirmed through the apply route.
+test('a held Merge answer is previewed and applied through its route', async () => {
+  const calls = [];
+  const fetch = async (url, o) => { const body = JSON.parse(o.body); calls.push({ url, body });
+    return url === '/api/home/answer' ? Response.json({ state: 'preview', preview: { id: 'p'.repeat(64), kind: 'merge', digest: 'd'.repeat(64), canSubmit: true, consequence: 'Merge acme/studio#7 (Acme anvils) by squash, only if its head is still aaaaaaa.' } })
+      : Response.json({ state: 'committed', receipt: { url: 'https://github.com/acme/studio/pull/7' } }); };
+  const merge = { key: 'studio:merge:7', kind: 'merge', label: 'Ready to merge', item: { key: 'studio:merge:7', itemKind: 'merge', title: 'Acme anvils', answers: [{ id: 'merge', label: 'Merge', writer: 'pr merge', needsWhy: 'never', recommended: true }] } };
+  const c = clock(), sender = createWebSender({ fetch, csrf: 'x' });
+  const session = createReviewSession({ items: [merge], send: sender.send, prepare: sender.prepare, timers: c.timers });
+  const held = session.choose('merge').held;
+  assert.match((await held.prepared).summary, /only if its head is still/, 'the merge preview is shown before it is sent');
+  await c.tick(); await settledOf(session);
+  assert.deepEqual(calls.map(x => x.url), ['/api/home/answer', '/api/projects/studio/decisions/apply']);
+  assert.equal(calls[1].body.publicAcknowledgement, 'd'.repeat(64), 'its digest is the acknowledgement the merge apply requires');
+  assert.deepEqual(session.settled.map(s => s.link), ['https://github.com/acme/studio/pull/7']);
 });

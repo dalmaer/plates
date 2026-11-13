@@ -392,6 +392,7 @@ then gives the commands and every flag by the reason you'd pass it.
 | [Low, Medium and High risk tolerance](docs/guide/autonomy.md) | you want fewer repeated approval questions within explicitly selected task authority |
 | [Reviews and PRs](docs/guide/reviews-and-prs.md) | a PR from plates arrived, or a reviewer commented on one |
 | [Delivery](docs/guide/delivery.md) | two changes in a row should publish once, and deploys should follow tested commits, not `main` |
+| [Where local output goes](docs/guide/local-output.md) | an agent or automation on your machine writes digests, diagnoses or logs, and you want them out of the checkout |
 | [When something is red](docs/guide/when-something-is-red.md) | a night, an update, a doctor or a climb did not go green |
 | [Project canvas](docs/guide/project-canvas.md) | you want a source-linked view of the project's lifecycle and improvement |
 | [Harness evaluation records](docs/guide/harness-evaluations.md) | you want to inspect historical cases, freeze inputs, compare trials and inspect bounded live execution and recovery |

@@ -1,12 +1,11 @@
 ---
-status: partial
-since: 2026-10-24
+status: built
+since: 2026-11-06
 goal: G2
 spec: 2
 depends: [124]
-note: "Source compatibility and two-direction mutation proof implemented; live workflow and label-receipt rollout awaits phases 128–129 and owner approval."
-owes: walk
-evidence: ["evidence/2026-10-24-content-name-transition.md"]
+note: "Built: the rename is live on plates itself (observed 2026-11-06); the fleet's move is phase 129."
+evidence: ["evidence/2026-10-24-content-name-transition.md", "evidence/2026-11-06-owner-questions.md"]
 issue: 242
 ---
 
@@ -41,7 +40,7 @@ The design is [Name transition](../specs/name-transition.md).
 - [x] A label is applied under the plates name only where the repository's label rename is recorded, and filters match either name. `tests/names-labels.test.mjs`, `tests/names-label-consumers.test.mjs`, `tests/robot-issue.test.mjs` and `tests/review.test.mjs`
 - [x] Each artifact reader finds the last keel-named artifact when no plates one exists, and prefers the plates one when both do. `tests/gate-reuse.test.mjs`, `tests/test-history.test.mjs`, `tests/canvas-night.test.mjs` and retained consumer mutation observations
 
-- [ ] Observe actual workflow uploads/checks and committed label-rename receipts with current provider facts in the owner-approved rollout. ⚑ by hand: the owner, in phases 128–129; source tests do not establish this walk.
+- [x] On plates itself the workflows upload `plates-*` artifacts and the repository has `plates:` labels and no `keel:` labels (observed 2026-11-06: 30 artifacts, all `plates-*`; 3 `plates:` labels, 0 `keel:`). The fleet's move is phase 129's walk; evidence/2026-11-06-owner-questions.md: `gh label list`
 
 ## Real surfaces
 
@@ -62,7 +61,7 @@ Automated: `node --import ./tests/helpers/hermetic.mjs --test tests/names.test.m
 
 ## Next action
 
-Publish the reviewed source, then complete phases 128–129: owner-approved label renames and committed receipts at the workflow revision, followed by actual workflow/API observations on Plates first and the fleet in order. Keep inventory-only held rows explicit. Do not infer production acceptance from merge.
+None here: the fleet's move and its walk are phase 129's.
 
 ## Trajectory
 
@@ -78,3 +77,4 @@ Publish the reviewed source, then complete phases 128–129: owner-approved labe
 - **2026-10-24** — Installed-runtime tests missed a source doorway with an incomplete export list. Source doorways now forward the complete canonical interface, and a dedicated parity/binding test prevents the same omission at any of the three entry paths.
 
 - **2026-10-24** — Review found whole-document fence refusal blocked independent historical/current records. Declaration-scoped normalization retains duplicate/singleton/anchor rejection; public-consumer regression is independently VERIFIED. Owner authorizes continued review/fix for this migration beyond the numeric checkpoint.
+- **2026-11-06** The owner's install barrier was overtaken: release v0.8.34 installed the rename, and plates itself writes and reads the plates names. Observed, not asked.

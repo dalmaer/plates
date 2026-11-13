@@ -1,5 +1,5 @@
 export { environmentValue, markerHeader, markerLines, remoteLabelReceipt, repositoryLabelSelection, repositoryLabelWriter, labelNames, matchesLabel, markerComment, markerComments, markerAtStart, leadingMarkers } from './names.mjs';
-import { environmentValue, markerHeader, markerLines, remoteLabelReceipt, repositoryLabelSelection, repositoryLabelWriter, labelNames, matchesLabel, markerComment, markerComments, markerAtStart, leadingMarkers, writeName, branchSuffix, robotIssueOf } from './names.mjs';
+import { environmentValue, markerHeader, markerLines, remoteLabelReceipt, repositoryLabelSelection, repositoryLabelWriter, labelNames, matchesLabel, markerComment, markerComments, markerAtStart, leadingMarkers, writeName, branchSuffix, robotIssueOf, readNames } from './names.mjs';
 // What the night shift's scripts share (plates practice `night`; managed: plates
 // render rewrites it). Node built-ins only: this runs in the project's own
 // checkout, with no plates anywhere (plates docs/design.md §6, "Projects run on
@@ -58,6 +58,8 @@ import { environmentValue, markerHeader, markerLines, remoteLabelReceipt, reposi
 //                            reviewRoundLimit, reviewRounds(pr), classMark, classOf, byMergeRule:
 //                            its review rounds, and each open finding's class
 //                            (plates review's limit and the board, phase 71);
+//   mergeRule, reviewedHead, summarizedHead
+//                            the merge rule (plates review --gate, release, the docket)
 //                            repoReviewArgs, readRepoReviews, windowPrs, unansweredPrs:
 //                            the repo-wide read, page by page (the night and
 //                            plates loose-ends); IncompleteRead: never a count;
@@ -578,6 +580,148 @@ export function gateWorkflowOf(config) {
 }
 
 /**
+ * A workflow line without its comment: a `#` at the line's start or after
+ * whitespace, outside quotes, starts one, in YAML and in the shell of a `run:`
+ * block alike (plates#94: `run: echo deploy # npm run check happens elsewhere`
+ * runs echo). A quoted `#`, or one inside a word (`a#b`), is kept. Inside
+ * double quotes a backslash escapes the next character, as in YAML and the
+ * shell (`"echo \" #1\" && npm run check"` is one quoted span); single
+ * quotes take no escapes (YAML's `''` closes and reopens, which reads the same).
+ * Shell syntax the scan does not model (`$( )`, backticks, `${ }`, `$'…'`)
+ * keeps the rest of the line whole (#370 review: in `echo "$(printf "%s # %s"
+ * a b)" && npm run check` the inner quotes nest): a missed gate refuses a
+ * publish, while a comment kept by mistake only risks matching a check
+ * command's name, which the gate's own checks still catch.
+ */
+export function uncommented(line) {
+  return withoutComment(line, null).line;
+}
+
+/**
+ * uncommented, starting inside `quote` (a quote character, or null); also returns the quote still open at the line's
+ * end. `shell`: the line is a run block's shell, where a backslash outside quotes escapes the next character too
+ * (#370 review: in `echo \" " # banner" && npm run check` the first quote is literal); YAML keeps it literal.
+ * `heredocs`: in the shell, the delimiters of the heredocs the line opens (`cat <<'EOF'`), in order.
+ */
+function withoutComment(line, quote, shell = false) {
+  const heredocs = [];
+  // Whether the next character starts a word: a # starts a comment only there. An escaped space (a backslash and a
+  // space, in the shell) is part of its word (#370 review: `echo banner\ #1 && npm run check` echoes "banner #1",
+  // then runs the check).
+  let wordStart = true;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (opaque(line, i, quote)) return { line, quote: shell && /<<(?!<)/.test(line.slice(i)) ? UNKNOWN : settled(line.slice(i), quote), heredocs };
+    if (quote) { if (quote === '"' && c === '\\') i++; else if (c === quote) quote = null; wordStart = false; }
+    else if (shell && c === '\\') { i++; wordStart = false; }
+    else if (shell && c === '<' && line[i + 1] === '<' && line[i + 2] !== '<' && line[i - 1] !== '<') {
+      // The delimiter is a word, quoted or not; quoting it only stops expansion, which a comment scan never does.
+      const op = /^<<-?[ \t]*(?:'([^']*)'|"((?:[^"\\]|\\.)*)"|((?:\\.|[^\s;&|<>()'"])+))/.exec(line.slice(i));
+      if (op) { heredocs.push((op[1] ?? op[2] ?? op[3]).replace(/\\(.)/g, '$1')); i += op[0].length - 1; }
+      wordStart = false;
+    }
+    else if (c === '"' || c === "'") { quote = c; wordStart = false; }
+    else if (c === '#' && wordStart) return { line: line.slice(0, i), quote: null, heredocs };
+    else wordStart = /\s/.test(c);
+  }
+  return { line, quote, heredocs };
+}
+
+/** Whether line[i] starts shell syntax withoutComment does not model: `$(`, `${` or a backtick outside single quotes, `$'` outside any. */
+function opaque(line, i, quote) {
+  if (quote === "'") return false;
+  const c = line[i], next = line[i + 1];
+  if (c === '`') return true;
+  if (c !== '$') return false;
+  return next === '(' || next === '{' || (next === "'" && !quote);
+}
+
+/**
+ * The quote open at the end of `tail`, read with nesting (a quote inside `$( )` or a backtick opens a new span), from
+ * inside `quote`: null when everything closes, the quote when only that one plain quote stays open, else UNKNOWN. A
+ * # at the start of a word outside every quote ends the reading.
+ */
+const UNKNOWN = Symbol('unknown quote state');
+function settled(tail, quote) {
+  const stack = quote === '"' ? ['"'] : quote === "'" ? ["'"] : [];
+  let wordStart = true;
+  for (let i = 0; i < tail.length; i++) {
+    const c = tail[i], top = stack.at(-1), next = tail[i + 1];
+    if (top === "'") { if (c === "'") stack.pop(); continue; }
+    if (top === "$'") { if (c === '\\') i++; else if (c === "'") stack.pop(); continue; }
+    if (c === '\\') { i++; wordStart = false; continue; }
+    if (c === '$' && next === '(') { stack.push(')'); i++; wordStart = true; continue; }
+    if (c === '$' && next === '{') { stack.push('}'); i++; wordStart = false; continue; }
+    if (c === '`') { if (top === '`') stack.pop(); else stack.push('`'); wordStart = false; continue; }
+    if (top === '"') { if (c === '"') stack.pop(); continue; }
+    if (c === '$' && next === "'") { stack.push("$'"); i++; continue; }
+    if (c === '"' || c === "'") { stack.push(c); wordStart = false; continue; }
+    if (c === '#' && wordStart && top !== '}') break;
+    if (top === ')' && c === '(') stack.push(')');
+    else if (top === '}' && c === '{') stack.push('}');
+    else if (c === top) stack.pop();
+    wordStart = /[\s;&|(]/.test(c);
+  }
+  if (!stack.length) return null;
+  return stack.length === 1 && (stack[0] === '"' || stack[0] === "'") ? stack[0] : UNKNOWN;
+}
+
+/**
+ * A workflow's lines, each without its comment. The lines of a `run:` block
+ * scalar (`|` or `>`) are one shell script, so a quoted string that spans
+ * lines stays open into the next one (`echo "banner<newline>footer #1" && npm
+ * run check` runs the check). The block ends at the first non-blank line
+ * indented no deeper than its `run:` line, and the quote state ends with it.
+ * A heredoc's lines are data, not shell (#370 review: a lone `"` inside
+ * `cat <<'EOF'` quotes nothing): each is read alone, and none changes the
+ * quote state, up to the line that is its delimiter.
+ * Outside a block, a YAML quoted scalar that opens a value (`run: "…`,
+ * `- '…`) and does not close on its line runs on to the lines after it, as
+ * YAML reads it (#370 review: in `run: "echo 'banner<newline>  #1' && npm
+ * run check"` the # is inside the scalar). A quote anywhere else in a plain
+ * value is a character, so an apostrophe in a name never reaches the next line.
+ * When a line's unmodelled syntax (see uncommented) leaves the quote state
+ * unknown, the lines after it are kept whole until the block or scalar ends:
+ * no line indented deeper than the one that opened it.
+ */
+const OPENS_SCALAR = /^\s*(?:-\s+)?(?:[^\s"'#][^:#]*:\s+)?["']/;
+export function uncommentedLines(text) {
+  const out = [];
+  let block = null, quote = null, heredocs = [], scalar = null, scalarIndent = 0;
+  const indent = line => line.length - line.trimStart().length;
+  for (const line of text.split('\n')) {
+    if (scalar === UNKNOWN && line.trim() && indent(line) <= scalarIndent) scalar = null;
+    if (scalar === UNKNOWN) { out.push(line); continue; }
+    if (scalar) {
+      const read = withoutComment(line, scalar);
+      out.push(read.line);
+      scalar = read.quote;
+      continue;
+    }
+    if (block !== null && line.trim() && indent(line) <= block) { block = quote = null; heredocs = []; }
+    if (block !== null && quote === UNKNOWN) { out.push(line); continue; }
+    if (block !== null && heredocs.length) {
+      out.push(uncommented(line));
+      if (line.trim() === heredocs[0]) heredocs.shift();
+      continue;
+    }
+    if (block !== null) {
+      const read = withoutComment(line, quote, true);
+      out.push(read.line);
+      quote = read.quote;
+      heredocs = read.heredocs;
+      continue;
+    }
+    const read = withoutComment(line, null);
+    out.push(read.line);
+    if (read.quote && OPENS_SCALAR.test(line)) { scalar = read.quote; scalarIndent = indent(line); continue; }
+    const opens = /^(\s*)(?:-\s+)?run:\s*[|>][-+0-9]*\s*$/.exec(read.line);
+    if (opens) block = opens[1].length;
+  }
+  return out;
+}
+
+/**
  * The workflow that runs the gate on pushes: the one .plates/plates.json names
  * (gateWorkflowOf: no guess beats the project saying), else check.yml, else
  * one whose file runs the check command (a project that gates in its own
@@ -592,10 +736,10 @@ export async function gateWorkflowIn(root, config, check = 'npm run check') {
   const names = (await readdir(dir).catch(() => [])).filter(n => /\.ya?ml$/.test(n)).sort();
   if (names.includes('check.yml')) return { name: 'check.yml' };
   const command = config?.check ?? check;
-  // The command as a whole word on a line that is not a comment (#92): `npm run check` is not `npm run check:deploy`.
+  // The command as a whole word outside a comment (#92, #94): `npm run check` is not `npm run check:deploy`.
   const runs = new RegExp(`(^|[^\\w:.-])${command.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w:.-])`);
   for (const n of names) {
-    const lines = (await readFile(join(dir, n), 'utf8')).split('\n').filter(l => !l.trim().startsWith('#'));
+    const lines = uncommentedLines(await readFile(join(dir, n), 'utf8'));
     if (lines.some(l => runs.test(l))) return { name: n };
   }
   return null;
@@ -1334,13 +1478,18 @@ export function stepUse(jobs, { step, check, minutes }) {
   for (const job of Array.isArray(jobs) ? jobs : []) {
     const steps = Array.isArray(job?.steps) ? job.steps : [];
     if (check && steps.some(s => s?.name === check && s.conclusion === 'failure')) return null;
+    // Every one of the pass's agent steps that ran, summed: after a provider could not start, its fallback (same name)
+    // ran in what was left of the one budget, so the operation used both, measured against that original budget.
+    let seconds = 0, ran = false, stopped = false;
     for (const s of steps) {
       if (s?.name !== step || s.conclusion === 'skipped') continue;
       const from = stamp(s, 'started_at', 'startedAt'), to = stamp(s, 'completed_at', 'completedAt');
       if (!Number.isFinite(from) || !Number.isFinite(to) || to < from) continue;
-      const seconds = (to - from) / 1000;
-      return { seconds, ranOut: s.conclusion === 'cancelled' || s.conclusion === 'timed_out' || seconds >= (minutes - 1) * 60 };
+      seconds += (to - from) / 1000;
+      ran = true;
+      if (s.conclusion === 'cancelled' || s.conclusion === 'timed_out') stopped = true;
     }
+    if (ran) return { seconds, ranOut: stopped || seconds >= (minutes - 1) * 60 };
   }
   return null;
 }
@@ -1450,7 +1599,7 @@ export class IncompleteRead extends Error {
 export const reviewFragment = ({ threads = 100, replies = 100, comments = 100, reviews = 100 } = {}) => `fragment PlatesReview on PullRequest {
   number title url state mergedAt updatedAt headRefName headRefOid body repository { nameWithOwner } headRepository { nameWithOwner } author { __typename login }
   reviewThreads(first: ${threads}) { pageInfo { hasNextPage } nodes { id isResolved path line originalLine
-    comments(first: ${replies}) { pageInfo { hasNextPage } nodes { databaseId author { login } body createdAt url originalCommit { oid } } } } }
+    comments(first: ${replies}) { pageInfo { hasNextPage } nodes { databaseId author { __typename login } body createdAt url originalCommit { oid } } } } }
   comments(first: ${comments}) { pageInfo { hasNextPage } nodes { id databaseId author { __typename login } body createdAt url } }
   reviews(first: ${reviews}) { pageInfo { hasNextPage endCursor } nodes { id databaseId author { __typename login } commit { oid } body state submittedAt url } }
 }`;
@@ -1508,6 +1657,10 @@ const carriesFindings = body => markerAtStart(body, 'marker:keel:cross-review') 
  * Not one: a cross-review summary carrying its findings, which are answered there and count as a finding on its push.
  */
 const isStatus = body => /^\s*<!--/.test(String(body ?? '')) && !carriesFindings(body);
+/** A comment that is itself a plates answer (replyText, alone or under quote lines). */
+const PLATES_ANSWER = /^(?:(?:>[^\n]*\r?\n)+\r?\n)?\*\*(?:Fixed\*\* in |Valid, tracked\*\* in |Not valid:\*\* )/;
+export const isPlatesAnswer = body => PLATES_ANSWER.test(String(body ?? ''));
+const isBotAuthor = x => x?.author?.__typename === 'Bot' || /\[bot\]$/i.test(x?.author?.login ?? '') || sameLogin(loginOf(x), 'github-actions[bot]');
 // Robot author and reviewer share the Actions identity. Only the exact posted
 // envelope, tied to this PR's canonical delivery association, is an exception.
 const robotReviewRepositories = new WeakMap();
@@ -1585,6 +1738,53 @@ const page = (conn, what, pr) => {
 };
 
 /**
+ * Whether a reviewer's own conversation comment says it finished reviewing the
+ * head: one line naming the head commit (its short sha in backticks) and
+ * "completed". Codex finishes a review with no findings this way (a status
+ * board and a 👍), posting no review, so waiting for a review would time out.
+ */
+export const summarizedHead = (body, head) => {
+  const sha = String(head ?? '').slice(0, 7);
+  return /^[0-9a-f]{7}$/.test(sha) && String(body ?? '').split('\n').some(l => l.includes(`\`${sha}`) && /\bcompleted\b/i.test(l));
+};
+
+/** Each named reviewer's newest review, and whether it reviewed the head commit (a review on it, or its summary saying so). */
+export function reviewedHead(reviewers, reviews, head, convo = []) {
+  return reviewers.map(name => {
+    const mine = reviews.filter(r => sameLogin(r.reviewer, name));
+    const newest = mine.at(-1) ?? null;
+    const summary = convo.some(c => sameLogin(c?.author?.login, name) && summarizedHead(c.body, head));
+    return { reviewer: name, head: mine.some(r => r.commit === head) || summary, newest: newest && { state: newest.state, commit: newest.commit, at: newest.at } };
+  });
+}
+
+/**
+ * The merge rule (phase 48, plates review --gate and plates release; phase
+ * 176's docket): every comment answered, each named reviewer has reviewed
+ * the head, and someone other than the PR's author has reviewed the head (a
+ * review on that commit, or a named reviewer's summary of it). Pure: the
+ * caller reads. comments: reviewComments(pr, reviewers); reviews: [{ reviewer,
+ * commit, state?, at? }]; convo: the PR's conversation comments.
+ * { ok, why, unanswered: [ids], notReviewed, reviewedBy, reviewed }.
+ */
+export function mergeRule({ comments, reviews, head, author = '', reviewers = [], convo = [] }) {
+  const short = sha => String(sha ?? '').slice(0, 7);
+  const reviewed = reviewedHead(reviewers, reviews, head, convo);
+  const notReviewed = reviewed.filter(r => !r.head).map(r => r.reviewer);
+  const reviewedBy = [...new Set([
+    ...reviews.filter(r => head && r.commit === head).map(r => r.reviewer),
+    ...reviewed.filter(r => r.head).map(r => r.reviewer),
+  ].filter(login => !sameLogin(login, author)))];
+  const unanswered = comments.filter(c => !c.answered).map(c => c.id);
+  const why = [
+    ...(unanswered.length ? [`${unanswered.length} review comment${unanswered.length === 1 ? '' : 's'} unanswered (${unanswered.join(', ')})`] : []),
+    ...(reviewedBy.length ? [] : [`nobody but its author${author ? ` (${author})` : ''} reviewed its head ${short(head)}`]),
+    ...(notReviewed.length ? [`${notReviewed.join(', ')} has not reviewed its head ${short(head)}`] : []),
+  ];
+  return { ok: !why.length, why: why.join('; '), unanswered, notReviewed, reviewedBy, reviewed };
+}
+
+/**
  * Every review comment on one PR (GraphQL, through reviewFragment), with
  * whether it is answered: [{ kind: 'thread'|'comment'|'review', id,
  * databaseId, author, at, path, line, text, url, answered, resolved, status }].
@@ -1611,15 +1811,16 @@ export function reviewComments(pr, reviewers = []) {
     const first = every[0];
     if (!first) continue;
     const by = loginOf(first);
-    // Whoever could answer it may sort it: never the finding's own author or a named reviewer (their text is not plates's record).
-    const sorts = c => c !== first && !sameLogin(loginOf(c), by) && !isNamed(loginOf(c));
+    const canReply = c => c !== first && !isNamed(loginOf(c));
+    // Whoever could answer it may sort it: never a named reviewer, and the finding's own author only via plates's own mark or answer.
+    const sorts = c => canReply(c) && (!sameLogin(loginOf(c), by) || (!isBotAuthor(c) && (classOnly(c.body) || isPlatesAnswer(c.body))));
     const comments = every.filter(c => !(sorts(c) && classOnly(c.body)));
     const klass = every.filter(sorts).map(c => classOf(c.body)).filter(Boolean).at(-1) ?? null;
-    // The newest comment decides: a reviewer's follow-up reopens it.
-    const last = loginOf(comments.at(-1));
-    const answered = comments.length > 1 && !sameLogin(last, by) && !isNamed(last);
+    // The newest comment decides: a reviewer's follow-up reopens it; plates's own answer from a human author answers it too.
+    const answers = c => canReply(c) && (!sameLogin(loginOf(c), by) || (!isBotAuthor(c) && isPlatesAnswer(c.body)));
+    const answered = answers(comments.at(-1));
     // Reopened: aged from the first comment after the last answer, so a follow-up gets its own day.
-    const lastAnswer = comments.findLastIndex(c => !sameLogin(loginOf(c), by) && !isNamed(loginOf(c)));
+    const lastAnswer = comments.findLastIndex(answers);
     const since = answered || lastAnswer < 0 ? first : comments[lastAnswer + 1];
     out.push({ kind: 'thread', id: t.id, databaseId: first.databaseId, author: by, at: since.createdAt, path: t.path ?? null, line: t.line ?? null,
       text: firstLine(first.body), url: first.url, resolved: !!t.isResolved, answered, class: klass });
@@ -1630,8 +1831,10 @@ export function reviewComments(pr, reviewers = []) {
   if (!Array.isArray(convo)) throw new Error('the pull request came back without its conversation comments');
   const entry = (kind, c, at) => {
     const robot = kind === 'review' ? robotReview(pr, c) : null;
-    const by = loginOf(c), status = robot ? robot.status : isStatus(c.body), after = Date.parse(at);
-    const later = convo.filter(o => Date.parse(o.createdAt) > after && !sameLogin(loginOf(o), by) && !isNamed(loginOf(o)) && references(o.body, c));
+    const by = loginOf(c), approved = kind === 'review' && c.state === 'APPROVED' && !carriesFindings(c.body);
+    const status = robot ? robot.status : (approved || isStatus(c.body)), after = Date.parse(at);
+    const canReply = o => !isNamed(loginOf(o)) && (!sameLogin(loginOf(o), by) || (!isBotAuthor(o) && (classOnly(o.body) || isPlatesAnswer(o.body))));
+    const later = convo.filter(o => Date.parse(o.createdAt) > after && canReply(o) && references(o.body, c));
     // A comment that is only a class mark sorts it and answers nothing.
     const replied = later.some(o => !classOnly(o.body));
     return { kind, id: c.id, databaseId: c.databaseId, author: by, at, path: null, line: null, text: firstLine(robot ? robot.text : c.body), url: c.url, resolved: false, status, answered: status || replied,
@@ -1939,12 +2142,21 @@ export async function readRepoReviews(read, date, { readPr, reviewers = [], gith
  * `rounds` (phase 71): each open PR with a review round or more, its count
  * and its open findings of any age by the merge rule, for the board; and
  * roundFindings, so the board can judge a PR at its limit (judgeRounds).
+ * `ready` (phase 176): each open PR the merge rule (mergeRule) passes on this
+ * read, its review list whole: the docket's candidates, before checks and drafts.
  */
 export function unansweredPrs(repository, reviewers, date) {
   const { open, merged } = windowPrs(repository, date);
-  const prs = [], rounds = [];
+  const prs = [], rounds = [], ready = [];
   for (const pr of [...open, ...merged]) {
     const comments = reviewComments(pr, reviewers);
+    // Phase 176: an open PR the merge rule passes on this read, for the docket (its checks and draft state are read after).
+    if (pr.state === 'OPEN' && /^[0-9a-f]{40}$/.test(pr.headRefOid ?? '') && pr.reviews?.pageInfo?.hasNextPage === false) {
+      const author = pr.author ? `${pr.author.__typename === 'Bot' ? 'app/' : ''}${pr.author.login}` : null;
+      const verdict = mergeRule({ comments, head: pr.headRefOid, author: pr.author?.login ?? '', reviewers, convo: pr.comments?.nodes ?? [],
+        reviews: (pr.reviews?.nodes ?? []).map(r => ({ reviewer: r?.author?.login ?? 'ghost', commit: r?.commit?.oid ?? null, state: r?.state ?? null, at: r?.submittedAt ?? null })) });
+      if (verdict.ok) ready.push({ number: pr.number, title: pr.title, url: pr.url, author, head: pr.headRefOid, reviewedBy: verdict.reviewedBy, findings: comments.length });
+    }
     const round = pr.state === 'MERGED' ? { count: 0 } : reviewRounds(pr);
     if (round.count) {
       const sorted = byMergeRule(comments);
@@ -1954,7 +2166,7 @@ export function unansweredPrs(repository, reviewers, date) {
     const left = comments.filter(c => !c.answered && /^\d{4}-\d{2}-\d{2}/.test(c.at ?? '') && c.at.slice(0, 10) <= addDays(date, -1));
     if (left.length) prs.push({ number: pr.number, title: pr.title, state: pr.state === 'MERGED' ? 'merged' : 'open', url: pr.url, author: pr.author ? `${pr.author.__typename === 'Bot' ? 'app/' : ''}${pr.author.login}` : null, unanswered: left.length, oldest: left.map(c => c.at.slice(0, 10)).sort()[0] });
   }
-  return { prs, open: open.length, merged: merged.length, rounds };
+  return { prs, open: open.length, merged: merged.length, rounds, ready };
 }
 
 /**
@@ -2351,7 +2563,10 @@ export function passAgentProblems(config, key) {
  * author reviews it (the fallback). "agent" (for PRs no provider's branch
  * names) is listed and can review, and is never
  * the author of a prefix in "for" while another provider is listed to
- * review it. `agent` known is checked by the caller. Pure; `agents` is the
+ * review it. `agent` known is checked by the caller. A prefix that names
+ * only the robot's branches (plates/robot-, keel/robot-) needs no reviewer:
+ * cross-review never reviews a robot PR (plates-robot.yml reviews it within
+ * the robot's budget), so it is left out (plates#66). Pure; `agents` is the
  * adapter list (a test passes its own).
  */
 export function crossReviewerProblems(config, { agents = AGENTS } = {}) {
@@ -2360,7 +2575,8 @@ export function crossReviewerProblems(config, { agents = AGENTS } = {}) {
   const out = [];
   const listed = listedAgents(config);
   const reviewers = listed.filter(n => agents[n]?.passes.includes('crossReview'));
-  const prefixes = Array.isArray(c.for) ? c.for.filter(p => typeof p === 'string') : [];
+  const robot = readNames('git ref:keel/robot-');
+  const prefixes = Array.isArray(c.for) ? c.for.filter(p => typeof p === 'string' && !robot.some(r => p.startsWith(r))) : [];
   const of = new Map(prefixes.map(p => [p, prefixAuthors(p, agents)]));
   // A prefix that matches a provider's branches and branches no provider names ("claude", "c") cannot say who wrote a PR: refused.
   for (const [p, { authors, unknown }] of of) if (authors.length && unknown) {
@@ -2398,6 +2614,96 @@ export function codexVerdict({ outcome, message, elapsedSec, minutes }) {
   const check = 'check OPENAI_API_KEY, the model, and that the run\'s actor has write access (codex-action refuses anyone else)';
   if (outcome === 'success') return { ok: false, line: `Codex did not start: the agent step succeeded after ${took} with no final message, before its ${minutes}-minute budget; ${check}. Nothing is judged or posted.` };
   return { ok: false, line: `Codex ${said ? 'stopped with an error' : 'did not start'}: the agent step ended ${outcome || 'without an outcome'} after ${took}, before its ${minutes}-minute budget, ${said ? 'with a final message' : 'with no final message'}; ${check}. Nothing is judged or posted.` };
+}
+
+// ---- a provider that could not start, and who runs instead ------------------------
+//
+// The owner's rule (2026-11-08): when a provider cannot run because its credit is low or
+// its secret is refused, another listed provider with its secret runs the job instead
+// of failing it. One classifier and one choice, shared by every agent job.
+
+/**
+ * Why a provider's error text says it refused to start, pure: 'credit' (its credit,
+ * billing or quota: top it up), 'rate' (a rate limit or an overload: wait, or raise
+ * it), 'auth' (the secret itself was refused: rotate it), 'model' (the model was
+ * refused), or null (none of these: a real error, which another provider would not
+ * fix). Credit before auth: a billing refusal often says 401 or 403 as well, and the
+ * owner's fix is a top-up, not a new secret.
+ */
+export function startFailureKind(text) {
+  const t = String(text ?? '');
+  if (/credit[ _-]?balance|insufficient[ _-]?(?:quota|credits?|funds)|\bquota\b|billing|payment[ _-]?required|\b402\b|out of credits?|usage[ _-]?limit|spend(?:ing)?[ _-]?limit/i.test(t)) return 'credit';
+  if (/\b429\b|rate[ _-]?limit|too many requests|overloaded|\b529\b/i.test(t)) return 'rate';
+  if (/\b(?:401|403)\b|auth|token|credential|api[ _-]?key|oauth|unauthori[sz]ed|forbidden|permission|login/i.test(t)) return 'auth';
+  if (/\bmodel\b|not[ _]found|\b404\b/i.test(t)) return 'model';
+  return null;
+}
+
+/** What each start failure means for the owner: what happened, and what to do. */
+export const START_FAILURES = Object.freeze({
+  credit: Object.freeze({ said: 'its credit, billing or quota ran out', fix: 'top up its account; the secret itself was accepted' }),
+  rate: Object.freeze({ said: 'it was rate-limited or overloaded at the start', fix: 'wait, or raise its rate limit' }),
+  auth: Object.freeze({ said: 'its secret was refused', fix: 'rotate the secret' }),
+  unread: Object.freeze({ said: 'its step ended at once, and nothing plates can read says why', fix: 'check its secret and its credit' }),
+});
+
+/**
+ * Whether an agent step could not start, and why, pure: { kind, said, fix } or null.
+ * Only a start failure counts, never a real error: Claude's result is_error within its
+ * first turn and its text names credit, a rate limit or the secret (errorText's
+ * `text`), or a failed step with no result at all; Codex's step ended with no final
+ * message (codex-action writes nothing else plates can read, so its kind is unread).
+ * A run past its budget, out of its turns, stopped after it started, refusing the
+ * model (the next provider has its own; the owner's fix is the config) or recording
+ * a permission denial (a block another provider must not bypass) is null.
+ */
+export function startFailure({ agent, outcome, result = null, text = '', message = null, elapsedSec, minutes }) {
+  const budget = minutes * 60;
+  if (Number.isFinite(elapsedSec) && Number.isFinite(budget) && elapsedSec > 0 && elapsedSec >= Math.max(budget - 60, budget * 0.9)) return null;
+  const of = kind => ({ kind, ...START_FAILURES[kind] });
+  if (agent === 'codex') return String(message ?? '').trim() ? null : of('unread');
+  if (!result) return outcome === 'success' ? null : of('unread');
+  // A recorded permission denial blocks, never hands over: another provider would bypass it.
+  if ((Array.isArray(result.permission_denials) && result.permission_denials.length) || Number(result.permission_denials_count) > 0) return null;
+  if (!result.is_error || Number(result.num_turns ?? 0) > 1 || result.subtype === 'error_max_turns') return null;
+  if (!String(text ?? '').trim()) return of('unread');
+  const kind = startFailureKind(text);
+  return kind && kind !== 'model' ? of(kind) : null;
+}
+
+/** The fewest whole minutes worth handing to a fallback: less than this left and the job stays red with its provider. */
+export const FALLBACK_MIN_MINUTES = 2;
+
+/**
+ * How many whole minutes a fallback gets, pure: what is left of the first provider's
+ * budget (the handoff keeps the original deadline, never a fresh budget), or null when
+ * fewer than FALLBACK_MIN_MINUTES are left or the time already spent is unknown.
+ */
+export function fallbackMinutes({ minutes, elapsedSec }) {
+  if (!Number.isFinite(minutes) || minutes <= 0 || !Number.isFinite(elapsedSec) || elapsedSec < 0) return null;
+  const left = Math.floor(minutes - elapsedSec / 60);
+  return left >= FALLBACK_MIN_MINUTES ? left : null;
+}
+
+/**
+ * Who runs a job instead when the providers in `tried` could not start, pure: the
+ * first provider `order` lists ("agents" order) that does `pass`, was not tried and
+ * has its secret (`has`, when given), the job's own providers (`own`: the author of
+ * the PR a review reads) last; null when none is left.
+ */
+export function fallbackAgent({ order = [], tried = [], has, own = [], pass, agents = AGENTS }) {
+  const able = order.filter(n => agents[n]?.passes.includes(pass) && !tried.includes(n) && (!has || has[n] !== false));
+  return able.find(n => !own.includes(n)) ?? able[0] ?? null;
+}
+
+/**
+ * The one line a fallback is said in, naming the kind so the owner knows to top up or rotate:
+ * 'Claude could not start: its credit, billing or quota ran out ("Credit balance is too low"); reviewed by Codex instead. For Claude: top up its account; the secret itself was accepted.'
+ */
+export function fallbackLine({ from, to, failure, text = '', doing = 'run', agents = AGENTS }) {
+  const said = String(text ?? '').replace(/\s+/g, ' ').trim().slice(0, 160);
+  const name = agents[from]?.name ?? from;
+  return `${name} could not start: ${failure.said}${said ? ` ("${said}")` : ''}; ${doing} by ${agents[to]?.name ?? to} instead. For ${name}: ${failure.fix}.`;
 }
 
 

@@ -654,6 +654,20 @@
       "proof": "The applied version: file name and SHA-256; docs/evidence/2026-11-04-web-last-looked-hosted-proof.sql's result (the table, its grants and the RPC run as the service role); one authenticated Home load, then a second after thirty minutes, and Since you last looked naming the first visit's time."
     },
     {
+      "id": "migration-019",
+      "phase": 184,
+      "kind": "migration",
+      "migration": "019-backlog-events.sql",
+      "what": "Apply 019-backlog-events.sql (plates_home.backlog_events: per owner, an opaque digest, the database's time and the event's short codes, append-only, and plates_backlog_events_rpc) after the build with phase 184's hosted writes, so a Not now answered on the web leaves its backlog event. The build goes first and is safe without it: until 019 is applied each event is skipped, the server notes that once, and every answer is written as before. Events hold no source text and no owner words.",
+      "prerequisites": [
+        94,
+        184
+      ],
+      "ownerAttended": true,
+      "rollback": "A failure inside the transaction rolls back by itself. After commit, drop the table plates_home.backlog_events, the function public.plates_backlog_events_rpc(text,text,jsonb,timestamptz) and the trigger function plates_home.backlog_events_append_only(); events are skipped again, noted once, and nothing else changes. Leave the plates_home schema: 017's Not now and 018's visits live in it.",
+      "proof": "The applied version: file name and SHA-256; docs/evidence/2026-11-06-web-backlog-events-hosted-proof.sql's result (the table, its grants, the append-only trigger and the RPC run as the service role); one Not now answered on the deployed web, and its event read back as the service role, holding codes only."
+    },
+    {
       "id": "answers-from-home",
       "phase": 173,
       "kind": "decision",
@@ -679,6 +693,60 @@
       "ownerAttended": true,
       "rollback": "Redeploy the previous build; each answer is an ordinary commit that can be reverted, and Not now rows are per owner and can be deleted.",
       "proof": "The deployed revision, the commits the session wrote, and the owner answer (this is it, close but what, or not the right shape), recorded in docs/evidence/2026-11-03-review-session.md."
+    },
+    {
+      "id": "backlog-look",
+      "phase": 178,
+      "kind": "decision",
+      "what": "After deploying a build with phase 178, the owner opens /backlog on the phone and the laptop, finds the one thing they would do first, and says whether its lane and reasons match how they choose.",
+      "prerequisites": [
+        166,
+        178
+      ],
+      "ownerAttended": true,
+      "rollback": "Redeploy the previous build; /backlog is read-only and writes nothing, and Home only gains a link to it.",
+      "proof": "The deployed revision and the owner answer (found it and the reason was right, found it and the reason was wrong, or could not tell), recorded in docs/evidence/2026-11-05-backlog-lanes.md."
+    },
+    {
+      "id": "agents-look",
+      "phase": 186,
+      "kind": "decision",
+      "what": "After deploying a build with phase 186, the owner opens the sidebar's Agents and Pending review and says whether they match what is running and what waits for review.",
+      "prerequisites": [
+        178,
+        186
+      ],
+      "ownerAttended": true,
+      "rollback": "Redeploy the previous build; /agents is read-only and writes nothing.",
+      "proof": "The deployed revision and the owner answer (matches, something missing, or something wrong), recorded in docs/evidence/2026-11-06-agents.md."
+    },
+    {
+      "id": "lane-session",
+      "phase": 180,
+      "kind": "decision",
+      "what": "After deploying a build with phase 180, the owner taps Start on the Yours lane, clears five items in one sitting, and says whether it was faster than before.",
+      "prerequisites": [
+        174,
+        178,
+        180
+      ],
+      "ownerAttended": true,
+      "rollback": "Redeploy the previous build; each answer is an ordinary commit that can be reverted, and Not now rows are per owner.",
+      "proof": "The deployed revision and the owner answer (faster, same, or slower and where), recorded in docs/evidence/2026-11-06-lane-session.md."
+    },
+    {
+      "id": "step-done-web",
+      "phase": 187,
+      "kind": "decision",
+      "what": "After deploying a build with phase 187, the owner opens Review on their phone, presses Done on a step with a one-line why, confirms, and says whether the step left Home.",
+      "prerequisites": [
+        173,
+        174,
+        187
+      ],
+      "ownerAttended": true,
+      "rollback": "Redeploy the previous build; the mark is an ordinary commit to .plates/loose-ends.json that can be reverted.",
+      "proof": "The deployed revision and the owner answer (It worked, still listed, or asked to run something), recorded in docs/evidence/2026-11-06-hosted-answers.md."
     },
     {
       "id": "docket-notify",
@@ -707,6 +775,45 @@
       "ownerAttended": true,
       "rollback": "Nothing to roll back: the script runs locally against fixture data, writes images only to a temporary folder outside the repo, and changes nothing deployed.",
       "proof": "The owner's answer (useful, or not worth it), and which design change was reviewed, recorded in docs/evidence/2026-11-04-look-captured.md."
+    },
+    {
+      "id": "local-host-walk",
+      "phase": 183,
+      "kind": "decision",
+      "what": "The owner lists local-host in a plate's backlog.routes, writes ~/.config/plates/local-hosts.json for one agent host on their machine, attaches one ready phase with plates home --attach <key> --route local-host --provider <p> --yes, and watches its card.",
+      "prerequisites": [
+        181,
+        183
+      ],
+      "ownerAttended": true,
+      "rollback": "Remove local-host from backlog.routes and release the claim; nothing hosted changes.",
+      "proof": "The claim, the receipt, the host's session id, and the owner answer, recorded in docs/evidence/2026-11-06-local-host.md."
+    },
+    {
+      "id": "github-app-pull-requests-write",
+      "phase": 176,
+      "kind": "github-app",
+      "what": "Owner grants the Plates GitHub App \"Pull requests: Read and write\" on the plates installation (with the Contents: Read and write already granted for decisions, which GitHub's merge endpoint requires) and Checks: Read, so a ready pull request's card can show its checks and Merge can be submitted. Merging also needs decisionWrites on; until both hold, Merge is listed unavailable with this reason.",
+      "prerequisites": [
+        97,
+        176
+      ],
+      "ownerAttended": true,
+      "rollback": "Owner removes Pull requests write in the App's settings; Merge returns to unavailable with its reason, and nothing else changes.",
+      "proof": "A GitHub API read of the installation's permissions (pull_requests: write, contents: write, checks: read), sanitized."
+    },
+    {
+      "id": "merge-from-docket",
+      "phase": 176,
+      "kind": "decision",
+      "what": "After deploying a build with phase 176 and the Pull requests write grant, the owner opens a review session on the phone, merges one ready pull request from its card, and says whether what was being merged was clear before the tap.",
+      "prerequisites": [
+        174,
+        176
+      ],
+      "ownerAttended": true,
+      "rollback": "A merge is reverted with an ordinary revert PR; redeploying the previous build removes Merge from the card.",
+      "proof": "The deployed revision, the merged PR and its merge commit from the operation receipt, and the owner answer (merged, clear; merged, but unclear; or didn't trust it), recorded in phase 176's evidence."
     }
   ],
   "open": [

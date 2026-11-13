@@ -158,20 +158,23 @@ test('adapters: each provider\'s step is its own action at its major, with its r
         assert.ok(a.refused[key], `${provider} refuses ${key} without saying why`);
         continue;
       }
-      assert.equal(mine.length, 1, `${w[key].path}: one ${provider} step`);
-      const step = mine[0];
-      assert.match(step, new RegExp(`\\n {8}uses: ${a.action.replace('/', '\\/')}@${a.major}\\n`), `${w[key].path}: ${provider} at ${a.major}`);
-      // Its secrets: only its own, all declared for this workflow by the practice.
-      const used = [...step.matchAll(/secrets\.([A-Za-z_]\w*)/g)].map(m => m[1]);
-      assert.deepEqual([...new Set(used)].sort(), [...a.secrets].sort(), `${w[key].path}: ${provider}'s step is given ${used}`);
-      for (const s of a.secrets) assert.ok(w[key].declared.includes(s), `${w[key].practice} does not declare ${s} for ${w[key].path}`);
-      const inputs = withOf(step);
-      if (key === 'crossReview') {
-        // The pass reads: the provider's read-only inputs, as the adapter says them.
-        if (provider === 'claude') assert.deepEqual(/--allowedTools "([^"]*)"/.exec(step)[1].split(','), [...a.readOnly.allowedTools]);
-        else for (const [k, v] of Object.entries(a.readOnly)) assert.equal(inputs[k], v, `${w[key].path}: ${provider} ${k}`);
-      } else {
-        for (const [k, v] of Object.entries(a.editTree)) assert.equal(inputs[k], v, `${w[key].path}: ${provider} ${k}`);
+      // Cross-review has a second step per provider: the fallback reviewer, run when the first could not start
+      // (its credit, its secret). It is held to the same adapter as the first.
+      assert.equal(mine.length, key === 'crossReview' || provider === 'codex' ? 2 : 1, `${w[key].path}: ${key === 'crossReview' || provider === 'codex' ? 'a first and a fallback' : 'one'} ${provider} step`);
+      for (const step of mine) {
+        assert.match(step, new RegExp(`\\n {8}uses: ${a.action.replace('/', '\\/')}@${a.major}\\n`), `${w[key].path}: ${provider} at ${a.major}`);
+        // Its secrets: only its own, all declared for this workflow by the practice.
+        const used = [...step.matchAll(/secrets\.([A-Za-z_]\w*)/g)].map(m => m[1]);
+        assert.deepEqual([...new Set(used)].sort(), [...a.secrets].sort(), `${w[key].path}: ${provider}'s step is given ${used}`);
+        for (const s of a.secrets) assert.ok(w[key].declared.includes(s), `${w[key].practice} does not declare ${s} for ${w[key].path}`);
+        const inputs = withOf(step);
+        if (key === 'crossReview') {
+          // The pass reads: the provider's read-only inputs, as the adapter says them.
+          if (provider === 'claude') assert.deepEqual(/--allowedTools "([^"]*)"/.exec(step)[1].split(','), [...a.readOnly.allowedTools]);
+          else for (const [k, v] of Object.entries(a.readOnly)) assert.equal(inputs[k], v, `${w[key].path}: ${provider} ${k}`);
+        } else {
+          for (const [k, v] of Object.entries(a.editTree)) assert.equal(inputs[k], v, `${w[key].path}: ${provider} ${k}`);
+        }
       }
     }
   }
@@ -253,8 +256,9 @@ test('the default: a project naming no agent runs Claude, and Claude\'s step pas
           claude_args: |\n`)
     .replace(/(--allowedTools "[^"]*")$/, '$1\n            --add-dir ${{ runner.temp }}/plates-diff');
   assert.equal(review, expected);
-  // Phase 47: climb and tend have one step per provider; Codex's gets OPENAI_API_KEY alone (the adapters test).
-  for (const key of ['climb', 'tend']) assert.equal(agentSteps(w[key].text, 'codex').length, 1);
+  // Phase 47: climb and tend have one step per provider, and Codex a second, the fallback for a Claude that could not
+  // start; Codex's get OPENAI_API_KEY alone (the adapters test).
+  for (const key of ['climb', 'tend']) assert.equal(agentSteps(w[key].text, 'codex').length, 2);
 
   // Cross-review with no "agent": the first step says claude, the config says claude, and only Claude's step runs.
   const dir = await mkdtemp(join(tmpdir(), 'plates-agents-default-'));
@@ -453,6 +457,15 @@ test('a third provider: the first listed that is not the author reviews; a pass\
   assert.equal(reviewerOf({ config: { ...config, crossReview: { ...config.crossReview, agent: 'claude' } }, head: 'acmebot/x', agents }).reviewer, 'codex');
   assert.deepEqual(crossReviewerProblems(config, { agents }), []);
   assert.deepEqual(crossReviewerProblems({ agents: { acmebot: {} }, crossReview: { for: ['acmebot/'] } }, { agents }), [], 'alone, it reviews its own');
+});
+
+test('plates#66: a robot branch prefix in a Codex-only project\'s "crossReview".for needs no default reviewer: cross-review never reviews a robot PR', () => {
+  for (const robot of ['plates/robot-', 'keel/robot-', 'plates/robot-12']) {
+    assert.deepEqual(passAgentProblems({ agents: { codex: {} }, crossReview: { for: [robot, 'codex/'] } }, 'crossReview'), [], robot);
+  }
+  // A prefix that also names other branches still needs one: only the robot's own branches are left out.
+  assert.match(passAgentProblems({ agents: { codex: {} }, crossReview: { for: ['plates/'] } }, 'crossReview').join('\n'), /reviews plates\/ with claude \(the default/);
+  assert.match(passAgentProblems({ agents: { codex: {} }, crossReview: { for: ['plates/rob'] } }, 'crossReview').join('\n'), /reviews plates\/rob with claude/);
 });
 
 // ---- phase 60: a push to main is reviewed by a provider other than its commits' ------

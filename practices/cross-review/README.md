@@ -55,6 +55,18 @@ OPENAI_API_KEY is not set"):
   it checks out the default branch, runs that branch's
   `cross-review.mjs summary` on the artifact and posts the review. It runs
   only when the agent ran: a red "Did the agent run?" ends the run there.
+- **A reviewer that cannot start hands the review on.** When the chosen
+  reviewer fails at its start because its credit, billing or quota ran out,
+  its secret was refused or a rate limit stopped it ("Could the reviewer
+  start?", `cross-review.mjs agent-start`), the next provider `"agents"`
+  lists with its secret reviews instead, the PR's own provider last. The
+  warning and the review say which kind it was ("Claude could not start:
+  its credit, billing or quota ran out; reviewed by Codex instead. For
+  Claude: top up its account"), so the owner knows to top up or to rotate.
+  The fallback reads only, from the brief this job wrote before the PR's
+  head was checked out. A review that ran, ran out its budget or stopped
+  with a real error is judged as before, and with no provider left the
+  run is red as before.
 - **Findings are data.** The agent's final message is a short summary and
   a fenced `json` block, `[{ "path", "line", "severity": "P1"|"P2"|"P3",
   "body" }]`. `scripts/plates/cross-review.mjs summary` checks each against

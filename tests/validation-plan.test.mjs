@@ -113,6 +113,10 @@ test('the existing normalized package binding permits release bumps but rejects 
   assert.equal(packageBinding(Buffer.from(JSON.stringify({ ...pkg, version: '999.0.0' }))).status, 'verified');
   const changed = packageBinding(Buffer.from(JSON.stringify({ ...pkg, scripts: { ...pkg.scripts, 'acme-extra': 'node acme.mjs' } })));
   assert.equal(changed.status, 'changed'); assert.notEqual(changed.actual, changed.expected);
+  for (const field of ['dependencies', 'devDependencies']) {
+    const dependency = packageBinding(Buffer.from(JSON.stringify({ ...pkg, [field]: { ...pkg[field], 'acme-package': '1.0.0' } })));
+    assert.equal(dependency.status, 'changed', field);
+  }
   assert.equal(packageBinding(Buffer.from(JSON.stringify({ ...pkg, version: 'v999.0.0' }))).status, 'unavailable');
   assert.equal(packageBinding(Buffer.from('not json')).status, 'unavailable');
 });

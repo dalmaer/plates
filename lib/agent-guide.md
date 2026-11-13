@@ -60,7 +60,7 @@ Rules:
 
 Exits: 0 ok; 1 failure; 2 usage; 3 needs owner's yes. JSON errors: `{"error": "..."}` on stdout.
 
-Topics: `autonomy` `names` `json` `goals` `render` `init` `adopt` `doctor` `update` `lessons` `learn` `improve` `persona` `time` `test` `drain` `night` `loop` `climb` `fleet` `loose-ends` `issue` `review` `home` `walk` `retro` `canvas` `install` `coming` `reconciliation` `prove` `evidence` `production` `decision` `shape` `workspace` `feedback`.
+Topics: `autonomy` `names` `json` `goals` `render` `init` `adopt` `doctor` `update` `lessons` `learn` `improve` `persona` `time` `test` `drain` `night` `loop` `climb` `fleet` `pause` `loose-ends` `issue` `review` `home` `walk` `retro` `canvas` `install` `coming` `reconciliation` `prove` `evidence` `production` `decision` `shape` `workspace` `feedback`.
 
 <!-- topic: json | the output contract every verb keeps -->
 
@@ -399,8 +399,10 @@ plates adopt ../acme-app             # then on a branch, for a PR a person merge
   ledger's part and never writes it: the old JUnit file removed, the
   runner's step with its JUnit flags and `|| plates_status=$?` (so `set -e`
   never skips the ledger), then `node scripts/plates/test-ledger.mjs --junit
-  <file> --runner <r> --status $plates_status`, in braces when the step is one
-  of several, with paths from `$plates_root` (git's top level) when a step
+  <file> --runner <r> --status $plates_status -- <the runner's own words>` (the
+  words only when the step has some: the ledger records their options, so a
+  finding's run-alone command repeats them, plates#63), in braces when the
+  step is one of several, with paths from `$plates_root` (git's top level) when a step
   before it runs `cd` or `pushd` (the dry run's `Tests:` line,
   `data.tests.proposal`, and `docs/plates-adoption.md`). Only where the night
   practice is on, or the project already has `scripts/plates/test-ledger.mjs`:
@@ -465,10 +467,10 @@ It exits 1 on findings (drift or a broken practice rule), 0 when clean.
   `health-ignored` (the health directory is git-ignored, so the night's page
   is never committed; fix: set `health` to a directory that is not ignored),
   `delivery-config` (a `delivery.tested` that is not a branch's short name or
-  is `main`, a bad `delivery.gateWorkflow`; delivery on, or those keys set),
+  is `main`, a bad `delivery.gateWorkflow` or `delivery.workflows`; delivery on, or those keys set),
   `workflow-concurrency` (delivery on: a test or gate workflow without a
   per-ref group and `cancel-in-progress: true`, or a publish/deploy/release
-  workflow without one fixed group and `cancel-in-progress: false`),
+  workflow without one fixed group and `cancel-in-progress: false`; verifiers and alerters are skipped, and `delivery.workflows` overrides per workflow),
   `stack-unknown` (a `stack` tag outside the vocabulary; drift reads past
   it), `stack-evidence` (a declared tag nothing in the repo shows, or
   evidence for an undeclared one; with no `stack` at all it is a note naming
@@ -837,11 +839,19 @@ rm -f .plates/test-runs/junit.xml; mkdir -p .plates/test-runs && bun test
 --reporter=junit --reporter-outfile=.plates/test-runs/junit.xml ||
 plates_status=$?; node scripts/plates/test-ledger.mjs --junit
 .plates/test-runs/junit.xml --runner bun --status $plates_status` (vitest:
-`--reporter=default --reporter=junit --outputFile.junit=<file>`; `plates
-adopt` proposes it; `|| plates_status=$?` survives `set -e`; after a `cd` the
-paths start from `$plates_root`, git's top level). The record is a node run's
+`--reporter=default --reporter=junit --outputFile.junit="$PWD/<file>"`,
+absolute because vitest resolves it against its config's `root`; `plates
+adopt` proposes it for one call to the runner, as a step's own command;
+`|| plates_status=$?` survives `set -e`; after a `cd` the paths start from
+`$plates_root`, git's top level). vitest's "vitest unhandled errors" suite
+(an error outside any test) fails the run and is not recorded as a test. The record is a node run's
 plus `runner` and `junit` (a short hash of the file's path and bytes), with
-each top-level test or describe. A report is fresh when it was last written
+each top-level test or describe. Words after `--` are the runner's own, as
+its step writes them: their options, but the run's own (reporters and their
+files, a name filter, a shard, watching, coverage, snapshot updates) and no
+file, are the setting's `args`, part of the config (when there are any), and
+a finding's run-alone command repeats them (plates#63: `bun test
+--timeout=10000`); a flag with a secret-looking word is never recorded. A report is fresh when it was last written
 after this run began (`--start '<json>'`, the line `test-ledger.mjs --sample`
 prints just before the runner, passed verbatim; else the gate's
 `PLATES_RUN_START`; 2 s allowed for coarse file times), so a deterministic suite's byte-identical
@@ -986,7 +996,7 @@ the worktree are copied to the checkout's `.plates/test-runs` (marked
 ### Verifying production
 
 `node scripts/plates/verify.mjs <sha> [--site <origin>] [--within <s>] [--every
-<s>] [--record] [--json]` (delivery, phase 81) reads `delivery.version` on
+<s>] [--record [--failed <reason>]] [--json]` (delivery, phase 81) reads `delivery.version` on
 `delivery.site` (https; http on localhost only; `--site` for a preview) until
 production serves `<sha>` or a descendant (ancestry in the checkout, full
 history; a commit it lacks after one fetch is never yes) or `--within`
@@ -999,7 +1009,7 @@ matched}], failures, at, run, recorded?}`; exit 0 passed, 1 failed (or not
 recorded), 2 config or usage, each error naming its key (doctor:
 `delivery-config`). `live <sha>`: one read, `{live, serving, why}`, exit 0 yes,
 1 no (unreadable is no). `--record` pushes the result to `keel-verify:verify.json`
-(newest first, 30 kept, every failure for 72 h and each site's latest always, lease; other files on the branch kept; a non-record there, or a branch with no verify.json, is left alone, exit 1). With
+(newest first, 30 kept, every failure for 72 h and each site's latest always, lease; other files on the branch kept; a non-record there, or a branch with no verify.json, is left alone, exit 1; `--record --failed "<reason>"` records a failure another check found without polling). With
 delivery on, `plates home` lists production's (site = `delivery.site`) failed
 latest verify as the owner's (source `verify`; a preview's pass never clears
 it) and the morning brief puts each failure of the day before the night
@@ -1563,6 +1573,13 @@ Fleet verification pins configuration and report reads to the observed default S
 reads `plates.json` at plates's root, `[{repo, kind, role, note}]`, and asks gh
 about every repo at once.
 
+A managed entry may carry `"paused": true`, with an optional `"pausedUntil":
+"YYYY-MM-DD"`. A paused project stays in the table, marked paused in its
+practice cell; `fleet update` opens no PR for it and says why under "Not
+planned", the rehearsal skips it, and being behind, pending, silent or without
+health while paused is not in Needs you. Pausing and resuming, including the
+project's own scheduled workflows: `plates --agent-help pause`.
+
 - `managed`: adopted (`.plates/plates.json` on the default branch; 404 is not
   adopted), practice against this CLI's (`0.1.0 → 0.2.0` or `current`),
   migrations not in its `migrations` list ("unrecorded"; only `fleet
@@ -1637,6 +1654,58 @@ health: {last, age, state}, ci: {state, workflow, rule, conclusion, at}, lessons
 head}]}} | {repo, role:
 'source', pins: [{practice, path, pinned, head, moved}]}], needs: [{repo,
 why}]}`. A cell that failed is `{unreadable}`.
+
+<!-- topic: pause | rest a quiet project without dropping it, and bring it back -->
+
+A pause stops a project nobody is working on from spending model tokens and
+sending mail, and deletes nothing. It takes two changes: one in plates's own
+list, one in the project. Each is a PR that a person merges.
+
+To pause:
+
+1. On plates, add `"paused": true` to the project's managed entry in
+   `plates.json`. Add `"pausedUntil": "YYYY-MM-DD"` as well if plates should
+   take it back by itself on that date. Only a managed entry can be paused,
+   and `pausedUntil` needs `paused` and a real date (`plates fleet` exits 2
+   otherwise). `plates fleet` then marks the practice cell `paused` or
+   `paused until <date>`.
+2. In the project, turn off every plates workflow that runs on a schedule:
+   remove the `schedule:` block from each of these that it has, under
+   `.github/workflows/`: `plates-night.yml` and `plates-morning.yml` (night),
+   `plates-climb.yml`, `plates-robot.yml` and `plates-tend.yml` (climb), and
+   `plates-loop.yml` (loop). Leave a comment in each that says it is paused
+   and how to resume. They still run by hand (`workflow_dispatch`). The
+   morning also starts after a night, climb or robot run, so it stays quiet
+   once those have no schedule. Tend and loop decide for themselves whether to
+   spend, and neither reads the pause. Without this step the project keeps
+   spending: the pause in `plates.json` only changes what plates does.
+
+While paused, `plates fleet update` opens no PR and lists the project under
+"Not planned", `--rehearse` skips it, and Needs you leaves out being behind,
+pending, silent or without health. It also leaves out verification that is
+missing, or stale when the last receipt was clean. A recorded failure, or a
+failing current observation, still shows.
+
+To resume:
+
+1. In the project, put back each schedule you removed, one restore per file:
+
+   ```bash
+   plates doctor --fix .github/workflows/plates-night.yml restore --yes
+   plates doctor --fix .github/workflows/plates-morning.yml restore --yes
+   ```
+
+   and the same for `plates-climb.yml`, `plates-robot.yml`, `plates-tend.yml`
+   or `plates-loop.yml` if step 2 of the pause turned them off. Each rewrites
+   the file from the practice's template, schedule included; without `--yes`
+   it exits 3 with the plan. `plates update` will not do this,
+   because it never overwrites a file the project changed.
+2. On plates, remove `"paused"` (and `"pausedUntil"`, if set) from the entry
+   in `plates.json`. The next `plates fleet update` plans the project again.
+
+`pausedUntil` brings back only plates's side: from that date the project is
+back in Needs you and `fleet update`, but its own schedules stay off until
+step 1 is merged.
 
 <!-- topic: loose-ends | what you started and did not finish, on this machine -->
 

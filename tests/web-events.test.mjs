@@ -100,7 +100,7 @@ test('only the first real response to an entirely loading shell is eligible for 
   state=receive(state,{...snapshot('c'.repeat(64)),projects:[{id:'studio',state:'partial'}]});
   assert.equal(canHydrateInitial(state),true);
   state=transitionPoll(state,{type:'apply',automatic:true});
-  assert.equal(state.loadingOnly,false); assert.match(state.notice,/Project sources loaded/);
+  assert.equal(state.loadingOnly,false); assert.match(state.notice,/Available project sources shown/);
   state=receive(state,{...snapshot('d'.repeat(64)),projects:[{id:'studio',state:'complete'}]});
   assert.equal(canHydrateInitial(state),false); assert.ok(state.pending);
   assert.equal(canHydrateInitial(receive(createPollState(cursor),snapshot())),false,'existing partial or complete renders keep explicit apply');
@@ -157,7 +157,7 @@ test('the Start panel follows the latest response without applying the view', as
   const first = { schema: 1, cursor, cursorState: 'initial', coverage: { state: 'partial', gaps: [] }, docket: [], decisions: [], walks: [], reviews: [], sections: [],
     projects: [{ id: 'studio', state: 'complete' }, { id: 'lab', state: 'loading' }] };
   const start = element({ innerHTML: renderReviewStart(first) });
-  assert.match(start.innerHTML, /Reading what needs you/);
+  assert.equal(start.innerHTML, '', 'loading is explained by the source-status panel');
   const root = element({ dataset: { endpoint: '/api/home', cursor, projectId: '', initialLoading: 'false' }, contains() { return false; }, querySelectorAll() { return []; },
     set innerHTML(value) { renders.push(value); } });
   const elements = { '[data-home-root]': root, '[data-refresh]': element(), '[data-apply-updates]': element(), '[data-refresh-status]': element(), '[data-review-start-slot]': start };
@@ -171,6 +171,6 @@ test('the Start panel follows the latest response without applying the view', as
   await scheduled[0].callback();
   assert.deepEqual(renders, [], 'the view waits behind Show new updates');
   assert.equal(elements['[data-apply-updates]'].hidden, false);
-  assert.match(start.innerHTML, /<strong>2 need you<\/strong><a class="button" href="\/review"/, 'the Start panel counts what the response holds');
+  assert.match(start.innerHTML, /<strong>2 need you<\/strong><span><a class="button" href="\/review"/, 'the Start panel counts what the response holds');
   client.stop();
 });

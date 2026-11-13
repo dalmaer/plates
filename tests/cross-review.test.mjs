@@ -191,7 +191,10 @@ test('off: with no crossReview key the workflow ends at its first step; with no 
   assert.ok(steps[0].includes("\n          ref: ${{ (github.event_name == 'push' || github.event_name == 'schedule') && github.sha || github.event.repository.default_branch }}\n"), 'the config is the default branch\'s, or the pushed commit\'s');
   assert.match(steps[2], /if: steps\.on\.outputs\.on == 'true'/);
   assert.match(steps[3], /if: steps\.configured\.outputs\.enabled == 'true'/);
-  for (const s of steps.slice(4)) assert.match(s, /\n {8}if: steps\.which\.outputs\.review == 'true'(?: && steps\.which\.outputs\.agent == '(?:claude|codex)')?\n/, `step without the guard: ${s.split('\n')[0]}`);
+  // The fallback reviewer's steps wait on "Could the reviewer start?", which itself waits on the review.
+  for (const s of steps.slice(4)) assert.match(s, /\n {8}if: (?:steps\.which\.outputs\.review == 'true'(?: && steps\.which\.outputs\.agent == '(?:claude|codex)')?|steps\.start\.outputs\.fallback == '(?:claude|codex)')\n/, `step without the guard: ${s.split('\n')[0]}`);
+  assert.match(steps[names.indexOf('Could the reviewer start?')], /\n {8}if: steps\.which\.outputs\.review == 'true'\n/);
+  assert.ok(names.indexOf('Review') < names.indexOf('Could the reviewer start?') && names.indexOf('Could the reviewer start?') < names.lastIndexOf('Review') && names.lastIndexOf('Review') < names.indexOf('Did the agent run?'), 'the fallback runs after the first reviewer, before the judge');
   // The config and the brief come from the default branch, before the PR's head is checked out.
   assert.ok(names.indexOf('Brief') < names.indexOf('Check out the pull request'));
   assert.ok(names.indexOf('Check out the pull request') < names.indexOf('Review'));
@@ -1499,4 +1502,131 @@ test('review brief carries source-pinned risk guidance for both providers withou
   await writeFile(join(dir, '.plates/autonomy.json'), JSON.stringify({ ...policy, mode: 'default', merge: [] }));
   const unchanged = await m.brief({ root: dir, config: {}, pr: prJson(), repo: 'acme/anvils' });
   assert.match(unchanged, /Risk tolerance: high/, 'uncommitted candidate preferences do not replace source policy');
+});
+
+// The owner's rule (2026-11-08, ledger's night): a reviewer that could not start (its credit, its secret) hands the
+// review to the next listed provider with its secret, the PR's own provider last, and says which kind it was.
+test('fallback: a reviewer that could not start hands the review on, naming why; a real error or a good run does not; none left is red as before', async t => {
+  const dir = await acme(t, { crossReview: { for: ['codex/', 'claude/'], budget: { minutes: 15 } } });
+  const config = JSON.parse(await readFile(join(dir, '.plates/plates.json'), 'utf8'));
+  await writeFile(join(dir, '.plates/plates.json'), JSON.stringify({ ...config, agents: { claude: {}, codex: {} } }));
+  const gh = await stubGh(t, prJson(), { diff: DIFF });
+  const temp = join(dir, 'runner');
+  await mkdir(temp, { recursive: true });
+  const env = { PATH: `${gh.path}:${process.env.PATH}`, RUNNER_TEMP: temp, PR: '7', REPO: 'acme/anvils' };
+  // Which: Codex's PR goes to Claude; should Claude not start, Codex, its own provider, is all that is left.
+  const which = await step(t, dir, 'Which pull request or push?', { ...env, EVENT: 'pull_request', ACTION: 'opened', HAS_CLAUDE: 'true', HAS_CODEX: 'true' });
+  assert.equal(which.status, 0, which.out);
+  assert.deepEqual([which.outputs.agent, which.outputs.author, which.outputs.fallback], ['claude', 'codex', 'codex']);
+  const alone = await step(t, dir, 'Which pull request or push?', { ...env, EVENT: 'pull_request', ACTION: 'opened', HAS_CLAUDE: 'true', HAS_CODEX: 'false' });
+  assert.equal(alone.outputs.fallback, '', 'no other secret: no fallback');
+  // The brief writes the fallback's too, from the trusted checkout, before the PR's head replaces it.
+  const brief = await step(t, dir, 'Brief', { ...env, AGENT: 'claude', FALLBACK: 'codex' });
+  assert.equal(brief.status, 0, brief.out);
+  const fallbackPrompt = await readFile(join(temp, 'prompt-fallback.md'), 'utf8');
+  assert.ok(fallbackPrompt.includes(`- Read it: the complete saved diff is ${join(temp, 'plates-diff/pr.diff')}`), 'the fallback reads the same verified snapshot');
+  assert.match(await readFile(WORKFLOW, 'utf8'), /echo "prompt_fallback<<\$eof"\n {14}cat "\$RUNNER_TEMP\/prompt-fallback\.md"/, 'handed on as an output, for Claude\'s prompt input too');
+  // Could the reviewer start? Claude's credit ran out at its first turn: Codex reviews, and the line says top up.
+  const file = join(temp, 'execution.json');
+  const now = Math.floor(Date.now() / 1000);
+  const start = over => step(t, dir, 'Could the reviewer start?', { RUNNER_TEMP: temp, AGENT: 'claude', FALLBACK: 'codex', OUTCOME: 'failure', EXECUTION: file, MINUTES: '15', STARTED: String(now - 4), ...over });
+  await writeFile(file, execution({ is_error: true, num_turns: 1, duration_ms: 900, subtype: 'success', result: 'Credit balance is too low' }));
+  const credit = await start();
+  assert.equal(credit.status, 0, credit.out);
+  assert.deepEqual([credit.outputs.agent, credit.outputs.fallback], ['codex', 'codex']);
+  assert.equal(credit.outputs.note, 'Claude could not start: its credit, billing or quota ran out ("Credit balance is too low"); reviewed by Codex instead. For Claude: top up its account; the secret itself was accepted.');
+  assert.match(credit.out, /^::warning::Claude could not start: its credit, billing or quota ran out/m);
+  assert.doesNotMatch(credit.out, /acme private session text/, 'never the session\'s messages');
+  // A refused secret says rotate.
+  await writeFile(file, execution({ is_error: true, num_turns: 1, duration_ms: 900, subtype: 'success', result: 'Invalid API key · Please run /login' }));
+  assert.match((await start()).outputs.note, /its secret was refused \("Invalid API key · Please run \/login"\); reviewed by Codex instead\. For Claude: rotate the secret\.$/);
+  // A real error, or a run that started: the reviewer stays, and "Did the agent run?" judges it as before.
+  await writeFile(file, execution({ is_error: true, num_turns: 14, duration_ms: 90000, subtype: 'success', result: 'Credit balance is too low' }));
+  const started = await start();
+  assert.deepEqual([started.outputs.agent, started.outputs.fallback, started.outputs.note], ['claude', '', '']);
+  assert.match(started.out, /the reviewer stays claude/);
+  await writeFile(file, execution({ is_error: true, num_turns: 1, duration_ms: 900, subtype: 'success', result: "TypeError: Cannot read properties of undefined (reading 'acme')" }));
+  assert.equal((await start()).outputs.fallback, '');
+  // No fallback left: the reviewer stays, and is red at the judge, as before.
+  await writeFile(file, execution({ is_error: true, num_turns: 1, duration_ms: 900, subtype: 'success', result: 'Credit balance is too low' }));
+  const none = await start({ FALLBACK: '' });
+  assert.deepEqual([none.outputs.agent, none.outputs.fallback], ['claude', '']);
+  // Codex reviewing first, gone with no final message: Claude reviews, and the kind is unread (codex-action writes nothing else).
+  const codex = await start({ AGENT: 'codex', FALLBACK: 'claude', EXECUTION: '' });
+  assert.deepEqual([codex.outputs.agent, codex.outputs.fallback], ['claude', 'claude']);
+  assert.match(codex.outputs.note, /^Codex could not start: its step ended at once, and nothing plates can read says why; reviewed by Claude instead\. For Codex: check its secret and its credit\.$/);
+  // The fallback's run is the one judged: Codex wrote its review.
+  await writeFile(join(temp, 'codex-final-message.md'), 'Two findings.\n\n```json\n[]\n```\n');
+  await mkdir(join(temp, 'plates/scripts/plates'), { recursive: true });
+  for (const f of ['cross-review.mjs', 'lib.mjs', 'names.mjs']) await cp(join(dir, 'scripts/plates', f), join(temp, 'plates/scripts/plates', f));
+  const ran = await step(t, dir, 'Did the agent run?', { RUNNER_TEMP: temp, AGENT: 'codex', OUTCOME: 'success', EXECUTION: '', MINUTES: '15', STARTED: String(now - 60) });
+  assert.equal(ran.status, 0, ran.out);
+  assert.equal(ran.outputs.ran, 'true');
+  // The summary says who could not start and who reviewed instead; reviewed by its own provider, it says why.
+  const m = await load(t);
+  const review = m.summaryReview({ message: 'Two findings.\n\n```json\n[]\n```\n', agent: 'codex', author: 'codex', fallback: credit.outputs.note, pr: prJson(), minutes: 15, diff: DIFF });
+  assert.ok(review.body.includes(credit.outputs.note));
+  assert.match(review.body, /Reviewed by codex, its own provider: the provider chosen first could not start\./);
+  assert.doesNotMatch(m.summaryReview({ message: 'Fine.', agent: 'claude', author: 'codex', pr: prJson(), minutes: 15, diff: DIFF }).body, /could not start/);
+});
+
+// Codex on #400: a fallback keeps the original deadline (only the whole minutes left, none when too few are), and the
+// review job runs the default branch's helper, which before this change has no --fallback or --fallback-note (exit 2):
+// the workflow asks the helper what it can do first, and a successful first review still publishes.
+test('fallback: the handoff keeps the first reviewer\'s deadline; an older trusted helper keeps the old path and still posts', async t => {
+  const dir = await acme(t, { crossReview: { for: ['codex/', 'claude/'], budget: { minutes: 15 } } });
+  const config = JSON.parse(await readFile(join(dir, '.plates/plates.json'), 'utf8'));
+  await writeFile(join(dir, '.plates/plates.json'), JSON.stringify({ ...config, agents: { claude: {}, codex: {} } }));
+  const temp = join(dir, 'runner');
+  const helper = join(temp, 'plates/scripts/plates');
+  await mkdir(helper, { recursive: true });
+  await cp(join(dir, '.plates'), join(temp, 'plates/.plates'), { recursive: true });
+  for (const f of ['cross-review.mjs', 'lib.mjs', 'names.mjs']) await cp(join(dir, 'scripts/plates', f), join(helper, f));
+  const file = join(temp, 'execution.json');
+  await writeFile(file, execution({ is_error: true, num_turns: 1, duration_ms: 900, subtype: 'success', result: 'Credit balance is too low' }));
+  const now = Math.floor(Date.now() / 1000);
+  const start = over => step(t, dir, 'Could the reviewer start?', { RUNNER_TEMP: temp, AGENT: 'claude', FALLBACK: 'codex', OUTCOME: 'failure', EXECUTION: file, MINUTES: '15', ...over });
+  // Seven and a half minutes spent retrying: Codex gets the seven whole minutes left, never a fresh fifteen.
+  const late = await start({ STARTED: String(now - 450) });
+  assert.equal(late.status, 0, late.out);
+  assert.deepEqual([late.outputs.fallback, late.outputs.minutes], ['codex', '7']);
+  const workflow = await readFile(WORKFLOW, 'utf8');
+  for (const id of ['review_fallback', 'review_fallback_codex']) {
+    const block = workflow.slice(workflow.indexOf(`        id: ${id}\n`)).split('\n      - name:')[0];
+    assert.match(block, /timeout-minutes: \$\{\{ fromJSON\(steps\.start\.outputs\.minutes \|\| steps\.which\.outputs\.minutes\) \}\}/, id);
+  }
+  assert.match(workflow, /MINUTES: \$\{\{ steps\.start\.outputs\.fallback != '' && steps\.start\.outputs\.minutes \|\| steps\.which\.outputs\.minutes \}\}/, 'the fallback is judged against what was left');
+  // Both reviewers together stay inside the first budget, which the job's timeout already holds (budget at most 60 of 75).
+  assert.match(workflow, /\n {4}timeout-minutes: 75\n/);
+  // Too little left (13.2 of 15 minutes spent): no fallback, the reviewer stays and is judged as before.
+  const spent = await start({ STARTED: String(now - 792) });
+  assert.deepEqual([spent.outputs.agent, spent.outputs.fallback, spent.outputs.minutes], ['claude', '', '']);
+  const m = await load(t);
+  const left = await m.agentStart({ outcome: 'failure', file, minutes: 15, started: now - 792, agent: 'claude', fallback: 'codex', now: now * 1000 });
+  assert.match(left.line, /Not handed on: less than 2 minutes are left of the 15-minute budget\./);
+  // An older trusted helper: no capabilities, and it refuses --fallback and --fallback-note with exit 2, as the one before this change does.
+  const older = `const args = process.argv.slice(2);
+if (args[0] === 'capabilities' || args.includes('--fallback') || args.includes('--fallback-note')) { console.error('cross-review: unknown argument'); process.exit(2); }
+process.argv[1] = new URL('./cross-review-current.mjs', import.meta.url).pathname;
+await import('./cross-review-current.mjs');
+`;
+  await cp(join(helper, 'cross-review.mjs'), join(helper, 'cross-review-current.mjs'));
+  await writeFile(join(helper, 'cross-review.mjs'), older);
+  const old = await start({ STARTED: String(now - 4) });
+  assert.equal(old.status, 0, old.out);
+  assert.deepEqual([old.outputs.agent, old.outputs.fallback, old.outputs.note], ['claude', '', '']);
+  assert.match(old.out, /the reviewer stays claude: the default branch's helper has no fallback yet/);
+  // The first review ran: the older publisher posts it, without the note it cannot take.
+  await cp(join(dir, 'scripts/plates/cross-review.mjs'), join(dir, 'scripts/plates/cross-review-current.mjs'));
+  await writeFile(join(dir, 'scripts/plates/cross-review.mjs'), older);
+  const pr = prJson();
+  await writeFile(join(temp, 'pr.json'), JSON.stringify(pr));
+  await writeFile(join(temp, 'pr.diff'), '');
+  await writeFile(file, execution({ is_error: false, num_turns: 9, duration_ms: 60_000, result: 'Nothing found in the lid.' }));
+  const gh = await stubGh(t, pr);
+  const posted = await post(t, dir, { PATH: `${gh.path}:${process.env.PATH}`, RUNNER_TEMP: temp, AGENT: 'claude', EXECUTION: file, MINUTES: '15', REPO: 'acme/anvils', PR: '7', FALLBACK_NOTE: '' });
+  assert.equal(posted.status, 0, posted.out);
+  const [call] = await gh.calls();
+  assert.deepEqual(call.args.slice(0, 4), ['api', '--method', 'POST', 'repos/acme/anvils/pulls/7/reviews']);
+  assert.match(call.input.body, /Nothing found in the lid\./);
 });

@@ -5,7 +5,7 @@ import { decisionHarness,healthTarget,shapingTarget,token } from './helpers/web-
 import { createDecisions } from '../lib/web/decisions.mjs';
 import { createOperations } from '../lib/web/operations.mjs';
 import { createOperationStore } from '../lib/web/operation-store.mjs';
-import { createDecisionGitHub } from '../lib/web/decision-github.mjs';
+import { createDecisionGitHub, SOURCE_CALL_LIMIT } from '../lib/web/decision-github.mjs';
 const options=h=>({fetcher:h.fetcher,now:()=>h.state.now});
 const preview=h=>createDecisions(h.config,options(h)).preview(h.access,token,h.project,{target:healthTarget,choice:'accept',reason:'Owner chooses this outcome.'});
 const apply=(h,p,reauthorize=async()=>h.access)=>createOperations(h.config,options(h)).apply(h.access,token,h.project,p.id,{reauthorize});
@@ -45,7 +45,7 @@ test('dispatch and receipt recovery have fresh bounded deadlines after source ti
 test('receipt recovery remains bounded independently of the exhausted source call allowance',async()=>{
  const h=decisionHarness(),p=await preview(h),intent=intentFromPreview(p),provider=createDecisionGitHub(token,options(h));
  const snapshot=await provider.snapshot(h.project); // Three source requests.
- for(let i=0;i<247;i++)await provider.recheck(h.project,snapshot.source);
+ for(let i=0;i<SOURCE_CALL_LIMIT-3;i++)await provider.recheck(h.project,snapshot.source);
  await assert.rejects(provider.recheck(h.project,snapshot.source),e=>e.code==='source_limit');
  const commit=await provider.dispatch(intent),count=h.source.graphRequests.length;
  assert.equal((await provider.recover(intent,commit)).commit,commit);

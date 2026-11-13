@@ -45,13 +45,14 @@ Plates work: deciding, walking, reading what changed and what ran.
 
 ## Your part
 
-- **Ask:** Set aside one session to switch on the web workspace with the conductor, signing in to Vercel, Supabase and GitHub when asked.
-- **Why:** Almost everything is built; it only needs switching on before you can drive Plates from the browser and your phone.
-- **Look at:** the activation plan the conductor writes first.
-- **Choices:** Book the session | Not yet
-- **Keeps it open:** Not yet
-- **Takes:** About 1–2 hours for the session; then a week of normal use.
-- **Then:** Book the session: the conductor runs the plan with you; from then on you work from the web and settle the G7 walks there.
+- **Ask:** Switch on the next piece of the web workspace: private drafts for walks (migration 005)? I run it in your signed-in Supabase tab while you watch.
+- **Why:** Steps 1–5 and migrations 017 and 018 are done; 005 is next in the plan and lets you start a walk on your phone and finish it later.
+- **Look at:** Step 6 of the [activation guide](../guide/web-activation.md).
+- **Choices:** Go | Not this week
+- **Recommend:** Go
+- **Keeps it open:** Not this week
+- **Takes:** About 15 minutes, with Supabase open in Chrome.
+- **Then:** Go: the conductor applies 005, runs its proof, records it, and asks about the next step the same way. Not this week: it waits.
 - **Ready:** yes
 
 ## Real surfaces
@@ -76,3 +77,6 @@ By hand: the activation session's hosted proofs; a week of use.
 Step 6 with the owner present: migration 005 with its proof and a draft
 revision race (rehearsed on PGlite), then steps 7–13. The owner installs the
 nightly backup schedule.
+
+## Trajectory
+- **2026-11-06** "Book a session" became one step at a time: each activation step is its own short question.

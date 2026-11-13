@@ -12,8 +12,8 @@ import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { scratch, ENV } from './helpers/improve.mjs';
 import { runAsync } from './helpers/run.mjs';
-import { deliveryOf, deliveryProblems } from '../practices/delivery/files/scripts/plates/delivery.mjs';
-import { verifyResults, verifyFailuresFor, VERIFY_BRANCH, VERIFY_FILE } from '../practices/night/files/scripts/plates/morning.mjs';
+import { concurrencyProblems, deliveryOf, deliveryProblems } from '../practices/delivery/files/scripts/plates/delivery.mjs';
+import { verifyResults, verifyFailuresFor, verifyLine, lastNight, keptResults, readVerify, VERIFY_BRANCH, VERIFY_FILE, VERIFY_MAX, DEPLOY_FILE } from '../practices/night/files/scripts/plates/morning.mjs';
 
 const NIGHT = resolve('practices/night/files/scripts/plates');
 const DELIVERY = resolve('practices/delivery/files/scripts/plates');
@@ -372,4 +372,218 @@ test('the verify branch is not the app: where the project has a vercel.json, the
   v.record({ root: repo.root, result: { ...result, at: '2026-10-26T09:00:00.000Z' }, env: ENV });
   assert.deepEqual(files(), ['vercel.json', 'verify.json', 'web/vercel.json']);
   assert.equal(verifyResults(execFileSync('git', ['--git-dir', repo.origin, 'show', `refs/heads/${VERIFY_BRANCH}:${VERIFY_FILE}`], { env: ENV, encoding: 'utf8' })).length, 2);
+});
+
+// #213: a project's verify workflow may run checks verify.mjs cannot express (POST + response headers);
+// --record --failed "<reason>" records that failure without polling or overwriting it with GET smoke passes.
+test('#213: --record --failed records a failure another check found without polling, and validates its flags and reasons', async t => {
+  const { prod, repo, dir, v, cfg } = await setup(t, { smoke: ['/', { path: '/login', status: 307 }] });
+  prod.serve(repo.C);
+  prod.state.routes = { '/': 200, '/login': 307 };
+  const ghEnv = { ...ENV, GITHUB_ACTIONS: 'true', GITHUB_SERVER_URL: 'https://github.com', GITHUB_REPOSITORY: 'acme/anvils', GITHUB_RUN_ID: '42' };
+  const runScript = (args, env = { ...ENV, GITHUB_ACTIONS: '' }) => runAsync(process.execPath, [join(dir, 'verify.mjs'), ...args], { cwd: repo.root, env });
+  const shown = () => verifyResults(execFileSync('git', ['--git-dir', repo.origin, 'show', `refs/heads/${VERIFY_BRANCH}:${VERIFY_FILE}`], { env: ENV, encoding: 'utf8' }));
+  const hasBranch = () => execFileSync('git', ['--git-dir', repo.origin, 'branch', '--list', VERIFY_BRANCH], { env: ENV, encoding: 'utf8' }).trim();
+
+  // Bad usage is exit 2 before touching production or pushing a branch.
+  for (const [args, pattern] of [
+    [[repo.C, '--failed', 'POST /api/mcp: missing resource_metadata'], /--failed requires --record/],
+    [[repo.C, '--record', '--failed'], /--failed needs a value/],
+    [[repo.C, '--failed', '--record'], /--failed needs a value/],
+    [[repo.C, '--record', '--failed', ''], /--failed needs a non-empty reason/],
+    [[repo.C, '--record', '--failed', '  \n\t  '], /--failed needs a non-empty reason/],
+    [[repo.C, '--record', ...Array(51).fill(['--failed', 'x']).flat()], /--failed needs 1 to 50 reasons/],
+    [['live', repo.C, '--failed', 'Acme'], /unknown argument --failed/],
+    [['live', repo.C, '--record', '--failed', 'Acme'], /unknown argument --record/],
+    [[repo.C.slice(0, 7), '--record', '--failed', 'Acme'], /must be a full hash/],
+  ]) {
+    const bad = await runScript(args);
+    assert.equal(bad.status, 2, `${JSON.stringify(args)}: ${bad.stderr}${bad.stdout}`);
+    assert.match(bad.stderr, pattern, JSON.stringify(args));
+  }
+  assert.equal(hasBranch(), '', 'refused invocations push nothing');
+  assert.equal(prod.state.reads, 0, 'refused invocations never poll production');
+
+  // Direct parser and result builder checks: defaults, exact/site/env/clock, reason normalization, and bounds.
+  assert.equal(v.REASON_MAX, 1000);
+  assert.deepEqual(v.parseArgs([repo.C, '--record', '--failed', '  POST /api/mcp:\n  missing resource_metadata  ']), {
+    sub: 'verify', sha: repo.C, record: true, exact: false, failed: ['POST /api/mcp: missing resource_metadata'],
+  });
+  assert.equal(v.parseArgs([repo.C, '--record', ...Array(50).fill(['--failed', 'x']).flat()]).failed.length, 50);
+  const def = v.failed({ root: repo.root, config: cfg, sha: repo.C, reasons: '  Acme   check\nfailed  ', env: { ...ENV, GITHUB_ACTIONS: '' } });
+  assert.equal(def.ok, false);
+  assert.equal(def.exact, false);
+  assert.equal(def.run, null);
+  assert.deepEqual(def.failures, ['Acme check failed']);
+  assert.ok(Number.isFinite(Date.parse(def.at)));
+  const fixedAt = Date.parse('2026-10-21T15:00:00.000Z');
+  assert.deepEqual(
+    v.failed({ root: repo.root, config: cfg, sha: repo.C, site: 'https://preview-3.anvils.acme.example', exact: true, reasons: ['first', 'x'.repeat(v.REASON_MAX + 25)], env: ghEnv, now: () => fixedAt }),
+    {
+      ok: false, sha: repo.C, site: 'https://preview-3.anvils.acme.example', version: '/api/version', exact: true,
+      serving: null, contained: false, attempts: 0, waited: 0, smoke: [],
+      failures: ['first', 'x'.repeat(v.REASON_MAX)], at: '2026-10-21T15:00:00.000Z', run: 'https://github.com/acme/anvils/actions/runs/42',
+    },
+  );
+  assert.equal(v.failed({ root: repo.root, config: cfg, sha: repo.C, reasons: Array(50).fill('x'), env: ENV }).failures.length, 50);
+  for (const [reasons, pattern] of [[[], /1 to 50 reasons/], [Array(51).fill('x'), /1 to 50 reasons/], [[42], /non-empty reason/], [['   '], /non-empty reason/]]) {
+    assert.throws(() => v.failed({ root: repo.root, config: cfg, sha: repo.C, reasons, env: ENV }), e => e.exitCode === 2 && pattern.test(e.message));
+  }
+
+  // Even though production serves C and all GET smoke checks pass, --record --failed records ok: false without polling.
+  let res = await runScript([repo.C, '--within', '120', '--record', '--failed', 'POST /api/mcp: missing WWW-Authenticate resource_metadata'], ghEnv);
+  assert.equal(res.status, 1, res.stderr + res.stdout);
+  assert.equal(prod.state.reads, 0, '--failed does not poll /api/version');
+  assert.deepEqual(prod.state.log, [], '--failed does not hit smoke routes');
+  assert.match(res.stdout, new RegExp(`^plates verify: FAILED for ${repo.C.slice(0, 7)} at http://127\\.0\\.0\\.1:\\d+:\\n  - POST /api/mcp: missing WWW-Authenticate resource_metadata\\nRecorded on ${VERIFY_BRANCH} \\([0-9a-f]{7}\\)\\.\\n$`));
+
+  let recorded = shown();
+  assert.equal(recorded.length, 1);
+  assert.deepEqual(
+    { sha: recorded[0].sha, ok: recorded[0].ok, site: recorded[0].site, serving: recorded[0].serving, failures: recorded[0].failures, run: recorded[0].run },
+    { sha: repo.C, ok: false, site: prod.site, serving: null, failures: ['POST /api/mcp: missing WWW-Authenticate resource_metadata'], run: 'https://github.com/acme/anvils/actions/runs/42' },
+  );
+  const nightDate = lastNight(Date.parse(recorded[0].at) + 24 * 3600 * 1000);
+  const briefFailures = verifyFailuresFor(recorded, nightDate, { production: prod.site });
+  assert.equal(briefFailures.length, 1);
+  assert.match(verifyLine(briefFailures[0]), /Production failed its verify .* POST \/api\/mcp: missing WWW-Authenticate resource_metadata\. https:\/\/github\.com\/acme\/anvils\/actions\/runs\/42$/);
+
+  // Preview override, --exact, multiple --failed reasons, and a project with delivery.site but no delivery.version.
+  await writeFile(join(repo.root, '.plates/plates.json'), JSON.stringify({ name: 'Acme', repo: 'acme/anvils', practices: ['night', 'delivery'], delivery: { site: prod.site } }));
+  res = await runScript([repo.C, '--site', 'https://preview-9.anvils.acme.example', '--exact', '--record', '--failed', 'POST /api/mcp: 401 header missing', '--failed', 'POST /api/webhook:\nexpected 202, got 500', '--json']);
+  assert.equal(res.status, 1, res.stderr + res.stdout);
+  const parsed = JSON.parse(res.stdout);
+  assert.equal(parsed.ok, false);
+  assert.equal(parsed.site, 'https://preview-9.anvils.acme.example');
+  assert.equal(parsed.version, null);
+  assert.equal(parsed.exact, true);
+  assert.deepEqual(parsed.failures, ['POST /api/mcp: 401 header missing', 'POST /api/webhook: expected 202, got 500']);
+  assert.equal(parsed.recorded.recorded, true);
+  assert.equal(shown().length, 2);
+  const noVersion = await runScript([repo.C]);
+  assert.equal(noVersion.status, 2);
+  assert.match(noVersion.stderr, /no "delivery"\.version/);
+});
+
+// #189: three edge cases from #182's fourth review round (preview-pin size bound + pre-push validation,
+// explicit status functions on dependent jobs, and unreadable/deleted verify.json on an existing branch).
+test('#189: keptResults trims preview pins within the size bound, record validates before pushing, jobOnlyOn rejects status functions, and readVerify flags missing verify.json', async t => {
+  const { prod, repo, v } = await setup(t);
+  const t0 = Date.parse('2026-10-17T08:00:00.000Z');
+  const iso = min => new Date(t0 + min * 60_000).toISOString();
+
+  // 1a. Preview-only history when production is configured (prod pin undefined), and VERIFY_MAX preview-site cap.
+  const previewOnly = [{ sha: repo.C, ok: true, at: iso(1), site: 'https://preview-1.anvils.acme.example', serving: repo.C, failures: [] }];
+  assert.deepEqual(keptResults(previewOnly, t0 + 3600_000, { production: prod.site }), previewOnly);
+  const manySites = [
+    { sha: repo.C, ok: false, at: iso(0), site: prod.site, serving: repo.C, failures: ['GET /: expected 200, got 500'] },
+    ...Array.from({ length: VERIFY_MAX + 5 }, (_, i) => ({
+      sha: repo.C, ok: true, at: iso(i + 1), site: `https://preview-${i + 1}.anvils.acme.example`, serving: repo.C, failures: [],
+    })),
+  ];
+  const capped = keptResults(manySites, t0 + 400 * 60_000, { production: prod.site });
+  assert.equal(capped.length, VERIFY_MAX);
+  assert.equal(capped[0].site, `https://preview-${VERIFY_MAX + 5}.anvils.acme.example`, 'newest preview kept');
+  assert.equal(capped.at(-1).site, prod.site, 'older production failure kept');
+  assert.ok(!capped.some(r => r.site === 'https://preview-6.anvils.acme.example'), 'oldest excess previews dropped');
+
+  // Exact size boundary (MAX_BYTES * 0.75 === 196608): an entry reaching 196608 stays; 196609 trims the older preview.
+  const limit = 262_144 * 0.75;
+  const baseTwo = [
+    { sha: repo.C, ok: false, at: iso(2), site: 'https://preview-b.anvils.acme.example', serving: repo.C, failures: ['b'] },
+    { sha: repo.C, ok: false, at: iso(1), site: 'https://preview-a.anvils.acme.example', serving: repo.C, failures: [''] },
+  ];
+  const overhead = JSON.stringify({ results: baseTwo }, null, 2).length;
+  baseTwo[1].failures = ['x'.repeat(limit - overhead)];
+  assert.equal(JSON.stringify({ results: baseTwo }, null, 2).length, limit);
+  assert.equal(keptResults(baseTwo, t0 + 3600_000, { production: prod.site }).length, 2, 'exact 0.75 * MAX_BYTES fits');
+  baseTwo[1].failures = ['x'.repeat(limit - overhead + 1)];
+  assert.deepEqual(keptResults(baseTwo, t0 + 3600_000, { production: prod.site }).map(r => r.site), ['https://preview-b.anvils.acme.example']);
+
+  // 1b. 12 large preview failures (50 × ~480 chars > 262 KB raw) + 1 older production failure: trimmed under limit, prod kept, push + subsequent record + readVerify all succeed.
+  const prodFail = { sha: repo.C, ok: false, at: iso(0), site: prod.site, serving: repo.C, failures: ['GET /: expected 200, got 500'] };
+  const bigFailures = Array.from({ length: 50 }, (_, j) => `GET /acme/smoke/${j}/${'p'.repeat(450)}: expected 200, got 502`);
+  const makePreview = i => ({ sha: repo.C, ok: false, at: iso(i), site: `https://preview-${i}.anvils.acme.example`, serving: repo.C, failures: bigFailures });
+  const seed = [...Array.from({ length: 10 }, (_, k) => makePreview(10 - k)), prodFail];
+  const seedWrite = (args, input) => execFileSync('git', args, { cwd: repo.root, env: ENV, input, encoding: 'utf8' }).trim();
+  const seedBlob = seedWrite(['hash-object', '-w', '--stdin'], `${JSON.stringify({ results: seed }, null, 2)}\n`);
+  seedWrite(['push', '-q', 'origin', `${seedWrite(['commit-tree', seedWrite(['mktree'], `100644 blob ${seedBlob}\t${VERIFY_FILE}\n`), '-m', 'Acme seed'])}:refs/heads/${VERIFY_BRANCH}`]);
+  for (const i of [11, 12]) v.record({ root: repo.root, result: makePreview(i), env: ENV, now: t0 + i * 60_000, production: prod.site });
+  const rawAfter12 = execFileSync('git', ['--git-dir', repo.origin, 'show', `refs/heads/${VERIFY_BRANCH}:${VERIFY_FILE}`], { env: ENV, encoding: 'utf8' });
+  assert.ok(rawAfter12.length <= limit + 1, `expected <= ${limit + 1} chars, got ${rawAfter12.length}`);
+  const parsedAfter12 = verifyResults(rawAfter12);
+  assert.equal(parsedAfter12[0].site, 'https://preview-12.anvils.acme.example', 'newest preview retained first');
+  assert.equal(parsedAfter12.at(-1).site, prod.site, 'older production failure retained');
+  assert.equal(readVerify(repo.root).unread, undefined);
+
+  // 1c. Pre-push validation refuses malformed or single-entry oversized records before touching origin.
+  const tipBeforeBad = execFileSync('git', ['--git-dir', repo.origin, 'rev-parse', `refs/heads/${VERIFY_BRANCH}`], { env: ENV, encoding: 'utf8' }).trim();
+  for (const [badResult, why] of [
+    [{ sha: repo.C, ok: false, at: iso(20), site: prod.site, serving: null, failures: [] }, /not a verify result/],
+    [{ sha: repo.C, ok: false, at: iso(20), site: prod.site, serving: null, failures: ['x'.repeat(270_000)] }, /larger than 262144 bytes/],
+  ]) {
+    assert.throws(
+      () => v.record({ root: repo.root, result: badResult, env: ENV, now: t0 + 20 * 60_000, production: prod.site }),
+      e => e.exitCode === 1 && /^cannot record an invalid verify\.json /.test(e.message) && why.test(e.message),
+    );
+  }
+  assert.equal(execFileSync('git', ['--git-dir', repo.origin, 'rev-parse', `refs/heads/${VERIFY_BRANCH}`], { env: ENV, encoding: 'utf8' }).trim(), tipBeforeBad);
+
+  // 2. Conditional publish concurrency group: any explicit status function or unreadable if: on a dependent job is rejected.
+  const group = "${{ github.run_attempt == 1 && 'deploy' || format('deploy-{0}', github.run_id) }}";
+  const wf = shipExtra => [
+    'name: deploy', 'on: push', 'concurrency:', `  group: ${group}`, '  cancel-in-progress: false',
+    'jobs:', '  plan:', '    if: github.run_attempt == 1', '    runs-on: ubuntu-latest', '    steps:', '      - run: echo ok',
+    '  ship:', '    needs: [plan]', ...(shipExtra ? [shipExtra] : []), '    runs-on: ubuntu-latest', '    steps:', '      - run: ./deploy.sh', '',
+  ].join('\n');
+  assert.deepEqual(concurrencyProblems('deploy.yml', wf(''), 'publish'), [], 'dependent job without if: skips with plan');
+  assert.deepEqual(concurrencyProblems('deploy.yml', wf("    if: needs.plan.outputs.mode == 'success()'"), 'publish'), [], 'quoted string literal is not a status function');
+  for (const badIf of [
+    '    if: ${{ !success() }}',
+    '    if: success()',
+    '    if: SUCCESS() && needs.plan.outputs.ok == \'true\'',
+    '    if: !cancelled()',
+    '    if: failure()',
+    '    if: always()',
+    '    if: |\n      !success()',
+    '    if:',
+  ]) {
+    assert.match(concurrencyProblems('deploy.yml', wf(badIf), 'publish').join('\n'), /cannot establish/, badIf);
+  }
+
+  // 3. Absent verify branch -> { results: [], deploys: [] }; deploy-only branch -> deploys read; existing branch missing verify.json -> unread.
+  const clean = await acme(t, { name: 'Acme', practices: ['night', 'delivery'] });
+  const absent = readVerify(clean.root, { namesEvidence: { repositoryId: 7 } });
+  assert.deepEqual({ results: absent.results, deploys: absent.deploys, unread: absent.unread }, { results: [], deploys: [], unread: undefined });
+  assert.equal(absent.observation.reads[0].state, 'absent');
+  assert.equal(absent.observation.reads[0].absence, 'ref');
+  assert.deepEqual(absent.observation.gaps, []);
+
+  // Vercel deploy-only branch (deploys.jsonl present, verify.json not yet written) stays readable.
+  const gitWrite = (args, input) => execFileSync('git', args, { cwd: clean.root, env: ENV, input, encoding: 'utf8' }).trim();
+  const deployLine = `${JSON.stringify({ schema: 1, at: iso(5), project: 'anvils', commit: clean.C, action: 'deploy', ok: true, checks: [], rolledBack: false })}\n`;
+  const deployTree = gitWrite(['mktree'], `100644 blob ${gitWrite(['hash-object', '-w', '--stdin'], deployLine)}\t${DEPLOY_FILE}\n`);
+  gitWrite(['push', '-q', '--force', 'origin', `${gitWrite(['commit-tree', deployTree, '-m', 'Acme deploy'])}:refs/heads/${VERIFY_BRANCH}`]);
+  const deployOnly = readVerify(clean.root);
+  assert.equal(deployOnly.unread, undefined);
+  assert.deepEqual(deployOnly.results, []);
+  assert.equal(deployOnly.deploys.length, 1);
+
+  // Existing verify branch whose verify.json was deleted (only hosting opt-out left): unread + unavailable trace.
+  const optOutBlob = gitWrite(['hash-object', '-w', '--stdin'], '{"git":{"deploymentEnabled":false}}\n');
+  const deletedTree = gitWrite(['mktree'], `100644 blob ${optOutBlob}\tvercel.json\n`);
+  gitWrite(['push', '-q', '--force', 'origin', `${gitWrite(['commit-tree', deletedTree, '-m', 'Acme deleted verify.json'])}:refs/heads/${VERIFY_BRANCH}`]);
+  const missingFile = readVerify(clean.root, { namesEvidence: { repositoryId: 7 } });
+  assert.deepEqual(missingFile.results, []);
+  assert.deepEqual(missingFile.deploys, []);
+  assert.match(missingFile.unread ?? '', /^plates-verify exists on origin and holds no verify\.json$/);
+  const missingRead = missingFile.observation.reads.find(r => r.ref === `refs/heads/${VERIFY_BRANCH}`);
+  assert.equal(missingRead.state, 'unavailable');
+  assert.equal(missingRead.absence, null);
+  assert.ok(missingFile.observation.gaps.some(g => g.code === 'verify-unavailable'));
+
+  // Nonregular verify.json entry (symlink mode 120000) on existing branch also reports unread.
+  const linkTree = gitWrite(['mktree'], `120000 blob ${optOutBlob}\t${VERIFY_FILE}\n`);
+  gitWrite(['push', '-q', '--force', 'origin', `${gitWrite(['commit-tree', linkTree, '-m', 'Acme symlink verify.json'])}:refs/heads/${VERIFY_BRANCH}`]);
+  assert.match(readVerify(clean.root).unread ?? '', /nonregular/);
 });

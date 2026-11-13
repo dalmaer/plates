@@ -5,7 +5,7 @@
 // and its live-SHA deploy skip (dalmaer/ledger at c47b93b3, the owner's own;
 // adapted, no code copied).
 //
-//   node scripts/plates/verify.mjs <sha> [--site <origin>] [--within <s>] [--every <s>] [--exact] [--record] [--json]
+//   node scripts/plates/verify.mjs <sha> [--site <origin>] [--within <s>] [--every <s>] [--exact] [--record [--failed <reason>]] [--json]
 //   node scripts/plates/verify.mjs live <sha> [--site <origin>] [--json]
 //
 // .plates/plates.json "delivery": { "site": "https://anvils.acme.example",
@@ -32,7 +32,8 @@
 // --record adds the
 // result to the branch keel-verify (verify.json, newest first, the last 30
 // and every failure of the last 72 hours, and each site's latest always),
-// where plates home and the morning brief read it.
+// where plates home and the morning brief read it. --record --failed "<reason>"
+// records a failure the project's own checks found (#213), without polling.
 //
 // live <sha>: one read of the version path: does production already serve
 // that commit or a descendant? A deploy step skips itself on yes:
@@ -46,13 +47,15 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { environmentValue, isMain, main } from './lib.mjs';
-import { deliveryOf, siteProblem, DeliveryError } from './delivery.mjs';
+import { deliveryOf, siteProblem, DeliveryError, SMOKE_MAX } from './delivery.mjs';
 import { VERIFY_BRANCH, VERIFY_FILE, keptResults, verifyResults } from './morning.mjs';
 
 /** How long a verify waits for production to report the commit, and how often it reads, in seconds. */
 export const WITHIN = 600, EVERY = 10;
 /** One request's bound, and how much of a body is read. */
 export const REQUEST_MS = 10_000, BODY_MAX = 64 * 1024;
+/** One external failure reason's bound (#213). */
+export const REASON_MAX = 1000;
 const SHA = /^[0-9a-f]{40}([0-9a-f]{24})?$/;
 const short = s => (s ? s.slice(0, 7) : 'nothing');
 
@@ -146,7 +149,7 @@ export function contains({ root, env = process.env, expected, serving, state = {
 }
 
 /** The site, version and smoke checks a run reads, and the expected commit, checked: or a throw (exit 2). */
-function plan({ root, config, sha, site, env }) {
+function plan({ root, config, sha, site, env, version = true }) {
   const d = deliveryOf(config);
   if (site !== undefined && site !== null) {
     const p = siteProblem(site);
@@ -154,7 +157,7 @@ function plan({ root, config, sha, site, env }) {
   }
   const origin = site ? new URL(site).origin : d.site;
   if (!origin) throw new VerifyError('.plates/plates.json has no "delivery".site: the production origin to verify (or pass --site)');
-  if (!d.version) throw new VerifyError('.plates/plates.json has no "delivery".version: the path that reports the commit production serves (like "/api/version")');
+  if (version && !d.version) throw new VerifyError('.plates/plates.json has no "delivery".version: the path that reports the commit production serves (like "/api/version")');
   const expected = String(sha ?? '').toLowerCase();
   if (!SHA.test(expected)) throw new VerifyError(`the commit to verify must be a full hash (got ${JSON.stringify(sha ?? null)})`);
   if (git(root, env, ['rev-parse', '--is-shallow-repository']).stdout.trim() === 'true') throw new VerifyError('this checkout is shallow, so ancestry cannot be read: check out with full history (actions/checkout fetch-depth: 0)');
@@ -268,6 +271,7 @@ export function record({ root, result, remote = 'origin', env = process.env, att
       try { results = verifyResults(shown.stdout); } catch (e) { throw new VerifyError(`${VERIFY_BRANCH}:${VERIFY_FILE} is not a verify record (${e.message}): it is left alone, and this result is not recorded`, 1); }
     }
     const text = `${JSON.stringify({ results: keptResults([entry, ...results], now, { production }) }, null, 2)}\n`;
+    try { verifyResults(text); } catch (e) { throw new VerifyError(`cannot record an invalid ${VERIFY_FILE} (${e.message})`, 1); }
     const blob = ok(['hash-object', '-w', '--stdin'], 'cannot write the record', text);
     // The tip's own tree with verify.json replaced: every other entry stays as it was.
     const others = tip ? ok(['ls-tree', '-z', tip], `cannot read ${VERIFY_BRANCH}'s tree`).split('\0').filter(e => e && e.split('\t').slice(1).join('\t') !== VERIFY_FILE) : [];
@@ -286,9 +290,23 @@ export function verifyText(r) {
   return [`plates verify: FAILED for ${short(r.sha)} at ${r.site}:`, ...r.failures.map(f => `  - ${f}`)].join('\n');
 }
 
-const USAGE = 'usage: node scripts/plates/verify.mjs <sha> [--site <origin>] [--within <s>] [--every <s>] [--exact] [--record] [--json] | live <sha> [--site <origin>] [--json]';
+const USAGE = 'usage: node scripts/plates/verify.mjs <sha> [--site <origin>] [--within <s>] [--every <s>] [--exact] [--record [--failed <reason>]] [--json] | live <sha> [--site <origin>] [--json]';
 
-/** The script's arguments: { sub: 'verify' | 'live', sha, site?, within?, every?, exact, record }; a throw (exit 2) on anything else. */
+function cleanReason(raw) {
+  const s = typeof raw === 'string' ? raw.replace(/\s+/g, ' ').trim().slice(0, REASON_MAX) : '';
+  if (!s) throw new VerifyError(`--failed needs a non-empty reason; ${USAGE}`);
+  return s;
+}
+
+/** A failure another check found (#213), shaped as verify()'s result so record, home and the brief read it the same way. */
+export function failed({ root, config, sha, site, exact = false, reasons, env = process.env, now = () => Date.now() }) {
+  const list = (Array.isArray(reasons) ? reasons : [reasons]).map(cleanReason);
+  if (!list.length || list.length > SMOKE_MAX) throw new VerifyError(`--failed needs 1 to ${SMOKE_MAX} reasons; ${USAGE}`);
+  const p = plan({ root, config, sha, site, env, version: false });
+  return { ok: false, sha: p.expected, site: p.origin, version: p.version, exact, serving: null, contained: false, attempts: 0, waited: 0, smoke: [], failures: list, at: new Date(now()).toISOString(), run: runOf(env) };
+}
+
+/** The script's arguments: { sub: 'verify' | 'live', sha, site?, within?, every?, exact, record, failed? }; a throw (exit 2) on anything else. */
 export function parseArgs(args) {
   const out = { sub: 'verify', record: false, exact: false };
   const rest = [...args];
@@ -299,6 +317,12 @@ export function parseArgs(args) {
     const a = rest[i];
     if (a === '--record' && out.sub === 'verify') { out.record = true; continue; }
     if (a === '--exact' && out.sub === 'verify') { out.exact = true; continue; }
+    if (a === '--failed' && out.sub === 'verify') {
+      if (rest[i + 1] === undefined || rest[i + 1].startsWith('--')) throw new VerifyError(`${a} needs a value; ${USAGE}`);
+      (out.failed ??= []).push(cleanReason(rest[++i]));
+      if (out.failed.length > SMOKE_MAX) throw new VerifyError(`--failed needs 1 to ${SMOKE_MAX} reasons; ${USAGE}`);
+      continue;
+    }
     if (valued.includes(a)) {
       if (rest[i + 1] === undefined || rest[i + 1].startsWith('--')) throw new VerifyError(`${a} needs a value; ${USAGE}`);
       out[a.slice(2)] = rest[++i];
@@ -309,6 +333,7 @@ export function parseArgs(args) {
   }
   if (positional.length !== 1) throw new VerifyError(USAGE);
   out.sha = positional[0];
+  if (out.failed && !out.record) throw new VerifyError(`--failed requires --record; ${USAGE}`);
   for (const k of ['within', 'every']) {
     if (out[k] === undefined) continue;
     const n = Number(out[k]);
@@ -327,7 +352,9 @@ export async function run(args, { root = process.cwd(), env = process.env, fetch
     const r = await live({ root, config, sha: o.sha, site: o.site, env, fetch });
     return { data: r, text: `plates verify live: ${r.live ? 'yes' : 'no'}. ${r.why}.`, exitCode: r.live ? 0 : 1 };
   }
-  const r = await verify({ root, config, sha: o.sha, site: o.site, exact: o.exact, within: o.within, every: o.every, env, fetch });
+  const r = o.failed
+    ? failed({ root, config, sha: o.sha, site: o.site, exact: o.exact, reasons: o.failed, env })
+    : await verify({ root, config, sha: o.sha, site: o.site, exact: o.exact, within: o.within, every: o.every, env, fetch });
   let text = verifyText(r), exitCode = r.ok ? 0 : 1;
   if (o.record) {
     try { r.recorded = record({ root, result: r, env, production: deliveryOf(config).site }); text += `\nRecorded on ${VERIFY_BRANCH} (${short(r.recorded.commit)}).`; }

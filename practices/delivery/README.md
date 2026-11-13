@@ -55,7 +55,8 @@ the checkout) or `--within` seconds pass, then each `delivery.smoke` path's
 status (redirects not followed). It passes only on what it saw, and fails
 naming each check. `verify.mjs live <sha>` (one read; exit 0 yes, 1 no) lets
 a deploy step skip a commit production already has. `--record` adds the
-result to the branch `keel-verify` (`verify.json`); a failed latest verify is
+result to the branch `keel-verify` (`verify.json`, or `--record --failed "<reason>"`
+for a failure the project's own checks found); a failed latest verify is
 an owner's item on `plates home`, and each failure of the day before a night
 is a line in that night's morning brief.
 
@@ -108,7 +109,7 @@ check). `site` is https (http on localhost only) and required with `version`
 or `smoke`; `version` and each smoke path start with `/`; a smoke status is a
 code or a list of codes (default 200). `promote` is `tag:<name>`,
 `branch:<name>` (never the default branch or the tested ref) or `none`, and
-needs `site` and `version`. Each error names its key. `"delivery".docsOnly` is the night's gate
+needs `site` and `version`. `"workflows"` maps a workflow's file or `name:` to `"test"`, `"publish"`, `"deploy"` or `"none"` when a project overrides `workflow-concurrency`'s step/trigger/name classification. Each error names its key. `"delivery".docsOnly` is the night's gate
 (phase 79).
 
 **Its files.** `.github/workflows/plates-publish.yml`, `scripts/plates/publish.mjs`,

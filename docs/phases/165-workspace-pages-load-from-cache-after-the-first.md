@@ -38,6 +38,15 @@ One merge. It's compatible: the logical paths keep working, and digest URLs are 
 - [x] HTML, API and private routes stay `private, no-store`: `tests/web-assets.test.mjs: "nothing private becomes cacheable"`
 - [ ] ⚑ by hand: the conductor, after the owner deploys: a curl -sI of a digest asset on the workspace shows the immutable header, and a second signed-in page load serves its assets from cache (network panel).
 
+## Your part
+
+- **Ask:** Close Plates on your phone and open it again. Does Home appear at once, or after a blank wait?
+- **Why:** The second visit should come from the phone's cache; a blank wait means the files are fetched again. The server side is already checked.
+- **Choices:** Appears at once | Blank wait first
+- **Takes:** 1 minute.
+- **Then:** At once: the phase is built. Blank wait: the conductor checks the worker's cache on the deployed workspace.
+- **Ready:** yes
+
 ## Real surfaces
 
 - owner's machine: the deployed workspace's response headers, read with `curl -sI`, and a second page load in a browser.
@@ -53,7 +62,7 @@ By hand: `curl -sI` on the deployed digest URL, and a browser reload on the netw
 
 ## Next action
 
-The owner reloads a signed-in page with the network panel open and sees its assets served from cache.
+The owner reopens Plates on the phone and says whether Home appears at once (Your part). The live cache headers were checked on 2026-11-02.
 
 ## Trajectory
 

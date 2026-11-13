@@ -3,3 +3,10 @@ node_modules/
 *.log
 # Claude Code worktrees: a whole checkout each, never part of this one
 .claude/worktrees/
+# Local, private, per-machine output (digests, diagnoses, run logs) goes in
+# $XDG_STATE_HOME/plates/<kind>/<owner>/<repo>/, never in the checkout
+# (docs/guide/local-output.md). These names keep turning up inside .plates/:
+# folders only, so no tracked .plates/ file is hidden.
+/.plates/*-reports/
+/.plates/*-diagnostics/
+/.plates/*-logs/

@@ -1,0 +1,336 @@
+{
+ "cards": [
+  {
+   "key": "anvils:phase:8",
+   "lane": "yours",
+   "goal": "G1",
+   "lead": "anvils:phase:8",
+   "sources": [
+    "docs/phases/8-acme.md"
+   ],
+   "members": [
+    {
+     "identity": "anvils:phase:8:phase",
+     "keys": [
+      "anvils:step:8"
+     ],
+     "sources": [
+      "https://github.com/acme/anvils/blob/main/docs/phases/8-acme.md"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "anvils:phase:84",
+   "lane": "yours",
+   "goal": "G1",
+   "lead": "anvils:phase:84",
+   "sources": [
+    "docs/phases/84-acme.md"
+   ],
+   "members": [
+    {
+     "identity": "anvils:phase:84:phase",
+     "keys": [
+      "anvils:step:84",
+      "anvils:phase:a1b2c3"
+     ],
+     "sources": [
+      "https://github.com/acme/anvils/blob/main/docs/phases/84-acme.md",
+      "https://github.com/acme/anvils/issues/84"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "forge:phase:84",
+   "lane": "yours",
+   "goal": "G1",
+   "lead": "forge:phase:84",
+   "sources": [
+    "docs/phases/84-acme.md"
+   ],
+   "members": [
+    {
+     "identity": "forge:phase:84:phase",
+     "keys": [
+      "forge:step:84",
+      "forge:phase:d4e5f6"
+     ],
+     "sources": [
+      "https://github.com/acme/forge/blob/main/docs/phases/84-acme.md",
+      "https://github.com/acme/forge/issues/84"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "anvils:phase:3",
+   "lane": "yours",
+   "goal": "G2",
+   "lead": "anvils:phase:3",
+   "sources": [
+    "docs/phases/3-acme.md"
+   ],
+   "members": [
+    {
+     "identity": "anvils:phase:3:box 2",
+     "keys": [
+      "anvils:walk:3"
+     ],
+     "sources": [
+      "https://github.com/acme/anvils/blob/main/docs/phases/3-acme.md"
+     ]
+    }
+   ]
+  },
+  {
+   "key": "anvils:repo:stray",
+   "lane": "yours",
+   "goal": null,
+   "lead": "anvils:repo:stray",
+   "sources": [],
+   "members": []
+  },
+  {
+   "key": "anvils:pr:7",
+   "lane": "yours",
+   "goal": null,
+   "lead": "anvils:review:7",
+   "sources": [
+    "https://github.com/acme/anvils/pull/7"
+   ],
+   "members": []
+  },
+  {
+   "key": "forge:phase:5",
+   "lane": "agent-ready",
+   "goal": "G1",
+   "lead": "forge:phase:5",
+   "sources": [
+    "docs/phases/5-acme.md"
+   ],
+   "members": []
+  },
+  {
+   "key": "anvils:phase:9",
+   "lane": "agent-ready",
+   "goal": "G2",
+   "lead": "anvils:phase:9",
+   "sources": [
+    "docs/phases/9-acme.md"
+   ],
+   "members": []
+  },
+  {
+   "key": "anvils:phase:20",
+   "lane": "agent-ready",
+   "goal": "G3",
+   "lead": "anvils:phase:20",
+   "sources": [
+    "docs/phases/20-acme.md"
+   ],
+   "members": []
+  },
+  {
+   "key": "anvils:phase:21",
+   "lane": "agent-ready",
+   "goal": "G3",
+   "lead": "anvils:phase:21",
+   "sources": [
+    "docs/phases/21-acme.md"
+   ],
+   "members": []
+  },
+  {
+   "key": "anvils:phase:22",
+   "lane": "agent-ready",
+   "goal": "G3",
+   "lead": "anvils:phase:22",
+   "sources": [
+    "docs/phases/22-acme.md"
+   ],
+   "members": []
+  },
+  {
+   "key": "anvils:phase:23",
+   "lane": "agent-ready",
+   "goal": "G3",
+   "lead": "anvils:phase:23",
+   "sources": [
+    "docs/phases/23-acme.md"
+   ],
+   "members": []
+  },
+  {
+   "key": "anvils:phase:24",
+   "lane": "agent-ready",
+   "goal": "G3",
+   "lead": "anvils:phase:24",
+   "sources": [
+    "docs/phases/24-acme.md"
+   ],
+   "members": []
+  },
+  {
+   "key": "anvils:phase:25",
+   "lane": "agent-ready",
+   "goal": "G3",
+   "lead": "anvils:phase:25",
+   "sources": [
+    "docs/phases/25-acme.md"
+   ],
+   "members": []
+  },
+  {
+   "key": "anvils:phase:26",
+   "lane": "agent-ready",
+   "goal": "G3",
+   "lead": "anvils:phase:26",
+   "sources": [
+    "docs/phases/26-acme.md"
+   ],
+   "members": []
+  },
+  {
+   "key": "anvils:phase:27",
+   "lane": "agent-ready",
+   "goal": "G3",
+   "lead": "anvils:phase:27",
+   "sources": [
+    "docs/phases/27-acme.md"
+   ],
+   "members": []
+  },
+  {
+   "key": "anvils:phase:28",
+   "lane": "agent-ready",
+   "goal": "G3",
+   "lead": "anvils:phase:28",
+   "sources": [
+    "docs/phases/28-acme.md"
+   ],
+   "members": []
+  }
+ ],
+ "groups": [
+  {
+   "key": "anvils:goal:G1",
+   "title": "Dependable anvils",
+   "counts": {
+    "yours": 2,
+    "in-flight": 0,
+    "agent-ready": 0,
+    "waiting": 0,
+    "done": 0
+   },
+   "shown": [
+    "anvils:phase:8",
+    "anvils:phase:84"
+   ],
+   "more": 0
+  },
+  {
+   "key": "anvils:goal:G2",
+   "title": "Owners walk less",
+   "counts": {
+    "yours": 1,
+    "in-flight": 0,
+    "agent-ready": 1,
+    "waiting": 0,
+    "done": 0
+   },
+   "shown": [
+    "anvils:phase:3",
+    "anvils:phase:9"
+   ],
+   "more": 0
+  },
+  {
+   "key": "anvils:goal:G3",
+   "title": "Many small phases",
+   "counts": {
+    "yours": 0,
+    "in-flight": 0,
+    "agent-ready": 9,
+    "waiting": 0,
+    "done": 0
+   },
+   "shown": [
+    "anvils:phase:20",
+    "anvils:phase:21",
+    "anvils:phase:22",
+    "anvils:phase:23",
+    "anvils:phase:24",
+    "anvils:phase:25",
+    "anvils:phase:26"
+   ],
+   "more": 2
+  },
+  {
+   "key": "anvils:goal:none",
+   "title": null,
+   "counts": {
+    "yours": 2,
+    "in-flight": 0,
+    "agent-ready": 0,
+    "waiting": 0,
+    "done": 0
+   },
+   "shown": [
+    "anvils:repo:stray",
+    "anvils:pr:7"
+   ],
+   "more": 0
+  },
+  {
+   "key": "forge:goal:G1",
+   "title": "Dependable anvils",
+   "counts": {
+    "yours": 1,
+    "in-flight": 0,
+    "agent-ready": 1,
+    "waiting": 0,
+    "done": 0
+   },
+   "shown": [
+    "forge:phase:84",
+    "forge:phase:5"
+   ],
+   "more": 0
+  }
+ ],
+ "text": [
+  "plates home --backlog --by-goal — all plates (2026-11-05)",
+  "",
+  "Acme Anvils · G1 — Dependable anvils  (2 yours)",
+  "  yours · Acme Anvils #8  Acme phase 8",
+  "      + step: phase 8: approve the Acme lane",
+  "  yours · Acme Anvils #84  Acme phase 84",
+  "      + step + loose end · 2 sources",
+  "",
+  "Acme Anvils · G2 — Owners walk less  (1 yours · 1 agent-ready)",
+  "  yours · Acme Anvils #3  Ring the anvil?",
+  "      + walk (box 2)",
+  "  agent-ready · Acme Anvils #9  Acme phase 9",
+  "",
+  "Acme Anvils · G3 — Many small phases  (9 agent-ready)",
+  "  agent-ready · Acme Anvils #20  Acme phase 20",
+  "  agent-ready · Acme Anvils #21  Acme phase 21",
+  "  agent-ready · Acme Anvils #22  Acme phase 22",
+  "  agent-ready · Acme Anvils #23  Acme phase 23",
+  "  agent-ready · Acme Anvils #24  Acme phase 24",
+  "  agent-ready · Acme Anvils #25  Acme phase 25",
+  "  agent-ready · Acme Anvils #26  Acme phase 26",
+  "  … and 2 more in this goal (plates home --backlog --by-goal --json lists them all)",
+  "",
+  "Acme Anvils · No goal  (2 yours)",
+  "  yours · Acme Anvils repo  acme/stray: not a plate",
+  "  yours · Acme Anvils PR #7  acme/anvils#7: 1 review comment unanswered",
+  "",
+  "Acme Forge · G1 — Dependable anvils  (1 yours · 1 agent-ready)",
+  "  yours · Acme Forge #84  Acme phase 84",
+  "      + step + loose end · 2 sources",
+  "  agent-ready · Acme Forge #5  Acme phase 5"
+ ]
+}

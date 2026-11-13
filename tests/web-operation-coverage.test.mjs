@@ -68,6 +68,8 @@ test('release version bumps preserve coverage while executable package changes s
     { scripts: { ...original.scripts, test: 'node acme.mjs' } },
     { engines: { node: '>=22' } },
     { exports: './acme.mjs' },
+    { devDependencies: { ...original.devDependencies, 'acme-tool': '1.0.0' } },
+    { dependencies: { 'acme-runtime': '1.0.0' } },
     { version: 'not-a-version' },
   ]) {
     await writeFile(path, JSON.stringify({ ...original, ...change }));

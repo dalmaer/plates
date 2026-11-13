@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { load, fill, plan, PUSH_TRIGGERS, CROSS_REVIEW_WORKFLOW, PUBLISH_WORKFLOW, PROJECT, shapePublish, gateNameIn } from '../lib/practices.mjs';
-import { concurrencyOf, concurrencyProblems, workflowKind } from '../practices/delivery/files/scripts/plates/delivery.mjs';
+import { concurrencyOf, concurrencyProblems, deliveryOf, deliveryProblems, workflowKind, workflowSteps, workflowTriggers } from '../practices/delivery/files/scripts/plates/delivery.mjs';
 import { run } from './helpers/run.mjs';
 import {nameRow} from '../lib/names.mjs';
 import { AGENTS } from '../practices/night/files/scripts/plates/lib.mjs';
@@ -699,6 +699,18 @@ test('the night refreshes an existing PR body by exact number, or creates a new 
   }
 });
 
+// Phase 75: the persona run in the night's plan writes docs/reviews/<date>-<persona>.md; the night's PR carries those pages,
+// so the owner reads them after the night. A project with no personas has no docs/reviews, and its commit is as before.
+test("the night's PR carries the personas' review pages, and a project without personas is unaffected", async t => {
+  const night = await readFile(join(PLATES, 'practices/night/files/.github/workflows/plates-night.yml'), 'utf8');
+  const withPages = await nightCommit(t, night, { after: async dir => { await mkdir(join(dir, 'docs/reviews'), { recursive: true }); await writeFile(join(dir, 'docs/reviews/2026-10-05-speed.md'), '# speed — 2026-10-05\n'); } });
+  assert.equal(withPages.status, 0, withPages.out);
+  assert.deepEqual(withPages.files, ['.plates/bounds.json', 'docs/health/2026-10-05.md', 'docs/reviews/2026-10-05-speed.md'], 'the review page rides with the health page');
+  const without = await nightCommit(t, night, {});
+  assert.equal(without.status, 0, without.out);
+  assert.deepEqual(without.files, ['.plates/bounds.json', 'docs/health/2026-10-05.md'], 'no personas: the same commit as before');
+});
+
 test('the night fails on PR lookup or edit errors without creating a replacement', async t => {
   const night = await readFile(join(PLATES, 'practices/night/files/.github/workflows/plates-night.yml'), 'utf8');
   for (const [options, code, message, verbs] of [
@@ -1157,7 +1169,13 @@ export function agentRanProblems(text, { step, id }) {
   const body = steps[check];
   if (/continue-on-error/.test(body)) out.push('"Did the agent run?" is continue-on-error: its red would be swallowed');
   // Phase 47: Codex's step (id <id>_codex) when the pass names codex, else Claude's.
-  if (!new RegExp(`OUTCOME: \\$\\{\\{ (?:steps\\.on\\.outputs\\.agent == 'codex' && steps\\.${id}_codex\\.outcome \\|\\| )?steps\\.${id}\\.outcome \\}\\}`).test(body)) out.push(`"Did the agent run?" does not read steps.${id}.outcome`);
+  // After a fallback (a Claude that could not start hands the pass to Codex), the outcome judged is the fallback's.
+  if (!new RegExp(`OUTCOME: \\$\\{\\{ (?:steps\\.start\\.outputs\\.fallback == 'codex' && steps\\.${id}_fallback_codex\\.outcome \\|\\| )?(?:steps\\.on\\.outputs\\.agent == 'codex' && steps\\.${id}_codex\\.outcome \\|\\| )?steps\\.${id}\\.outcome \\}\\}`).test(body)) out.push(`"Did the agent run?" does not read steps.${id}.outcome`);
+  const fallbackStep = steps.find(s => new RegExp(`\\n {8}id: ${id}_fallback_codex\\n`).test(s));
+  if (fallbackStep) {
+    if (!body.includes(`steps.${id}_fallback_codex.outcome`) || !/AGENT: \$\{\{ steps\.start\.outputs\.agent \|\| steps\.on\.outputs\.agent \}\}/.test(body)) out.push('"Did the agent run?" does not judge the fallback when it ran');
+    if (steps.indexOf(fallbackStep) > check) out.push('"Did the agent run?" runs before the fallback');
+  }
   const codexStep = steps.find(s => new RegExp(`\\n {8}id: ${id}_codex\\n`).test(s));
   if (codexStep) {
     if (!body.includes(`steps.${id}_codex.outcome`)) out.push(`"Did the agent run?" does not read steps.${id}_codex.outcome`);
@@ -1187,8 +1205,9 @@ test('lesson 29: plates-climb.yml and plates-tend.yml end red when the agent fai
     for (const [why, text] of [
       ['no check', t.replace(check, '')],
       ['the check swallowed', t.replace(check, check.replace('        run: |', '        continue-on-error: true\n        run: |'))],
-      ['another step\'s outcome', t.replace(`steps.${opts.id}.outcome`, 'steps.brief.outcome')],
-      ['no execution file', t.replace(`EXECUTION: \${{ steps.${opts.id}.outputs.execution_file }}`, 'EXECUTION: none')],
+      // In the check's own block: "Could the agent start?" reads the first agent's outcome too.
+      ['another step\'s outcome', t.replace(check, check.replace(`steps.${opts.id}.outcome`, 'steps.brief.outcome'))],
+      ['no execution file', t.replace(check, check.replace(`EXECUTION: \${{ steps.${opts.id}.outputs.execution_file }}`, 'EXECUTION: none'))],
       ['its exit ignored', t.replace(check, check.includes('exit "$status"') ? check.replace('exit "$status"', 'exit 0 || true') : check.replace(/--started "\$STARTED"\n/, '--started "$STARTED" || true\n'))],
       ['the agent step has no id', t.replace(`\n        id: ${opts.id}\n`, '\n')],
     ]) {
@@ -1856,7 +1875,8 @@ export function codexStepProblems(text, { sandbox }) {
   for (const step of stepsOf(text).filter(st => /\n\s+uses:\s*openai\/codex-action@/.test(`\n${st}`))) {
     const name = /name:\s*(.+)/.exec(step)?.[1] ?? '(unnamed)';
     const w = stepMap(step, 'with'), env = stepMap(step, 'env');
-    if (!/\n\s+timeout-minutes: \$\{\{ fromJSON\(steps\.[\w-]+\.outputs\.minutes\) \}\}/.test(step)) out.push(`${name}: Codex's step is not time-boxed by the budget`);
+    // A fallback's step is time-boxed by what is left of the first budget (steps.start.outputs.minutes), else the budget.
+    if (!/\n\s+timeout-minutes: \$\{\{ fromJSON\((?:steps\.start\.outputs\.minutes \|\| )?steps\.[\w-]+\.outputs\.minutes\) \}\}/.test(step)) out.push(`${name}: Codex's step is not time-boxed by the budget`);
     if (!/\n\s+continue-on-error: true/.test(step)) out.push(`${name}: Codex's step is not continue-on-error, so its check never says whether it ran`);
     if (w.sandbox !== sandbox) out.push(`${name}: Codex's sandbox is ${w.sandbox ?? '(the action\'s default, workspace-write)'}, not ${sandbox}`);
     if (w['safety-strategy'] !== 'drop-sudo') out.push(`${name}: Codex's safety-strategy is ${w['safety-strategy'] ?? '(unset)'}, not drop-sudo: with sudo it can read its key`);
@@ -1902,13 +1922,15 @@ export function crossReviewProblems(text) {
   const types = name => /types: \[([^\]]*)\]/.exec(on.split(new RegExp(`^ {2}${name}:`, 'm'))[1]?.split(/^ {2}\S/m)[0] ?? '')?.[1].split(',').map(s => s.trim());
   if (JSON.stringify(types('pull_request')) !== JSON.stringify(['opened', 'ready_for_review'])) out.push(`pull_request types ${JSON.stringify(types('pull_request'))}: only opened and ready_for_review, never a push`);
   if (JSON.stringify(types('issue_comment')) !== JSON.stringify(['created'])) out.push('issue_comment types: only created');
-  const tools = /--allowedTools "([^"]*)"/.exec(text)?.[1];
-  if (!tools) out.push('the agent has no --allowedTools list');
-  else for (const t of tools.split(',').map(s => s.trim())) if (!CROSS_REVIEW_TOOLS.includes(t)) out.push(`the agent may use ${t}: only ${CROSS_REVIEW_TOOLS.join(', ')}`);
-  if ((text.match(/--allowedTools/g) ?? []).length !== 1 || /--(?:dangerously-skip-permissions|permission-mode)/.test(text)) out.push('one --allowedTools list, and no way around it');
+  // Claude reviews in two steps, the first and the fallback (a reviewer that could not start): each one list, the same tools.
+  const claudeSteps = stepsOf(text).filter(st => /\n\s+uses:\s*anthropics\/claude-code-action@/.test(`\n${st}`)).length;
+  const lists = [...text.matchAll(/--allowedTools "([^"]*)"/g)].map(m => m[1]);
+  if (!lists.length) out.push('the agent has no --allowedTools list');
+  for (const tools of lists) for (const t of tools.split(',').map(s => s.trim())) if (!CROSS_REVIEW_TOOLS.includes(t)) out.push(`the agent may use ${t}: only ${CROSS_REVIEW_TOOLS.join(', ')}`);
+  if ((text.match(/--allowedTools/g) ?? []).length !== claudeSteps || /--(?:dangerously-skip-permissions|permission-mode)/.test(text)) out.push('one --allowedTools list per Claude step, and no way around it');
   // plates#65: Claude reads the push's diff from a folder of its own (the Brief step writes it there), granted alone; no other directory.
   const addDirs = code(text).flatMap(({ line }) => [...line.matchAll(/--add-dir[ \t]+(.+?)[ \t]*$/g)].map(m => m[1]));
-  if (JSON.stringify(addDirs) !== JSON.stringify(['${{ runner.temp }}/plates-diff'])) out.push(`Claude may read ${addDirs.join(', ') || 'no folder'} beyond the checkout: only the push diff's own folder, \${{ runner.temp }}/plates-diff`);
+  if (addDirs.length !== claudeSteps || addDirs.some(d => d !== '${{ runner.temp }}/plates-diff')) out.push(`Claude may read ${addDirs.join(', ') || 'no folder'} beyond the checkout: only the push diff's own folder, \${{ runner.temp }}/plates-diff, once per Claude step`);
   if (!/cp "\$RUNNER_TEMP\/pr\.diff" "\$RUNNER_TEMP\/plates-diff\/push\.diff"/.test(text) || !/brief --push "\$RUNNER_TEMP\/push\.json" --agent "\$AGENT" --diff "\$RUNNER_TEMP\/plates-diff\/push\.diff"/.test(text)) out.push('the push\'s brief does not point the agent at the diff in the folder it may read');
   // Phase 46: each job asks for its own (crossReviewSandboxProblems holds which); no job may write contents or actions.
   if (!/^permissions: \{\}$/m.test(text)) out.push('the workflow\'s permissions must be {}: each job asks for its own');
@@ -1929,12 +1951,16 @@ export function crossReviewProblems(text) {
   if (!/node "\$review_scripts\/cross-review\.mjs" summary [^\n]*--out "\$RUNNER_TEMP\/review\.json"/.test(text)) out.push('the summary review is not the script\'s (cross-review.mjs summary): its event would be the workflow\'s to get wrong');
   const reviewStep = /\n {6}- name: Review\n[\s\S]*?(?=\n {6}(?:#|- )|$)/.exec(text)?.[0] ?? '';
   if (!/\n\s+timeout-minutes: \$\{\{ fromJSON\(steps\.which\.outputs\.minutes\) \}\}\n/.test(reviewStep) || !/\n\s+uses: anthropics\/claude-code-action@v\d+\n/.test(reviewStep)) out.push('the agent\'s step is not time-boxed by the budget (steps.which.outputs.minutes)');
-  // Phase 45: one agent step per provider, each run only when the config names it; Codex's in its read-only sandbox.
+  // Phase 45: two agent steps per provider: the first, run only when the config names it, and the fallback, run only
+  // when "Could the reviewer start?" hands the review to it; Codex's in its read-only sandbox.
   const agents = stepsOf(text).filter(st => /\n\s+uses:\s*(?:anthropics\/claude-code-action|openai\/codex-action)@/.test(`\n${st}`));
   for (const [provider, action] of [['claude', 'anthropics/claude-code-action'], ['codex', 'openai/codex-action']]) {
     const mine = agents.filter(st => st.includes(`uses: ${action}@`));
-    if (mine.length !== 1) out.push(`${mine.length} ${provider} steps; one`);
-    else if (!mine[0].includes(`\n        if: steps.which.outputs.review == 'true' && steps.which.outputs.agent == '${provider}'\n`)) out.push(`the ${provider} step does not run only when the config names ${provider}`);
+    if (mine.length !== 2) out.push(`${mine.length} ${provider} steps; a first and a fallback`);
+    else {
+      if (!mine[0].includes(`\n        if: steps.which.outputs.review == 'true' && steps.which.outputs.agent == '${provider}'\n`)) out.push(`the ${provider} step does not run only when the config names ${provider}`);
+      if (!mine[1].includes(`\n        if: steps.start.outputs.fallback == '${provider}'\n`)) out.push(`the ${provider} fallback step does not run only when the review is handed to ${provider}`);
+    }
   }
   out.push(...codexStepProblems(text, { sandbox: 'read-only' }));
   if (/pull_request_target/.test(text)) out.push('pull_request_target runs a fork\'s PR with this repo\'s secrets');
@@ -1965,7 +1991,8 @@ test('plates-cross-review.yml runs only for a same-repo PR opened or made ready,
   const which = steps.findIndex(s => s.includes('- name: Which pull request or push?'));
   assert.ok(which > 0);
   assert.match(steps[which], /node "\$review_scripts\/cross-review\.mjs" which --pr "\$RUNNER_TEMP\/pr\.json" --event "\$EVENT"/);
-  for (const s of steps.slice(which + 1)) assert.match(s, /\n {8}if: steps\.which\.outputs\.review == 'true'(?: && steps\.which\.outputs\.agent == '(?:claude|codex)')?\n/, s.split('\n')[0]);
+  // The fallback reviewer's steps wait on "Could the reviewer start?", which waits on the review.
+  for (const s of steps.slice(which + 1)) assert.match(s, /\n {8}if: (?:steps\.which\.outputs\.review == 'true'(?: && steps\.which\.outputs\.agent == '(?:claude|codex)')?|steps\.start\.outputs\.fallback == '(?:claude|codex)')\n/, s.split('\n')[0]);
   assert.deepEqual(crossReviewProblems(t), []);
   // The evaluator itself: each guard in the if: is load-bearing.
   for (const [why, from, to, ctx] of [
@@ -2399,8 +2426,10 @@ export function budgetedAgentSteps(text) {
       next = nameOf(lines[j]);
       let k = j + 1;
       for (; k < lines.length && !(lines[k].trim() && /^(\s*)/.exec(lines[k])[1].length <= indent); k++) if (next === null && /^\s*name:/.test(lines[k])) next = nameOf(lines[k]);
-      if (next !== agent || agent === null) break;
-      next = null; j = k; // another provider's step of this pass: look past it
+      // Another provider's step of this pass, or the fallback's (its start check, its git dir, its brief): look past it.
+      const fallback = next === 'Could the agent start?' || next === 'Could the reviewer start?' || / \(fallback\)$/.test(next ?? '');
+      if ((next !== agent && !fallback) || agent === null) break;
+      next = null; j = k;
     }
     if (!out.some(o => o.agent === agent && o.check === next)) out.push({ agent, check: next });
   }
@@ -2430,8 +2459,8 @@ test('the Budget line\'s step map equals each shipped workflow\'s budgeted claud
   // The reader sees a rename (the step's name is what GitHub's record of a run carries).
   const tend = all.find(w => w.name === 'plates-tend.yml').template;
   assert.match(tend, /^ {6}- name: Tend$/m);
-  // Phase 47: Claude's step and Codex's both carry the name, so a rename renames both.
-  assert.equal(tend.match(/^ {6}- name: Tend$/gm).length, 2);
+  // Phase 47: Claude's step and Codex's both carry the name, and so does Codex's fallback, so a rename renames all three.
+  assert.equal(tend.match(/^ {6}- name: Tend$/gm).length, 3);
   assert.deepEqual(budgetedAgentSteps(tend.replace(/^ {6}- name: Tend$/gm, '      - name: Tend the repo')), [{ agent: 'Tend the repo', check: 'Did the agent run?' }]);
   assert.deepEqual(budgetedAgentSteps(tend.replace(/^ {6}- name: Did the agent run\?$/m, '      - name: Did Claude run?')), [{ agent: 'Tend', check: 'Did Claude run?' }]);
   // An unbudgeted claude-code-action (claude.yml's) is not a budgeted pass.
@@ -2456,7 +2485,8 @@ export function codexEditProblems(text, { step, id, cond }) {
   const named = n => all.findIndex(s => s.startsWith(`- name: ${n}\n`) || new RegExp(`^\\s*- name: ${n.replace(/[?()]/g, '\\$&')}\\n`).test(s));
   for (const [provider, action] of [['claude', 'anthropics/claude-code-action'], ['codex', 'openai/codex-action']]) {
     const mine = all.filter(s => s.includes(`uses: ${action}@`));
-    if (mine.length !== 1) { out.push(`${mine.length} ${provider} steps; one`); continue; }
+    // Codex has a second step: the fallback for a Claude that could not start (checked below).
+    if (mine.length !== (provider === 'codex' ? 2 : 1)) { out.push(`${mine.length} ${provider} steps; ${provider === 'codex' ? 'a first and a fallback' : 'one'}`); continue; }
     if (!mine[0].includes(`\n  if: ${cond} && steps.on.outputs.agent == '${provider}'\n`) && !mine[0].includes(`\n        if: ${cond} && steps.on.outputs.agent == '${provider}'\n`)) out.push(`the ${provider} step does not run only when the pass names ${provider}`);
     if (!new RegExp(`^\\s*- name: ${step}\\n`).test(mine[0])) out.push(`the ${provider} step is not named ${step}: the Budget line finds it by name`);
   }
@@ -2468,10 +2498,24 @@ export function codexEditProblems(text, { step, id, cond }) {
   const jobs = jobsOf(text);
   const agentJob = jobs.find(j => j.text.includes('uses: openai/codex-action@'));
   if (agentJob?.id !== 'agent') out.push(`Codex runs in the ${agentJob?.id} job, not the agent's`);
+  // The fallback (a Claude that could not start hands the pass to Codex): the same step name, its own id and brief, run
+  // only when "Could the agent start?" hands it on. fallbackAgent never names the provider tried, so a Codex fallback
+  // means Claude ran first and the first Codex step was skipped: no Codex has run before it.
+  const fallback = all.findIndex((s, i) => i > codex && s.includes('uses: openai/codex-action@'));
+  const fbGive = named("Give Codex its git dir (fallback)"), start = named("Could the agent start?");
+  if (fallback >= 0) {
+    if (!new RegExp(`^\\s*- name: ${step}\\n`).test(all[fallback])) out.push(`the Codex fallback step is not named ${step}: the Budget line finds it by name`);
+    if (!new RegExp(`\\n\\s+id: ${id}_fallback_codex\\n`).test(all[fallback])) out.push(`the Codex fallback step has no id ${id}_fallback_codex`);
+    if (!all[fallback].includes("\n        if: steps.start.outputs.fallback == 'codex'\n")) out.push('the Codex fallback step does not run only when the pass is handed to Codex');
+    if (stepMap(all[fallback], 'with')['prompt-file'] !== '${{ runner.temp }}/prompt-fallback.md') out.push('the Codex fallback is not given its brief (prompt-fallback.md)');
+    if (start < 0 || start < codex || start > fallback || !/climb\.mjs" agent-start --pass (?:climb|tend) --agent "\$AGENT"/.test(all[start])) out.push('no "Could the agent start?" (climb.mjs agent-start) between the first agent and the fallback');
+    if (fbGive < 0 || fbGive < start || fbGive > fallback) out.push('no plates step gives the Codex fallback its git dir before it runs');
+    else if (!all[fbGive].includes("\n        if: steps.start.outputs.fallback == 'codex'\n") || !/\n {10}rm -rf \.plates\/agent-git\n {10}git init -q --bare \.plates\/agent-git\n/.test(all[fbGive]) || !/info\/exclude/.test(all[fbGive])) out.push('the fallback\'s git dir is not made fresh (rm -rf, git init --bare) and ignored, only for a Codex fallback');
+  }
   const give = named('Give Codex its git dir'), take = named('Take Codex\'s commits, objects only');
   if (give < 0 || give > codex) out.push('no plates step gives Codex its git dir (.plates/agent-git) before it runs');
   else if (!/git init -q --bare \.plates\/agent-git/.test(all[give]) || !/info\/exclude/.test(all[give])) out.push('the git dir is not made, or not ignored, before Codex runs');
-  if (take < 0 || take < codex) return [...out, 'no plates step after Codex takes its commits from its git dir'];
+  if (take < 0 || take < codex || (fallback >= 0 && take < fallback)) return [...out, 'no plates step after Codex takes its commits from its git dir'];
   const t = all[take];
   if (!/\n\s+if: always\(\) && /.test(t)) out.push('the take is not always(): a night whose agent failed keeps no record of its commits');
   if (!/export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=\/dev\/null\n/.test(t)) out.push('the take reads a system or global git config');
@@ -2479,7 +2523,8 @@ export function codexEditProblems(text, { step, id, cond }) {
   if (!/git init -q --bare "\$dst"/.test(t)) out.push('the take does not make its own repo');
   if (!/g merge-base --is-ancestor "\$GITHUB_SHA" "\$tip"/.test(t)) out.push('the take does not refuse a head off the run\'s commit');
   if (/objects\/info\/alternates/.test(t) && !/echo "\$PWD\/\.git\/objects" > "\$dst\/objects\/info\/alternates"/.test(t)) out.push('the take borrows objects from somewhere other than .git');
-  for (const s of all.slice(codex + 1)) for (const line of s.split('\n')) {
+  // After a Codex step, no plates step runs git on its git dir; the fallback's own, made fresh before it, is the one exception.
+  for (const s of all.slice(codex + 1)) if (all.indexOf(s) !== fbGive) for (const line of s.split('\n')) {
     if (/\bgit\b[^\n]*(?:--git-dir[= ]"?(?:\$src|\.plates\/agent-git)|-C "?(?:\$src|\.plates\/agent-git))/.test(line) || /GIT_DIR=/.test(line)) out.push(`a step after Codex runs git on its git dir: ${line.trim()}`);
   }
   const hand = all.findIndex((s, i) => i > take && /git bundle create/.test(s));
@@ -3133,6 +3178,180 @@ test('PR #182: a conditional publish group is fixed only when every job it cover
   const jobLevel = extra => `name: deploy\non: push\njobs:\n  deploy:\n    runs-on: ubuntu-latest\n${extra}    concurrency:\n      group: ${group}\n    steps:\n      - run: ./deploy.sh\n`;
   assert.match(problems(jobLevel('')).join('\n'), /cannot establish/);
   assert.deepEqual(problems(jobLevel('    if: github.run_attempt == 1\n')), []);
+});
+
+test('#212: workflowKind classifies by steps, code-ref triggers, observer roles and "delivery".workflows overrides', () => {
+  // 1. A post-deploy verifier (`verify-deploy.yml` or a workflow running verify.mjs alone) is not a publisher.
+  const verifyDeploy = [
+    'name: Verify deploy',
+    'on:',
+    '  workflow_run:',
+    '    workflows: ["Tests"]',
+    '    types: [completed]',
+    '    branches: [main]',
+    '  workflow_dispatch: {}',
+    'concurrency:',
+    '  group: verify-deploy',
+    '  cancel-in-progress: true',
+    'jobs:',
+    '  verify:',
+    '    runs-on: ubuntu-latest',
+    '    steps:',
+    '      - uses: actions/checkout@v4',
+    '      - name: Check Acme production version',
+    '        run: |',
+    '          # Wait for Acme production to serve the tested SHA',
+    '          curl -fsS https://anvils.acme.example/api/version',
+  ].join('\n');
+  assert.equal(workflowKind('.github/workflows/verify-deploy.yml', verifyDeploy, { gate: 'test.yml', check: 'npm test' }), null);
+  assert.deepEqual(concurrencyProblems('.github/workflows/verify-deploy.yml', verifyDeploy, workflowKind('.github/workflows/verify-deploy.yml', verifyDeploy)), []);
+  assert.equal(workflowKind('.github/workflows/verify-deploy.yml', 'name: Verify deploy\n'), null);
+  const postDeployVerify = 'name: Post-deploy\non:\n  workflow_run:\n    workflows: [Deploy]\njobs:\n  v:\n    runs-on: ubuntu-latest\n    steps:\n      - run: node scripts/plates/verify.mjs "$SHA" --record\n';
+  assert.equal(workflowKind('.github/workflows/post-deploy.yml', postDeployVerify), null);
+
+  // A workflow that actually deploys is held as 'publish', even if it also verifies or has a neutral name.
+  const deployAndVerify = [
+    'name: Deploy and verify',
+    'on:',
+    '  workflow_run:',
+    '    workflows: [plates-publish]',
+    'jobs:',
+    '  ship:',
+    '    runs-on: ubuntu-latest',
+    '    steps:',
+    '      - name: Ship Acme',
+    '        run: | # deploy to production',
+    '          npx --yes vercel@latest deploy --prod --yes',
+    '          node scripts/plates/verify.mjs "$SHA" --record',
+    '        env:',
+    '          ACME: "1"',
+  ].join('\n');
+  assert.equal(workflowKind('.github/workflows/deploy-and-verify.yml', deployAndVerify), 'publish');
+  const pagesShip = 'name: Acme docs\non: push\njobs:\n  p:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/deploy-pages@v4\n';
+  assert.equal(workflowKind('.github/workflows/pages-ship.yml', pagesShip), 'publish');
+
+  // 2. An alerter (`ci-alert.yml`) or off-ref workflow (`workflow_run`, `schedule`, `workflow_dispatch`) is not a test workflow.
+  const ciAlert = [
+    'name: CI alert',
+    'on:',
+    '  workflow_run:',
+    '    workflows: ["Tests", "Deploy"]',
+    '    types: [completed]',
+    '  workflow_dispatch: {}',
+    'jobs:',
+    '  tell-someone:',
+    '    runs-on: ubuntu-latest',
+    '    steps:',
+    '      - run: |',
+    '          curl --fail -s https://anvils.acme.example/hooks/alert -d "failed"',
+  ].join('\n');
+  assert.equal(workflowKind('.github/workflows/ci-alert.yml', ciAlert, { gate: 'test.yml', check: 'npm test' }), null);
+  assert.deepEqual(concurrencyProblems('.github/workflows/ci-alert.yml', ciAlert, workflowKind('.github/workflows/ci-alert.yml', ciAlert)), []);
+  assert.equal(workflowKind('.github/workflows/ci-alert.yml', 'name: CI alert\n'), null);
+  assert.equal(workflowKind('.github/workflows/ci-alert.yml', 'name: CI alert\non: push\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - run: curl -fsS https://anvils.acme.example/hooks/alert\n'), null);
+  assert.equal(workflowKind('.github/workflows/nightly-suite.yml', 'name: journeys\non:\n  schedule:\n    - cron: "0 7 * * *"\n  workflow_dispatch: {}\njobs:\n  j:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n'), null);
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non:\n  - workflow_run\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: curl -fsS https://anvils.acme.example/coverage\n'), null);
+
+  // 3. On code refs (`push`, `pull_request`, `merge_group`), running the test suite or custom check command makes it 'test'.
+  const prSuite = 'name: pr\non: [pull_request, merge_group]\njobs:\n  suite:\n    runs-on: ubuntu-latest\n    steps:\n      - run: "npm run test:ci"\n';
+  assert.equal(workflowKind('.github/workflows/pr.yml', prSuite), 'test');
+  const customGate = 'name: build\non: push # on main\njobs:\n  g:\n    runs-on: ubuntu-latest\n    steps:\n      - run: make acme-check\n';
+  assert.equal(workflowKind('.github/workflows/build.yml', customGate, { check: 'make acme-check' }), 'test');
+  assert.equal(workflowKind('.github/workflows/build.yml', customGate.replace('make acme-check', 'make acme-check:docs'), { check: 'make acme-check' }), null);
+  assert.equal(workflowKind('.github/workflows/build.yml', customGate, { check: '   ' }), null);
+  assert.equal(workflowKind('.github/workflows/quoted-trigger.yml', 'name: build\non: # block\n  "push":\n  - pull_request\njobs:\n  g:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n'), 'test');
+  assert.equal(workflowKind('.github/workflows/commented-step.yml', 'name: note\non: push\njobs:\n  n:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          # npx vercel deploy --prod\n          echo Acme\n'), null);
+
+  // Flow-mapping `on:` triggers and unreadable `on:` forms (#212 review).
+  const flowMapCi = 'name: CI\non: { push: {}, pull_request: {} }\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n';
+  assert.deepEqual(workflowTriggers(flowMapCi), ['push', 'pull_request']);
+  assert.equal(workflowKind('.github/workflows/ci.yml', flowMapCi, { gate: 'ci.yml' }), 'test');
+  assert.equal(workflowKind('.github/workflows/build.yml', flowMapCi.replace('name: CI', 'name: build')), 'test');
+  assert.match(concurrencyProblems('.github/workflows/ci.yml', flowMapCi, workflowKind('.github/workflows/ci.yml', flowMapCi))[0], /no concurrency group/);
+  assert.deepEqual(workflowTriggers('on: { "push": { branches: [main, release] }, \'pull_request\': { types: [opened, synchronize] } } # code refs\n'), ['push', 'pull_request']);
+  assert.deepEqual(workflowTriggers('on: { push: { branches: ["release #1", \'v\'\'2 #1\'] }, pull_request: {} } # refs\n'), ['push', 'pull_request']);
+  assert.deepEqual(workflowTriggers('on:\n  # flow under on:\n  {\n    push: {}, # main\n    pull_request: {},\n  }\n'), ['push', 'pull_request']);
+  assert.deepEqual(workflowTriggers('on:\n  [workflow_dispatch]\n'), ['workflow_dispatch']);
+  assert.deepEqual(workflowTriggers('on:\n  - push # main\n  - pull_request # prs\n'), ['push', 'pull_request']);
+  assert.equal(workflowKind('.github/workflows/nightly.yml', 'name: sweep\non: { workflow_dispatch: {}, schedule: [{ cron: "0 7 * * *" }] }\njobs:\n  s:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n'), null);
+  for (const unreadable of [
+    'on: { push: {}\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n',
+    'on: [push }\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n',
+    'on: { push: {} } extra\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n',
+    'on: { push: {} }x\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n',
+    'on: { push: {} }#extra\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n',
+    'on: { 123: {} }\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n',
+    'on: [push: {}]\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n',
+    'on: *shared_triggers\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n',
+    'on: 123\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n',
+    'on:\n  <<: *shared_triggers\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n',
+  ]) {
+    assert.equal(workflowTriggers(unreadable), null, unreadable);
+    assert.equal(workflowKind('.github/workflows/build.yml', unreadable), 'test', unreadable);
+  }
+
+  // Inline shell `#` comments in `run:` steps (#212 review): excluded outside quotes, preserved inside quotes or mid-word.
+  const commentedPublishNote = [
+    'name: CI',
+    'on: [push, pull_request]',
+    'concurrency:',
+    '  group: ci-${{ github.ref }}',
+    '  cancel-in-progress: true',
+    'jobs:',
+    '  test:',
+    '    runs-on: ubuntu-latest',
+    '    steps:',
+    '      - run: |',
+    '          npm test # npm publish runs in release.yml',
+  ].join('\n');
+  assert.deepEqual(workflowSteps(commentedPublishNote).runs, ['npm test']);
+  assert.deepEqual(workflowSteps('jobs:\n  t:\n    runs-on: ubuntu-latest\n    steps:\n      - run: "# npm publish"\n').runs, []);
+  assert.equal(workflowKind('.github/workflows/ci.yml', commentedPublishNote), 'test');
+  assert.deepEqual(concurrencyProblems('.github/workflows/ci.yml', commentedPublishNote, workflowKind('.github/workflows/ci.yml', commentedPublishNote)), []);
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  t:\n    runs-on: ubuntu-latest\n    steps:\n      - run: "npm test # npm publish runs in release.yml"\n'), 'test');
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  t:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test;# npm publish\n'), 'test');
+  assert.equal(workflowKind('.github/workflows/ship-note.yml', 'name: note\non: push\njobs:\n  s:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          echo "Ship Acme #1" && npx vercel deploy --prod\n'), 'publish');
+  assert.equal(workflowKind('.github/workflows/build.yml', 'name: build\non: push\njobs:\n  b:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          echo "Acme \\" #1" && npm test\n'), 'test');
+  assert.equal(workflowKind('.github/workflows/build.yml', 'name: build\non: push\njobs:\n  b:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          echo \'Acme #1\\\' && npm test # cargo publish\n'), 'test');
+  assert.equal(workflowKind('.github/workflows/build.yml', 'name: build\non: push\njobs:\n  b:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          echo \\"acme && npm test # npm publish\n'), 'test');
+  assert.equal(workflowKind('.github/workflows/build.yml', 'name: build\non: push\njobs:\n  b:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          curl -fsS https://anvils.acme.example/#v1 && npm test\n'), 'test');
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          echo "Acme\n          version #1" && npm publish\n'), 'publish');
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          echo \'Acme\n          version #1\' && npm publish\n'), 'publish');
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          npx vercel \\\n            deploy --prod\n'), 'publish');
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: >-\n          npx vercel\n          deploy --prod\n'), 'publish');
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: >\n          echo Acme # note\n\n          npm publish\n'), 'publish');
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: >\n          echo Acme # note\n            npm publish\n'), 'publish');
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: >2\n\n            echo Acme # note\n          npm publish\n'), 'publish');
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          echo Acme\\ #1 && npm publish\n'), 'publish');
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          printf $\'Acme \\\' #1\\n\' && npm publish\n'), 'publish');
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          echo ${ACME_TAG:-{a} #v1} && npm publish\n'), 'publish');
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          { npm test; # npm publish\n          }\n'), 'test');
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          echo ""#1 && npm publish\n'), 'publish');
+  // A double-quoted YAML scalar's escapes are decoded before shell comments are stripped (#352 review).
+  assert.deepEqual(workflowSteps('jobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: "echo Acme # note\\n npm publish"\n').runs, ['echo Acme \n npm publish']);
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: "echo Acme # note\\n npm publish"\n'), 'publish');
+  // A heredoc body is data: its quotes never change the shell's quote state after the delimiter (#352 review).
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          cat <<\'EOF\'\n          "\n          EOF\n          echo "Acme #1" && npm publish\n'), 'publish');
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          cat <<-ACME > notes.txt # notes\n          \t\'\n          \tACME\n          echo \'Acme #1\' && npm publish\n'), 'publish');
+  assert.equal(workflowKind('.github/workflows/ci.yml', 'name: CI\non: push\njobs:\n  c:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          cat <<EOF\n          "\n          EOF\n          npm test # npm publish\n'), 'test');
+
+  // 4. "delivery".workflows overrides by path, file, stem or workflow name, and deliveryProblems validates it.
+  assert.equal(workflowKind('.github/workflows/verify-deploy.yml', verifyDeploy, { workflows: { '.github/workflows/verify-deploy.yml': 'deploy' } }), 'publish');
+  assert.equal(workflowKind('.github/workflows/verify-deploy.yml', verifyDeploy, { workflows: { 'verify-deploy.yml': 'publish' } }), 'publish');
+  assert.equal(workflowKind('.github/workflows/ci-alert.yml', ciAlert, { workflows: { 'ci-alert': 'test' } }), 'test');
+  assert.equal(workflowKind('.github/workflows/deploy-and-verify.yml', deployAndVerify, { workflows: { 'Deploy and verify': 'none' } }), null);
+  assert.equal(workflowKind('.github/workflows/verify-deploy.yml', verifyDeploy, { workflows: [] }), null);
+  assert.deepEqual(deliveryOf({ delivery: { workflows: { 'ship.yml': 'deploy', 'verify-deploy.yml': 'none', 'pr.yml': 'test' } } }).workflows, { 'ship.yml': 'publish', 'verify-deploy.yml': null, 'pr.yml': 'test' });
+  for (const [workflows, pattern] of [
+    [[], /"delivery"\.workflows must be an object/],
+    [null, /"delivery"\.workflows must be an object/],
+    [{ '': 'test' }, /"delivery"\.workflows key ""/],
+    [{ ' deploy.yml ': 'deploy' }, /"delivery"\.workflows key " deploy\.yml "/],
+    [{ 'a\nb': 'test' }, /"delivery"\.workflows key "a\\nb"/],
+    [{ 'deploy.yml': 'canary' }, /"delivery"\.workflows\["deploy\.yml"\] must be "test", "publish", "deploy" or "none"/],
+  ]) {
+    assert.match(deliveryProblems({ delivery: { workflows } })[0] ?? '', pattern, JSON.stringify(workflows));
+  }
 });
 
 

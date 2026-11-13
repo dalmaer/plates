@@ -85,15 +85,15 @@ import { environmentValue, writeName, branchSuffix } from './names.mjs';
 // the lessons table, and any finding decided tonight: deciding is the owner's
 // (lesson 53). Loop unreachable is a notice, never red.
 import { denialEvidence, durations, completion } from './climb-execution.mjs';
-import { readFile, readdir, writeFile, mkdir, mkdtemp, rm, symlink, stat, open, rename } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { readFile, readdir, writeFile, mkdir, mkdtemp, rm, cp, realpath, stat, lstat, readlink, symlink, open, rename } from 'node:fs/promises';
+import { homedir, tmpdir } from 'node:os';
+import { constants, existsSync, readFileSync, rmSync, lstatSync, readlinkSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
-import { join, resolve, dirname, isAbsolute, normalize, sep } from 'node:path';
+import { join, resolve, dirname, relative, parse, isAbsolute, normalize, sep } from 'node:path';
 import { performance } from 'node:perf_hooks';
-import { gateEnv, healthDirOf, cells, isMain, rootOf, main, climbRetiring, passAgentProblems, agentGitArgs, codexVerdict } from './lib.mjs';
+import { gateEnv, healthDirOf, cells, isMain, rootOf, main, climbRetiring, passAgentProblems, agentGitArgs, codexVerdict, startFailureKind, startFailure, fallbackAgent, fallbackLine, listedAgents, fallbackMinutes, FALLBACK_MIN_MINUTES } from './lib.mjs';
 import { readRuns, flaky, testsConfigOf, aloneCommand, KEEP } from './test-ledger.mjs';
 import { prBody } from './pr-body.mjs';
 import { tendConfigOf, tendPick, tendInput, openPass, tendNote, tendGuard, tendReport, tendPage, worksheetText, PASS, sandboxProblems, tendCheck, scriptsChanged, treeState, heldProblems, changesOf, pathsOf, SAFE_GIT, OFF_LIMITS, INSTALL_FILES, recordBase } from './tend.mjs';
@@ -292,6 +292,31 @@ function git(cwd, args, { allowFail = false } = {}) {
   return allowFail ? r : r.stdout.trim();
 }
 const sha = (root, ref) => git(root, ['rev-parse', '--verify', `${ref}^{commit}`]);
+
+/**
+ * A print of the working tree's content, not just its status (Codex on #400): HEAD,
+ * the staged and unstaged diffs against it, the status, and each untracked (not
+ * ignored) file's content. An edit to a file that was already dirty or untracked
+ * changes it, so a writer that touched anything never hands its pass on. Anything
+ * it cannot read prints uniquely: never equal, so never handed on.
+ */
+export function contentPrint(root) {
+  try {
+    const h = createHash('sha256');
+    const add = (label, text) => h.update(`${label}\0${text}\0`);
+    const raw = args => { const r = git(root, args, { allowFail: true }); if (r.status !== 0) throw new Error(args[0]); return r.stdout; };
+    add('head', raw(['rev-parse', 'HEAD']));
+    add('status', raw(['status', '--porcelain=v1', '-z', '--untracked-files=all']));
+    add('staged', raw(['diff', '--binary', '--no-ext-diff', '--no-textconv', '--cached', 'HEAD']));
+    add('unstaged', raw(['diff', '--binary', '--no-ext-diff', '--no-textconv']));
+    for (const path of raw(['ls-files', '-z', '--others', '--exclude-standard']).split('\0').filter(Boolean)) {
+      const full = join(root, path);
+      const st = lstatSync(full);
+      add(path, st.isSymbolicLink() ? `link:${readlinkSync(full)}` : st.isFile() ? createHash('sha256').update(readFileSync(full)).digest('hex') : 'other');
+    }
+    return h.digest('hex');
+  } catch { return `unreadable-${process.pid}-${Date.now()}-${Math.random()}`; }
+}
 const isAncestor = (root, a, b) => git(root, ['merge-base', '--is-ancestor', a, b], { allowFail: true }).status === 0;
 const median = xs => { const s = [...xs].sort((a, b) => a - b), h = s.length >> 1; return s.length % 2 ? s[h] : (s[h - 1] + s[h]) / 2; };
 const mean = xs => xs.reduce((a, b) => a + b, 0) / xs.length;
@@ -843,15 +868,141 @@ async function dropWorktree(root, dir) {
   await rm(dir, { recursive: true, force: true });
 }
 
+const within = (p, base) => `${p}${sep}`.startsWith(`${base}${sep}`);
+const mapped = (cloned, p, hit = [...cloned].find(([s]) => within(p, s))) => (hit ? join(hit[1], relative(hit[0], p)) : null);
+
+/**
+ * The source tree a package outside the checkout belongs to (#362 follow-up): its source may reach a sibling by a
+ * relative path (packages/linked/index.cjs requires ../shared/value.cjs), so the clone is of the whole tree, laid out
+ * as it is. The tree is the nearest folder above the package that is a workspace root (a package.json with
+ * "workspaces", a pnpm-workspace.yaml or a lerna.json) or holds a node_modules (where the package's own imports
+ * resolve), within its git top level; else that top level; else the package alone. Never the home folder, the
+ * filesystem's root, or a folder that holds the checkout.
+ */
+async function linkedTree(pkgReal, rootReal) {
+  if (!(await lstat(pkgReal).catch(() => null))?.isDirectory()) return pkgReal;
+  const top = git(pkgReal, ['rev-parse', '--show-toplevel'], { allowFail: true });
+  const topReal = top.status === 0 && top.stdout.trim() ? await realpath(top.stdout.trim()).catch(() => null) : null;
+  const ok = p => p !== dirname(p) && p !== homedir() && p !== rootReal && !within(rootReal, p) && (!topReal || p === topReal || within(p, topReal));
+  const marks = async p => {
+    if (existsSync(join(p, 'pnpm-workspace.yaml')) || existsSync(join(p, 'lerna.json')) || existsSync(join(p, 'node_modules'))) return true;
+    const pkg = await readFile(join(p, 'package.json'), 'utf8').then(JSON.parse).catch(() => null);
+    return Boolean(pkg?.workspaces);
+  };
+  for (let p = dirname(pkgReal); ok(p); p = dirname(p)) {
+    if (await marks(p)) return p;
+    if (p === topReal) break;
+  }
+  return topReal && ok(topReal) && within(pkgReal, topReal) ? topReal : pkgReal;
+}
+
+async function cloneInstall(rootReal, dirReal, cloned, from, to, rebound = new Set()) {
+  const srcRoot = await realpath(from);
+  const existing = mapped(cloned, srcRoot);
+  if (existing) {
+    await symlink(relative(dirname(to), existing), to);
+    return;
+  }
+  await cp(srcRoot, to, { recursive: true, verbatimSymlinks: true, mode: constants.COPYFILE_FICLONE });
+  const toReal = await realpath(to), extRoot = join(toReal, '.plates-climb-ext');
+  const mapExt = p => join(extRoot, relative(parse(p).root, p));
+  cloned.set(srcRoot, toReal);
+  async function cloneExt(extReal, whole = true) {
+    const hit = mapped(cloned, extReal);
+    if (hit) return hit;
+    // The package's whole source tree, so a relative import of a sibling resolves in the clone as in the original.
+    // An ancestor's node_modules (below) is an install, cloned alone.
+    const tree = whole ? await linkedTree(extReal, rootReal) : extReal;
+    const dest = mapExt(tree);
+    // What this worktree cloned already inside the tree (an install, or a subtree a link reached first) is not copied
+    // twice: the tree names that clone, so a module imported both ways is one module. Only the outermost such clones
+    // count (#383 review: one inside another is reached through it). A subtree cloned first sits where the tree's clone
+    // puts it (mapExt keeps the absolute layout), so it is kept as it is, its links already fixed; any other is linked.
+    const inside = [...cloned.keys()].filter(s => within(s, tree));
+    const outer = inside.filter(s => !inside.some(o => o !== s && within(s, o)));
+    const placed = new Set(outer.map(s => cloned.get(s)).filter((d, i) => d === join(dest, relative(tree, outer[i]))));
+    cloned.set(tree, dest);
+    await mkdir(dirname(dest), { recursive: true });
+    await cp(tree, dest, { recursive: true, force: true, verbatimSymlinks: true, mode: constants.COPYFILE_FICLONE,
+      filter: src => !src.endsWith(`${sep}.git`) && !outer.includes(src) });
+    if ((await lstat(dest)).isDirectory()) await fixLinks(tree, dest, tree, dest, placed);
+    for (const s of outer) {
+      const at = join(dest, relative(tree, s));
+      if (placed.has(at) || await lstat(at).catch(() => null)) continue;
+      await mkdir(dirname(at), { recursive: true });
+      await symlink(relative(dirname(at), cloned.get(s)), at);
+    }
+    for (let anc = dirname(tree); anc !== dirname(anc); anc = dirname(anc)) {
+      const ancNm = join(anc, 'node_modules');
+      const ancNmReal = await realpath(ancNm).catch(() => null);
+      if (!ancNmReal) continue;
+      const dstAncNm = mapExt(ancNm), targetNm = await cloneExt(ancNmReal, false);
+      if (targetNm !== dstAncNm && !(await lstat(dstAncNm).catch(() => null))) {
+        await mkdir(dirname(dstAncNm), { recursive: true });
+        await symlink(relative(dirname(dstAncNm), targetNm), dstAncNm);
+      }
+    }
+    return join(dest, relative(tree, extReal));
+  }
+  // `placed`: clones already inside rootDst, whose links were fixed when they were made; left as they are.
+  async function fixLinks(rootSrc, rootDst, curSrc = rootSrc, curDst = rootDst, placed = new Set()) {
+    for (const e of await readdir(curDst, { withFileTypes: true })) {
+      if (e.name === '.plates-climb-ext') continue;
+      const srcPath = join(curSrc, e.name), dstPath = join(curDst, e.name);
+      if (placed.has(dstPath)) continue;
+      if (e.isDirectory()) { await fixLinks(rootSrc, rootDst, srcPath, dstPath, placed); continue; }
+      if (!e.isSymbolicLink()) continue;
+      const lex = resolve(dirname(srcPath), await readlink(srcPath));
+      const inRoot = within(lex, rootSrc);
+      const real = inRoot ? lex : await realpath(srcPath).catch(() => null);
+      if (!real) continue;
+      const inCheckout = !inRoot && !mapped(cloned, real) && within(real, rootReal);
+      if (inCheckout) rebound.add(relative(rootReal, real));
+      const target = inRoot ? join(rootDst, relative(rootSrc, lex))
+        : mapped(cloned, real) ?? (inCheckout ? join(dirReal, relative(rootReal, real)) : await cloneExt(real));
+      await rm(dstPath, { force: true });
+      await symlink(relative(dirname(dstPath), target) || '.', dstPath);
+    }
+  }
+  await fixLinks(srcRoot, toReal);
+}
+
 async function worktree(root, dir, ref) {
   git(root, ['worktree', 'add', '--detach', '--quiet', dir, ref]);
   // The candidate adds no dependency (protocol rule 4; the sandbox refuses an
-  // install file), so both sides share the tree's installs: the root's and
-  // each app or workspace folder's own (ledger's web/node_modules, from
-  // `npm ci --prefix web`), where the worktree has that folder.
+  // install file), so each worktree gets its own cloned copy of the tree's
+  // installs (#90: never a shared symlink where the base's gate can leave a
+  // cache or mutated file for the candidate): the root's and each app or
+  // workspace folder's own (ledger's web/node_modules, from `npm ci --prefix
+  // web`), where the worktree has that folder.
+  const rootReal = await realpath(root), dirReal = await realpath(dir), cloned = new Map(), rebound = new Set();
   for (const d of ['.', ...await packageDirs(root)]) {
     const from = join(root, d, 'node_modules'), to = join(dir, d, 'node_modules');
-    if (existsSync(from) && existsSync(join(dir, d)) && !existsSync(to)) await symlink(from, to, 'dir');
+    if (existsSync(from) && existsSync(join(dir, d)) && !existsSync(to)) {
+      await cloneInstall(rootReal, dirReal, cloned, from, to, rebound);
+    }
+  }
+  // An install link into the checkout (a workspace package) now names the worktree's own folder, where git made
+  // only the tracked source: its ignored build output (packages/ws/dist, which the package exports) is copied in too.
+  for (const rel of rebound) await copyIgnoredOutput(rootReal, dirReal, rel);
+}
+
+/**
+ * The checkout's ignored files under `rel` (a folder an install link names), copied into the worktree (#362 review):
+ * a clone each side owns, never a link the base's gate could write through. Never over what the worktree's commit
+ * has, never an install (each is cloned, its links fixed, on its own), and only where the worktree has the folder.
+ * A link to the checkout's root is not a package: nothing is copied for it.
+ */
+async function copyIgnoredOutput(rootReal, dirReal, rel) {
+  if (!rel || rel.split(sep).includes('..')) return;
+  const listed = git(rootReal, ['ls-files', '-z', '--others', '--ignored', '--exclude-standard', '--directory', '--', rel], { allowFail: true });
+  if (listed.status !== 0) return;
+  for (const entry of listed.stdout.split('\0').filter(Boolean)) {
+    const path = entry.replace(/\/$/, '');
+    if (path.split('/').includes('node_modules')) continue;
+    const from = join(rootReal, path), to = join(dirReal, path);
+    if (existsSync(to) || !existsSync(dirname(to))) continue;
+    await cp(from, to, { recursive: true, verbatimSymlinks: true, mode: constants.COPYFILE_FICLONE });
   }
 }
 
@@ -1952,15 +2103,23 @@ export function agentVerdict({ outcome, result, elapsedSec, minutes, evidence })
 export const ERROR_CHARS = 300;
 export function errorText(result) {
   const pick = v => (typeof v === 'string' ? v : v && typeof v === 'object' && typeof v.message === 'string' ? v.message : null);
-  const parts = [pick(result?.result), pick(result?.error), pick(result?.message)].filter(x => x && x.trim());
+  // The SDK's error result (error_during_execution) carries its text in `errors: string[]`: read a bounded few of them too.
+  const errors = Array.isArray(result?.errors) ? result.errors.slice(0, 8).map(pick) : [];
+  const parts = [pick(result?.result), pick(result?.error), pick(result?.message), ...errors].filter(x => x && x.trim());
   const text = [...new Set(parts.map(x => x.replace(/\s+/g, ' ').trim()))].join(' | ');
   return text.length > ERROR_CHARS ? `${text.slice(0, ERROR_CHARS - 1)}…` : text;
 }
 
-/** Which of the two likely causes the error text names: the secret, the model, or (unnamed) both to check. */
+/**
+ * Which cause the error text names (lib.mjs startFailureKind), so the owner knows what to do:
+ * credit (top up), a rate limit (wait), the secret (rotate), the model, or (unnamed) both to check.
+ */
 export function errorCause(text) {
-  if (/\b(401|403)\b|auth|token|credential|api[ _-]?key|oauth|unauthori[sz]ed|forbidden|permission|login|billing|credit/i.test(text ?? '')) return 'the secret was refused: check CLAUDE_CODE_OAUTH_TOKEN (claude setup-token) or ANTHROPIC_API_KEY';
-  if (/\bmodel\b|not[ _]found|\b404\b/i.test(text ?? '')) return 'the model was refused: check the model the action asks for (none is pinned here; the action\'s default)';
+  const kind = startFailureKind(text);
+  if (kind === 'credit') return 'its credit, billing or quota ran out: top up the account behind CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY (the secret itself was accepted)';
+  if (kind === 'rate') return 'it was rate-limited or overloaded at the start: wait, or raise the account\'s rate limit';
+  if (kind === 'auth') return 'the secret was refused: check CLAUDE_CODE_OAUTH_TOKEN (claude setup-token) or ANTHROPIC_API_KEY';
+  if (kind === 'model') return 'the model was refused: check the model the action asks for (none is pinned here; the action\'s default)';
   return 'check the secret / model';
 }
 
@@ -2000,10 +2159,50 @@ export async function agentRan({ outcome, file, minutes, started, agent, now = D
   return { state: verdict.ok ? 'executed' : 'blocked', evidence, denials: denialEvidence(result), outcome: outcome ?? null, result: result ? { is_error: Boolean(result.is_error), num_turns: Number.isSafeInteger(result.num_turns) ? result.num_turns : null, duration_ms: Number.isFinite(result.duration_ms) ? result.duration_ms : null, subtype: ['success', 'error_max_turns', 'error_during_execution'].includes(result.subtype) ? result.subtype : null } : null, elapsedSec: Number.isFinite(elapsedSec) ? Math.round(elapsedSec) : null, ...verdict };
 }
 
+/**
+ * Whether the agent of a climb or tend pass could start, and who runs it
+ * instead when it could not (the owner's rule: a provider whose credit is low
+ * or whose secret is refused hands the pass on, never fails it): { agent,
+ * fallback, note, kind, line }. The fallback is the next provider "agents"
+ * lists for `pass` with its secret (`has`: the workflow's HAS_ variables),
+ * never one tried. Only a start failure hands over (lib.mjs startFailure): a
+ * run that started, ran out its budget or stopped with a real error stays
+ * with its provider, and agent-ran judges it as before. These passes write,
+ * so only a start failure plates can read hands over (Claude's credit, secret
+ * or rate limit at its first turn): an unread one (no result, or Codex's
+ * empty final message) may be a crash after the agent changed files, so it
+ * stays red. The workflow also hands over only on a clean working tree; the
+ * fallback starts from the same branch the first was given. The handoff keeps
+ * the original deadline: the fallback gets only the whole minutes left of the
+ * budget (`minutes`), and none at all when fewer than FALLBACK_MIN_MINUTES are.
+ */
+export async function agentStart({ config, pass, outcome, file, minutes, started, agent = 'claude', has, now = Date.now() }) {
+  const ran = await agentRan({ outcome, file, minutes, started, agent, now });
+  const stay = { agent, fallback: null, note: null, kind: null, minutes: null, line: ran.line };
+  const fallback = fallbackAgent({ order: listedAgents(config), tried: [agent], has, pass });
+  if (ran.ok || ran.evidence === 'oversized' || ran.denials?.count || !fallback) return stay;
+  const raw = file ? await readFile(file, 'utf8').catch(() => null) : null;
+  const result = agent === 'claude' ? lastResult(raw) : null;
+  const text = result ? errorText(result) : '';
+  const elapsedSec = Number.isFinite(started) ? now / 1000 - started : NaN;
+  const failure = startFailure({ agent, outcome, result, text, message: agent === 'codex' ? raw : null, elapsedSec, minutes });
+  if (!failure || failure.kind === 'unread') return stay;
+  const left = fallbackMinutes({ minutes, elapsedSec });
+  if (!left) return { ...stay, line: `${ran.line} Not handed on: less than ${FALLBACK_MIN_MINUTES} minutes are left of the ${minutes}-minute budget.` };
+  const note = fallbackLine({ from: agent, to: fallback, failure, text, doing: pass === 'tend' ? 'tended' : 'climbed' });
+  return { agent: fallback, fallback, note, kind: failure.kind, minutes: left, line: `${note} It has the ${left} minutes left of the budget.` };
+}
+
+/** Which providers' secrets the workflow says are set ({ claude: true, codex: false }), from HAS_CLAUDE and HAS_CODEX; undefined when it says none. */
+const hasOf = env => {
+  const named = ['claude', 'codex'].filter(n => env[`HAS_${n.toUpperCase()}`] !== undefined && env[`HAS_${n.toUpperCase()}`] !== '');
+  return named.length ? Object.fromEntries(named.map(n => [n, env[`HAS_${n.toUpperCase()}`] === 'true'])) : undefined;
+};
+
 // ---- the command line ------------------------------------------------------------
 
-const USAGE = 'usage: node scripts/plates/climb.mjs config|pick|measure <job>|compare|prove-steady|harmless|revert|settle|guard|sandbox|held|report|agent-ran|distill [propose]|loop-pull|tend-pick|tend-input|tend-note|tend-page|tend-report [--json]';
-const FLAGS = { '--date': 'date', '--runs': 'runs', '--rounds': 'rounds', '--base': 'base', '--head': 'head', '--candidate': 'candidate', '--what': 'what', '--why': 'why', '--input': 'input', '--body': 'body', '--test': 'test', '--path': 'path', '--job': 'job', '--issue': 'issue', '--outcome': 'outcome', '--file': 'file', '--minutes': 'minutes', '--started': 'started', '--agent': 'agent', '--finding': 'finding', '--propose': 'propose', '--tried': 'tried', '--last-night': 'lastNight', '--since': 'since', '--plan': 'plan',
+const USAGE = 'usage: node scripts/plates/climb.mjs config|pick|measure <job>|compare|prove-steady|harmless|revert|settle|guard|sandbox|held|report|agent-ran|agent-start --pass climb|tend|tree-print|distill [propose]|loop-pull|tend-pick|tend-input|tend-note|tend-page|tend-report [--json]';
+const FLAGS = { '--date': 'date', '--runs': 'runs', '--rounds': 'rounds', '--base': 'base', '--head': 'head', '--candidate': 'candidate', '--what': 'what', '--why': 'why', '--input': 'input', '--body': 'body', '--test': 'test', '--path': 'path', '--job': 'job', '--issue': 'issue', '--outcome': 'outcome', '--file': 'file', '--minutes': 'minutes', '--started': 'started', '--agent': 'agent', '--pass': 'pass', '--finding': 'finding', '--propose': 'propose', '--tried': 'tried', '--last-night': 'lastNight', '--since': 'since', '--plan': 'plan',
   // distill propose (lessons)
   '--kind': 'kind', '--name': 'name', '--rule': 'rule', '--guard': 'guard', '--rows': 'rows', '--row': 'row', '--shape': 'shape', '--cost': 'cost', '--check': 'check', '--family': 'family', '--note': 'note', '--read': 'read' };
 const SWITCHES = { '--force': 'force', '--baseline': 'baseline', '--decide': 'decide', '--final': 'final', '--state': 'state', '--record': 'record' };
@@ -2046,6 +2245,17 @@ export async function cli(args, { root = rootOf(import.meta), env = process.env 
     case 'agent-ran': {
       const r = await agentRan({ outcome: o.outcome, file: o.file ? resolve(o.file) : undefined, minutes: o.minutes, started: o.started, agent: o.agent });
       return { data: r, text: r.ok ? r.line : `::error::${r.line}`, exitCode: r.ok ? 0 : 1 };
+    }
+    case 'tree-print': {
+      // The checkout it is run in (the kept copy of this script lives outside it, in RUNNER_TEMP).
+      const print = contentPrint(process.cwd());
+      return { data: { print }, text: print };
+    }
+    case 'agent-start': {
+      if (o.pass !== 'climb' && o.pass !== 'tend') throw new ClimbError('agent-start needs --pass climb or --pass tend');
+      if (o.agent !== undefined && o.agent !== 'claude' && o.agent !== 'codex') throw new ClimbError(`agent-start --agent must be claude or codex (got ${o.agent})`);
+      const r = await agentStart({ config, pass: o.pass, outcome: o.outcome, file: o.file ? resolve(o.file) : undefined, minutes: o.minutes, started: o.started, agent: o.agent ?? 'claude', has: hasOf(env) });
+      return { data: r, text: r.fallback ? `::warning::${r.note}` : `the agent stays ${r.agent}` };
     }
     case 'tend-pick': {
       const p = await tendPick({ ...ctx, date: o.date });
