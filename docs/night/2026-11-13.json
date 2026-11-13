@@ -50,8 +50,11 @@
       "budget": {
         "minutes": 45
       },
-      "status": "planned",
-      "result": null
+      "status": "done",
+      "result": {
+        "note": "climb test-time 2026-11-13: kept 1 of 1 tried; `node --import ./tests/helpers/hermetic.mjs --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/plates/test-ledger.mjs --test-reporter-destination=stdout tests/improve.test.mjs` 32.0 s → 24.5 s (−23.4%); 57 min",
+        "link": "https://github.com/dalmaer/plates/pull/404"
+      }
     },
     {
       "id": "persona-performance--published-package",
