@@ -1,17 +1,15 @@
 {
   "schema": 1,
-  "date": "2026-11-12",
+  "date": "2026-11-13",
   "shapedBy": "default",
   "readyBy": null,
   "willNotTouch": [],
   "settledToday": [],
-  "leftOpen": [
-    "climb: every job waits for its open plates-climb/<job>/ PR: test-time"
-  ],
+  "leftOpen": [],
   "items": [
     {
       "id": "measures",
-      "title": "Measure the practice: 41 measures; outside or broken on 2026-11-11: drafts_waiting, long_files, phases_without_issue, phases_stuck, proofs_hold, escapes, lessons_without_guard, inbox_waiting, issues_unnamed, reviews_unanswered, dependency_age, failures_untaught",
+      "title": "Measure the practice: 41 measures; outside or broken on 2026-11-12: drafts_waiting, long_files, phases_without_issue, phases_stuck, proofs_hold, escapes, lessons_without_guard, inbox_waiting, issues_unnamed, reviews_unanswered, dependency_age, failures_untaught",
       "kind": "measure",
       "source": "default",
       "number": null,
@@ -19,13 +17,13 @@
       "budget": null,
       "status": "done",
       "result": {
-        "note": "11 ok, 12 outside, 18 n/a, 0 broken",
-        "link": "docs/health/2026-11-12.md"
+        "note": "13 ok, 10 outside, 18 n/a, 0 broken",
+        "link": "docs/health/2026-11-13.md"
       }
     },
     {
       "id": "health-phases-without-issue",
-      "title": "Proposal from 2026-11-11: Open issues on dalmaer/plates for phases 50, 88, 94, 98, 99, 100, 101, 102, 103, 104 and 49 more and set `issue:` in each one's front matter.",
+      "title": "Proposal from 2026-11-12: Open issues on dalmaer/plates for phases 50, 88, 94, 98, 99, 100, 101, 102, 103, 104 and 49 more and set `issue:` in each one's front matter.",
       "kind": "review",
       "source": "health:phases_without_issue",
       "number": {
@@ -39,8 +37,25 @@
       "result": null
     },
     {
+      "id": "climb-test-time",
+      "title": "Climb test-time: rotation, after test-time; no measure tied to a job is outside its bound",
+      "kind": "build",
+      "source": "default",
+      "number": {
+        "measure": "slow_tests",
+        "bound": 0,
+        "better": "lower"
+      },
+      "lane": "climb:test-time",
+      "budget": {
+        "minutes": 45
+      },
+      "status": "planned",
+      "result": null
+    },
+    {
       "id": "persona-performance--published-package",
-      "title": "published package: back to at most 1000kB (measured 2483kB)",
+      "title": "published package: back to at most 1000kB (measured 2535kB)",
       "kind": "triage",
       "source": "persona:performance",
       "number": {
