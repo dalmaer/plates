@@ -10,5 +10,6 @@
   { "repo": "dalmaer/family-hub", "kind": "node", "role": "managed", "note": "Already adopted with CI and night practices; current installation and verification are read from the project." },
   { "repo": "dalmaer/switchboard", "kind": "node", "role": "managed", "note": "Already adopted with CI and night practices; current installation and verification are read from the project." },
   { "repo": "dalmaer/homeroom", "kind": "node", "role": "managed", "note": "Initialised by plates init on 0.8.38 (2 Nov 2026); risk tolerance High, landing on main." },
-  { "repo": "dalmaer/park", "kind": "node", "role": "managed", "note": "Initialised by plates init on 0.8.38 (11 Nov 2026): an offline-first iOS app built with Exact (expo/exact); check.yml ejected to install dependencies." }
+  { "repo": "dalmaer/park", "kind": "node", "role": "managed", "note": "Initialised by plates init on 0.8.38 (11 Nov 2026): an offline-first iOS app built with Exact (expo/exact); check.yml ejected to install dependencies." },
+  { "repo": "dalmaer/cake", "kind": "node", "role": "managed", "note": "Initialised by plates init on 0.8.38 (13 Nov 2026): birthdays and anniversaries from Ledger, built with Exact (expo/exact) for the web and the iPhone as park is; check.yml ejected to install dependencies." }
 ]
