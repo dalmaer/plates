@@ -394,6 +394,12 @@ transport stays separate from the independent acceptance authority.
 - **Policy: autonomy, capacity, doors:** `plates autonomy`. Capacity and door
   policy have no verb of their own.
 
+The passive agent-quality increment (2 November 2026) adds four flags to the
+existing retro surface: bounded supplied PR metadata, candidate limit, previous
+report and reference mix. Plates owns these private evidence and judgment records.
+The retained local execution prototype remains unexposed pending review of an
+adopted execution boundary; it grants no process, provider or scheduling authority.
+
 ## Rules plates holds itself to
 
 **Tests earn their cost (11 October 2026, phase 69).** Consolidation preserves

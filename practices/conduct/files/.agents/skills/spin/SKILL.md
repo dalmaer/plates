@@ -92,6 +92,33 @@ Then read, in this order:
 
 Note the wall clock. The commit records what a phase cost.
 
+**Optional local quality capture.** (why: Retrospective metadata cannot recover missing stage boundaries or exact review inputs.) When this task has an explicitly enabled
+`PLATES_QUALITY_BINDING`, use the installed CLI's `retro quality` workflow to
+record the phase as one task episode before assignment. Freeze the actual
+acceptance, context and workflow hashes and known passport labels; unavailable
+model versions, charges and labels stay unknown. Work already underway must be
+marked retrospective. The private manifest, state and event files stay outside
+Git; never include task text, prompts or transcripts in them.
+
+Record `planning`, `coding`, `review` and `iteration` start/finish boundaries as
+they actually occur. `plates retro quality lifecycle --record <event-file>
+--manifest <manifest> --state <state>` previews an event; apply the same input
+with `--yes --digest <preview-digest>`. Use stable attempt IDs, preserve failed or
+denied attempts, and link each review or revision to the exact prior checkpoint.
+Record command and GUI stage boundaries from actual conductor observations;
+the binding does not automatically instrument an app. The local execution
+prototype is not exposed and grants no command authority or model budget.
+
+With the same binding, ordinary `plates review <repo>#<number>` can retain
+already-read exact-head review metadata when that PR is explicitly linked to
+the episode and its content matches a captured coding checkpoint. Read the
+reported capture status: a missing join is a gap. Review identity stays unknown
+unless observed separately. A completed command or posted review does not prove
+acceptance; independent adjudication and delayed outcomes remain separate.
+See the CLI's agent-quality adapter and lifecycle guides for the strict input
+formats. If the installed CLI lacks these commands, report capture unsupported
+and continue the already authorized phase; do not invent observations.
+
 Keep the conductor's own context lean, because it outlives every builder:
 
 - Send long output to a file and read the lines that matter (`grep -E "fail|not ok|# pass"`).

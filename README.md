@@ -396,6 +396,7 @@ then gives the commands and every flag by the reason you'd pass it.
 | [When something is red](docs/guide/when-something-is-red.md) | a night, an update, a doctor or a climb did not go green |
 | [Project canvas](docs/guide/project-canvas.md) | you want a source-linked view of the project's lifecycle and improvement |
 | [Harness evaluation records](docs/guide/harness-evaluations.md) | you want to inspect historical cases, freeze inputs, compare trials and inspect bounded live execution and recovery |
+| [Agent quality](docs/guide/agent-quality.md) | you want private stage and project scorecards, evidence gaps and weekly observations |
 | [Session handoff trials](docs/guide/session-handoff-trials.md) | you want to measure and tune session handoffs within a bounded experiment |
 | [Loose ends and the retro](docs/guide/loose-ends-and-retro.md) | you are picking work back up, or a phase just finished |
 | [Model choice and project planning](docs/guide/web-model-routing.md) | you want to review a private model policy, approve exact project text and bounded cost, or follow an original attempt and saved-summary continuation |
@@ -452,6 +453,7 @@ Every verb takes `--json`. Exit codes are the same everywhere:
 | `plates goodnight` | You shape tonight's plan: what was settled and left open, the default plan, things to try; add, drop, edit, budget or skip items; `--yes` pushes it to the plan branch |
 | `plates morning` | The night's brief: done, tried, failed and why, left alone, your next; `--send` opens the assigned "Good morning" issue, once a night; `--card` keeps the plan as a live canvas card |
 | `plates retro sessions` | Reserve and record bounded handoff trials; audit, promote and roll back within an explicit envelope (`plates improve --sessions` reads the same evidence) |
+| `plates retro quality` | Inspect a local retrospective baseline, collect private task metadata and report agent quality by stage and project without model spend |
 | `plates retro` | After a phase that changed more than docs: a worksheet from the session's transcript (counts and pointers, never its text) and seven areas to answer; the owner picks what becomes a check |
 | `plates shape check\|render\|plan` | Validate and render local shaping records; write drafts with `--yes --digest <reviewed-digest>` |
 | `plates decision context` | Read scoped decisions for `--phase <id>` or `--issue <owner/repo#n>`; refresh before dispatch or resume |
@@ -587,3 +589,10 @@ aggregate resume and hosted activation remain unavailable. No promotion policy i
 activated and no paid evaluations are approved. The
 [capability map](docs/research/2026-10-23-evaluation-capabilities.md) separates
 existing mechanisms from the proposed extensions.
+
+`plates retro quality` adds private, metadata-only observations and stage/project
+scorecards. It reports missing identity, acceptance, cost and follow-up evidence;
+commit history is an unmapped retrospective candidate, never verified agent
+performance. Weekly reports can run through an existing reporting routine. Paid
+replay and automatic routing remain disabled. See the
+[agent quality guide](docs/guide/agent-quality.md).

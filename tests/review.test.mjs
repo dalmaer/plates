@@ -1470,3 +1470,25 @@ for (const alias of ['PLATES','KEEL']) test(`phase128 REVIEW_POLL_MS ${alias} dr
   });
   assert.deepEqual(waits,[23]); assert.equal(result.data.waited.timedOut,true);
 });
+
+test('optional quality observer loads only for an explicit binding and its gap preserves the review read', async t => {
+  const dir = await project(t), gh = await stubGh(t, { reviews: [ON_HEAD] });
+  const plain = plates(dir, gh, ['acme/app#3', '--json']);
+  assert.equal(plain.code, 0, plain.err + plain.out);
+  assert.equal(Object.hasOwn(plain.json(), 'qualityObservation'), false);
+  const bound = plates(dir, gh, ['acme/app#3', '--json'], { PLATES_QUALITY_BINDING: join(dir, 'missing-private-binding.json') });
+  assert.equal(bound.code, 0, bound.err + bound.out);
+  assert.equal(bound.json().head, plain.json().head);
+  assert.equal(bound.json().ok, true);
+  assert.deepEqual(bound.json().qualityObservation, { status: 'gap', reason: 'quality-review-observation-unavailable' });
+  assert.equal(writesIn(await gh.calls()).length, 0);
+});
+
+test('review gates never load the optional quality observer even with a private binding', async t => {
+  const dir = await project(t), gh = await stubGh(t, { reviews: [ON_HEAD] });
+  const gated = plates(dir, gh, ['acme/app#3', '--gate', '--json'], { PLATES_QUALITY_BINDING: join(dir, 'missing-private-binding.json') });
+  assert.equal(gated.code, 0, gated.err + gated.out);
+  assert.equal(gated.json().ok, true);
+  assert.equal(Object.hasOwn(gated.json(), 'qualityObservation'), false);
+  assert.equal(writesIn(await gh.calls()).length, 0);
+});
