@@ -131,7 +131,8 @@ else if (a === 'api') {
 } else if (a === 'run' && b === 'list') {
   const r = repoOf(opt('-R')); if (!r) { console.error('GraphQL: Could not resolve to a Repository'); process.exit(1); }
   const w = argv.includes('--workflow') ? opt('--workflow') : null, br = argv.includes('--branch') ? opt('--branch') : null;
-  const rows = (r.runs ?? []).filter(x => (!w || x.workflowName === w) && (!br || x.headBranch === br));
+  // gh takes a workflow's name or its file name; its rows carry only the name.
+  const rows = (r.runs ?? []).filter(x => (!w || x.workflowName === w || x.file === w) && (!br || x.headBranch === br));
   console.log(JSON.stringify(pick(rows.slice(0, Number(opt('--limit'))), opt('--json').split(','))));
 } else if (a === 'pr' && b === 'list') {
   const r = repoOf(opt('-R')); if (!r) { console.error('GraphQL: Could not resolve to a Repository'); process.exit(1); }
@@ -218,6 +219,15 @@ test('a project behind: how far, which migrations it has not recorded (fleet upd
   assert.ok(needsOf(r, 'acme/behind').some(w => w.startsWith('red: check failure')));
   assert.ok(needsOf(r, 'acme/behind').includes('2 open plates-night/ PRs (plates drain plates-night/)'));
   assert.match(r.text, /acme\/behind\s+yes\s+0\.1\.0 → 0\.2\.0/);
+});
+
+test('a gate named in config by its file name (check.yml) reads the verdict of that workflow, whose runs are named check', async t => {
+  const st = state();
+  const fresh = st.repos['acme/fresh'];
+  fresh.files['.plates/plates.json'] = cfg({ repo: 'acme/fresh', practice: '0.2.0', migrations: ['0001-acme-one', '0002-acme-two'], gateWorkflow: 'check.yml' });
+  fresh.runs = [run('check', 'success', '2026-10-01T04:00:00Z', { headBranch: 'trunk', file: 'check.yml' }), run('Deploy', 'failure', '2026-10-01T05:00:00Z', { headBranch: 'trunk', file: 'deploy.yml' })];
+  const ci = rowOf(await go(await home(t, LIST), await stubGh(t, st)), 'acme/fresh').ci;
+  assert.deepEqual([ci.workflow, ci.rule, ci.state], ['check.yml', 'named in config', 'green'], 'the file name finds the check workflow, never no verdict');
 });
 
 test('under the quota floor the machine PRs are not read: the cell says it is saving the quota', async t => {
