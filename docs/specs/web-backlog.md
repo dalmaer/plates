@@ -297,6 +297,26 @@ write and write activation, exact preview/source identity, full claim/PR coverag
 and the original operation's reservation. Public metadata must be included in
 the reviewed publication preview. A transport function cannot grant those rights.
 
+A pre-write foreign claim and a foreign claim observed after an attempted write
+are different outcomes. Ref transport retains whether mutation started. A fixed
+not-claimed terminal observation may release the project lane only when its CAS
+wins before the ref-begin fence and transport evidence establishes no ref write
+was sent. Preserve earlier mint and commit effects; terminal refusal does not
+mean nothing happened. A foreign holder after an uncertain write cannot by itself
+release that reservation. Keep the observation typed and bounded, with fixed
+reason/effect codes and the observed commit identity, never raw provider text.
+
+The internal flow obtains acknowledged journal transitions immediately before
+mint, commit and ref effects. Hooks run inside the enclosing deadline, receive no
+credentials, and recheck cancellation after every await. A lost, late, duplicate
+or malformed acknowledgement grants no effect. Request-local credentials remain
+inside the publisher; recovery never reconstructs them or invokes a begin grant.
+The flow is not a public authorization boundary: the future hosted controller
+must persist and revalidate the exact preview, actor access and existing write
+activation first. No route is enabled by importing this internal implementation.
+A successful session claim exposes its original brief with `running:false` and
+`dispatch:false`; it does not establish a running coding agent or acceptance.
+
 Recovery reads only the original intent's repository, commit and ref. It never
 repeats a publication, creates a replacement intent, force-updates a winner, or deletes a
 claim. A missing ref after uncertainty does not prove that a prior POST was never

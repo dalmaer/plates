@@ -64,6 +64,9 @@ const PROOFS = [
   { migration: '020-attach-operation-stages.sql', proof: '2026-11-14-web-attach-stages-hosted-proof.sql',
     wrong: 'grant execute on function public.plates_decision_rpc(text,text,text,text,text,text,text) to authenticated',
     refused: /a browser role can execute public\.plates_decision_rpc/ },
+  { migration: '021-attach-outcomes.sql', proof: '2026-11-14-web-attach-outcomes-hosted-proof.sql',
+    wrong: 'grant execute on function public.plates_decision_rpc(text,text,text,text,text,text,text) to anon',
+    refused: /a browser role can execute public\.plates_decision_rpc/ },
 ];
 
 const RACE = '/* TWO-CONNECTION RACE';

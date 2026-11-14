@@ -12,8 +12,8 @@ test('renamed functions with forwarders', async t => {
   const db = new PGlite(); t.after(() => db.close());
   await db.exec('CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;');
   const files = (await readdir(directory)).filter(f => f.endsWith('.sql')).sort();
-  // 016 and 020 replace migrated RPCs and refuse before 014; this test applies 014 itself.
-  for (const file of files.filter(f => !f.startsWith('014-') && !f.startsWith('016-') && !f.startsWith('020-'))) await db.exec(await readFile(new URL(file, directory), 'utf8'));
+  // 016, 020 and 021 replace migrated RPCs and refuse before 014; this test applies 014 itself.
+  for (const file of files.filter(f => !f.startsWith('014-') && !f.startsWith('016-') && !f.startsWith('020-') && !f.startsWith('021-'))) await db.exec(await readFile(new URL(file, directory), 'utf8'));
   const before = new Map();
   for (const row of rows) before.set(row.id, (await db.query(`SELECT prosrc, proargnames, proargtypes::text, proacl::text, proconfig, prosecdef, pg_get_function_arguments(oid) args FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname=$1`, [row.keel])).rows[0]);
   const key = 'a'.repeat(64);

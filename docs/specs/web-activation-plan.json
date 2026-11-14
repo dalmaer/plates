@@ -681,6 +681,19 @@
       "proof": "The applied version: file name and SHA-256, compared with source; run docs/evidence/2026-11-14-web-attach-stages-hosted-proof.sql and its two-connection race. Record role grants, single-winner stage acknowledgments, unchanged legacy calls and no residual proof rows. Local PGlite replay is not hosted concurrency verification."
     },
     {
+      "id": "migration-021",
+      "phase": 181,
+      "kind": "migration",
+      "migration": "021-attach-outcomes.sql",
+      "what": "After migration 020 and review of the exact source, add the narrow terminal outcome for a proven pre-ref-publication lost race. This preserves earlier effects and does not enable hosted attach or start an agent.",
+      "prerequisites": [
+        181
+      ],
+      "ownerAttended": true,
+      "rollback": "Keep hosted attach disabled; preserve original operations, observations and reservations. Do not downgrade the RPC while staged or terminal attach outcomes exist. Inspect uncertain effects before separately reviewed repair.",
+      "proof": "The applied version: file name and SHA-256, compared with source; run docs/evidence/2026-11-14-web-attach-outcomes-hosted-proof.sql and its two-connection race. Record the terminal-refusal versus ref-begin CAS, retained evidence, existing grants/aliases and no residual proof rows. Local serial replay is not hosted concurrency proof."
+    },
+    {
       "id": "answers-from-home",
       "phase": 173,
       "kind": "decision",

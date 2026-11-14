@@ -39,7 +39,7 @@ function provider(i = intent(), options = {}) {
     if (state.read) state.read(node);
     return Response.json({ data: { node } });
   };
-  const transport = createAttachGitHub(credential, { fetcher, ...options });
+  const transport = createAttachGitHub(credential, { fetcher, beforeRef:async x=>({...x,granted:true}), ...options });
   return { state, transport, i };
 }
 const mutations = s => s.calls.filter(c => c.mutation);
@@ -87,7 +87,7 @@ test('two competing original intents create one ref and report its holder', asyn
   const { i, state, transport } = provider(), other = intent({ operationId: 'd'.repeat(64), provider: 'claude' });
   state.commits.set(other.commit, object(other));
   const results = await Promise.all([transport.publishRef(i), transport.publishRef(other)]);
-  assert.deepEqual(results.map(r => r.state).sort(), ['claimed', 'taken']);
+  assert.deepEqual(results.map(r => r.state).sort(), ['claimed', 'uncertain']);
   assert.equal(state.ref, i.commit); assert.equal(results[1].holder.provider, 'codex');
   assert.equal(mutations(state).length, 2, 'one attempt per fenced intent; neither retries');
   const before = state.calls.length;
@@ -219,4 +219,14 @@ test('redirects oversized bodies provider failures and pre-aborts are bounded an
   const controller = new AbortController(); controller.abort();
   const { i, state, transport } = provider(intent(), { signal: controller.signal });
   assert.equal((await transport.publishRef(i)).state, 'unavailable'); assert.equal(state.calls.length, 0);
+});
+
+test('ref hook requires exact original acknowledgment and late grant cannot create ref',async()=>{
+ for(const reply of ['denied',null,{granted:true},{operationId:'f'.repeat(64),stage:'ref-started',granted:true}]) {
+  const f=provider(intent(),{beforeRef:async x=>reply==='denied'?{...x,granted:false}:reply});const r=await f.transport.publishRef(f.i);
+  assert.equal(r.refEffect,'not-started');assert.equal(mutations(f.state).length,0);
+ }
+ const missing=provider(intent(),{beforeRef:undefined});await missing.transport.publishRef(missing.i);assert.equal(mutations(missing.state).length,0);
+ let release;const late=provider(intent(),{timeoutMs:20,beforeRef:request=>new Promise(resolve=>{release=()=>resolve({...request,granted:true});})});
+ await late.transport.publishRef(late.i);release();await new Promise(resolve=>setImmediate(resolve));assert.equal(mutations(late.state).length,0);
 });
