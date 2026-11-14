@@ -1,15 +1,17 @@
 {
   "schema": 1,
-  "date": "2026-11-13",
+  "date": "2026-11-14",
   "shapedBy": "default",
   "readyBy": null,
   "willNotTouch": [],
   "settledToday": [],
-  "leftOpen": [],
+  "leftOpen": [
+    "climb: every job waits for its open plates-climb/<job>/ PR: test-time"
+  ],
   "items": [
     {
       "id": "measures",
-      "title": "Measure the practice: 41 measures; outside or broken on 2026-11-12: drafts_waiting, long_files, phases_without_issue, phases_stuck, proofs_hold, escapes, lessons_without_guard, inbox_waiting, issues_unnamed, reviews_unanswered, dependency_age, failures_untaught",
+      "title": "Measure the practice: 41 measures; outside or broken on 2026-11-13: long_files, phases_without_issue, phases_stuck, proofs_hold, escapes, lessons_without_guard, inbox_waiting, issues_unnamed, reviews_unanswered, failures_untaught",
       "kind": "measure",
       "source": "default",
       "number": null,
@@ -18,12 +20,12 @@
       "status": "done",
       "result": {
         "note": "13 ok, 10 outside, 18 n/a, 0 broken",
-        "link": "docs/health/2026-11-13.md"
+        "link": "docs/health/2026-11-14.md"
       }
     },
     {
       "id": "health-phases-without-issue",
-      "title": "Proposal from 2026-11-12: Open issues on dalmaer/plates for phases 50, 88, 94, 98, 99, 100, 101, 102, 103, 104 and 49 more and set `issue:` in each one's front matter.",
+      "title": "Proposal from 2026-11-13: Open issues on dalmaer/plates for phases 50, 88, 94, 98, 99, 100, 101, 102, 103, 104 and 51 more and set `issue:` in each one's front matter.",
       "kind": "review",
       "source": "health:phases_without_issue",
       "number": {
@@ -35,26 +37,6 @@
       "budget": null,
       "status": "planned",
       "result": null
-    },
-    {
-      "id": "climb-test-time",
-      "title": "Climb test-time: rotation, after test-time; no measure tied to a job is outside its bound",
-      "kind": "build",
-      "source": "default",
-      "number": {
-        "measure": "slow_tests",
-        "bound": 0,
-        "better": "lower"
-      },
-      "lane": "climb:test-time",
-      "budget": {
-        "minutes": 45
-      },
-      "status": "done",
-      "result": {
-        "note": "climb test-time 2026-11-13: kept 1 of 1 tried; `node --import ./tests/helpers/hermetic.mjs --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/plates/test-ledger.mjs --test-reporter-destination=stdout tests/improve.test.mjs` 32.0 s → 24.5 s (−23.4%); 57 min",
-        "link": "https://github.com/dalmaer/plates/pull/404"
-      }
     },
     {
       "id": "persona-performance--published-package",
