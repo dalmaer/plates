@@ -1,5 +1,5 @@
 ---
-attempt: {"accepted":false,"verified":false,"rework":2,"lessonStatus":{"status":"known","reference":"Plates lesson 59: sibling callers share a boundary"}}
+attempt: {"accepted":false,"verified":false,"rework":2,"lessonStatus":{"status":"known","lesson":"Plates lesson 59: sibling callers share a boundary"}}
 ---
 
 # Phase 137: bounded project-set history
@@ -58,3 +58,5 @@ restores prior history behavior; no remote data or execution was created by the
 feature. Stop deployment if selected views reveal an unauthorized project or
 accept stale continuations. Existing unfiltered reads remain available. No
 production health or owner acceptance is claimed by a source merge.
+
+The first integrated gate retained one failure: the end-of-attempt lesson status used `reference` instead of the required `lesson` field (4,675 passed, one failed, twelve skipped). The record was corrected; no code or acceptance boundary was weakened.
