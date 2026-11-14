@@ -69,3 +69,14 @@ claim/journal/dispatch calls. They do not establish deployed or lived-in behavio
 Independent final source review closed both findings and found no further blocking
 issue after the integration-lock correction. The reviewer inspected the negative
 controls; the conductor independently ran the final 44-test proof above.
+
+## Integrated result (2026-11-14)
+
+The source increment `adf03308c02d5768ce6407c75f09d881f9c78bcd` landed on
+main as `c8b8be49ca457182752bd88b04379503fb6852db`. One serialized
+`npm run check` completed with exit 0: 4,689 passed, 12 skipped, zero failed;
+the installed-package suite passed all 45 tests. The durable integration record
+is commit `0be3fae7721c18cc8bf4e50d3eb3f8abbc9ee24b` on `plates-integrations`.
+[GitHub check](https://github.com/dalmaer/plates/actions/runs/43637971261)
+completed successfully on that exact main commit. Deployment and owner acceptance
+were not observed.
