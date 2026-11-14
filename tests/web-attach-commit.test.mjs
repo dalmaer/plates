@@ -54,7 +54,7 @@ function fixture(options = {}) {
     state.change?.(call, data);
     return Response.json(data, { status: kind === 'commit' ? 201 : 200 });
   };
-  const publisher = createAttachCommit(config, intent, parent, { fetcher, now: () => state.now, ...options });
+  const publisher = createAttachCommit(config, intent, parent, { fetcher, now: () => state.now, beforeMint:async x=>({...x,granted:true}), beforeCommit:async x=>({...x,granted:true}), ...options });
   return { config, intent, parent, state, publisher, fetcher };
 }
 const effects = s => s.calls.filter(c => ['mint', 'commit'].includes(c.kind)).map(c => c.kind);
@@ -219,4 +219,18 @@ test('broader parent and child installation permissions permit a narrow verified
   assert.equal(result.state, 'published'); clean(result);
   assert.deepEqual(observed, ['parent-installation', 'minted-grant', 'checked-grant', 'child-installation']);
   assert.deepEqual(effects(f.state), ['mint', 'commit']);
+});
+
+test('mint and commit require exact acknowledged hooks and late acknowledgments never publish',async()=>{
+ for(const key of ['beforeMint','beforeCommit'])for(const reply of ['denied',null,{granted:true},{operationId:'f'.repeat(64),stage:'mint-started',granted:true}]) {
+  const f=fixture({[key]:async x=>reply==='denied'?{...x,granted:false}:reply});
+  const r=await f.publisher.publishCommit();
+  assert.notEqual(r.state,'published');assert.deepEqual(effects(f.state),key==='beforeMint'?[]:['mint']);
+ }
+ const missing=fixture({beforeMint:undefined});await missing.publisher.publishCommit();assert.equal(missing.state.calls.length,0);
+ for(const key of ['beforeMint','beforeCommit']) {
+  let release;const f=fixture({timeoutMs:20,[key]:request=>new Promise(resolve=>{release=()=>resolve({...request,granted:true});})});
+  await f.publisher.publishCommit();const before=f.state.calls.length;release();await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(f.state.calls.length,before);assert.deepEqual(effects(f.state),key==='beforeMint'?[]:['mint']);
+ }
 });

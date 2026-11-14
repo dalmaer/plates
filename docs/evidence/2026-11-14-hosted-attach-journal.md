@@ -74,3 +74,14 @@ no actionable issues; the core builder independently inspected the proof.
 No hosted database was contacted. The proof's two-tab race was replayed serially
 on PGlite and remains unverified on the hosted database. Migration application,
 controller wiring, provider enforcement and owner acceptance remain outstanding.
+
+## Integrated result (2026-11-14)
+
+Source `c0991ea3ef2321cf01474655f8def1840cb4c05d` landed on main at
+`0b50be36396ef0cdbd1d27130fec93a6f8ef1e4a`. One serialized `npm run check`
+exited 0: 4,725 passed, 12 skipped, zero failed; installed checks: 45 passed,
+zero failed. Integration record `9ae86d2aa94715b99e95ad3de9df4a92e164cd2e`
+on `plates-integrations`. Migration 020 remains unapplied and hosted attach
+remains disabled.
+
+GitHub CI for the merged source completed successfully: [run 43647852460](https://github.com/dalmaer/plates/actions/runs/43647852460). This does not apply the hosted migration.

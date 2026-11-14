@@ -14,7 +14,7 @@ async function harness(t,{latest=true}={}) {
  const db=new PGlite(); t.after(()=>db.close());
  await db.exec('CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;');
  for(const name of (await readdir(migrations)).filter(n=>n.endsWith('.sql')&&n<'020-').sort())await db.exec(await sql(name));
- if(latest)await db.exec(await sql('020-attach-operation-stages.sql'));
+ if(latest) {await db.exec(await sql('020-attach-operation-stages.sql'));await db.exec(await sql('021-attach-outcomes.sql'));}
  let counter=0;
  const state={calls:[],alter:null,lose:false};
  const raw=async(operation,identity,value=null,name='plates_decision_rpc')=>{
@@ -198,4 +198,19 @@ test('SQL observation map is bounded and fixed-key and refuses replacing a retai
  await h.db.query('UPDATE keel_private.decision_operations SET attach_observations=$1 WHERE id=$2',[JSON.stringify({'mint-recorded':'Acme retained'}),f.identity.id]);
  assert.equal(await h.raw('attach-mint-record',f.identity,'Acme replacement'),null);
  assert.deepEqual((await h.db.query('SELECT attach_observations FROM keel_private.decision_operations WHERE id=$1',[f.identity.id])).rows[0].attach_observations,{'mint-recorded':'Acme retained'});
+});
+
+test('own commit cannot terminalize a claim or release its lane before validation',async t=>{
+ const h=await harness(t),f=await h.fresh();await h.store.attachReserve(f.identity,f.intent);
+ for(const op of ['mint-begin','mint-record','commit-begin','commit-record'])await h.step(op,f);
+ const before=h.state.calls.length;
+ await assert.rejects(h.store.attachTransition('ref-decline',f.identity,{...observation('ref-declined'),reason:'claim-taken',refEffect:'not-started',observedCommit:f.intent.commit}),{code:'invalid_attach_observation'});
+ assert.deepEqual(h.state.calls.slice(before).map(c=>c.p_operation),['attach-read']);
+ assert.equal((await h.store.attachRead(f.identity)).stage,'commit-recorded');
+ const other=await h.fresh();other.identity.project=f.identity.project;
+ assert.deepEqual(await h.store.attachReserve(other.identity,other.intent),{conflict:true});
+ const declined=await h.store.attachTransition('ref-decline',f.identity,{...observation('ref-declined'),reason:'claim-taken',refEffect:'not-started',observedCommit:'e'.repeat(40)});
+ assert.equal(declined.state,'refused');assert.equal(declined.granted,false);
+ assert.equal(await h.step('ref-begin',f),null);
+ assert.equal((await h.store.attachReserve(other.identity,other.intent)).created,true);
 });
