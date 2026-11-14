@@ -309,6 +309,8 @@ test('the four home sections are one model', async () => {
     // Your plates: one status each, the same in both forms.
     assert.deepEqual(sec(s.cli, 'plates'), sec(s.web, 'plates'));
     assert.equal(sec(s.web, 'plates').items[0].status, 'broken');
+    // The phase bar: done, partial, not started, counted once from the plate's phases, the same in both forms.
+    assert.deepEqual(sec(s.web, 'plates').items[0].phases, { done: 2, partial: 2, notStarted: 1, total: 5, line: '2 done · 2 partial · 1 not started' });
     // What should happen next?: the same rows in both; the CLI reads what is queued, the web names why it cannot and the command that can.
     assert.deepEqual(sec(s.cli, 'next').sources.map(r => [r.id, r.command]), sec(s.web, 'next').sources.map(r => [r.id, r.command]));
     assert.ok(sec(s.web, 'next').sources.every(r => r.state === 'unavailable' && r.reason));
@@ -328,6 +330,7 @@ test('the four home sections are one model', async () => {
     assert.match(renderReviewStart(s.web), new RegExp(`<strong>${sec(s.web, 'needs-you').count} need you · `));
     assert.match(text, new RegExp(`^Since you last looked \\(${sec(s.web, 'since').count}\\) — the last 7 days$`, 'm'));
     assert.match(text, /^What should happen next\? \(2 queued\)$/m);
+    assert.match(text, /^ {4}phases █{8}▒{8}░{4} 2 done · 2 partial · 1 not started$/m, 'the terminal draws the bar the card draws');
     assert.match(text, /^ {2}Fix · Acme Studio: The night of/m);
     assert.match(text, /^ {2}Acme Studio: broken\b/m);
     assert.doesNotMatch(text, /at least|At least|in this source read|Inspection only/);

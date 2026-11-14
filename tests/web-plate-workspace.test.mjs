@@ -44,6 +44,23 @@ test('home cards retain incomplete coverage and unavailable activity instead of 
 });
 
 
+test('a home card shows its phases as one bar: done, partial, not started', async () => {
+  const { phaseBar } = await import('../lib/work-items.mjs');
+  const { phaseBarText } = await import('../lib/home.mjs');
+  const phases = phaseBar({ built: 6, partial: 3, notStarted: 1 });
+  assert.deepEqual(phases, { done: 6, partial: 3, notStarted: 1, total: 10, line: '6 done · 3 partial · 1 not started' });
+  for (const missing of [null, { built: null, partial: null, notStarted: null }, { built: 4 }, { built: 0, partial: 0, notStarted: 0 }]) assert.equal(phaseBar(missing), null);
+  assert.equal(phaseBarText(phases), '████████████▒▒▒▒▒▒░░');
+  assert.equal(phaseBarText(phaseBar({ built: 200, partial: 0, notStarted: 1 })), '███████████████████░', 'a sliver still gets its cell');
+  const model=snapshot();
+  model.home.sections=[{id:'plates',items:[{projectId:'studio',status:'all clear',phases}]}];
+  const html=renderPlateCards(model);
+  assert.match(html,/class="plate-phase-bar" role="img" aria-label="Phases: 6 done · 3 partial · 1 not started"/);
+  assert.match(html,/data-phase="done" style="flex-grow:6"[\s\S]*data-phase="partial" style="flex-grow:3"[\s\S]*data-phase="not-started" style="flex-grow:1"/);
+  model.home.sections=[{id:'plates',items:[{projectId:'studio',status:'all clear',phases:null}]}];
+  assert.doesNotMatch(renderPlateCards(model),/plate-phase-bar/,'no bar where the phases were not counted');
+});
+
 test('a backlog projection is enriched with its original decision workflow and context', () => {
   const model=snapshot(), original={...model.decisions[0],key:'studio:proposal:health',decisionTarget:{kind:'health',path:'docs/health/proposal.md'}};
   model.decisions=[original];
