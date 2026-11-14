@@ -343,8 +343,10 @@ test('proofs_hold: a built phase whose cited test or evidence is gone is outside
     const m = byId(read(), 'proofs_hold');
     assert.equal(m.state, 'ok', m.detail);
     assert.equal(m.value, 0);
-    // Each read ran the gate, and the gate's npm test recorded itself (the test ledger): "orders" passed there.
+    // The first read ran the real gate, and its npm test recorded itself (the test ledger): "orders" passed there.
     assert.match(m.detail, /cited tests read against \d+ recorded runs?$/);
+    // The recorded run stays in .plates/test-runs, so every later read needs no second real gate: a stand-in gate reads the same ledger.
+    if (read === own) await setConfig(dir, { check: 'echo "# tests 1"' });
   }
   // The test deleted, and the evidence named a path that is not there.
   await rm(join(dir, 'tests', 'acme-orders.test.mjs'));
