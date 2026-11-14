@@ -6,6 +6,13 @@ A routine's workflow path is project-local, so changing projects clears that
 selector and any source-bound pagination. All controls are read-only: refreshing
 history does not run, retry, cancel or reconcile work.
 
+When an optional project-set registry is configured, All plates Routines and Activity
+offer a **Project set** selector. It intersects current access; it grants none.
+Continuation URLs bind the set membership, repository pins and authorized source.
+Changed or revoked scope requires a fresh read. Workspace-wide receipts without
+project attribution are excluded from set views with an explicit coverage gap.
+Project-set selection does not yet filter Home.
+
 ## Inspect a routine
 
 Routines show the observed workflow definition and provider enabled state beside

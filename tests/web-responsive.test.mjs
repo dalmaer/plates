@@ -110,3 +110,26 @@ test('the review card fits a phone', async () => {
   const page = reviewView({ workspace: { name: 'Acme' }, csrf: 'x' }, reviewSnapshot());
   assert.match(page, /viewport-fit=cover/); assert.doesNotMatch(page, /data-navigation|data-page-footer/);
 });
+
+
+test('navigation client preserves the project-set notice on initialization and menu open in both history destinations',()=>{
+  const expected='This project set applies to Routines and Activity. Home shows all authorized plates.';
+  for(const destination of ['routines','activity']) {
+    const server=navigation(access,{path:`/${destination}?projectSet=research`});
+    const notice={textContent:server.match(/<p data-lens-notice>([^<]*)<\/p>/)[1]},listeners={};
+    assert.equal(notice.textContent,expected);
+    const root={querySelectorAll:()=>[],querySelector:()=>notice,addEventListener(name,fn){listeners[name]=fn;},removeEventListener(){}};
+    const window={location:{pathname:`/${destination}`,search:'?projectSet=research'},addEventListener(name,fn){listeners[name]=fn;},removeEventListener(){}};
+    const client=startNavigation({document:{querySelector:()=>root},window});
+    assert.equal(notice.textContent,expected,'initialization retains server scope');
+    listeners.toggle();
+    assert.equal(notice.textContent,expected,'opening the menu retains scope');
+    window.location={pathname:'/',search:''};listeners.popstate();
+    assert.equal(notice.textContent,'Switch projects while keeping the current kind of view.');
+    window.location={pathname:`/${destination}`,search:'?projectSet=research'};listeners.popstate();
+    assert.equal(notice.textContent,expected,'returning to the set restores scope');
+    window.location={pathname:`/projects/studio/jobs/${'a'.repeat(64)}`,search:''};client.refresh();
+    assert.match(notice.textContent,/This record stays with its original project/);
+    client.stop();
+  }
+});
