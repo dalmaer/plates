@@ -56,7 +56,10 @@ test('a home card shows its phases as one bar: done, partial, not started', asyn
   model.home.sections=[{id:'plates',items:[{projectId:'studio',status:'all clear',phases}]}];
   const html=renderPlateCards(model);
   assert.match(html,/class="plate-phase-bar" role="img" aria-label="Phases: 6 done · 3 partial · 1 not started"/);
-  assert.match(html,/data-phase="done" style="flex-grow:6"[\s\S]*data-phase="partial" style="flex-grow:3"[\s\S]*data-phase="not-started" style="flex-grow:1"/);
+  assert.match(html,/<svg class="phase-bar-track" viewBox="0 0 10 1"[^>]*><rect data-phase="done" x="0" width="6" height="1"\/><rect data-phase="partial" x="6" width="3" height="1"\/><rect data-phase="not-started" x="9" width="1" height="1"\/><\/svg>/);
+  assert.doesNotMatch(html,/style="/,'no inline style: the hosted policy (style-src \'self\') would drop it and every segment would be equal');
+  model.home.sections=[{id:'plates',items:[{projectId:'studio',status:'all clear',phases:phaseBar({ built: 200, partial: 0, notStarted: 1 })}]}];
+  assert.match(renderPlateCards(model),/<rect data-phase="done" x="0" width="200" height="1"\/><rect data-phase="not-started" x="200" width="4.02" height="1"\/>/,'a sliver keeps 2% so it shows');
   model.home.sections=[{id:'plates',items:[{projectId:'studio',status:'all clear',phases:null}]}];
   assert.doesNotMatch(renderPlateCards(model),/plate-phase-bar/,'no bar where the phases were not counted');
 });
