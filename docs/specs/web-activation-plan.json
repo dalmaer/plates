@@ -668,6 +668,19 @@
       "proof": "The applied version: file name and SHA-256; docs/evidence/2026-11-06-web-backlog-events-hosted-proof.sql's result (the table, its grants, the append-only trigger and the RPC run as the service role); one Not now answered on the deployed web, and its event read back as the service role, holding codes only."
     },
     {
+      "id": "migration-020",
+      "phase": 181,
+      "kind": "migration",
+      "migration": "020-attach-operation-stages.sql",
+      "what": "After reviewing the exact migration and backup/restore boundary, apply the additive attach-stage fences to the existing decision operation journal. This does not enable a hosted route, mint a credential, claim a phase or start an agent.",
+      "prerequisites": [
+        181
+      ],
+      "ownerAttended": true,
+      "rollback": "Keep hosted attach disabled and preserve all original staged operations and project reservations. Do not downgrade the RPC or drop stage columns while unresolved operations exist. Inspect original effects before any separately reviewed correction.",
+      "proof": "The applied version: file name and SHA-256, compared with source; run docs/evidence/2026-11-14-web-attach-stages-hosted-proof.sql and its two-connection race. Record role grants, single-winner stage acknowledgments, unchanged legacy calls and no residual proof rows. Local PGlite replay is not hosted concurrency verification."
+    },
+    {
       "id": "answers-from-home",
       "phase": 173,
       "kind": "decision",

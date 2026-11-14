@@ -61,6 +61,9 @@ const PROOFS = [
   { migration: '019-backlog-events.sql', proof: '2026-11-06-web-backlog-events-hosted-proof.sql',
     wrong: 'drop trigger backlog_events_append_only on plates_home.backlog_events',
     refused: /plates_home\.backlog_events is not append-only/ },
+  { migration: '020-attach-operation-stages.sql', proof: '2026-11-14-web-attach-stages-hosted-proof.sql',
+    wrong: 'grant execute on function public.plates_decision_rpc(text,text,text,text,text,text,text) to authenticated',
+    refused: /a browser role can execute public\.plates_decision_rpc/ },
 ];
 
 const RACE = '/* TWO-CONNECTION RACE';
@@ -104,7 +107,7 @@ async function rows(db) {
 const result = results => results.at(-1)?.rows?.[0]?.result;
 
 test('every hosted proof runs clean on its migration', async t => {
-  const migrations = (await readdir(MIGRATIONS)).filter(f => /^0(0[6-9]|1\d)-/.test(f)).sort();
+  const migrations = (await readdir(MIGRATIONS)).filter(f => /^\d{3}-.*\.sql$/.test(f) && Number(f.slice(0, 3)) >= 6).sort();
   assert.deepEqual(PROOFS.map(p => p.migration), migrations, 'one hosted proof per migration 006 onward');
   const plan = JSON.parse(await readFile(new URL('docs/specs/web-activation-plan.json', ROOT), 'utf8'));
   for (const p of PROOFS) {

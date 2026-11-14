@@ -272,6 +272,25 @@ Its current single `prepared → dispatched` transition does not establish that
 two-stage fence; connecting the transport requires that explicit extension.
 A commit object alone is not a claim; only exact ref read-back establishes one.
 
+The next source extension adds three fixed effect boundaries to that same
+operation row: mint, commit-object and ref publication. A stage advances only
+from its expected predecessor under the original scope and fence. Only the
+successful begin acknowledgment grants one effect; duplicate requests, readback
+and ambiguous replies grant nothing. No credentials are journaled. Monotonic
+observations cannot overwrite newer stages, and generic decision transitions
+cannot bypass staged attach transitions. Legacy unstaged rows retain their
+existing behavior. The project lane remains reserved after a possibly started
+effect; expiry is not evidence that work never ran.
+
+Recovery is observation-only. After mint without a retained request-local child,
+the original attempt is blocked rather than reminted. After a commit/ref fence,
+inspect the original immutable identity; absence remains uncertain. A commit
+object does not complete the attach, and a stale recovery reader cannot
+terminalize while an original writer advances. This is a bounded extension of
+the existing journal, not a general workflow engine. Missing migration means
+unavailable; source tests do not establish hosted application or activation.
+
+
 The internal transport is not an authorization interface. Before invoking it,
 the hosted controller must verify current actor/project access, existing Contents
 write and write activation, exact preview/source identity, full claim/PR coverage,

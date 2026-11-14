@@ -4,8 +4,8 @@ since: 2026-11-14
 goal: G7
 spec: 2
 depends: [178]
-note: "The attach contract and the CLI session route are built: plates home --attach previews, claims create-only, journals and hands over the /spin brief. Hosted read-only preview is implemented; internal identity-bound claim transport is implemented. A dormant scoped commit publisher is implemented; durable apply/dispatch, live provider proof, tonight and robot remain."
-evidence: ["evidence/2026-11-06-attach.md", "evidence/2026-11-14-hosted-attach-preview.md", "evidence/2026-11-14-hosted-claim-transport.md", "evidence/2026-11-14-hosted-claim-commit.md"]
+note: "The attach contract and the CLI session route are built: plates home --attach previews, claims create-only, journals and hands over the /spin brief. Hosted read-only preview is implemented; internal identity-bound claim transport is implemented. A dormant scoped commit publisher and three-stage journal are implemented; hosted controller/dispatch, migration/provider proof, tonight and robot remain."
+evidence: ["evidence/2026-11-06-attach.md", "evidence/2026-11-14-hosted-attach-preview.md", "evidence/2026-11-14-hosted-claim-transport.md", "evidence/2026-11-14-hosted-claim-commit.md", "evidence/2026-11-14-hosted-attach-journal.md"]
 ---
 
 # I can attach an agent to a phase, and see it working
@@ -39,6 +39,7 @@ Attach on an agent-ready phase previews, claims and starts the `session` or `ton
 - [x] Hosted session preview binds the current source and refuses incomplete ownership coverage without claiming or dispatching: `tests/web-attach-preview.test.mjs`. Source verification only; the hosted owner walk remains outstanding.
 - [x] Dormant hosted ref transport preserves immutable repository identity, exact commit bytes and uncertain write recovery under bounded deadlines: `tests/web-attach-github.test.mjs`. Commit publication and hosted activation remain unavailable.
 - [x] Dormant commit publisher freezes the intent, verifies parent and scoped-child metadata, publishes once and retains uncertain stage outcomes: `tests/web-attach-commit.test.mjs`. Synthetic proof only; provider enforcement and durable activation remain unverified.
+- [x] The existing operation journal fences mint, commit and ref stages once, preserves encrypted intent/observations and legacy callers, and refuses duplicate grants: `tests/web-attach-operation-store.test.mjs` and migration 020 SQL proof. Local PGlite only; hosted application and concurrency remain unverified.
 - [ ] A generated robot rubric carries the phase's unresolved ⚑ as owner blockers: `tests/backlog-attach.test.mjs: "rubric keeps owner blockers"`
 - [ ] ⚑ by hand: the owner.
 
@@ -59,7 +60,7 @@ Attach on an agent-ready phase previews, claims and starts the `session` or `ton
 
 ## Proof
 
-Automated: `node --test tests/backlog-attach.test.mjs tests/work-items.test.mjs tests/web-attach-preview.test.mjs tests/web-attach-github.test.mjs tests/web-attach-commit.test.mjs`; `npm run check`.
+Automated: `node --test tests/backlog-attach.test.mjs tests/work-items.test.mjs tests/web-attach-preview.test.mjs tests/web-attach-github.test.mjs tests/web-attach-commit.test.mjs tests/web-attach-operation-store.test.mjs tests/web-hosted-proofs.test.mjs`; `npm run check`.
 By hand: the owner's attach and the night that follows.
 ⚑ Tonight spends from the existing night allowance; robot only within `robot.budgetMinutes`. No new spend.
 
@@ -71,7 +72,7 @@ Whether High autonomy may attach without a confirm on listed routes. Settled aft
 
 ## Next action
 
-Connect the hosted session preview, dormant commit publisher and claim transport to the existing operation journal with a separate durable fence for each publication. Preserve fresh source, claim and PR coverage checks; never resume a write merely because its ref is missing. Prove reconnect and no duplicate effects. Keep actual execution unavailable until its bounded provider-start recovery and required activation are verified. Robot and the owner's decision on `tonight` remain separate.
+Connect the hosted session preview, dormant commit publisher and claim transport to the staged operation journal, including an acknowledged fence between credential mint and commit publication. Keep migration 020 unapplied until the owner-attended proof; do not activate the route from local evidence alone. Preserve fresh source, claim and PR coverage checks; never resume a write merely because its ref is missing. Prove reconnect and no duplicate effects. Keep actual execution unavailable until its bounded provider-start recovery and required activation are verified. Robot and the owner's decision on `tonight` remain separate.
 
 ## Trajectory
 - **2026-11-06** The attach contract and the CLI session route landed. `tonight` is blocked: no night pass builds a phase from a plan item. Web Start stays off and names the CLI command.
@@ -82,3 +83,5 @@ Connect the hosted session preview, dormant commit publisher and claim transport
 - **2026-11-14** — Name-addressed commit publication cannot be protected by before/after identity checks alone. The internal ref transport uses immutable repository nodes; commit publication stays unavailable pending a separately verified identity-bound mechanism. Independent deadlines also bound non-cooperative fetch and body cleanup.
 
 - **2026-11-14** — Installation permission metadata is not child-token scope. The dormant commit publisher validates them separately and conservatively refuses uncertain listing or expiry evidence. Real provider enforcement remains a required authorized check before activation.
+
+- **2026-11-14** — The existing journal had one exclusive dispatch transition; encrypted metadata alone could not fence separate effects. Migration 020 adds three fixed stage transitions in the same row, retaining each observation and existing project reservation. Source proof is distinct from hosted application.

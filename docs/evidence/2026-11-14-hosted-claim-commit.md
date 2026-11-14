@@ -77,3 +77,12 @@ controls; each exited 1 at its intended assertion, driver exit 0. Three addition
 controls cover installation/token permission separation, the retained selected
 policy and exact child permissions. Independent final review closed the finding
 and reported no remaining actionable blockers in this dormant increment.
+
+## Integrated result (2026-11-14)
+
+Source `dcebbebd2e121fc0c74bf2ea8610aa034dd6e898` landed on main at
+`5e16d19174e2680dcb8661f1ba276e36078349a4`. The serialized integrator ran
+`npm run check` once, exit 0: 4,714 passed, 12 skipped, zero failed; installed
+package checks: 45 passed, zero failed. Integration record:
+`a2d12968b2bb200a478555b7adb467cecfe56061` on `plates-integrations`.
+This establishes source integration, not provider enforcement or activation.
