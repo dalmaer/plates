@@ -95,10 +95,23 @@ to the session that made it, not to its working tree: a second session
 started in the same tree is refused like any other, unless it names the same
 provider and has the same session id, or shows the token plates printed when
 the claim was made (`plates phase claim <N> --token <token>`). The session id
-is `PLATES_SESSION`, else the one Claude Code sets; an agent that sets neither
-(Codex, as far as plates knows) is told apart by its provider only, so two of
-its sessions sharing one tree are not told apart. A claim nobody has pushed
-to for seven days shows on the board as yours to release or leave.
+is `PLATES_SESSION` (the legacy `KEEL_SESSION` alias is still read), else
+Claude Code's `CLAUDE_CODE_SESSION_ID`, else Codex's `CODEX_THREAD_ID`.
+The host must keep that identity stable for one builder and distinct between
+independent builders; when several builders share a host thread, give each its
+own `PLATES_SESSION`. A provider or machine name is not a session identity.
+
+If no session id was recorded, including historical claims, resuming or releasing
+requires the explicit token in the original working tree. Acquisition still
+returns that token, and an uncertain read-back retains it for recovery.
+`plates next` does not infer ownership for a session-less claim. Do not copy token files
+between trees: the token alone cannot claim ownership from another checkout or
+machine. A handoff carries the work and its approvals, not the phase claim.
+Recheck the remote claim and current work before an owner-coordinated release
+and fresh claim on the destination; existing work branches and PRs still block
+ordinary release. Never infer permission to delete a claim from age, host loss
+or an unreadable session. A claim nobody has pushed to for seven days shows on
+the board as yours to release or leave.
 
 **A retro after real work.** When a phase's commit changed more than
 `docs/`, the conductor runs `plates retro` and answers its seven areas,

@@ -208,12 +208,17 @@ plates goal retire G1 --reason "Nobody exports" --phases supersede --yes
   another free phase from `plates next`, or stop. Asked again by its holder:
   exit 0, `held`. A claim is its session's, not its working tree's: a caller
   in the same tree holds it only if it names the claim's provider and has
-  the session id recorded with the claim (`PLATES_SESSION`, else Claude Code's
-  `CLAUDE_CODE_SESSION_ID`), or passes `--token <t>`, the token printed when
-  the claim was made (a restarted session's way back; a wrong token is
+  the nonempty session id recorded with the claim (`PLATES_SESSION`, else
+  Claude Code's `CLAUDE_CODE_SESSION_ID`, else Codex's `CODEX_THREAD_ID`), or
+  passes `--token <t>`, the token printed when the claim was made (a restarted
+  session's way back; a wrong token is
   refused). Any other caller in that tree is refused like another checkout.
-  Known limit: a claim made with no session id (Codex sets none plates knows)
-  is held by any session of its provider in that tree.
+  A claim made with no session id, including a historical claim, requires the
+  explicit token even for the same provider. Hosts sharing one thread across
+  independent builders must set a distinct, stable `PLATES_SESSION` per builder.
+  Tokens work only in the original tree: a handoff to another tree or machine
+  does not transfer ownership. Never copy token records or clear a live claim
+  to manufacture ownership; coordinate release and a fresh claim with its owner.
   A claim ends when the phase is built on the default branch.
   `--release` deletes the caller's own claim when no work branch or open PR
   names the phase; another session's claim is never released (exit 1), and
