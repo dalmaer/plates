@@ -56,3 +56,7 @@ Conductor preflight `npm run check:focused -- tests/web-attach-github.test.mjs t
 The conductor also ran five isolated negative controls: removing numeric identity, changing the immutable write target, treating post-write absence as pending, removing mutation-start uncertainty, and allowing holder credential reflection. Each exited 1 on its intended assertion; the driver exited 0. The shared checkout was unchanged.
 
 Independent final source review found no blockers after the repository-identity and deadline corrections. Review did not claim live-provider verification. Commit publication remains unsupported with zero I/O, and no hosted route imports this transport. Full integration results are retained by the integrator after this record; actual execution and owner acceptance remain unverified.
+
+## Integrated result (2026-11-14)
+
+Source commit `b3c8cc9c6a027526c6f316a84e000af301d14838` landed on main at `ce4ddf4466908b2769449572f12c16033d56bb77`. The serialized integrator ran `npm run check` once: exit 0, 4,702 passed, 12 skipped, zero failed; installed-package checks: 45 passed, zero failed. Integration receipt: `aa2d619dcaa541e5b02ff2fcd984c1b44efb5bec` on `plates-integrations`. Hosted activation and real-use acceptance remain outstanding.
