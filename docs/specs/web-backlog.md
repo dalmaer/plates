@@ -297,6 +297,26 @@ its own verified binding, bounded lifetime, failure handling and private secret
 handling before it can authorize commit publication; a caller declaration of
 scope is insufficient.
 
+The next dormant publisher may derive a child of the existing App user token,
+requesting exactly one numeric repository ID and only existing Contents write
+and Metadata read. Its request-local credentials never enter receipts, browser
+state or logs, and it never falls back to the parent for commit publication.
+The existing selected-repository installation policy remains in force. Installation
+permissions describe the App installation, not the derivative token; validate
+the child grant separately rather than requiring installation-wide permissions
+to equal the child permissions. Fresh parent actor/app/installation/repository and effective write checks precede
+the one mint. A separate stage records uncertainty if minting or publication
+starts without a definitive result; neither is retried by the adapter.
+
+The documented scoped grant and exact request form its provider contract. A
+complete singleton child repository listing is only consistency evidence: the
+listing documentation does not explicitly guarantee intersection with child
+scope. Broad, missing or mismatched coverage refuses publication without filtering
+it down. The finite-expiry policy also refuses a null `expires_at`, although
+GitHub's schema permits null. A request deadline does not expire an issued token.
+Synthetic tests cannot verify provider enforcement; activation requires a
+separately authorized controlled provider check, not an automatic runtime probe.
+
 This source increment provides the pure intent, internal ref/recovery transport
 and synthetic boundary proof only. No hosted route invokes its writes yet. The durable controller,
 reconnect flow, real GitHub claim walk and actual provider-start recovery remain
