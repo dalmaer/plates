@@ -261,6 +261,48 @@ The attach contract is the same for every route:
 5. **Release.** Releasing the claim ends the route's claim on the item; a stale
    claim returns to the owner as today.
 
+### Hosted claim transport boundary (2026-11-14)
+
+The hosted claim uses the existing `claimMessage` and `claims/phase-<n>` ref,
+not another ownership store. Its immutable intent pins repository identity,
+source parent/tree, provider, original operation identity and commit bytes.
+Commit-object publication and create-only ref publication are separate calls:
+the existing durable operation journal must fence each before it can be sent.
+Its current single `prepared → dispatched` transition does not establish that
+two-stage fence; connecting the transport requires that explicit extension.
+A commit object alone is not a claim; only exact ref read-back establishes one.
+
+The internal transport is not an authorization interface. Before invoking it,
+the hosted controller must verify current actor/project access, existing Contents
+write and write activation, exact preview/source identity, full claim/PR coverage,
+and the original operation's reservation. Public metadata must be included in
+the reviewed publication preview. A transport function cannot grant those rights.
+
+Recovery reads only the original intent's repository, commit and ref. It never
+repeats a publication, creates a replacement intent, force-updates a winner, or deletes a
+claim. A missing ref after uncertainty does not prove that a prior POST was never
+sent. A mismatched commit, unavailable response or changed repository identity
+remains a refusal or unknown result. HTTP redirects must not carry credentials
+to another destination; all requests have bounded time and response size.
+
+Repository identity is part of the write destination, not just a before/after
+check. Ref creation and recovery use the immutable GraphQL repository node.
+The documented REST commit-object endpoint is name-addressed; pre/post identity
+reads cannot prevent name reuse during the call. Commit-object publication stays
+unavailable until an identity-bound mechanism is established. Do not substitute
+an undocumented numeric REST route or grant new credential access to get past it.
+A possible next increment is GitHub's documented repository-ID-scoped derivative
+of the existing App user token, limited to permissions already held. It needs
+its own verified binding, bounded lifetime, failure handling and private secret
+handling before it can authorize commit publication; a caller declaration of
+scope is insufficient.
+
+This source increment provides the pure intent, internal ref/recovery transport
+and synthetic boundary proof only. No hosted route invokes its writes yet. The durable controller,
+reconnect flow, real GitHub claim walk and actual provider-start recovery remain
+separate acceptance work. A claimed session still hands over a brief rather than
+proving a running coding agent.
+
 ### Assists: what an agent may do on an item that is not a build
 
 | Item kind | Agent may (assist) | Only a person may |
