@@ -1,11 +1,11 @@
 ---
 status: partial
-since: 2026-11-06
+since: 2026-11-14
 goal: G7
 spec: 2
 depends: [178]
-note: "The attach contract and the CLI session route are built: plates home --attach previews, claims create-only, journals and hands over the /spin brief. Web attach, tonight and robot remain."
-evidence: ["evidence/2026-11-06-attach.md"]
+note: "The attach contract and the CLI session route are built: plates home --attach previews, claims create-only, journals and hands over the /spin brief. Hosted read-only preview is implemented; apply/dispatch, tonight and robot remain."
+evidence: ["evidence/2026-11-06-attach.md", "evidence/2026-11-14-hosted-attach-preview.md"]
 ---
 
 # I can attach an agent to a phase, and see it working
@@ -26,7 +26,7 @@ Attach on an agent-ready phase previews, claims and starts the `session` or `ton
 ## Integration increments
 
 1. Presence in the read model, read-only.
-2. Attach `session` from the CLI, then the web, behind the existing write gate.
+2. Attach `session` from the CLI, then the web. Start with a read-only exact preview; keep apply unavailable until the existing write gate, durable claim and operation recovery are connected.
 3. Attach `tonight`.
 4. Attach `robot` through `plates issue new --agent`.
 
@@ -36,6 +36,7 @@ Attach on an agent-ready phase previews, claims and starts the `session` or `ton
 - [x] An uncertain dispatch is recovered from its journal, never repeated: `tests/backlog-attach.test.mjs: "dispatch recovers, never repeats"`
 - [x] Without a policy only `session` is offered: `tests/backlog-attach.test.mjs: "absent policy is session only"`
 - [x] Presence says claimed unless an execution source says running: `tests/work-items.test.mjs: "a claim is not a running agent"`
+- [x] Hosted session preview binds the current source and refuses incomplete ownership coverage without claiming or dispatching: `tests/web-attach-preview.test.mjs`. Source verification only; the hosted owner walk remains outstanding.
 - [ ] A generated robot rubric carries the phase's unresolved ⚑ as owner blockers: `tests/backlog-attach.test.mjs: "rubric keeps owner blockers"`
 - [ ] ⚑ by hand: the owner.
 
@@ -56,7 +57,7 @@ Attach on an agent-ready phase previews, claims and starts the `session` or `ton
 
 ## Proof
 
-Automated: `node --test tests/backlog-attach.test.mjs tests/work-items.test.mjs`; `npm run check`.
+Automated: `node --test tests/backlog-attach.test.mjs tests/work-items.test.mjs tests/web-attach-preview.test.mjs`; `npm run check`.
 By hand: the owner's attach and the night that follows.
 ⚑ Tonight spends from the existing night allowance; robot only within `robot.budgetMinutes`. No new spend.
 
@@ -68,7 +69,10 @@ Whether High autonomy may attach without a confirm on listed routes. Settled aft
 
 ## Next action
 
-Increment 4: the robot route with a generated rubric (rubric keeps owner blockers), gated by `robot.on`. Then hosted attach (App Contents write on refs, a durable hosted journal) and the owner's decision on `tonight`.
+Connect the hosted session preview to the existing conditional-write journal and claim path before any dispatch. Preserve the preview's fresh source, claim and PR coverage checks. Prove reconnect and no duplicate effects. Keep actual execution unavailable until its bounded provider-start recovery and required activation are verified. Robot and the owner's decision on `tonight` remain separate.
 
 ## Trajectory
 - **2026-11-06** The attach contract and the CLI session route landed. `tonight` is blocked: no night pass builds a phase from a plan item. Web Start stays off and names the CLI command.
+- **2026-11-14** — The owner (dalmaer) released the stale claim claims/phase-181 (claude on Dions-MacBook-Pro-M3, no push for 8 days) from plates home: Owner requested this session take over on 2026-11-14; prior branch is merged, visible Plates desktop sessions are idle, and Rex Claude pane is a shell. Preserve prior evidence and transfer only phase 181 implementation; no new permissions or spend.
+
+- **2026-11-14** — Hosted attach starts with a read-only exact preview, reusing the CLI contract and bounded project reads. Review showed that claim branches alone cannot establish availability without PR coverage. Apply and real execution remain separate work, not implied by a brief.

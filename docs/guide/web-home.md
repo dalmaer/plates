@@ -95,8 +95,12 @@ one plate, and `--json` prints the model. A plate that could not be read says
 "not read", never zero; so does one whose claims could not be read. The hosted
 `/backlog` (linked from Home) shows the same items as a list beside a sidebar,
 with `/api/backlog` carrying the same JSON; there the claims are the plate's
-`claims/phase-*` branches and open PRs, read through the GitHub App. Start on an
-agent-ready row is off until agents can be attached (phase 181).
+`claims/phase-*` branches and open PRs, read through the GitHub App. An
+agent-ready phase row links to a read-only **Preview attach** page (phase 181).
+It reads the current source, claims and PRs again, shows the provider, session
+brief and source-bound digest, and refuses work that is no longer agent-ready
+or whose ownership coverage is incomplete. Opening or refreshing it creates no
+claim and starts no agent; hosted apply and dispatch remain unavailable.
 
 Start at the top of the backlog's Yours lane (or "Your lane, in backlog order"
 on Home) opens the review session at `/review/yours` over exactly that lane, in
@@ -143,8 +147,10 @@ says who holds it and does nothing else. A second `--yes` returns the
 receipt; an attach interrupted after its intent was journaled is recovered,
 never repeated. A plate offers the routes its `"backlog": { "routes": [...] }`
 policy lists (only `session` with no policy). This build starts `session`
-only. The backlog's Start button on an agent-ready row stays off on the web,
-and its tooltip gives this command.
+only through this CLI path. The web offers a read-only preview at
+`/projects/<id>/attach?key=<id>:phase:<n>&route=session`; adding `provider` selects
+a configured provider. The matching `/api/projects/<id>/attach` route returns
+JSON. The page is not an approval or dispatch receipt.
 
 `plates home --assist <plate>:phase:<n> --recommend <choice> --why "<line>"
 --evidence <link> [--evidence <link>...] [--provider <p>]` (phase 182), run in
