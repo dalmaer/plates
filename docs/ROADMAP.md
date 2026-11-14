@@ -441,7 +441,7 @@ Plates provides one management experience from project sets to each plate, its w
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
-| [137. A project set shows its routines and what actually ran](phases/137-a-project-set-shows-its-routines.md) | partial | 2026-11-05 | [93](phases/93-workspace-data-stays-outside-public-code.md), [102](phases/102-routines-have-a-complete-observed-history.md) | First increment: optional project-set registry and authorization intersection only. Home/history selection, observation transport and hosted features remain in draft PR324; no interface or executor is enabled by this contract. |
+| [137. A project set shows its routines and what actually ran](phases/137-a-project-set-shows-its-routines.md) | partial | 2026-11-14 | [93](phases/93-workspace-data-stays-outside-public-code.md), [102](phases/102-routines-have-a-complete-observed-history.md) | Registry and read-only Routines/Activity selection implemented; source-bound continuations refuse scope changes. Home lens, deployment and real desktop/mobile verification remain outstanding; no executor or transport is enabled. |
 
 - **137 done when:** An authorized owner can inspect existing routines and observations through a project-set lens without adding access, executors or pooled funding authority.
 

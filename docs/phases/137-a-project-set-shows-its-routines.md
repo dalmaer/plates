@@ -1,11 +1,11 @@
 ---
 status: partial
-since: 2026-11-05
+since: 2026-11-14
 goal: G8
 spec: 2
 depends: [93, 102]
-note: "First increment: optional project-set registry and authorization intersection only. Home/history selection, observation transport and hosted features remain in draft PR324; no interface or executor is enabled by this contract."
-evidence: ["evidence/2026-11-05-project-set-contract.md"]
+note: "Registry and read-only Routines/Activity selection implemented; source-bound continuations refuse scope changes. Home lens, deployment and real desktop/mobile verification remain outstanding; no executor or transport is enabled."
+evidence: ["evidence/2026-11-05-project-set-contract.md", "evidence/2026-11-14-project-set-history.md"]
 ---
 
 # A project set shows its routines and what actually ran
@@ -16,13 +16,14 @@ An authorized owner can inspect existing routines and observations through a pro
 
 ## Scope
 
-The optional configuration registry is bounded and pinned to existing project repository IDs. Shared pure readers intersect it with the authenticated project list; a missing or revoked set fails closed. The default configuration and current UI/routes remain unchanged. This increment adds the contract so later Home/history integration can use it without the hosted migrations in [draft PR324](https://github.com/dalmaer/plates/pull/324).
+The optional configuration registry is bounded and pinned to existing project repository IDs. Shared pure readers intersect it with the authenticated project list; a missing or revoked set fails closed. The default unfiltered history remains unchanged. Routines and Activity consume the registry through bounded existing readers; Home integration remains outstanding. No hosted migration is required from [draft PR324](https://github.com/dalmaer/plates/pull/324).
 
 ## Acceptance
 
 - [x] Registry bounds, exact fields, known members, duplicates, names and repository pins are validated; selection grants no project access: `tests/web-project-set-contract.test.mjs`.
 - [x] Optional configuration readback retains the registry without mutable aliases; absence keeps the current behavior: the same focused test and `tests/web-config.test.mjs`.
-- [ ] Home/history filters, source-bound pagination and responsive navigation use the contract: `npm run check:focused -- tests/web-project-sets.test.mjs` (planned lens integration).
+- [x] Routines/Activity selection and source-bound pagination use the contract: `tests/web-project-sets.test.mjs`.
+- [ ] Home selection and real responsive navigation use the contract; source tests do not establish a device walk: ⚑ by hand: owner, on desktop and mobile.
 - [ ] Real desktop/mobile source comparison and any separately authorized observation transport are verified: ⚑ by hand: owner, after separately authorized enrollment.
 
 ## Real surfaces
@@ -39,4 +40,8 @@ Observation enrollment, hosted storage and personal funding remain separate incr
 
 ## Next action
 
-Integrate the read-only Home/history lens from PR324 against current main, retaining current navigation and source identity contracts. Keep the original broader source preserved in that draft.
+Add the remaining read-only Home lens against current main, then verify desktop/mobile source comparison under separately authorized enrollment. Keep the original broader source preserved in PR324; do not enable its transport or executor.
+
+## Trajectory
+
+- **2026-11-14** — Split history selection from Home and transport so an independently testable read-only increment can land without borrowing the active delegation/runtime phases or treating source tests as hosted execution. See the dated evidence.
