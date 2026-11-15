@@ -181,6 +181,16 @@ test('the push route takes a device key and nothing else; the CLI pushes this ma
   assert.equal((await call(`Bearer pdk_${'y'.repeat(43)}`)).status, 401, 'an unknown key');
   assert.equal((await call(`Bearer ${key}`, JSON.stringify({ schema: 1 }))).status, 400, 'a malformed snapshot');
 
+  // The largest snapshot the scanner can build is accepted, stored and read back: bounds count UTF-16 units, and a
+  // unit is at most three bytes (an astral character is four bytes in two units).
+  const wide = n => '漢'.repeat(n);
+  const largest = { schema: 1, machine: 'Acme Mac', scannedAt: at(29),
+    sessions: Array.from({ length: 50 }, (_, i) => ({ id: `s${i}`, plate: 'studio', title: `🏠 [studio] ${wide(108)}`, question: wide(500), since: at(1) })),
+    scripts: Array.from({ length: 50 }, (_, i) => ({ name: `20261115-0900-acme-${i}`, why: wide(300), checked: true, since: at(1) })) };
+  assert.ok(validSnapshot(largest), 'the bound case is a valid snapshot');
+  assert.ok(Buffer.byteLength(JSON.stringify(largest)) > 65536, 'and larger than the old limit');
+  assert.equal((await call(`Bearer ${key}`, JSON.stringify(largest))).status, 200);
+  assert.equal((await createWaitingStore(h.config, fetcher, { now: clock }).list(1))[0].sessions.length, 50);
   const dir = await mkdtemp(join(tmpdir(), 'plates-waiting-push-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
   await mkdir(join(dir, 'projects', 'p'), { recursive: true });

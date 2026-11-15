@@ -22,7 +22,7 @@ create table if not exists plates_home.device_keys (
 create table if not exists plates_home.waiting_sessions (
  scope text not null check(scope ~ '^[a-f0-9]{64}$'),
  device text not null check(device ~ '^[a-f0-9]{64}$'),
- value text not null check(octet_length(value) <= 262144),
+ value text not null check(octet_length(value) <= 1048576),
  scanned_at timestamptz not null,
  primary key(scope, device)
 );
@@ -61,8 +61,8 @@ begin
   get diagnostics changed = row_count;
   return jsonb_build_object('revoked', changed > 0);
  elsif p_operation = 'push' then
-  -- A 64 KiB snapshot grows when sealed (base64url ciphertext): the bound is the sealed size, with room.
-  if p_device is null or p_value is null or octet_length(p_value) > 262144 or p_at is null or p_at > stamp + interval '5 minutes' then raise exception 'invalid waiting push'; end if;
+  -- A 384 KiB snapshot (the largest the scanner builds) grows when sealed (base64url ciphertext): the bound is the sealed size, with room.
+  if p_device is null or p_value is null or octet_length(p_value) > 1048576 or p_at is null or p_at > stamp + interval '5 minutes' then raise exception 'invalid waiting push'; end if;
   -- Only a device whose key still exists may push; a revoked one is refused.
   if not exists (select 1 from plates_home.device_keys where scope = p_scope and device = p_device) then return jsonb_build_object('revoked', true); end if;
   -- The newest scan wins: an older push arriving late (two overlapping runs) changes nothing and is not an error.
