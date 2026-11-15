@@ -1,7 +1,6 @@
 ---
-status: partial
-owes: walk
-since: 2026-10-11
+status: built
+since: 2026-11-15
 goal: G0
 spec: 2
 depends: []
@@ -29,7 +28,7 @@ The design is [Adopting projects that already have a practice](../research/2026-
 - [x] Every rule in plates's shipped blocks has a cause; the lint notes one without. `tests/lessons.test.mjs`, `tests/practices.test.mjs`
 - [x] `roadmap --check` notes a measured figure with no date nearby, and stays quiet for a dated one. `tests/roadmap.test.mjs`
 - [x] `plates evidence rederive` reruns recorded commands and prints old and new values. `tests/evidence.test.mjs`
-- [ ] ⚑ by hand: the owner reads plates's AGENTS blocks with their causes and says whether any rule now reads as obsolete.
+- [x] ⚑ by hand: the owner reads plates's AGENTS blocks with their causes and says whether any rule now reads as obsolete.
 
 ## Your part
 
@@ -59,7 +58,7 @@ By hand: the owner's read of the rules.
 
 ## Next action
 
-The owner says whether an agent should shortlist rules whose cause is gone (Your part); on yes, the conductor writes the shortlist.
+None.
 
 ## Trajectory
 

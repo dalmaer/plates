@@ -62,3 +62,9 @@ This follow-up changes the night template and its rendered copy, plus shell-leve
 Follow-up proof: `node bin/keel.mjs prove tests/workflows.test.mjs --fix practices/night/files/.github/workflows/keel-night.yml --base 50c9ff1 --trailer` returned **VERIFIED** in the conductor's independent run: red without the change, green with it. The focused builder run passed all 34 workflow tests. The final full gate follows this record.
 
 The successful night has one material access warning: its repository token cannot read private `dalmaer/keel-inbox`, so `learn` preserved the prior counts instead of inventing zeros. `gh secret list --json name` confirmed no configured inbox/fleet credential on Keel; no secret values were read or created. This is a remaining scheduled-inbox credential requirement, not a failed test or a complete lesson collection. The night gate/report/drain succeeded despite this explicitly reported gap.
+
+## The owner's read (2026-11-15)
+
+| Walked | The owner's note |
+| --- | --- |
+| ⚑ by hand: the owner reads plates's AGENTS blocks with their causes and says whether any rule now reads as obsolete. | Chose: Yes, shortlist them. |
