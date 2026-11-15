@@ -315,6 +315,28 @@ test('a Vercel target is validated, naming its key', async () => {
   ]) assert.match(deliveryProblems({ delivery }).join('\n'), why, JSON.stringify(delivery));
 });
 
+test('a Vercel target\'s paths may start ~/, expanded against the running user\'s home, so a committed config names no one\'s home', () => {
+  const site = { site: 'https://anvils.acme.example', version: '/api/version' };
+  const vercel = { scope: 'acme', checkout: '~/.plates/deploy/anvils', globalConfig: '~/Library/Application Support/com.vercel.cli' };
+  const config = { delivery: { promote: 'vercel:anvils', vercel, ...site } };
+  assert.deepEqual(deliveryProblems(config), []);
+  const d = deliveryOf(config, { HOME: '/srv/acme-home' });
+  assert.equal(d.vercel.checkout, '/srv/acme-home/.plates/deploy/anvils');
+  assert.equal(d.vercel.globalConfig, '/srv/acme-home/Library/Application Support/com.vercel.cli');
+  assert.equal(deliveryOf(config, { HOME: '/srv/acme-home/' }).vercel.checkout, '/srv/acme-home/.plates/deploy/anvils', 'a trailing slash on HOME adds no empty segment');
+  // An absolute path is untouched, and no globalConfig stays null.
+  assert.deepEqual(deliveryOf({ delivery: { promote: 'vercel:anvils', vercel: { scope: 'acme', checkout: '/srv/acme-deploy' }, ...site } }, { HOME: '/srv/acme-home' }).vercel, { scope: 'acme', checkout: '/srv/acme-deploy', globalConfig: null });
+  // Only a leading ~/ is accepted; the home directory itself and escapes are not.
+  for (const checkout of ['~', '~/', '~other/deploy', '~/../deploy', 'deploy/~/x']) assert.match(deliveryProblems({ delivery: { promote: 'vercel:anvils', vercel: { ...vercel, checkout }, ...site } }).join('\n'), /"delivery"\.vercel\.checkout must be an absolute directory \(or one under ~\/\)/, checkout);
+});
+
+test('homePath expands only the running user\'s leading ~/', async () => {
+  const { homePath } = await import('../practices/delivery/files/scripts/plates/delivery.mjs');
+  assert.equal(homePath('~/x', { HOME: '/srv/acme-home' }), '/srv/acme-home/x');
+  assert.equal(homePath('/srv/x', { HOME: '/srv/acme-home' }), '/srv/x');
+  assert.equal(homePath('~other/x', { HOME: '/srv/acme-home' }), '~other/x');
+});
+
 test('the arguments: --back takes an optional commit; --watch, --migrated and --migrations-from are a Vercel target\'s', async t => {
   const { parseArgs } = (await installed(t)).promote;
   assert.deepEqual(parseArgs(['--back']), { commit: null, back: true, yes: false, migrated: [], migrationsFrom: null });

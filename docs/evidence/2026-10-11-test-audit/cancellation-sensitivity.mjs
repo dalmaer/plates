@@ -2,7 +2,7 @@ import {mkdtemp, mkdir, readFile, writeFile, symlink, readdir, rm} from 'node:fs
 import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import assert from 'node:assert/strict';
-const root='/Users/dionalmaer/code/plates';
+const root=`${process.env.HOME}/code/plates`;
 const tmp=await mkdtemp('/tmp/plates-cancellation-sensitivity-');
 try {
  await mkdir(join(tmp,'lib')); await mkdir(join(tmp,'tests'));

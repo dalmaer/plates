@@ -1,5 +1,5 @@
 import { registerHooks } from 'node:module';
-const root = 'file:///Users/dionalmaer/code/plates/';
+const root = `file://${process.env.HOME}/code/plates/`;
 const changes = {
   'candidate-unchanged': ['lib/release.mjs', 'return { version: practice, changed: false };', "return { version: JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version, changed: false };"],
   'candidate-next-patch': ['lib/release.mjs', '${patch + 1}', '${patch}'],

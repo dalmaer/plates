@@ -24,7 +24,7 @@ Read-only checks found Docker Desktop at `/Applications/Docker.app`, Docker CLI
 Claude CLI executables are on PATH, but their personal sessions/auth are not used.
 The initial socket check was inconclusive. On 2 November, a reviewed read-only
 Docker probe verified Docker Desktop 4.41.2, Engine 28.1.1, Linux arm64 through
-`/Users/dionalmaer/.docker/run/docker.sock`. It used an empty dedicated Docker
+`~/.docker/run/docker.sock`. It used an empty dedicated Docker
 configuration and did not read personal registry credentials. `sysctl -n hw.memsize` returned
 `Operation not permitted`, so memory capacity is unverified. No retry/escalation
 was needed for implementation. No M1 connection or inspection occurred.

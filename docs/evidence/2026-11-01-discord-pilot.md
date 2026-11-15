@@ -24,7 +24,7 @@ continuation at the end supersedes its statement that live adapters were absent.
   `scripts/discord-pilot/demo.mjs`: passed (individual paths, no literal brace command).
 - Existing selected type contracts passed using the already-installed tooling,
   without dependency installation:
-  `node /Users/dionalmaer/code/plates/node_modules/typescript/bin/tsc --project tsconfig.json --typeRoots /Users/dionalmaer/code/plates/node_modules/@types`.
+  `node $HOME/code/plates/node_modules/typescript/bin/tsc --project tsconfig.json --typeRoots $HOME/code/plates/node_modules/@types`.
   The repository's explicit tsconfig scope does not include the new pilot modules;
   their validation is runtime tests and syntax checks, not a full static type claim.
 - `git diff --check`: passed.
@@ -205,7 +205,7 @@ Observed host facts, all read-only:
   into `/Applications/Docker.app`, whose application directory exists.
 - `uname -m`: arm64; `sw_vers -productVersion`: 27.0.1; `node -v`: v24.22.1.
 - `command -v` found local Codex/Claude executables. No auth/config files were read.
-- Socket metadata checks for `/Users/dionalmaer/.docker/run/docker.sock` and
+- Socket metadata checks for `~/.docker/run/docker.sock` and
   `/var/run/docker.sock` were unavailable. No daemon connection/start was attempted.
 - `sysctl -n hw.memsize` was denied with `Operation not permitted` by the selected
   environment. It was not retried or escalated; capacity remains unknown. This did

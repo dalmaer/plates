@@ -22,7 +22,7 @@ and `TZ=UTC` for tests. The runtime was Node 26.12.1 on the owner's Mac.
 | `npm run check:focused -- tests/evaluation-records.test.mjs` | Conductor exit 0; 118 tests, zero failures; convention stages passed | Records, real CLI, guards and associated conventions |
 | `npm run check:focused -- tests/evaluation-records.test.mjs tests/session-trials.test.mjs` | Builder exit 0; 149 tests, zero failures; retained `/tmp/plates-phase117-focused-complete.log` | Includes unchanged handoff compatibility |
 | `git diff --check` | Exit 0 | Whitespace only |
-| `node /tmp/plates-phase117-walk.mjs /Users/dionalmaer/.codex/worktrees/reconcile-validation-night/plates` | Conductor exit 0, 12 operations passed | Actual CLI on fresh external private storage |
+| `node /tmp/plates-phase117-walk.mjs $HOME/.codex/worktrees/reconcile-validation-night/plates` | Conductor exit 0, 12 operations passed | Actual CLI on fresh external private storage |
 
 The [walk source](2026-10-23-evaluation-records-walk.mjs) is retained byte-for-byte;
 it can be rerun with the source root as its sole argument. It deliberately uses

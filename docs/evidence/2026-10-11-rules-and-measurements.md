@@ -33,7 +33,7 @@ Conductor commands, all exit 0:
 - `npm run render`: refreshed managed copies from the changed practice sources.
 - `node --import ./tests/helpers/hermetic.mjs --test tests/lessons.test.mjs tests/practices.test.mjs tests/roadmap.test.mjs tests/evidence.test.mjs tests/cli.test.mjs`: 87 tests passed. Tests cover shipped causes, advisory missing causes/dates, strict dates and record validation before execution, direct argv, numeric unavailable results, lazy loading, output limits and descendant teardown.
 - `node /tmp/keel-phases-50-66/64-real.mjs`: production `rederive` preview then execution of this record returned old 3,113 characters (2026-10-10), new 3,166 characters (2026-10-11). SHA-256 before/after comparisons confirmed the phase and historical evidence were unchanged. This larger count is not a performance improvement.
-- The same real proof called production `render('/Users/dionalmaer/code/ledger', {check:true})`: 59 rendered entries, including three managed guide blocks with causes. Ledger's AGENTS.md, config and lock hashes were unchanged. This proves a preview against the actual adopted configuration, not a published update or an owner read.
+- The same real proof called production `render('~/code/ledger', {check:true})`: 59 rendered entries, including three managed guide blocks with causes. Ledger's AGENTS.md, config and lock hashes were unchanged. This proves a preview against the actual adopted configuration, not a published update or an owner read.
 
 The advisory corpus scan returned 59 notes (34 evidence, 25 research). The dated
 heading/item heuristic deliberately does not inherit unrelated introductory

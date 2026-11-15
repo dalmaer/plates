@@ -28,7 +28,7 @@ failures are retained in `/tmp/plates-phase118-builder-report.json`.
 
 ## Owner-machine walk
 
-`SOURCE_ROOT` was `/Users/dionalmaer/.codex/worktrees/reconcile-validation-night/plates`.
+`SOURCE_ROOT` was `~/.codex/worktrees/reconcile-validation-night/plates`.
 The reproducible [walk script](2026-10-23-evaluation-isolation-walk.mjs) creates
 an external private workspace and synthetic Acme package consumers. It exports
 only `lib/rename.mjs` from each named historical Git revision; the scripted builder

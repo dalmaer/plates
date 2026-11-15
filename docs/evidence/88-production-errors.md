@@ -44,7 +44,7 @@ or separately configured collection cadence; do not run the full gate more often
 From an isolated reporting workspace with the proposed Ledger source config:
 
 ```sh
-node /Users/dionalmaer/code/keel/practices/night/files/scripts/keel/production.mjs collect --yes --json
+node $HOME/code/keel/practices/night/files/scripts/keel/production.mjs collect --yes --json
 ```
 
 Exit 0, one provider attempt, UTC window **2026-10-17T09:46:43.420Z through

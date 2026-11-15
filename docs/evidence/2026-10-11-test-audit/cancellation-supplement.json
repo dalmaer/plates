@@ -3,7 +3,7 @@
   "profiles": 1,
   "jsonParseErrors": 0,
   "profile": "coverage-5234-1791755951863-0.json",
-  "sourceUrl": "file:///Users/dionalmaer/code/keel/lib/evidence.mjs",
+  "sourceUrl": "file://~/code/keel/lib/evidence.mjs",
   "onSignal": {
     "startOffset": 7723,
     "endOffset": 7816,

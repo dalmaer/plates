@@ -8,8 +8,8 @@ import { resolve, relative, join, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 
-const ROOT = '/Users/dionalmaer/code/plates';
-const PREFIX = 'file:///Users/dionalmaer/code/plates/';
+const ROOT = `${process.env.HOME}/code/plates`;
+const PREFIX = `file://${ROOT}/`;
 const SCRATCH = '/tmp/plates-test-audit';
 const sha = value => createHash('sha256').update(value).digest('hex');
 const inside = (parent, child) => child === parent || (!relative(parent, child).startsWith(`..${sep}`) && relative(parent, child) !== '..' && !relative(parent, child).startsWith(sep));
@@ -210,7 +210,7 @@ function main() {
     'V8 function records include anonymous/script-wrapper entries as emitted; no parser-derived source function denominator is claimed. Offsets are UTF-16 code units.',
     'Deduplication is by exact tracked source URL plus entry start/end offsets; names are retained as a set. Entry counts are not summed into an invocation estimate.',
     'All regular JSON files under the input directory are examined, including subprocess profiles. No PID or test-process filter is applied. Symlinks are skipped.',
-    'Only exact file:///Users/dionalmaer/code/plates/ URLs for currently tracked production .mjs paths match. Queries, fragments, fixture/mutant copies, worktrees and copied adopter sources are excluded, including code that executed only in those copies.',
+    'Only exact file://~/code/plates/ URLs for currently tracked production .mjs paths match. Queries, fragments, fixture/mutant copies, worktrees and copied adopter sources are excluded, including code that executed only in those copies.',
     'Unobserved modules are listed separately; absence is not evidence that every function in them was never executed elsewhere. No absent-module functions enter the denominator.',
     'Block ranges are ignored and are not claimed as branches. Entry execution is not assertion coverage, behavior verification, mutation sensitivity or test usefulness.',
     'Per-source statistics keep canonical practice and rendered copies separate. Manifest-related identical-current-byte copies additionally have union-by-offset groups. No overall coverage percentage is emitted.',
