@@ -221,9 +221,12 @@ test('PR104: literal HTML comment markers in measurement JSON preserve exact arg
   const result = cli(root);
   assert.equal(result.code, 0, JSON.stringify(result.data));
   assert.deepEqual(result.data.records[0].argv, argv);
-  await t.test('execution preserves comment markers in argv', posixExecution, () => {
-    const executed = cli(root, ['--yes']);
-    assert.equal(executed.code, 0, JSON.stringify(executed.data));
+  // Argv, not timing, is under test: rederived in process with a generous limit, so a loaded gate's stalls cannot time
+  // the child out (it did under the 10 s production limit, 2026-11-03). The CLI's own execution is covered above.
+  await t.test('execution preserves comment markers in argv', posixExecution, async () => {
+    const executed = await rederive({ root, phase: '64', yes: true, limits: { ...LIMITS, timeoutMs: 120_000 } });
+    assert.equal(executed.exitCode, 0, JSON.stringify(executed.data));
+    assert.deepEqual(executed.data.records[0].argv, argv);
     assert.equal(executed.data.records[0].new.value, literal.length + 4);
   });
 });
