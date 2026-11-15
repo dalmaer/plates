@@ -9,7 +9,8 @@ two thousand lines.
 **The rule.** An audit is a model reading the plate through one lens,
 `.agents/audits/<lens>.md`: the lens in prose, and in front matter how often
 (`every`, days), how hard (`effort`: quick, standard or deep), who may run it
-(`providers`, in order, keys of the plate's `agents`), an optional `model`
+(`providers`, in order, keys of the plate's `agents`; left out, any of them),
+an optional `model`
 whose own window must have room, and a time bound (`minutes`).
 
 - `plates audit due` lists each lens: due or not, and the first provider with

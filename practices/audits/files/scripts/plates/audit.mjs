@@ -25,7 +25,8 @@
 //   ---
 //
 // `every` is days between runs; `effort` quick | standard | deep; `providers`
-// is ordered, keys of the plate's `agents`; `model` (optional) names a model
+// (optional; absent, every one of the plate's `agents` in its order) is
+// ordered, keys of the plate's `agents`; `model` (optional) names a model
 // whose own window must have room too; `minutes` bounds a run. Flat
 // `key: value` lines, like personas: an unknown key is refused, naming it.
 //
@@ -100,12 +101,16 @@ export function parseLens(file, text, { agents = null } = {}) {
   if (!/^\d+$/.test(meta.every) || Number(meta.every) < 1 || Number(meta.every) > 365) fail(`${file}: every: "${meta.every}" is days between runs, a whole number from 1 to 365`);
   const effort = meta.effort ?? 'quick';
   if (!EFFORTS.includes(effort)) fail(`${file}: effort: "${effort}" is one of ${EFFORTS.join(', ')}`);
-  let providers;
-  try { providers = JSON.parse(meta.providers ?? 'null'); } catch { providers = undefined; }
-  if (!Array.isArray(providers) || !providers.length || providers.some(p => typeof p !== 'string' || !/^[a-z][a-z0-9-]*$/.test(p)) || new Set(providers).size !== providers.length) {
-    fail(`${file}: providers: is a JSON list of the plate's agents, in the order to try them, like ["codex", "claude"]`);
-  }
-  if (agents) for (const p of providers) if (!agents.includes(p)) fail(`${file}: providers: "${p}" is not one of the plate's agents (${agents.join(', ') || 'none'}, .plates/plates.json "agents")`);
+  // providers: optional; absent, a lens may run on any of the plate's agents, in their order.
+  let providers = null;
+  if (meta.providers !== undefined) {
+    try { providers = JSON.parse(meta.providers); } catch { providers = undefined; }
+    if (!Array.isArray(providers) || !providers.length || providers.some(p => typeof p !== 'string' || !/^[a-z][a-z0-9-]*$/.test(p)) || new Set(providers).size !== providers.length) {
+      fail(`${file}: providers: is a JSON list of the plate's agents, in the order to try them, like ["codex", "claude"] (leave it out for all of them)`);
+    }
+    if (agents) for (const p of providers) if (!agents.includes(p)) fail(`${file}: providers: "${p}" is not one of the plate's agents (${agents.join(', ') || 'none'}, .plates/plates.json "agents")`);
+  } else if (agents) providers = [...agents];
+  else providers = [];
   if (meta.model !== undefined && !/^[a-z0-9][a-z0-9.-]{0,40}$/.test(meta.model)) fail(`${file}: model: "${meta.model}" is a model's short name, like fable`);
   const minutes = meta.minutes === undefined ? 30 : Number(meta.minutes);
   if (!Number.isInteger(minutes) || minutes < 5 || minutes > 240) fail(`${file}: minutes: "${meta.minutes}" bounds a run, a whole number from 5 to 240`);
@@ -150,11 +155,13 @@ export function roomFor(snapshot, provider, { model = null, now = Date.now(), ma
   if (snapshot.v !== 1) return wait(`the quota snapshot is version ${JSON.stringify(snapshot.v)}; this plates reads version 1`);
   const age = (now - Number(snapshot.generatedAt)) / 60_000;
   if (!Number.isFinite(age) || age > maxAgeMinutes) return wait(`the quota snapshot is ${Number.isFinite(age) ? `${Math.round(age)} minutes old` : 'undated'}; at most ${maxAgeMinutes} is read`);
-  const p = (snapshot.providers ?? []).find(x => x?.id === provider);
+  if (!Array.isArray(snapshot.providers)) return wait('the quota snapshot has no list of providers');
+  const p = snapshot.providers.find(x => x?.id === provider);
   if (!p) return wait(`${provider} is not in the quota snapshot`);
   if (p.fresh !== true) return wait(`${provider}'s quota reading is stale`);
   if (p.status !== 'green') return wait(`${provider} is ${p.status ?? 'of unknown status'} in the quota snapshot`);
-  const windows = (p.windows ?? []).filter(w => w && (w.kind !== 'model' || (model && String(w.id).endsWith(`.${model}`))));
+  if (!Array.isArray(p.windows)) return wait(`${provider} has no list of windows in the quota snapshot`);
+  const windows = p.windows.filter(w => w && (w.kind !== 'model' || (model && String(w.id).endsWith(`.${model}`))));
   // An applicable window whose use is unknown is unknown capacity: wait, never skip it.
   const unread = windows.find(w => !Number.isFinite(w.usedPct) || w.usedPct < 0 || (w.pacePct !== null && w.pacePct !== undefined && !Number.isFinite(w.pacePct)));
   if (unread) return wait(`${provider} ${label(unread)} has no usable reading in the quota snapshot`, unread.id ?? null);
@@ -180,6 +187,7 @@ export function roomFor(snapshot, provider, { model = null, now = Date.now(), ma
 /** The first of a lens's providers with room, or { provider: null, waits: [why…] }. Pure. */
 export function chooseProvider(snapshot, lens, options = {}) {
   const waits = [];
+  if (!lens.providers.length) return { provider: null, why: null, waits: [`${lens.name ?? 'the lens'} has no provider: it names none and the plate lists no agents (.plates/plates.json "agents")`] };
   for (const provider of lens.providers) {
     const r = roomFor(snapshot, provider, { ...options, model: lens.model });
     if (r.room) return { provider, why: r.why, waits };
@@ -451,17 +459,21 @@ export function evidenceProblems(root, doc, env = process.env) {
   return problems;
 }
 
-/** The night's item id for a finding: audit-<lens>--<id>, at most 64. */
-export const itemId = (lens, id) => `audit-${lens}--${id}`.slice(0, 64).replace(/-+$/, '');
+/**
+ * The night's item id for a finding: audit-<lens>-<record date>--<id>, at most
+ * 64. The record's date is part of it: two records may both have a
+ * security-01, and triage of one must not hide the other.
+ */
+export const itemId = (lens, id, date = null) => `audit-${lens}${date ? `-${date.replaceAll('-', '')}` : ''}--${id}`.slice(0, 64).replace(/-+$/, '');
 const oneLine = (s, max) => { const l = String(s).replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim(); return l.length > max ? `${l.slice(0, max - 1).trimEnd()}…` : l; };
 
 /**
  * Each finding as a candidate item for the night's plan: triage, in the lens's
  * lane, never a build (an audit proposes; a person decides what is built).
  */
-export function planCandidates({ lens, findings, page = null }) {
+export function planCandidates({ lens, findings, page = null, date = null }) {
   return [...findings].sort((a, b) => leverage(b) - leverage(a)).map(f => ({
-    id: itemId(lens, f.id), title: oneLine(`${f.title} (${f.evidence[0].path}:${f.evidence[0].line}; ${f.severity}, effort ${f.effort}, ${f.confidence} confidence)`, 300),
+    id: itemId(lens, f.id, date), title: oneLine(`${f.title} (${f.evidence[0].path}:${f.evidence[0].line}; ${f.severity}, effort ${f.effort}, ${f.confidence} confidence)`, 300),
     kind: 'triage', source: `audit:${lens}`, number: null, lane: `audit:${lens}`, budget: null, status: 'planned',
     result: { note: oneLine(`Audit ${lens} proposes: ${f.fix} An audit never builds; keep or drop it, and a kept one becomes a phase or a climb.`, 1000), ...(page ? { link: page } : {}) },
   }));
@@ -543,7 +555,7 @@ export async function record({ root, name, from, date = today(), provider = null
   const recorded = `${JSON.stringify({ ...doc, date, provider, findings: [...doc.findings].sort((a, b) => leverage(b) - leverage(a)) }, null, 2)}\n`;
   const rel = posixPath(relative(root, page));
   const done = (again = false) => {
-    const candidates = planCandidates({ lens: name, findings: doc.findings, page: rel });
+    const candidates = planCandidates({ lens: name, findings: doc.findings, page: rel, date });
     return {
       data: { lens: name, date, commit: doc.commit, page: rel, findings: doc.findings.length, rejected: doc.rejected?.length ?? 0, candidates, ...(again ? { alreadyRecorded: true } : {}) },
       text: `${rel} — ${doc.findings.length} finding${doc.findings.length === 1 ? '' : 's'}, ${doc.rejected?.length ?? 0} rejected; ${again ? 'already recorded with these findings, nothing written' : 'each finding is triage for the next night'}`,
@@ -580,10 +592,10 @@ export async function recentCandidates(root, date) {
     if (age < 0 || age > 1) continue;
     const doc = JSON.parse(await readFile(join(dir, f), 'utf8'));
     if (shapeProblems({ lens: doc.lens, commit: doc.commit, findings: doc.findings, rejected: doc.rejected, notAudited: doc.notAudited }, m[2]).length) throw new AuditError(`${AUDITS}/${f} is not a recorded audit plates can read`);
-    found.push(...doc.findings.map(finding => ({ finding, lens: m[2], page: `${AUDITS}/${m[1]}-${m[2]}.md` })));
+    found.push(...doc.findings.map(finding => ({ finding, lens: m[2], date: m[1], page: `${AUDITS}/${m[1]}-${m[2]}.md` })));
   }
   // Best leverage first across every lens, so a bounded night takes the most useful.
-  return found.sort((a, b) => leverage(b.finding) - leverage(a.finding)).flatMap(x => planCandidates({ lens: x.lens, findings: [x.finding], page: x.page }));
+  return found.sort((a, b) => leverage(b.finding) - leverage(a.finding)).flatMap(x => planCandidates({ lens: x.lens, findings: [x.finding], page: x.page, date: x.date }));
 }
 
 // ---- the command line -------------------------------------------------------

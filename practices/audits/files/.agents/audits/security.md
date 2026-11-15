@@ -3,7 +3,6 @@ name: security
 description: What a leaked token, a hostile input or a hostile file in the repository could do here.
 every: 14
 effort: quick
-providers: ["claude"]
 minutes: 30
 ---
 

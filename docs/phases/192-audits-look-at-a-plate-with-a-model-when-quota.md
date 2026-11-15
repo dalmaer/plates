@@ -29,7 +29,7 @@ The first increment starts no model and schedules nothing:
 - **Lenses.** `.agents/audits/<lens>.md`: a lens in prose, and front matter the
   machine reads: `name`, `description`, `every` (days between runs), `effort`
   (`quick` | `standard` | `deep`), `providers` (ordered, keys of the plate's
-  `agents`), `minutes` (the run's bound). Same flat parser rules as personas:
+  `agents`; left out, all of them in order), `minutes` (the run's bound). Same flat parser rules as personas:
   an unknown key is refused, naming it.
 - **Room.** A provider has room when its quota snapshot is fresh and green,
   every weekly, monthly or model window that applies is at least `margin`

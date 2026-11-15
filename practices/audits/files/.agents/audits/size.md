@@ -3,7 +3,6 @@ name: size
 description: What the project ships and carries that it does not need.
 every: 30
 effort: quick
-providers: ["claude"]
 minutes: 30
 ---
 

@@ -3,7 +3,6 @@ name: tests
 description: Which untested code is dangerous, and which tests prove nothing.
 every: 14
 effort: quick
-providers: ["claude"]
 minutes: 30
 ---
 

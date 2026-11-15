@@ -404,6 +404,11 @@ test('the optional audits practice installs the runner and its lenses, renders c
       assert.equal(ran.status, 0, ran.stderr);
       const data = JSON.parse(ran.stdout);
       assert.deepEqual(data.lenses.map(l => [l.lens, l.due, l.provider]), lenses.map(l => [l, true, 'claude']));
+      // The seeded lenses name no provider: a Codex-only project runs them on Codex.
+      await writeFile(join(dir, '.plates/plates.json'), JSON.stringify({ ...ACME, agents: { codex: {} }, practices: ['base', 'agents-md', 'night', 'audits'] }, null, 2) + '\n');
+      const codexOnly = node(dir, 'scripts/plates/audit.mjs', 'due', '--quota', quota, '--json');
+      assert.equal(codexOnly.status, 0, codexOnly.stderr);
+      assert.ok(JSON.parse(codexOnly.stdout).lenses.every(l => l.provider === null && /codex is not in the quota snapshot/.test(l.waits[0])));
     } finally { await rm(quota, { force: true }); }
     assert.deepEqual((await load()).get('audits').requires, ['night']);
     assert.ok(optionalPractices().includes('audits'), 'audits is only ever asked for');

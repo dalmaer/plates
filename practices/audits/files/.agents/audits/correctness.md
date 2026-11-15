@@ -3,7 +3,6 @@ name: correctness
 description: Real bugs found by reading the code, not by guessing.
 every: 14
 effort: quick
-providers: ["claude"]
 minutes: 30
 ---
 

@@ -3,7 +3,6 @@ name: performance
 description: Algorithmic and structural slowness a person or a run waits on.
 every: 30
 effort: quick
-providers: ["claude"]
 minutes: 30
 ---
 

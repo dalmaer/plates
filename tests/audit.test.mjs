@@ -75,6 +75,9 @@ test('a lens is read, and what it cannot read is refused by name', () => {
   refused(lensText().replace('effort: quick', 'effort: huge'), /effort: "huge" is one of quick, standard, deep/);
   refused(lensText('', '["gemini"]'), /providers: "gemini" is not one of the plate's agents \(claude, codex/, { agents: ['claude', 'codex'] });
   refused(lensText('', 'codex'), /providers: is a JSON list/);
+  // Left out, a lens runs on any of the plate's agents, in their order.
+  assert.deepEqual(parseLens(FILE, lensText().replace(/providers: .*\n/, ''), { agents: ['codex'] }).providers, ['codex']);
+  assert.deepEqual(parseLens(FILE, lensText().replace(/providers: .*\n/, '')).providers, []);
   refused(lensText('', '["codex", "codex"]'), /providers: is a JSON list/);
   refused(lensText().replace('name: security', 'name: other'), /name "other" is not the file's name/);
   refused(lensText('minutes: 2\n'), /minutes: "2" bounds a run/);
@@ -101,6 +104,9 @@ test('room is explained, and unknown is wait', () => {
     // An applicable window with no usable reading is unknown capacity, never skipped.
     [snap([prov('codex', [win('codex.weekly', 'weekly', 21, 53), win('codex.session', 'session', null, null, '5-hour')])]), /5-hour has no usable reading/],
     [snap([prov('codex', [win('codex.weekly', 'weekly', 21, 'soon', 'Weekly')])]), /Weekly has no usable reading/],
+    // Malformed collections are wait, never a thrown error.
+    [{ ...ROOMY, providers: {} }, /no list of providers/],
+    [snap([prov('codex', {})]), /codex has no list of windows/],
   ];
   for (const [s, re] of waits) { const r = roomFor(s, 'codex', { now: NOW }); assert.equal(r.room, false, String(re)); assert.match(r.why, re); }
   // A model window counts only for the model a lens names, and a named model with no window waits.
@@ -111,6 +117,7 @@ test('room is explained, and unknown is wait', () => {
   const lens = parseLens(FILE, lensText('', '["claude", "codex"]'));
   assert.deepEqual(chooseProvider(ROOMY, lens, { now: NOW }).provider, 'codex', 'the first provider with room, in the lens\'s order');
   assert.equal(chooseProvider(snap([]), lens, { now: NOW }).waits.length, 2);
+  assert.match(chooseProvider(ROOMY, { ...lens, providers: [] }, { now: NOW }).waits[0], /has no provider/);
 });
 
 test('the quota is read from a file or loopback only, and an unreachable service is wait', async t => {
@@ -214,8 +221,8 @@ test('record accepts only evidence that exists at the commit', async t => {
 });
 
 test('a finding is triage for the night, never a build', async t => {
-  const items = planCandidates({ lens: 'security', findings: [finding()], page: 'docs/audits/2026-11-14-security.md' });
-  assert.deepEqual(items.map(i => [i.id, i.kind, i.source, i.lane, i.number]), [['audit-security--security-01', 'triage', 'audit:security', 'audit:security', null]]);
+  const items = planCandidates({ lens: 'security', findings: [finding()], page: 'docs/audits/2026-11-14-security.md', date: '2026-11-14' });
+  assert.deepEqual(items.map(i => [i.id, i.kind, i.source, i.lane, i.number]), [['audit-security-20261114--security-01', 'triage', 'audit:security', 'audit:security', null]]);
   const plan = { schema: SCHEMA, date: '2026-11-15', shapedBy: 'default', readyBy: null, willNotTouch: [], settledToday: [], leftOpen: [], items };
   assert.deepEqual(validatePlan(plan), { ok: true, problems: [] });
   const asBuild = { ...plan, items: [{ ...items[0], kind: 'build', number: { measure: 'slow_tests', bound: 1, better: 'lower' } }] };
@@ -230,6 +237,8 @@ test('a finding is triage for the night, never a build', async t => {
   assert.equal((await recentCandidates(root, '2026-11-15')).length, 1);
   assert.equal((await recentCandidates(root, '2026-11-14')).length, 1);
   assert.equal((await recentCandidates(root, '2026-11-17')).length, 0, 'an older record has had its night');
+  // Two records may share a finding id: each keeps its own identity.
+  assert.notEqual(itemId('security', 'security-01', '2026-11-14'), itemId('security', 'security-01', '2026-11-15'));
 });
 
 test('the night takes audit findings once, best first, and bounded', async t => {
@@ -247,13 +256,13 @@ test('the night takes audit findings once, best first, and bounded', async t => 
   const config = { practices: ['night', 'audits'] };
   const first = await auditCandidates({ root, config, date: '2026-11-14' });
   assert.equal(first.filter(i => i.kind === 'triage').length, AUDIT_ITEMS);
-  assert.equal(first[0].id, 'audit-security--security-07', 'best leverage first');
+  assert.equal(first[0].id, 'audit-security-20261114--security-07', 'best leverage first');
   assert.match(first.at(-1).title, /2 more audit findings wait/);
   // The next night: what the previous plan carried is not offered again.
   await mkdir(join(root, '.plates/night'), { recursive: true });
   await writeFile(join(root, PLAN), JSON.stringify({ schema: SCHEMA, date: '2026-11-14', shapedBy: 'default', readyBy: null, willNotTouch: [], settledToday: [], leftOpen: [], items: first.map(i => ({ ...i, status: 'done' })) }));
   const next = await auditCandidates({ root, config, date: '2026-11-15' });
-  assert.deepEqual(next.map(i => i.id).sort(), ['audit-security--security-05', 'audit-security--security-06'].sort());
+  assert.deepEqual(next.map(i => i.id).sort(), ['audit-security-20261114--security-05', 'audit-security-20261114--security-06'].sort());
 });
 
 test('the command line names its verbs and refuses what it does not take', () => {
