@@ -11,11 +11,11 @@ import {artifactFor} from '../lib/evaluated-learning-package.mjs';
 // Explicitly synthetic observations for pure record/replay tests only.
 const syntheticRepair=()=>{const identity={kind:'phase',repository:'Acme/widget',ref:'1',identity:{issueId:null,path:'docs/phases/1-acme.md'}};return {...identity,identityDigest:fingerprint(identity),state:'planned',sourceDigest:'a'.repeat(64)};};
 test('Acme original package operation recovers only while original report survives; duplicate content cannot replace it',async t=>{
-  const w=await promotionWorld(t),operation=await w.call('record-package',{proposalRef:w.proposalRef,evaluationRef:ref(w.evaluation)},{previous:w.applied,apply:true});
-  assert.equal((await w.learning.evaluatedLearning({...operation.opts,yes:true,digest:operation.preview.digest})).alreadyApplied,true);
+  const w=await promotionWorld(t,{worldOptions:{semanticDeadline:true}}),operation=await w.call('record-package',{proposalRef:w.proposalRef,evaluationRef:ref(w.evaluation)},{previous:w.applied,apply:true});
+  assert.equal((await w.invoke({...operation.opts,yes:true,digest:operation.preview.digest})).alreadyApplied,true);
   await assert.rejects(w.call('record-package',operation.request.payload,{previous:operation.result}),/package_already_recorded/);
   const reportPath=join(w.dir,'reports',w.evaluation.data.reportRef.digest+'.json');await unlink(reportPath);
-  await assert.rejects(w.learning.evaluatedLearning({...operation.opts,yes:true,digest:operation.preview.digest}),/original_report_missing_or_changed/);
+  await assert.rejects(w.invoke({...operation.opts,yes:true,digest:operation.preview.digest}),/original_report_missing_or_changed/);
 });
 test('Acme follow-up selected source deduplicates and cannot invent exposure, cross-proposal decisions or unresolved relations',async t=>{
   const w=await promotionWorld(t),p={...w.followup,selections:w.capture.selections};

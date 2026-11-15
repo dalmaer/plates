@@ -331,3 +331,23 @@ first, then use the actual approved HTTPS instance:
 7. Retain serving/source revisions, observed timings and screenshots outside the
    public application repository. An emulated viewport is not a physical-device
    test. Record any unwalked condition as a gap.
+
+
+## Keep an exact attach preview
+
+From an agent-ready phase in the backlog, open Attach and choose a provider.
+Reading the preview starts nothing. **Prepare private preview** retains that exact
+source and brief for review; it does not claim the phase or run an agent.
+The saved page shows its source revision, expiry and the original receipt link.
+
+If saving loses its response, revisit the original preview link instead of
+submitting another request. A saved preview may expire or become stale as the
+project changes. It is a record of what you reviewed, not continuing permission
+to start work. Inspecting an original receipt remains separate from preview
+expiry: the receipt shows the journal's observed stage and never labels a claim
+as a running agent.
+
+This source increment still leaves Apply and Dispatch unavailable. A real
+hosted run requires the registered worker's own verified activation and runtime
+allowance; see [the worker guide](web-workers.md). Saved preview and receipt
+inspection do not grant those permissions or accept a project outcome.
