@@ -255,6 +255,9 @@ export function dueOf(lens, last, date) {
     : { due: false, why: `last audited ${last}; next on or after ${new Date(Date.parse(`${last}T00:00:00Z`) + lens.every * DAY).toISOString().slice(0, 10)}` };
 }
 
+/** The plate's .plates/plates.json, or {} when it has none. */
+export async function readConfig(root) { return configOf(root); }
+
 async function configOf(root) {
   try { return JSON.parse(await readFile(join(root, '.plates', 'plates.json'), 'utf8')); }
   catch (e) { if (e.code === 'ENOENT') return {}; throw new AuditError(`.plates/plates.json: ${e.message}`); }

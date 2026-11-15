@@ -21,7 +21,7 @@ Verbs (`--json` for data):
 - `plates learn` — lessons → proposals and decisions
 - `plates improve` — measures, bounds, a proposal; `--report`
 - `plates persona run` — own goals
-- `plates audit due|brief|record` — audits
+- `plates audit due|brief|record|run` — audits
 - `plates time` — gate/test medians, failures
 - `plates test <file> --stalls` — wall-clock tests
 - `plates drain <prefix>` — newest passing PR per queue; exit 3

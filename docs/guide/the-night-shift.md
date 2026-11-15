@@ -779,6 +779,8 @@ plates audit due                          # each lens: due or not, who has room,
 plates audit due --quota quota.json       # the same, from a saved snapshot
 plates audit brief security               # the read-only brief an agent is handed
 plates audit record security --from findings.json --provider codex
+plates audit run security                 # preview: who has room, which host, where findings land
+plates audit run security --yes           # start it on the owner's local agent host
 ```
 
 `audit due` reads the owner's quota service on loopback (`PLATES_QUOTA_URL`,
@@ -797,8 +799,18 @@ findings only when every cited file and line exists at the audited commit and
 nothing is shaped like a credential or an absolute path; it writes
 `docs/audits/<date>-<lens>.md` and `.json`. Each finding reaches the next night
 once, as triage in lane `audit:<lens>`: an audit proposes, a person decides,
-and a kept finding becomes a phase or a climb. Nothing here starts a model or
-schedules one; scheduling model spend is the owner's ⚑.
+and a kept finding becomes a phase or a climb.
+
+`audit run` is the one verb that starts a model, and only through a local
+agent host the owner configured privately (`$XDG_CONFIG_HOME/plates/local-hosts.json`,
+the same host `plates home` attaches with). Without `--yes` it previews and
+makes nothing (exit 3). With it, it refuses when no provider of the lens has
+room or the chosen one has no host; otherwise it makes a detached checkout of
+HEAD in plates's state directory (never the project), runs the host's start
+command once there with the brief on stdin and only the basic environment,
+and keeps a receipt (`run.json`) beside it. It never waits for the agent and
+never records: when the session has written its findings, run the `audit
+record` command it printed. Scheduling audits is the owner's ⚑.
 
 ## Production error evidence
 

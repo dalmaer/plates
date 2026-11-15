@@ -163,7 +163,7 @@
     },
     "scripts/plates/audit.mjs": {
       "practice": "audits",
-      "sha256": "88fc79aee9997397c2e335e8bb3fc5891c38aa16b51222796c02d0e98d35d433"
+      "sha256": "6e8252b10bb1bc23ad92eb761401dba771d9a4edabdf24e19544b2158dc16afa"
     },
     "scripts/plates/autonomy-context.mjs": {
       "practice": "night",
