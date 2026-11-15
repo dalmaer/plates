@@ -41,7 +41,8 @@ test('projects-shaped plans reuse their status vocabulary and never treat future
   const h = projectHarness({ shape: 'projects' });
   h.source.files['docs/projects/publishing/phases.md'] = '# Publishing\n\n## Phase 1 — Ship a page\n**Status: CLOSED.** 2026-10-01 — Used.\n\n## Phase 2 — Draft safely\n**Status: PART-DONE.** 2026-10-20 — In progress.\n\n**Where we are** Next: phase 2.\n';
   const result = await home(h)(h.access, token), plan = result.projects[0].planning;
-  assert.equal(plan.source, 'projects'); assert.equal(plan.built, 1); assert.equal(plan.total, 2); assert.match(plan.next, /Draft safely/);
+  assert.equal(plan.source, 'projects'); assert.equal(plan.built, 1); assert.equal(plan.total, 2);
+  assert.deepEqual([plan.partial, plan.notStarted], [1, 0], 'the card\'s phase bar counts PART-DONE as partial'); assert.match(plan.next, /Draft safely/);
   assert.deepEqual(result.walks, []); assert.ok(result.coverage.gaps.some(gap => gap.source === 'human actions'));
   assert.equal(result.changes[0].kind, 'commit'); assert.doesNotMatch(result.changes[0].title, /Draft safely/);
 });
