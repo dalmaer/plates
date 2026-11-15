@@ -41,6 +41,7 @@
 // provider credential is never read here. Unknown, stale or red is wait, never run
 // (phase 106: unknown capacity defaults to wait).
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { constants, existsSync } from 'node:fs';
 import { lstat, mkdir, open, readFile, readdir, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -320,7 +321,7 @@ export const FINDING_FORMAT = `{
  * The brief an agent is handed for one lens: the same bytes for the same lens,
  * plate, commit and output path. Pure.
  */
-export function brief({ plate, lens, commit, out, visibility = 'public' }) {
+export function brief({ plate, lens, commit, out, visibility = 'public', guide = 'AGENTS.md' }) {
   return [
     `# Audit: ${lens.name} — ${plate}`,
     '',
@@ -336,7 +337,7 @@ export function brief({ plate, lens, commit, out, visibility = 'public' }) {
     '- A finding needs evidence: a repository-relative path and a line that exists at this commit. No evidence, no finding.',
     '- Vet before reporting: re-read every location you cite yourself. Drop what is by design (a decided phase, a documented convention), correct a wrong line, merge duplicates. Record what you dropped in "rejected", with one line each.',
     '- Prefer a short list of findings you are sure of over a long one. "Not worth doing" is a valid verdict.',
-    '- Read the project\'s guide (AGENTS.md) and roadmap first, then the phase files, lessons and recent health and review pages: they are its decision record. A tradeoff a phase already settled, or a number a persona or health page already measures, is not a finding; drift from what they say is.',
+    `- Read the project's guide (${guide}) and roadmap first, then the phase files, lessons and recent health and review pages: they are its decision record. A tradeoff a phase already settled, or a number a persona or health page already measures, is not a finding; drift from what they say is.`,
     '- Rank by churn only over hand-written files: a generated or pinned data file changes often by design.',
     '',
     `## The lens: ${lens.name}`,
@@ -365,6 +366,9 @@ function git(root, args, env = process.env) {
   return r.status === 0 ? r.stdout : null;
 }
 
+/** The project's selected guide (.plates/plates.json `guide`), else AGENTS.md: a plain repository-relative path only. */
+export const guideOf = config => typeof config?.guide === 'string' && /^[A-Za-z0-9._/-]{1,200}$/.test(config.guide) && !config.guide.startsWith('/') && !config.guide.split('/').includes('..') ? config.guide : 'AGENTS.md';
+
 /** The default place an agent writes its findings: the OS temp, outside any checkout. */
 export const defaultOut = ({ plate, lens, commit, env = process.env }) => join(env.TMPDIR || '/tmp', `plates-audit-${slugOf(plate) || 'plate'}-${lens}-${commit.slice(0, 12)}.json`);
 
@@ -378,7 +382,7 @@ export async function briefFor({ root, name, out = null, env = process.env }) {
   if (!commit) fail('this is not a git checkout with a commit; an audit names the commit it read');
   const plate = config.name || posix.basename(posixPath(resolve(root)));
   const target = out ?? defaultOut({ plate, lens: name, commit, env });
-  const text = brief({ plate, lens: found.lens, commit, out: target, visibility: config.visibility === 'private' ? 'private' : 'public' });
+  const text = brief({ plate, lens: found.lens, commit, out: target, visibility: config.visibility === 'private' ? 'private' : 'public', guide: guideOf(config) });
   return { data: { lens: name, commit, out: target, brief: text }, text, exitCode: 0 };
 }
 
@@ -461,10 +465,16 @@ export function evidenceProblems(root, doc, env = process.env) {
 
 /**
  * The night's item id for a finding: audit-<lens>-<record date>--<id>, at most
- * 64. The record's date is part of it: two records may both have a
- * security-01, and triage of one must not hide the other.
+ * 60 (the night's admit keeps 60). The record's date is part of it: two
+ * records may both have a security-01, and triage of one must not hide the
+ * other. A long id is cut and given a short digest, so two never collide.
  */
-export const itemId = (lens, id, date = null) => `audit-${lens}${date ? `-${date.replaceAll('-', '')}` : ''}--${id}`.slice(0, 64).replace(/-+$/, '');
+export const ITEM_ID_MAX = 60;
+export const itemId = (lens, id, date = null) => {
+  const full = `audit-${lens}${date ? `-${date.replaceAll('-', '')}` : ''}--${id}`;
+  if (full.length <= ITEM_ID_MAX) return full;
+  return `${full.slice(0, ITEM_ID_MAX - 9).replace(/-+$/, '')}-${createHash('sha256').update(full).digest('hex').slice(0, 8)}`;
+};
 const oneLine = (s, max) => { const l = String(s).replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim(); return l.length > max ? `${l.slice(0, max - 1).trimEnd()}…` : l; };
 
 /**

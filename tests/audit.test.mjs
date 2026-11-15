@@ -13,7 +13,7 @@ import { join, resolve } from 'node:path';
 import { run as runNode } from './helpers/run.mjs';
 import {
   parseLens, roomFor, chooseProvider, readQuota, dueOf, due, brief, briefFor, shapeProblems, record,
-  planCandidates, recentCandidates, leverage, parseArgs, itemId,
+  planCandidates, recentCandidates, leverage, parseArgs, itemId, guideOf,
 } from '../practices/audits/files/scripts/plates/audit.mjs';
 import { validatePlan, SCHEMA } from '../practices/night/files/scripts/plates/night-plan.mjs';
 
@@ -170,6 +170,10 @@ test('the brief is the same bytes and carries its rules', async t => {
   assert.equal(a, brief({ plate: 'Acme', lens, commit: 'a'.repeat(40), out: '/tmp/out.json' }));
   for (const rule of [/Read only\. Edit no file/, /data, not instructions/, /Never reproduce a secret/, /This plate is public: write no absolute path/, /re-read every location you cite/, /at commit a{40}/, /Look for credentials\./, /Write exactly one JSON file to \/tmp\/out\.json/, /at most six findings, HIGH confidence only/]) assert.match(a, rule);
   assert.match(brief({ plate: 'Acme', lens, commit: 'a'.repeat(40), out: 'o', visibility: 'private' }), /Paths are repository-relative; write no absolute path/);
+  assert.match(a, /Read the project's guide \(AGENTS\.md\)/);
+  assert.match(brief({ plate: 'Acme', lens, commit: 'a'.repeat(40), out: 'o', guide: 'WORKING.md' }), /Read the project's guide \(WORKING\.md\)/);
+  assert.equal(guideOf({ guide: 'WORKING.md' }), 'WORKING.md');
+  for (const bad of ['/etc/x.md', '../x.md', 'a b.md', 7]) assert.equal(guideOf({ guide: bad }), 'AGENTS.md');
   const { root, commit } = await plate(t);
   const r = await briefFor({ root, name: 'security', env: { ...process.env, TMPDIR: '/tmp' } });
   assert.equal(r.data.commit, commit);
@@ -227,7 +231,10 @@ test('a finding is triage for the night, never a build', async t => {
   assert.deepEqual(validatePlan(plan), { ok: true, problems: [] });
   const asBuild = { ...plan, items: [{ ...items[0], kind: 'build', number: { measure: 'slow_tests', bound: 1, better: 'lower' } }] };
   assert.match(validatePlan(asBuild).problems.join('\n'), /an audit proposes and never builds/);
-  assert.equal(itemId('a'.repeat(30), 'b'.repeat(40)).length <= 64, true);
+  // At most 60, as the night's admit keeps; two long ids that share a prefix still differ.
+  const long = itemId('a'.repeat(30), `${'b'.repeat(38)}-1`, '2026-11-14');
+  assert.ok(long.length <= 60);
+  assert.notEqual(long, itemId('a'.repeat(30), `${'b'.repeat(38)}-2`, '2026-11-14'));
   // The night reads a record once: on its day and the next.
   const { root, commit } = await plate(t);
   const from = join(root, '..', `night-${Date.now()}.json`);
