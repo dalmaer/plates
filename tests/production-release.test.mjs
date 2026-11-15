@@ -140,3 +140,19 @@ test('the hosted reader reads the deploy records through the App and counts main
   const row = result.home.sections.find(s => s.id === 'plates').items[0].release;
   assert.equal(row.line, `production ccccccc is 3 commits behind main ${main.slice(0, 7)} (deployed 2026-11-14)`);
 });
+
+test('a production commit gone from the repository leaves the release unknown, and Home still reads', async () => {
+  const { projectHarness } = await import('./helpers/web-projects.mjs');
+  const { createHomeReader } = await import('../lib/web/home.mjs');
+  const h = projectHarness(), headers = { 'content-type': 'application/json', 'x-ratelimit-remaining': '5000', 'x-ratelimit-reset': String(Math.floor(h.state.now / 1000) + 3600) };
+  const fetcher = async (url, options) => {
+    const u = new URL(url);
+    if (u.pathname === '/graphql' && JSON.parse(options.body).query.includes('object(expression:'))
+      return new Response(JSON.stringify({ data: { repository: { d0: { isBinary: false, isTruncated: false, text: text(record({ commit: C, serving: { id: 'dpl_acme', url: null, commit: C } })) }, d1: null } } }), { headers });
+    if (u.pathname.startsWith('/repos/acme/studio/compare/')) return new Response(JSON.stringify({ message: 'Not Found' }), { status: 404, headers });
+    return h.fetcher(url, options);
+  };
+  const result = await createHomeReader(h.config, { fetcher, now: () => h.state.now })(h.access, 'fake-user-access-token-for-tests');
+  assert.ok(['complete', 'partial'].includes(result.projects[0].state), 'the optional release read never fails the plate');
+  assert.deepEqual([result.projects[0].release.state, result.projects[0].release.why], ['unknown', 'production could not be compared with main']);
+});
