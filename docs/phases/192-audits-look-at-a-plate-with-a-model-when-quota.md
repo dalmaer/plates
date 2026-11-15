@@ -4,7 +4,7 @@ since: 2026-11-14
 goal: G4
 spec: 2
 depends: [75, 106]
-note: "Increment 1 built: lenses, room from the quota snapshot, due, brief, record and night triage, adopted on plates itself. No model is started and nothing is scheduled; run, routine (⚑) and the owner's read remain."
+note: "Increments 1 and 2 built: lenses, room, due, brief, record, night triage, and audit run through the owner's local agent host. Nothing is scheduled; one real run, the routine (⚑) and the owner's read remain."
 evidence: []
 ---
 
@@ -79,8 +79,9 @@ audit-playbook.md`); credited in NOTICE. Not carried: its `plans/` backlog
    `audit:<lens>` alongside `persona:<name>`. Proof: `tests/audit.test.mjs`,
    then `npm run check`. Exposure: `plates audit` verbs; no model, no network
    beyond loopback, no schedule. Recovery: revert the merge.
-2. **Run** through a local agent host. Proof: a stub host in tests; ⚑ one real
-   run on plates by the owner.
+2. **Run** through a local agent host (built: `lib/audit-run.mjs`,
+   `plates audit run`). Proof: a stub host in `tests/audit-run.test.mjs`; ⚑ one
+   real run on plates by the owner.
 3. **Routine** (⚑): the owner's yes for recurring model spend, with its
    price stated as quota share, not money.
 4. **Hosted** room read from Ledger's `/api/quota`.
@@ -94,6 +95,8 @@ audit-playbook.md`); credited in NOTICE. Not carried: its `plans/` backlog
 - [x] `record` refuses, writing nothing, a wrong commit, an absent path, a line past the end, an absolute path or key-shaped text, and otherwise writes the page ordered by leverage with rejected and not-audited sections: `tests/audit.test.mjs: "record accepts only evidence that exists at the commit"`.
 - [x] Each recorded finding is a triage candidate the night plan accepts (`audit:<lens>` source and lane), never a build: `tests/audit.test.mjs: "a finding is triage for the night, never a build"`.
 - [x] The optional practice installs the runner and the seeded lenses, renders clean, and runs in an adopted project: `tests/practices.test.mjs: "the optional audits practice installs the runner and its lenses, renders clean, and the runner runs in the project"`.
+- [x] `plates audit run <lens>` previews without `--yes` and makes nothing; with it, runs the owner's configured local host once in a detached checkout of HEAD outside the project, with the brief on stdin and the basic environment only, and keeps a receipt; no room, no host, an unnamed provider or a failing host is refused and the host is never run twice: `tests/audit-run.test.mjs`.
+- [ ] ⚑ By hand: the owner configures a local agent host and runs one real audit of plates with `plates audit run`.
 - [ ] ⚑ By hand: the owner reads one real audit page of plates and decides at least one finding.
 
 ## Your part
@@ -163,4 +166,4 @@ cited line checked at the commit.
 
 ## Next action
 
-Land increment 1 (this branch), then build `plates audit run` through the local agent host with a stub host in tests.
+The owner configures a local agent host (`local-hosts.json`) and runs `plates audit run security --yes` on plates; then the routine increment asks for its quota share.
