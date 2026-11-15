@@ -249,6 +249,10 @@
       "practice": "night",
       "sha256": "edbbf5138d1128c2b3f852e1786808f42e5cdc833d6c36e9083c3d7738f1dee2"
     },
+    "scripts/plates/names-observation.mjs": {
+      "practice": "night",
+      "sha256": "f3b5ffcbad0aeeead12180d416eb1384d5e46db572b53ec25a01f39a5f8a1be3"
+    },
     "scripts/plates/names.mjs": {
       "practice": "night",
       "sha256": "85bd78c0d678239a9fbdb621ca16e0d961491b0a673a3642a4eb9cb343439fc0"
