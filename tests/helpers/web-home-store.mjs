@@ -4,6 +4,8 @@ export function homeDatabase(now) {
   const json = value => new Response(JSON.stringify(value), { headers: { 'content-type': 'application/json' } });
   return { cache, quotas, cursors, handle(url, options) {
     const path = new URL(url).pathname;
+    // SQL022 applied, and no device has pushed: Home's waiting-sessions read finds nothing (tests/waiting-sessions.test.mjs runs the real store).
+    if (path.endsWith('/rpc/plates_waiting_rpc')) return JSON.parse(options.body).p_operation === 'list' ? json({ items: [] }) : json({ found: false });
     if (!path.includes('/rpc/plates_home_')) return null;
     const p = JSON.parse(options.body), clock = now();
     if (path.endsWith('cache_rpc')) {
