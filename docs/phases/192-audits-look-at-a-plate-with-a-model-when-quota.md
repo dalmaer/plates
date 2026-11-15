@@ -76,9 +76,13 @@ lens run on a provider plates has no CI adapter for, so it cannot be one of the
 plate's `agents` (cross-review and the night refuse an unknown agent). Plates
 lists Antigravity there and gives it six deep lenses on its Carbon model
 (design, test-speed, simplify, drift, supply-chain, performance-deep), whose
-room is read per model from the same quota snapshot. Antigravity has no
-command-line agent, so its local host is a manual one: it opens the disposable
-checkout in the app with the brief on the clipboard.
+room is read per model from the same quota snapshot. Its local host runs the
+Antigravity CLI headless (`agy`, brief on stdin, Carbon high) in the disposable
+checkout, with edits allowed only in the checkout and the findings folder and
+terminal commands only inside its sandbox, which has no network. The CLI's
+sandbox cannot read a worktree's Git directory, so these lenses read files,
+not history. (A first version opened the checkout in the app with the brief on
+the clipboard, before the CLI's headless mode.)
 
 ## Integration increments
 
