@@ -70,6 +70,9 @@ const PROOFS = [
   { migration: '022-waiting-sessions.sql', proof: '2026-11-15-web-waiting-sessions-hosted-proof.sql',
     wrong: 'grant execute on function public.plates_waiting_rpc(text,text,text,text,text,timestamptz) to authenticated',
     refused: /a browser role can execute public\.plates_waiting_rpc/ },
+  { migration: '023-late-rpc-names.sql', proof: '2026-11-15-web-late-rpc-names-hosted-proof.sql',
+    wrong: 'drop function public.plates_walk_rpc(text,text,text,text,bigint,text,text)',
+    refused: /expected exactly one public plates_walk_rpc/ },
 ];
 
 const RACE = '/* TWO-CONNECTION RACE';
@@ -123,7 +126,9 @@ test('every hosted proof runs clean on its migration', async t => {
       assert.ok(text.startsWith(`-- Hosted proof for lib/web/migrations/${p.migration}`), 'header names its migration');
       for (const said of ['Leaves behind:', 'Expected result:', 'SHA-256']) assert.ok(text.includes(said), said);
       assert.doesNotMatch(text, /supabase\.co|https?:\/\/(?!github\.com\/acme\/)|@[a-z0-9-]+\.[a-z]/i, 'no private identifiers');
-      const step = plan.steps.find(s => s.migration === p.migration);
+      // Applied migrations retain inspection/walk steps instead of instructions
+      // to apply them again. Their proof procedures still need local rehearsal.
+      const step = plan.steps.find(s => s.proof.includes(`docs/evidence/${p.proof}`));
       assert.ok(step?.proof.includes(`docs/evidence/${p.proof}`), 'its plan step names the proof');
       const { race } = parts(text);
       assert.equal(race.length > 0, /race/i.test(step.proof), 'a race exactly where the plan names one');

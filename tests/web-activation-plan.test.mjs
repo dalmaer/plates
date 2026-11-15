@@ -45,7 +45,10 @@ test('the activation plan is complete and ordered', async t => {
     assert.deepEqual(owing, [94, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 152, 153, 154, 156, 163, 164, 165, 166, 168, 169, 172, 173, 174, 175, 176, 178, 180, 181, 183, 186]);
     for (const id of owing) assert.ok(plan.steps.some(s => s.phase === id), `phase ${id}`);
     // Every migration not yet applied in the hosted database has its step.
-    assert.deepEqual(plan.applied.map(a => a.migration), ['001-auth.sql', '002-home-cache.sql', '003-home-retry.sql']);
+    assert.deepEqual(plan.applied.map(a => a.migration), [
+      '001-auth.sql', '002-home-cache.sql', '003-home-retry.sql', '004-decision-operations.sql',
+      '014-plates-names.sql', '017-not-now.sql', '018-last-looked.sql', '019-backlog-events.sql',
+    ]);
     assert.equal(plan.steps.filter(s => s.kind === 'migration').length, migrations.length - plan.applied.length);
     // The record and evidence the plan cites exist.
     for (const path of [plan.record, ...plan.applied.map(a => a.evidence)]) assert.ok(existsSync(join(ROOT, path)), path);
@@ -83,13 +86,29 @@ test('the activation plan is complete and ordered', async t => {
     assert.deepEqual(check(moved(plan, 'jobs-gate', index('restore-scope'))),
       [`step ${index('restore-scope') + 1} (jobs-gate): needs phase 101, but its step restore-scope comes after`]);
     // Every migration waits for the backup decision.
-    assert.ok(check(moved(plan, 'backup-destination', index('migration-006'))).some(p => p.includes('(migration-004): needs phase 94, but its step backup-destination comes after')));
+    assert.ok(check(moved(plan, 'backup-destination', index('migration-006'))).some(p => p.includes('(decisions-proof-inspect): needs phase 94, but its step backup-destination comes after')));
     // 013 owns job admission and must follow 010.
     const swapped = moved(plan, 'migration-013', index('migration-010'));
     assert.ok(check(swapped).some(p => p.startsWith('migrations: must run in file order')));
     assert.ok(check(swapped).some(p => p.includes('(migration-013): needs phase 105')));
     assert.deepEqual(check(edited(plan, 'drafts-gate', { prerequisites: [108] })),
       [`step ${index('drafts-gate') + 1} (drafts-gate): its own phase 107 must be among its prerequisites`, `step ${index('drafts-gate') + 1} (drafts-gate): needs phase 108, but its step fleet-trial-scope comes after`]);
+  });
+
+  await t.test('recorded non-contiguous applications and the late naming repair remain explicit', () => {
+    assert.match(plan.summary, /phase 127 says 014 applied.*phase 151 still calls pending/i);
+    assert.doesNotMatch(plan.summary, /Nothing here has been run/);
+    assert.ok(index('rpc-name-baseline-inspect') < index('migration-005'));
+    assert.ok(index('migration-023') > index('migration-013'));
+    assert.ok(index('migration-023') < index('night-operations-gate'));
+    assert.ok(check(moved(plan, 'migration-023', index('migration-013')))
+      .includes('migrations: 023-late-rpc-names.sql must follow pending 005–013'));
+    assert.deepEqual(check(without(plan, s => s.id === 'migration-023')), ['migration 023-late-rpc-names.sql: neither applied nor planned']);
+    for (const step of plan.steps.filter(s => s.kind === 'migration' && s.migration >= '005-' && s.migration < '014-'))
+      assert.match(step.what, /Immediately run 023-late-rpc-names.sql before using this feature/);
+    const unordered = copy(plan);
+    unordered.applied.reverse();
+    assert.ok(check(unordered).includes('applied: must be in file order'));
   });
 
   await t.test('every step has a rollback and a proof, and hosted steps are owner-attended', () => {
@@ -111,7 +130,7 @@ test('the activation plan is complete and ordered', async t => {
     assert.deepEqual(check(plan, { phases, migrations: [...migrations, '015-acme-later.sql'] }), ['migration 015-acme-later.sql: neither applied nor planned']);
     assert.deepEqual(check(edited(plan, 'migration-011', { migration: '011-acme.sql' })),
       ['migration 011-acme.sql: no such file in the web SQL folder', 'migration 011-model-routing.sql: neither applied nor planned']);
-    const twice = { ...copy(plan), applied: [...copy(plan.applied), { migration: '004-decision-operations.sql', phase: 97, evidence: 'docs/evidence/acme.md' }] };
+    const twice = { ...copy(plan), applied: [...copy(plan.applied), { migration: '004-decision-operations.sql', phase: 97, evidence: 'docs/evidence/acme.md' }].sort((a, b) => a.migration.localeCompare(b.migration)) };
     assert.deepEqual(check(twice), ['migration 004-decision-operations.sql: listed 2 times']);
     // A newly partial G7 phase with a hosted gap needs a step.
     const more = [...phases, { id: 900, status: 'partial', goal: 'G7', note: 'Acme view implemented; hosted activation remains.' }];
