@@ -17,6 +17,9 @@ import { milestoneSource } from '../roadmap.mjs';
 // renderer must refuse, exit non-zero and name the file (`refuses`). A
 // renderer that kept the edit silently, or overwrote it, fails the same.
 //
+// The copy holds source only: what git ignores (build output, a Rust target/)
+// stays behind, unless a generator names it as its file, script or `reads`.
+//
 // Zero dependencies. Generators run with the test runner's NODE_TEST_*
 // variables stripped, so a generator that runs tests runs them.
 import { readFile, appendFile, mkdtemp, cp, rm, mkdir } from 'node:fs/promises';
@@ -42,13 +45,38 @@ export function generatedFiles(config, list = GENERATORS) {
     && !(['docs/ROADMAP.md', 'docs/LOOP.md'].includes(g.path) && milestones));
 }
 
-/** Never copied: git's own directory, installed packages, and the test ledger's runs. */
+/** Never copied: git's own directory and installed packages. */
 const SKIP = new Set(['.git', 'node_modules']);
-function copySource(root, src) {
-  const path = relative(root, src).split(sep).join('/');
-  // Nested fixture projects have their own rotating ledgers too. Exclude the
-  // directory before cp enumerates it, not individual files after rotation.
-  return !SKIP.has(path) && path !== '.plates/test-runs' && !path.endsWith('/.plates/test-runs');
+/** Also never copied outside a git repository: common build output. */
+const BUILD = ['target', 'dist', 'build', '.next'];
+
+/**
+ * What the probe leaves out of its copy of root: [path relative to root].
+ * A build tree (a Rust target/ can run to tens of gigabytes) is not source, and
+ * copying it once per generator can fill the disk. In a git repository that is
+ * everything git ignores, asked of git; elsewhere a fixed list of build output.
+ */
+export function leftOut(root) {
+  const r = spawnSync('git', ['ls-files', '-z', '--others', '--ignored', '--exclude-standard', '--directory'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  const ignored = !r.error && r.status === 0 ? r.stdout.split('\0').filter(Boolean).map(p => p.replace(/\/$/, '')) : BUILD;
+  return [...SKIP, ...ignored];
+}
+
+/**
+ * The copy filter for one generator: skips what leftOut names, except a path
+ * the generator writes or reads (its file, its script, its declared `reads`)
+ * or a directory holding one. Rotating test ledgers are never copied.
+ */
+function copyFilter(root, g, skip = leftOut(root)) {
+  const needed = [g.path, ...(g.reads ?? []), ...g.args.filter(a => !a.startsWith('-') && !/\s/.test(a))]
+    .map(p => p.split(sep).join('/').replace(/^\.\//, '').replace(/\/$/, ''));
+  const out = new Set(skip.filter(p => !needed.some(n => n === p || n.startsWith(`${p}/`))));
+  return src => {
+    const path = relative(root, src).split(sep).join('/');
+    // Nested fixture projects have their own rotating ledgers too. Exclude the
+    // directory before cp enumerates it, not individual files after rotation.
+    return !out.has(path) && path !== '.plates/test-runs' && !path.endsWith('/.plates/test-runs');
+  };
 }
 
 const env = () => Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('NODE_TEST_')));
@@ -63,7 +91,7 @@ export async function probe(root, g) {
   const tmp = await mkdtemp(join(tmpdir(), 'plates-generated-'));
   const dir = join(tmp, 'project');
   try {
-    await cp(root, dir, { recursive: true, verbatimSymlinks: true, filter: src => copySource(root, src) });
+    await cp(root, dir, { recursive: true, verbatimSymlinks: true, filter: copyFilter(root, g) });
     const file = join(dir, g.path);
     const marker = `<!-- plates generated-file probe ${Date.now().toString(36)}${Math.random().toString(36).slice(2)}: a hand edit, which the generator must not keep -->`;
     await mkdir(dirname(file), { recursive: true });

@@ -199,7 +199,7 @@
     },
     "scripts/plates/delivery.mjs": {
       "practice": "delivery",
-      "sha256": "a153759cb1c8f7b08e80064d2d12c82899e9c0cd33396550063ae6390bd3d7ac"
+      "sha256": "62c9533dceb6d08e1036d7b7d227cae099a49a5aad082fdc45a266867cd7c116"
     },
     "scripts/plates/distill.mjs": {
       "practice": "climb",
@@ -215,7 +215,7 @@
     },
     "scripts/plates/generated.mjs": {
       "practice": "phases",
-      "sha256": "576d85d128821eb2905df1b2d2e56ea2ef898b832e3ed31d8eec419d9f68ee43"
+      "sha256": "c99345f3deccd177a995de8b397fd0231ef863ccd0ff20cc33d3ccc56d7548f9"
     },
     "scripts/plates/hygiene-measures.mjs": {
       "practice": "night",
@@ -367,7 +367,7 @@
     },
     "scripts/plates/vercel.mjs": {
       "practice": "delivery",
-      "sha256": "9f5de80f05e57b0e01f84f4e1749933faca1385c299f80a53df50fbe7623b4ba"
+      "sha256": "be19372624c3aad297c1d7e4d909ec44973d62928a05ef7402b76deaa5bc78d3"
     },
     "scripts/plates/verification.mjs": {
       "practice": "night",
@@ -387,7 +387,7 @@
     },
     "tests/plates-generated.test.mjs": {
       "practice": "phases",
-      "sha256": "d94ea7847d705d00ce5f588862bd51be67da8950d23da6c96c636b23dee1c179"
+      "sha256": "d66c3f7e05fd3de2ad9fc84c6e881f5f310c5cbb1476df5d80e8a9615f8f7ba5"
     },
     "tests/plates-workflows.test.mjs": {
       "practice": "ci",

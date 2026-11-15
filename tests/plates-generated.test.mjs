@@ -6,9 +6,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
+import { execFileSync } from 'node:child_process';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { GENERATORS, generatedFiles, survivors, projectConfig } from '../scripts/plates/generated.mjs';
+import { GENERATORS, generatedFiles, survivors, projectConfig, leftOut } from '../scripts/plates/generated.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -68,4 +69,35 @@ test('generated probes exclude rotating ledgers at every project depth and retai
     writeFileSync('docs/ACME.md', '# Acme');
   `);
   assert.deepEqual(await survivors(dir, [{ path: 'docs/ACME.md', args: ['rewrites.mjs'] }]), []);
+});
+
+test('the probe copies source only: a large ignored build tree stays behind; a generator\'s own inputs come along', async t => {
+  for (const git of [true, false]) {
+    const dir = await mkdtemp(join(tmpdir(), 'plates-generated-acme-'));
+    t.after(() => rm(dir, { recursive: true, force: true }));
+    if (git) {
+      execFileSync('git', ['init', '-q'], { cwd: dir, stdio: 'ignore' });
+      await writeFile(join(dir, '.gitignore'), 'target/\nout/\n');
+    }
+    // A build tree with many files: each would be copied, once per generator.
+    for (let i = 0; i < 50; i++) {
+      await mkdir(join(dir, 'target', 'release', `crate-${i}`), { recursive: true });
+      await writeFile(join(dir, 'target', 'release', `crate-${i}`, 'anvil.rlib'), 'x'.repeat(64 * 1024));
+    }
+    await mkdir(join(dir, 'out'), { recursive: true });
+    await writeFile(join(dir, 'out', 'catalog.json'), '{"anvils":3}');
+    await mkdir(join(dir, 'docs'), { recursive: true });
+    await writeFile(join(dir, 'docs', 'ACME.md'), '# Acme\n');
+    await writeFile(join(dir, 'rewrites.mjs'), `
+      import assert from 'node:assert/strict';
+      import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+      assert.equal(existsSync('target'), false, 'the build tree was copied');
+      assert.equal(readFileSync('out/catalog.json', 'utf8'), '{"anvils":3}');
+      writeFileSync('docs/ACME.md', '# Acme');
+    `);
+    // out/ is ignored when git is asked, but this generator declares it read.
+    assert.deepEqual(await survivors(dir, [{ path: 'docs/ACME.md', reads: ['out/catalog.json'], args: ['rewrites.mjs'] }]), [], git ? 'in a git repository' : 'outside one');
+    assert.ok(leftOut(dir).includes('target'));
+    assert.equal(leftOut(dir).includes('out'), git, 'only git ignores out/; the fixed list does not name it');
+  }
 });
