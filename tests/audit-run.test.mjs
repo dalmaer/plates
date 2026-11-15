@@ -21,13 +21,13 @@ const roomy = (generatedAt = NOW) => ({ v: 1, generatedAt, providers: [
   { id: 'codex', status: 'green', fresh: true, windows: [{ id: 'codex.weekly', kind: 'weekly', label: 'Weekly', usedPct: 21, pacePct: 53 }] },
 ] });
 
-async function world(t, { host = 'ok', providers = '["claude", "codex"]', hosts = null } = {}) {
+async function world(t, { host = 'ok', providers = '["claude", "codex"]', hosts = null, guide = null } = {}) {
   const base = await realpath(await mkdtemp(join(tmpdir(), 'plates-audit-run-acme-')));
   t.after(() => rm(base, { recursive: true, force: true }));
   const root = join(base, 'acme');
   await mkdir(join(root, '.plates'), { recursive: true });
   await mkdir(join(root, '.agents/audits'), { recursive: true });
-  await writeFile(join(root, '.plates/plates.json'), JSON.stringify({ name: 'Acme', agents: { claude: {}, codex: {} }, practices: ['night', 'audits'] }));
+  await writeFile(join(root, '.plates/plates.json'), JSON.stringify({ name: 'Acme', agents: { claude: {}, codex: {} }, practices: ['night', 'audits'], ...(guide ? { guide } : {}) }));
   await writeFile(join(root, '.agents/audits/security.md'), `---\nname: security\ndescription: Acme's secrets.\nevery: 14\neffort: quick\nproviders: ${providers}\nminutes: 20\n---\n\nLook for credentials.\n`);
   await writeFile(join(root, 'app.mjs'), 'export const acme = 1;\n');
   git(root, 'init', '-q'); git(root, 'add', '-A'); git(root, 'commit', '-qm', 'Acme');
@@ -106,6 +106,21 @@ test('no room, no host, an unnamed provider or a failing host is refused, and a 
     const receipt = JSON.parse(await readFile(join(runsDir({ root: f.root, env: f.env }), 'run-1', 'run.json'), 'utf8'));
     assert.equal(receipt.state, 'failed');
     assert.equal(receipt.session, null);
+  }
+});
+
+test('the brief names the project\'s guide, and a runs directory inside a repository is refused', async t => {
+  const w = await world(t, { guide: 'WORKING.md' });
+  await go(w, { yes: true });
+  assert.match((await w.runs())[0].input, /Read the project's guide \(WORKING\.md\)/);
+  // XDG_STATE_HOME inside the project, or inside another git working tree: refused, nothing made, no host run.
+  for (const state of [join('acme', '.state'), 'other/state']) {
+    const v = await world(t);
+    if (state.startsWith('other')) { await mkdir(join(v.base, 'other'), { recursive: true }); git(join(v.base, 'other'), 'init', '-q'); }
+    const env = { ...v.env, XDG_STATE_HOME: join(v.base, state) };
+    await assert.rejects(go(v, { yes: true, env }), /resolves inside (this project|the git working tree)/);
+    assert.deepEqual(await v.runs(), []);
+    assert.equal(existsSync(join(v.base, state)), false);
   }
 });
 
