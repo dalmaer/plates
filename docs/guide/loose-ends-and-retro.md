@@ -106,6 +106,10 @@ plates sessions push --site https://your-plates-site   # send them to your works
   (`security add-generic-password -U -s plates-device-key -a plates -w`) or
   `PLATES_DEVICE_KEY`; it is read at run time and never printed. Run it every
   few minutes (a LaunchAgent) and Home on your phone shows what is waiting.
+- The same snapshot carries the scripts an agent left in your `runme` queue
+  (each one's name, its `# why:` line and whether it is checked, never its
+  contents). A checked one is on Home under Scripts waiting for you to run;
+  type `runme` on that Mac to run it.
 
 ```bash
 plates retro --since 4f2c1aa            # the worksheet, from the commit before the phase

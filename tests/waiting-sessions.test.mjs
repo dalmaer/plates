@@ -8,8 +8,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
 import { parseSession, QUESTION_CHARS as LOOSE_QUESTION_CHARS } from '../lib/looseends.mjs';
-import { homePlateOf, validSnapshot, waitingRows, QUESTION_CHARS } from '../lib/waiting-sessions.mjs';
-import { scanWaitingSessions } from '../lib/waiting-scan.mjs';
+import { homePlateOf, validSnapshot, waitingRows, runmeRows, scriptPlate, QUESTION_CHARS } from '../lib/waiting-sessions.mjs';
+import { scanWaitingSessions, scanRunme } from '../lib/waiting-scan.mjs';
+import { createHash } from 'node:crypto';
 import { createWaitingStore } from '../lib/web/waiting-store.mjs';
 import { push } from '../lib/sessions.mjs';
 import { homeSnapshot, homeSections } from '../lib/work-items.mjs';
@@ -55,20 +56,21 @@ test('the scan lists this machine\'s waiting home sessions, oldest first, and no
   await writeFile(join(project, 'c.jsonl'), transcript('c', '🏠 [forge] Home', { type: 'text', text: 'All done.' }));
   await writeFile(join(project, 'd.jsonl'), transcript('d', '🏠 [forge] Home', { type: 'text', text: 'Old news?' }));
   await utimes(join(project, 'd.jsonl'), new Date('2026-10-01'), new Date('2026-10-01'));
-  const snap = await scanWaitingSessions({ env: { PLATES_CLAUDE_DIR: dir }, machine: 'Acme Mac', now: Date.parse('2026-11-15T12:00:00Z') });
+  const snap = await scanWaitingSessions({ env: { PLATES_CLAUDE_DIR: dir, RUNME_DIR: join(dir, 'no-queue') }, machine: 'Acme Mac', now: Date.parse('2026-11-15T12:00:00Z') });
   assert.deepEqual(snap.sessions, [{ id: 'a', plate: 'anvils', title: '🏠 [anvils] Home Remote Control', question: 'Which anvil first?', since: at(1) }]);
+  assert.deepEqual(snap.scripts, []);
   assert.deepEqual(validSnapshot(snap), snap);
 });
 
 test('a scan that cannot read a transcript refuses, so a push never clears what it could not read', async t => {
   const dir = await mkdtemp(join(tmpdir(), 'plates-waiting-unread-'));
   t.after(async () => { await chmod(join(dir, 'projects', 'p'), 0o755).catch(() => {}); await rm(dir, { recursive: true, force: true }); });
-  assert.deepEqual((await scanWaitingSessions({ env: { PLATES_CLAUDE_DIR: join(dir, 'none') } })).sessions, [], 'no transcript directory is no sessions');
+  assert.deepEqual((await scanWaitingSessions({ env: { PLATES_CLAUDE_DIR: join(dir, 'none'), RUNME_DIR: join(dir, 'none') } })).sessions, [], 'no transcript directory is no sessions');
   await mkdir(join(dir, 'projects', 'p'), { recursive: true });
   await writeFile(join(dir, 'projects', 'p', 'a.jsonl'), transcript('a', '🏠 [anvils] Home', ask('Which?')));
   await chmod(join(dir, 'projects', 'p'), 0o000);
   if (process.getuid?.() === 0) return; // root reads through any mode
-  await assert.rejects(scanWaitingSessions({ env: { PLATES_CLAUDE_DIR: dir } }), /could not all be read \(EACCES\); nothing was sent/);
+  await assert.rejects(scanWaitingSessions({ env: { PLATES_CLAUDE_DIR: dir, RUNME_DIR: join(dir, 'none') } }), /could not all be read \(EACCES\); nothing was sent/);
 });
 
 test('a pushed snapshot is untrusted: every field is checked', () => {
@@ -105,14 +107,14 @@ test('Home\'s row: an owner\'s item an agent waits on, for the plates shown, the
   assert.equal(card.agentWaiting.items[0].title, '🏠 [anvils] Home is waiting on you');
 });
 
-test('a waiting session can be put off from Home, and only that', async () => {
+test('a waiting session is answered in the session, and can be put off from Home', async () => {
   const { createHomeAnswers } = await import('../lib/web/home-answers.mjs');
   const row = waitingRows([{ schema: 1, machine: 'Acme Mac', scannedAt: at(9), sessions: [{ id: 'a', plate: 'anvils', title: '🏠 [anvils] Home', question: 'Which?', since: null }] }], { plates: ['anvils'], now: Date.parse(at(10)) });
   const project = { id: 'anvils', name: 'Anvils', repo: 'acme/anvils', state: 'complete', gaps: [], planning: { built: null, total: null }, decisions: [], walks: [], reviews: [], waiting: [], changes: [] };
   const model = homeSnapshot([project], { sections: homeSections({ sessions: row }), can: { form: 'web' } });
   const item = model.sections.find(s => s.id === 'sessions').items[0];
   assert.equal(item.key, 'anvils:session:a');
-  assert.deepEqual(item.answers.map(a => [a.id, a.unavailable ?? null]), [['not-now', null]], 'answered in its session; here only put off');
+  assert.deepEqual(item.answers.map(a => [a.id, a.unavailable?.command ?? null]), [['answer', 'claude --resume a'], ['not-now', null]], 'answered in its session (its command), or put off here');
   const put = [];
   const answer = createHomeAnswers(projectHarness().config, { readHome: async () => model, now: () => Date.parse(at(10)),
     notNow: { put: async (userId, key, record) => { put.push(key); return { key, until: '2026-11-22', count: 1 }; } }, events: { record: async () => {} } });
@@ -146,7 +148,7 @@ test('the hosted store: a key shown once, sealed records, a revoked key refused'
   assert.deepEqual([resolved.userId, resolved.device, resolved.label], [1, device, 'Acme Mac']);
   await assert.rejects(store.resolve(`pdk_${'x'.repeat(43)}`), e => e.status === 401, 'an unknown key');
   await assert.rejects(store.resolve('not-a-key'), e => e.status === 401, 'a malformed key');
-  const snap = { schema: 1, machine: 'Acme Mac', scannedAt: at(9), sessions: [{ id: 'a', plate: 'anvils', title: '🏠 [anvils] Home', question: 'Which anvil first?', since: at(1) }] };
+  const snap = { schema: 1, machine: 'Acme Mac', scannedAt: at(9), sessions: [{ id: 'a', plate: 'anvils', title: '🏠 [anvils] Home', question: 'Which anvil first?', since: at(1) }], scripts: [] };
   assert.deepEqual(await store.push(resolved, snap), { pushed: true, sessions: 1 });
   assert.deepEqual(await store.list(1), [snap]);
   assert.deepEqual(await store.list(2), [], 'another owner sees nothing');
@@ -183,10 +185,40 @@ test('the push route takes a device key and nothing else; the CLI pushes this ma
   t.after(() => rm(dir, { recursive: true, force: true }));
   await mkdir(join(dir, 'projects', 'p'), { recursive: true });
   await writeFile(join(dir, 'projects', 'p', 'a.jsonl'), transcript('a', '🏠 [studio] Home Remote Control', ask('Which Acme anvil first?')));
-  const sent = await push({ site: h.config.origin, env: { PLATES_CLAUDE_DIR: dir }, now: Date.parse(at(30)), machine: 'Acme Mac', key: async () => key,
+  const sent = await push({ site: h.config.origin, env: { PLATES_CLAUDE_DIR: dir, RUNME_DIR: join(dir, 'no-queue') }, now: Date.parse(at(30)), machine: 'Acme Mac', key: async () => key,
     fetcher: (url, options) => service(new Request(url, options)) });
   assert.deepEqual([sent.data.pushed, sent.data.sessions], [true, 1]);
   assert.deepEqual((await createWaitingStore(h.config, fetcher, { now: clock }).list(1))[0].sessions.map(s => s.question), ['Which Acme anvil first?']);
   await assert.rejects(push({ site: h.config.origin, env: {}, key: async () => null }), /no device key/);
   await assert.rejects(push({ site: 'http://acme.example', env: {}, key: async () => key }), /must be https/);
+});
+
+test('the runme queue: checked scripts are items an agent waits on, on the plate they name, never their contents', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'plates-runme-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const script = (name, why) => `#!/usr/bin/env bash\n# runme: ${name}\n# why: ${why}\nset -euo pipefail\necho "acme secret step"\n`;
+  const put = async (file, text, checked) => { await writeFile(join(dir, `${file}.sh`), text); if (checked) await writeFile(join(dir, `${file}.sh.ok`), `${createHash('sha256').update(text).digest('hex')}\n`); };
+  await put('20261115-0817-anvils-install', script('anvils-install', 'Install the Acme anvils app on your phone'), true);
+  await put('20261115-0900-tidy-disk', script('tidy-disk', 'Free space on the Acme disk'), true);
+  await put('20261115-0930-forge-setup', script('forge-setup', 'Set up the forge'), false);
+  await writeFile(join(dir, '20261115-1000-edited.sh'), script('edited', 'Changed after its check'));
+  await writeFile(join(dir, '20261115-1000-edited.sh.ok'), 'f'.repeat(64));
+  const scripts = await scanRunme({ env: { RUNME_DIR: dir } });
+  assert.deepEqual(scripts.map(x => [x.name, x.checked]), [['20261115-0817-anvils-install', true], ['20261115-0900-tidy-disk', true], ['20261115-0930-forge-setup', false], ['20261115-1000-edited', false]]);
+  assert.ok(!JSON.stringify(scripts).includes('acme secret step'), 'a script\'s contents stay on this machine');
+  assert.deepEqual(await scanRunme({ env: { RUNME_DIR: join(dir, 'none') } }), [], 'no queue is no scripts');
+
+  assert.equal(scriptPlate('20261115-0817-anvils-install', ['anvils', 'forge'], 'workshop'), 'anvils');
+  assert.equal(scriptPlate('20261115-0900-tidy-disk', ['anvils'], 'workshop'), 'workshop');
+  const snap = validSnapshot({ schema: 1, machine: 'Acme Mac', scannedAt: at(9), sessions: [], scripts });
+  const row = runmeRows([snap], { plates: ['anvils', 'workshop'], home: 'workshop', now: Date.parse(at(10)) });
+  assert.deepEqual(row.items.map(i => [i.plate, i.title, i.read]), [['anvils', 'Run anvils-install', 'runme run anvils-install'], ['workshop', 'Run tidy-disk', 'runme run tidy-disk']]);
+  assert.match(row.why, /type runme on Acme Mac; 2 not checked yet/);
+  const project = id => ({ id, name: id, repo: `acme/${id}`, state: 'complete', gaps: [], planning: { built: null, total: null }, decisions: [], walks: [], reviews: [], waiting: [], changes: [] });
+  const model = homeSnapshot([project('anvils'), project('workshop')], { sections: homeSections({ runme: row }), can: { form: 'web' } });
+  assert.deepEqual(model.docket.map(e => [e.kind, e.group]), [['runme', 'unblock'], ['runme', 'unblock']], 'a script an agent left is something it waits on');
+  const item = model.sections.find(s => s.id === 'runme').items[0];
+  assert.deepEqual(item.answers.map(a => [a.id, a.unavailable?.command ?? null]), [['run', 'runme run anvils-install'], ['not-now', null]], 'run on the Mac (its command), or put off here');
+  assert.equal(model.home.sections.find(s => s.id === 'plates').items.find(p => p.projectId === 'anvils').agentWaiting.items[0].title, 'Run anvils-install');
+  assert.equal(validSnapshot({ ...snap, scripts: [{ ...scripts[0], contents: 'x' }] }), null, 'a script field the snapshot does not hold is refused');
 });

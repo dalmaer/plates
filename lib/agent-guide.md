@@ -1768,7 +1768,9 @@ an item an agent waits on. `plates sessions push --site <url>` sends that
 snapshot (each session's id, plate, title, since, and its question, at most
 500 characters) to the owner's workspace with this device's key, read from
 `PLATES_DEVICE_KEY` or the keychain item `plates-device-key`, never printed.
-Keys are made and revoked on the workspace's Devices page (SQL022).
+It also lists, and sends, the `runme` queue's scripts (name, `# why:`, checked;
+never contents): Home's Scripts waiting for you to run. Keys are made and
+revoked on the workspace's Devices page (SQL022).
 
 `--json` → `{projects: [{repo, dir, checkout, github, notes, items: [{id,
 kind, fingerprint, title, detail, phase, at, age, move, commands, state,

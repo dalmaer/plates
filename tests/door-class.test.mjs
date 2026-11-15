@@ -152,7 +152,7 @@ test('home declares the doors of every writer its answers reach', async () => {
     'pr merge': ['merge'], 'pr comment': ['comment'],
   };
   // The writers plates never runs, in either form (lib/work-items.mjs ELSEWHERE).
-  const never = ['repo delete', 'feedback resolve'];
+  const never = ['repo delete', 'feedback resolve', 'session answer', 'runme run'];
   assert.deepEqual(Object.keys(WRITERS).filter(w => !never.includes(w)).sort(), Object.keys(reaches).sort(), 'every writer home runs is classified here');
   for (const [writer, ops] of Object.entries(reaches)) {
     assert.ok(ops.length, `${writer} performs something`);
