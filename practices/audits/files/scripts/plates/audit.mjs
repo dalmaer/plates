@@ -42,6 +42,7 @@
 import { spawnSync } from 'node:child_process';
 import { constants, existsSync } from 'node:fs';
 import { lstat, mkdir, open, readFile, readdir, realpath } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { isAbsolute, join, posix, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -377,8 +378,12 @@ export async function briefFor({ root, name, out = null, env = process.env }) {
 
 /** Text that looks like a credential: refused anywhere in recorded findings. */
 const KEY_SHAPED = /(?:sk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|AKIA[0-9A-Z]{16}|xox[abprs]-[A-Za-z0-9-]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|AIza[0-9A-Za-z_-]{35})/;
-/** An absolute local path: refused in recorded findings (a plate may be public). */
-const ABSOLUTE = /(?<![\w.~-])(?:\/(?:Users|home|private|var\/folders|tmp|root)\/|~\/|[A-Za-z]:\\)/;
+/**
+ * An absolute local path: refused in recorded findings (a plate may be public).
+ * Common filesystem roots here; `record` also refuses the plate's own absolute
+ * path, HOME and the temp directory wherever they appear (shapeProblems' forbid).
+ */
+const ABSOLUTE = /(?<![\w.~-])(?:\/(?:Users|home|private|var|tmp|root|workspace|workspaces|opt|mnt|srv|Volumes|usr|etc|nix|data|builds|github|runner|cygdrive)\/|~\/|file:\/\/|[A-Za-z]:\\)/;
 const text = (v, max) => typeof v === 'string' && v.trim().length > 0 && v.length <= max;
 const WEIGHT = { severity: { high: 3, medium: 2, low: 1 }, effort: { S: 1, M: 2, L: 4 }, confidence: { HIGH: 1, MED: 0.6, LOW: 0.3 }, risk: { LOW: 1, MED: 0.8, HIGH: 0.6 } };
 
@@ -389,7 +394,7 @@ export const leverage = f => (WEIGHT.severity[f.severity] / WEIGHT.effort[f.effo
  * Check a findings document's shape against a lens: the problems, by field.
  * Pure: whether each path and line exists at the commit is `evidenceProblems`.
  */
-export function shapeProblems(doc, lensName) {
+export function shapeProblems(doc, lensName, { forbid = [] } = {}) {
   const problems = [];
   const bad = m => problems.push(m);
   if (!doc || typeof doc !== 'object' || Array.isArray(doc)) return ['the findings are a JSON object'];
@@ -424,7 +429,7 @@ export function shapeProblems(doc, lensName) {
   });
   const all = JSON.stringify(doc);
   if (KEY_SHAPED.test(all)) bad('the findings hold text shaped like a credential; name its type and location, never the value');
-  if (ABSOLUTE.test(all)) bad('the findings hold an absolute local path; paths are repository-relative');
+  if (ABSOLUTE.test(all) || forbid.some(f => typeof f === 'string' && f.length > 1 && all.includes(JSON.stringify(f).slice(1, -1)))) bad('the findings hold an absolute local path; paths are repository-relative');
   return problems;
 }
 
@@ -526,7 +531,9 @@ export async function record({ root, name, from, date = today(), provider = null
   let doc;
   try { doc = JSON.parse(await readFile(from, 'utf8')); }
   catch (e) { fail(`${from} could not be read as JSON: ${e.code ?? e.message}`); }
-  const shape = shapeProblems(doc, name);
+  // The plate's own absolute path, HOME and the temp directory are refused wherever they appear, whatever their root.
+  const forbid = [resolve(root), await realpath(root).catch(() => null), env.HOME, env.TMPDIR, tmpdir()].filter(f => f && f !== sep && f.length > 4).map(f => f.replace(/[\\/]+$/, ''));
+  const shape = shapeProblems(doc, name, { forbid });
   if (shape.length) fail(`refused, nothing recorded:\n- ${shape.slice(0, 20).join('\n- ')}${shape.length > 20 ? `\n- …and ${shape.length - 20} more` : ''}`, 1);
   const evidence = evidenceProblems(root, doc, env);
   if (evidence.length) fail(`refused, nothing recorded: evidence that does not exist at the audited commit:\n- ${evidence.slice(0, 20).join('\n- ')}`, 1);
@@ -558,12 +565,14 @@ export async function record({ root, name, from, date = today(), provider = null
 
 /**
  * The night's candidates from audits recorded the day before the night or
- * on it: each finding once, as triage. Older records have had their night.
+ * on it, as triage, best leverage first across lenses. Older records have
+ * had their night; the night plan drops a finding its previous plan carried
+ * and bounds how many it takes (night-plan.mjs auditCandidates).
  */
 export async function recentCandidates(root, date) {
   const dir = join(root, AUDITS);
   if (!existsSync(dir)) return [];
-  const items = [];
+  const found = [];
   for (const f of (await readdir(dir)).sort()) {
     const m = /^(\d{4}-\d{2}-\d{2})-([a-z0-9][a-z0-9-]*)\.json$/.exec(f);
     if (!m || !isDate(m[1])) continue;
@@ -571,9 +580,10 @@ export async function recentCandidates(root, date) {
     if (age < 0 || age > 1) continue;
     const doc = JSON.parse(await readFile(join(dir, f), 'utf8'));
     if (shapeProblems({ lens: doc.lens, commit: doc.commit, findings: doc.findings, rejected: doc.rejected, notAudited: doc.notAudited }, m[2]).length) throw new AuditError(`${AUDITS}/${f} is not a recorded audit plates can read`);
-    items.push(...planCandidates({ lens: m[2], findings: doc.findings, page: `${AUDITS}/${m[1]}-${m[2]}.md` }));
+    found.push(...doc.findings.map(finding => ({ finding, lens: m[2], page: `${AUDITS}/${m[1]}-${m[2]}.md` })));
   }
-  return items;
+  // Best leverage first across every lens, so a bounded night takes the most useful.
+  return found.sort((a, b) => leverage(b.finding) - leverage(a.finding)).flatMap(x => planCandidates({ lens: x.lens, findings: [x.finding], page: x.page }));
 }
 
 // ---- the command line -------------------------------------------------------

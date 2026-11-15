@@ -478,17 +478,29 @@ export async function productionCandidates(input) {
 }
 /**
  * The audits practice's findings (phase 192): each finding of an audit
- * recorded the day before the night or on it, once, as triage in lane
- * audit:<lens> (audit.mjs recentCandidates). No record is no items. An
+ * recorded the day before the night or on it, as triage in lane audit:<lens>
+ * (audit.mjs recentCandidates), best leverage first. A finding the previous
+ * night's plan carried is not offered again, and at most AUDIT_ITEMS are
+ * taken, one review item saying how many more wait. No record is no items. An
  * unreadable record does not fail the night: it is one review item saying why.
  * A project without the audits practice reads nothing.
  */
 export const AUDITS_READ = 'audits-read';
+export const AUDITS_WAIT = 'audits-wait';
+/** At most this many audit findings a night, as Loop's FINDING_ITEMS: the plan holds 64 items in all. */
+export const AUDIT_ITEMS = 5;
 export async function auditCandidates({ root, config, date }) {
   if (!(config?.practices ?? []).includes('audits') || !existsSync(join(root, 'scripts/plates/audit.mjs'))) return [];
   try {
     const audit = await practiceScript(root, 'scripts/plates/audit.mjs', 'the audits');
-    return await audit.recentCandidates(root, date);
+    // Once only: a finding the previous night's plan already carried (its disposition kept there) is not offered again.
+    let carried = new Set();
+    try { const previous = await readPlan(root); if (previous && previous.date < date) carried = new Set(previous.items.map(i => i.id)); } catch { /* an unreadable previous plan carries nothing */ }
+    const fresh = (await audit.recentCandidates(root, date)).filter(i => !carried.has(i.id));
+    const items = fresh.slice(0, AUDIT_ITEMS);
+    if (fresh.length > AUDIT_ITEMS) items.push(item({ id: AUDITS_WAIT, kind: 'review', source: 'default', lane: 'night',
+      title: short(`${fresh.length - AUDIT_ITEMS} more audit findings wait for triage beyond tonight's ${AUDIT_ITEMS}: read them on their pages in docs/audits/.`, 300) }));
+    return items;
   } catch (e) {
     return [item({ id: AUDITS_READ, kind: 'review', source: 'default', lane: 'night',
       title: short(`The audit records could not be read tonight: ${String(e?.message ?? e).split('\n')[0]}.`, 300) })];

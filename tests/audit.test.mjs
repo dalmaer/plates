@@ -183,6 +183,8 @@ test('record accepts only evidence that exists at the commit', async t => {
   await refusedWith(findingsDoc(commit, [finding({ evidence: [{ path: '../etc/passwd', line: 1, what: 'x' }] })]), /"path" is repository-relative/);
   await refusedWith(findingsDoc(commit, [finding({ evidence: [{ path: '/etc/passwd', line: 1, what: 'x' }] })]), /"path" is repository-relative/);
   await refusedWith(findingsDoc(commit, [finding({ impact: 'Seen in /Users/someone/acme/src.' })]), /an absolute local path/);
+  await refusedWith(findingsDoc(commit, [finding({ fix: 'Seen in /workspace/private-acme/service/src/main.mjs.' })]), /an absolute local path/);
+  await refusedWith(findingsDoc(commit, [finding({ fix: `Seen in ${resolve(root)}/src/server.mjs.` })]), /an absolute local path/);
   await refusedWith(findingsDoc(commit, [finding({ fix: `Rotate ${'gh' + 'p_'}${'A'.repeat(36)}.` })]), /shaped like a credential/);
   await refusedWith(findingsDoc(commit, [finding({ severity: 'urgent' })]), /"severity" is high, medium, low/);
   await refusedWith({ ...findingsDoc(commit), lens: 'tests' }, /"lens" is "tests", not security/);
@@ -228,6 +230,30 @@ test('a finding is triage for the night, never a build', async t => {
   assert.equal((await recentCandidates(root, '2026-11-15')).length, 1);
   assert.equal((await recentCandidates(root, '2026-11-14')).length, 1);
   assert.equal((await recentCandidates(root, '2026-11-17')).length, 0, 'an older record has had its night');
+});
+
+test('the night takes audit findings once, best first, and bounded', async t => {
+  const { auditCandidates, AUDIT_ITEMS, PLAN } = await import('../practices/night/files/scripts/plates/night-plan.mjs');
+  const { root, commit } = await plate(t);
+  await mkdir(join(root, 'scripts/plates'), { recursive: true });
+  await writeFile(join(root, 'scripts/plates/audit.mjs'), await readFile(resolve('practices/audits/files/scripts/plates/audit.mjs')));
+  // The runner loads the night's lib.mjs and what it imports: the night's scripts, as an adopted project has them.
+  for (const f of (await readdir(resolve('practices/night/files/scripts/plates'))).filter(f => f.endsWith('.mjs'))) await writeFile(join(root, 'scripts/plates', f), await readFile(resolve('practices/night/files/scripts/plates', f)));
+  const many = Array.from({ length: 7 }, (_, i) => finding({ id: `security-0${i + 1}`, severity: i === 6 ? 'high' : 'low', effort: i === 6 ? 'S' : 'L' }));
+  const from = join(root, '..', `bound-${Date.now()}.json`);
+  t.after(() => rm(from, { force: true }));
+  await writeFile(from, JSON.stringify(findingsDoc(commit, many)));
+  await record({ root, name: 'security', from, date: '2026-11-14' });
+  const config = { practices: ['night', 'audits'] };
+  const first = await auditCandidates({ root, config, date: '2026-11-14' });
+  assert.equal(first.filter(i => i.kind === 'triage').length, AUDIT_ITEMS);
+  assert.equal(first[0].id, 'audit-security--security-07', 'best leverage first');
+  assert.match(first.at(-1).title, /2 more audit findings wait/);
+  // The next night: what the previous plan carried is not offered again.
+  await mkdir(join(root, '.plates/night'), { recursive: true });
+  await writeFile(join(root, PLAN), JSON.stringify({ schema: SCHEMA, date: '2026-11-14', shapedBy: 'default', readyBy: null, willNotTouch: [], settledToday: [], leftOpen: [], items: first.map(i => ({ ...i, status: 'done' })) }));
+  const next = await auditCandidates({ root, config, date: '2026-11-15' });
+  assert.deepEqual(next.map(i => i.id).sort(), ['audit-security--security-05', 'audit-security--security-06'].sort());
 });
 
 test('the command line names its verbs and refuses what it does not take', () => {
