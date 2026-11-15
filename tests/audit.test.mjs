@@ -98,6 +98,9 @@ test('room is explained, and unknown is wait', () => {
     [snap([prov('codex', [win('codex.weekly', 'weekly', 21, 53), win('codex.session', 'session', 60, 90, '5-hour')])]), /5-hour is 60% used; an audit runs under 50%/],
     [snap([prov('codex', [win('codex.monthly', 'monthly', 70, null, 'Monthly')])]), /Monthly is 70% used; an audit runs under 50%/],
     [snap([prov('claude', [])]), /codex is not in the quota snapshot/],
+    // An applicable window with no usable reading is unknown capacity, never skipped.
+    [snap([prov('codex', [win('codex.weekly', 'weekly', 21, 53), win('codex.session', 'session', null, null, '5-hour')])]), /5-hour has no usable reading/],
+    [snap([prov('codex', [win('codex.weekly', 'weekly', 21, 'soon', 'Weekly')])]), /Weekly has no usable reading/],
   ];
   for (const [s, re] of waits) { const r = roomFor(s, 'codex', { now: NOW }); assert.equal(r.room, false, String(re)); assert.match(r.why, re); }
   // A model window counts only for the model a lens names, and a named model with no window waits.
@@ -117,7 +120,7 @@ test('the quota is read from a file or loopback only, and an unreachable service
   assert.deepEqual((await readQuota({ file: join(dir, 'q.json') })).snapshot, ROOMY);
   assert.match((await readQuota({ file: join(dir, 'missing.json') })).why, /could not be read: ENOENT/);
   let asked = 0;
-  const fetchImpl = async () => { asked++; return { ok: true, json: async () => ROOMY }; };
+  const fetchImpl = async (u, init) => { asked++; assert.equal(init.redirect, 'error', 'a redirect could leave loopback'); return { ok: true, json: async () => ROOMY }; };
   assert.deepEqual((await readQuota({ url: 'http://127.0.0.1:4480/api/quota', fetchImpl })).snapshot, ROOMY);
   for (const url of ['https://quota.example.com/api/quota', 'http://user:pw@127.0.0.1/api/quota', 'http://10.0.0.5/api/quota']) {
     assert.match((await readQuota({ url, fetchImpl })).why, /must be http on loopback/);
@@ -194,6 +197,12 @@ test('record accepts only evidence that exists at the commit', async t => {
   const json = JSON.parse(await readFile(join(root, 'docs/audits/2026-11-14-security.json'), 'utf8'));
   assert.deepEqual([json.commit, json.provider, json.findings.map(f => f.id)], [commit, 'codex', ['security-01', 'security-02']]);
   assert.ok(leverage(finding()) > leverage(low));
+  // The same findings again are the same record: nothing written. Different findings are refused; nothing is overwritten.
+  await writeFile(join(root, r.data.page), page + '\nOwner: keep security-01.\n');
+  const again = await record({ root, name: 'security', from: await write(findingsDoc(commit, [low, finding()])), date: '2026-11-14', provider: 'codex' });
+  assert.equal(again.data.alreadyRecorded, true);
+  await assert.rejects(record({ root, name: 'security', from: await write(findingsDoc(commit, [finding()])), date: '2026-11-14', provider: 'codex' }), /already recorded with other findings; a record is never overwritten/);
+  assert.match(await readFile(join(root, r.data.page), 'utf8'), /Owner: keep security-01\./, 'the annotated page is untouched');
   // A page that is a link is refused, writing nothing.
   const linked = await plate(t);
   await mkdir(join(linked.root, 'docs/audits'), { recursive: true });

@@ -140,7 +140,8 @@ const label = w => w.label || w.id;
  *     must be at least `margin` points under it;
  *   - a session (5-hour) window, or a window with no pace, must be under
  *     `session` percent used;
- *   - a model window for another model does not apply.
+ *   - a model window for another model does not apply;
+ *   - an applicable window with no usable reading is unknown capacity: wait.
  */
 export function roomFor(snapshot, provider, { model = null, now = Date.now(), margin = ROOM.margin, session = ROOM.session, maxAgeMinutes = ROOM.maxAgeMinutes } = {}) {
   const wait = (why, window = null) => ({ room: false, why, window });
@@ -152,7 +153,10 @@ export function roomFor(snapshot, provider, { model = null, now = Date.now(), ma
   if (!p) return wait(`${provider} is not in the quota snapshot`);
   if (p.fresh !== true) return wait(`${provider}'s quota reading is stale`);
   if (p.status !== 'green') return wait(`${provider} is ${p.status ?? 'of unknown status'} in the quota snapshot`);
-  const windows = (p.windows ?? []).filter(w => w && Number.isFinite(w.usedPct) && (w.kind !== 'model' || (model && String(w.id).endsWith(`.${model}`))));
+  const windows = (p.windows ?? []).filter(w => w && (w.kind !== 'model' || (model && String(w.id).endsWith(`.${model}`))));
+  // An applicable window whose use is unknown is unknown capacity: wait, never skip it.
+  const unread = windows.find(w => !Number.isFinite(w.usedPct) || w.usedPct < 0 || (w.pacePct !== null && w.pacePct !== undefined && !Number.isFinite(w.pacePct)));
+  if (unread) return wait(`${provider} ${label(unread)} has no usable reading in the quota snapshot`, unread.id ?? null);
   if (model && !windows.some(w => w.kind === 'model')) return wait(`${provider} has no window for ${model} in the quota snapshot`);
   if (!windows.length) return wait(`${provider} has no window in the quota snapshot`);
   let best = null;
@@ -201,7 +205,8 @@ export async function readQuota({ file = null, url = null, env = process.env, fe
     return { snapshot: null, why: `the quota URL must be http on loopback (127.0.0.1, localhost or [::1]) with no credentials; ${parsed.origin} is not read`, source: target };
   }
   try {
-    const r = await fetchImpl(parsed, { signal: AbortSignal.timeout(timeoutMs), headers: { accept: 'application/json' } });
+    // A redirect could leave loopback: it is refused, and the refusal is wait.
+    const r = await fetchImpl(parsed, { signal: AbortSignal.timeout(timeoutMs), headers: { accept: 'application/json' }, redirect: 'error' });
     if (!r.ok) return { snapshot: null, why: `the quota service answered HTTP ${r.status}`, source: target };
     return { snapshot: await r.json(), source: target };
   } catch (e) {
@@ -495,16 +500,15 @@ async function auditsDir(root) {
   return dir;
 }
 
-async function writeFileSafely(root, path, body) {
+/** Create a new file and write it: never through a link, never over an existing file (O_EXCL). */
+async function createFile(root, path, body) {
   let handle;
-  try { handle = await open(path, constants.O_WRONLY | constants.O_CREAT | constants.O_NOFOLLOW, 0o644); }
-  catch (e) { if (e.code === 'ELOOP') fail(`refused: ${posixPath(relative(root, path))} is a symlink; nothing was recorded`, 1); throw e; }
-  try {
-    const why = unsafe(await handle.stat());
-    if (why) fail(`refused: ${posixPath(relative(root, path))} is not a regular file (${why}); nothing was recorded`, 1);
-    await handle.truncate(0);
-    await handle.writeFile(body);
-  } finally { await handle.close(); }
+  try { handle = await open(path, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o644); }
+  catch (e) {
+    if (e.code === 'EEXIST' || e.code === 'ELOOP') fail(`refused: ${posixPath(relative(root, path))} already exists; a record is never overwritten`, 1);
+    throw e;
+  }
+  try { await handle.writeFile(body); } finally { await handle.close(); }
 }
 
 /**
@@ -528,18 +532,28 @@ export async function record({ root, name, from, date = today(), provider = null
   if (evidence.length) fail(`refused, nothing recorded: evidence that does not exist at the audited commit:\n- ${evidence.slice(0, 20).join('\n- ')}`, 1);
   const dir = await auditsDir(root);
   const page = join(dir, `${date}-${name}.md`), json = join(dir, `${date}-${name}.json`);
-  for (const p of [page, json]) { const s = await lstatOf(p); const why = s && unsafe(s); if (why) fail(`refused: ${posixPath(relative(root, p))} is not a regular file (${why}); nothing was recorded`, 1); }
   const plate = config.name || posix.basename(posixPath(resolve(root)));
-  const recorded = { ...doc, date, provider, findings: [...doc.findings].sort((a, b) => leverage(b) - leverage(a)) };
-  await writeFileSafely(root, json, `${JSON.stringify(recorded, null, 2)}\n`);
-  await writeFileSafely(root, page, auditPage({ plate, lens: name, date, doc, provider }));
+  const recorded = `${JSON.stringify({ ...doc, date, provider, findings: [...doc.findings].sort((a, b) => leverage(b) - leverage(a)) }, null, 2)}\n`;
   const rel = posixPath(relative(root, page));
-  const candidates = planCandidates({ lens: name, findings: doc.findings, page: rel });
-  return {
-    data: { lens: name, date, commit: doc.commit, page: rel, findings: doc.findings.length, rejected: doc.rejected?.length ?? 0, candidates },
-    text: `${rel} — ${doc.findings.length} finding${doc.findings.length === 1 ? '' : 's'}, ${doc.rejected?.length ?? 0} rejected; each finding is triage for the next night`,
-    exitCode: 0,
+  const done = (again = false) => {
+    const candidates = planCandidates({ lens: name, findings: doc.findings, page: rel });
+    return {
+      data: { lens: name, date, commit: doc.commit, page: rel, findings: doc.findings.length, rejected: doc.rejected?.length ?? 0, candidates, ...(again ? { alreadyRecorded: true } : {}) },
+      text: `${rel} — ${doc.findings.length} finding${doc.findings.length === 1 ? '' : 's'}, ${doc.rejected?.length ?? 0} rejected; ${again ? 'already recorded with these findings, nothing written' : 'each finding is triage for the next night'}`,
+      exitCode: 0,
+    };
   };
+  // An existing record is never overwritten (the owner may have annotated its page). The same
+  // findings recorded again are the same record: nothing is written. Anything else is refused.
+  const [ps, js] = [await lstatOf(page), await lstatOf(json)];
+  for (const [p, st] of [[page, ps], [json, js]]) { const why = st && unsafe(st); if (why) fail(`refused: ${posixPath(relative(root, p))} is not a regular file (${why}); nothing was recorded`, 1); }
+  if (ps || js) {
+    if (ps && js && await readFile(json, 'utf8') === recorded) return done(true);
+    fail(`refused: ${AUDITS}/${date}-${name} is already recorded with other findings; a record is never overwritten (record this run under another --date, or move the old record first)`, 1);
+  }
+  await createFile(root, json, recorded);
+  await createFile(root, page, auditPage({ plate, lens: name, date, doc, provider }));
+  return done();
 }
 
 /**
