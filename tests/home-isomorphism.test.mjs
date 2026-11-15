@@ -35,7 +35,7 @@ const reviewRepository = { open: { pageInfo: { hasNextPage: false }, nodes: [{ k
 const rate = { cost: 1, remaining: 4000, resetAt: new Date(Date.now() + 3600_000).toISOString() };
 
 /** The same sources, twice: the web's fake App API and a git checkout with a fake gh. */
-async function sources({ reviews = true, files = {}, issues = null, waits = null, runs = null, prs = null, config = {}, review = reviewRepository, ready = null, checksRead = !!waits, decisionWrites = false } = {}) {
+async function sources({ reviews = true, files = {}, issues = null, waits = null, runs = null, prs = null, config = {}, review = reviewRepository, ready = null, checksRead = !!waits, decisionWrites = false, setup = null } = {}) {
   const h = projectHarness();
   Object.assign(h.source.files, files);
   h.source.files['.plates/plates.json'] = JSON.stringify({ name: 'Acme Studio', repo: 'acme/studio', tagline: 'Publish useful things.', practice: '0.8.32', stack: ['node'], phases: { shape: 'files' },
@@ -45,8 +45,10 @@ async function sources({ reviews = true, files = {}, issues = null, waits = null
   const git = args => execFileSync('git', ['-C', root, ...args], { env: gitEnv, encoding: 'utf8' }).trim();
   git(['init', '-q', '-b', 'main']); git(['add', '-A']); git(['commit', '-q', '-m', MESSAGE]);
   h.source.revision = git(['rev-parse', 'HEAD']);
+  const claimRefs = [], deployRecords = { text: null };
+  // Before either form reads: what a test puts on the checkout's origin (and the App's answers) both forms see.
+  if (setup) await setup({ dir, root, git, deployRecords });
   // The web: GraphQL through the App answers the review read.
-  const claimRefs = [];
   const fetcher = async (url, options) => {
     if (new URL(url).pathname === '/graphql') {
       h.source.requests.push({ url, options });
@@ -56,6 +58,12 @@ async function sources({ reviews = true, files = {}, issues = null, waits = null
       if (blobs.length) {
         const byOid = new Map(Object.values(h.source.files).map(text => [createHash('sha1').update(`blob ${Buffer.byteLength(text)}\0`).update(text).digest('hex'), text]));
         const repository = Object.fromEntries(blobs.map(([, alias, oid]) => { const text = byOid.get(oid); return [alias, text === undefined ? null : { oid, byteSize: Buffer.byteLength(text), isBinary: false, isTruncated: false, text }]; }));
+        return Response.json({ data: { rateLimit: rate, repository } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
+      }
+      // Main vs production: the verify branches' deploy records, by expression, as the checkout's origin holds them.
+      if (query.includes('object(expression:')) {
+        const { variables } = JSON.parse(options.body), repository = {};
+        for (const [key, expression] of Object.entries(variables).filter(([k]) => /^e\d+$/.test(k))) repository[`d${key.slice(1)}`] = expression === 'plates-verify:deploys.jsonl' && deployRecords.text !== null ? { isBinary: false, isTruncated: false, text: deployRecords.text } : null;
         return Response.json({ data: { rateLimit: rate, repository } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
       }
       // The backlog's claims read (phase 178): the claim branches the test pushed to the checkout's remote, and no open PRs.
@@ -98,15 +106,16 @@ else { console.error('fake gh: offline'); process.exit(1); }
   assert.equal(run.status, 0, run.stderr);
   // More plates home runs in the same checkout; `state` keeps their last-looked time apart from the first run's.
   const again = (args, { state = 'state-again', env = {} } = {}) => runNode(process.execPath, [bin, 'home', ...args], { cwd: root, timeout: 120_000, env: { ...cliEnv(state), ...env } });
-  return { web, cli: JSON.parse(run.stdout), dir, root, git, gitEnv, claimRefs, again, access: webAccess, readWeb: options => readWeb(webAccess, token, options), done: () => rm(dir, { recursive: true, force: true }) };
+  return { web, cli: JSON.parse(run.stdout), dir, root, git, gitEnv, claimRefs, deployRecords, again, access: webAccess, readWeb: options => readWeb(webAccess, token, options), done: () => rm(dir, { recursive: true, force: true }) };
 }
 
 // What a reader adds about its own read, not the sources: when it read, and the App's numeric repository id.
 // Which writers a form can run (an answer's `unavailable`) is that form's, not the sources' (phase 173).
 const formless = item => item.answers ? { ...item, answers: item.answers.map(({ unavailable, ...a }) => a) } : item;
+// Main vs production is compared on its own below: this checkout has no origin, so the CLI cannot read its deploy records.
 const content = snapshot => ({
   coverage: snapshot.coverage,
-  projects: snapshot.projects.map(({ readAt, repoId, ...project }) => project),
+  projects: snapshot.projects.map(({ readAt, repoId, release, ...project }) => project),
   ...Object.fromEntries(['decisions', 'walks', 'reviews', 'waiting', 'changes'].map(key => [key, snapshot[key].map(formless)])),
 });
 
@@ -123,6 +132,37 @@ test('the CLI and the web render one read model', async () => {
     // The hosted page renders the model's four sections (phase 166), and the terminal the same headings.
     const html = renderHomeSnapshot(s.web);
     for (const title of ['Needs you', 'Since you last looked', 'What should happen next?', 'Your plates']) assert.ok(html.includes(`>${title}</h2>`), title);
+  } finally { await s.done(); }
+});
+
+// Main vs production: both forms read the same deploy record (the CLI from the checkout's origin, the web through the App)
+// beside the default branch's head, and draw the same row on Your plates.
+test('main vs production is one model', async () => {
+  let main;
+  const s = await sources({ setup: async ({ dir, root, git, deployRecords }) => {
+    const remote = join(dir, 'remote.git'), at = '2026-11-14T10:00:00.000Z';
+    execFileSync('git', ['init', '-q', '--bare', '-b', 'main', remote], { env: gitEnv });
+    git(['remote', 'add', 'origin', remote]); git(['push', '-q', 'origin', 'main']);
+    main = git(['rev-parse', 'HEAD']);
+    deployRecords.text = `${JSON.stringify({ schema: 1, project: 'studio', commit: main, action: 'deploy', at, ok: true, rolledBack: false, failed: null,
+      checks: [{ check: 'revision', ok: true, detail: 'Acme reports exactly' }], deployment: { id: 'dpl_acme1', url: 'https://acme.example' }, serving: { id: 'dpl_acme1', url: 'https://acme.example', commit: main } })}\n`;
+    const records = join(dir, 'deploys.jsonl'); await writeFile(records, deployRecords.text);
+    const blob = execFileSync('git', ['-C', root, 'hash-object', '-w', records], { env: gitEnv, encoding: 'utf8' }).trim();
+    const tree = execFileSync('git', ['-C', root, 'mktree'], { input: `100644 blob ${blob}\tdeploys.jsonl\n`, env: gitEnv, encoding: 'utf8' }).trim();
+    const commit = execFileSync('git', ['-C', root, 'commit-tree', tree, '-m', 'deploy'], { env: gitEnv, encoding: 'utf8' }).trim();
+    git(['push', '-q', 'origin', `${commit}:refs/heads/plates-verify`]);
+  } });
+  try {
+    const { cli, web } = s, short = main.slice(0, 7);
+    const row = snapshot => snapshot.home.sections.find(x => x.id === 'plates').items[0].release;
+    assert.deepEqual(cli.projects[0].release, web.projects[0].release, 'the same release in both forms');
+    assert.equal(web.projects[0].release.state, 'current');
+    assert.deepEqual(row(cli), row(web), 'the same row on Your plates');
+    assert.deepEqual(row(web), { state: 'current', main: short, production: short, ahead: 0, at: '2026-11-14', line: `production is main (${short}), deployed 2026-11-14` });
+    const text = s.again([], { state: 'state-release-text' });
+    assert.equal(text.status, 0, text.stderr);
+    assert.ok(text.stdout.split('\n').includes(`    release production is main (${short}), deployed 2026-11-14`), 'the terminal prints the row');
+    assert.match(renderHomeSnapshot(web), /class="plate-release" data-release="current" role="img" aria-label="production is main/, 'the card draws the row');
   } finally { await s.done(); }
 });
 
@@ -306,8 +346,10 @@ test('the four home sections are one model', async () => {
     assert.ok(lines.includes('Phase 5 built: Acme phase 5'), lines.join(' | '));
     assert.ok(lines.includes(`The night of ${day(-1)}: 1 done, 1 failed`), lines.join(' | '));
     assert.ok(!lines.some(l => l.includes('Phase 4 built')), 'phase 4 was built before the window');
-    // Your plates: one status each, the same in both forms.
-    assert.deepEqual(sec(s.cli, 'plates'), sec(s.web, 'plates'));
+    // Your plates: one status each, the same in both forms. Its release row is compared where both forms can read
+    // the deploy records ('main vs production is one model'): this checkout has no origin.
+    const releaseless = section => ({ ...section, items: section.items.map(({ release, ...item }) => item) });
+    assert.deepEqual(releaseless(sec(s.cli, 'plates')), releaseless(sec(s.web, 'plates')));
     assert.equal(sec(s.web, 'plates').items[0].status, 'broken');
     // The phase bar: done, partial, not started, counted once from the plate's phases, the same in both forms.
     assert.deepEqual(sec(s.web, 'plates').items[0].phases, { done: 2, partial: 2, notStarted: 1, total: 5, line: '2 done · 2 partial · 1 not started' });
