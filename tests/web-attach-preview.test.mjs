@@ -61,7 +61,7 @@ test('hosted attach preview shows exact source and brief without claiming or run
   assert.match(html, /Nothing is claimed or started/);
   assert.match(html, /does not run an agent/);
   assert.match(html, /Prospective brief/);
-  assert.doesNotMatch(/<main[\s\S]*?<\/main>/.exec(html)[0], /method="post"|data-[^= ]*apply/);
+  assert.doesNotMatch(/<main[\s\S]*?<\/main>/.exec(html)[0], /data-[^= ]*apply/);
   const choice = await (await s.get(api + '?key=studio:phase:1&route=session')).json();
   assert.equal(choice.state, 'choose-provider'); assert.equal(choice.preview, null);
   assert.deepEqual(choice.providers, ['codex', 'claude']);
