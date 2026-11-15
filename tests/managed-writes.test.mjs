@@ -113,3 +113,21 @@ test('render uses in-checkout parent aliases and replaces file contents without 
   assert.equal((await lstat(join(root, 'content/managed.md'))).mode & 0o777, 0o755);
   assert.deepEqual(await readdir(join(root, 'content')), ['managed.md']);
 });
+
+test('render keeps an existing seeded file the project made an in-checkout link, and still contains a new seed', async t => {
+  const { root, outside, practices } = await project(t);
+  practices.get('acme').files.push({ practice: 'acme', path: 'docs/lessons.md', kind: 'seeded', template: 'Acme lessons seed\n' });
+  await mkdir(join(root, 'docs'));
+  await writeFile(join(root, 'team-lessons.md'), 'Acme team lessons\n');
+  await symlink('../team-lessons.md', join(root, 'docs/lessons.md'));
+  await render(root, { practices });
+  assert.equal(await readlink(join(root, 'docs/lessons.md')), '../team-lessons.md');
+  assert.equal(await readFile(join(root, 'team-lessons.md'), 'utf8'), 'Acme team lessons\n');
+  assert.equal((await render(root, { practices, check: true })).ok, true);
+  // A seed that must be created still may not land outside the checkout.
+  const fresh = await project(t);
+  fresh.practices.get('acme').files.push({ practice: 'acme', path: 'notes/seed.md', kind: 'seeded', template: 'Acme seed\n' });
+  await symlink(fresh.outside, join(fresh.root, 'notes'));
+  await assert.rejects(render(fresh.root, { practices: fresh.practices }), /notes\/seed\.md.*resolves outside the checkout/);
+  await assert.rejects(lstat(join(fresh.outside, 'seed.md')), { code: 'ENOENT' });
+});
