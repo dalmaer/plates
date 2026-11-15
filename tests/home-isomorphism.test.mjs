@@ -166,6 +166,31 @@ test('main vs production is one model', async () => {
   } finally { await s.done(); }
 });
 
+// An agent waiting on the owner (the docket's unblock group) leads the plate in both forms: its card, its page and the terminal.
+test('an agent waiting on you is one model, and loud', async () => {
+  const s = await sources();
+  try {
+    const row = snapshot => snapshot.home.sections.find(x => x.id === 'plates').items[0];
+    const blocked = s.web.docket.filter(e => e.group === 'unblock');
+    assert.ok(blocked.length, 'the fixture has an item an agent waits on');
+    assert.deepEqual(row(s.cli).agentWaiting, row(s.web).agentWaiting, 'the same in both forms');
+    const w = row(s.web).agentWaiting;
+    assert.equal(w.count, blocked.length);
+    assert.deepEqual(w.items.map(i => i.key), blocked.slice(0, 3).map(e => e.key), 'oldest first, as the docket walks them');
+    assert.match(row(s.web).status, /^(broken|agent waiting on you)/);
+    const text = s.again([], { state: 'state-waiting' });
+    assert.equal(text.status, 0, text.stderr);
+    assert.ok(text.stdout.split('\n').some(l => l.startsWith(`    ⚑ AGENT WAITING ON YOU (${w.count}`) && l.includes(w.items[0].title)), text.stdout);
+    const { renderPlateCards, renderPlateWorkspace } = await import('../lib/web/plate-workspace.mjs');
+    const card = renderPlateCards(s.web);
+    assert.match(card, /data-agent-waiting/);
+    assert.match(card, /class="agent-waiting" role="status"><strong><span aria-hidden="true">⚑<\/span> (An agent is waiting on you|Agents are waiting on you for \d+ answers)<\/strong>/);
+    const page = renderPlateWorkspace(s.web, 'studio');
+    assert.ok(page.indexOf('class="agent-waiting"') < page.indexOf('class="message-toolbar"'), 'it opens the plate\'s page');
+    assert.match(page, /⚑ Agent waiting<\/span>/, 'its row in the list is tagged');
+  } finally { await s.done(); }
+});
+
 const HEALTH = { 'docs/health/2026-11-01.md': '# Acme health, 2026-11-01\n\n## Proposal\n\n**`dependency_age`** — Update the Acme anvil library.\n' };
 
 test('answers are one model', async () => {
