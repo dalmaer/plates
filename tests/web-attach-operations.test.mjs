@@ -117,16 +117,21 @@ test('cancellation at reached DB hooks prevents late provider effects',async t=>
  const result=await h.flow.execute(h.input);assert.equal(result.running,false);assert.deepEqual(effects(h.state),['mint-post']);
 });
 
-test('stalled database body and cleanup cannot hold or continue the flow',{timeout:15000},async t=>{
+// The bounds below time the flow, not the harness: each harness replays every migration into PGlite, which takes
+// about 7 s on a loaded CI runner (2026-11-15, check run 43657691069), so a test-wide timeout measured setup instead.
+// The test timeouts are only backstops against a real hang.
+test('stalled database body and cleanup cannot hold or continue the flow',{timeout:120000},async t=>{
  for(const mode of ['body','cancel']) {
-  const controller=new AbortController(),h=await harness(t,{signal:controller.signal});let cancelled=0;
+  const controller=new AbortController(),h=await harness(t,{signal:controller.signal,timeoutMs:25000});let cancelled=0;
   h.state.intercept=kind=>{
    if(kind!=='attach-mint-begin')return null;
    if(mode==='body')return {ok:true,status:200,body:{getReader:()=>({read(){controller.abort();return new Promise(()=>{});},cancel(){cancelled++;return new Promise(()=>{});}})}};
    let done=false;
    return {ok:true,status:200,body:{getReader:()=>({read:async()=>done?{done:true}:(done=true,{done:false,value:Buffer.from('null')}),cancel(){cancelled++;return new Promise(()=>{});}})}};
   };
-  const result=await h.flow.execute(h.input);
+  const started=performance.now(),result=await h.flow.execute(h.input),took=performance.now()-started;
+  // A stalled body or cleanup that held the flow would end it only at its 25 s deadline, or never.
+  assert.ok(took<12500,`${mode}: the flow ended in ${Math.round(took)} ms, not held by the stalled ${mode}`);
   assert.equal(result.running,false);assert.deepEqual(effects(h.state),[]);assert.ok(cancelled>0);
  }
 });
@@ -141,10 +146,11 @@ test('project conflict has an explicit action without provider calls',async t=>{
  assert.equal(result.reason,'project-conflict');assert.equal(result.recoveryAction,'inspect-project-activity');assert.deepEqual(effects(h.state),[]);
 });
 
-test('whole flow deadline bounds a stalled first journal request',{timeout:15000},async t=>{
+test('whole flow deadline bounds a stalled first journal request',{timeout:120000},async t=>{
  const h=await harness(t,{timeoutMs:1500});
  h.state.intercept=kind=>kind==='attach-reserve'?new Promise(()=>{}):null;
- const result=await h.flow.execute(h.input);
+ const started=performance.now(),result=await h.flow.execute(h.input),took=performance.now()-started;
+ assert.ok(took>=1400&&took<10000,`the 1.5 s deadline ended the stalled request after ${Math.round(took)} ms`);
  assert.deepEqual(h.state.calls,['attach-reserve']);
  assert.equal(result.claimVerified,false);assert.equal(result.reason,'attach_observation_unavailable');
  assert.deepEqual(effects(h.state),[]);
