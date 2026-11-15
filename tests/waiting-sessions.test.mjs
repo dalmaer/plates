@@ -252,3 +252,24 @@ test('a waiting store that cannot be read makes Home partial, and the docket cou
   assert.notEqual(result.coverage.state, 'complete');
   assert.deepEqual(notified, [false], 'the docket notifier is told the read was not complete');
 });
+
+test('a single plate\'s hosted Home lists only that plate\'s waiting sessions and scripts', async () => {
+  const { createHomeReader } = await import('../lib/web/home.mjs');
+  const h = projectHarness();
+  const access = { ...h.access, projects: [...h.access.projects, { id: 'forge', repoId: 103, repo: 'acme/forge' }] };
+  const snapshot = { schema: 1, machine: 'Acme Mac', scannedAt: new Date(h.state.now).toISOString(),
+    sessions: [{ id: 'f1', plate: 'forge', title: '🏠 [forge] Home', question: 'Forge?', since: null }, { id: 's1', plate: 'studio', title: '🏠 [studio] Home', question: 'Studio?', since: null }],
+    scripts: [{ name: '20261115-0900-forge-setup', why: 'Set up the forge', checked: true, since: null }] };
+  const { createWaitingStore } = await import('../lib/web/waiting-store.mjs');
+  const fetcher = async (url, options) => {
+    if (!new URL(url).pathname.endsWith('/rpc/plates_waiting_rpc')) return h.fetcher(url, options);
+    // The store's own list answer, sealed as it would be: built through a store over a one-row fake.
+    return Response.json({ items: [{ device: 'a'.repeat(64), value: sealed, scannedAt: snapshot.scannedAt }] });
+  };
+  const { seal } = await import('../lib/web/common.mjs');
+  const scope = createWaitingStore(h.config).scopeFor(access.userId);
+  const sealed = seal({ snapshot, label: 'Acme Mac' }, h.config.encryptionKey, `waiting-snapshot-v1:${scope}:${'a'.repeat(64)}`);
+  const one = await createHomeReader(h.config, { fetcher, now: () => h.state.now })(access, 'fake-user-access-token-for-tests', { projectId: 'studio' });
+  const keys = one.docket.map(e => e.key).filter(k => /:(session|runme):/.test(k));
+  assert.deepEqual(keys, ['studio:session:s1'], 'only Studio\'s own; the Forge session and script stay off Studio\'s page');
+});
