@@ -92,6 +92,22 @@ plates loose-ends mark 3fa9c1 park --reason "after the release" --until 2026-11-
   that project's `.plates/loose-ends.json`; commit it.
 
 ```bash
+plates sessions waiting                 # your home sessions waiting on an answer from you (the default)
+plates sessions push --site https://your-plates-site   # send them to your workspace with this device's key
+```
+
+- A home session is one titled `🏠 [project] …`, the long-lived session you
+  steer from your phone. It is waiting when its last turn asks you something
+  you have not answered. `plates home` lists it under Sessions waiting on
+  you, as an item an agent waits on, so the plate's card says so.
+- `push` sends only each session's id, plate, title, when it began waiting
+  and what it asked (at most 500 characters). Make the device's key on your
+  workspace's Devices page and keep it in the keychain
+  (`security add-generic-password -U -s plates-device-key -a plates -w`) or
+  `PLATES_DEVICE_KEY`; it is read at run time and never printed. Run it every
+  few minutes (a LaunchAgent) and Home on your phone shows what is waiting.
+
+```bash
 plates retro --since 4f2c1aa            # the worksheet, from the commit before the phase
 plates retro --session <id>             # a specific session, not the newest
 ```

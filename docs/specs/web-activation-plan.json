@@ -694,6 +694,20 @@
       "proof": "The applied version: file name and SHA-256, compared with source; run docs/evidence/2026-11-14-web-attach-outcomes-hosted-proof.sql and its two-connection race. Record the terminal-refusal versus ref-begin CAS, retained evidence, existing grants/aliases and no residual proof rows. Local serial replay is not hosted concurrency proof."
     },
     {
+      "id": "migration-022",
+      "phase": 166,
+      "kind": "migration",
+      "migration": "022-waiting-sessions.sql",
+      "what": "Apply 022-waiting-sessions.sql (plates_home.device_keys: each owner device key's SHA-256, an opaque owner and device digest and a sealed name; plates_home.waiting_sessions: each device's newest sealed snapshot of its home sessions waiting on the owner; and plates_waiting_rpc) after the build with Sessions waiting on you, so a device can push and Home lists them. The build goes first and is safe without it: until 022 is applied Home's Sessions waiting on you row says they are not stored yet, the Devices page says the database needs 022, and a push is refused.",
+      "prerequisites": [
+        94,
+        166
+      ],
+      "ownerAttended": true,
+      "rollback": "A failure inside the transaction rolls back by itself. After commit, drop the tables plates_home.waiting_sessions and plates_home.device_keys and the function public.plates_waiting_rpc(text,text,text,text,text,timestamptz); Home's row says waiting sessions are not stored and every device key stops working. Leave the plates_home schema: 017's Not now, 018's visits and 019's events live in it.",
+      "proof": "The applied version: file name and SHA-256; docs/evidence/2026-11-15-web-waiting-sessions-hosted-proof.sql's result (both tables, their grants and the RPC run as the service role); one device key made on the Devices page, one plates sessions push from the owner's Mac, and Home's Sessions waiting on you showing that Mac's waiting home sessions."
+    },
+    {
       "id": "answers-from-home",
       "phase": 173,
       "kind": "decision",

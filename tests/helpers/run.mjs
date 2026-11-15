@@ -38,7 +38,12 @@ export function run(cmd, args = [], { cwd, env, input, timeout } = {}) {
   if (/(^|[/\\])bin[/\\]plates\.mjs$/.test(String(args[0] ?? '')) && ['loose-ends', 'retro'].includes(args[1]) && !(env ?? process.env).PLATES_CLAUDE_DIR) {
     throw new Error(`plates ${args[1]} reads transcripts: run it with PLATES_CLAUDE_DIR set (synthetic ones), never ~/.claude`);
   }
-  const r = spawnSync(cmd, args, { cwd, input, timeout, encoding: 'utf8', env: cleanEnv(env ?? process.env), maxBuffer: 64 * 1024 * 1024 });
+  // plates home and plates sessions scan this machine's transcripts for home sessions waiting on the owner: a test that
+  // names no transcript directory gets one that does not exist, never the developer's ~/.claude.
+  const plates = /(^|[/\\])bin[/\\]plates\.mjs$/.test(String(args[0] ?? ''));
+  const scans = plates && ['home', 'sessions'].includes(args[1]) && !(env ?? process.env).PLATES_CLAUDE_DIR;
+  const childEnv = scans ? { ...(env ?? process.env), PLATES_CLAUDE_DIR: '/nonexistent/plates-test-claude' } : (env ?? process.env);
+  const r = spawnSync(cmd, args, { cwd, input, timeout, encoding: 'utf8', env: cleanEnv(childEnv), maxBuffer: 64 * 1024 * 1024 });
   if (r.error) throw r.error;
   return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
 }

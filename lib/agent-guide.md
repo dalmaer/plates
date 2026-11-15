@@ -30,16 +30,16 @@ Verbs (`--json` for data):
 - `plates morning` — brief; `--send`
 - `plates production` — status, collect, spec, verify
 - `plates fleet` — fleet practice, health, CI
-- `plates fleet update` — PRs for projects behind; exit 3
-- `plates loose-ends` — unfinished work
-- `plates issue new --agent` — rubric issue preview; `--yes` creates it
+- `plates fleet update` — PRs for projects behind
+- `plates loose-ends|sessions` — unfinished work; chats waiting
+- `plates issue new --agent` — rubric issue; `--yes` makes it
 - `plates review <repo>#<n>` — comments; `--wait`; `--close`
 - `plates home|board` — what needs you; `board` retired
 - `plates promote [<commit>]` — tested commit to prod; `--back`
 - `plates walk done|decide` — settle a walk or proposal
 - `plates canvas` — snapshot, render, connect, sync, live, night
 - `plates retro` — worksheet; `capture` records; `sessions` trials
-- `plates workspace inspect|init` — explicit external storage
+- `plates workspace inspect|init` — external storage
 - `plates shape check|render|plan` — reviewed drafts
 - `plates feedback` — capture, list, propose, resolve
 - `plates decision context` — scoped choices
@@ -1759,6 +1759,15 @@ it): `drop` hides it for good, `park` until the date (needed), `resume`
 sorts it first. `--all` shows the hidden ones with their marks. A mark
 keeps a fingerprint (a session is its id), never chat text: a chat's words
 reach stdout only.
+
+`plates sessions [waiting]` lists this machine's home sessions (titles
+`🏠 [<plate>] …`) whose last turn asks the owner something still unanswered,
+with what each asked; `plates home` shows them as Sessions waiting on you,
+an item an agent waits on. `plates sessions push --site <url>` sends that
+snapshot (each session's id, plate, title, since, and its question, at most
+500 characters) to the owner's workspace with this device's key, read from
+`PLATES_DEVICE_KEY` or the keychain item `plates-device-key`, never printed.
+Keys are made and revoked on the workspace's Devices page (SQL022).
 
 `--json` → `{projects: [{repo, dir, checkout, github, notes, items: [{id,
 kind, fingerprint, title, detail, phase, at, age, move, commands, state,

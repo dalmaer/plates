@@ -480,6 +480,7 @@ Every verb takes `--json`. Exit codes are the same everywhere:
 | `plates workspace inspect\|init` | Inspect explicit external workspace configuration; preview private runtime initialization, then apply with `--yes`; remote privacy remains unverified |
 | `plates canvas` | Project lifecycle snapshots and isocan canvas publishing; preview changes before applying them |
 | `plates loose-ends` | What you started and didn't finish, across plates and each fleet checkout: chats, files, branches, PRs, owner steps; `mark` one resume, park or drop |
+| `plates sessions` | Your home sessions (`🏠 [project] …`) on this machine waiting on an answer from you; `waiting` lists them, `push` sends them to your Plates workspace with this device's key |
 | `plates production status`, `collect`, `spec`, `verify` | Bounded production-error evidence, recurring repair candidates, and revision-scoped verification; missing coverage stays unknown |
 | `plates feedback` | Capture private feedback on an exact result, list metadata, propose a follow-up, or resolve it; local writes require the reviewed digest |
 | `plates issue new --agent` | Preview a rubric issue; `--yes` creates it, unlabelled while robot is OFF |
