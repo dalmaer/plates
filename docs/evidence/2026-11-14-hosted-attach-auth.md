@@ -64,3 +64,38 @@ own existing activation, restore, worker, permission and bounded runtime contrac
 No migration, credential, provider write, job dispatch or paid evaluation occurred.
 Preserve the original operation after uncertainty and never infer a free lane or
 retry grant from missing evidence.
+
+## First integrated checkpoint — blocked
+
+On 2026-11-14 America/Denver, `plates integrate --json` ran the configured
+`npm run check` once for `4b4ccd1c` on base `e199fcf0`: 4,758 passed, two failed,
+12 skipped, 1,073.3 seconds. No merge or push to main occurred. Integration
+receipt `027e689273fdbae5f4eb748da1b320882b427b3e` is retained on
+`plates-integrations`.
+
+Both `tests/lesson-package.test.mjs`'s deterministic-package case and
+`tests/lesson-promotion.test.mjs`'s original-package-recovery case exhausted
+`source export preparation deadline` in `protectedPaths → bindLearningPlan →
+buildLearningPackage`. They failed before their intended semantic assertions.
+The original binding deadline also covers retained-plan inspection. Concurrent
+host load was observed around 189; that is a plausible contributor, not proof
+of causality. Attach tests passed, which does not turn this into a full-gate pass.
+
+The next candidate must retain production deadlines and evidence validation,
+separate the semantic fixture allowance from deadline-contract checks, and pass
+its required checkpoint. No unchanged gate retry or hosted activation is implied.
+
+## Corrected test candidate — integration pending
+
+On 2026-11-14 America/Denver, test-only commit `5401df5d` gives only the two
+failed semantic scenarios a fresh bounded allowance per invocation. It leaves
+production defaults and subprocess ceilings unchanged. Independent valid-input
+controls retain expired absolute and default-deadline refusals for candidate
+and plan binding, without changing saved request options or publishing records.
+
+Builder serial checks: four passed, zero failed. Independent read-only review
+found no concrete issue. Conductor `npm run check:focused --
+tests/lesson-package.test.mjs tests/lesson-promotion.test.mjs
+tests/lesson-semantic-deadlines.test.mjs`: 138 passed, zero failed, with required
+conventions and record guards. `npm run typecheck` exited zero. Original failed
+checkpoint remains above; these focused results are not an integrated pass.
