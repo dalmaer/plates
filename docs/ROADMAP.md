@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**74 of 182 phases built; 75 owe a walk.** Built means implemented and checked; planned is not available.
+**74 of 183 phases built; 75 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -199,7 +199,7 @@ A lesson learned in any project, or a practice improved upstream, reaches plates
 
 Without anyone remembering, each project is measured nightly, dependencies move in reviewed lanes, and anything red reaches a person.
 
-9/30 built; 16 owe a walk.
+9/31 built; 16 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -233,6 +233,7 @@ Without anyone remembering, each project is measured nightly, dependencies move 
 | [116. Each plate verifies itself and the fleet checks coverage](phases/116-each-plate-verifies-itself-and-the-fleet-checks-coverage.md) | built | 2026-10-23 | [15](phases/15-projects-run-on-their-own.md), [26](phases/26-reconciliation.md), [70](phases/70-a-phase-being-built-is-claimed-and-plates-next.md) | Each plate owns verification; the fleet reads revision-bound evidence without rerunning project gates. |
 | [155. Climb admits useful measured work before spending its night](phases/155-climb-admits-useful-measured-work-before.md) | partial | 2026-11-01 | [35](phases/35-a-project-can-send-an-agent-to-climb-one-number.md), [43](phases/43-each-budgeted-pass-shows-what-it-used.md) | The five failed scheduled climbs (1–5 Nov) were one cause: the agent ran, then the night was blocked on Bash permission denials. The brief now says a denial blocks the night. Waits on the next scheduled run. |
 | [162. Overnight decisions stay within bounds and can be corrected in the morning](phases/162-overnight-decisions-remain-bounded-and-reviewable.md) | partial | 2026-11-04 | [157](phases/157-philosophy-guides-small-safe-increments.md), [73](phases/73-a-night-has-a-plan-written-before-it-runs-and.md), [90](phases/90-builders-receive-current-decisions.md) | Increments 1 and 2 built: a validate-only decision envelope, and an append-only journal beside the night plan keyed by the original operation, so a resume inspects and never redispatches. Nothing routes questions or shows them in the morning yet. |
+| [192. A plate is audited by a model, one lens at a time, when quota has room](phases/192-audits-look-at-a-plate-with-a-model-when-quota.md) | partial | 2026-11-14 | [75](phases/75-personas-measure-a-project-against-goals-it.md), [106](phases/106-model-routing-respects-capacity-and-policy.md) | Increment 1 built: lenses, room from the quota snapshot, due, brief, record and night triage, adopted on plates itself. No model is started and nothing is scheduled; run, routine (⚑) and the owner's read remain. |
 
 - **10 done when:** Plates and one adopted project each run `plates-night.yml` nightly for a week, each night leaving at most one open machine PR, with Renovate's lanes active and a red run reaching the owner by email.
 - **11 done when:** `plates improve` writes `docs/health/<date>.md` with deterministic measures and one proposal, changes nothing else, and its self-test fails on a fixture built to be unhealthy.
@@ -264,6 +265,7 @@ Without anyone remembering, each project is measured nightly, dependencies move 
 - **116 done when:** Each project's existing nightly report carries revision-bound verification and claim findings, and Plates identifies missing, stale or mismatched fleet evidence without executing consumer gates or changing acceptance.
 - **155 done when:** A timed climb refuses an infeasible measurement after its first probe, retains the reason without starting a model, and admits a focused comparison under the existing budget while preserving full validation.
 - **162 done when:** Within the existing night plan, an authorized builder resolves reversible choices, parks permission-dependent actions while continuing independent work, and gives the morning an evidence-linked ranked account of decisions, effects and safe corrections.
+- **192 done when:** `plates audit due` names each audit lens a plate declares, whether it is due, and whether a provider has room for it now by the quota snapshot (explained, and "wait" when the snapshot is unknown or stale); `plates audit brief <lens>` prints the self-contained read-only brief for an agent; and `plates audit record <lens> --from <file>` accepts only findings whose evidence cites a file and line that exist at the audited commit, writes `docs/audits/<date>-<lens>.md` and turns each accepted finding into a triage candidate for the night, never a build.
 
 ## G5 — Plates knows whether it helps
 

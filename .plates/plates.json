@@ -27,7 +27,8 @@
     "reconciliation",
     "climb",
     "cross-review",
-    "personas"
+    "personas",
+    "audits"
   ],
   "agents": {
     "claude": {},

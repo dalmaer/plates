@@ -152,11 +152,15 @@ test('--json parses for every verb and flag; human text never mixes in', async t
     await writeFile(join(dir, 'acme-health.md'), '# Acme health\n\n## Proposal\n\n**`acme_measure`** (outside) — Acme proposes.\n');
     // plates test runs a file with stalls: a synthetic one-test file, not one of plates's own suites.
     await writeFile(join(dir, 'acme-stalls.test.mjs'), "import { test } from 'node:test';\ntest('an anvil is ordered', () => {});\n");
+    // audit due reads a saved quota snapshot (an old one: every lens waits), never the live quota service; audit record a findings file.
+    await writeFile(join(dir, 'acme-quota.json'), JSON.stringify({ v: 1, generatedAt: 0, providers: [] }));
+    await writeFile(join(dir, 'acme-findings.json'), JSON.stringify({ lens: 'security', commit: '0'.repeat(40), findings: [] }));
     await writeFile(join(dir, 'acme-rubric.json'), JSON.stringify({ version: 1, problem: 'Acme loses rows.', reproduction: 'Run Acme regression.', acceptance: 'Both rows remain.', change: 'Fix equality.', prerequisites: [], ownerBlockers: [] }));
     const needs = { feedback: ['list'], decision: ['context', '--phase', '0'], issue: ['new', '--agent', '--title', 'Fix Acme rows', '--rubric', 'acme-rubric.json'], walk: ['decide', '--proposal', 'acme-health.md', '--decline', 'Acme test'], canvas: ['status'], init: ['fresh', '--description', 'Acme is a test project.'], learn: ['render'], improve: ['--selftest'], drain: ['keel-night/'], test: ['acme-stalls.test.mjs', '--stalls'],
       review: ['acme/app#1', '--reviewer', 'acme-reviewer'], 'goal show': ['G0'], 'goal add': ['Acme works', '--outcome', 'Acme works.'],
       'goal retire': [added, '--reason', 'Acme test'], 'phase new': ['Acme phase', '--goal', 'G0'], 'phase claim': ['0'],
       prove: ['tests/add.test.mjs', '--fix', 'lib/add.mjs'], 'evidence rederive': ['1'], 'persona run': ['--all'],
+      'audit due': ['--quota', 'acme-quota.json'], 'audit brief': ['security'], 'audit record': ['security', '--from', 'acme-findings.json'],
       // night tick runs after night plan (the registry's order), which wrote the copy's plan (tests/night-plan.test.mjs covers both).
       'night tick': ['measures', '--status', 'running'],
       // morning reads that plan's night, which night plan dated (tests/morning.test.mjs covers the verb).
@@ -209,8 +213,9 @@ Measure the count.
       // (tests/claim.test.mjs and tests/integrate.test.mjs cover the verbs). promote reads plates's own Vercel
       // target and needs git history, which this copy has not: exit 1, as JSON (tests/promote.test.mjs and
       // tests/promote-vercel.test.mjs cover the verb).
-      // board is retired: it names plates home and exits 2, as JSON.
-      assert.equal(r.code, ['names', 'promote'].includes(name) ? 1 : name === 'issue' ? 3 : ['migrate', 'phase claim', 'ready', 'integrate', 'decision', 'shape', 'workspace', 'feedback', 'board'].includes(name) ? 2 : 0, `${name}: ${r.err}${r.out}`);
+      // board is retired: it names plates home and exits 2, as JSON. audit brief names the commit it reads and audit record checks
+      // findings against one: with no git history, brief exits 2 and record refuses (exit 1), as JSON (tests/audit.test.mjs covers both).
+      assert.equal(r.code, ['names', 'promote', 'audit record'].includes(name) ? 1 : name === 'issue' ? 3 : ['migrate', 'phase claim', 'ready', 'integrate', 'decision', 'shape', 'workspace', 'feedback', 'board', 'audit brief'].includes(name) ? 2 : 0, `${name}: ${r.err}${r.out}`);
       assert.doesNotThrow(() => JSON.parse(r.out), `${name} --json did not parse: ${r.out}`);
       assert.equal(r.err, '', `${name} wrote to stderr`);
       if (name === 'names') { const data = JSON.parse(r.out); assert.equal(data.mode, 'preview'); assert.ok(data.projects.some(project => project.state === 'unavailable')); assert.equal(data.readOnly, true); }
