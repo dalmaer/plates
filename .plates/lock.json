@@ -215,7 +215,7 @@
     },
     "scripts/plates/generated.mjs": {
       "practice": "phases",
-      "sha256": "c99345f3deccd177a995de8b397fd0231ef863ccd0ff20cc33d3ccc56d7548f9"
+      "sha256": "1074ecd394c6f96118eb2f3e5f816d9f27ad8415232fe866d0bccc59e1fa0a2b"
     },
     "scripts/plates/hygiene-measures.mjs": {
       "practice": "night",
@@ -387,7 +387,7 @@
     },
     "tests/plates-generated.test.mjs": {
       "practice": "phases",
-      "sha256": "d66c3f7e05fd3de2ad9fc84c6e881f5f310c5cbb1476df5d80e8a9615f8f7ba5"
+      "sha256": "979bd60f20dd4640409279a6c03bc72a0c7da5ab081998d5fb6b4077a643592d"
     },
     "tests/plates-workflows.test.mjs": {
       "practice": "ci",

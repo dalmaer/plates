@@ -101,3 +101,22 @@ test('the probe copies source only: a large ignored build tree stays behind; a g
     assert.equal(leftOut(dir).includes('out'), git, 'only git ignores out/; the fixed list does not name it');
   }
 });
+
+test('a directory declared in reads keeps its ignored files, however git lists them', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'plates-generated-acme-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  execFileSync('git', ['init', '-q'], { cwd: dir, stdio: 'ignore' });
+  // A file-pattern rule: git names inputs/catalog.json itself, not inputs/.
+  await writeFile(join(dir, '.gitignore'), '*.json\n');
+  await mkdir(join(dir, 'inputs'), { recursive: true });
+  await writeFile(join(dir, 'inputs', 'source.txt'), 'anvils\n');
+  await writeFile(join(dir, 'inputs', 'catalog.json'), '{"anvils":3}');
+  await mkdir(join(dir, 'docs'), { recursive: true });
+  await writeFile(join(dir, 'docs', 'ACME.md'), '# Acme\n');
+  await writeFile(join(dir, 'rewrites.mjs'), `
+    import { readFileSync, writeFileSync } from 'node:fs';
+    writeFileSync('docs/ACME.md', '# Acme ' + JSON.parse(readFileSync('inputs/catalog.json', 'utf8')).anvils);
+  `);
+  assert.ok(leftOut(dir).includes('inputs/catalog.json'));
+  assert.deepEqual(await survivors(dir, [{ path: 'docs/ACME.md', reads: ['inputs'], args: ['rewrites.mjs'] }]), []);
+});

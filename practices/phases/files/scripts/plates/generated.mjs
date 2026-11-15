@@ -64,13 +64,14 @@ export function leftOut(root) {
 
 /**
  * The copy filter for one generator: skips what leftOut names, except a path
- * the generator writes or reads (its file, its script, its declared `reads`)
- * or a directory holding one. Rotating test ledgers are never copied.
+ * the generator writes or reads (its file, its script, its declared `reads`),
+ * a directory holding one, or anything inside one (git may list an ignored file
+ * under a declared directory on its own). Rotating test ledgers are never copied.
  */
 function copyFilter(root, g, skip = leftOut(root)) {
   const needed = [g.path, ...(g.reads ?? []), ...g.args.filter(a => !a.startsWith('-') && !/\s/.test(a))]
     .map(p => p.split(sep).join('/').replace(/^\.\//, '').replace(/\/$/, ''));
-  const out = new Set(skip.filter(p => !needed.some(n => n === p || n.startsWith(`${p}/`))));
+  const out = new Set(skip.filter(p => !needed.some(n => n === p || n.startsWith(`${p}/`) || p.startsWith(`${n}/`))));
   return src => {
     const path = relative(root, src).split(sep).join('/');
     // Nested fixture projects have their own rotating ledgers too. Exclude the
