@@ -383,7 +383,7 @@ transport stays separate from the independent acceptance authority.
   `--manifest` and `--state` for its explicit private workspace, and `--digest`
   for approval of the exact local preview; these flags do not grant provider
   spend or production promotion.
-- **Health and night:** `plates improve`, `plates persona run`, `plates time`,
+- **Health and night:** `plates improve`, `plates persona run`, `plates audit due`, `plates audit brief`, `plates audit record`, `plates time`,
   `plates test`, `plates night plan`, `plates night tick`, `plates morning`,
   `plates goodnight`, `plates production`.
 - **Fleet and delivery:** `plates fleet`, `plates fleet update`,

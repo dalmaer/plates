@@ -17,11 +17,12 @@ Verbs (`--json` for data):
 - `plates adopt [dir]` — adopt a repo; `--dry-run` writes nothing
 - `plates doctor` — drift; `--fix`
 - `plates update` — PR or `--local`
-- `plates lessons` — send lessons and drift home; exit 3
+- `plates lessons` — lessons and drift home; exit 3
 - `plates learn` — lessons → proposals and decisions
-- `plates improve` — measures, bounds, one proposal; `--report` a page
-- `plates persona run` — measure a project's own goals
-- `plates time` — gate/test medians and failures
+- `plates improve` — measures, bounds, a proposal; `--report`
+- `plates persona run` — own goals
+- `plates audit due|brief|record` — audits
+- `plates time` — gate/test medians, failures
 - `plates test <file> --stalls` — wall-clock tests
 - `plates drain <prefix>` — newest passing PR per queue; exit 3
 - `plates night plan|tick` — the plan

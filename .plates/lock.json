@@ -161,6 +161,10 @@
       "practice": "renovate",
       "sha256": "fd83325f1ef12226434ecfa9668efaafc166ada353184071a418d145507231c2"
     },
+    "scripts/plates/audit.mjs": {
+      "practice": "audits",
+      "sha256": "88fc79aee9997397c2e335e8bb3fc5891c38aa16b51222796c02d0e98d35d433"
+    },
     "scripts/plates/autonomy-context.mjs": {
       "practice": "night",
       "sha256": "46c84fc689a4854c34efeb7b5c3d809d032dd2c40420d0f27d22e143810b4c83"
@@ -251,7 +255,7 @@
     },
     "scripts/plates/night-plan.mjs": {
       "practice": "night",
-      "sha256": "9d14c74e6d450e8ffc7c86ff955b1903f8f15b07a02291ba523d2f17dd81411e"
+      "sha256": "c2c6e9e0ffa5f5b5dd14c522e484a1a0b890e7c1bbe75e64b9ad5d7432ea88b3"
     },
     "scripts/plates/persona.mjs": {
       "practice": "personas",

@@ -109,6 +109,7 @@ archived phase files remain unchanged.
 | `claude` *(optional)* | `@claude` on issues and PRs: it opens PRs and never pushes to `main` | Agents landing unread changes |
 | `renovate` | Dependency updates in four lanes: small ones merge on green, majors wait for a person | A pile of dependency PRs nobody reads |
 | `personas` *(optional)* | Goals the project sets itself (a number, a bound, the command that prints it), measured into a dated review page; a missed goal becomes a candidate for the night's plan | Standards stated once and never measured again |
+| `audits` *(optional)* | A model reads the project through one lens (security, tests, performance, size, correctness) when a provider's quota has room; findings must cite lines that exist at the audited commit, and each is triage for the night | The whole tree never read again after each pull request's review |
 | `delivery` *(optional)* | One queued publisher moves a tested ref (`green`) to the newest commit on `main` whose gate passed, skipping the superseded and refusing a diverged ref; deploys follow it; doctor holds workflows to cancel-superseded tests and never-cancelled deploys | Two changes in a row each running the whole path, or a deploy from `main` before its gate |
 | `shaping` *(optional)* | Local structured idea review, digest-bound draft writes and robot rubric previews | Recommendations mistaken for owner choices; stale approvals overwriting work |
 | `reconciliation` *(optional)* | Local and read-only GitHub record checks, PR impact declarations, manual health proposals | Merges mistaken for acceptance; obsolete next work and decisions |
@@ -444,6 +445,9 @@ Every verb takes `--json`. Exit codes are the same everywhere:
 | `plates doctor` | What the project changed of plates's files, and practice rules broken. Changes nothing without `--fix` |
 | `plates improve` | Measures against bounds, including worktree/draft/file hygiene; `--report` writes the health page and its proposal |
 | `plates persona run [<name>\|--all]` | Measure the goals a project sets itself in `.agents/personas/<name>.md`: each command's one number against its bound, met, missed or broken; writes `docs/reviews/<date>-<persona>.md` and nothing else |
+| `plates audit due` | Each lens in `.agents/audits/<name>.md`: due or not, and the first provider whose quota has room (from the owner's quota service on loopback, or `--quota <file>`), or why it waits; unknown or stale is wait; starts no model |
+| `plates audit brief <lens>` | The read-only brief an agent is handed for one lens, pinned to HEAD |
+| `plates audit record <lens> --from <file>` | Check an agent's findings (each cited file and line must exist at the audited commit; nothing shaped like a credential or an absolute path), then write `docs/audits/<date>-<lens>.md` and `.json`; each finding is triage for the next night |
 | `plates time [--weeks N]` | Retained weekly gate/test timing, load coverage, failure memory and local worked-around test summaries |
 | `plates test <file> --stalls` | Run test files paused at random moments, and without; name each test that judges the wall clock rather than the code |
 | `plates update` | Take the next practice version, as a branch for a PR (or `--local`) |

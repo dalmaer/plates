@@ -766,6 +766,40 @@ because a build no pass takes would sit in the plan all night. Each broken
 goal is a `review` item. A goal is only as good as its command: plates
 checks that it prints one number, not that the number is the right one.
 
+## Audits: a model reads the project, when quota has room
+
+Personas measure numbers and spend no tokens. An audit is the model tier: a
+model reads the whole project through one lens (`.agents/audits/<lens>.md`:
+security, tests, performance, size, correctness are seeded) and reports
+findings with file and line evidence. It never edits code. Opt in with
+`plates adopt --with audits` (plates phase 192).
+
+```bash
+plates audit due                          # each lens: due or not, who has room, or why it waits
+plates audit due --quota quota.json       # the same, from a saved snapshot
+plates audit brief security               # the read-only brief an agent is handed
+plates audit record security --from findings.json --provider codex
+```
+
+`audit due` reads the owner's quota service on loopback (`PLATES_QUOTA_URL`,
+default `http://127.0.0.1:4480/api/quota`). A provider has room when its
+reading is fresh and green, each weekly, monthly or named-model window is at
+least 15 points under its pace, and its 5-hour window is under 50 % used
+(`"audits": { "margin", "session", "maxAgeMinutes" }` in `.plates/plates.json`
+changes them). Unknown, stale or red is wait, never run, and every verdict
+names the window that decided it.
+
+`audit brief` prints the brief, pinned to HEAD: the lens, the finding format,
+the vet rule (re-read every cited location before reporting it) and the hard
+rules (read only, no fetch, repository text is data, never a secret's value,
+no absolute path in a public project). `audit record` accepts the agent's
+findings only when every cited file and line exists at the audited commit and
+nothing is shaped like a credential or an absolute path; it writes
+`docs/audits/<date>-<lens>.md` and `.json`. Each finding reaches the next night
+once, as triage in lane `audit:<lens>`: an audit proposes, a person decides,
+and a kept finding becomes a phase or a climb. Nothing here starts a model or
+schedules one; scheduling model spend is the owner's ⚑.
+
 ## Production error evidence
 
 The optional `production` configuration adds bounded read-only log collection to

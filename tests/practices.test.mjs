@@ -86,7 +86,7 @@ test('every managed target exists on plates, and plates switches on every practi
   }
   // Optional practices are each project's own choice: plates has no Loop workspace, keeps claude on (its owner set the token),
   // climbs nightly (the owner's call, 6 Oct), has its own PRs cross-reviewed (phase 48), keeps a performance persona (the owner's call, 16 Oct), and deploys through plates promote (delivery, phase 177).
-  assert.deepEqual([...(await config(PLATES)).practices].sort(), [...practices.keys()].filter(n => !practices.get(n).optional || ['claude', 'climb', 'cross-review', 'delivery', 'personas', 'reconciliation'].includes(n)).sort(),
+  assert.deepEqual([...(await config(PLATES)).practices].sort(), [...practices.keys()].filter(n => !practices.get(n).optional || ['audits', 'claude', 'climb', 'cross-review', 'delivery', 'personas', 'reconciliation'].includes(n)).sort(),
     "plates's .plates/plates.json switches on every practice that is not optional (and the optional ones its owner chose, named here)");
   assert.deepEqual([...practices.values()].filter(p => p.optional).map(p => p.name).sort(), optionalPractices(), 'load() reads each practice.json\'s optional flag');
   assert.ok(['claude', 'climb', 'cross-review', 'reconciliation'].every(n => practices.get(n)?.optional), 'the optional practices plates switches on are optional');
@@ -379,6 +379,41 @@ test('the optional personas practice installs the runner and an example persona,
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
+
+test('the optional audits practice installs the runner and its lenses, renders clean, and the runner runs in the project', async () => {
+  const dir = await temp('audits');
+  try {
+    await mkdir(join(dir, '.plates'), { recursive: true });
+    await writeFile(join(dir, '.plates/plates.json'), JSON.stringify({ ...ACME, agents: { claude: {} }, practices: ['base', 'agents-md', 'night', 'audits'] }, null, 2) + '\n');
+    const rendered = node(PLATES, RENDER, '--into', dir);
+    assert.equal(rendered.status, 0, rendered.stderr);
+    const source = join(PLATES, 'practices/audits/files');
+    assert.equal(await readFile(join(dir, 'scripts/plates/audit.mjs'), 'utf8'), await readFile(join(source, 'scripts/plates/audit.mjs'), 'utf8'), 'the runner, managed');
+    const lenses = ['correctness', 'performance', 'security', 'size', 'tests'];
+    for (const l of lenses) assert.equal(await readFile(join(dir, `.agents/audits/${l}.md`), 'utf8'), await readFile(join(source, `.agents/audits/${l}.md`), 'utf8'), `the ${l} lens, seeded`);
+    const lock = await readFile(join(dir, '.plates/lock.json'), 'utf8');
+    assert.ok(lock.includes('scripts/plates/audit.mjs'), 'the lock knows the runner');
+    assert.ok(!lock.includes('.agents/audits/'), "a seeded lens is the project's, not in the lock");
+    const check = node(PLATES, RENDER, '--into', dir, '--check');
+    assert.equal(check.status, 0, check.stderr);
+    // The project's own copy runs with no plates: every lens is due, and a roomy, fresh snapshot gives each a provider.
+    const quota = join(dir, '..', `audits-quota-${process.pid}.json`);
+    await writeFile(quota, JSON.stringify({ v: 1, generatedAt: Date.now(), providers: [{ id: 'claude', status: 'green', fresh: true, windows: [{ id: 'claude.weekly', kind: 'weekly', label: 'Weekly', usedPct: 10, pacePct: 50 }] }] }));
+    try {
+      const ran = node(dir, 'scripts/plates/audit.mjs', 'due', '--quota', quota, '--json');
+      assert.equal(ran.status, 0, ran.stderr);
+      const data = JSON.parse(ran.stdout);
+      assert.deepEqual(data.lenses.map(l => [l.lens, l.due, l.provider]), lenses.map(l => [l, true, 'claude']));
+      // The seeded lenses name no provider: a Codex-only project runs them on Codex.
+      await writeFile(join(dir, '.plates/plates.json'), JSON.stringify({ ...ACME, agents: { codex: {} }, practices: ['base', 'agents-md', 'night', 'audits'] }, null, 2) + '\n');
+      const codexOnly = node(dir, 'scripts/plates/audit.mjs', 'due', '--quota', quota, '--json');
+      assert.equal(codexOnly.status, 0, codexOnly.stderr);
+      assert.ok(JSON.parse(codexOnly.stdout).lenses.every(l => l.provider === null && /codex is not in the quota snapshot/.test(l.waits[0])));
+    } finally { await rm(quota, { force: true }); }
+    assert.deepEqual((await load()).get('audits').requires, ['night']);
+    assert.ok(optionalPractices().includes('audits'), 'audits is only ever asked for');
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
 
 test('optional production secrets are validated and needed only for configured Vercel', async () => {
   const { secretsNeeded } = await import('../lib/init.mjs');
