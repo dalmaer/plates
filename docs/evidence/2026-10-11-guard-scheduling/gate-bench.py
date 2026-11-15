@@ -1,5 +1,5 @@
 import hashlib,json,os,pathlib,platform,re,subprocess,sys,time
-root=pathlib.Path('/Users/dionalmaer/code/plates'); out=pathlib.Path('/tmp/plates-phase70'); label=sys.argv[1]
+root=pathlib.Path.home()/'code/plates'; out=pathlib.Path('/tmp/plates-phase70'); label=sys.argv[1]
 assert re.fullmatch(r'[a-z0-9-]+',label)
 assert not (out/(label+'.json')).exists() and not (out/(label+'-check.log')).exists(), 'preserve existing observations'
 def command(args): return subprocess.check_output(args,cwd=root,text=True).strip()

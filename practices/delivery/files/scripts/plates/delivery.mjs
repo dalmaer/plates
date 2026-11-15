@@ -6,7 +6,7 @@
 // Zero imports beyond Node: plates's doctor reads this file in plates's own
 // tree, where the night's scripts are not beside it.
 //
-//   deliveryOf(config)        .plates/plates.json "delivery": { tested, gateWorkflow,
+//   deliveryOf(config, env)   .plates/plates.json "delivery": { tested, gateWorkflow,
 //                             workflows, site, version, smoke, promote, vercel,
 //                             migrations, grant }, validated, each error naming its
 //                             key (workflows: plates doctor workflow-concurrency; site,
@@ -14,8 +14,10 @@
 //                             scripts/plates/verify.mjs; promote: phase 82's plates
 //                             promote, scripts/plates/promote.mjs; vercel,
 //                             migrations and grant: phase 177's Vercel target,
-//                             scripts/plates/vercel.mjs)
-//   concurrencyOf(text)       a workflow's concurrency blocks, read as text
+//                             scripts/plates/vercel.mjs; its paths may start ~/,
+//                             expanded against env's home)
+//   homePath(path, env)       a path with a leading ~/ expanded to the home directory
+//   concurrencyOf(text)      a workflow's concurrency blocks, read as text
 //   workflowKind(file, text, { gate, check, workflows })  'test', 'publish' or null
 //   concurrencyProblems(file, text, kind)  the rule, broken: [string]
 //
@@ -24,6 +26,8 @@
 // per ref, cancel-in-progress: true); a publish or deploy workflow is queued
 // and never cancelled (one fixed group, cancel-in-progress: false), since a
 // deploy stopped midway is worse than a late one.
+
+import { homedir } from 'node:os';
 
 /** The tested ref when .plates/plates.json names none. */
 export const TESTED = 'green';
@@ -264,7 +268,9 @@ const VERCEL_PROJECT = /^[a-z0-9][a-z0-9._-]{0,99}$/;
  * directory the deploy runs from, an absolute path that plates fills with
  * exactly the tested commit, outside every checkout (never inside a git work
  * tree); globalConfig the Vercel CLI's own directory (-Q), when it is not the
- * default. Each problem names its key, after "delivery".vercel.
+ * default. Either path may start ~/ for the running user's home directory, so
+ * a committed config names no one's home. Each problem names its key, after
+ * "delivery".vercel.
  */
 function vercelProblems(v) {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return [' must be an object: { "scope": "<team>", "checkout": "<absolute directory>" }'];
@@ -275,9 +281,19 @@ function vercelProblems(v) {
   for (const key of ['checkout', 'globalConfig']) {
     if (key === 'globalConfig' && v[key] === undefined) continue;
     const p = v[key];
-    if (typeof p !== 'string' || !p.startsWith('/') || p.length > 1024 || /[\0\r\n]/.test(p) || p.split('/').some(s => s === '..' || s === '.') || p === '/') out.push(`.${key} must be an absolute directory${key === 'checkout' ? ' outside every checkout, where plates puts exactly the commit it deploys' : ', the Vercel CLI\'s own (-Q)'} (got ${JSON.stringify(p)})`);
+    if (typeof p !== 'string' || !(p.startsWith('/') || p.startsWith('~/')) || p.length > 1024 || /[\0\r\n]/.test(p) || p.split('/').some(s => s === '..' || s === '.') || p === '/' || p === '~/') out.push(`.${key} must be an absolute directory (or one under ~/)${key === 'checkout' ? ' outside every checkout, where plates puts exactly the commit it deploys' : ', the Vercel CLI\'s own (-Q)'} (got ${JSON.stringify(p)})`);
   }
   return out;
+}
+
+/**
+ * A configured path with a leading ~/ expanded against the running user's home
+ * directory (env.HOME, else the account's); any other value is returned as is.
+ */
+export function homePath(path, env = process.env) {
+  if (typeof path !== 'string' || !path.startsWith('~/')) return path;
+  const home = (env?.HOME || homedir()).replace(/\/+$/, '');
+  return `${home}/${path.slice(2)}`;
 }
 
 /**
@@ -346,7 +362,7 @@ export class DeliveryError extends Error {
  * smoke: [{ path, status: [code] }] } (site and version null when unset; a
  * smoke path alone expects 200), or a throw (exit 2) naming the key.
  */
-export function deliveryOf(config) {
+export function deliveryOf(config, env = process.env) {
   const problems = deliveryProblems(config);
   if (problems.length) throw new DeliveryError(problems[0]);
   const d = config?.delivery ?? {};
@@ -354,7 +370,7 @@ export function deliveryOf(config) {
   return { tested: d.tested ?? TESTED, gateWorkflow: d.gateWorkflow ?? null, site: d.site ? new URL(d.site).origin : null, version: d.version ?? null, smoke, promote: promoteRefOf(d.promote),
     // Explicit workflow roles (#212), a Vercel target's keys (phase 177), and the grant, only when set.
     ...(d.workflows ? { workflows: Object.fromEntries(Object.entries(d.workflows).map(([k, v]) => [k, v === 'deploy' ? 'publish' : v === 'none' ? null : v])) } : {}),
-    ...(d.vercel ? { vercel: { scope: d.vercel.scope, checkout: d.vercel.checkout, globalConfig: d.vercel.globalConfig ?? null }, migrations: d.migrations ?? MIGRATIONS } : {}),
+    ...(d.vercel ? { vercel: { scope: d.vercel.scope, checkout: homePath(d.vercel.checkout, env), globalConfig: homePath(d.vercel.globalConfig, env) ?? null }, migrations: d.migrations ?? MIGRATIONS } : {}),
     ...(d.grant ? { grant: { agentPromote: d.grant.agentPromote, since: d.grant.since } } : {}) };
 }
 

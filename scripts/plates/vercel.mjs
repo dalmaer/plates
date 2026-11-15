@@ -6,6 +6,7 @@
 // .plates/plates.json "delivery": { "promote": "vercel:<project>",
 // "vercel": { "scope": "<team>", "checkout": "<absolute directory>" },
 // "site", "version", "smoke", "migrations"? (default lib/web/migrations) }.
+// checkout and globalConfig may start ~/ for the running user's home.
 //
 //   plates promote [<commit>] [--yes] [--watch <s>] [--migrated <file>]... [--migrations-from <commit>]
 //   plates promote --back            the last deployment that passed its checks, at once
@@ -258,7 +259,7 @@ const commitOfDeployment = (deploys, id) => deploys.find(r => r.ok && r.deployme
  */
 export async function planVercel({ root, config, commit = null, migrated = [], migrationsFrom = null, within = WITHIN, every = EVERY, watch = WATCH, env = process.env, remote = 'origin', now = Date.now(), fetch, client, gate, request, download }) {
   if (env.GITHUB_ACTIONS === 'true') throw new PromoteError('plates promote is a person\'s command: it does not run in GitHub Actions, and no workflow promotes', 1);
-  const d = deliveryOf(config);
+  const d = deliveryOf(config, env);
   if (d.promote?.kind !== 'vercel') throw new PromoteError('.plates/plates.json "delivery".promote is not a Vercel target ("vercel:<project>")');
   const g = gateConfig(config, d);
   if (gitOk(root, env, ['rev-parse', '--is-shallow-repository'], 'cannot read this checkout') === 'true') throw new PromoteError('this checkout is shallow, so ancestry cannot be read: fetch its full history (git fetch --unshallow)');
@@ -364,7 +365,7 @@ function recorded({ root, entry, env, remote }) {
  */
 export async function promoteVercel(o) {
   const { root, config, commit = null, back = false, yes = false, env = process.env, remote = 'origin' } = o;
-  const d = deliveryOf(config);
+  const d = deliveryOf(config, env);
   const client = o.client ?? vercelClient({ bin: env.PLATES_VERCEL || 'vercel', scope: d.vercel?.scope, globalConfig: d.vercel?.globalConfig, project: d.promote?.name });
   const clock = o.clock ?? (() => Date.now()), sleep = o.sleep ?? (ms => delay(ms));
   const within = o.within ?? WITHIN, every = o.every ?? EVERY, watch = o.watch ?? WATCH;

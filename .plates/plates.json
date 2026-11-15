@@ -134,8 +134,8 @@
     "promote": "vercel:plates",
     "vercel": {
       "scope": "dion-almaers-projects",
-      "checkout": "/Users/dionalmaer/.plates/deploy/plates",
-      "globalConfig": "/Users/dionalmaer/Library/Application Support/com.vercel.cli"
+      "checkout": "~/.plates/deploy/plates",
+      "globalConfig": "~/Library/Application Support/com.vercel.cli"
     },
     "grant": {
       "agentPromote": true,

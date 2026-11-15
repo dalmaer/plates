@@ -6,7 +6,7 @@ Decision context was `not-configured`, not verified architecture coverage.
 
 ## Measured proof
 
-Working directory for commands: `/Users/dionalmaer/.codex/worktrees/reconcile-validation-night/plates`.
+Working directory for commands: `~/.codex/worktrees/reconcile-validation-night/plates`.
 Runtime: Node 26.12.1 through `PATH=/opt/homebrew/bin:$PATH`; tests use `TZ=UTC`.
 
 - `PATH=/opt/homebrew/bin:$PATH TZ=UTC npm run check:focused -- tests/plate-verification.test.mjs tests/fleet-verification.test.mjs`: exit 0. Both behavior files and the required source/CLI/render/roadmap/inbox/whitespace convention bundle passed. Log: `/tmp/phase116-parent-focused.log`.
@@ -23,7 +23,7 @@ completed with exit 0; extracted candidate at `/tmp/plates-phase116-walk/package
 Then:
 
 ```sh
-PATH=/opt/homebrew/bin:$PATH TZ=UTC GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.fsmonitor GIT_CONFIG_VALUE_0=false node /tmp/plates-phase116-walk.mjs /Users/dionalmaer/.codex/worktrees/reconcile-validation-night/plates /tmp/plates-phase116-walk/package
+PATH=/opt/homebrew/bin:$PATH TZ=UTC GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.fsmonitor GIT_CONFIG_VALUE_0=false node /tmp/plates-phase116-walk.mjs $HOME/.codex/worktrees/reconcile-validation-night/plates /tmp/plates-phase116-walk/package
 ```
 
 Exit 0 at 2026-10-23T23:31:55Z. Output retained in `/tmp/plates-phase116-walk/result.json` and `/tmp/plates-phase116-walk.log`; the reproducible script is retained below.

@@ -2,7 +2,7 @@ import {mkdtemp, mkdir, copyFile, writeFile} from 'node:fs/promises';
 import {spawnSync} from 'node:child_process';
 import {join} from 'node:path';
 import assert from 'node:assert/strict';
-const root='/Users/dionalmaer/code/plates', base='3ef01bef9dd4f4f06b8dfce425712ac118fca4dd';
+const root=`${process.env.HOME}/code/plates`, base='3ef01bef9dd4f4f06b8dfce425712ac118fca4dd';
 const dir=await mkdtemp('/tmp/plates-test-bench-');
 const archive=spawnSync('git',['archive',base],{cwd:root,maxBuffer:128*1024*1024});assert.equal(archive.status,0);
 const files=['tests/improve-selftest.test.mjs','tests/workflows.test.mjs','tests/package.test.mjs','tests/helpers.test.mjs'];

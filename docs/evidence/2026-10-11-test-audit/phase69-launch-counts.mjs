@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
-import { runBlocks, inlineNode } from '/Users/dionalmaer/code/plates/tests/helpers/workflows.mjs';
-const root = '/Users/dionalmaer/code/plates';
+const { runBlocks, inlineNode } = await import(`${process.env.HOME}/code/plates/tests/helpers/workflows.mjs`);
+const root = `${process.env.HOME}/code/plates`;
 const night = await readFile(`${root}/practices/night/files/.github/workflows/plates-night.yml`, 'utf8');
 const typecheck = await readFile(`${root}/.github/workflows/typecheck.yml`, 'utf8');
 const count = text => { const blocks=runBlocks(text); return { bash:blocks.length, node:blocks.reduce((n,b)=>n+inlineNode(b.script).length,0) }; };

@@ -1,7 +1,7 @@
 // Focused failing variants only; source transformation is in-memory, never a repository write.
 import { spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
-const root = '/Users/dionalmaer/code/plates';
+const root = `${process.env.HOME}/code/plates`;
 const variants = [
  ['candidate-unchanged','tests/release.test.mjs','^a release with no change under practices/', 'rehearsal keeps the unchanged practice'],
  ['candidate-next-patch','tests/release.test.mjs','^a release with no change under practices/', 'rehearsal proposes the next CLI patch'],

@@ -22,7 +22,7 @@ actual human-intervention coverage.
 ### Twenty-slot public CLI walk
 
 ```sh
-PATH=/opt/homebrew/bin:$PATH TZ=UTC GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.fsmonitor GIT_CONFIG_VALUE_0=false node docs/evidence/2026-10-23-evaluation-comparison-walk.mjs /Users/dionalmaer/.codex/worktrees/reconcile-validation-night/plates
+PATH=/opt/homebrew/bin:$PATH TZ=UTC GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.fsmonitor GIT_CONFIG_VALUE_0=false node docs/evidence/2026-10-23-evaluation-comparison-walk.mjs $HOME/.codex/worktrees/reconcile-validation-night/plates
 ```
 
 The first attempt refused before execution: the proof fixture put an oversized
