@@ -436,7 +436,9 @@ test('controls are styled once', () => {
 // peek and running total (phase 180) are their own sheet, beside review.css.
 // The plate card's phase bar (2026-11-14) added the --caution fill token to the design layer, light and dark
 // (200 bytes across the sheets that carry the tokens), and its bar and legend to plate-workspace.css (300).
-const CSS_BYTES_BEFORE_171 = 81980, PAGE_SHEETS_SINCE = { '/assets/plate-workspace.css': 8800, '/assets/backlog.css': 3300, '/assets/review-session.css': 450 };
+// The plate's main-vs-production row (2026-11-15) added 400 to plate-workspace.css, from existing tokens only,
+// and its agent-waiting banner, card border and row tag (2026-11-15) 450 more.
+const CSS_BYTES_BEFORE_171 = 81980, PAGE_SHEETS_SINCE = { '/assets/plate-workspace.css': 9650, '/assets/backlog.css': 3300, '/assets/review-session.css': 450 };
 test('the design layer keeps its budget with a bounded Home loading addition', () => {
   const table = assets.buildAssetTable(assets.defaultSources());
   const css = [...table.entries].filter(([, entry]) => entry.type.startsWith('text/css'));
