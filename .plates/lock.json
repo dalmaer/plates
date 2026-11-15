@@ -187,11 +187,11 @@
     },
     "scripts/plates/climb.mjs": {
       "practice": "climb",
-      "sha256": "ed0785c7ba845ac5b7402dfc32c11fb7eff399ba27c85d434b24dafce5bfdab3"
+      "sha256": "08f0ffe2d9aa97056396bc35dbb080154415ef6343481fb982c433dfdca48efc"
     },
     "scripts/plates/cross-review.mjs": {
       "practice": "cross-review",
-      "sha256": "cf6c9b55b83fa7297349ca783fe51c9ec5baf761d0fa54ccc85bcf87ff1217d4"
+      "sha256": "ea98a1d77be81d84329c1995879c1104392d0c7af5908d4fb953f85997249658"
     },
     "scripts/plates/decision-context.mjs": {
       "practice": "reconciliation",
@@ -231,7 +231,7 @@
     },
     "scripts/plates/lib.mjs": {
       "practice": "night",
-      "sha256": "9f740a667d11ab72f6da42156c91f9a1087dcc04da14acd53b76c82033fe7d1f"
+      "sha256": "2fbfa42d51a5a717c3115e67a5738e1f37e7a24915da47d54f40d3f612b71be0"
     },
     "scripts/plates/milestones.mjs": {
       "practice": "night",

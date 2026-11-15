@@ -64,16 +64,19 @@ import { branchSuffix } from './names.mjs';
 // reads it as a status board owing no answer, and the valid findings as its
 // inline comments, each answered. A finding dropped is named in the summary.
 //
-// `agent-ran` is the climb practice's check (phase 35, lesson 29), copied
-// here so cross-review needs no climb: an agent that failed before its budget
-// ran out ends the run red, printing only the result's error text, never the
-// session. tests/cross-review.test.mjs holds the copy equal to climb.mjs's.
+// `agent-ran` is the climb practice's check (phase 35, lesson 29), shared
+// through the night's lib.mjs so cross-review needs no climb: an agent that
+// failed before its budget ran out, or whose evidence is missing, invalid or
+// past 8 MiB (even at timeout), ends the run red, naming only the error's
+// cause, never the session.
 // For Codex it is lib.mjs codexVerdict: its outcome and its final message.
 import { readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
-import { environmentValue, remoteLabelReceipt, repositoryLabelSelection, markerComment, markerComments, isMain, main, rootOf, lessonsPathOf, AGENTS, agentOf, passAgentProblems, codexVerdict, reviewerOf, listedAgents, pushReviewerOf, commitAuthorOf, secretText, PUSH_LABEL, pushTitle, recordText, recordOf, byWorkflow, fallbackFindingsMark, startFailureKind, startFailure, fallbackAgent, fallbackLine, fallbackMinutes, FALLBACK_MIN_MINUTES } from './lib.mjs';
+import { environmentValue, remoteLabelReceipt, repositoryLabelSelection, markerComment, markerComments, isMain, main, rootOf, lessonsPathOf, AGENTS, agentOf, passAgentProblems, codexVerdict, reviewerOf, listedAgents, pushReviewerOf, commitAuthorOf, secretText, PUSH_LABEL, pushTitle, recordText, recordOf, byWorkflow, fallbackFindingsMark, startFailure, fallbackAgent, fallbackLine, fallbackMinutes, FALLBACK_MIN_MINUTES } from './lib.mjs';
+import { readAgentEvidence, claudeEvidence, agentResult, agentVerdict, lastResult, errorText, OVERSIZED_EVIDENCE } from './lib.mjs';
+export { lastResult, agentVerdict, errorText, errorCause, ERROR_CHARS } from './lib.mjs';
 
 export const KEY = 'crossReview';
 export const LIMITS = Object.freeze({ minutes: [5, 60] });
@@ -390,83 +393,32 @@ export async function brief({ root, config, pr, push, repo, agent = 'claude', di
   ].join('\n');
 }
 
-// ---- did the agent run? (copied from climb.mjs; tests/cross-review.test.mjs holds them equal) ----
-
-/** The last `"type": "result"` message of claude-code-action's execution file (a JSON array, or one JSON per line), or null. */
-export function lastResult(text) {
-  if (typeof text !== 'string' || !text.trim()) return null;
-  let msgs = null;
-  try { const v = JSON.parse(text); msgs = Array.isArray(v) ? v : [v]; }
-  catch { msgs = text.split('\n').map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean); }
-  return msgs.filter(m => m && typeof m === 'object' && m.type === 'result').at(-1) ?? null;
-}
-
-/**
- * Whether the agent step did its work, pure: { ok, line }. Red (ok: false)
- * when the step failed, or its result is an error, before the budget ran out:
- * an agent that never started is not a quiet night (lesson 29). Running out
- * the budget (the step's time box) or its turns is not red: what it kept is judged.
- * Ran out means a failed step past the larger of the budget less a minute and
- * nine tenths of it (and past 0 s): the slack never swallows a short budget,
- * so a failure at the start of a one-minute box is red (Codex on duo#83).
- */
-export function agentVerdict({ outcome, result, elapsedSec, minutes }) {
-  const secs = r => `${Math.round((r ?? 0) / 1000)} s`;
-  const budget = minutes * 60;
-  if (outcome !== 'success' && Number.isFinite(elapsedSec) && Number.isFinite(budget) && elapsedSec > 0 && elapsedSec >= Math.max(budget - 60, budget * 0.9)) return { ok: true, timedOut: true, line: `the agent ran out its budget (${minutes} min, ${Math.round(elapsedSec)} s elapsed): what it kept is judged` };
-  if (result?.subtype === 'error_max_turns') return { ok: true, line: `the agent ran out its turns (${result.num_turns}) in ${secs(result.duration_ms)}: what it kept is judged` };
-  if (outcome === 'success' && !result?.is_error) return { ok: true, line: result ? `the agent ran: ${result.num_turns ?? '?'} turns in ${secs(result.duration_ms)}` : 'the agent step succeeded (no execution file to read)' };
-  if (result) {
-    const turns = Number(result.num_turns ?? 0);
-    const head = turns <= 1 ? 'Claude did not start' : 'Claude stopped with an error';
-    const said = errorText(result);
-    return { ok: false, line: `${head}: is_error after ${turns} turn${turns === 1 ? '' : 's'} in ${secs(result.duration_ms)}${result.subtype ? ` (${result.subtype})` : ''}, before its ${minutes}-minute budget; ${errorCause(said)}. Nothing is judged or pushed.${said ? ` It said: "${said}"` : ''}` };
-  }
-  return { ok: false, line: `Claude did not start: the agent step ended ${outcome || 'without an outcome'} after ${Number.isFinite(elapsedSec) ? `${Math.round(elapsedSec)} s` : 'an unknown time'}, before its ${minutes}-minute budget, with no result in the execution file; check the secret / model. Nothing is judged or pushed.` };
-}
-
-/**
- * The error text of a failed result, and only that: its `result` field (and an
- * `error` or `message` field), one line, at most ERROR_CHARS. Never the
- * session's messages: plates's logs are public.
- */
-export const ERROR_CHARS = 300;
-export function errorText(result) {
-  const pick = v => (typeof v === 'string' ? v : v && typeof v === 'object' && typeof v.message === 'string' ? v.message : null);
-  // The SDK's error result (error_during_execution) carries its text in `errors: string[]`: read a bounded few of them too.
-  const errors = Array.isArray(result?.errors) ? result.errors.slice(0, 8).map(pick) : [];
-  const parts = [pick(result?.result), pick(result?.error), pick(result?.message), ...errors].filter(x => x && x.trim());
-  const text = [...new Set(parts.map(x => x.replace(/\s+/g, ' ').trim()))].join(' | ');
-  return text.length > ERROR_CHARS ? `${text.slice(0, ERROR_CHARS - 1)}…` : text;
-}
-
-/**
- * Which cause the error text names (lib.mjs startFailureKind), so the owner knows what to do:
- * credit (top up), a rate limit (wait), the secret (rotate), the model, or (unnamed) both to check.
- */
-export function errorCause(text) {
-  const kind = startFailureKind(text);
-  if (kind === 'credit') return 'its credit, billing or quota ran out: top up the account behind CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY (the secret itself was accepted)';
-  if (kind === 'rate') return 'it was rate-limited or overloaded at the start: wait, or raise the account\'s rate limit';
-  if (kind === 'auth') return 'the secret was refused: check CLAUDE_CODE_OAUTH_TOKEN (claude setup-token) or ANTHROPIC_API_KEY';
-  if (kind === 'model') return 'the model was refused: check the model the action asks for (none is pinned here; the action\'s default)';
-  return 'check the secret / model';
-}
+// ---- did the agent run? (lib.mjs: the one implementation climb.mjs also uses) ----
 
 async function readText(file) {
   if (!file) return null;
   try { return await readFile(file, 'utf8'); } catch (e) { if (e.code === 'ENOENT') return null; throw new CrossReviewError(`${file}: ${e.message}`); }
 }
 
+/** The execution evidence, bounded (lib.mjs readAgentEvidence); an unreadable file is a usage error. */
+async function readEvidence(file) {
+  const read = await readAgentEvidence(file);
+  if (read.evidence === 'unreadable') throw new CrossReviewError(`${file}: execution evidence could not be read`);
+  return read;
+}
+
 export async function agentRan({ outcome, file, minutes, started, agent = 'claude', now = Date.now() }) {
   if (!Number.isFinite(minutes) || minutes <= 0) throw new CrossReviewError('agent-ran needs --minutes <the budget>');
   const elapsedSec = Number.isFinite(started) ? now / 1000 - started : NaN;
+  const elapsed = Number.isFinite(elapsedSec) ? Math.round(elapsedSec) : null;
+  const read = await readEvidence(file);
+  if (read.evidence === 'oversized') return { ok: false, state: 'blocked', evidence: read.evidence, agent, outcome: outcome ?? null, result: null, elapsedSec: elapsed, line: OVERSIZED_EVIDENCE };
   if (agent === 'codex') {
-    const message = await readText(file);
-    return { agent, outcome: outcome ?? null, chars: message?.trim().length ?? 0, elapsedSec: Number.isFinite(elapsedSec) ? Math.round(elapsedSec) : null, ...codexVerdict({ outcome, message, elapsedSec, minutes }) };
+    const message = read.text;
+    return { agent, outcome: outcome ?? null, chars: message?.trim().length ?? 0, elapsedSec: elapsed, ...codexVerdict({ outcome, message, elapsedSec, minutes }) };
   }
-  const result = lastResult(await readText(file));
-  return { outcome: outcome ?? null, result: result ? { is_error: Boolean(result.is_error), num_turns: result.num_turns ?? null, duration_ms: result.duration_ms ?? null, subtype: result.subtype ?? null } : null, elapsedSec: Number.isFinite(elapsedSec) ? Math.round(elapsedSec) : null, ...agentVerdict({ outcome, result, elapsedSec, minutes }) };
+  const { result, evidence } = claudeEvidence(read);
+  return { evidence, outcome: outcome ?? null, result: agentResult(result), elapsedSec: elapsed, ...agentVerdict({ outcome, result, elapsedSec, minutes, evidence }) };
 }
 
 /**
@@ -484,8 +436,8 @@ export async function agentRan({ outcome, file, minutes, started, agent = 'claud
 export async function agentStart({ outcome, file, minutes, started, agent = 'claude', fallback = null, now = Date.now() }) {
   const ran = await agentRan({ outcome, file, minutes, started, agent, now });
   const stay = { agent, fallback: null, note: null, kind: null, minutes: null, line: ran.line };
-  if (ran.ok || !fallback || fallback === agent) return stay;
-  const raw = await readText(file);
+  if (ran.ok || ran.evidence === 'oversized' || !fallback || fallback === agent) return stay;
+  const raw = (await readEvidence(file)).text;
   const result = agent === 'claude' ? lastResult(raw) : null;
   const text = result ? errorText(result) : '';
   const elapsedSec = Number.isFinite(started) ? now / 1000 - started : NaN;

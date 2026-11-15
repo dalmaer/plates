@@ -324,15 +324,20 @@ test('agent ran: red with only the error line when the agent failed before its b
   const red = await step(t, dir, 'Did the agent run?', env());
   assert.equal(red.status, 1, red.out);
   assert.match(red.out, /^::error::Claude did not start: is_error after 1 turn in 2 s \(success\), before its 15-minute budget; the secret was refused: check CLAUDE_CODE_OAUTH_TOKEN/m);
-  assert.match(red.out, /It said: "Invalid API key · Please run \/login"$/m);
+  assert.doesNotMatch(red.out, /Invalid API key|It said/, 'the cause only, never the provider\'s raw text (climb\'s rule, shared)');
   assert.doesNotMatch(red.out, /acme private session text/, 'never the session\'s messages');
   assert.equal(red.out.trim().split('\n').length, 1, 'one line');
   const none = await step(t, dir, 'Did the agent run?', env({ OUTCOME: 'failure', EXECUTION: '' }));
   assert.equal(none.status, 1);
-  assert.match(none.out, /Claude did not start: the agent step ended failure after \d+ s, before its 15-minute budget, with no result/);
+  assert.match(none.out, /blocked: Claude execution evidence is missing; the step ended failure after \d+ s \(budget 15 min\)/);
+  // Past the budget with no result is not a judged timeout: execution cannot be verified.
   const timeout = await step(t, dir, 'Did the agent run?', env({ OUTCOME: 'failure', EXECUTION: join(temp, 'none.json'), STARTED: String(now - 15 * 60) }));
-  assert.equal(timeout.status, 0, timeout.out);
-  assert.match(timeout.out, /ran out its budget/);
+  assert.equal(timeout.status, 1, timeout.out);
+  assert.match(timeout.out, /execution evidence is missing.*including at timeout/);
+  await writeFile(file, execution({ is_error: true, num_turns: 40, duration_ms: 899_000, subtype: 'error_during_execution' }));
+  const ranOut = await step(t, dir, 'Did the agent run?', env({ OUTCOME: 'failure', STARTED: String(now - 15 * 60) }));
+  assert.equal(ranOut.status, 0, ranOut.out);
+  assert.match(ranOut.out, /ran out its budget/);
   await writeFile(file, execution({ is_error: false, num_turns: 12, duration_ms: 300_000, result: 'Checked the lid. One P2.' }));
   const fine = await step(t, dir, 'Did the agent run?', env({ STARTED: String(now - 300) }));
   assert.equal(fine.status, 0, fine.out);
@@ -344,9 +349,10 @@ test('agent ran: red with only the error line when the agent failed before its b
   assert.ok(text.indexOf('- name: Did the agent run?') < text.indexOf('- name: Post the summary'));
 });
 
-test("agent ran: shared result parsing stays aligned; climb additionally requires denial-free execution evidence", async t => {
+test("agent ran: one shared implementation in lib.mjs; climb additionally requires denial-free execution evidence", async t => {
   const { m, climb } = await load(t, { climb: true });
-  for (const f of ['lastResult', 'errorText', 'errorCause']) assert.equal(m[f].toString(), climb[f].toString(), `${f} drifted from climb.mjs`);
+  // Both import the lib.mjs beside them: the same function objects, not a copy that can drift.
+  for (const f of ['lastResult', 'errorText', 'errorCause']) assert.equal(m[f], climb[f], `${f} is the one lib.mjs implementation`);
   assert.equal(m.ERROR_CHARS, climb.ERROR_CHARS);
   // And by behaviour, on the cases phase 35 named.
   const early = { is_error: true, num_turns: 1, duration_ms: 2000, subtype: 'success' };
@@ -357,16 +363,51 @@ test("agent ran: shared result parsing stays aligned; climb additionally require
   const providerError = { outcome: 'failure', result: { ...early, result: 'model: claude-acme-9 not_found_error' }, elapsedSec: 3, minutes: 15 };
   assert.equal(m.agentVerdict(providerError).ok, false);
   assert.equal(climb.agentVerdict(providerError).ok, false);
-  assert.match(m.agentVerdict(providerError).line, /It said:/);
-  assert.doesNotMatch(climb.agentVerdict(providerError).line, /It said:|claude-acme-9/, 'climb does not retain raw provider error text');
+  for (const v of [m.agentVerdict(providerError), climb.agentVerdict(providerError)]) assert.doesNotMatch(v.line, /It said:|claude-acme-9/, 'neither retains raw provider error text');
+  assert.match(m.agentVerdict(providerError).line, /the model was refused/);
   const missing = { outcome: 'failure', result: null, elapsedSec: 3, minutes: 15 };
-  const review = m.agentVerdict(missing), execution = climb.agentVerdict(missing);
-  assert.equal(review.ok, false, 'cross-review still refuses missing evidence before the budget');
-  assert.match(review.line, /with no result in the execution file/);
-  assert.equal(execution.ok, false);
-  assert.equal(execution.state, 'blocked');
-  assert.match(execution.line, /execution evidence has no valid result/);
-  assert.doesNotMatch(execution.line, /did not start|secret/, 'climb now reports unavailable evidence without inferring its cause');
+  for (const v of [m.agentVerdict(missing), climb.agentVerdict(missing)]) {
+    assert.equal(v.ok, false); assert.equal(v.state, 'blocked');
+    assert.match(v.line, /execution evidence has no valid result/);
+    assert.doesNotMatch(v.line, /did not start|secret/, 'unavailable evidence is reported without inferring its cause');
+  }
+  // Climb alone blocks on permission denials: a read-only reviewer's denied write is not a failed review.
+  const denied = { outcome: 'success', result: { is_error: false, num_turns: 9, duration_ms: 9000, permission_denials_count: 2 }, elapsedSec: 60, minutes: 15 };
+  assert.equal(m.agentVerdict(denied).ok, true);
+  assert.equal(climb.agentVerdict(denied).state, 'blocked');
+});
+
+test('agent ran: a timed-out review with no valid result is blocked, not judged', async t => {
+  const m = await load(t);
+  const dir = await mkdtemp(join(tmpdir(), 'plates-cross-timeout-')); t.after(() => rm(dir, { recursive: true, force: true }));
+  const now = 1_800_000_000;
+  // Past the budget (15 min) with no execution file, an empty one, or one with no result.
+  const files = { missing: join(dir, 'absent.json'), empty: join(dir, 'empty.json'), 'no-valid-result': join(dir, 'chatter.json') };
+  await writeFile(files.empty, '');
+  await writeFile(files['no-valid-result'], JSON.stringify([{ type: 'assistant', message: 'Acme reviewing' }]));
+  for (const [evidence, file] of Object.entries(files)) {
+    const r = await m.agentRan({ outcome: 'failure', file, minutes: 15, started: now - 900, now: now * 1000 });
+    assert.equal(r.ok, false, `${evidence}: a timeout without a result is not ok`);
+    assert.equal(r.state, 'blocked'); assert.equal(r.evidence, evidence); assert.notEqual(r.timedOut, true);
+    assert.match(r.line, /including at timeout/);
+  }
+  assert.equal(m.agentVerdict({ outcome: 'failure', result: null, elapsedSec: 900, minutes: 15 }).ok, false);
+  // With a valid result, running out the budget is still judged.
+  await writeFile(files.empty, JSON.stringify([{ type: 'result', is_error: true, num_turns: 40, duration_ms: 899000, subtype: 'error_during_execution' }]));
+  const ranOut = await m.agentRan({ outcome: 'failure', file: files.empty, minutes: 15, started: now - 900, now: now * 1000 });
+  assert.equal(ranOut.ok, true); assert.equal(ranOut.timedOut, true);
+});
+
+test('agent ran: execution evidence past 8 MiB is blocked and never handed to a fallback', async t => {
+  const m = await load(t);
+  const dir = await mkdtemp(join(tmpdir(), 'plates-cross-oversized-')); t.after(() => rm(dir, { recursive: true, force: true }));
+  const file = join(dir, 'execution.json'), now = 1_800_000_000;
+  await writeFile(file, JSON.stringify([{ type: 'result', is_error: false, num_turns: 3, duration_ms: 3000, result: 'x'.repeat(8 * 1024 * 1024) }]));
+  const r = await m.agentRan({ outcome: 'success', file, minutes: 15, started: now - 60, now: now * 1000 });
+  assert.equal(r.ok, false); assert.equal(r.state, 'blocked'); assert.equal(r.evidence, 'oversized');
+  assert.match(r.line, /exceeds the 8 MiB limit/);
+  const start = await m.agentStart({ outcome: 'failure', file, minutes: 15, started: now - 4, agent: 'claude', fallback: 'codex', now: now * 1000 });
+  assert.equal(start.agent, 'claude'); assert.equal(start.fallback, null);
 });
 
 test('summary: the agent\'s final message, posted as a COMMENT review on the head commit under the status marker; the budget said when it ran out', async t => {
