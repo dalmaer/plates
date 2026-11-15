@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { crc32, deflateRawSync } from 'node:zlib';
 import { readFileSync } from 'node:fs';
 import { OBSERVATION_LIMITS, NamesObservationError, observationArtifactName, validateObservation,
-  encodeObservation, decodeObservation, observationFiles, decodeObservationArchive } from '../lib/names-observation.mjs';
+  encodeObservation, decodeObservation, observationFiles, decodeObservationArchive } from '../practices/night/files/scripts/plates/names-observation.mjs';
 import * as rendered from '../scripts/plates/names-observation.mjs';
 
 const h = b => createHash('sha256').update(b).digest('hex');
@@ -52,7 +52,7 @@ function zip(files, { method = 0, descriptor = false, overrides = [] } = {}) {
 function artifact(bytes, change = {}) { return { id: 40, name: observationArtifactName(20, 2), repositoryId: 10, runId: 20, runAttempt: 2, headSha: A, digest: `sha256:${h(bytes)}`, expired: false, ...change }; }
 const unpack = (b, change) => decodeObservationArchive(b, { artifact: artifact(b, change) });
 
-test('actual canonical serializer/facade/rendered helper agree, deterministic roundtrip and copied members', () => {
+test('actual canonical serializer/rendered helper agree, deterministic roundtrip and copied members', () => {
   const { observation: o, fragments } = fixture();
   const bytes = encodeObservation(o, { fragments });
   assert.deepEqual(plain(decodeObservation(bytes, { fragments })), o);
@@ -292,4 +292,27 @@ for(const projection of ['{"date":"2026-10-24","date":"2026-10-25","items":[]}',
   const {observation:o,fragments}=fixture();const bytes=Buffer.from(projection);
   fragments.set('fragments/plan.txt',bytes);Object.assign(o.fragments.find(f=>f.path==='fragments/plan.txt'),{bytes:bytes.length,sha256:h(bytes)});o.reads[0].outputProjection.sha256=h(bytes);
   rejects(()=>observationFiles(o,fragments),'duplicate_key');
+});
+
+
+test('night adoption installs the observation helper and tracks its managed bytes', async t => {
+  const { mkdtemp, mkdir, writeFile, readFile, rm } = await import('node:fs/promises');
+  const { join } = await import('node:path');
+  const { tmpdir } = await import('node:os');
+  const { render } = await import('../lib/practices.mjs');
+  const root = await mkdtemp(join(tmpdir(), 'acme-night-observation-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, '.plates'));
+  await writeFile(join(root, '.plates/plates.json'), JSON.stringify({
+    name: 'Acme', tagline: 'Acme builds anvils.', repo: 'acme/anvils', practice: '0.0.0', practices: ['base', 'agents-md', 'night'],
+  }));
+  await render(root);
+  const path = 'scripts/plates/names-observation.mjs';
+  const bytes = await readFile(join(root, path));
+  assert.deepEqual(bytes, readFileSync(new URL('../practices/night/files/' + path, import.meta.url)));
+  const lock = JSON.parse(await readFile(join(root, '.plates/lock.json'), 'utf8'));
+  assert.deepEqual(lock.files[path], { practice: 'night', sha256: h(bytes) });
+  assert.equal((await render(root, { check: true })).ok, true);
+  await writeFile(join(root, path), '// Acme drift\n');
+  assert.ok((await render(root, { check: true })).differs.some(e => e.path === path));
 });

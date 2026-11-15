@@ -150,6 +150,14 @@ test('actual improve output reaches collector; failed inputs retain only bounded
    assert.doesNotMatch(JSON.stringify(diagnostics),/Private|Acme|project|Error|ENOENT/);
   }
  });
+ await t.test('a missing committed helper asks for a night practice update', async () => {
+  git(['rm','scripts/plates/names-observation.mjs']);
+  git(['commit','-qm','Acme old night practice']);
+  // An uncommitted local copy cannot satisfy the consumer's source identity.
+  await cp(new URL('../scripts/plates/names-observation.mjs',import.meta.url),join(root,'scripts/plates/names-observation.mjs'));
+  await assert.rejects(collectNamesRun({root,kind:'night',directory:join(base,'missing-helper'),inputs:[],
+   env:{...env,GITHUB_SHA:git(['rev-parse','HEAD'])}},github), /plate.*night practice needs updating.*names-observation\.mjs/i);
+ });
 });
 
 test('real publication capture encodes through the collector with a separately executed installed CLI closure',async t=>{
@@ -237,7 +245,7 @@ function zip(files, { method = 0, descriptor = false, overrides = [] } = {}) {
 
 async function positiveObservationFixture({legacy=false,artifactGap=false,setup=false,observerMismatch=false,attemptMismatch=false,missingObserver=false,missingClosure=false,changedManaged=false,withoutDelivery=false,skippedHistory=null,history=false,omitTokens=false,alter=null,retainedPR=false,legacyPlan=false,newProposal=false}={}){
  const {readFile}=await import('node:fs/promises');const {posix}=await import('node:path');
- const {observationFiles}=await import('../lib/names-observation.mjs');
+ const {observationFiles}=await import('../practices/night/files/scripts/plates/names-observation.mjs');
  const {OBSERVATION_PRODUCERS,observationWorkflowBytes}=await import('../lib/names-verify.mjs');
  const hash=b=>createHash('sha256').update(b).digest('hex'),blob=b=>createHash('sha1').update(`blob ${Buffer.byteLength(b)}\0`).update(b).digest('hex');
  const config={name:'Acme',repo,practices:withoutDelivery?['night']:['night','delivery'],...(setup?{setup:'echo Acme project setup'}:{})},contents=new Map(),date='2026-10-24',at='2026-10-24T10:00:00Z';

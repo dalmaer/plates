@@ -10,6 +10,7 @@
     { "path": "scripts/plates/autonomy-policy.mjs", "from": "scripts/plates/autonomy-policy.mjs", "kind": "managed" },
     { "path": "scripts/plates/autonomy-context.mjs", "from": "scripts/plates/autonomy-context.mjs", "kind": "managed" },
     { "path": "scripts/plates/names.mjs", "from": "scripts/plates/names.mjs", "kind": "managed" },
+    { "path": "scripts/plates/names-observation.mjs", "from": "scripts/plates/names-observation.mjs", "kind": "managed" },
     { "path": "scripts/plates/names-environment.mjs", "from": "scripts/plates/names-environment.mjs", "kind": "managed" },
     { "path": "scripts/plates/names-environment.d.mts", "from": "scripts/plates/names-environment.d.mts", "kind": "managed" },
     { "path": "scripts/plates/verification.mjs", "from": "scripts/plates/verification.mjs", "kind": "managed" },
