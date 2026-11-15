@@ -150,11 +150,13 @@ test('the hosted store: a key shown once, sealed records, a revoked key refused'
   await assert.rejects(store.resolve('not-a-key'), e => e.status === 401, 'a malformed key');
   const snap = { schema: 1, machine: 'Acme Mac', scannedAt: at(9), sessions: [{ id: 'a', plate: 'anvils', title: '🏠 [anvils] Home', question: 'Which anvil first?', since: at(1) }], scripts: [] };
   assert.deepEqual(await store.push(resolved, snap), { pushed: true, sessions: 1 });
-  assert.deepEqual(await store.list(1), [snap]);
+  const listed = await store.list(1);
+  assert.deepEqual(listed.map(({ device: id, ...rest }) => rest), [snap]);
+  assert.equal(listed[0].device, device.slice(0, 16), 'each snapshot carries its device\'s stable id');
   assert.deepEqual(await store.list(2), [], 'another owner sees nothing');
   // Two overlapping runs: the older scan arriving last changes nothing.
   assert.deepEqual(await store.push(resolved, { ...snap, scannedAt: at(8), sessions: [] }), { pushed: true, sessions: 0, superseded: true });
-  assert.deepEqual(await store.list(1), [snap], 'the newest scan is kept');
+  assert.deepEqual((await store.list(1)).map(({ device: id, ...rest }) => rest), [snap], 'the newest scan is kept');
   await assert.rejects(store.push(resolved, { ...snap, sessions: [{ ...snap.sessions[0], plate: 'forge' }] }), e => e.code === 'invalid_waiting_snapshot');
   await assert.rejects(store.push(resolved, { ...snap, scannedAt: at(60) }), e => e.code === 'invalid_waiting_snapshot', 'from the future');
   // The database holds digests, ciphertext and times: never the key, the title or the question.
@@ -231,4 +233,22 @@ test('the runme queue: checked scripts are items an agent waits on, on the plate
   assert.deepEqual(item.answers.map(a => [a.id, a.unavailable?.command ?? null]), [['run', 'runme run anvils-install'], ['not-now', null]], 'run on the Mac (its command), or put off here');
   assert.equal(model.home.sections.find(s => s.id === 'plates').items.find(p => p.projectId === 'anvils').agentWaiting.items[0].title, 'Run anvils-install');
   assert.equal(validSnapshot({ ...snap, scripts: [{ ...scripts[0], contents: 'x' }] }), null, 'a script field the snapshot does not hold is refused');
+});
+
+test('two devices with one machine name never share a script\'s item', () => {
+  const script = { name: '20261115-0900-tidy-disk', why: 'Free space', checked: true, since: null };
+  const a = { schema: 1, machine: 'Mac A', scannedAt: at(9), sessions: [], scripts: [script], device: 'd1' };
+  const b = { ...a, machine: 'Mac-A', device: 'd2' };
+  const row = runmeRows([a, b], { plates: ['anvils'], home: 'anvils', now: Date.parse(at(10)) });
+  assert.deepEqual(row.items.map(i => i.ref).sort(), ['d1:20261115-0900-tidy-disk', 'd2:20261115-0900-tidy-disk']);
+});
+
+test('a waiting store that cannot be read makes Home partial, and the docket count incomplete', async () => {
+  const { createHomeReader } = await import('../lib/web/home.mjs');
+  const h = projectHarness(), notified = [];
+  const fetcher = async (url, options) => (new URL(url).pathname.endsWith('/rpc/plates_waiting_rpc') ? new Response('{"message":"acme"}', { status: 500 }) : h.fetcher(url, options));
+  const result = await createHomeReader(h.config, { fetcher, now: () => h.state.now, notifyDocket: async (userId, count, read) => notified.push(read.complete) })(h.access, 'fake-user-access-token-for-tests');
+  assert.ok(result.coverage.gaps.some(g => g.source === 'waiting'), 'coverage names the unread waiting source');
+  assert.notEqual(result.coverage.state, 'complete');
+  assert.deepEqual(notified, [false], 'the docket notifier is told the read was not complete');
 });
