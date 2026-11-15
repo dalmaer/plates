@@ -109,7 +109,7 @@ export function parseLens(file, text, { agents = null } = {}) {
     if (!Array.isArray(providers) || !providers.length || providers.some(p => typeof p !== 'string' || !/^[a-z][a-z0-9-]*$/.test(p)) || new Set(providers).size !== providers.length) {
       fail(`${file}: providers: is a JSON list of the plate's agents, in the order to try them, like ["codex", "claude"] (leave it out for all of them)`);
     }
-    if (agents) for (const p of providers) if (!agents.includes(p)) fail(`${file}: providers: "${p}" is not one of the plate's agents (${agents.join(', ') || 'none'}, .plates/plates.json "agents")`);
+    if (agents) for (const p of providers) if (!agents.includes(p)) fail(`${file}: providers: "${p}" is not one of the plate's agents or audit providers (${agents.join(', ') || 'none'}; .plates/plates.json "agents" and "audits": { "providers" })`);
   } else if (agents) providers = [...agents];
   else providers = [];
   if (meta.model !== undefined && !/^[a-z0-9][a-z0-9.-]{0,40}$/.test(meta.model)) fail(`${file}: model: "${meta.model}" is a model's short name, like fable`);
@@ -275,7 +275,20 @@ export function roomOptions(config) {
   return out;
 }
 
-const agentsOf = config => config?.agents && typeof config.agents === 'object' ? Object.keys(config.agents) : null;
+/**
+ * Who may run a lens: the plate's agents, then any audit-only providers in
+ * `"audits": { "providers": [...] }` (a provider plates has no CI adapter for,
+ * such as one run by hand in its own app, read from the same quota snapshot).
+ * null when the plate names neither: a lens's providers are then not checked.
+ */
+export function auditProviders(config) {
+  const agents = config?.agents && typeof config.agents === 'object' ? Object.keys(config.agents) : [];
+  const extra = config?.audits?.providers;
+  if (extra !== undefined && (!Array.isArray(extra) || extra.some(p => typeof p !== 'string' || !/^[a-z][a-z0-9-]*$/.test(p)))) fail('.plates/plates.json: audits.providers is a list of provider names, like ["antigravity"]');
+  const all = [...new Set([...agents, ...(extra ?? [])])];
+  return all.length ? all : null;
+}
+const agentsOf = auditProviders;
 
 /**
  * Every lens: due or not, and the provider with room or why it waits.

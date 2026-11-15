@@ -141,5 +141,10 @@
       "agentPromote": true,
       "since": "2026-11-04"
     }
+  },
+  "audits": {
+    "providers": [
+      "antigravity"
+    ]
   }
 }

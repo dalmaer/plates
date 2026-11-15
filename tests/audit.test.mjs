@@ -13,7 +13,7 @@ import { join, resolve } from 'node:path';
 import { run as runNode } from './helpers/run.mjs';
 import {
   parseLens, roomFor, chooseProvider, readQuota, dueOf, due, brief, briefFor, shapeProblems, record,
-  planCandidates, recentCandidates, leverage, parseArgs, itemId, guideOf,
+  planCandidates, recentCandidates, leverage, parseArgs, itemId, guideOf, auditProviders,
 } from '../practices/audits/files/scripts/plates/audit.mjs';
 import { validatePlan, SCHEMA } from '../practices/night/files/scripts/plates/night-plan.mjs';
 
@@ -73,7 +73,7 @@ test('a lens is read, and what it cannot read is refused by name', () => {
   refused(lensText().replace('every: 14\n', ''), /no every:/);
   refused(lensText().replace('every: 14', 'every: 0'), /every: "0" is days between runs/);
   refused(lensText().replace('effort: quick', 'effort: huge'), /effort: "huge" is one of quick, standard, deep/);
-  refused(lensText('', '["gemini"]'), /providers: "gemini" is not one of the plate's agents \(claude, codex/, { agents: ['claude', 'codex'] });
+  refused(lensText('', '["gemini"]'), /providers: "gemini" is not one of the plate's agents or audit providers \(claude, codex/, { agents: ['claude', 'codex'] });
   refused(lensText('', 'codex'), /providers: is a JSON list/);
   // Left out, a lens runs on any of the plate's agents, in their order.
   assert.deepEqual(parseLens(FILE, lensText().replace(/providers: .*\n/, ''), { agents: ['codex'] }).providers, ['codex']);
@@ -82,6 +82,27 @@ test('a lens is read, and what it cannot read is refused by name', () => {
   refused(lensText().replace('name: security', 'name: other'), /name "other" is not the file's name/);
   refused(lensText('minutes: 2\n'), /minutes: "2" bounds a run/);
   assert.throws(() => parseLens('.agents/audits/Bad Name.md', lensText()), /lowercase letters, digits and dashes/);
+});
+
+test('audit-only providers extend who may run a lens, never the plate\'s agents', async t => {
+  assert.deepEqual(auditProviders({ agents: { claude: {}, codex: {} }, audits: { providers: ['antigravity'] } }), ['claude', 'codex', 'antigravity']);
+  assert.deepEqual(auditProviders({ audits: { providers: ['antigravity'] } }), ['antigravity']);
+  assert.equal(auditProviders({}), null);
+  for (const bad of ['antigravity', [7], ['Bad Name']]) assert.throws(() => auditProviders({ audits: { providers: bad } }), /audits\.providers is a list of provider names/);
+  const carbon = lensText('model: gemini-4-carbon\n', '["antigravity"]').replace('effort: quick', 'effort: deep');
+  assert.throws(() => parseLens(FILE, carbon, { agents: ['claude', 'codex'] }), /"antigravity" is not one of the plate's agents or audit providers/);
+  const lens = parseLens(FILE, carbon, { agents: auditProviders({ agents: { claude: {} }, audits: { providers: ['antigravity'] } }) });
+  // A model window with no pace counts by use alone: Carbon at 0% has room; another model's window does not apply.
+  const ag = snap([prov('antigravity', [win('antigravity.gemini-4-carbon', 'model', 0, null, 'Carbon'), win('antigravity.gemini-4-argon', 'model', 90, null, 'Argon')])]);
+  const pick = chooseProvider(ag, lens, { now: NOW });
+  assert.equal(pick.provider, 'antigravity');
+  assert.match(pick.why, /Carbon 0% used/);
+  // Through due: a plate with audits.providers runs the lens on Antigravity.
+  const { root } = await plate(t, { lenses: { 'security.md': carbon }, config: { audits: { providers: ['antigravity'] } } });
+  const quota = join(root, 'q.json');
+  await writeFile(quota, JSON.stringify(ag));
+  const r = await due({ root, date: '2026-11-14', quotaFile: quota, now: NOW });
+  assert.equal(r.data.lenses[0].provider, 'antigravity');
 });
 
 test('room is explained, and unknown is wait', () => {

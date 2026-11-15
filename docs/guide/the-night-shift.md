@@ -801,6 +801,11 @@ nothing is shaped like a credential or an absolute path; it writes
 once, as triage in lane `audit:<lens>`: an audit proposes, a person decides,
 and a kept finding becomes a phase or a climb.
 
+An audit-only provider (`"audits": { "providers": ["antigravity"] }` in
+`.plates/plates.json`) may run lenses without being one of the plate's
+`agents`, which need a CI adapter. Its room is read from the same quota
+snapshot, per model when a lens names one (`model: gemini-4-carbon`).
+
 `audit run` is the one verb that starts a model, and only through a local
 agent host the owner configured privately (`$XDG_CONFIG_HOME/plates/local-hosts.json`,
 the same host `plates home` attaches with). Without `--yes` it previews and

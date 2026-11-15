@@ -71,6 +71,15 @@ audit-playbook.md`); credited in NOTICE. Not carried: its `plans/` backlog
 (plates has phases), `execute` (it merges outside claims and cross-review) and
 `--issues` (a public plate's security findings would be public before a fix).
 
+**Audit-only providers** (2026-11-15): `"audits": { "providers": [...] }` lets a
+lens run on a provider plates has no CI adapter for, so it cannot be one of the
+plate's `agents` (cross-review and the night refuse an unknown agent). Plates
+lists Antigravity there and gives it six deep lenses on its Carbon model
+(design, test-speed, simplify, drift, supply-chain, performance-deep), whose
+room is read per model from the same quota snapshot. Antigravity has no
+command-line agent, so its local host is a manual one: it opens the disposable
+checkout in the app with the brief on the clipboard.
+
 ## Integration increments
 
 1. **Lenses, room, due, brief, record** (this change set). Compatibility: a new
