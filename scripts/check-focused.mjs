@@ -6,20 +6,10 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertFocusedRuntime, packageBinding, probeLoopback } from '../lib/validation-capabilities.mjs';
 
+import { REQUIRED_CONVENTIONS } from '../lib/validation-conventions.mjs';
+export { REQUIRED_CONVENTIONS };
+
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-export const REQUIRED_CONVENTIONS = Object.freeze([
-  'tests/helpers.test.mjs',
-  'tests/docs.test.mjs',
-  'tests/guides.test.mjs',
-  'tests/cli.test.mjs',
-  'tests/adopt.test.mjs',
-  'tests/skill.test.mjs',
-  'tests/guide-consumers.test.mjs',
-  'tests/web-operation-coverage.test.mjs',
-  // A G7 phase that owes a walk needs an activation step: caught here, not first in the full gate (2026-11-02).
-  'tests/web-activation-plan.test.mjs',
-  'tests/check-focused.test.mjs',
-]);
 const PATH = /^tests\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-][A-Za-z0-9_.-]*\.test\.mjs$/;
 const usage = 'Usage: node scripts/check-focused.mjs [--plan] [--json] [tests/name.test.mjs ...]\nChecks the reviewed package binding and rendered files before required source conventions and explicit focused tests, then roadmap, inbox and whitespace checks.\nUnsupported or mismatched process/PATH Node is refused before tests (requires >=24.22.1). Execution also requires an ephemeral 127.0.0.1 bind-and-close probe; --plan does not bind. This is early feedback only; the mandatory integrated gate remains unchanged.\nNew untracked files need explicit git add -N before verification; this command never stages files.';
 

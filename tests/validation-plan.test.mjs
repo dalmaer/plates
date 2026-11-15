@@ -36,7 +36,7 @@ function fakeVersions(child = observedRuntime()) {
 const healthy = async () => ({ ready: true, issues: [], processRuntime: observedRuntime() });
 
 test('exact source mappings always include conventions and cannot omit the complete gate', () => {
-  assert.equal(Object.keys(SOURCE_MAPPINGS).length, 12);
+  assert.equal(Object.keys(SOURCE_MAPPINGS).length, 13);
   for (const [path, expected] of Object.entries(SOURCE_MAPPINGS)) {
     const plan = selectValidation([{ path, status: 'M' }], { source: true });
     assert.equal(plan.mode, 'focused-first', path);
