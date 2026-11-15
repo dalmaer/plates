@@ -28,16 +28,17 @@ Verbs (`--json` for data):
 - `plates night plan|tick` — the plan
 - `plates goodnight` — shape it
 - `plates morning` — brief; `--send`
-- `plates production` — status, collect, spec, verify
+- `plates production` — incidents
 - `plates fleet` — fleet practice, health, CI
 - `plates fleet update` — PRs for projects behind
-- `plates loose-ends|sessions` — unfinished work; chats waiting
+- `plates loose-ends` — unfinished work
+- `plates sessions` — chats waiting on you
 - `plates issue new --agent` — rubric issue; `--yes` makes it
 - `plates review <repo>#<n>` — comments; `--wait`; `--close`
 - `plates home|board` — what needs you; `board` retired
 - `plates promote [<commit>]` — tested commit to prod; `--back`
 - `plates walk done|decide` — settle a walk or proposal
-- `plates canvas` — snapshot, render, connect, sync, live, night
+- `plates canvas` — snapshot, render, sync, live
 - `plates retro` — worksheet; `capture` records; `sessions` trials
 - `plates workspace inspect|init` — external storage
 - `plates shape check|render|plan` — reviewed drafts

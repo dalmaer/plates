@@ -9,7 +9,7 @@
 --   DEFINER with an empty search_path and returns jsonb, executable by service_role
 --   only; anon and authenticated cannot execute it or touch either table. As
 --   service_role, a synthetic device key is created, resolved by its digest, pushes
---   a snapshot that lists back, and once revoked it resolves to nothing, its
+--   a snapshot that lists back, an older scan arriving late changes nothing, and once revoked it resolves to nothing, its
 --   snapshot is gone and a push is refused; malformed input is refused. The tables
 --   hold digests, ciphertext and times only.
 -- Leaves behind: nothing. The synthetic Acme rows are written inside a
@@ -64,7 +64,9 @@ begin
   r:=public.plates_waiting_rpc('key-resolve',null,key_hash);
   if r->>'scope'<>scope_key or r->>'device'<>device_key then raise exception 'key-resolve wrong: %',r; end if;
   r:=public.plates_waiting_rpc('push',scope_key,null,device_key,'sealed-acme-snapshot',clock_timestamp());
-  if r<>'{"pushed":true}'::jsonb then raise exception 'push wrong: %',r; end if;
+  if r<>'{"pushed":true,"kept":false}'::jsonb then raise exception 'push wrong: %',r; end if;
+  r:=public.plates_waiting_rpc('push',scope_key,null,device_key,'older-acme-snapshot',clock_timestamp()-interval '1 hour');
+  if r<>'{"pushed":true,"kept":true}'::jsonb then raise exception 'an older scan replaced a newer one: %',r; end if;
   if jsonb_array_length(public.plates_waiting_rpc('list',scope_key)->'items')<>1 then raise exception 'a pushed snapshot does not list'; end if;
   begin perform public.plates_waiting_rpc('push',scope_key,null,device_key,'x',clock_timestamp()+interval '1 day'); raise exception 'a snapshot from the future accepted';
   exception when raise_exception then if sqlerrm<>'invalid waiting push' then raise; end if; end;

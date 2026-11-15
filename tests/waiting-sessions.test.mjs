@@ -3,7 +3,7 @@
 // PGlite, through the service's own sealing), the push route and the CLI's push.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile, mkdtemp, mkdir, writeFile, rm, utimes } from 'node:fs/promises';
+import { readFile, mkdtemp, mkdir, writeFile, rm, utimes, chmod } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
@@ -60,6 +60,17 @@ test('the scan lists this machine\'s waiting home sessions, oldest first, and no
   assert.deepEqual(validSnapshot(snap), snap);
 });
 
+test('a scan that cannot read a transcript refuses, so a push never clears what it could not read', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'plates-waiting-unread-'));
+  t.after(async () => { await chmod(join(dir, 'projects', 'p'), 0o755).catch(() => {}); await rm(dir, { recursive: true, force: true }); });
+  assert.deepEqual((await scanWaitingSessions({ env: { PLATES_CLAUDE_DIR: join(dir, 'none') } })).sessions, [], 'no transcript directory is no sessions');
+  await mkdir(join(dir, 'projects', 'p'), { recursive: true });
+  await writeFile(join(dir, 'projects', 'p', 'a.jsonl'), transcript('a', '🏠 [anvils] Home', ask('Which?')));
+  await chmod(join(dir, 'projects', 'p'), 0o000);
+  if (process.getuid?.() === 0) return; // root reads through any mode
+  await assert.rejects(scanWaitingSessions({ env: { PLATES_CLAUDE_DIR: dir } }), /could not all be read \(EACCES\); nothing was sent/);
+});
+
 test('a pushed snapshot is untrusted: every field is checked', () => {
   const good = { schema: 1, machine: 'Acme Mac', scannedAt: at(5), sessions: [{ id: 'a', plate: 'anvils', title: '🏠 [anvils] Home', question: 'Which?', since: at(1) }] };
   assert.ok(validSnapshot(good));
@@ -78,7 +89,13 @@ test('Home\'s row: an owner\'s item an agent waits on, for the plates shown, the
   assert.match(row.why, /1 for plates not shown here/);
   assert.equal(waitingRows([{ ...mac, scannedAt: at(-60 * 25) }], { plates: ['anvils'], now }).na.includes('more than a day old'), true);
   assert.match(waitingRows([], { plates: ['anvils'], now }).na, /plates sessions push/);
-  assert.match(waitingRows([{ ...mac, scannedAt: at(-40) }], { plates: ['anvils'], now }).why, /^as of /, 'a snapshot past half an hour says when');
+  const quiet = waitingRows([{ ...mac, scannedAt: at(-40) }], { plates: ['anvils'], now });
+  assert.match(quiet.why, /^Acme Mac last sent 2026-11-15 09:20 UTC/, 'a snapshot past half an hour says when');
+  assert.match(quiet.items[0].why, /\(as of 2026-11-15 09:20 UTC, the last Acme Mac sent\)$/, 'and so does each of its items');
+  // A Mac that stopped sending never borrows another's current time.
+  const mixed = waitingRows([{ ...mac, sessions: [], machine: 'Online Mac' }, { ...older, machine: 'Offline Mac', scannedAt: at(-240) }], { plates: ['anvils'], now });
+  assert.match(mixed.why, /^from Online Mac; Offline Mac last sent 2026-11-15 06:00 UTC/);
+  assert.match(mixed.items[0].why, /as of 2026-11-15 06:00 UTC, the last Offline Mac sent/);
   // Through the shared model: it is in Needs you, the docket's unblock group, and the plate's card says an agent waits.
   const project = { id: 'anvils', name: 'Anvils', repo: 'acme/anvils', state: 'complete', gaps: [], planning: { built: null, total: null }, decisions: [], walks: [], reviews: [], waiting: [], changes: [] };
   const model = homeSnapshot([project], { sections: homeSections({ sessions: row }), can: { form: 'web' } });
@@ -86,6 +103,21 @@ test('Home\'s row: an owner\'s item an agent waits on, for the plates shown, the
   const card = model.home.sections.find(s => s.id === 'plates').items[0];
   assert.equal(card.agentWaiting.count, 1);
   assert.equal(card.agentWaiting.items[0].title, '🏠 [anvils] Home is waiting on you');
+});
+
+test('a waiting session can be put off from Home, and only that', async () => {
+  const { createHomeAnswers } = await import('../lib/web/home-answers.mjs');
+  const row = waitingRows([{ schema: 1, machine: 'Acme Mac', scannedAt: at(9), sessions: [{ id: 'a', plate: 'anvils', title: '🏠 [anvils] Home', question: 'Which?', since: null }] }], { plates: ['anvils'], now: Date.parse(at(10)) });
+  const project = { id: 'anvils', name: 'Anvils', repo: 'acme/anvils', state: 'complete', gaps: [], planning: { built: null, total: null }, decisions: [], walks: [], reviews: [], waiting: [], changes: [] };
+  const model = homeSnapshot([project], { sections: homeSections({ sessions: row }), can: { form: 'web' } });
+  const item = model.sections.find(s => s.id === 'sessions').items[0];
+  assert.equal(item.key, 'anvils:session:a');
+  assert.deepEqual(item.answers.map(a => [a.id, a.unavailable ?? null]), [['not-now', null]], 'answered in its session; here only put off');
+  const put = [];
+  const answer = createHomeAnswers(projectHarness().config, { readHome: async () => model, now: () => Date.parse(at(10)),
+    notNow: { put: async (userId, key, record) => { put.push(key); return { key, until: '2026-11-22', count: 1 }; } }, events: { record: async () => {} } });
+  const result = await answer({ userId: 1, projects: [{ id: 'anvils' }] }, 'token', { key: 'anvils:session:a', answer: 'not-now' });
+  assert.deepEqual([result.state, put], ['written', ['anvils:session:a']]);
 });
 
 async function storeHarness(t) {
@@ -118,6 +150,9 @@ test('the hosted store: a key shown once, sealed records, a revoked key refused'
   assert.deepEqual(await store.push(resolved, snap), { pushed: true, sessions: 1 });
   assert.deepEqual(await store.list(1), [snap]);
   assert.deepEqual(await store.list(2), [], 'another owner sees nothing');
+  // Two overlapping runs: the older scan arriving last changes nothing.
+  assert.deepEqual(await store.push(resolved, { ...snap, scannedAt: at(8), sessions: [] }), { pushed: true, sessions: 0, superseded: true });
+  assert.deepEqual(await store.list(1), [snap], 'the newest scan is kept');
   await assert.rejects(store.push(resolved, { ...snap, sessions: [{ ...snap.sessions[0], plate: 'forge' }] }), e => e.code === 'invalid_waiting_snapshot');
   await assert.rejects(store.push(resolved, { ...snap, scannedAt: at(60) }), e => e.code === 'invalid_waiting_snapshot', 'from the future');
   // The database holds digests, ciphertext and times: never the key, the title or the question.
@@ -135,8 +170,9 @@ test('the push route takes a device key and nothing else; the CLI pushes this ma
   const { createWebService } = await import('../lib/web/server.mjs');
   const h = projectHarness();
   const fetcher = async (url, options) => (new URL(url).pathname === '/rest/v1/rpc/plates_waiting_rpc' ? rpc(url, options) : h.fetcher(url, options));
-  const service = createWebService({ ...h.config, storageUrl: config.storageUrl }, { fetcher, now: () => Date.now() });
-  const { key } = await createWaitingStore(h.config, fetcher).createKey(1, 'Acme Mac');
+  const clock = () => Date.parse(at(30)); // one clock for the service and the push, so the test never ages
+  const service = createWebService({ ...h.config, storageUrl: config.storageUrl }, { fetcher, now: clock });
+  const { key } = await createWaitingStore(h.config, fetcher, { now: clock }).createKey(1, 'Acme Mac');
   const call = (authorization, body = '{}') => service(new Request(`${h.config.origin}/api/sessions/waiting`, { method: 'POST', headers: { ...(authorization ? { authorization } : {}), 'content-type': 'application/json' }, body }));
   assert.equal((await call(null)).status, 401, 'no key');
   assert.equal((await call('Bearer pdk_short')).status, 401, 'a malformed key');
@@ -150,7 +186,7 @@ test('the push route takes a device key and nothing else; the CLI pushes this ma
   const sent = await push({ site: h.config.origin, env: { PLATES_CLAUDE_DIR: dir }, now: Date.parse(at(30)), machine: 'Acme Mac', key: async () => key,
     fetcher: (url, options) => service(new Request(url, options)) });
   assert.deepEqual([sent.data.pushed, sent.data.sessions], [true, 1]);
-  assert.deepEqual((await createWaitingStore(h.config, fetcher).list(1))[0].sessions.map(s => s.question), ['Which Acme anvil first?']);
+  assert.deepEqual((await createWaitingStore(h.config, fetcher, { now: clock }).list(1))[0].sessions.map(s => s.question), ['Which Acme anvil first?']);
   await assert.rejects(push({ site: h.config.origin, env: {}, key: async () => null }), /no device key/);
   await assert.rejects(push({ site: 'http://acme.example', env: {}, key: async () => key }), /must be https/);
 });

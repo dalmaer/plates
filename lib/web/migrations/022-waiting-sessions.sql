@@ -22,7 +22,7 @@ create table if not exists plates_home.device_keys (
 create table if not exists plates_home.waiting_sessions (
  scope text not null check(scope ~ '^[a-f0-9]{64}$'),
  device text not null check(device ~ '^[a-f0-9]{64}$'),
- value text not null check(octet_length(value) <= 65536),
+ value text not null check(octet_length(value) <= 262144),
  scanned_at timestamptz not null,
  primary key(scope, device)
 );
@@ -61,12 +61,16 @@ begin
   get diagnostics changed = row_count;
   return jsonb_build_object('revoked', changed > 0);
  elsif p_operation = 'push' then
-  if p_device is null or p_value is null or octet_length(p_value) > 65536 or p_at is null or p_at > stamp + interval '5 minutes' then raise exception 'invalid waiting push'; end if;
+  -- A 64 KiB snapshot grows when sealed (base64url ciphertext): the bound is the sealed size, with room.
+  if p_device is null or p_value is null or octet_length(p_value) > 262144 or p_at is null or p_at > stamp + interval '5 minutes' then raise exception 'invalid waiting push'; end if;
   -- Only a device whose key still exists may push; a revoked one is refused.
   if not exists (select 1 from plates_home.device_keys where scope = p_scope and device = p_device) then return jsonb_build_object('revoked', true); end if;
+  -- The newest scan wins: an older push arriving late (two overlapping runs) changes nothing and is not an error.
   insert into plates_home.waiting_sessions(scope, device, value, scanned_at) values(p_scope, p_device, p_value, p_at)
-   on conflict(scope, device) do update set value = excluded.value, scanned_at = excluded.scanned_at;
-  return jsonb_build_object('pushed', true);
+   on conflict(scope, device) do update set value = excluded.value, scanned_at = excluded.scanned_at
+   where plates_home.waiting_sessions.scanned_at <= excluded.scanned_at;
+  get diagnostics changed = row_count;
+  return jsonb_build_object('pushed', true, 'kept', changed = 0);
  end if;
  return jsonb_build_object('items', coalesce((select jsonb_agg(jsonb_build_object('device', w.device, 'value', w.value, 'scannedAt', w.scanned_at) order by w.scanned_at desc)
   from plates_home.waiting_sessions w where w.scope = p_scope), '[]'::jsonb));
