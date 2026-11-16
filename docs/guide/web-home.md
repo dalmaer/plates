@@ -241,8 +241,8 @@ or a host session through the host's optional `"stop": ["/abs/path/host", "stop"
 command (`stop... <session id>`). It also removes the run's private brief file,
 which an attach names by its digest. If Rex or the host does not answer, the
 cancel is kept and the next attach or cancel finishes it, including after plates,
-the session or Rex restarts. A cancelled attach is never dispatched, recovered
-or resumed again. A dispatch that finishes after the cancel stops what it just
+the session or Rex restarts. A cancelled phase is never dispatched, recovered or resumed again, even when its
+brief changes later (a new attach digest). A dispatch that finishes after the cancel stops what it just
 started. Cancelling twice gives the same record. The claim is kept: release it
 with `plates phase claim <n> --release`. A local host's brief ends by telling a
 restarted agent to run `plates home --cancel <key> --check` first. That check is

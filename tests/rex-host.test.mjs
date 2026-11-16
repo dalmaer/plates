@@ -638,3 +638,68 @@ test('a cancel record that cannot be read is never taken for not cancelled', asy
   await assert.rejects(attach(d.args, d.deps()), e => e.exitCode === 1 && /cancel .* could not be read.*nothing is dispatched until it is/.test(e.message));
   assert.deepEqual(await localHostExecutions(d.w.checkout, { env: d.w.env, journal: attachJournal(d.dir) }), []);
 });
+
+test('a cancel is the phase\'s: an attach with a changed brief (another digest) finds it and stays cancelled', async t => {
+  // The session route: before, a changed brief made a new digest and the phase was handed over again.
+  const a = await attached(t);
+  const session = { ...a.args, route: 'session', host: undefined, phaseText: undefined };
+  assert.equal((await attach(session, a.deps())).exitCode, 0);
+  await a.cancel();
+  const claims = a.claims.length;
+  const moved = await attach({ ...session, title: 'Build the anvil, again' }, a.deps());
+  assert.deepEqual([moved.exitCode, moved.data.state], [1, 'cancelled']);
+  assert.notEqual(moved.data.digest, moved.data.cancelledDigest, 'found across digests');
+  assert.match(moved.text, /Phase 7 was cancelled at .*It stays cancelled; nothing is claimed or dispatched/);
+  assert.doesNotMatch(moved.text, /\/spin 7/);
+  assert.equal(a.claims.length, claims, 'nothing claimed');
+  // The local-host route: a changed Done when is another digest; no tab is opened.
+  const b = await attached(t);
+  await attach(b.args, b.deps());
+  await b.cancel();
+  const runs = runCalls(await b.w.rexCalls()).length;
+  const changed = await attach({ ...b.args, phaseText: { ...b.args.phaseText, doneWhen: 'The anvil lands softly.' } }, b.deps());
+  assert.equal(changed.data.state, 'cancelled');
+  assert.equal(runCalls(await b.w.rexCalls()).length, runs);
+});
+
+test('recovering an intent-only attach hands nothing over when a cancel lands during it', async t => {
+  const { ROUTE_HANDLERS } = await import('../lib/attach.mjs');
+  const a = await attached(t);
+  const session = { ...a.args, route: 'session', host: undefined, phaseText: undefined };
+  const killed = { ...ROUTE_HANDLERS, session: { ...ROUTE_HANDLERS.session, dispatch: async () => { throw new Error('killed'); } } };
+  await assert.rejects(attach(session, a.deps({ handlers: killed })), /killed/);
+  const journal = attachJournal(a.dir);
+  const racing = { ...ROUTE_HANDLERS, session: { ...ROUTE_HANDLERS.session, recover: async ctx => { await journal.cancel(ctx.digest, { at: '2026-11-16T00:00:00.000Z', by: 'owner' }); return ROUTE_HANDLERS.session.recover(ctx); } } };
+  const r = await attach(session, a.deps({ handlers: racing }));
+  assert.deepEqual([r.exitCode, r.data.state], [1, 'cancelled']);
+  assert.match(r.text, /Recovered, but the attach was cancelled at .*Nothing is handed over/);
+  assert.doesNotMatch(r.text, /\/spin 7/);
+});
+
+test('a cancel settled before any receipt rechecks the brief file once a receipt names it', async t => {
+  const { ROUTE_HANDLERS } = await import('../lib/attach.mjs');
+  const killed = { ...ROUTE_HANDLERS, 'local-host': { ...ROUTE_HANDLERS['local-host'], dispatch: async () => { throw new Error('killed'); } } };
+  const a = await attached(t, { handlers: killed });
+  await assert.rejects(attach(a.args, a.deps()), /killed/);
+  const journal = attachJournal(a.dir);
+  const [entry] = await journal.list();
+  const first = await a.cancel();
+  assert.deepEqual([first.data.attaches[0].cancelled.stop, first.data.attaches[0].cancelled.brief], ['unknown', 'absent']);
+  // The dispatching plates (with its own state directory) wrote its brief file and receipt after all.
+  const other = join(a.w.base, 'other-state', 'plates', 'rex-briefs');
+  await mkdir(other, { recursive: true });
+  const briefFile = join(other, `${entry.digest}.brief`);
+  await writeFile(briefFile, BRIEF, { mode: 0o600 });
+  await journal.write(entry.digest, { intent: entry.intent, receipt: { route: 'local-host', at: '2026-11-16T00:00:01.000Z', claim: entry.intent.claim, result: { state: 'dispatched', session: 'rex:session:acme-anvils/block:acme-tab-1', briefFile } } });
+  // A path the journal names that is not this digest's brief file is never removed.
+  const decoy = join(a.w.base, 'decoy.brief');
+  await writeFile(decoy, 'keep');
+  const [settled] = await recoverCancels(journal, { env: a.w.env, root: a.w.checkout });
+  assert.deepEqual([settled.cancelled.stop, settled.cancelled.brief, settled.cancelled.done], ['stopped', 'removed', true]);
+  assert.equal(existsSync(briefFile), false, 'the brief file the receipt names is gone');
+  assert.deepEqual(await recoverCancels(journal, { env: a.w.env, root: a.w.checkout }), [], 'then settled');
+  await journal.write(entry.digest, { intent: entry.intent, receipt: { route: 'local-host', at: '2026-11-16T00:00:02.000Z', claim: entry.intent.claim, result: { state: 'dispatched', session: 'rex:session:acme-anvils/block:acme-tab-1', briefFile: decoy } } });
+  await journal.settled(entry.digest, { at: 'x', stop: 'unknown', brief: 'absent', receipt: false, done: true });
+  await recoverCancels(journal, { env: a.w.env, root: a.w.checkout });
+  assert.equal(existsSync(decoy), true, 'a path that is not the digest\'s brief file is left alone');
+});
