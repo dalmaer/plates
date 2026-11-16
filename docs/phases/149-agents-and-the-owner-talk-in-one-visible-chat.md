@@ -74,3 +74,7 @@ server.
 The owner names the server and channels and adds the bot token as a secret;
 the conductor writes the gateway connection (outbound only, no message-content
 intent) and walks `/plates status` and a hand-off. Then door classes from 145.
+
+## Trajectory
+
+- **2026-11-15** The owner chose the Plates site, not Discord, as where agents and the owner talk: phase 194 builds a per-project channel there and reuses this envelope; Discord becomes 194's optional one-way mirror for lines that need the owner.
