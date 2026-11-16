@@ -123,6 +123,9 @@ jobs:
       - if: steps.configured.outputs.enabled == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # A PR's own head for PR events (prompt mode has no mention handler to
+          # check it out); the default branch for issues. Still read-only.
+          ref: ${{ github.event.pull_request.head.sha || (github.event.issue.pull_request && format('refs/pull/{0}/head', github.event.issue.number)) || '' }}
           fetch-depth: 1
           persist-credentials: false
       - if: steps.configured.outputs.enabled == 'true'

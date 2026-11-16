@@ -3835,3 +3835,18 @@ test('a job that needs one running past a skipped job says so itself, or it neve
   assert.deepEqual(skipChainProblems(broken.replace("if: needs.decide.outputs.ready == 'true'", "if: ${{ !cancelled() && needs.decide.result == 'success' && needs.decide.outputs.ready == 'true' }}")), []);
   assert.equal(skipChainProblems(broken.replace('    needs: decide\n', '    needs: [origin, decide]\n')).length, 1, 'a list of needs is read too');
 });
+
+test('claude agent: a PR comment or review works on the PR head, an issue on the default branch', async () => {
+  const text = await readFile(new URL('../practices/claude/files/.github/workflows/claude.yml', import.meta.url), 'utf8');
+  const agent = text.split('\n  claude:\n')[1].split('\n  reply:\n')[0];
+  const ref = agent.match(/uses: actions\/checkout@[^\n]+\n\s+with:\n(?:\s+#[^\n]*\n)*\s+ref: \$\{\{ (.*) \}\}\n/)?.[1];
+  assert.ok(ref, 'the agent checkout names a ref');
+  // Evaluate GitHub's expression with JS semantics for ||, && and format().
+  // A missing property is null in GitHub expressions, so read it with ?. here.
+  const js = ref.replaceAll("'", '"').replace(/github(?:\.[a-z_]+)+/g, path => path.replaceAll('.', '?.'));
+  const evaluate = event => Function('github', 'format', `return (${js});`)({ event }, (f, ...a) => f.replace(/\{(\d+)\}/g, (_, i) => a[i]));
+  assert.equal(evaluate({ pull_request: { head: { sha: 'a'.repeat(40) } } }), 'a'.repeat(40), 'review events: the head commit');
+  assert.equal(evaluate({ issue: { number: 7, pull_request: { url: 'x' } } }), 'refs/pull/7/head', 'a comment on a PR: its head');
+  assert.equal(evaluate({ issue: { number: 7 } }), '', 'an issue: the default branch');
+  assert.match(agent, /permissions:\n\s+contents: read\n\s+pull-requests: read\n\s+issues: read/, 'still read-only');
+});
