@@ -3960,3 +3960,16 @@ test('loop gate: gate.mjs gets a read token for its CI lookup, a project check n
   assert.equal(run('bash', ['-e', '-c', script], { cwd: dir, env }).status, 0);
   assert.deepEqual((await readFile(join(dir, 'seen'), 'utf8')).trim().split('\n'), ['check=none,nogate', 'gate=token,nogate']);
 });
+
+test('night and loop: publish downloads the artifact its producer uploaded, even when only publish is rerun', async () => {
+  for (const [file, job, kind] of [['night/files/.github/workflows/plates-night.yml', 'night', 'night'], ['loop/files/.github/workflows/plates-loop.yml', 'loop', 'loop']]) {
+    const text = await readFile(new URL(`../practices/${file}`, import.meta.url), 'utf8');
+    const producer = text.split(`\n  ${job}:\n`)[1].split('\n  publish:\n')[0];
+    const publisher = text.split('\n  publish:\n')[1];
+    assert.match(producer, new RegExp(`outputs:\\n(?: {6}.*\\n)* {6}publication: plates-${kind}-publication-\\$\\{\\{ github\\.run_attempt \\}\\}\\n`), `${kind}: the producer reports its own artifact name`);
+    assert.match(producer, new RegExp(`name: plates-${kind}-publication-\\$\\{\\{ github\\.run_attempt \\}\\}`), `${kind}: it uploads under that name`);
+    assert.match(publisher, new RegExp(`name: \\$\\{\\{ needs\\.${job}\\.outputs\\.publication \\}\\}`), `${kind}: publish downloads the producer's name`);
+    const downloads = publisher.split('\n').flatMap((line, i, lines) => line.includes('uses: actions/download-artifact@') ? [lines.slice(i + 1, i + 4).find(l => l.trim().startsWith('name:')) ?? ''] : []);
+    assert.ok(downloads.length > 0 && downloads.every(l => !l.includes('github.run_attempt')), `${kind}: never its own attempt number`);
+  }
+});

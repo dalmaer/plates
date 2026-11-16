@@ -91,7 +91,7 @@
     },
     ".github/workflows/plates-night.yml": {
       "practice": "night",
-      "sha256": "fcd52fcd81b8f3357a3537f7162415fbbb2feb129d455542d58726762ba7541f"
+      "sha256": "70bdf96a724797395db7b6841cd122be1abe9ca0df27507d9d765e9a083e595c"
     },
     ".github/workflows/plates-publish.yml": {
       "practice": "delivery",
