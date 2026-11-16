@@ -32,10 +32,10 @@ All in the fresh Ledger clone after `npm ci` (exit 0) and `npm --prefix web ci` 
 | --- | --- | --- | --- |
 | Read Ledger's `test.yml` at `138ff987` | an independent graph after scope | `test`, `later` and `web` need only `scope` | The PR-162 graph is preserved on current main. It does not prove speed. |
 | Read PR 162's review list | a review at the merged head | reviews at `b5d077b9` by the cross-review and the owner | The exact head was reviewed. |
-| ⚑ parent reviews this evidence before broader rollout | the owner's decision | Not run | This box stays open for the owner. |
+| ⚑ parent reviews this evidence before broader rollout | the owner's decision | The owner reviewed it on 2026-11-16: "looks good. Complete." | The stage is accepted; it does not prove speed or equivalence. |
 
 ## Gaps and decision
 
 - **Equivalence and savings:** this shows the current candidate passing every required lane. It shows no equivalence between local and hosted runs and no speed saving. Speed savings stay unknown until matched trials (Deliberately open), and reuse waits for phase 114.
 - **Node version:** the local runs used Node 26, not Ledger's pinned 24.
-- **Status:** the phase stays partial. Its only remaining box is the owner's review (⚑).
+- **Status:** built. The owner's review (⚑) was given on 2026-11-16, after this file was first written.

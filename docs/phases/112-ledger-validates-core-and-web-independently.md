@@ -1,11 +1,11 @@
 ---
-status: partial
+status: built
 since: 2026-11-16
 goal: G2
 spec: 2
 depends: [110]
 review: wait
-note: "Ledger main 138ff987 passes the contract test, check:all, test:later and the hosted scope/test/later/web union; PR 162 was reviewed at its exact head. Waits on the owner's review of the evidence."
+note: "Ledger main 138ff987 passes the contract test, check:all, test:later and the hosted scope/test/later/web union; PR 162 was reviewed at its exact head; the owner reviewed the evidence on 2026-11-16."
 evidence: ["evidence/2026-10-23-consumer-validation-reconciliation.md", "evidence/2026-11-16-ledger-independent-validation-acceptance.md"]
 ---
 
@@ -25,7 +25,7 @@ Only source and existing manifest-managed consumers. No deployment or schedule.
 - [x] Focused negative controls prove the phase contract: `node --test cli/ci-workflows.test.ts` in Ledger.
 - [x] Required consumer validation evidence is complete: `npm run check:all` plus separate `npm run test:later` in Ledger; the complete hosted `scope`/`test`/`later`/`web` union must also pass.
 - [x] Exact-head review is recorded: `node bin/plates.mjs review dalmaer/ledger#<PR> --gate --json` plus inspection of pinned complete review inputs.
-- [ ] ⚑ by hand: parent reviews evidence before broader rollout.
+- [x] ⚑ by hand: parent reviews evidence before broader rollout.
 
 ## Your part
 
@@ -55,7 +55,7 @@ consumer adoption wait for the preceding review; no policy is weakened here.
 
 ## Next action
 
-The owner reviews [the acceptance evidence](../evidence/2026-11-16-ledger-independent-validation-acceptance.md) and chooses: proceed with the next stage, or revise this one. No duplicate implementation PR: Ledger #162 is merged. Phase 114 must still supply complete producer/manifest/input evidence before any equivalence or reuse claim.
+The owner reviewed [the acceptance evidence](../evidence/2026-11-16-ledger-independent-validation-acceptance.md) on 2026-11-16 and accepted it; later stages proceed in their own phases. No duplicate implementation PR: Ledger #162 is merged. Phase 114 must still supply complete producer/manifest/input evidence before any equivalence or reuse claim.
 
 ## Trajectory
 
@@ -64,3 +64,4 @@ The owner reviews [the acceptance evidence](../evidence/2026-11-16-ledger-indepe
 - **2026-11-02** — Integration retains the historical collector profile and the 27 October coverage correction: normal-clock `check:all`, separate `test:later`, and the complete hosted job union. No historical run is promoted to current equivalence or reuse proof.
 
 - **2026-11-16** — The acceptance proof ran on Ledger main `138ff987`, not on the 23 October merge. `check:all`'s perf and `ledge check` steps need the owner's real data, so they ran against a throwaway copy with autosync off; a fresh clone alone fails them. [Evidence](../evidence/2026-11-16-ledger-independent-validation-acceptance.md).
+- **2026-11-16** — The owner reviewed the acceptance evidence and called the phase complete. That accepts the stage's coverage and graph; it claims no speed saving or local/hosted equivalence, which stay with matched trials and phase 114.
