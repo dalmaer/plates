@@ -5,6 +5,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm, symlink, link, readdir, chmod,
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { deflateRawSync, crc32 } from 'node:zlib';
+import { runInNewContext } from 'node:vm';
 import { recoverTestHistory, readTestHistory } from '../practices/night/files/scripts/plates/test-history.mjs';
 import { stallsEvidence } from '../practices/night/files/scripts/plates/time-receipts.mjs';
 import { readRuns, readStalls } from '../practices/night/files/scripts/plates/test-ledger.mjs';
@@ -60,6 +61,30 @@ function fixture(items = [{ id: 1, kind: 'night' }, { id: 2, kind: 'ci' }]) {
     download: async id => { downloads.push(id); return archives[id]; } };
 }
 const recover = (root, f, extra = {}) => recoverTestHistory({ root, repo, branch, at, github: f.github, download: f.download, ...extra });
+test('push-only ledger uploads remove two history reads per PR without losing eligible evidence', async t => {
+  const items = [{ id: 1, kind: 'night' }, { id: 2, kind: 'ci' }, { id: 3, kind: 'ci' }];
+  const prs = Array.from({ length: 10 }, (_, i) => ({ id: i + 10, kind: 'ci' }));
+  const all = fixture([...items, ...prs]);
+  for (const item of prs) all.routes[`repos/acme/app/actions/runs/${item.id + 100}`].event = 'pull_request';
+  const before = await recover(await project(t), all);
+  assert.equal(before.selected.length, 3);
+  for (const path of ['practices/ci/files/.github/workflows/check.yml', '.github/workflows/check.yml']) {
+    const text = await readFile(resolve(path), 'utf8');
+    const condition = /- name: Keep the test ledger\n\s+if: ([^\n]+)/.exec(text)?.[1];
+    assert.ok(condition, path);
+    // These Actions expressions use the shared boolean/equality JS subset.
+    const uploads = event => runInNewContext(condition, { always: () => true, github: { event_name: event } }, { timeout: 100 });
+    assert.equal(uploads('push'), true, 'always() preserves failed-push evidence');
+    assert.equal(uploads('workflow_dispatch'), false, 'manual runs are not default-branch push evidence');
+    const selected = fixture([...items, ...prs.filter(() => uploads('pull_request'))]);
+    const after = await recover(await project(t), selected);
+    assert.deepEqual(after.selected, before.selected);
+    assert.deepEqual(selected.downloads, all.downloads, 'all eligible artifacts are still downloaded');
+    assert.equal(all.calls.length - selected.calls.length, prs.length * 2,
+      'each absent PR artifact saves its detail read and run-verification read');
+  }
+});
+
 test('history recovery preserves clean-source CI eligibility without hiding project changes', async t => {
   const root = await project(t), f = fixture();
   const git = args => {
