@@ -17,8 +17,8 @@ jobs:
     if: >-
       github.event.issue.pull_request == null &&
       github.event.sender.type == 'User' &&
-      contains(github.event.issue.labels.*.name, 'keel:agent') &&
-      (github.event_name == 'issue_comment' || github.event.action == 'reopened' || github.event.label.name == 'keel:agent')
+      (contains(github.event.issue.labels.*.name, 'plates:agent') || contains(github.event.issue.labels.*.name, 'keel:agent')) &&
+      (github.event_name == 'issue_comment' || github.event.action == 'reopened' || github.event.label.name == 'plates:agent' || github.event.label.name == 'keel:agent')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -42,8 +42,9 @@ jobs:
           const login = event.sender?.login;
           if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo ?? '') || repo.split('/').some(s => s === '.' || s === '..') || event.repository?.full_name !== repo) throw new Error('router repository mismatch');
           if (event.issue?.pull_request || !id(event.issue?.number) || event.sender?.type !== 'User' || !/^[A-Za-z0-9-]+$/.test(login ?? '')) process.exit(0);
+          const agentLabel = name => name === 'plates:agent' || name === 'keel:agent';
           const comment = eventName === 'issue_comment' && event.action === 'created';
-          const issueEvent = eventName === 'issues' && (event.action === 'reopened' || (event.action === 'labeled' && event.label?.name === 'keel:agent'));
+          const issueEvent = eventName === 'issues' && (event.action === 'reopened' || (event.action === 'labeled' && agentLabel(event.label?.name)));
           if (!comment && !issueEvent) process.exit(0);
           if (comment && (!id(event.comment?.id) || event.comment.user?.type !== 'User' || event.comment.user.login !== login)) process.exit(0);
           const bodyHashOf = body => {
@@ -65,7 +66,7 @@ jobs:
           if (permission.user?.login !== login || !['write', 'maintain', 'admin'].includes(permission.permission)) process.exit(0);
           const issueNumber = event.issue.number;
           const issue = await api(`/repos/${repo}/issues/${issueNumber}`);
-          if (issue.number !== issueNumber || issue.html_url !== `https://github.com/${repo}/issues/${issueNumber}` || issue.pull_request || issue.state !== 'open' || !issue.labels?.some(l => l.name === 'keel:agent')) process.exit(0);
+          if (issue.number !== issueNumber || issue.html_url !== `https://github.com/${repo}/issues/${issueNumber}` || issue.pull_request || issue.state !== 'open' || !issue.labels?.some(l => agentLabel(l.name))) process.exit(0);
           if (bodyHashOf(issue.body) !== bodyHash) throw new Error('issue body changed; fresh writer action required');
           if (comment) {
             const fresh = await api(`/repos/${repo}/issues/comments/${event.comment.id}`);
@@ -81,7 +82,7 @@ jobs:
           if (config?.robot?.on !== true) process.exit(0);
           const commentId = comment ? event.comment.id : null;
           const authorization = { version: 1, repo, issueNumber, bodyHash, writer: login, eventName, action: event.action, commentId };
-          const receiptBody = `<!-- keel:robot-authorization ${JSON.stringify(authorization)} -->`;
+          const receiptBody = `<!-- plates:robot-authorization ${JSON.stringify(authorization)} -->`;
           if (receiptBody.length > 2000) throw new Error('authorization exceeds bound');
           const posted = await api(`/repos/${repo}/issues/${issueNumber}/comments`, { body: receiptBody }, 201);
           if (!id(posted?.id)) throw new Error('authorization receipt identity unavailable');
