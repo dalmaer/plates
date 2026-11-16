@@ -90,6 +90,11 @@ a matching complete observation window, enough traffic or a deliberate equivalen
 probe, and no recurrence of the signature. Zero observed errors with unknown traffic
 is inconclusive. A successful deployment or merged PR alone is insufficient.
 
+Today only an explicitly approved equivalent probe satisfies the traffic
+requirement. Collectors do not yet measure provider traffic, so a window never
+verifies on observed traffic alone; that increment is deliberately open in
+[phase 88](../phases/88-production-errors-become-verified-fixes.md).
+
 When using an explicitly approved `equivalentProbe` and the delivery practice,
 verification records real exact-revision smoke receipts. Keep one completed check
 before the observation window, then run a separate probe and collect a window

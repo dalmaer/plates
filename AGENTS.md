@@ -367,8 +367,8 @@ existing night, plan and morning reports. Recurring signatures become repair spe
 through the existing robot policy; collection grants no agent budget or deployment
 permission. Keep unavailable coverage explicit and preserve recovery receipts.
 A merged fix is not production verification: require serving-revision evidence,
-a complete observation window, traffic or an approved probe, and no recurrence.
-See [the production guide](docs/guide/production-errors.md).
+a complete observation window, an approved in-window probe, and no recurrence.
+Observed traffic does not verify yet (phase 88 keeps it deliberately open). See [the production guide](docs/guide/production-errors.md).
 
 ## Private result feedback
 

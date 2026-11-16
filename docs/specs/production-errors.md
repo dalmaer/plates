@@ -71,6 +71,12 @@ scope, timestamps, counts and provenance, and never silently trust an arbitrary
 boolean as production verification. If provider APIs cannot establish traffic or
 revision, return inconclusive with the missing proof.
 
+Current slice (2026-11-15): only a deliberate equivalent probe verifies. Collectors
+record `traffic: null` and the store accepts no other value, so observed traffic
+cannot satisfy verification yet. Provider-specific traffic evidence is a later
+increment, kept deliberately open in
+[phase 88](../phases/88-production-errors-become-verified-fixes.md).
+
 ## Night integration and rollout
 
 Reuse the installed night workflow rather than create another scheduled service.
