@@ -110,6 +110,12 @@ const nonTimingJobsOnly = s => /jobs\s*:\s*\[\s*(?:['"](?:hygiene|lessons|loop|p
 export function timesASuite(text) {
   const { preamble, blocks } = parseTopBlocks(String(text ?? ''));
   const localNonTimingAcme = /\bfunction\s+acme\s*\(/.test(preamble) && nonTimingJobsOnly(preamble);
+  // A helper outside any test (const compare = dir => climb(dir, ['compare'])) times whatever
+  // test calls it: count it unless the file's own acme only builds non-timing jobs.
+  for (const m of preamble.matchAll(/\[\s*['"]measure['"](?:\s*,\s*(['"])([^'"]+)\1)?/g)) {
+    if (!NON_TIMING_JOBS.has(m[2])) return true;
+  }
+  if (/\[\s*['"]compare['"]/.test(preamble) && !localNonTimingAcme) return true;
   for (const b of blocks) {
     for (const m of b.matchAll(/\[\s*['"]measure['"](?:\s*,\s*(['"])([^'"]+)\1)?/g)) {
       if (!NON_TIMING_JOBS.has(m[2])) return true;
@@ -189,4 +195,11 @@ test('issue 64: a mocked test cannot exempt an unrelated real-sleep suite in the
       assert.deepEqual(timingProblems(file, text, [file]), [], 'the mixed file is allowed when pinned');
     }
   }
+});
+
+test('a compare or measure helper defined outside any test still marks the file as timing', () => {
+  const helper = "const compare = dir => climb(dir, ['compare', '--json']);\n";
+  assert.equal(timesASuite(`${helper}test('acme', async t => { const dir = await acme(t); compare(dir); });\n`), true, 'a compare helper with a default (timed) project');
+  assert.equal(timesASuite("const measure = dir => climb(dir, ['measure', 'test-time']);\ntest('acme', () => {});\n"), true, 'a timed measure helper');
+  assert.equal(timesASuite("const measure = dir => climb(dir, ['measure', 'hygiene']);\ntest('acme', () => {});\n"), false, 'a non-timing measure helper');
 });
