@@ -5,7 +5,7 @@ since: 2026-10-31
 goal: G7
 spec: 2
 depends: [101, 107]
-note: "Plan and hosted proof SQL for 006–015 written and checked. Session 2026-10-31: production moved to an owner domain after a 9-day origin outage; database resumed; steps 1–5 proven (Node 24.22.2 and sign-in; first encrypted backup; migration 004 with proof and race; Contents write; decision writes on). Next: step 6, migration 005, with the owner."
+note: "Plan and hosted proof SQL for 006–015 written and checked. Session 2026-10-31: production moved to an owner domain after a 9-day origin outage; database resumed; steps 1–5 proven (Node 24.22.2 and sign-in; first encrypted backup; migration 004 with proof and race; Contents write; decision writes on). 2026-11-16: repair 023 applied with its proof; a read-only check found 005–013 and 022 already installed but unrecorded. Next: inspect 005–013 and 022 against their proofs instead of applying them, with the owner."
 evidence: ["evidence/2026-10-31-web-activation-plan.md"]
 ---
 

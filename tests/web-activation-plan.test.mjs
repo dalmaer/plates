@@ -48,6 +48,7 @@ test('the activation plan is complete and ordered', async t => {
     assert.deepEqual(plan.applied.map(a => a.migration), [
       '001-auth.sql', '002-home-cache.sql', '003-home-retry.sql', '004-decision-operations.sql',
       '014-plates-names.sql', '017-not-now.sql', '018-last-looked.sql', '019-backlog-events.sql',
+      '023-late-rpc-names.sql',
     ]);
     assert.equal(plan.steps.filter(s => s.kind === 'migration').length, migrations.length - plan.applied.length);
     // The record and evidence the plan cites exist.
@@ -97,13 +98,20 @@ test('the activation plan is complete and ordered', async t => {
 
   await t.test('recorded non-contiguous applications and the late naming repair remain explicit', () => {
     assert.match(plan.summary, /phase 127 says 014 applied.*phase 151 still calls pending/i);
+    assert.match(plan.summary, /005–013 and 022 appear applied but are not recorded/);
     assert.doesNotMatch(plan.summary, /Nothing here has been run/);
     assert.ok(index('rpc-name-baseline-inspect') < index('migration-005'));
-    assert.ok(index('migration-023') > index('migration-013'));
-    assert.ok(index('migration-023') < index('night-operations-gate'));
-    assert.ok(check(moved(plan, 'migration-023', index('migration-013')))
-      .includes('migrations: 023-late-rpc-names.sql must follow pending 005–013'));
-    assert.deepEqual(check(without(plan, s => s.id === 'migration-023')), ['migration 023-late-rpc-names.sql: neither applied nor planned']);
+    // 023 is applied (2026-11-16): its place after 013 is an inspection, not a second application.
+    assert.ok(!plan.steps.some(s => s.migration === '023-late-rpc-names.sql'));
+    assert.ok(index('late-rpc-names-inspect') > index('migration-013'));
+    assert.ok(index('late-rpc-names-inspect') < index('night-operations-gate'));
+    assert.deepEqual(check({ ...copy(plan), applied: copy(plan.applied).filter(a => a.migration !== '023-late-rpc-names.sql') }),
+      ['migration 023-late-rpc-names.sql: neither applied nor planned']);
+    // Were it pending again, the repair must still follow pending 005–013.
+    const pending = copy(plan);
+    pending.applied = pending.applied.filter(a => a.migration !== '023-late-rpc-names.sql');
+    pending.steps.splice(index('migration-013'), 0, { ...pending.steps[index('migration-013')], id: 'migration-023', migration: '023-late-rpc-names.sql' });
+    assert.ok(check(pending).includes('migrations: 023-late-rpc-names.sql must follow pending 005–013'));
     for (const step of plan.steps.filter(s => s.kind === 'migration' && s.migration >= '005-' && s.migration < '014-'))
       assert.match(step.what, /Immediately run 023-late-rpc-names.sql before using this feature/);
     const unordered = copy(plan);
