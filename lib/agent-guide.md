@@ -2056,8 +2056,10 @@ actor, text, ref, source}`, newest last, from the claims (`joined`), open PRs
 (an ISO time or `6h`, `2d`) narrows it. More than three joined/left lines on a
 plate within ten minutes fold into one. `hereNow: [{actor, title, provider,
 last, unread, caughtUp, words}]` is the agents holding work (claims, and PRs
-naming an unclaimed phase); unread counts the last 24 hours, as no read
-position is kept yet. It stores, posts and writes nothing. Exit 0; an
+naming an unclaimed phase), most recent activity first, with the claim's or
+PR's age when it has no line; holders idle past seven days fold into
+`hereIdle: {count, oldest, actors, words}`. Unread counts the last 24 hours,
+as no read position is kept yet. It stores, posts and writes nothing. Exit 0; an
 unknown plate or `--since` exits 2.
 
 <!-- topic: walk | settle the owner's turn: walk done and walk decide -->

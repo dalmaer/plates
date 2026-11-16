@@ -100,22 +100,34 @@ test('an unread source is a gap, never quiet', () => {
 
 test('here now is the agents holding work', () => {
   const m = model();
+  // Most recent activity first: phase 2's CI line (30m) before phase 1's push (50m).
   assert.deepEqual(m.hereNow.map(h => [h.actor, h.title, h.provider, h.via, h.last?.kind, h.last?.age, h.unread, h.caughtUp]), [
-    ['studio#1', 'Acme anvils', 'claude', 'claim', 'pushed', '50m', 2, false],
     ['studio#2', 'Acme bellows', 'acme-codex', '#21', 'ci', '30m', 3, false],
+    ['studio#1', 'Acme anvils', 'claude', 'claim', 'pushed', '50m', 2, false],
   ]);
-  assert.equal(m.hereNow[0].words, 'Acme anvils · claude · last line 50m ago · 2 unread');
+  assert.equal(m.hereIdle, null);
+  assert.equal(m.hereNow[1].words, 'Acme anvils · claude · last line 50m ago · 2 unread');
   // Unread counts lines in the last 24 hours (no read position is kept yet): an agent whose lines are older is Caught up.
   const old = model({ c: claims({ claims: [{ phase: 3, provider: 'codex', machine: null, at: ago(3 * DAY) }], prs: [] }), p: prs({ items: [] }), project: studio({ waits: { state: 'read', items: [], more: 0 } }) });
   assert.deepEqual(old.hereNow.map(h => [h.actor, h.unread, h.caughtUp, h.words]), [['studio#3', 0, true, 'Acme crates · codex · last line 3d ago · Caught up']]);
+  // With no line in the window, its claim's age; ordered by that claim against the others' lines.
+  const quietClaim = model({ c: claims({ claims: [...claims().claims, { phase: 3, provider: 'codex', at: ago(40 * MIN) }] }) });
+  assert.deepEqual(quietClaim.hereNow.map(h => h.actor), ['studio#2', 'studio#3', 'studio#1']);
+  assert.equal(quietClaim.hereNow[1].words, 'Acme crates · codex · last line 40m ago · 1 unread', 'its own joined line is its last line');
   assert.equal(old.readFrom, ago(DAY));
-  // An agent with no line in the window is still here: it holds the work.
-  const stale = model({ c: claims({ claims: [{ phase: 3, provider: 'codex', at: ago(10 * DAY) }], prs: [] }), p: prs({ items: [] }), project: studio({ waits: { state: 'read', items: [], more: 0 } }) });
-  assert.deepEqual(stale.hereNow.map(h => [h.actor, h.last, h.caughtUp, h.words]), [['studio#3', null, true, 'Acme crates · codex · no line yet · Caught up']]);
+  // Holders with no activity past the window still hold the work: one trailing row, oldest first named, never drowning the active ones.
+  const stale = model({ c: claims({ claims: [...claims().claims, { phase: 3, provider: 'codex', at: ago(10 * DAY) }, { phase: 4, provider: 'codex', at: ago(12 * DAY) }] }) });
+  assert.deepEqual(stale.hereNow.map(h => h.actor), ['studio#2', 'studio#1']);
+  assert.deepEqual(stale.hereIdle, { count: 2, oldest: ago(12 * DAY), actors: ['studio#3', 'studio#4'], words: '2 idle claims, oldest 12d' });
+  assert.match(channelText(stale), /^ {2}2 idle claims, oldest 12d: studio#3, studio#4$/m);
+  assert.match(channelView({ workspace: { name: 'Acme' }, csrf: '' }, stale), /<details data-here-idle><summary>2 idle claims, oldest 12d<\/summary><ul class="source-list"><li>studio#3<\/li><li>studio#4<\/li><\/ul><\/details>/);
+  // A claim inside the window with no line (windowed out by --since) shows its claim's age.
+  const claimed = model({ c: claims({ claims: [{ phase: 3, provider: 'codex', at: ago(2 * DAY) }], prs: [] }), p: prs({ items: [] }), project: studio({ waits: { state: 'read', items: [], more: 0 } }), since: ago(DAY) });
+  assert.deepEqual(claimed.hereNow.map(h => h.words), ['Acme crates · codex · claimed 2d ago · Caught up']);
   // Nobody holds work, and the claims could not be read: neither is shown as an agent.
   assert.deepEqual(model({ c: { state: 'read', claims: [], prs: [] } }).hereNow, []);
   assert.deepEqual(model({ c: { state: 'unavailable', why: 'x' } }).hereNow, []);
-  assert.match(channelText(m), /^Here now \(2\)\n {2}studio#1 {2}Acme anvils · claude · last line 50m ago · 2 unread\n {2}studio#2 {2}Acme bellows · acme-codex · last line 30m ago · 3 unread$/m);
+  assert.match(channelText(m), /^Here now \(2\)\n {2}studio#2 {2}Acme bellows · acme-codex · last line 30m ago · 3 unread\n {2}studio#1 {2}Acme anvils · claude · last line 50m ago · 2 unread$/m);
 });
 
 test('routine lines fold and the window holds', () => {
@@ -213,7 +225,7 @@ else { console.error('gh: Not Found (HTTP 404)'); process.exit(1); }
 // What a reader adds about its own read, not the sources: when it read (and so the window's start and each gap's time and each age).
 const readless = m => ({ ...m, generatedAt: null, window: { ...m.window, from: null }, readFrom: null,
   lines: m.lines.filter(l => l.source !== 'waiting').map(l => (l.kind === 'gap' ? { ...l, at: null } : l)),
-  hereNow: m.hereNow.map(({ words, last, ...h }) => ({ ...h, last: last && { ...last, age: null } })) });
+  hereNow: m.hereNow.map(({ words, last, sinceAge, ...h }) => ({ ...h, last: last && { ...last, age: null } })), hereIdle: m.hereIdle && { ...m.hereIdle, words: null } });
 
 test('the CLI and the web show one channel', async () => {
   const s = await bothForms();
@@ -225,7 +237,7 @@ test('the CLI and the web show one channel', async () => {
     assert.deepEqual(cli.lines.map(l => [l.kind, l.actor]), [['joined', 'studio#1'], ['joined', 'studio#2'], ['pr', 'studio#2'], ['pr', 'studio#22'], ['deploy', 'studio'], ['gap', 'studio']]);
     assert.equal(cli.lines.at(-1).text, 'pushes and CI are not read here: The delivery practice is off on this plate: ready and integrate, the tested ref and deploy records are its, so its waits are not read.');
     assert.deepEqual(readless(web), readless(cli), 'the same lines and the same Here now in both forms');
-    assert.deepEqual(cli.hereNow.map(h => [h.actor, h.title, h.provider, h.unread]), [['studio#1', 'Acme phase 1', 'claude', 1], ['studio#2', 'Acme phase 2', 'acme-codex', 2]]);
+    assert.deepEqual(cli.hereNow.map(h => [h.actor, h.title, h.provider, h.unread]), [['studio#2', 'Acme phase 2', 'acme-codex', 2], ['studio#1', 'Acme phase 1', 'claude', 1]]);
     // Sessions waiting on you are each form's own source, as on Home: this machine's scan (none here) and the devices' pushes (none yet, a gap).
     assert.deepEqual(cli.lines.filter(l => l.source === 'waiting'), []);
     assert.deepEqual(web.lines.filter(l => l.source === 'waiting').map(l => [l.kind, l.plate, l.text]), [['gap', null, 'sessions waiting on you unread: no device has sent waiting sessions yet (plates sessions push)']]);
