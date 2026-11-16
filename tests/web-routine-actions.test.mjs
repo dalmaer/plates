@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { jobsHarness, token } from "./helpers/web-jobs.mjs";
 import { createJobs } from "../lib/web/jobs.mjs";
 import { inspectSchedule, scheduleWorkflow } from "../lib/web/job-schedules.mjs";
+import { hash } from "../lib/web/common.mjs";
 const project = (h) => h.access.projects[0];
 const opts = (h) => ({ reauthorize: h.refreshAccess });
 const preview = (h) =>
@@ -137,6 +138,27 @@ test("existing project-owned schedule previews and commits only literal cron byt
   const after = await h.jobs.routine(h.access, token, project(h), h.routineId);
   assert.equal(after.capabilities.schedule, true);
 });
+// The bytes a workflow had before actions were pinned: each reviewed commit back to the tag it replaced.
+const unpin = text => text.replace(/uses: (actions\/(?:checkout|setup-node|upload-artifact|download-artifact))@[0-9a-f]{40} # v[\d.]+/g,
+  (_, action) => `uses: ${action}@${action.endsWith('download-artifact') ? 'v8' : 'v7'}`);
+
+test("a schedule registered before action pinning keeps its shape when its cron changes", async () => {
+  const h = await jobsHarness({ schedule: true });
+  const before = unpin(scheduleWorkflow());
+  assert.match(before, /uses: actions\/setup-node@v7\n/);
+  h.source.files[h.routineId] = before;
+  h.registration.schedule.bodyDigest = hash(unpin(scheduleWorkflow("0 0 * * *")));
+  h.register();
+  const p = await h.jobs.schedulePreview(h.access, token, project(h), { routineId: h.routineId, cron: "17 9 * * 1" });
+  assert.equal(p.files[0].before, before);
+  assert.equal(p.files[0].content, before.replace("23 7 * * *", "17 9 * * 1"), "the rewrite keeps the registered tags");
+  // Bytes and registered digest must be the same shape: pinned bytes against a pre-pin digest refuse.
+  const mixed = await jobsHarness({ schedule: true });
+  mixed.registration.schedule.bodyDigest = hash(unpin(scheduleWorkflow("0 0 * * *")));
+  mixed.register();
+  await assert.rejects(mixed.jobs.schedulePreview(mixed.access, token, project(mixed), { routineId: mixed.routineId, cron: "17 9 * * 1" }), { code: "schedule_source_changed" });
+});
+
 test("managed, ambiguous, altered and over-budget schedule sources remain unavailable", async () => {
   for (const change of ["managed", "duplicate", "commands", "budget"]) {
     const h = await jobsHarness({ schedule: true });
