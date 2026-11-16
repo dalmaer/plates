@@ -194,6 +194,28 @@ test('revocation and expiry during a shared renewal refuse every waiting request
   }
 });
 
+test('a cancelled request does not fail another request waiting on its shared renewal', async () => {
+  const h = harness(); h.state.refreshMode = 'ok';
+  const signed = await h.login(); h.state.now += 28801000;
+  let started, release, sawSignal = null;
+  const refreshing = new Promise(resolve => { started = resolve; });
+  const slow = new Promise(resolve => { release = resolve; });
+  const service = createWebService(h.config, { now: () => h.state.now, fetcher: async (url, options = {}) => {
+    if (url.includes('/access_token')) { sawSignal = options.signal; started(); await slow; }
+    return h.fetcher(url, options);
+  } });
+  const cancel = new AbortController();
+  const cancelled = service(new Request(h.request('/api/session', { cookie: signed.cookie }), { signal: cancel.signal })).catch(error => error);
+  await refreshing;
+  const waiting = service(h.request('/api/session', { cookie: signed.cookie }));
+  await new Promise(resolve => setImmediate(resolve));
+  cancel.abort();
+  assert.equal(sawSignal.aborted, false, "the shared exchange is not bound to the starting request's cancellation");
+  release();
+  await cancelled;
+  assert.equal((await waiting).status, 200, 'the still-connected request gets the renewed session');
+});
+
 test('overlapping checks preserve serial failure precedence regardless of completion order', async () => {
   for (const status of [401, 404, 500]) {
     const h = harness();
