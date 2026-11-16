@@ -19,11 +19,37 @@ const read = async ({ answers = waitsFixture(REPO, NOW), can = ALL, fail } = {})
 const item = (model, branch) => model.items.find(i => i.branch === branch);
 
 test('the switch: waits are read on a plate with the delivery practice, and off without it', () => {
-  assert.deepEqual(waitsSourceOf({ practices: ['delivery'] }), { on: true, reason: null, tested: 'green', deploys: false });
+  assert.deepEqual(waitsSourceOf({ practices: ['delivery'] }), { on: true, reason: null, tested: 'green', deploys: false, builders: ['claude', 'codex'] });
   assert.equal(SOURCE.deploys, true, 'a Vercel target records deploys');
   const off = waitsSourceOf({ practices: ['phases'] });
   assert.equal(off.on, false);
   assert.match(off.reason, /delivery practice is off/);
+});
+
+test('a branch prefix names a builder only when it is one of the plate\'s providers', async () => {
+  // Open PRs with no claim or ready mark: the prefix is the only builder evidence.
+  const answers = waitsFixture(REPO, NOW), base = `/repos/${REPO}`, at = m => new Date(NOW - m * 60_000).toISOString();
+  const branches = { 'fix/anvil-2': 'a1', 'feat/anvil-3': 'a2', 'claude/anvil-4': 'a3', 'codex/anvil-5': 'a4' };
+  for (const [name, c] of Object.entries(branches)) {
+    const sha = c.repeat(20);
+    answers[`${base}/git/matching-refs/heads/`].push({ ref: `refs/heads/${name}`, object: { sha, type: 'commit' } });
+    answers[`${base}/pulls?state=open&per_page=50`].push({ number: 20 + Object.keys(branches).indexOf(name), draft: true, created_at: at(400), head: { ref: name, sha } });
+    answers[`${base}/compare/main...${name}`] = { ahead_by: 1, total_commits: 1, commits: [{ sha, commit: { committer: { date: at(400) } } }] };
+  }
+  const builders = async config => {
+    const got = await readObservations({ repo: REPO, api: fakeApi(answers).api, now: NOW, source: waitsSourceOf(config), can: ALL });
+    return Object.fromEntries(Object.keys(branches).map(b => [b, got.observations.work.find(w => w.branch === b)?.builder]));
+  };
+  const delivery = { practices: ['delivery'], delivery: { tested: 'green', promote: 'vercel:anvils' } };
+  assert.deepEqual(await builders(delivery), { 'fix/anvil-2': null, 'feat/anvil-3': null, 'claude/anvil-4': 'claude', 'codex/anvil-5': 'codex' },
+    'fix/ and feat/ are not builders; with no agents listed, claude/ and codex/ are');
+  assert.deepEqual(await builders({ ...delivery, agents: { claude: {} } }), { 'fix/anvil-2': null, 'feat/anvil-3': null, 'claude/anvil-4': 'claude', 'codex/anvil-5': null },
+    'a plate listing only claude does not count codex/ as its builder');
+  // Unnamed builders are a WIP gap, never two increments of a builder called "fix".
+  const got = await readObservations({ repo: REPO, api: fakeApi(answers).api, now: NOW, source: waitsSourceOf(delivery), can: ALL });
+  const wip = waitsModel(got.observations, got.gaps, { now: NOW }).wip;
+  assert.ok(!wip.some(w => w.builder === 'fix' || w.builder === 'feat'));
+  assert.ok(wip.some(w => w.builder === null && w.branches.includes('fix/anvil-2')));
 });
 
 test('refs, activity, PRs, check runs, compares and deploy records become each change\'s wait', async () => {

@@ -28,20 +28,38 @@ a proxy for an event. It cannot prove active coding time.
 | `ready` | `ready/<branch>` (lib/integrate.mjs) | marked ready: `At:`; `Status: blocked` with `Blocked:` when sent back (the original `At:` is kept) | **deleted when the change lands**: after landing, the ref no longer says when the change was ready |
 | `lock` | `claims/integrate` | lock taken: `At:`; released: the ref is deleted | not read |
 | activity | `GET /repos/{o}/{r}/activity` | each ref's creation, push and deletion with a server `timestamp`, including refs since deleted | paged and retention-bounded: a window it did not reach is partial, not empty |
-| `prs` | `gh pr list` / `GET /pulls` | `createdAt`, `draft`, reviews' `submitted_at`, `mergedAt`/`closedAt` | `gh` failed, or the limit was reached (partial) |
+| `prs` | `GET /pulls?state=open` | open PRs: `number`, `draft`, `createdAt` | the read failed or is not permitted, or the 50-PR page was full (partial) |
 | `checks` | `GET /commits/{sha}/check-runs` | each run's `started_at`, `completed_at`, `conclusion` | not read; a completed run with no conclusion |
 | `main` | the default branch, plus activity for main | landed: when main was **pushed** to include the change | not fetched |
 | `tested` | delivery's `tested` ref, default `green` | `compare/<tested>...<main>`: `ahead_by`, and the landing time of the oldest untested commit | not configured; compare failed |
 | `deploys` | `deploys.jsonl` on the verify branch (phase 177) | deployed: the record's `at`, `commit`, `ok` | not configured; unreadable line |
 
-`plates integrate` keeps no record of its own beyond its exit and stdout. Its
-history is the activity on `ready/<branch>`, `claims/integrate` and main.
+Only open PRs are read (2026-11-15). The reader accepts a PR's `readyAt`,
+`state`, `mergedAt` and `closedAt`, but the waits' reads supply none of them,
+and reviews' `submitted_at` is not read anywhere. So a PR's review wait is always
+open in the home, and no merged or closed PR is observed there. The
+measured review times in the baseline (PR created to merged) come from
+`scripts/integration-baseline.mjs`, which reads `pulls?state=closed` itself.
+Phase 158's evidence says reviewer time is not read. Reading merged and closed
+PRs into the waits is unscheduled work, not part of this contract.
+
+`plates integrate` also keeps a durable record of each run: one JSON line in
+`integrations.jsonl` on the `plates-integrations` branch, written by
+lib/integrate.mjs and read through lib/integration-records.mjs (the newest
+500 lines are kept). The record says when the run started and ended, how the
+lock went, what it considered, gated, landed and sent back, and its outcome.
+The outcome is one of `landed`, `partial`, `nothing-ready`, `blocked`,
+`refused` or `error`. These records sit beside the timestamp sources and are not one of them:
+they say why a run landed nothing, not how long a change waited. A change's
+waits still come from the activity on `ready/<branch>`, `claims/integrate`
+and main.
 
 An integrate merge commit's committer date is the time the merge was made,
 before the gate ran. It is not the landing time: on 2026-11-04 `cff35f7` was
 committed at 18:13:08Z and pushed to main at 18:23:21Z. Measure landing from
-the push to main, the activity `push` on `refs/heads/main`. For a merged PR
-whose push activity is out of reach, `mergedAt` stands in.
+the push to main, the activity `push` on `refs/heads/main`. `mergedAt` is not
+read, so it cannot stand in for a landing that activity does not reach. That
+landing time stays unknown.
 
 ## The waits
 
@@ -56,7 +74,7 @@ waits are counted separately and are never averaged in as zero.
 | --- | --- | --- | --- |
 | `to-ready` | work started: the earlier of claim and first commit | marked ready | either start candidate unknown; landed with the ready ref gone (history) |
 | `pr-ci` | first PR head check started | last PR head check completed | checks unread or incomplete |
-| `review` | PR ready for review (`readyAt`, else `createdAt` when not a draft) | PR merged or closed | PRs unread or partial |
+| `review` | PR ready for review (`readyAt`, else `createdAt` when not a draft) | PR merged or closed (not read today: open until then, see `prs`) | PRs unread or partial |
 | `integration` | marked ready (`ready`, or `landed` when the ready time is recovered from activity) | landed on main | the ready ref is gone and activity did not recover its creation |
 | `main-ci` | landed on main | main's checks for the landing commit completed | checks unread |
 | `deploy` | main's checks passed | a deploy record that passed and names it | deploys unread |
@@ -153,7 +171,9 @@ and the App's bounded reader in the hosted home. The calls are:
 - check runs for PR heads and for main's push tips;
 - the verify branch's tree and `deploys.jsonl` blob, and
   `compare/<last passing deploy>...<tested>`, for changes tested but not
-  deployed.
+  deployed;
+- the `plates-integrations` branch's tree and `integrations.jsonl` blob, for
+  plates integrate's run records.
 
 **Bounds.** 40 requests, 12 changes not on main, check runs for 8 commits,
 and 15 items kept per plate. Past a bound, the rest is a `partial` gap. The
@@ -189,13 +209,21 @@ plate is shown without them. Signing out still fails the plate.
   later push under the delivery practice's concurrency rule, so it is not a
   failure. The reader treats a cancelled run as still waiting.
 - **Builder:** the claim's provider, then the ready mark's, then the branch
-  prefix (`claude/`, `codex/`).
+  prefix. The prefix counts only when it names one of the plate's providers.
+  Those are the keys of `agents` in `.plates/plates.json`, or `claude/` and
+  `codex/` when it lists none. `fix/`, `feat/` or `renovate/` names no builder:
+  that change is a WIP gap, not another builder's increment.
 
 **The model.** Each plate's home value carries `waits`, in one of three
 states:
 
-- `read`, with items, counts, tested, lock, wip, summary, coverage, gaps and
-  `source { repository, revision, readAt, window }`;
+- `read`, with items (at most 15; `more` counts the rest), counts, tested,
+  lock, wip, summary, targets (the thresholds applied), coverage, gaps,
+  `integrations` and `source { repository, revision, readAt, window }`.
+  `integrations` is `{ state: 'read', runs, skipped, window, outcomes,
+  landedNothing, recent }`, the integrate records' bounded summary, or
+  `{ state: 'unavailable', why }` when the branch or file is missing or
+  unreadable;
 - `unavailable`, with the reason;
 - `off`.
 
