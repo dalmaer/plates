@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**74 of 184 phases built; 75 owe a walk.** Built means implemented and checked; planned is not available.
+**74 of 185 phases built; 75 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards. (Dated: phase 13 is on or after 2026-11-01.)
 
@@ -339,7 +339,7 @@ Each change is verified in parallel and published one at a time; production move
 
 From mobile and desktop, an authenticated owner operates every authorized Plates project: decisions, guided tests, visual changes, routine history and execution, fleet lessons and updates, scoped credentials and policy-bound model capacity, with source-backed evidence and private data.
 
-8/46 built; 31 owe a walk.
+8/47 built; 31 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -389,6 +389,7 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 | [186. The sidebar shows which agents can work, what each is on, and what waits for review](phases/186-the-sidebar-shows-which-agents-can-work-what.md) | partial, walk owed | 2026-11-05 | [178](phases/178-the-backlog-shows-every-plate-s-work-in-lanes.md) | Built in two increments: agentsOf and pending review, then plates home --agents, the hosted /agents and the live sidebar. Owes the owner's look after deploy. |
 | [187. Every answer on a card is a button that works](phases/187-every-answer-on-a-card-is-a-button-that-works.md) | partial | 2026-11-06 | [173](phases/173-every-item-waiting-on-the-owner-can-be-answered.md), [174](phases/174-a-review-session-takes-me-through-my-docket.md) | Built: hosted walk previews read eight blobs at a time (the 503), no web view shows a command, Done on a step writes its mark from the card, and Merge from Review completes. Hand to an agent stays unavailable on the web (increment 3). Owes the owner's phone walk after deploy. |
 | [193. Local agents run in Rex when it is there](phases/193-local-agents-run-in-rex-when-it-is-there.md) | partial | 2026-11-15 | [183](phases/183-a-local-agent-host-can-take-a-phase.md), [192](phases/192-audits-look-at-a-plate-with-a-model-when-quota.md) | Increment 1 built: harness config, Rex detection, the runner, find-or-create tabs and state from Rex, checked against real Rex 0.1.0-preview.18. The owner's walk remains. |
+| [194. Each project has a channel on the Plates site](phases/194-each-project-has-a-channel-on-the-plates-site.md) | designed | 2026-11-15 | [149](phases/149-agents-and-the-owner-talk-in-one-visible-chat.md) | Specified: a per-project channel on the Plates site, built from claims, GitHub, deploys and waiting sessions first; agent posts and owner checkpoints follow, each its own merge. |
 
 - **93 done when:** An explicitly configured external workspace can be inspected and initialized from the installed CLI without writing private data into application or project Git trees.
 - **94 done when:** The owner has an approved deployment recipe and verified private workspace repository, host and selected-repository GitHub App binding, with credentials stored only in the deployment secret store.
@@ -436,6 +437,7 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 - **186 done when:** The sidebar's Agents lists each provider in `agents` and each route in `backlog`, with the item it holds now (from claims and presence) or idle, and off routes greyed with their reason. Pending review lists the fleet's open PRs that are not set to auto-merge. `plates home --agents --json` prints the same. See [the backlog spec](../specs/web-backlog.md).
 - **187 done when:** On the hosted workspace, a step's **Done** and **Hand to an agent** write from the card, through the same preview-then-confirm flow as a walk's answer. No web surface tells the owner to run a terminal command to answer. An answer the web still cannot write says what is missing (a permission, a setting) in plain words, never as a command. The CLI writes the same records as before.
 - **193 done when:** When Rex answers on the owner's machine and a local host names a harness, `plates audit run` and `plates home --attach` (the `local-host` route) start that harness in a labelled Rex tab for the plate and provider, the owner can watch and step in, and plates reads the run's state from Rex; without Rex, or without a harness, every local host behaves exactly as phase 183 built it.
+- **194 done when:** Each project has one channel on the owner's Plates site (and the same channel in the CLI) where the owner sees, newest last, what every agent on it is doing: who joined and left (claims), what they pushed, opened and merged, CI and deploys, which agent is waiting on the owner, and the short lines agents post themselves; a **Here now** panel lists the agents holding work with their last line and what the owner has not read; the owner can address an agent from the channel and the agent receives it at its next step; and nothing an agent posts can make another agent act.
 
 ## G8 — A project set and its routines share one operating surface
 
