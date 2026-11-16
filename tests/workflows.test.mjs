@@ -16,6 +16,7 @@ import { run } from './helpers/run.mjs';
 import {nameRow} from '../lib/names.mjs';
 import { AGENTS } from '../practices/night/files/scripts/plates/lib.mjs';
 import { WORKFLOW_ACTIONS } from '../lib/telemetry.mjs';
+import { renderHostControls } from '../lib/autonomy-hosts.mjs';
 import { legacyUpdateWorkflow, canonicalUpdateWorkflow } from '../lib/web/update-workflow.mjs';
 import { LEGACY_TYPECHECK_WORKFLOW, TYPECHECK_WORKFLOW } from '../lib/web/job-workflow.mjs';
 import { scheduleWorkflow } from '../lib/web/job-schedules.mjs';
@@ -52,7 +53,17 @@ const LOCAL_WORKFLOWS = Object.freeze({
   'web-update.yml': { declared: [] },
 });
 
-const code = text => text.split('\n').map((line, i) => ({ line, n: i + 1 })).filter(({ line }) => !/^\s*#/.test(line));
+// Denied tools are not commands the workflow executes. Only strip a complete
+// deny-list argument inside a Claude action's args; a run block or allow list
+// naming the same command must still be checked. Preserve line numbers.
+function withoutClaudeDenials(text) {
+  return text.split(/\n(?= {6}- )/).map(step => {
+    if (!/uses: anthropics\/claude-code-action@/.test(step) || /\n {8}run:/.test(step)) return step;
+    return step.replace(/(\n {10}claude_args: \|\n)((?: {12}[^\n]*\n)+)/g, (_, key, args) =>
+      key + args.replace(/^ {12}--disallowedTools "[^"\r\n]*"$/gm, ''));
+  }).join('\n');
+}
+const code = text => withoutClaudeDenials(text).split('\n').map((line, i) => ({ line, n: i + 1 })).filter(({ line }) => !/^\s*#/.test(line));
 
 /** A five-field cron whose every field is in range. */
 export function validCron(expr) {
@@ -271,7 +282,7 @@ test('mutations: a workflow that breaks a rule fails', async () => {
  */
 export function reachesBack(text) {
   const out = [];
-  const lines = text.split('\n');
+  const lines = withoutClaudeDenials(text).split('\n');
   const steps = [];
   lines.forEach((line, i) => {
     if (/^\s+- (name|uses|id|run):/.test(line) && /^\s{6}- /.test(line)) steps.push({ start: i, lines: [] });
@@ -367,6 +378,253 @@ export function jobsOf(text) {
   if (at < 0) return [];
   return text.slice(at + 'jobs:\n'.length).split(/\n(?= {2}[A-Za-z_][\w-]*:\n)/).map(t => ({ id: /^ {2}([A-Za-z_][\w-]*):/m.exec(t)?.[1] ?? null, text: t })).filter(j => j.id);
 }
+
+// claude.yml: tool restrictions alone cannot contain a package script.
+// The token boundary must hold even when the agent executes arbitrary code.
+function assertClaudeContainment(text) {
+  const agent = jobsOf(text).find(j => j.id === 'claude')?.text;
+  assert.ok(agent, 'the claude job exists');
+  const permissions = /\n {4}permissions:\n((?: {6}.*\n)+)/.exec(agent)?.[1];
+  assert.ok(permissions, 'explicit agent permissions');
+  assert.match(permissions, /^ {6}contents: read$/m, 'agent contents permission must be read-only');
+  assert.doesNotMatch(permissions, /write|id-token/, 'no write or OIDC capability');
+  assert.match(text, /^permissions: \{\}$/m, 'no inherited workflow permissions');
+  for (const job of jobsOf(text).filter(j => j.id !== 'reply')) {
+    assert.doesNotMatch(code(job.text).map(l => l.line).join('\n'), /:\s*write\b|write-all/, 'only the separate reply job may write');
+  }
+  const steps = agent.split(/\n(?= {6}- )/);
+  for (const checkout of steps.filter(s => /uses: actions\/checkout@/.test(s))) {
+    assert.match(checkout, /persist-credentials: false/, 'checkout cannot persist credentials');
+  }
+  const action = steps.find(s => /uses: anthropics\/claude-code-action@/.test(s));
+  assert.match(action, /github_token: \$\{\{ github\.token \}\}/, 'use only the job token, never an OIDC App exchange');
+  assert.match(action, /\n {10}prompt: \|\n/, 'prompt mode must not attempt mention-mode writes');
+  assert.doesNotMatch(action, /allowed_non_write_users|allowed_bots|dangerously-skip-permissions/);
+  const repository = 'acme/app';
+  const denied = renderHostControls({ repository, policy: { schema: 1, repository, mode: 'local', push: [], merge: [] } }).claude.disallowedTools;
+  assert.deepEqual(/--disallowedTools "([^"]+)"/.exec(action)?.[1].split(','), denied, 'local-only host ceiling');
+  assert.match(agent, /npm ci --ignore-scripts; fi/, 'installation cannot run lifecycle scripts');
+  assert.match(agent, /id: configured\n\s+if: steps.requester.outputs.allowed == 'true'/);
+  assert.match(action, /if: steps.configured.outputs.enabled == 'true'/);
+  const upload = steps.find(s => /name: claude-changes\n/.test(s));
+  assert.match(upload, /if: steps.answer.outcome == 'success'/);
+  assert.match(upload, /path: \$\{\{ runner.temp \}\}\/claude-changes.patch\n {10}if-no-files-found: error/);
+}
+
+test('claude agent: claude agent credentials and install are contained in template and rendered workflow', async () => {
+  for (const path of ['practices/claude/files/.github/workflows/claude.yml', '.github/workflows/claude.yml']) {
+    const text = await readFile(join(PLATES, path), 'utf8');
+    assertClaudeContainment(text);
+    const agent = jobsOf(text).find(j => j.id === 'claude').text;
+    for (const [why, changed] of [
+      ['contents write', agent.replace('contents: read', 'contents: write')],
+      ['PR write', agent.replace('pull-requests: read', 'pull-requests: write')],
+      ['issue write', agent.replace('issues: read', 'issues: write')],
+      ['OIDC', agent.replace('contents: read', 'contents: read\n      id-token: write')],
+      ['persisted credentials', agent.replace('persist-credentials: false', 'persist-credentials: true')],
+      ['App token exchange', agent.replace('github_token: ${{ github.token }}', '')],
+      ['mention mode', agent.replace('          prompt: |', '          unused: |')],
+      ['lifecycle scripts', agent.replace('npm ci --ignore-scripts', 'npm ci')],
+      ['tool ceiling', agent.replace(/--disallowedTools "[^"]+"/, '')],
+      ['requester bypass', agent.replace("steps.requester.outputs.allowed == 'true'", 'true')],
+    ]) {
+      assert.notEqual(changed, agent, `${why}: mutation applies`);
+      assert.throws(() => assertClaudeContainment(text.replace(agent, changed)), { name: 'AssertionError' }, why);
+    }
+  }
+});
+
+test('claude reply: a separate comment-only job runs only after the action ran', async () => {
+  for (const path of ['practices/claude/files/.github/workflows/claude.yml', '.github/workflows/claude.yml']) {
+    const text = await readFile(join(PLATES, path), 'utf8');
+    const jobs = jobsOf(text), reply = jobs.find(j => j.id === 'reply')?.text;
+    assert.ok(reply, 'a reply job returns the answer to the requester');
+    const agent = jobs.find(j => j.id === 'claude').text;
+    assert.match(agent, /ran: \$\{\{ steps.answer.outcome == 'success' \|\| steps.answer.outcome == 'failure' \}\}/);
+    assert.match(reply, /needs: claude/);
+    const condition = /^ {4}if: \$\{\{ (.*) \}\}$/m.exec(reply)?.[1];
+    assert.ok(condition);
+    for (const result of ['success', 'failure', 'skipped', 'cancelled']) for (const ran of ['true', 'false', '']) {
+      const expression = condition.replaceAll('always()', 'true').replaceAll('needs.claude.result', JSON.stringify(result)).replaceAll('needs.claude.outputs.ran', JSON.stringify(ran));
+      assert.equal(Function(`return (${expression})`)(), ran === 'true' && ['success', 'failure'].includes(result), `${result}/${ran}`);
+    }
+    assert.equal(/\n {4}permissions:\n((?: {6}.*\n)+)/.exec(reply)?.[1], '      issues: write\n      pull-requests: write\n');
+    assert.doesNotMatch(reply, /checkout@|setup-node@|\bnpm\b|secrets\.|id-token|contents:/);
+    assert.match(reply, /uses: actions\/download-artifact@[a-f0-9]{40}/);
+    assert.match(reply, /name: claude-answer\n/);
+    assert.match(reply, /NUMBER: \$\{\{ github.event.issue.number \|\| github.event.pull_request.number \}\}/);
+    assert.match(reply, /GH_TOKEN: \$\{\{ github.token \}\}/);
+    assert.match(reply, /gh issue comment "\$NUMBER" --repo "\$REPO" --body-file "\$RUNNER_TEMP\/claude-comment.txt"/);
+    assert.match(agent, /EXECUTION_FILE: \$\{\{ steps.answer.outputs.execution_file \}\}/);
+    for (const name of ['Retain final answer', 'Upload final answer']) {
+      const step = agent.split(/\n(?= {6}- )/).find(s => s.includes(`name: ${name}\n`));
+      assert.match(step, /if: always\(\) && \(steps.answer.outcome == 'success' \|\| steps.answer.outcome == 'failure'\)/);
+    }
+    assert.match(agent, /final answer is posted as a comment/);
+    assert.doesNotMatch(/\n {4}permissions:\n((?: {6}.*\n)+)/.exec(agent)?.[1], /write|id-token/);
+  }
+});
+
+test('claude reply: final result, fallback, cap and shell metacharacters are posted only as file data', async t => {
+  const text = await readFile(join(PLATES, 'practices/claude/files/.github/workflows/claude.yml'), 'utf8');
+  const blocks = runBlocks(text);
+  const retain = blocks.find(b => b.step === 'Retain final answer')?.script;
+  const post = blocks.find(b => b.step === 'Post final answer')?.script;
+  assert.ok(retain, 'trusted answer extraction exists');
+  assert.ok(post, 'trusted comment posting exists');
+  assert.doesNotMatch(retain + post, /\$\{\{/); // Expressions belong in env, never executable source.
+  const dir = await mkdtemp(join(tmpdir(), 'plates-claude-reply-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const artifact = join(dir, 'claude-answer');
+  await mkdir(artifact);
+  await writeFile(join(dir, 'gh'), '#!/bin/sh\n[ "$#" = 7 ] && [ "$1" = issue ] && [ "$2" = comment ] && [ "$3" = 42 ] && [ "$4" = --repo ] && [ "$5" = acme/app ] && [ "$6" = --body-file ] || exit 9\ncat "$7" > "$RUNNER_TEMP/posted.txt"\nprintf "call\\n" >> "$RUNNER_TEMP/calls"\n', { mode: 0o755 });
+  const env = { ...process.env, RUNNER_TEMP: dir, EXECUTION_FILE: join(dir, 'execution.json'), PATH: dir + ':' + process.env.PATH,
+    REPO: 'acme/app', NUMBER: '42', RUN_URL: 'https://github.com/acme/app/actions/runs/123', GH_TOKEN: 'fake-acme-token' };
+  const execute = script => {
+    const result = run('bash', ['-e', '-c', script], { cwd: dir, env });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout, '', 'untrusted text is never a workflow command on stdout');
+  };
+  const fallback = 'Claude did not leave a readable final answer. Please check the Actions log.';
+  const hostile = 'Acme answer\n$(touch injected) `touch injected`\n::error::not a workflow command\n${{ secrets.ACME }}\n"quotes"\nEOF\n';
+  for (const [value, expected] of [
+    [[{ type: 'result', result: 'earlier' }, { type: 'assistant', result: 'wrong' }, { type: 'result', result: hostile }, { type: 'assistant', result: 'also wrong' }], hostile],
+    [[{ type: 'result', result: 'earlier' }, { type: 'result' }], fallback],
+    [[{ type: 'result', result: 42 }], fallback],
+    [[{ type: 'result', result: '' }], fallback],
+    [[], fallback], [{ result: 'wrong shape' }, fallback], ['invalid JSON', fallback], [null, fallback],
+    [[{ type: 'result', result: '🙂'.repeat(61000) }], '🙂'.repeat(61000)],
+  ]) {
+    if (value === null) await rm(env.EXECUTION_FILE, { force: true });
+    else await writeFile(env.EXECUTION_FILE, typeof value === 'string' ? value : JSON.stringify(value));
+    execute(retain);
+    assert.equal(await readFile(join(dir, 'claude-answer.txt'), 'utf8'), expected);
+    await cp(join(dir, 'claude-answer.txt'), join(artifact, 'claude-answer.txt'));
+    await rm(join(dir, 'calls'), { force: true });
+    execute(post);
+    const body = await readFile(join(dir, 'posted.txt'), 'utf8');
+    assert.ok(Array.from(body).length <= 60000, 'comment fits within the cap, including footer');
+    if (Array.from(expected).length < 60000) assert.ok(body.startsWith(expected + '\n\n---\n'));
+    else assert.match(body, /\[Answer cut to fit the comment limit\.\]/);
+    assert.ok(body.endsWith('Changes (if any) are in the claude-changes artifact of this run: ' + env.RUN_URL + '\nA person must review and publish the patch.\n'));
+    assert.equal(await readFile(join(dir, 'calls'), 'utf8'), 'call\n', 'one comment');
+    await assert.rejects(readFile(join(dir, 'injected')), { code: 'ENOENT' });
+  }
+  await rm(env.EXECUTION_FILE, { force: true });
+  await mkdir(env.EXECUTION_FILE); // An unreadable file shape also falls back.
+  execute(retain);
+  assert.equal(await readFile(join(dir, 'claude-answer.txt'), 'utf8'), fallback);
+  await rm(artifact, { recursive: true }); // Failed/missing artifact download still gives a useful reply.
+  execute(post);
+  assert.ok((await readFile(join(dir, 'posted.txt'), 'utf8')).startsWith(fallback));
+});
+
+test('claude agent: workflow command guards distinguish denied tools from executable commands', async () => {
+  const text = await readFile(join(PLATES, 'practices/claude/files/.github/workflows/claude.yml'), 'utf8');
+  const declared = ['CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_API_KEY'];
+  const findings = value => [...problems('claude.yml', value, declared), ...reachesBack(value), ...promotes(value)];
+  assert.deepEqual(findings(text), []);
+  for (const changed of [
+    text.replace('--disallowedTools', '--allowedTools'),
+    text + '\n      - run: node bin/plates.mjs promote --yes\n',
+    text + '\n      - run: |\n            --disallowedTools "Bash(node bin/plates.mjs promote*)"\n',
+    text.replace('--disallowedTools "', '--disallowedTools "Bash(node bin/plates.mjs promote*)"; node bin/plates.mjs promote; "'),
+  ]) {
+    assert.notEqual(changed, text);
+    assert.ok(findings(changed).length, 'an allowed or executed command still trips the guards');
+  }
+});
+
+test('claude agent: claude requester lookup fails closed before model work', async t => {
+  const text = await readFile(join(PLATES, 'practices/claude/files/.github/workflows/claude.yml'), 'utf8');
+  assert.deepEqual(workflowTriggers(text), ['issue_comment', 'pull_request_review_comment', 'pull_request_review', 'issues']);
+  assert.match(text, /issues:\n    types: \[opened, labeled\]/);
+  for (const condition of [
+    "(github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude'))",
+    "(github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))",
+    "(github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude'))",
+    "(github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || github.event.label.name == 'claude'))",
+  ]) for (const job of jobsOf(text).filter(j => j.id !== 'reply')) assert.ok(job.text.includes(condition), `${job.id}: original mention/label trigger`);
+  const script = runBlocks(text).find(b => b.script.includes('collaborators/$ACTOR/permission'))?.script;
+  assert.ok(script, 'current repository permission is checked');
+  const dir = await mkdtemp(join(tmpdir(), 'plates-claude-requester-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const out = join(dir, 'output');
+  await writeFile(join(dir, 'gh'), '#!/bin/sh\nprintf "%s\\n" "$*" > "$GH_LOG"\nprintf "%s\\n" "$PERMISSION"\nexit "$GH_EXIT"\n', { mode: 0o755 });
+  for (const [permission, type, exit, allowed] of [
+    ['write', 'User', '0', true], ['maintain', 'User', '0', true], ['admin', 'User', '0', true],
+    ['read', 'User', '0', false], ['triage', 'User', '0', false], ['', 'User', '0', false],
+    ['write', 'Bot', '0', false], ['admin', 'User', '1', false],
+  ]) {
+    await writeFile(out, '');
+    await rm(join(dir, 'gh.log'), { force: true });
+    const result = run('bash', ['-e', '-c', script], { cwd: dir, env: { ...process.env, PATH: dir + ':' + process.env.PATH,
+      REPO: 'acme/app', ACTOR: 'acme-writer', ACTOR_TYPE: type, PERMISSION: permission, GH_EXIT: exit,
+      GH_LOG: join(dir, 'gh.log'), GITHUB_OUTPUT: out } });
+    assert.equal(result.status, Number(exit));
+    assert.equal((await readFile(out, 'utf8')).includes('allowed=true'), allowed, `${permission}/${type}/${exit}`);
+    if (type === 'User') assert.equal(await readFile(join(dir, 'gh.log'), 'utf8'), 'api repos/acme/app/collaborators/acme-writer/permission --jq .permission\n');
+    else await assert.rejects(readFile(join(dir, 'gh.log')), { code: 'ENOENT' });
+  }
+  const configured = runBlocks(text).find(b => b.script.includes('enabled=false'))?.script;
+  assert.ok(configured);
+  for (const [oauth, key, enabled] of [['', '', false], ['fake-acme-oauth', '', true], ['', 'fake-acme-key', true]]) {
+    await writeFile(out, '');
+    const result = run('bash', ['-e', '-c', configured], { cwd: dir, env: { ...process.env, OAUTH: oauth, API_KEY: key, GITHUB_OUTPUT: out } });
+    assert.equal(result.status, 0, 'missing provider secrets remain a green skip');
+    assert.equal(await readFile(out, 'utf8'), `enabled=${enabled}\n`);
+    if (!enabled) assert.match(result.stdout, /::notice::Skipped:/);
+  }
+});
+
+test('claude agent: claude install skips lifecycle hooks and propagates failure', async t => {
+  const text = await readFile(join(PLATES, 'practices/claude/files/.github/workflows/claude.yml'), 'utf8');
+  const script = runBlocks(text).find(b => b.script.includes('npm ci'))?.script;
+  assert.ok(script);
+  const dir = await mkdtemp(join(tmpdir(), 'plates-claude-install-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const execute = () => run('bash', ['-e', '-c', script], { cwd: dir, env: { ...process.env,
+    npm_config_offline: 'true', npm_config_audit: 'false', npm_config_cache: join(dir, 'cache') } });
+  assert.equal(execute().status, 0, 'without a lockfile, no install');
+  const hook = 'node -e "require(\'node:fs\').writeFileSync(\'lifecycle-ran\', \'yes\')"';
+  await writeFile(join(dir, 'package.json'), JSON.stringify({ name: 'acme', version: '1.0.0', scripts: { preinstall: hook, install: hook, postinstall: hook, prepare: hook } }));
+  await writeFile(join(dir, 'package-lock.json'), JSON.stringify({ name: 'acme', version: '1.0.0', lockfileVersion: 3, packages: { '': { name: 'acme', version: '1.0.0', hasInstallScript: true } } }));
+  const installed = execute();
+  assert.equal(installed.status, 0, installed.stderr);
+  await assert.rejects(readFile(join(dir, 'lifecycle-ran')), { code: 'ENOENT' });
+  await writeFile(join(dir, 'package-lock.json'), '{broken');
+  assert.notEqual(execute().status, 0, 'installation errors remain failures');
+});
+
+test('claude agent: claude patch retains committed, staged, unstaged and new files without publishing', async t => {
+  const text = await readFile(join(PLATES, 'practices/claude/files/.github/workflows/claude.yml'), 'utf8');
+  const script = runBlocks(text).find(b => b.script.includes('git diff --binary'))?.script;
+  assert.ok(script);
+  const dir = await mkdtemp(join(tmpdir(), 'plates-claude-patch-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const repo = join(dir, 'repo');
+  await mkdir(repo);
+  const git = (...args) => {
+    const r = run('git', args, { cwd: repo });
+    assert.equal(r.status, 0, r.stderr);
+    return r.stdout.trim();
+  };
+  git('init', '-q');
+  for (const file of ['committed', 'staged', 'unstaged']) await writeFile(join(repo, file), 'before\n');
+  git('add', '.'); git('commit', '-qm', 'Acme base');
+  const base = git('rev-parse', 'HEAD');
+  await writeFile(join(repo, 'committed'), 'committed result\n');
+  git('add', '.'); git('commit', '-qm', 'Acme edit');
+  await writeFile(join(repo, 'staged'), 'staged result\n'); git('add', 'staged');
+  await writeFile(join(repo, 'unstaged'), 'unstaged result\n');
+  await writeFile(join(repo, 'new-file'), 'new result\n');
+  const result = run('bash', ['-e', '-c', script], { cwd: repo, env: { ...process.env, BASE: base, RUNNER_TEMP: dir, GITHUB_STEP_SUMMARY: join(dir, 'summary') } });
+  assert.equal(result.status, 0, result.stderr);
+  const patch = await readFile(join(dir, 'claude-changes.patch'), 'utf8');
+  for (const value of ['committed result', 'staged result', 'unstaged result', 'new result']) assert.ok(patch.includes('+' + value), value);
+  assert.match(await readFile(join(dir, 'summary'), 'utf8'), /no branch or PR was published/);
+  assert.doesNotMatch(script, /git push|gh (pr|issue)/);
+});
 
 /** The PR-permission path: notice on GitHub's refusal, red on anything else. */
 export function permissionPath(text) {

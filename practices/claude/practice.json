@@ -1,6 +1,6 @@
 {
   "name": "claude",
-  "summary": "@claude on an issue or PR works on it and opens a pull request; a person merges, and it never pushes main.",
+  "summary": "@claude works with read-only GitHub access and replies through a separate comment-only job; pushes and PRs wait for a person to review and publish the Actions patch.",
   "optional": true,
   "requires": [],
   "runtimeFiles": [
