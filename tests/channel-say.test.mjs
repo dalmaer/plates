@@ -11,7 +11,7 @@ import { execFileSync } from 'node:child_process';
 import { PGlite } from '@electric-sql/pglite';
 import { createWaitingStore } from '../lib/web/waiting-store.mjs';
 import { createChannelStore } from '../lib/web/channel-store.mjs';
-import { say, readSays, sayProblem, validPost, SAY_CHARS, SAY_SEALED_BYTES } from '../lib/channel-say.mjs';
+import { say, readSays, sayProblem, validPost, validSaid, SAY_CHARS, SAY_SEALED_BYTES } from '../lib/channel-say.mjs';
 import { channelFor, channelInputOf, channelText } from '../lib/channel.mjs';
 import { projectHarness } from './helpers/web-projects.mjs';
 
@@ -131,7 +131,9 @@ test('over-long, too-frequent, key-shaped or keyless posts are refused naming wh
   const body = over => ({ schema: 1, project: 'studio', text: 'Finished the Acme crates step', session: 'acme-session-4', provider: 'claude', phase: 3, ...over });
   assert.equal((await route(body(), { key: null })).status, 401, 'no key');
   assert.equal((await route(body(), { key: `pdk_${'z'.repeat(43)}` })).status, 401, 'an unknown key');
-  for (const bad of [body({ text: 'a'.repeat(281) }), body({ text: 'sk-ant-abcdefghijklmnopqrstuvwxyz' }), body({ extra: 1 }), body({ session: '../x' }), body({ phase: -1 }), body({ provider: 'Claude Code' })]) {
+  for (const bad of [body({ text: 'a'.repeat(281) }), body({ text: 'sk-ant-abcdefghijklmnopqrstuvwxyz' }), body({ extra: 1 }), body({ session: '../x' }), body({ phase: -1 }), body({ provider: 'Claude Code' }),
+    // Identifiers must be strings: a number, an array or an object is refused, never coerced to text and matched.
+    body({ session: 12345 }), body({ session: ['acme-session-4'] }), body({ session: { toString: 'acme' } }), body({ project: ['studio'] }), body({ provider: ['claude'] }), body({ text: ['Finished'] })]) {
     const r = await route(bad);
     assert.deepEqual([r.status, (await r.json()).error], [400, 'invalid_channel_post'], JSON.stringify(bad).slice(0, 90));
   }
@@ -148,6 +150,8 @@ test('over-long, too-frequent, key-shaped or keyless posts are refused naming wh
   assert.match(sayProblem('a\u0007b'), /control characters/);
   assert.match(sayProblem('\ud800'), /well-formed/);
   assert.equal(validPost(body(), ['forge']), null, 'a plate outside the list');
+  for (const session of [12345, ['acme-session-4'], null, undefined]) assert.equal(validPost(body({ session })), null, String(session));
+  assert.equal(validSaid({ at: new Date().toISOString(), text: 'Done', session: ['acme'], provider: null, phase: null, device: null }), null, 'a stored line is checked the same way');
 });
 
 test('the store holds ciphertext, digests and times only, within its bounds', async t => {

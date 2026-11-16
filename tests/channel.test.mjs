@@ -14,6 +14,9 @@ import { channelFor, channelInputOf, channelText, foldRoutine, KINDS, WINDOW_DAY
 import { channelView, channelSection, renderChannel } from '../lib/web/channel-views.mjs';
 import { startBacklogClient } from '../lib/web/backlog-client.mjs';
 import { claimMessage } from '../lib/claim.mjs';
+import { createWaitingStore } from '../lib/web/waiting-store.mjs';
+import { createChannelStore } from '../lib/web/channel-store.mjs';
+import { seal } from '../lib/web/common.mjs';
 
 const NOW = Date.parse('2026-11-15T18:00:00Z');
 const ago = (ms) => new Date(NOW - ms).toISOString(), MIN = 60_000, HOUR = 60 * MIN, DAY = 24 * HOUR;
@@ -227,7 +230,7 @@ const gitEnv = { ...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSY
 const rate = { cost: 1, remaining: 4000, resetAt: new Date(Date.now() + 3600_000).toISOString() };
 const noReviews = { open: { pageInfo: { hasNextPage: false }, nodes: [] }, merged: { pageInfo: { hasNextPage: false }, nodes: [] } };
 
-async function bothForms() {
+async function bothForms({ says = [] } = {}) {
   const h = projectHarness(), real = Date.now(), at = ms => new Date(Math.floor((real - ms) / 1000) * 1000).toISOString();
   h.source.files['.plates/plates.json'] = JSON.stringify({ name: 'Acme Studio', repo: 'acme/studio', tagline: 'Publish useful things.', practice: '0.8.32', stack: ['node'], phases: { shape: 'files' } });
   const dir = await mkdtemp(join(tmpdir(), 'plates-channel-')), root = join(dir, 'studio'), remote = join(dir, 'remote.git');
@@ -255,7 +258,14 @@ async function bothForms() {
     { number: 22, title: 'Acme bump', url: 'https://github.com/acme/studio/pull/22', createdAt: at(70 * 60_000), isDraft: true, reviewDecision: null, autoMergeRequest: null, author: { login: 'renovate' }, headRefName: 'renovate/bump', state: 'OPEN' },
   ];
   const answer = data => Response.json({ data: { rateLimit: rate, ...data } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
+  // Agents' own lines (SQL024), sealed as the store seals them; the store honours p_since, as plates_channel_rpc does.
+  const said = says.map(l => ({ ...l, at: at(l.ago) }));
   const fetcher = async (url, options) => {
+    if (new URL(url).pathname.endsWith('/rpc/plates_channel_rpc')) {
+      const body = JSON.parse(options.body), scope = createWaitingStore(h.config).scopeFor(h.access.userId), project = createChannelStore(h.config).projectFor(scope, 'studio');
+      if (body.p_operation !== 'list' || body.p_scope !== scope || body.p_project !== project) return Response.json({ items: [] });
+      return Response.json({ items: said.filter(l => !body.p_since || l.at > body.p_since).map(({ at: postedAt, ago: _, ...l }) => ({ value: seal(l, h.config.encryptionKey, `channel-post-v1:${scope}:${project}`), postedAt })) });
+    }
     if (new URL(url).pathname !== '/graphql') return h.fetcher(url, options);
     const { query, variables } = JSON.parse(options.body);
     const blobs = [...query.matchAll(/(\w+): object\(oid: "([0-9a-f]{40})"\)/g)];
@@ -282,7 +292,12 @@ else { console.error('gh: Not Found (HTTP 404)'); process.exit(1); }
   const access = { ...h.access, login: 'acme-owner', pullRequestsRead: true, checksRead: false };
   const readWeb = createHomeReader(h.config, { fetcher, now: () => Date.now() });
   const cli = args => runNode(process.execPath, [bin, 'channel', ...args], { cwd: root, timeout: 120_000, env: { ...gitEnv, PLATES_GH: gh, PLATES_CACHE: join(dir, 'cache'), PLATES_STATE: join(dir, 'state'), XDG_STATE_HOME: join(dir, 'state') } });
-  return { access, cli, web: async options => (await readWeb(access, 'fake-user-access-token-for-tests', { channel: true, ...options })), done: () => rm(dir, { recursive: true, force: true }) };
+  // plates channel in process, its say lines from a fake workspace that honours since as /api/channel/says does; asked records each since it was given.
+  const asked = [];
+  const local = async (channelSince = null) => (await import('../lib/home.mjs')).home({ root, channel: true, channelSince },
+    { env: { ...gitEnv, PLATES_GH: gh, PLATES_CACHE: join(dir, 'cache'), PLATES_STATE: join(dir, 'state'), XDG_STATE_HOME: join(dir, 'state'), PLATES_CLAUDE_DIR: join(dir, 'none'), RUNME_DIR: join(dir, 'none') },
+      readSays: async ({ plates, since }) => { asked.push(since); return Object.fromEntries(plates.map(id => [id, { state: 'read', items: said.filter(l => !since || l.at > since).map(({ ago: _, ...l }) => l) }])); } });
+  return { access, cli, local, asked, web: async options => (await readWeb(access, 'fake-user-access-token-for-tests', { channel: true, ...options })), done: () => rm(dir, { recursive: true, force: true }) };
 }
 
 // What a reader adds about its own read, not the sources: when it read (and so the window's start and each gap's time and each age).
@@ -338,6 +353,26 @@ test('the CLI and the web show one channel', async () => {
     assert.deepEqual(JSON.parse(one.stdout).lines.map(l => [l.kind, l.source]), [['gap', 'says'], ['gap', 'waits']], '--since narrows the window');
     assert.equal(s.cli(['anvils', '--json']).status, 2);
     assert.equal(s.cli(['--since', 'yesterday-ish']).status, 2);
+  } finally { await s.done(); }
+});
+
+// Agents' lines are read for the whole window in both forms: --since narrows only the feed shown, never Here now or unread.
+test('--since narrows the feed, never Here now, with agents\' lines', async () => {
+  const s = await bothForms({ says: [
+    { ago: 90 * 60_000, text: 'Starting the Acme anvils step', session: 'acme-session-1', provider: 'claude', phase: 1, device: 'Acme Mac' },
+    { ago: 60 * 60_000, text: 'Blocked on the Acme bellows fixture', session: 'acme-session-2', provider: 'codex', phase: 2, device: 'Acme Mac' },
+  ] });
+  try {
+    const narrow = new Date(Date.now() - 30 * 60_000).toISOString();
+    for (const [name, read] of [['web', since => s.web({ channelSince: since }).then(r => r.channel)], ['cli', since => s.local(since)]]) {
+      const whole = await read(null), shown = await read(narrow);
+      assert.deepEqual(whole.lines.filter(l => l.kind === 'say').map(l => [l.actor, l.text]), [['studio#1', 'claude: Starting the Acme anvils step'], ['studio#2', 'codex: Blocked on the Acme bellows fixture']], name);
+      assert.deepEqual(shown.lines.filter(l => l.kind === 'say'), [], `${name}: --since narrows the feed shown`);
+      assert.deepEqual(shown.hereNow.map(h => [h.actor, h.last.kind, h.last.text, h.unread]), whole.hereNow.map(h => [h.actor, h.last.kind, h.last.text, h.unread]), `${name}: Here now is the same with and without --since`);
+      assert.deepEqual(whole.hereNow.map(h => [h.actor, h.last.kind]), [['studio#2', 'say'], ['studio#1', 'say']], `${name}: each agent's say line is its last`);
+      assert.deepEqual(shown.hereIdle, whole.hereIdle);
+    }
+    assert.ok(s.asked.length === 2 && s.asked.every(since => since < narrow), 'the CLI asks the workspace for the whole window, never --since');
   } finally { await s.done(); }
 });
 
