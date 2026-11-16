@@ -310,7 +310,12 @@ test('the CLI and the web show one channel', async () => {
     for (const l of web.lines) {
       for (const html of [page, section]) assert.ok(html.includes(`<time datetime="${l.at}">${lineTime(l.at)}</time> <strong>${esc(l.actor ?? 'all plates')}</strong> <span class="p-badge">${l.kind}</span> ${esc(l.text)}`), l.text);
     }
-    for (const l of cli.lines) assert.ok(text.split('\n').includes(`  ${lineTime(l.at)}  ${l.actor ?? 'all plates'}  ${l.kind}  ${l.text}`), l.text);
+    // Gap lines are dated when read, and the two CLI runs can straddle a minute: match those without their time.
+    const rows = text.split('\n');
+    for (const l of cli.lines) {
+      const tail = `  ${l.actor ?? 'all plates'}  ${l.kind}  ${l.text}`;
+      assert.ok(l.kind === 'gap' || l.timeUnknown ? rows.some(r => r.endsWith(tail)) : rows.includes(`  ${lineTime(l.at)}${tail}`), l.text);
+    }
     for (const h of web.hereNow) assert.ok(page.includes(`<strong>${h.actor}</strong> ${esc(h.words)}`) && section.includes(`<strong>${h.actor}</strong> ${esc(h.words)}`), h.actor);
     for (const h of cli.hereNow) assert.ok(text.split('\n').includes(`  ${h.actor}  ${h.words}`), h.actor);
     assert.match(page, /<a class="plate-chip p-card" href="\/channel" aria-current="page"><strong>All<\/strong><span>7 lines<\/span><\/a>/);
