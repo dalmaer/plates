@@ -52,8 +52,8 @@ reused; Discord becomes an optional one-way mirror (increment 4).
   imports of its own beyond pure helpers: `{ at, plate, kind, actor, text,
   ref }`, `kind` one of `joined | left | pushed | pr | ci | deploy | waiting |
   say | owner | checkpoint | gap`. `actor` is the phase (`nerd#1405` style:
-  plate and phase; a pull request naming no phase is `nerd!42`, so PR 42 and
-  phase 42 never share an identity, and lines carry `phase` and `pr` as numbers
+  plate and phase; a pull request naming no phase is `nerd!42`, so a pull
+  request and a phase with the same number never share an identity, and lines carry `phase` and `pr` as numbers
   that Here now matches on). The CLI prints
   it (`plates channel [<project>] [--since <time>] [--json]`); the web renders
   the same model at `/channel` (All, then one chip per project with its line
