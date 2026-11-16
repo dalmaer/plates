@@ -5,12 +5,15 @@ phased build in this conversation. Public application code, private shared
 workspace data and project-owned Plates records are the accepted direction.
 The owner selected Vercel and an existing Pro team on 21 October 2026. The
 project and assigned domain are verified. Supabase Free/iad1 is approved and
-connected to production. The approved read-only GitHub App is installed; phase 95
+connected to production. The initially approved read-only GitHub App is installed;
+scoped writer grants are separate from that initial approval. Phase 95
 verifies deployed owner login, logout and access removal on Node v24.21.0. Phase 94
 still owes the independent backup destination. This document
 supersedes the local-first delivery recommendation in [the UX spec](web-ui.md),
-not the existing local board. Phase 96 implements the read-only Home; decision
-writes, guided observations, media and full operating journeys remain phased work.
+not the existing local board. Phase 96 implements the Home read model; phase 97
+is built with verified hosted decision writes. Home answers, guided observations
+and media use their own gated writers; full operating journeys retain separate
+activation and acceptance evidence.
 
 The full operating goal additionally covers routine history/execution, fleet
 updates and lessons, scoped provider setup and capacity-aware routing on mobile

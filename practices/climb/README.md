@@ -23,8 +23,8 @@ PR are the script's:
   night's record, the `plates-climb` artifact the workflow reads and passes
   as `--last-night`, so a night that kept nothing still moves the rotation
   on without anything pushed to main; `hygiene`, `lessons` and `loop` never
-  run by rotation). A job with an open `keel-climb/<job>/` PR waits
-  for a person to read it. A job whose last three `keel-climb/<job>/` PRs
+  run by rotation). A job with an open `plates-climb/<job>/` PR waits
+  for a person to read it. A job whose last three `plates-climb/<job>/` PRs
   were closed unmerged proposes its own retirement on the health page, and
   pick skips it until the owner removes it from `jobs` or reopens one.
 - `measure <job> [--baseline]` is the job's number: median and spread over k
@@ -115,7 +115,7 @@ findings; `plates-tend.yml` a minute later on Mondays): pick, the baseline, then
 `anthropics/claude-code-action` with the protocol, the job's brief and the
 pick, time-boxed to the budget, its tools unable to push or merge; then
 `settle`, `guard`, a final `compare` of the night's base against its end,
-`report`, and one PR on `refs/heads/keel-climb/<job>/<date>`. Never `main`,
+`report`, and one PR on `refs/heads/plates-climb/<job>/<date>`. Never `main`,
 never a merge. A night that keeps nothing opens nothing: its line is a
 notice, in the run's summary, and in the `plates-climb` artifact.
 
@@ -170,10 +170,10 @@ large. Reading only the tail could discard denial evidence, so it is not used.
 `.github/workflows/plates-tend.yml` runs on Mondays, a minute after the
 climb's, with the same rights: an agent resolves the night's record
 findings under `.agents/climb/TEND.md`, and a person merges one PR on
-`refs/heads/keel-tend/<date>`. `scripts/plates/tend.mjs`, through
+`refs/heads/plates-tend/<date>`. `scripts/plates/tend.mjs`, through
 `climb.mjs`, makes every count and refusal:
 
-- `tend-pick` — whether a pass runs: an open `keel-tend/` PR waits; three
+- `tend-pick` — whether a pass runs: an open `plates-tend/` PR waits; three
   closed unmerged in a row and tend proposes its own retirement.
 - `tend-input [--record]` — the worksheet: the record measures
   (`proofs_hold`, `roadmap_stale`, `phases_stuck`, `evidence_placeholders`,

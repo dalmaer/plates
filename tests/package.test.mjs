@@ -1,3 +1,4 @@
+import { packedTarball } from './helpers/packed-tarball.mjs';
 // plates as npm delivers it: `npx -y github:dalmaer/plates` packs the repo, and
 // npm drops some files on the way (every .gitignore among them). A local
 // checkout has them all, so only a test that runs plates from the packed copy
@@ -44,7 +45,7 @@ test('plates run from its packed tarball inits a project that passes its own che
   expected.sort();
   assert.ok(expected.length > 0 && optionalPractice, 'checkout has manifests and an optional practice to probe');
 
-  const pack = run('npm', ['pack', '--json', '--ignore-scripts', '--pack-destination', tmp], { cwd: PLATES, env });
+  const pack = await packedTarball(tmp);
   assert.equal(pack.status, 0, `npm pack failed:\n${pack.stderr}`);
   const [{ filename }] = JSON.parse(pack.stdout);
   execFileSync('tar', ['xzf', join(tmp, filename), '-C', tmp]);

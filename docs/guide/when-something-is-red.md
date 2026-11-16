@@ -96,7 +96,8 @@ Read the run's summary. In order of likelihood:
 - **No `climb` (or `tend`) in `.plates/plates.json`**: off, by design. The run
   says so and does nothing.
 - **No secret**: green, with a notice naming `CLAUDE_CODE_OAUTH_TOKEN` (or
-  `ANTHROPIC_API_KEY`). Setting it is the owner's ⚑ step.
+  `ANTHROPIC_API_KEY`) for Claude, or `OPENAI_API_KEY` for Codex. Climb and tend
+  accept either provider through `agent`. Setting a secret is the owner's ⚑ step.
 - **An open PR from the last pass**: the job (or tend) waits for you to read
   it. Merge or close it.
 - **Three PRs closed unmerged**: the job proposes its own retirement on the

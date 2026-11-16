@@ -98,9 +98,10 @@ comment answered, and each named reviewer has reviewed the head commit.
 On 2026-10-10 one PR went about ten rounds of fix, push, new findings. plates
 now counts a PR's **rounds**: a round is one push a reviewer answered with
 at least one finding. A push the reviewer passed is not a round, and two
-reviewers on one push are one. At the limit (three, or `"review":
-{"rounds": N}` in `.plates/plates.json`) `plates review <repo>#<n>` exits 3 and
-lays out your choice:
+reviewers on one push are one. At N (three by default, or `"review":
+{"rounds": N}` in `.plates/plates.json`), progress grants one extension to 2N;
+repeating findings stop at N. At the effective limit `plates review <repo>#<n>`
+exits 3 and lays out your choice:
 
 - **Merge with the rest tracked.** Each open finding is listed as *fix
   first* (a security hole, overwrites your files, or skips an approval) or
@@ -317,7 +318,7 @@ that hides it.
 
 ### Robot pull requests
 
-`keel/robot-` PRs use the robot workflow's explicit other-provider review and
+`plates/robot-` PRs use the robot workflow's explicit other-provider review and
 shared build/review allowance. Standalone cross-review refuses these branches,
 even with a matching prefix or an owner `/review` comment. Continue the issue
 conversation through the robot; reading and answering review findings with

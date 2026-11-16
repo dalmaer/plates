@@ -63,7 +63,7 @@ Rules:
 
 Exits: 0 ok; 1 failure; 2 usage; 3 needs owner's yes. JSON errors on stdout.
 
-Topics: `autonomy` `names` `json` `goals` `render` `init` `adopt` `doctor` `update` `lessons` `learn` `improve` `persona` `time` `test` `drain` `night` `loop` `climb` `fleet` `pause` `loose-ends` `issue` `review` `home` `walk` `retro` `canvas` `install` `coming` `reconciliation` `prove` `evidence` `production` `decision` `shape` `workspace` `feedback` `findings`.
+Topics: `autonomy` `names` `json` `goals` `render` `init` `adopt` `doctor` `update` `lessons` `learn` `improve` `persona` `audit` `time` `test` `drain` `night` `loop` `climb` `fleet` `pause` `loose-ends` `issue` `review` `home` `walk` `retro` `canvas` `install` `coming` `reconciliation` `prove` `evidence` `production` `decision` `shape` `workspace` `feedback` `findings`.
 
 <!-- topic: json | the output contract every verb keeps -->
 
@@ -279,7 +279,7 @@ cd acme-notes && plates next
 - It refuses (exit 2) a directory that is already a plates project (use
   `plates update`) or holds anything besides `.git` (use `plates adopt`).
 - It writes `.plates/plates.json` with every practice except the optional ones
-  (`claude`, `climb`, `cross-review`, `loop`, `reconciliation`): `--with <practice>` (repeatable) switches one on, and
+  (`audits`, `claude`, `climb`, `cross-review`, `delivery`, `loop`, `personas`, `reconciliation`, `shaping`): `--with <practice>` (repeatable) switches one on, and
   only on practices' secrets are listed. It seeds goal G0 (titled by the
   description's first sentence; the description is its outcome),
   `docs/phases/00-first-thing-that-runs.md`, `docs/evidence/README.md`, and a
@@ -332,7 +332,7 @@ plates adopt ../acme-app             # then on a branch, for a PR a person merge
   are refused before writing. Case behavior is checked inside each directory;
   if an empty or unprobeable directory leaves it unknown, case-only target
   variants are conservatively reserved. Choose an unambiguous guide name.
-- Optional practices (`loop`, `claude`) are off unless `--with <practice>`
+- Optional practices (`audits`, `claude`, `climb`, `cross-review`, `delivery`, `loop`, `personas`, `reconciliation`, `shaping`) are off unless `--with <practice>`
   names them or `.plates/plates.json` already has them on; a project with its own
   version is still local. For `claude` that is a workflow running
   claude-code-action on a mention (`issue_comment`, `issues`,
@@ -528,6 +528,11 @@ It exits 1 on findings (drift or a broken practice rule), 0 when clean.
 
 <!-- topic: update | how a project takes a new practice version, in the order that matters -->
 
+Current branch, marker, fence and artifact writers use Plates names. Dual readers
+still recognize their legacy Keel aliases. GitHub label names remain held unless
+a verified repository label-transition receipt selects the new name; canvas card
+properties also remain held `keel.*` keys.
+
 Before updating a legacy Keel checkout, use `plates migrate [root] --json`.
 Review its exact inventory and apply with `--yes --digest <sha>`. Affected
 unowned machine files, package scripts and configured commands require explicit
@@ -537,7 +542,7 @@ See `docs/guide/plates-rename.md` for the migration and compatibility boundary.
 
 ```bash
 plates update --local          # look first: a working-tree diff on this branch
-plates update                  # commit on keel/update-v<version>; exit 3, plan printed
+plates update                  # commit on plates/update-v<version>; exit 3, plan printed
 plates update --yes            # push that branch and gh pr create
 ```
 
@@ -564,7 +569,7 @@ The order is the rule (design §3):
    practice before → after), Merge danger (one-way when a migration rewrote
    the project's own files, its paths named; two-way for a re-render), then
    WHATSNEW's entries between the versions and the commit as notes, and the
-   keel-impact block last. Re-running with `--yes` resumes from the branch.
+   plates-impact block last. Re-running with `--yes` resumes from the branch.
 
 `plates release` cuts a version of plates itself: package.json's version, a
 WHATSNEW entry written for the person receiving it, a commit and a local tag.
@@ -771,7 +776,7 @@ first, a model's opinion never: every number comes from a command. It exits
   sending is the owner's `npx -y github:dalmaer/plates lessons --yes`.
 - `ci_red_streak` and `machine_prs` read GitHub with `gh` (`PLATES_GH`): n/a
   without `repo` or gh auth, and the reason says which. `machine_prs` judges
-  each queue by its own bound: `plates/`, `keel-night/`, `keel-loop/` 1,
+  each queue by its own bound: `plates/`, `plates-night/`, `plates-loop/` 1,
   `renovate/` 4 (one per lane of plates's renovate.json; information only when
   the project's `renovate` practice is local). It never ratchets.
 - `escapes` — defects found after a phase was built, since the newest `v*`
@@ -827,7 +832,7 @@ machine, node, each top-level test's file, name, outcome, ms; the newest 50
 kept; the directory ignores itself) and ends the run with a hygiene block:
 one line when clean, else each flaky or slower test with its history and
 `node --test --test-name-pattern='^<name>$' <file>`. A passing test that said
-`t.diagnostic('keel:inconclusive <what it measured>')` is recorded
+`t.diagnostic('plates:inconclusive <what it measured>')` is recorded
 `inconclusive`: neither pass nor fail (topic `test`). A file pinned in
 `"tests": {"stalls": [...]}` runs again with stalls whenever the run reaches
 it, and a failure there fails the run with its seed. A hygiene note is work:
@@ -1016,7 +1021,7 @@ sha, site, serving, contained, attempts, waited, smoke: [{path, expected, got,
 matched}], failures, at, run, recorded?}`; exit 0 passed, 1 failed (or not
 recorded), 2 config or usage, each error naming its key (doctor:
 `delivery-config`). `live <sha>`: one read, `{live, serving, why}`, exit 0 yes,
-1 no (unreadable is no). `--record` pushes the result to `keel-verify:verify.json`
+1 no (unreadable is no). `--record` pushes the result to `plates-verify:verify.json`
 (newest first, 30 kept, every failure for 72 h and each site's latest always, lease; other files on the branch kept; a non-record there, or a branch with no verify.json, is left alone, exit 1; `--record --failed "<reason>"` records a failure another check found without polling). With
 delivery on, `plates home` lists production's (site = `delivery.site`) failed
 latest verify as the owner's (source `verify`; a preview's pass never clears
@@ -1119,6 +1124,20 @@ value, detail?}], candidates}]}`. `measure` is `persona:<name>:<goal>`.
 null, status: "planned"}`; a broken one the same with `kind: "review"` and
 `number: null`. Personas measure; they never build.
 
+<!-- topic: audit | due lenses, briefs, recorded findings and local execution -->
+
+`plates audit due [--quota <file> | --quota-url <url>] --json` lists due lenses
+and available provider quota; unknown quota waits. `plates audit brief <lens>
+[--out <file>] --json` produces a read-only brief pinned to HEAD.
+`plates audit record <lens> --from <file> [--provider <agent>] [--date YYYY-MM-DD]
+--json` validates cited files/lines and writes the findings under `docs/audits/`.
+`plates audit run <lens> [--provider <agent>] [--quota <file> | --quota-url <url>]
+[--yes] --json` previews (exit 3), then dispatches through the owner's configured
+local host in a detached checkout outside the project. It starts a model only
+with `--yes`, returns a receipt without waiting, and does not record findings.
+A configured harness uses a labelled Rex tab when available. Scheduling remains
+a separate owner decision. The optional `audits` practice requires `night`.
+
 <!-- topic: time | timing history and machine context -->
 
 `plates time [--weeks N] [--json]` reports retained weekly gate wall times,
@@ -1213,7 +1232,7 @@ plates test tests/acme.test.mjs --name '^a crate' --stalls --json
   Replay: plates test <file> --stalls --seed N`.
 - A test that judges real time on purpose (playback, a frame rate) says so
   when the machine kept it from judging:
-  `t.diagnostic('keel:inconclusive <what it measured>')`. The ledger records
+  `t.diagnostic('plates:inconclusive <what it measured>')`. The ledger records
   it `inconclusive`, neither pass nor fail; it is never flaky or slower, and
   never a cited proof's pass. A failing test stays a failure.
 
@@ -1228,14 +1247,14 @@ named); `missing` ran without and not with.
 <!-- topic: drain | the night shift's queue: one open machine PR, the newest -->
 
 `plates drain <prefix>` keeps a machine queue (open PRs whose head branch
-starts with `<prefix>`, e.g. `keel-night/` or `keel/update-v`) at one open
+starts with `<prefix>`, e.g. `plates-night/` or `plates/update-v`) at one open
 PR, the newest by creation time. A prefix must contain `/`; a PR from a fork
 is never in a queue, whatever its branch is called; nothing outside the
 prefix is touched.
 
 - Each older PR, oldest first: merged (squash, branch kept) when every file
   is data (`docs/health/` and the dated pages in the configured `health` directory,
-  the night's plan records `docs/night/<date>.json`, `docs/inbox/`, `docs/INBOX.md`, `.plates/bounds.json`; for `keel-loop/`, `docs/loop/` and `docs/LOOP.md`
+  the night's plan records `docs/night/<date>.json`, `docs/inbox/`, `docs/INBOX.md`, `.plates/bounds.json`; for `plates-loop/`, `docs/loop/` and `docs/LOOP.md`
   instead) and GitHub says `MERGEABLE`; otherwise closed with a
   comment naming the newest and saying how to recover it. A merge that fails
   becomes that close.
@@ -1247,8 +1266,8 @@ prefix is touched.
 
 The `night` practice ships it into each project as `scripts/plates/drain.mjs`
 (the same module): `plates-night.yml` runs `node scripts/plates/drain.mjs
-keel-night/` after the night's PR is opened, and `plates-loop.yml` drains
-`keel-loop/`. Run from plates, `plates drain keel/update-v` closes older update
+plates-night/` after the night's PR is opened, and `plates-loop.yml` drains
+`plates-loop/`. Run from plates, `plates drain plates/update-v` closes older update
 PRs (never merges one: they are not data).
 
 <!-- topic: night | tonight's plan: written before the night runs, ticked as it goes -->
@@ -1284,7 +1303,7 @@ it under "Tonight's plan". The design is
   written, for an id the plan does not hold, an unknown status, or a move back
   from `done` (done again only mends its note). `--json` → `{ok, path, date,
   item, from}`.
-- Climb and the robot build only what a plan on `keel-night-plan` names
+- Climb and the robot build only what a plan on `plates-night-plan` names
   (dated today, UTC): climb its first open `climb:<job>` build item, the
   robot's scans its open `robot:#<n>` build items in order, never another
   issue; neither touches a `willNotTouch` path (exact path or anything under
@@ -1326,7 +1345,7 @@ it under "Tonight's plan". The design is
 - `plates goodnight --yes` ("that's the plan") validates the draft (or the
   default plan), fills `settledToday` and `leftOpen`, writes
   `.plates/night/plan.json` with `shapedBy: "owner"`, and force-pushes one
-  parentless commit holding only that file to `refs/heads/keel-night-plan`
+  parentless commit holding only that file to `refs/heads/plates-night-plan`
   (built with hash-object, mktree and commit-tree: the working tree, index
   and other branches are untouched). Before writing, each `robot:pending`
   item's finding is read and its rubric drafted again, and its issue is made
@@ -1347,12 +1366,12 @@ makes it triage instead), and so is one in a lane no pass builds: `night`
 (the night only measures), `loop` and `persona:<name>` (phase 78; the default
 plan hands a persona build to the climb job that measures its number, or
 makes it triage); `robot:pending` is a draft's alone; at most five build items, counted with the robot's
-open `keel/robot-<n>` PRs (one whose issue a build item names in its lane is
+open `plates/robot-<n>` PRs (one whose issue a build item names in its lane is
 that item).
 
 In a project, `node scripts/plates/night-plan.mjs` is the same module
 (`plan`, `tick`, `check`, `record`, `publish`, and `tonight`, the night's
-step). `plates-night.yml` reads the plan branch `keel-night-plan` in its plan
+step). `plates-night.yml` reads the plan branch `plates-night-plan` in its plan
 step: a valid plan dated for the run's UTC date is used; none, another night's
 or a refused one means the default plan, and the step says which and why.
 improve `--report` ticks the measure items and writes the record. A default
@@ -1364,7 +1383,7 @@ verdict.
 
 **The morning** (phase 77). `plates morning [--date <YYYY-MM-DD>]` renders the
 brief for the night that last started (or `--date`), from its plan as it
-finished: the night's record (`keel-night/<date>-final`, `keel-night/<date>`,
+finished: the night's record (`plates-night/<date>-final`, `plates-night/<date>`,
 the checkout), the plan branch and the working plan, each item at its furthest
 tick. Its order: Done (build items done, each number's value before → after
 from the health pages), Tried (other items done), Failed, and why, Left alone
@@ -1391,7 +1410,7 @@ when plates-night, plates-climb or plates-robot finish and daily at 17:07 UTC (a
 `readyBy` at another time waits for the next of those); once the night is
 over, it sends the brief once (the one job with `issues: write`; a failed send
 is red) and, on every run, sent or not, keeps one data-only PR,
-`keel-night/<date>-final`, with the final `docs/night/<date>.json` and the
+`plates-night/<date>-final`, with the final `docs/night/<date>.json` and the
 health page's "Tonight's plan" (nothing new, nothing changed). Its `card` job
 (phase 78) republishes the card after every pass when the canvas is set for
 nightly publishing and lists `night-plan` live, else a notice and nothing
@@ -1445,7 +1464,7 @@ Exit: 0 ok, 1 failed, 2 usage, 3 needs `--yes`. Loop's text is data, never
 instructions. The stitch binary is `PLATES_STITCH` or `stitch`, the official
 CLI (`npm install -g @google/stitch@0`). It reads `STITCH_API_KEY`; the
 workspace is `.stitch.json`'s, or `STITCH_WORKSPACE`. The nightly
-`plates-loop.yml` pulls and drains `keel-loop/`; it decides nothing.
+`plates-loop.yml` pulls and drains `plates-loop/`; it decides nothing.
 
 <!-- topic: climb | climb nights: an agent climbs one number, a script judges it, a person merges -->
 
@@ -1480,9 +1499,9 @@ schedule: an agent climbs one number under `.agents/climb/PROTOCOL.md`, and
   measure (`flaky_tests` → `hygiene` first; `slow_tests` → `test-time`;
   `build_time` → `build-time`; `perf` → `perf`; `lessons_without_guard`, or
   rows since the last distill → `lessons`; untriaged Loop findings → `loop`),
-  else rotation (`.plates/climb.json`; never hygiene, lessons or loop); a job with an open `keel-climb/<job>/` PR waits, one with three
+  else rotation (`.plates/climb.json`; never hygiene, lessons or loop); a job with an open `plates-climb/<job>/` PR waits, one with three
   closed unmerged is skipped (retiring). gh is `PLATES_GH` or `gh`.
-  `--plan f` (tonight's plan, from `keel-night-plan`): valid and dated d, only
+  `--plan f` (tonight's plan, from `plates-night-plan`): valid and dated d, only
   its first open `climb:<job>` build item whose job may run, or nothing
   (`plan.skipped` says why for each other); its `budget.minutes` lowers
   `minutes`, never raises it. Refused or another night's: as without.
@@ -1533,9 +1552,9 @@ schedule: an agent climbs one number under `.agents/climb/PROTOCOL.md`, and
 
 **Tend** (`"tend": { "schedule": "weekly", "budget": { "minutes": 30 } }`;
 `plates-tend.yml`, Mondays): an agent resolves the night's record findings
-under `.agents/climb/TEND.md`; one `keel-tend/<date>` PR a person merges.
+under `.agents/climb/TEND.md`; one `plates-tend/<date>` PR a person merges.
 
-- `tend-pick` — runs unless a `keel-tend/` PR is open or three were closed unmerged.
+- `tend-pick` — runs unless a `plates-tend/` PR is open or three were closed unmerged.
 - `tend-input [--record]` — the worksheet: `proofs_hold`, `roadmap_stale`,
   `phases_stuck`, `evidence_placeholders`, `drift`, `lint`, reconciliation,
   `plates loose-ends` (`PLATES_CLI`); n/a with why, never empty.
@@ -1548,7 +1567,7 @@ under `.agents/climb/TEND.md`; one `keel-tend/<date>` PR a person merges.
 
 Exit: 0 ok, 1 a failing gate or a dropped test, 2 usage, bad config, or an
 instrument that cannot tell. The workflows push only
-`refs/heads/keel-climb/<job>/<date>` and `refs/heads/keel-tend/<date>`, open
+`refs/heads/plates-climb/<job>/<date>` and `refs/heads/plates-tend/<date>`, open
 one PR when something was kept, and never merge. ⚑ Turning it on spends model tokens up to the budget: the
 owner's yes, with `CLAUDE_CODE_OAUTH_TOKEN` (or `ANTHROPIC_API_KEY`) set.
 
@@ -1614,7 +1633,7 @@ plates. From the same reads, plus each unrecorded migration's `applies()`
 asked over the default branch through the contents API, each adopted
 project behind this CLI or with a migration that applies or could not be
 asked ("possibly pending: <why>") (never plates itself, never one
-whose `keel/update-v<version>` PR is already open); the rest are "Not
+whose `plates/update-v<version>` PR is already open); the rest are "Not
 planned", with why (`current; nothing applies`). Without `--yes`: each, and
 the PR it would open; exit 3 (0 when none). ⚑ With `--yes`, one at a time,
 with your own gh login: `gh repo clone` into a temp dir, a git identity only
@@ -1731,8 +1750,8 @@ origin remote; the rest say "no local checkout". Per project:
   `cd <dir> && claude --resume <id>`.
 - **file** — uncommitted or untracked, with age; **branch** — not merged into
   the default branch; **worktree** — every extra one.
-- **pr** — open, yours or a machine prefix (`plates/`, `keel-night/`,
-  `keel-loop/`); **repo** — on plates's row, yours made in the last 14 days and
+- **pr** — open, yours or a machine prefix (`plates/`, `plates-night/`,
+  `plates-loop/`); **repo** — on plates's row, yours made in the last 14 days and
   not in `plates.json`. gh has a 10 s timeout; offline says "GitHub not
   checked".
 - **review** — a PR (open, or merged in the last 7 days) with review
@@ -1869,12 +1888,14 @@ other than the PR's author opened on that commit, or a review body that owes
 an answer. A push the reviewer passed is none; two reviewers on one push are
 one round. It is counted from the same read. The limit is `"review":
 {"rounds": N}` in `.plates/plates.json` (3 unset; a bad value exits 2 naming
-`"rounds"`). At the limit the read of an open PR exits 3 and prints the
+`"rounds"`). At N the trend is judged: progress grants one extension to 2N;
+repeating findings stop at N. At the effective limit the read of an open PR
+exits 3 and prints the
 choice: **merge with the rest tracked** (each open finding as *fix first*,
 *track* or *unsorted*), **split**, or **close**. Stop pushing fixes and
 report it; plates merges nothing. `--wait` returns at once at the limit: it
 does not wait for the reviewer. A cross-review summary whose findings are in
-its body (GitHub refused them inline; it carries `<!-- keel:cross-review
+its body (GitHub refused them inline; it carries `<!-- plates:cross-review
 findings N -->`) is a finding on its push and owes an answer. Under the limit, output and exit codes are
 as before, and `--gate` is never changed by the limit.
 
@@ -1884,7 +1905,7 @@ as before, and `--gate` is never changed by the limit.
 `--class` records a finding's kind by the merge rule (`security`,
 `overwrite` the owner's files, skips an `approval`: fix first; `other`:
 track, with an issue naming its known limit) and **leaves it unanswered**:
-its reply opens with `<!-- keel:class <kind> -->`, which no read counts as
+its reply opens with `<!-- plates:class <kind> -->`, which no read counts as
 an answer, so `--gate` still fails on it. With `--close` the class rides
 under the answer. It needs a fresh read, as `--close` does. The kind is
 yours to say after reading the finding; plates never infers it from the text,
@@ -1894,7 +1915,7 @@ and one with no class is listed *unsorted*, never *track*.
 wait, reviewed: [{reviewer, head, newest}], notReviewed, waited, gate,
 comments: [{kind: thread|review|comment, id, author, at, path, line, text,
 url, resolved, status?, answered, class}], unanswered, answered, ok, rounds:
-{count, limit, reached, pushes}, choice}` (`choice` null, or at the limit
+{count, limit, base, reached, pushes, trend}, choice}` (`choice` null, or at the limit
 `{fixFirst, track, unsorted}`, each `[{id, class, author, where, text}]`);
 `--close --json` → `{repo, number,
 answer, value, class?, reply, closed: [{id, kind, answer, replied, resolved}]}`;
@@ -1931,11 +1952,11 @@ Codex reviews Claude Code's. `.plates/plates.json` `"crossReview": {"for":
 {"claude": {}, "codex": {}}` (minutes 5–60, default 15; a PR is reviewed
 by the first listed provider that did not write it (by branch) with its
 secret, else by its own, said; no `agents` is claude alone; climb and tend
-take `agent`, claude only; an unknown key or provider, or an empty `for`, is red; no key, no reviews). A PR is reviewed when its
+take `agent`, `claude` or `codex` (`OPENAI_API_KEY` for Codex); an unknown key or provider, or an empty `for`, is red; no key, no reviews). A PR is reviewed when its
 head branch starts with a prefix and lives in this repo (never a fork), on
 `opened` and `ready_for_review`, and on a `/review` comment from an OWNER,
 MEMBER or COLLABORATOR (never a bot); never on a push.
-Standalone cross-review refuses `keel/robot-` branches even with a matching
+Standalone cross-review refuses `plates/robot-` branches even with a matching
 prefix or an owner `/review` comment. Only the robot workflow preserves their
 other-provider identity and shared build/review allowance. Continue through
 the issue conversation; `plates review` still reads and answers findings.
@@ -1944,7 +1965,7 @@ returns it. The agent (`.agents/cross-review/REVIEW.md`: validate before
 writing, cite the code, P1/P2/P3, no style nits) only reads (Codex in its
 read-only sandbox), time-boxed to the budget, and ends with a JSON block of
 findings; the workflow checks them against the diff and posts one `COMMENT`
-review, findings inline, opened by a `<!-- keel:cross-review -->` marker. No
+review, findings inline, opened by a `<!-- plates:cross-review -->` marker. No
 secret: green with a notice; an agent that failed to start: red, the error
 line only. Its comments are answered like any reviewer's.
 **After the push** (phase 60): `"crossReview": {"after": "push", "budget":
@@ -1978,6 +1999,20 @@ and answer it with `plates review <repo>@<sha>` (a sha covered only by a
 start was not reviewed: exit 1, saying so).
 
 <!-- topic: home | the hosted home in a terminal: one read model, two renderers -->
+
+Additional modes (all accept `--json`):
+
+- `--backlog [--lane <lane> | --by-goal] [--since YYYY-MM-DD] [--project <id>]`
+  reads the backlog; `--recurring [--project <id>]` reads recurring work;
+  `--agents [--project <id>]` reads agent activity.
+- `--attach <key> --route <route> [--provider <provider>] [--yes]` previews an
+  agent attachment, then claims and dispatches only with approval.
+- `--assist <key> --recommend <choice> --why "<line>" --evidence <link>...
+  [--provider <provider>] [--yes]` previews a recommendation and retains it with
+  approval; it is an agent draft, never an owner answer.
+- `--names-evidence` includes name-transition evidence in the Home read.
+- `--review --quick` limits the review session to quick answers.
+
 
 `plates home [--project <id>] [--fresh] [--json] | --answer <item-key> <answer-id> [--why] [--until] [--yes] | --review [--project <id>]` renders the hosted home's
 read model from this checkout and gh (plates phase 156): the fleet lens at
@@ -2598,7 +2633,7 @@ an unlabelled issue; `robot:{on:true,budgetMinutes:N}` opts in to `keel:agent`.
 The weekly allowance covers build and other-provider review. Unknown target
 policy blocks creation; a foreign target never borrows the local opt-in.
 No command here enables robot or authorizes model spend.
-Robot PRs (`keel/robot-`) receive other-provider review through the robot
+Robot PRs (`plates/robot-`) receive other-provider review through the robot
 workflow under that shared allowance. Standalone cross-review refuses them,
 regardless of configured prefixes or an owner `/review` comment; continue
 through the issue conversation.
@@ -2703,8 +2738,8 @@ candidates and gaps. Exit 0 observed/prepared; 1 unavailable/inconclusive; 2 ref
 <!-- topic: decision | current scoped decisions for builders -->
 
 `plates decision context --phase <id> --json` reads the phase's explicit
-`keel-reconciliation.decisions`. `--issue <owner/repo#n>` reads GitHub issue
-rubric `decisions` and `keel-impact.decisions`, requiring the local config's repo
+`plates-reconciliation.decisions`. `--issue <owner/repo#n>` reads GitHub issue
+rubric `decisions` and `plates-impact.decisions`, requiring the local config's repo
 to match. Arbitrary prose is never an instruction or a reference source.
 
 Read-only schema 1 returns target, revision, sources ({path, anchor, hash}),

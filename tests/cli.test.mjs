@@ -1,10 +1,13 @@
+import { copyPackageSource } from './helpers/copy-package-source.mjs';
+import { packedTarball } from './helpers/packed-tarball.mjs';
+import { config, load, targets } from '../lib/practices.mjs';
 // The CLI's surface: every verb is announced to agents, every verb speaks JSON,
 // and plates installs from a checkout with no build step.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { run } from './helpers/run.mjs';
-import { mkdtemp, readFile, rm, cp, mkdir, writeFile, symlink } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, mkdir, writeFile, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23,18 +26,13 @@ const plates = (args, cwd = PLATES, bin = BIN, env = process.env) => {
 };
 const names = () => [...verbs.keys(), ...FLAGS.map(f => f.name)];
 
-/** plates's working tree (tracked and untracked, minus ignored), copied to `dir`. */
-async function copyTree(dir) {
-  const files = execFileSync('git', ['-C', PLATES, 'ls-files', '-co', '--exclude-standard', '-z'], { encoding: 'utf8' })
-    .split('\0').filter(Boolean);
-  for (const f of files) {
-    await mkdir(dirname(join(dir, f)), { recursive: true });
-    await cp(join(PLATES, f), join(dir, f), { verbatimSymlinks: true }).catch(e => {
-      if (e.code !== 'ENOENT') throw e; // deleted in the working tree but still tracked
-    });
-  }
-  return dir;
-}
+/** Runtime inputs plus the records/managed targets exercised by CLI verbs. */
+const copyTree = async dir => copyPackageSource(PLATES, dir, [
+  'docs', '.plates', '.agents', '.claude', '.github',
+  'AGENTS.md', 'CLAUDE.md', 'plates.json', 'scripts/render.mjs',
+  ...targets(await config(PLATES), await load()).map(file => file.path),
+  'tests/helpers/hermetic.mjs', // the authored test command's preload, also used by plates test
+]);
 
 test('plates next --json: its next equals the roadmap script\'s next, and is the first of the free list', async () => {
   // A copy with no git remote: plates next fetches the claims where there is one (phase 70), and no test reads the live origin.
@@ -338,8 +336,10 @@ test('legacy executable path and preexisting global symlink forward arguments an
   const invalid = run(link, ['acme-unknown-command', '--json'], { cwd: dir });assert.equal(invalid.status, 2);assert.match(JSON.parse(invalid.stdout).error, /unknown verb/);
 });
 
-test('npm package includes the legacy executable compatibility entry', () => {
-  const packed = run('npm', ['pack', '--dry-run', '--json', '--ignore-scripts', '--offline'], { cwd: PLATES });
+test('npm package includes the legacy executable compatibility entry', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'plates-legacy-package-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const packed = await packedTarball(dir);
   assert.equal(packed.status, 0, packed.stderr);
   const files = JSON.parse(packed.stdout)[0].files;
   assert.ok(files.some(file => file.path === 'bin/keel.mjs' && (file.mode & 0o111) !== 0));
@@ -486,4 +486,15 @@ test('plates board is retired and names plates home', async () => {
     await assert.rejects(readFile(join(PLATES, 'lib', 'board.mjs')), /ENOENT/);
     assert.match(await readFile(join(PLATES, 'lib', 'work-items.mjs'), 'utf8'), /export async function workItems/);
   } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('learn accepts --json before evaluate without changing dispatch', async () => {
+  const { verbs, CLI_ROOT } = await import('../lib/cli.mjs');
+  const command = verbs.get('learn');
+  for (const args of [['evaluate','propose','acme','--json'], ['--json','evaluate','propose','acme']]) {
+    await assert.rejects(command.run(args, { cwd: CLI_ROOT }), /absolute_request_required/);
+  }
+  await assert.rejects(command.run(['unknown'], { cwd: CLI_ROOT }), /evaluate/);
+  await assert.rejects(verbs.get('adopt').run(['--with'], { cwd: CLI_ROOT }), /--agent-help init/);
+  await assert.rejects(command.run(['--json','evaluate','inspect','acme','--json'], { cwd: CLI_ROOT }), /duplicate/);
 });

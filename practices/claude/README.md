@@ -6,12 +6,30 @@ waits for a person to have time to start it.
 
 **The rule.** `.github/workflows/claude.yml` answers `@claude` in an issue,
 a comment or a review (or an issue labelled `claude`) with Claude Code,
-which reads the selected working guide, does the work on a `claude/` branch and opens a pull
-request. A person merges. Its tools let git read, stage and commit, not push;
-the action publishes its own branch. The action answers only people with
-write access. No model is pinned: a pinned model is a fact that ages. Branch
-protection on `main` is what makes "never pushes main" a guarantee rather
-than a configuration.
+which reads the selected working guide and makes local edits. Only people with
+current write, maintain or admin access may start it; bots are refused and an
+unavailable permission lookup stops the run. No model is pinned.
+
+**Containment boundary.** The agent job has only read permissions, no OIDC and
+no persisted checkout credentials. It passes the job token explicitly to Claude
+in prompt mode and installs with `npm ci --ignore-scripts`. Its tool deny list
+matches the local-only ceiling in `lib/autonomy-hosts.mjs`; tool lists alone
+do not sandbox the commands invoked by package scripts. Projects needing
+lifecycle scripts must arrange their setup separately.
+
+**Replies and patches.** A separate comment-only job returns the final answer
+to the triggering issue or PR after the agent succeeds or fails. It runs no
+repository code, has only issue and pull-request write permissions, and posts
+untrusted answer text using a body file. Comments are capped at 60,000 characters
+with a cut notice and a fixed footer linking the run. Missing or unreadable
+answers get a short fallback pointing to the Actions log. Refused requesters and
+unconfigured runs receive no reply; the missing-secret green notice is unchanged.
+
+Download the `claude-changes` artifact (kept for seven days) to review the patch,
+including committed, uncommitted and new files. It is untrusted review material;
+it is neither applied nor executed automatically. Branch pushes and PR creation
+wait for a person to review and publish the patch. Failed runs retain their
+answer and logs, not a success patch. The agent never posts its own comment.
 
 **What it needs (⚑).** One secret: `CLAUDE_CODE_OAUTH_TOKEN` (from
 `claude setup-token`, drawn from a Claude subscription) or

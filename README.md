@@ -152,7 +152,9 @@ treated as yours: the next update simply takes plates's file.
 3. **Review.** A reviewer reads the PR (with the cross-review practice on,
    the other provider does), and `plates review` makes
    sure every comment is validated and answered. A review that is still
-   drawing findings after three rounds stops there: `plates review` hands you
+   drawing findings reaches a checkpoint at N rounds (three by default): progress
+   grants one extension to 2N, while repeating findings stop at N. At the limit,
+   `plates review` hands you
    the choice (merge with the rest tracked, split, or close) with the open
    findings sorted. See [Spin a phase](docs/guide/spin-a-phase.md) for
    the whole path.
@@ -192,8 +194,9 @@ provider credentials, and route work using explicit capacity and budget policies
 Fleet-wide views and each project use the same records and controls.
 
 **Available today:** the CLI and `plates home`, external workspace
-manifest validation/initialization, private GitHub sign-in and a read-only Home
-board. Home shows source-backed decisions, ready walks, recent phase additions
+manifest validation/initialization, private GitHub sign-in and a source-backed Home
+board with previewed, explicitly approved answers. Home shows source-backed
+decisions, ready walks, recent phase additions
 and project summaries, with project lenses, search, source links and explicit
 coverage gaps. The first source read fills a loading view; later updates wait
 behind **Show changes** so the card you are reading stays stable. See
@@ -210,23 +213,23 @@ Local [result feedback](docs/guide/feedback.md) now retains exact reviewed bytes
 private revision history and explicit resolutions. It prepares issue or shaping
 handoffs for separate review. [Guided web walks](docs/guide/web-walks.md) now have
 local private save/resume, observation history, repair previews and exact acceptance
-previews. Their hosted migration and approved real-owner write need separate proof.
+previews. Hosted activation and real-owner use retain their own phase evidence.
 
 Supabase Free holds encrypted sessions and source caches outside the public code
-repository. The selected-repository GitHub App has read-only access; credentials
-live only in production secrets. Login, logout, current membership and removed
+repository. The selected-repository GitHub App needs scoped write permissions for
+enabled mutations; credentials live only in production secrets. Login, logout,
+current membership and removed
 project denial have been checked on the actual service. Phase status lives in
 [the roadmap](docs/ROADMAP.md):
 [93: local foundation](docs/phases/93-workspace-data-stays-outside-public-code.md),
 [95: sign-in](docs/phases/95-sign-in-scopes-every-project.md) and
 [96: Home](docs/phases/96-home-explains-every-project.md) have their own evidence;
 [94: connections](docs/phases/94-private-instance-has-approved-connections.md)
-still owes the backup destination. Decision submission, guided test results,
-screenshots/preview galleries and initial real-use verification follow in phases
-97–101. Home currently inspects and links to source; it does not write decisions
-or mark acceptance complete.
-Phase 97 now contains locally verified decision detail/preview and conditional
-delivery code; its hosted database and real-owner write walk are still pending.
+still owes the backup destination. Phase 97 is built with verified hosted decision
+commits. Home answers can defer an item, decide a proposal, record a completed
+walk, mark loose ends or merge a PR through each operation’s own preview and
+write gate. Acceptance still requires the phase’s declared evidence; an answer
+does not establish acceptance by itself.
 See [Web decisions](docs/guide/web-decisions.md) for supported records, disabled-by-default
 write access, exact public previews and recovery of an uncertain operation.
 Phase 98 adds authored step-by-step walks using the same disabled-by-default
@@ -235,7 +238,8 @@ source delivery boundary; see [Guided walks](docs/guide/web-walks.md).
 journal cards, reviewed uploads and private receipts. Bucket activation and the
 real captured-addition walk remain separate owner-approved steps.
 [Daily work and private learning](docs/guide/web-daily-learning.md) add source-backed
-night inspection, unsaved evening previews, selected private lesson-copy previews
+night inspection, encrypted saved evening drafts, reviewed night-plan publication,
+selected private lesson-copy previews
 and exact approved-text downloads. Workspace writes have their own disabled-by-default
 gate; real owner migration and provider comparisons need separate evidence.
 [Routine definitions and observed activity](docs/guide/web-routine-history.md) now
@@ -409,6 +413,7 @@ then gives the commands and every flag by the reason you'd pass it.
 | [Daily work and private learning](docs/guide/web-daily-learning.md) | you want to inspect nightly sources, draft within explicit limits, review private lesson copies or download exact approved text |
 | [Visual web tour](docs/guide/web-tour.md) | you want desktop/mobile screenshots and links to explore each implemented journey |
 | [Private Home board](docs/guide/web-home.md) | you want to understand project attention, refresh, source coverage and the browser walkthrough |
+| [Web activation](docs/guide/web-activation.md) | Check feature activation, grants and production evidence separately |
 | [Visual changes and private captures](docs/guide/web-changes.md) | you want to explore additions, review private screenshot uploads and recover or delete exact artifacts |
 | [Guided web walks](docs/guide/web-walks.md) | you want to author tests, save private observations, review exact acceptance files and prepare a repair |
 | [Web decisions](docs/guide/web-decisions.md) | you want to review exact changes, understand write access and recover an original operation receipt |
@@ -485,8 +490,8 @@ Every verb takes `--json`. Exit codes are the same everywhere:
 | `plates production status`, `collect`, `spec`, `verify` | Bounded production-error evidence, recurring repair candidates, and revision-scoped verification; missing coverage stays unknown |
 | `plates feedback` | Capture private feedback on an exact result, list metadata, propose a follow-up, or resolve it; local writes require the reviewed digest |
 | `plates issue new --agent` | Preview a rubric issue; `--yes` creates it, unlabelled while robot is OFF |
-| `plates review <repo>#<n>` | A PR's review comments and which are answered; `--wait` for its reviewers; `--close` answers one fixed, tracked or not valid, only once it was read; `--class` sorts a finding without answering it. At three review rounds on an open PR it exits 3 and gives you the choice. Not a gate |
-| `plates home` | The hosted home in a terminal, in four sections: what needs you (fix, decide, try it), what happened since your last look, what is queued next, and your plates, from the same read model as the web; `--project <id>` for one plate and what waits, `--json` for `/api/home`'s shape |
+| `plates review <repo>#<n>` | A PR's review comments and which are answered; `--wait` for its reviewers; `--close` answers one fixed, tracked or not valid, only once it was read; `--class` sorts a finding without answering it. At N rounds (three by default), progress grants one extension to 2N; otherwise it stops at N. At that effective limit on an open PR it exits 3 and gives you the choice. Not a gate |
+| `plates home` | The hosted home in a terminal, in four sections: what needs you (fix, decide, try it), what happened since your last look, what is queued next, and your plates, from the same read model as the web; `--project <id>` for one plate and what waits, `--json` for `/api/home`'s shape; `--backlog`, `--recurring`, `--agents` and `--names-evidence` inspect more; `--attach` and `--assist` preview local actions before `--yes` |
 | `plates board` | Retired (phase 156): prints its replacement, `plates home`, and exits 2, starting no server |
 | `plates promote [<commit>]`, `plates promote --back [<commit>]` | Move production (`delivery.promote`, like `tag:prod`, or `vercel:<project>`) only to a commit on the tested ref whose gate passed: a preview first, then `--yes` moves it and verifies production serves it; `--back` rolls back and passes only when production serves exactly that commit. A Vercel target records what serves first, checks the revision, smoke paths and error logs, and rolls itself back on a failure; `--back` alone returns to the last good deploy. A person's command, or an agent's under the owner's `delivery.grant`: no workflow runs it |
 | `plates walk done\|decide` | Settle the owner's turn: `done` checks a phase's ⚑ walk and writes the read into its evidence (built when nothing is left open); `decide` accepts or declines a health proposal; time proposals require `--instance`, create/recover their issue on acceptance, and support reviewed `--map` transitions. Leaves a diff to commit |

@@ -132,9 +132,9 @@ own `scripts/loop.*` is still there.
    (major 0, checked against 0.11.0; a 1.0 never arrives unseen).
 2. Turns Loop on in the CLI and runs `pull`.
 3. Runs the gate: `render --check`, then the project's `{{check}}`.
-4. Opens one `keel-loop/<date>` PR when `docs/loop/`, `docs/LOOP.md` or an
+4. Opens one `plates-loop/<date>` PR when `docs/loop/`, `docs/LOOP.md` or an
    `afterRenderWrites` file changed, holding all of them.
-5. Runs `node scripts/plates/drain.mjs keel-loop/ --yes`, with `--gate-passed`
+5. Runs `node scripts/plates/drain.mjs plates-loop/ --yes`, with `--gate-passed`
    only when the gate passed.
 
 For this queue the drain's data is `docs/loop/`, `docs/LOOP.md` and the

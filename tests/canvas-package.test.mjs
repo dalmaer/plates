@@ -1,3 +1,4 @@
+import { packedTarball } from './helpers/packed-tarball.mjs';
 // Exercise canvas from npm's artifact, away from the checkout and without an
 // SDK install. package.test.mjs already proves the new project's full gate.
 import { test } from 'node:test';
@@ -55,7 +56,7 @@ exit 71
     GIT_COMMITTER_NAME: 'Acme Builder', GIT_COMMITTER_EMAIL: 'builder@acme.test',
   };
   delete env.NODE_PATH;
-  const pack = run('npm', ['pack', '--json', '--ignore-scripts', '--pack-destination', tmp], { cwd: PLATES, env });
+  const pack = await packedTarball(tmp);
   assert.equal(pack.status, 0, `npm pack failed:\n${pack.stderr}`);
   const [{ filename }] = JSON.parse(pack.stdout);
   const unpack = run('tar', ['xzf', join(tmp, filename), '-C', tmp], { env });

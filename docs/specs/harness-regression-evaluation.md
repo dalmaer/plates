@@ -46,10 +46,11 @@ candidate overlay outside the task's authority. `prove` and validation planning
 supply useful checks, not independent acceptance by themselves.
 
 The CLI surface is `plates retro evaluations <operation> --json`. Phase 117
-implements plan, freeze and inspect; phase 118 adds offline run. Resume, cancel,
-compare and rescore remain planned and refuse invocation. Each shipped operation
-has agent help. Plan/inspect and the future compare operation are
-read-only. Run/resume/rescore preview the exact input digest, missing slots,
+implements plan, freeze and inspect; phase 118 adds offline run, and phase 119
+adds compare, resume, reconcile and cancel. Explicit host-gateway plans also
+support one-slot live run/reconcile; live aggregate resume and rescore remain
+unavailable. Each shipped operation has agent help. Plan/inspect/compare are
+read-only. Run/resume/reconcile/cancel preview the exact input digest, missing slots,
 authority, maximum additional spend and environment; execution requires `--yes
 --digest <preview>`. Resume approval cannot enlarge the frozen ceiling.
 No scheduler, hosted worker activation or fleet dispatch is part of the MVP.
@@ -290,16 +291,20 @@ when discordant counts, drift or missing evidence make the conclusion ambiguous.
 
 ## Execution state transitions
 
-Comparison states are draft, frozen, admitted, running, stopping, completed and
-incomplete. Completed means every planned slot has terminal evidence, not that
+Plan preview reports `draft`, inspection reports `frozen`, and comparison
+reports are `completed` or `incomplete`. Completed means every planned slot has
+terminal evidence, not that
 any task was accepted. Incomplete retains missing or uncertain work. A frozen
 plan never changes in place; a successor comparison references the old plan.
-Trial states are reserved, preparing, dispatching, uncertain, running,
-cancelling, artifact-retained, evaluating, terminal and refused. Persist intent
-before dispatch. Only inspect/reconciliation can leave uncertain; it cannot
+Offline trial execution reports `terminal` or `uncertain`; admission refusal
+is terminal with its refusal reason. Aggregate execution inspection reports
+`complete` or `uncertain`. Stage intents, artifacts, verdicts and settlement
+receipts retain the intermediate evidence rather than emitting additional trial
+states. Persist intent before dispatch. Only inspect/reconciliation can leave uncertain; it cannot
 transition directly to a new start. Terminal requires settlement plus stage
-outcomes or an explicit unavailable-evidence receipt. Cancellation may end in
-terminal/cancelled only after confirmed stop. Evaluator attempts have their own
+outcomes or an explicit unavailable-evidence receipt. Cancellation closes admission; a trial becomes terminal only when its original
+operation observations allow settlement. Existing verdicts are preserved; absent
+verdicts retain `acceptance: unknown` and `failureCategory: missing-evidence`. Evaluator attempts have their own
 operation identity and can be recovered without rerunning the builder.
 
 Each stage outcome is passed, failed, not-run or unknown, with a reason code.

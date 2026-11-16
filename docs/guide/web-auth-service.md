@@ -1,9 +1,10 @@
 # Run the private web sign-in service
 
 Phases 95–96 provide a framework-free service with responsive sign-in and a
-read-only [Home board](web-home.md) for authorized projects. Phases 97–98 add
+source-backed [Home board](web-home.md) for authorized projects. Phases 97–98 add
 [decision review](web-decisions.md) and [guided walks](web-walks.md), with source
-writes disabled by default. Media remains planned. This guide describes the
+writes disabled by default. Private media routes use their separately activated
+adapter. This guide describes the
 service contract; it is not evidence that an instance has been deployed or that
 its owner has completed a real login.
 
@@ -273,10 +274,12 @@ coverage as complete. Provider calls have eight-second limits and a shared
 ETags and cursors; `fresh=1` requests revision revalidation subject to the shared
 cooldown and provider quota. `/api/session` and `/api/projects/:id` expose current
 authorized connection details. See [Home](web-home.md) for cache bounds and gaps.
-`/api/projects/:id/media/:id` and `/api/projects/:id/stream` check the same access
-boundary, then explicitly report that the feature is unavailable. They do not
-serve invented media or events. Future mutation handlers must use both the exact
-Origin check and the session CSRF token before touching a source record.
+`/api/projects/:id/media` lists private media; `media/:id` and
+`media/receipts/:requestId` inspect retained receipts, and `media/:id/bytes` serves
+authorized bytes through the configured media adapter. Missing activation remains
+unavailable. `/api/projects/:id/stream` still reports feature unavailable.
+Mutation handlers require both the exact Origin check and the session CSRF token
+before touching a source record.
 
 ## Optional scoped provider connections
 
