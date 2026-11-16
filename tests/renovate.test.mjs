@@ -92,3 +92,13 @@ test('Node moves in one weekly PR for a person, across .nvmrc, a Dockerfile and 
   assert.equal(node.separateMajorMinor, false, 'a major and a minor of Node never split into two PRs');
   assert.deepEqual(node.schedule, ['before 6am on monday']);
 });
+
+test('the engines floor is never raised by Renovate: a satisfied >= range is left alone (dalmaer/plates#433)', async () => {
+  const rules = (await config()).packageRules;
+  const floor = rules.find(r => r.matchDepTypes?.includes('engines'));
+  assert.ok(floor, 'an engines rule exists');
+  assert.deepEqual(floor.matchManagers, ['npm']);
+  assert.equal(floor.rangeStrategy, 'replace', '"bump" would raise >=24 to >=26 for every project');
+  const later = rules.slice(rules.indexOf(floor) + 1);
+  assert.ok(!later.some(r => 'rangeStrategy' in r), 'no later rule overrides the range strategy');
+});

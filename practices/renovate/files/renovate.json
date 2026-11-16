@@ -81,6 +81,17 @@
       "automerge": false
     },
     {
+      "description": "A package's engines floor is a promise about which Node versions it supports, so it rises by a person's decision, never by Renovate: a newer Node already satisfies a >= floor, and \"replace\" leaves a satisfied range alone. The Node lane sets no range strategy, so this holds beside it.",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchDepTypes": [
+        "engines"
+      ],
+      "rangeStrategy": "replace",
+      "automerge": false
+    },
+    {
       "description": "Node moves on its own, weekly, read by a person: .nvmrc, a Dockerfile's FROM node: image and @types/node in ONE pull request, since a project that holds them to one major fails a split one. Last, so it wins over the lanes above.",
       "matchDepNames": [
         "node",
