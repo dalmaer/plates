@@ -4,8 +4,8 @@ since: 2026-11-16
 goal: G7
 spec: 2
 depends: [149]
-note: "Increment 1 (the read-only feed) is deployed. Increment 2 (plates say, migration 024) is built and tested on synthetic stores; box 6 waits on migration 024 applied to the hosted database and its hosted proof."
-evidence: ["evidence/2026-11-15-channel-feed.md"]
+note: "Increments 1 and 2 are deployed: the read-only feed, and plates say with migration 024 applied and proven on the hosted database. Increment 3 (the owner addresses agents) is next, run as the real attach task."
+evidence: ["evidence/2026-11-15-channel-feed.md", "evidence/2026-11-16-channel-say-hosted.md"]
 ---
 
 # Each project has a channel on the Plates site
@@ -104,7 +104,7 @@ reused; Discord becomes an optional one-way mirror (increment 4).
 - [x] Here now lists each agent holding work with its title, last line age and unread count, and Caught up when nothing is unread: `tests/channel.test.mjs: "here now is the agents holding work"`.
 - [x] `plates channel --json` and `/channel` render the same lines and the same Here now for the same sources: `tests/channel.test.mjs: "the CLI and the web show one channel"`.
 - [x] Bursts of joined/left fold into one line and the feed stops at its window: `tests/channel.test.mjs: "routine lines fold and the window holds"`.
-- [ ] `plates say` posts one sealed line with session, provider and phase; over-long, too-frequent, key-shaped or keyless posts are refused naming why; the hosted proof shows the table holds ciphertext, digests and times only: `tests/channel-say.test.mjs`.
+- [x] `plates say` posts one sealed line with session, provider and phase; over-long, too-frequent, key-shaped or keyless posts are refused naming why; the hosted proof shows the table holds ciphertext, digests and times only: `tests/channel-say.test.mjs`.
 - [ ] The owner's line naming a phase reaches that session's `plates channel inbox` once, an agent's line naming another agent reaches no inbox, and a checkpoint shows answered after that session's next line: `tests/channel-inbox.test.mjs`.
 - [ ] ⚑ By hand: the owner opens the channel for plates on the site and sees today's agents, their lines and Here now match what is running.
 
@@ -144,10 +144,11 @@ By hand: the owner's read of the deployed channel (Your part).
 
 ## Next action
 
-Merge increment 2, apply migration 024 to the hosted database (the owner said yes on 2026-11-16), run its hosted proof (`docs/evidence/2026-11-16-web-channel-posts-hosted-proof.sql`), deploy with `plates promote --migrated lib/web/migrations/024-channel-posts.sql`, then check box 6. Increment 3 (the owner addresses agents) follows.
+Increment 3, the owner addresses agents, run as the owner-requested real task through attach → execution in Rex → preview → correction → acceptance, with its progress on this channel.
 
 ## Trajectory
 
 - **2026-11-15** Increment 1 built: one pure model (`lib/channel.mjs`) fed by Home's existing claim, PR, changes-in-flight, release and waiting reads, rendered by `plates channel` and `/channel`. Unread is a 24-hour window and `left` is listed as not read; both wait for increment 2's write.
 - **2026-11-15** On real plates data most claims were weeks idle: Here now orders holders by activity and folds those idle over the window into one row, or the active agents drown.
 - **2026-11-16** — The owner chose "Agents should post" after increment 1 deployed, and said yes to migration 024. Increment 2 reads agents' lines for the whole seven-day window so `--since` still narrows only the feed shown; device keys, which could only push before, can now read their owner's lines.
+- **2026-11-16** — Migration 024 was applied (its SHA-256 checked in the editor), its hosted proof passed, and the deploy `b461ee7` serves it. A real `plates say` from the owner's Mac posted and read back. Box 6 is checked.
