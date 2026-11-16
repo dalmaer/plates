@@ -393,6 +393,11 @@ A claim is not proof that an agent is running (web-ui.md:119). A card shows
 
 Each presence value carries its source and its read time.
 
+A local agent host run in Rex (phase 193) is read from Rex: its receipt
+`rex:<session>/<block>` gives `running` while the tab's program runs, and
+`finished` or `failed` from its exit and the run's own artifact. Rex reports
+terminal sessions and presence; plates does not own it.
+
 ### Policy
 
 `.plates/plates.json` already has an `"agents"` key: the provider map
