@@ -167,6 +167,24 @@ test('here now is the agents holding work', () => {
     [ago(HOUR), 'ci', 'checks failed on codex/phase-3-crates: fix test on codex/phase-3-crates (PR #31)'],
   ], 'a push fifteen days ago is not shown as an hour ago (and falls outside the window)');
   assert.deepEqual(sentBack.hereNow.map(h => [h.actor, h.last.kind, h.last.age]), [['studio#3', 'ci', '1h']], 'activity follows the same lines');
+  // A PR waiting on review keeps its latest push as its own line (#464): ready ten days ago, pushed ten minutes ago, is here, not idle.
+  const reviewed = model({ c: claims({ claims: [{ phase: 3, provider: 'codex', at: ago(10 * DAY) }], prs: [] }), p: prs({ items: [] }),
+    project: studio({ waits: { state: 'read', more: 0, items: [
+      { branch: 'codex/phase-3-crates', phase: 3, state: 'review', since: ago(6 * DAY), headAt: ago(10 * MIN), next: 'PR #31 waits on review: answer every review, then merge or plates ready' },
+      { branch: 'claude/tidy', phase: null, state: 'review', since: ago(2 * HOUR), headAt: ago(2 * HOUR), next: 'PR #32 waits on review' },
+      { branch: 'claude/unread-head', phase: null, state: 'review', since: ago(3 * HOUR), headAt: null, next: 'PR #33 waits on review' },
+    ] } }) });
+  assert.deepEqual(reviewed.lines.filter(l => l.source === 'waits').map(l => [l.at, l.kind, l.text]), [
+    [ago(6 * DAY), 'pr', 'codex/phase-3-crates waits on review'],
+    [ago(3 * HOUR), 'pr', 'claude/unread-head waits on review'],
+    [ago(2 * HOUR), 'pr', 'claude/tidy waits on review'],
+    [ago(10 * MIN), 'pushed', 'last pushed codex/phase-3-crates'],
+  ], 'the push and the wait each at their own time; a push at the ready time, or none read, adds no line');
+  assert.deepEqual([reviewed.hereNow.map(h => [h.actor, h.last.kind, h.last.age, h.unread]), reviewed.hereIdle], [[['studio#3', 'pushed', '10m', 1]], null]);
+  // An old review whose head is older than the window: the wait line alone; the claim is idle.
+  const stillReview = model({ c: claims({ claims: [{ phase: 3, provider: 'codex', at: ago(20 * DAY) }], prs: [] }), p: prs({ items: [] }),
+    project: studio({ waits: { state: 'read', more: 0, items: [{ branch: 'codex/phase-3-crates', phase: 3, state: 'review', since: ago(12 * DAY), headAt: ago(9 * DAY), next: 'waits on review' }] } }) });
+  assert.deepEqual([stillReview.lines.filter(l => l.source === 'waits'), stillReview.hereNow, stillReview.hereIdle?.actors], [[], [], ['studio#3']]);
   // PR #3 naming no phase and phase 3 are two identities: the PR's lines never count as the phase's in Here now.
   const clash = model({ c: claims({ claims: [{ phase: 3, provider: 'codex', at: ago(3 * DAY) }], prs: [] }), project: studio({ waits: { state: 'read', items: [], more: 0 } }),
     p: prs({ items: [{ number: 3, title: 'Acme renovate bump', url: 'https://github.com/acme/studio/pull/3', createdAt: ago(10 * MIN), isDraft: false, author: 'renovate' }] }) });
