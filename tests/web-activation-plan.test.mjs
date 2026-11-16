@@ -97,9 +97,11 @@ test('the activation plan is complete and ordered', async t => {
   });
 
   await t.test('recorded non-contiguous applications and the late naming repair remain explicit', () => {
-    assert.match(plan.summary, /phase 127 says 014 applied.*phase 151 still calls pending/i);
+    assert.match(plan.summary, /phase 127 says 014 applied.*phase 151 previously called pending/i);
     assert.match(plan.summary, /005–013 and 022 appear applied but are not recorded/);
     assert.doesNotMatch(plan.summary, /Nothing here has been run/);
+    const directions = JSON.stringify([plan.summary, plan.steps, plan.open]);
+    assert.doesNotMatch(directions, /Phase 151 still places|Its Next action still says apply|Phase 184’s 019 Next action is stale/);
     assert.ok(index('rpc-name-baseline-inspect') < index('migration-005'));
     // 023 is applied (2026-11-16): its place after 013 is an inspection, not a second application.
     assert.ok(!plan.steps.some(s => s.migration === '023-late-rpc-names.sql'));

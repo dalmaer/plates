@@ -54,9 +54,9 @@ A merge or green test suite does not establish production verification or lived-
 
 ## Next action
 
-Owner selects a private backup destination, isolated restore target, projects,
-participants and observation window. Deploy the verified application, compare
-serving identity, then complete the decision/testing/visual and restore journeys
+Use the backup destination chosen in phase 94 on 2026-10-31. The owner selects
+an isolated restore target, projects, participants and observation window. Deploy
+the verified application, compare serving identity, then complete the decision/testing/visual and restore journeys
 in the [private trial worksheet](../guide/web-recovery.md). Keep execution
 features disabled until their separate current restore proofs hold.
 

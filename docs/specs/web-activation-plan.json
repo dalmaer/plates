@@ -5,7 +5,7 @@
   "record": "docs/phases/151-the-hosted-workspace-is-the-owners-daily-driver.md",
   "readAt": "2026-11-16",
   "runtimeBaseline": "24.22.1",
-  "summary": "The records report migrations 001–004, 014, 017–019 and the repair 023 applied (023 on 2026-11-16, with its hosted proof). A read-only check of the hosted database just before 023 found all ten 005–013 RPC pairs installed under both keel_* and plates_* names, and 022's two tables present. So 005–013 and 022 appear applied but are not recorded, and their applied bytes are unchecked: that settles the earlier contradiction (phase 127 says 014 applied, but unchanged 014 requires the 005–013 RPCs that phase 151 still calls pending) in favour of 005–013 having run. Before running any 005–013 or 022 step, inspect its applied file identity and run its proof instead of reapplying it. 015–016 and 020–021 were not inspected and remain pending.",
+  "summary": "The records report migrations 001–004, 014, 017–019 and the repair 023 applied (023 on 2026-11-16, with its hosted proof). A read-only check of the hosted database just before 023 found all ten 005–013 RPC pairs installed under both keel_* and plates_* names, and 022's two tables present. So 005–013 and 022 appear applied but are not recorded, and their applied bytes are unchecked: that settles the earlier contradiction (phase 127 says 014 applied, but unchanged 014 requires the 005–013 RPCs that phase 151 previously called pending) in favour of 005–013 having run. Before running any 005–013 or 022 step, inspect its applied file identity and run its proof instead of reapplying it. 015–016 and 020–021 were not inspected and remain pending.",
   "rules": [
     "Run the remaining steps in order. Steps already recorded complete below ask for current inspection, not automatic reapplication. Stop at the first failed proof, follow its rollback and record what was observed.",
     "The owner signs in to Vercel, Supabase and GitHub when a step needs it; the conductor runs the step and records its hosted proof. No credential is typed into chat, Git, a log or browser storage.",
@@ -127,7 +127,7 @@
       "id": "rpc-name-baseline-inspect",
       "phase": 127,
       "kind": "decision",
-      "what": "Phase 127 records 014 applied on 2026-10-31 and dual writers enabled. Phase 151 still places 005–013 in the future, but unchanged 014 requires all their RPCs and refuses overwritten forwarders. Inspect actual function definitions, signatures, grants and the applied file identity before continuing. Do not reapply 014 or infer missing migrations were applied.",
+      "what": "Phase 127 records 014 applied on 2026-10-31 and dual writers enabled. Phase 151 previously placed 005–013 in the future; its corrected Next action now calls for inspection of the installed RPCs. Unchanged 014 requires all their RPCs and refuses overwritten forwarders. Inspect actual function definitions, signatures, grants and the applied file identity before continuing. Do not reapply 014 or infer missing migrations were applied.",
       "prerequisites": [
         94,
         127
@@ -696,7 +696,7 @@
       "id": "backlog-hosted-walk",
       "phase": 184,
       "kind": "decision",
-      "what": "019 is recorded applied with hosted proof on 2026-11-07 in phase 184 and its evidence. Its Next action still says apply: that instruction is stale. Write one event from the web and read it on /backlog/history; do not reapply the migration.",
+      "what": "019 is recorded applied with hosted proof on 2026-11-07 in phase 184 and its evidence. Its corrected Next action retains the web event read-back. Write one event from the web and read it on /backlog/history; do not reapply the migration.",
       "prerequisites": [
         94,
         184
@@ -899,6 +899,6 @@
     "Existing hosted proof SQL covers 005–016 and the later feature migrations; its comments assuming contiguous prior migrations are prerequisites, not evidence that those migrations ran. Repair 023 has local PGlite coverage and docs/evidence/2026-11-15-web-late-rpc-names-hosted-proof.sql, not a recorded hosted application. PGlite cannot establish real Supabase grants, pooling, lock waits or applied file hashes.",
     "Connections (103) are optional. Declining them skips their steps and model routing (106), and the plan records that choice rather than a gap.",
     "G9's owner-facing pieces (phases 144, 145, 150) are planned, so they have no step yet; a step for an unbuilt phase is refused.",
-    "Historical conflict: phase 127 records 014 applied, while phase 151 leaves 005–013 pending. Current 014 cannot produce that sequence. The synthetic retained-state test models core aliases without optional stores and separately proves the literal sequence fails; it does not reconstruct unknown production bytes. Phase 184’s 019 Next action is stale against its dated application evidence. Phases 152 and 154 leave 015 and 016 pending; phase 181 explicitly keeps 020 and 021 unapplied."
+    "Historical conflict: phase 127 recorded 014 applied, while phase 151 left 005–013 pending; phase 151 now directs inspection of the installed RPCs. Current 014 cannot produce that sequence. The synthetic retained-state test models core aliases without optional stores and separately proves the literal sequence fails; it does not reconstruct unknown production bytes. Phase 184’s 019 Next action now asks for the outstanding web event read-back, consistent with its dated application evidence. Phases 152 and 154 leave 015 and 016 pending; phase 181 explicitly keeps 020 and 021 unapplied."
   ]
 }

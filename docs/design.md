@@ -489,7 +489,8 @@ dependency-free runtime gate. This is not a decision to port Plates.
   **Settled 2026-10-04 (phase 22):** two versions. The CLI's is
   `package.json` and the release tag; the practice's is `practices/VERSION`,
   the one file every reader goes through. `plates release` always bumps the
-  CLI, and bumps the practice only when `practices/` or `migrations/` differ
+  CLI, and bumps the practice only when `practices/`, `migrations/` or
+  `docs/lessons.md` differ
   from the last practice release (the last commit that changed
   `practices/VERSION`, else its tag); the WHATSNEW entry says which kind it
   was, and `plates update` carries only practice entries. What settled it: the

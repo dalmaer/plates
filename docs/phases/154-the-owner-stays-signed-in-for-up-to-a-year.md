@@ -97,7 +97,10 @@ renewal (within 8 hours). Settled by the owner's choice on 2026-10-31.
 
 ## Next action
 
-Build the renewal, migration 016 and the sign-in page; then apply 016 and deploy with the owner.
+Apply 016 with its hosted proof and deploy the already-built renewal and sign-in
+page with the owner, following the [activation guide](../guide/web-activation.md).
+Then the owner signs in on the phone and checks again after more than eight hours.
+The 2026-11-16 inventory did not inspect 016; its application remains pending.
 
 ## Trajectory
 

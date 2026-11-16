@@ -340,7 +340,10 @@ create and approve pull requests*, or `gh pr create` is refused (the run
 pushes the branch and ends green with a notice). Squash merges allowed, for
 the drain.
 
-**Its files.** `.github/workflows/plates-night.yml`, `scripts/plates/improve.mjs`,
+**Selected files.** The complete installed file list and runtime imports live in
+[practice.json](practice.json). The following is an overview.
+
+`.github/workflows/plates-night.yml`, `scripts/plates/improve.mjs`,
 `scripts/plates/drain.mjs`, `scripts/plates/lib.mjs`, `scripts/plates/test-ledger.mjs`,
 `scripts/plates/stalls.mjs`, `scripts/plates/pr-body.mjs` (managed), and the `night` block of the selected working guide (so it needs agents-md). They need the
 phases practice's `scripts/roadmap.mjs` for the phase measures; with phases
