@@ -341,8 +341,9 @@ test('did the agent run: a Codex step that failed, or ended with no final messag
     const claude = step({ AGENT: 'claude', OUTCOME: 'success', EXECUTION: join(dir, 'execution.json') });
     assert.equal(claude.status, 1);
     assert.match(claude.stdout, /^::error::Claude did not start: is_error after 1 turn/);
-    const claudeOk = step({ AGENT: 'claude', OUTCOME: 'success', EXECUTION: join(dir, 'execution.json').replace('execution', 'none') });
-    assert.equal(claudeOk.status, 0, 'a missing execution file on success is not red, as before');
+    const missing = step({ AGENT: 'claude', OUTCOME: 'success', EXECUTION: join(dir, 'execution.json').replace('execution', 'none') });
+    assert.equal(missing.status, 1, 'a missing execution file cannot verify a run, even on success (lib.mjs agentVerdict, as climb)');
+    assert.match(missing.stdout, /^::error::blocked: Claude execution evidence is missing/);
   } finally { await rm(dir, { recursive: true, force: true }); }
   // The step reads the outcome of whichever provider's step ran.
   assert.match(w.crossReview.text, /OUTCOME: \$\{\{ steps\.which\.outputs\.agent == 'codex' && steps\.review_codex\.outcome \|\| steps\.review\.outcome \}\}/);

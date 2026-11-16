@@ -43,7 +43,7 @@ test('actual corpus wrapper shape exports Git and uses the same pure preparation
   const input = await w.input(); const args = { plan: input.plan, caseRef: input.caseRef, configurationRef: input.configurationRef, repository: w.repository, sourcePaths: w.sources.map(f => f.path) };
   const h = await w.corpus.prepareCorpusInputPartition(args);
   assert.deepEqual(w.api.partitionIdentity(h), w.api.partitionIdentity(w.api.prepareInputPartition(input)));
-  await assert.rejects(w.corpus.prepareCorpusInputPartition({ ...args, sourcePaths: args.sourcePaths.slice(1) }), { code: 'partition_invalid' });
+  await assert.rejects(w.corpus.prepareCorpusInputPartition({ ...args, sourcePaths: args.sourcePaths.slice(1) }), { code: 'partition_incomplete', message: 'partition_incomplete', exitCode: 2 });
   await assert.rejects(w.corpus.prepareCorpusInputPartition({ ...args, repository: '/Acme/unavailable-private-path' }), { message: 'partition_invalid' });
 });
 test('only currency ceiling may vary from the exact reviewed case', async () => {
@@ -83,8 +83,11 @@ test('unreviewed public materials and private relabeling cannot enter shared con
     const b = structuredClone(w.b); b.configurations[0].overlays.push(entry); reseal(b); const input = await w.input(b);
     refuses(() => w.api.prepareInputPartition(input), 'partition_unreviewed');
   }
+  const options = await wrapperOptions();
   await classified(m => { m.publicMaterials.push({ ...m.cases[0].evaluatorFiles[0] }); m.publicMaterials.sort((a, b) => a.path < b.path ? -1 : 1); }, async () => {
-    await assert.rejects(w.corpus.loadReviewedInputClassification(), { code: 'partition_unreviewed' });
+    // One material assigned to competing roles is the section 6 collision, not flattened.
+    await assert.rejects(w.corpus.loadReviewedInputClassification(), { code: 'partition_collision', message: 'partition_collision', exitCode: 2 });
+    await assert.rejects(w.corpus.prepareCorpusInputPartition(options), { code: 'partition_collision', message: 'partition_collision', exitCode: 2 });
   });
 });
 test('cross-role and requirements collisions refuse before merging files', async () => {
@@ -114,8 +117,15 @@ test('strict new parser rejects duplicate keys, UTF8, surrogates and deep JSON',
   assert.ok(w.api.reconstructEvaluatorInput(h, empty + ' '.repeat(393216 - Buffer.byteLength(empty))).files.length);
 });
 test('installed classification refuses drift, incomplete, duplicate and unordered rows', async () => {
-  for (const mutate of [m => { m.catalogDigest = '0'.repeat(64); }, m => { m.cases[0].sources[0].blob = '0'.repeat(40); }, m => { m.cases[0].evaluatorFiles.pop(); }, m => { m.cases.reverse(); }, m => { m.cases[0].sources.reverse(); }, m => { m.cases.push(m.cases[0]); }, m => { m.extra = 'Acme private-canary'; }]) {
-    await classified(mutate, async () => { await assert.rejects(w.corpus.loadReviewedInputClassification(), { code: 'partition_unreviewed', message: 'partition_unreviewed' }); });
+  // Specific section 6 codes pass through the loader; generic shape failures fall back to unreviewed.
+  const options = await wrapperOptions();
+  for (const [code, mutate] of [['partition_binding_mismatch', m => { m.catalogDigest = '0'.repeat(64); }], ['partition_binding_mismatch', m => { m.cases[0].sources[0].blob = '0'.repeat(40); }], ['partition_binding_mismatch', m => { m.cases[0].evaluatorFiles.pop(); }],
+    ['partition_unreviewed', m => { m.cases.reverse(); }], ['partition_unreviewed', m => { m.cases[0].sources.reverse(); }], ['partition_unreviewed', m => { m.cases.push(m.cases[0]); }], ['partition_unreviewed', m => { m.extra = 'Acme private-canary'; }],
+    ['partition_bounds', m => { m.publicMaterials[0].bytes = 65537; }]]) {
+    await classified(mutate, async () => {
+      await assert.rejects(w.corpus.loadReviewedInputClassification(), { code, message: code, exitCode: 2 });
+      await assert.rejects(w.corpus.prepareCorpusInputPartition(options), { code, message: code, exitCode: 2 });
+    });
   }
   const h = w.api.prepareInputPartition(await w.input());
   await classified(m => { m.revision++; }, async () => { const changed = w.api.prepareInputPartition(await w.input()); assert.notEqual(w.api.partitionIdentity(h).digest, w.api.partitionIdentity(changed).digest); });
@@ -185,21 +195,23 @@ async function wrapperOptions() {
 }
 test('wrapper rejects invalid reviewed selections and inventories before any Git command', async t => {
   let calls = 0; observeGit(t, () => { calls++; });
+  // The wrapper keeps the specific section 6 code; only unclassified failures become partition_invalid.
   const mutations = [
-    x => { x.plan.digest = '0'.repeat(64); },
-    x => { x.caseRef.digest = '0'.repeat(64); },
-    x => { x.configurationRef.digest = '0'.repeat(64); },
-    x => { x.sourcePaths.pop(); },
-    x => { x.sourcePaths.push('Acme-private-extra.txt'); },
-    x => { x.sourcePaths[1] = x.sourcePaths[0]; },
-    x => { x.sourcePaths[0] = '../Acme-private.txt'; },
-    x => { const b = x.plan.bundle; b.cases[0].startingCommit = '0'.repeat(40); reseal(b); x.plan = plan(b); x.caseRef = ref(b.cases[0]); x.configurationRef = ref(b.configurations[0]); },
-    x => { const b = x.plan.bundle; b.configurations.forEach(c => c.exclusions.push('source-001.txt')); reseal(b); x.plan = plan(b); x.configurationRef = ref(b.configurations[0]); },
-    x => { const b = x.plan.bundle; b.configurations[0].context[0].path = 'Acme-unreviewed.txt'; reseal(b); x.plan = plan(b); x.configurationRef = ref(b.configurations[0]); },
+    ['partition_binding_mismatch', x => { x.plan.digest = '0'.repeat(64); }],
+    ['partition_binding_mismatch', x => { x.caseRef.digest = '0'.repeat(64); }],
+    ['partition_binding_mismatch', x => { x.configurationRef.digest = '0'.repeat(64); }],
+    ['partition_incomplete', x => { x.sourcePaths.pop(); }],
+    ['partition_incomplete', x => { x.sourcePaths.push('Acme-private-extra.txt'); }],
+    ['partition_incomplete', x => { x.sourcePaths[1] = x.sourcePaths[0]; }],
+    ['partition_invalid', x => { x.sourcePaths[0] = '../Acme-private.txt'; }],
+    ['partition_binding_mismatch', x => { const b = x.plan.bundle; b.cases[0].startingCommit = '0'.repeat(40); reseal(b); x.plan = plan(b); x.caseRef = ref(b.cases[0]); x.configurationRef = ref(b.configurations[0]); }],
+    ['partition_unsupported', x => { const b = x.plan.bundle; b.configurations.forEach(c => c.exclusions.push('source-001.txt')); reseal(b); x.plan = plan(b); x.configurationRef = ref(b.configurations[0]); }],
+    ['partition_unreviewed', x => { const b = x.plan.bundle; b.configurations[0].context[0].path = 'Acme-unreviewed.txt'; reseal(b); x.plan = plan(b); x.configurationRef = ref(b.configurations[0]); }],
+    ['partition_collision', x => { const b = x.plan.bundle; b.configurations[0].overlays.push(b.configurations[0].context[0]); reseal(b); x.plan = plan(b); x.configurationRef = ref(b.configurations[0]); }],
   ];
-  for (const mutate of mutations) {
+  for (const [code, mutate] of mutations) {
     const options = await wrapperOptions(); mutate(options);
-    await assert.rejects(w.corpus.prepareCorpusInputPartition(options), { code: 'partition_invalid' });
+    await assert.rejects(w.corpus.prepareCorpusInputPartition(options), { code, message: code, exitCode: 2 });
     assert.equal(calls, 0, 'invalid selection must issue zero Git commands');
   }
   const valid = await wrapperOptions(); valid.sourcePaths.reverse();
