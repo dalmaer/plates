@@ -703,3 +703,33 @@ test('a cancel settled before any receipt rechecks the brief file once a receipt
   await recoverCancels(journal, { env: a.w.env, root: a.w.checkout });
   assert.equal(existsSync(decoy), true, 'a path that is not the digest\'s brief file is left alone');
 });
+
+test('a cancel that lands while a changed attach takes its claim is found before anything is handed over', async t => {
+  // The phase has an attach; a session attach with a changed title (another digest) waits on its claim; the owner's
+  // cancel completes meanwhile and records only the earlier digest. The second attach must not hand over a brief.
+  const a = await attached(t);
+  const session = { ...a.args, route: 'session', host: undefined, phaseText: undefined };
+  assert.equal((await attach(session, a.deps())).exitCode, 0);
+  const cancelled = [];
+  const claim = async () => { cancelled.push(await a.cancel({ why: 'mid-claim' })); return { data: { ok: true, claimed: true, sha: 'c'.repeat(40) }, text: 'claimed' }; };
+  const second = await attach({ ...session, title: 'Build the anvil, again' }, a.deps({ claim }));
+  assert.equal(cancelled[0].data.attaches.length, 1, 'the cancel saw only the earlier attach');
+  assert.deepEqual([second.exitCode, second.data.state], [1, 'cancelled']);
+  assert.doesNotMatch(second.text, /\/spin 7/, 'no brief is handed over');
+  assert.match(second.text, /cancelled at .*mid-claim.*while it was being claimed/);
+  assert.equal((await cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 7, check: true }, a.deps())).exitCode, 1);
+  assert.equal((await attachJournal(a.dir).list()).length, 1, 'nothing was journaled for the second attach');
+
+  // The same at the late boundary: the cancel lands during the dispatch of a changed attach whose intent the cancel did not see.
+  const { ROUTE_HANDLERS } = await import('../lib/attach.mjs');
+  const b = await attached(t);
+  const s2 = { ...b.args, route: 'session', host: undefined, phaseText: undefined };
+  assert.equal((await attach(s2, b.deps())).exitCode, 0);
+  const journal = attachJournal(b.dir);
+  const [earlier] = await journal.list();
+  const racing = { ...ROUTE_HANDLERS, session: { ...ROUTE_HANDLERS.session, dispatch: async ctx => { await journal.cancel(earlier.digest, { at: '2026-11-16T00:00:00.000Z', by: 'owner' }); return ROUTE_HANDLERS.session.dispatch(ctx); } } };
+  const late = await attach({ ...s2, title: 'Build the anvil, again' }, b.deps({ handlers: racing }));
+  assert.deepEqual([late.exitCode, late.data.state], [1, 'cancelled']);
+  assert.doesNotMatch(late.text, /\/spin 7/);
+  assert.ok(await journal.cancelOf(late.data.digest), 'the cancel is recorded under the late attach too, for recovery and --check');
+});
