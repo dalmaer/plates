@@ -1,3 +1,4 @@
+import { packedTarball } from './helpers/packed-tarball.mjs';
 import { run } from './helpers/run.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -24,7 +25,7 @@ async function world(t) {
 const cli=(bin,root,args)=>{const r=run(process.execPath,[bin,...args,'--json'],{cwd:root});assert.ok(r.stdout,r.stderr);return {code:r.status,data:JSON.parse(r.stdout)};};
 test('packed CLI and adopted runtime expose the guide contract; standalone reconciliation runtime runs without CLI or night activation',async t=>{
  const {home,root}=await world(t);
- const pack=run('npm',['pack','--ignore-scripts','--json','--pack-destination',home]);assert.equal(pack.status,0,pack.stderr);
+ const pack=await packedTarball(home);assert.equal(pack.status,0,pack.stderr);
  const packed=JSON.parse(pack.stdout)[0];
  execFileSync('tar',['-xzf',join(home,packed.filename),'-C',home]);const bin=join(home,'package/bin/plates.mjs');
  const out=cli(bin,root,['decision','context','--phase','0']);assert.equal(out.code,0);assert.equal(out.data.state,'complete');

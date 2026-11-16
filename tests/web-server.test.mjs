@@ -1,3 +1,4 @@
+import { packedTarball } from './helpers/packed-tarball.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { matchesGlob } from 'node:path';
@@ -90,7 +91,7 @@ test('extracted npm package launches with external config and serves through the
   const { run, runAsync } = await import('./helpers/run.mjs');
   const temporary = await mkdtemp(join(tmpdir(), 'plates-web-package-'));
   t.after(() => rm(temporary, { recursive: true, force: true }));
-  const packed = run('npm', ['pack', '--ignore-scripts', '--json', '--pack-destination', temporary], { cwd: resolve('.') });
+  const packed = await packedTarball(temporary);
   assert.equal(packed.status, 0, packed.stderr);
   const metadata = JSON.parse(packed.stdout)[0], paths = metadata.files.map(file => file.path);
   for (const path of ['lib/web/serve.mjs', 'lib/web/migrations/001-auth.sql', 'api/index.mjs', 'vercel.json', 'scripts/plates/climb.mjs', 'scripts/plates/lib.mjs', 'scripts/plates/tend.mjs', 'scripts/plates/test-ledger.mjs']) assert.ok(paths.includes(path), path);
