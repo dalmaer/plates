@@ -6,7 +6,8 @@ import assert from 'node:assert/strict';
 import { projectHarness } from './helpers/web-projects.mjs';
 import { createWebService } from '../lib/web/server.mjs';
 import { BACKLOG_LANES } from '../lib/work-items.mjs';
-import { backlogView } from '../lib/web/backlog-views.mjs';
+import { backlogView, renderBacklog, renderSidebar, START_UNAVAILABLE, attachCommand } from '../lib/web/backlog-views.mjs';
+import { startBacklogClient } from '../lib/web/backlog-client.mjs';
 import { createHomeReader } from '../lib/web/home.mjs';
 import { claimMessage } from '../lib/claim.mjs';
 
@@ -213,4 +214,216 @@ test('a single plate home carries its backlog and claims with a source-bound cur
   s.h.state.now += 24 * 60 * 60_000;
   const next = await (await s.get('/api/projects/studio/home')).json();
   assert.notEqual(next.cursor, prior, 'claim observation changes are part of the cursor');
+});
+
+function cssRules(css, context = '') {
+  const out = [], re = /([^{}]+)\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/g;
+  for (const [, head, body] of css.matchAll(re)) {
+    const selector = head.trim();
+    if (selector.startsWith('@')) out.push(...cssRules(body, context + selector));
+    else out.push({ context, selector, declarations: Object.fromEntries([...body.matchAll(/(?:^|;)\s*([a-z-]+)\s*:([^;]*)/g)].map(([, k, v]) => [k, v.trim()])) });
+  }
+  return out;
+}
+
+function parseBacklogDom(html) {
+  const VOID = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr']);
+  const unescape = text => text.replace(/&(amp|lt|gt|quot|#39);/g, (_, e) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" })[e]);
+  const toCamel = name => name.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+  const element = (tag, attributes = {}, parent = null) => {
+    const dataset = {};
+    for (const [k, v] of Object.entries(attributes)) if (k.startsWith('data-')) dataset[toCamel(k.slice(5))] = v;
+    const node = {
+      tag, attributes, dataset, parent, children: [], listeners: {}, textParts: [],
+      hidden: Object.hasOwn(attributes, 'hidden'),
+      get textContent() { return node.textParts.join('') + node.children.map(c => c.textContent).join(''); },
+      set textContent(v) { node.textParts = [String(v)]; node.children = []; },
+      get innerHTML() { return node._html ?? ''; },
+      set innerHTML(fragment) {
+        node._html = fragment;
+        const parsed = parseFragment(fragment, node);
+        node.children = parsed.children; node.textParts = parsed.textParts;
+      },
+      setAttribute(name, val) {
+        const s = String(val); node.attributes[name] = s;
+        if (name === 'hidden') node.hidden = true;
+        if (name.startsWith('data-')) node.dataset[toCamel(name.slice(5))] = s;
+      },
+      getAttribute: name => Object.hasOwn(node.attributes, name) ? node.attributes[name] : null,
+      hasAttribute: name => Object.hasOwn(node.attributes, name),
+      matches: selector => matchesSimple(node, selector),
+      closest(selector) { let cur = node; while (cur && cur.tag !== '#document') { if (matchesSimple(cur, selector)) return cur; cur = cur.parent; } return null; },
+      querySelector: selector => findAll(node, selector)[0] ?? null,
+      querySelectorAll: selector => findAll(node, selector),
+      addEventListener(name, fn) { (node.listeners[name] ??= []).push(fn); },
+      removeEventListener(name, fn) { node.listeners[name] = (node.listeners[name] ?? []).filter(h => h !== fn); },
+    };
+    return node;
+  };
+  const matchesSimple = (node, selector) => selector.split(',').some(part => {
+    let rest = part.trim(); if (!rest) return false;
+    const t = /^([a-z0-9-]+)/i.exec(rest);
+    if (t) { if (node.tag !== t[1].toLowerCase()) return false; rest = rest.slice(t[0].length); }
+    while (rest.length) {
+      const cls = /^\.([a-z0-9_-]+)/i.exec(rest);
+      if (cls) { if (!(node.attributes.class ?? '').split(/\s+/).includes(cls[1])) return false; rest = rest.slice(cls[0].length); continue; }
+      const attr = /^\[([a-z0-9_-]+)(?:=(?:"([^"]*)"|'([^']*)'|([^\]]*)))?\]/i.exec(rest);
+      if (!attr) return false;
+      const [, name, dq, sq, raw] = attr, wanted = dq ?? sq ?? raw;
+      if (!node.hasAttribute(name)) return false;
+      if (wanted !== undefined && node.getAttribute(name) !== wanted) return false;
+      rest = rest.slice(attr[0].length);
+    }
+    return true;
+  });
+  const findAll = (root, selector) => {
+    const out = [], walk = cur => { for (const child of cur.children) { if (matchesSimple(child, selector)) out.push(child); walk(child); } };
+    walk(root); return out;
+  };
+  const parseFragment = (src, container) => {
+    const holder = { tag: container.tag, children: [], textParts: [], parent: container.parent }, stack = [holder];
+    let last = 0;
+    for (const m of src.matchAll(/<(\/)?([a-z0-9-]+)([^>]*)>/gi)) {
+      const text = unescape(src.slice(last, m.index));
+      if (text) stack.at(-1).textParts.push(text);
+      last = m.index + m[0].length;
+      const [, close, rawTag, rawAttrs] = m, tag = rawTag.toLowerCase();
+      if (close) { while (stack.length > 1 && stack.pop().tag !== tag); continue; }
+      const attrs = {};
+      for (const [, name, dq, sq, bare] of rawAttrs.matchAll(/([a-z0-9_:-]+)(?:=(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/gi)) attrs[name] = unescape(dq ?? sq ?? bare ?? '');
+      const parent = stack.at(-1) === holder ? container : stack.at(-1);
+      const child = element(tag, attrs, parent);
+      stack.at(-1).children.push(child);
+      if (!VOID.has(tag) && !rawAttrs.trimEnd().endsWith('/')) stack.push(child);
+    }
+    const tail = unescape(src.slice(last));
+    if (tail) stack.at(-1).textParts.push(tail);
+    return holder;
+  };
+  const doc = element('#document');
+  const parsed = parseFragment(html, doc);
+  doc.children = parsed.children;
+  return {
+    querySelector: selector => findAll(doc, selector)[0] ?? null,
+    querySelectorAll: selector => findAll(doc, selector),
+    dispatch(target, type, extra = {}) {
+      let prevented = false;
+      const event = { type, target, preventDefault() { prevented = true; }, get defaultPrevented() { return prevented; }, ...extra };
+      for (let cur = target; cur; cur = cur.parent) for (const fn of cur.listeners?.[type] ?? []) fn(event);
+      return event;
+    },
+  };
+}
+
+test('backlog row actions stay in tab order, render inline without hover, and include Start disabled disclosure markup', async () => {
+  const s = await hosted();
+  const css = await (await s.web(s.h.request('/assets/backlog.css'))).text();
+  const parsed = cssRules(css);
+
+  // Every row action stays focusable: never display:none or visibility:hidden in any media context.
+  for (const rule of parsed.filter(r => r.selector.includes('.backlog-act') && !r.selector.includes('.backlog-time'))) {
+    assert.notEqual(rule.declarations.display, 'none', `${rule.context}|${rule.selector} never removes .backlog-act from tab order`);
+    assert.notEqual(rule.declarations.visibility, 'hidden', `${rule.context}|${rule.selector} never hides .backlog-act from focus`);
+  }
+  // Base / (hover: none) / narrow viewports: .backlog-act is inline-flex, not opacity:0 or clipped.
+  const baseAct = parsed.find(r => r.context === '' && r.selector === '.backlog-act');
+  assert.ok(baseAct, '.backlog-act has an inline base rule for (hover: none) and narrow viewports');
+  assert.equal(baseAct.declarations.display, 'inline-flex');
+  assert.equal(baseAct.declarations.opacity, undefined);
+  assert.equal(baseAct.declarations['clip-path'], undefined);
+  assert.equal(parsed.some(r => r.context === '' && r.selector.includes('.backlog-time') && r.declarations.display === 'none'), false, 'time stays visible inline where hover is absent');
+  const narrowEdge = parsed.filter(r => r.context === '@media(max-width:600px)' && r.selector.split(',').some(p => p.trim() === '.backlog-edge'));
+  assert.ok(narrowEdge.some(r => r.declarations['grid-column'] === '3/-1'), 'narrow viewports place .backlog-edge inline under the row title');
+
+  // Pointer-fine wide screens: visually hidden with opacity + clip-path until :hover or :focus-within, then swaps with .backlog-time.
+  const fineRest = parsed.find(r => r.context.includes('(hover:hover)') && r.context.includes('(pointer:fine)') && r.selector.includes(':not(:hover,:focus-within)') && r.selector.endsWith('.backlog-act'));
+  assert.ok(fineRest, 'pointer-fine wide screens hide resting .backlog-act visually');
+  assert.equal(fineRest.declarations.opacity, '0');
+  assert.match(fineRest.declarations['clip-path'] ?? '', /^inset\(/);
+  const fineTime = parsed.find(r => r.context.includes('(hover:hover)') && r.context.includes('(pointer:fine)') && r.selector.includes('.backlog-act+.backlog-time'));
+  assert.equal(fineTime?.declarations.display, 'none');
+
+  // All five row action shapes render focusable controls, and disabled Start renders its reason in DOM markup.
+  const backlog = {
+    generatedAt: '2026-11-05T12:00:00.000Z',
+    plates: [{ projectId: 'studio', projectName: 'Acme Studio', state: 'read', coverage: 'complete', counts: { 'in-flight': 0, yours: 3, 'agent-ready': 2, waiting: 0, done: 0 } }],
+    lanes: [
+      { lane: 'yours', title: 'Yours', items: [
+        { key: 'studio:phase:2', projectId: 'studio', projectName: 'Acme Studio', kind: 'phase', ref: '2', title: 'Acme walk phase', since: '2026-11-01', children: ['studio:walk:2'], why: ['G1'], answers: [] },
+        { key: 'studio:review:7', projectId: 'studio', projectName: 'Acme Studio', kind: 'review', ref: '7', title: 'Acme PR review', since: '2026-11-01', source: { url: 'https://github.com/acme/studio/pull/7' }, why: [], answers: [] },
+        { key: 'studio:decision:3', projectId: 'studio', projectName: 'Acme Studio', kind: 'decision', ref: '3', title: 'Acme decision', since: '2026-11-01', why: [], answers: [{ id: 'yes', label: 'Approve' }] },
+      ] },
+      { lane: 'agent-ready', title: 'Agent-ready', items: [
+        { key: 'studio:phase:1', projectId: 'studio', projectName: 'Acme Studio', kind: 'phase', ref: '1', title: 'Acme ready phase', since: '2026-11-01', why: ['G1'], answers: [] },
+        { key: 'studio:phase:0', projectId: 'studio', projectName: 'Acme Studio', kind: 'phase', ref: '0', title: 'Acme bootstrap phase', since: '2026-11-01', why: ['G1'], answers: [] },
+      ] },
+    ],
+  };
+  const dom = parseBacklogDom(renderBacklog(backlog));
+  const acts = dom.querySelectorAll('.backlog-act');
+  assert.deepEqual(acts.map(el => [el.tag, el.textContent.trim(), el.hasAttribute('disabled'), el.getAttribute('tabindex')]), [
+    ['a', 'Open walk', false, null],
+    ['a', 'Open PR ↗', false, null],
+    ['a', 'Answer', false, null],
+    ['a', 'Preview attach', false, null],
+    ['button', 'Start', false, null],
+  ]);
+  const startButton = dom.querySelector('[data-backlog-start]');
+  const startNote = dom.querySelector('[data-backlog-start-note]');
+  assert.ok(startButton && startNote, 'disabled Start renders a disclosure note in the row');
+  assert.equal(startButton.getAttribute('aria-disabled'), 'true');
+  assert.equal(startButton.getAttribute('aria-expanded'), 'false');
+  assert.equal(startButton.getAttribute('aria-controls'), startNote.getAttribute('id'));
+  assert.equal(startButton.getAttribute('aria-describedby'), startNote.getAttribute('id'));
+  assert.equal(startNote.hidden, true);
+  assert.equal(startNote.textContent, `${START_UNAVAILABLE}: ${attachCommand('studio:phase:0')}`);
+});
+
+test('clicking or pressing Enter on Start discloses its disabled reason without hover, across refreshes', async () => {
+  const makeModel = state => ({
+    schema: 1, generatedAt: '2026-11-05T12:00:00.000Z', lane: null, needsShaping: 0, claims: [],
+    plates: [{ projectId: 'studio', projectName: 'Acme Studio', state, readAt: '2026-11-05T11:55:00.000Z', counts: { 'in-flight': 0, yours: 0, 'agent-ready': 1, waiting: 0, done: 0 } }],
+    lanes: [{ lane: 'agent-ready', title: 'Agent-ready', count: 1, items: [
+      { key: 'studio:phase:0', projectId: 'studio', projectName: 'Acme Studio', kind: 'phase', ref: '0', title: 'Acme bootstrap phase', since: '2026-11-01', why: ['G1'], answers: [] },
+    ] }],
+  });
+  // Warm page (data-loading="false"): startBacklogClient returns null, and click / Enter still disclose the reason.
+  const warmHtml = backlogView({ workspace: { name: 'Acme' }, csrf: 'acme-csrf', projects: [] }, makeModel('read'));
+  const warmDom = parseBacklogDom(warmHtml);
+  assert.equal(startBacklogClient({ document: warmDom, window: { setTimeout() {}, clearTimeout() {} }, fetch: () => assert.fail('no poll on warm page'), renderBacklog, renderSidebar }), null);
+  const button = warmDom.querySelector('[data-backlog-start]'), note = warmDom.querySelector('[data-backlog-start-note]');
+  assert.ok(button && note);
+  assert.equal(note.hidden, true);
+  warmDom.dispatch(button, 'click');
+  assert.equal(note.hidden, false);
+  assert.equal(button.getAttribute('aria-expanded'), 'true');
+  assert.match(note.textContent, /Attaching from the web is not on yet.*plates home --attach studio:phase:0 --route session/);
+  const enterClose = warmDom.dispatch(button, 'keydown', { key: 'Enter' });
+  assert.equal(enterClose.defaultPrevented, true);
+  assert.equal(note.hidden, true);
+  assert.equal(button.getAttribute('aria-expanded'), 'false');
+  warmDom.dispatch(button, 'keydown', { key: 'Enter' });
+  assert.equal(note.hidden, false);
+  assert.equal(button.getAttribute('aria-expanded'), 'true');
+
+  // Polling page (data-loading="true"): an open disclosure survives list re-rendering.
+  const timers = [];
+  const staleDom = parseBacklogDom(backlogView({ workspace: { name: 'Acme' }, csrf: 'acme-csrf', projects: [] }, makeModel('stale')));
+  // Replace outerHTML setter on sidebar for minimal fake DOM.
+  const side = staleDom.querySelector('[data-backlog-side]');
+  side.outerHTML = '';
+  const client = startBacklogClient({
+    document: staleDom,
+    window: { setTimeout: (fn, ms) => { timers.push(fn); return timers.length; }, clearTimeout() {} },
+    fetch: async () => ({ status: 200, json: async () => makeModel('read') }),
+    renderBacklog, renderSidebar,
+  });
+  staleDom.dispatch(staleDom.querySelector('[data-backlog-start]'), 'click');
+  assert.equal(staleDom.querySelector('[data-backlog-start-note]').hidden, false);
+  await timers.shift()();
+  await client.done;
+  const refreshedNote = staleDom.querySelector('[data-backlog-start-note]');
+  const refreshedButton = staleDom.querySelector('[data-backlog-start]');
+  assert.equal(refreshedNote.hidden, false, 'open Start reason stays visible after poll re-render');
+  assert.equal(refreshedButton.getAttribute('aria-expanded'), 'true');
 });
