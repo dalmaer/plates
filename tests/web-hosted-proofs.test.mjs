@@ -23,6 +23,7 @@ const PROOFS = [
     wrong: 'grant execute on function public.keel_media_rpc(text,text,text,bigint,text,bigint,text,bigint,text,text,text,integer,text,bigint) to authenticated',
     refused: /a browser role can execute public\.keel_media_rpc/ },
   { migration: '007-run-history.sql', proof: '2026-10-31-web-run-history-hosted-proof.sql',
+    planProof: '2026-11-15-web-run-history-after-rpc-names-proof.sql',
     wrong: 'drop index keel_private.decision_history_scope',
     refused: /missing index keel_private\.decision_history_scope/ },
   { migration: '008-connections.sql', proof: '2026-10-31-web-connections-hosted-proof.sql',
@@ -32,6 +33,7 @@ const PROOFS = [
     wrong: 'alter table keel_private.jobs disable row level security',
     refused: /row level security off on keel_private\.jobs/ },
   { migration: '010-fleet-updates.sql', proof: '2026-10-31-web-fleet-updates-hosted-proof.sql',
+    planProof: '2026-11-15-web-fleet-updates-after-rpc-names-proof.sql',
     wrong: 'drop function public.keel_fleet_rpc(text,text,text,bigint,jsonb)',
     refused: /missing function public\.keel_fleet_rpc/ },
   { migration: '011-model-routing.sql', proof: '2026-10-31-web-model-routing-hosted-proof.sql',
@@ -41,6 +43,7 @@ const PROOFS = [
     wrong: 'grant usage on sequence keel_private.editor_draft_generation to service_role',
     refused: /service_role holds a privilege on keel_private\.editor_draft_generation/ },
   { migration: '013-night-retries.sql', proof: '2026-10-31-web-night-retries-hosted-proof.sql',
+    planProof: '2026-11-15-web-night-retries-after-rpc-names-proof.sql',
     wrong: 'grant execute on function keel_private.job_rpc_before_night(text,text,text,jsonb) to service_role',
     refused: /service_role can execute the saved admission delegate/ },
   { migration: '014-plates-names.sql', proof: '2026-10-31-web-plates-names-hosted-proof.sql',
@@ -70,6 +73,9 @@ const PROOFS = [
   { migration: '022-waiting-sessions.sql', proof: '2026-11-15-web-waiting-sessions-hosted-proof.sql',
     wrong: 'grant execute on function public.plates_waiting_rpc(text,text,text,text,text,timestamptz) to authenticated',
     refused: /a browser role can execute public\.plates_waiting_rpc/ },
+  { migration: '023-late-rpc-names.sql', proof: '2026-11-15-web-late-rpc-names-hosted-proof.sql',
+    wrong: 'drop function public.plates_walk_rpc(text,text,text,text,bigint,text,text)',
+    refused: /expected exactly one public plates_walk_rpc/ },
 ];
 
 const RACE = '/* TWO-CONNECTION RACE';
@@ -123,8 +129,12 @@ test('every hosted proof runs clean on its migration', async t => {
       assert.ok(text.startsWith(`-- Hosted proof for lib/web/migrations/${p.migration}`), 'header names its migration');
       for (const said of ['Leaves behind:', 'Expected result:', 'SHA-256']) assert.ok(text.includes(said), said);
       assert.doesNotMatch(text, /supabase\.co|https?:\/\/(?!github\.com\/acme\/)|@[a-z0-9-]+\.[a-z]/i, 'no private identifiers');
-      const step = plan.steps.find(s => s.migration === p.migration);
-      assert.ok(step?.proof.includes(`docs/evidence/${p.proof}`), 'its plan step names the proof');
+      // Applied migrations retain inspection/walk steps instead of instructions
+      // to apply them again. Their proof procedures still need local rehearsal.
+      // The original 013 proof retains its historical 001-013 rehearsal here;
+      // the current plan's repaired order is tested in web-late-rpc-migrations.
+      const step = plan.steps.find(s => s.proof.includes(`docs/evidence/${p.planProof ?? p.proof}`));
+      assert.ok(step, 'its plan step names the proof');
       const { race } = parts(text);
       assert.equal(race.length > 0, /race/i.test(step.proof), 'a race exactly where the plan names one');
 
