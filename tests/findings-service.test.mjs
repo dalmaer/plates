@@ -65,3 +65,26 @@ test('oversized decisions are rejected before they can poison the ledger',async 
  await assert.rejects(readdir(f.env.XDG_STATE_HOME),{code:'ENOENT'});
  assert.equal((await collectFindings(f)).findings.length,1);
 });
+test('generic observation commit changes invalidate prior triage',async t=>{
+ const f=await fixture(t),observations=join(f.dir,'observations.json');
+ const observation={source:{kind:'measure',repo:'acme/app',record:'daily'},localId:'lint',title:'Lint',commit:'a'.repeat(40)};
+ await writeFile(observations,JSON.stringify({findings:[observation]}));
+ const sources={...f,observations:[observations]},item=(await collectFindings(sources)).findings.find(x=>x.source.kind==='measure'),from=join(f.dir,'choice.json');
+ await writeFile(from,JSON.stringify({findingId:item.id,findingDigest:item.digest,decision}));await decideFinding({...sources,from,yes:true});
+ observation.commit='b'.repeat(40);await writeFile(observations,JSON.stringify({findings:[observation]}));
+ const next=(await collectFindings(sources)).findings.find(x=>x.id===item.id);assert.equal(next.source.commit,observation.commit);assert.equal(next.staleDecisions.length,1);assert.equal(next.decisions.length,0);await assert.rejects(decideFinding({...sources,from,yes:true}),/changed/);
+});
+test('conflicting observation IDs exclude all ambiguous copies but preserve other sources',async t=>{
+ const f=await fixture(t),a=join(f.dir,'a.json'),b=join(f.dir,'b.json'),observation={source:{kind:'measure',repo:'acme/app',record:'daily'},localId:'lint',title:'Lint'};
+ await writeFile(a,JSON.stringify({findings:[observation]}));await writeFile(b,JSON.stringify({findings:[{...observation,title:'Different'}]}));
+ const r=await collectFindings({...f,observations:[a,b]});assert.equal(r.findings.length,1);assert.equal(r.findings[0].source.kind,'audit');assert.equal(r.gaps.length,1);
+ const same=await collectFindings({...f,observations:[a,a]});assert.equal(same.findings.length,2);assert.equal(same.gaps.length,0);
+});
+test('answering a review retains triage as history, never an approval of changed evidence',async t=>{
+ const f=await fixture(t),review={repo:'acme/app',number:1,head:'a'.repeat(40),contentRevision:'before',comments:[{id:'T1',text:'Review sorting',answered:false}]};
+ const deps={readReview:async()=>({data:review})},sources={...f,reviews:['acme/app#1']};
+ const item=(await collectFindings(sources,deps)).findings.find(x=>x.source.kind==='review'),from=join(f.dir,'choice.json');
+ await writeFile(from,JSON.stringify({findingId:item.id,findingDigest:item.digest,decision}));await decideFinding({...sources,from,yes:true},deps);
+ review.comments[0].answered=true;review.contentRevision='after';
+ const next=(await collectFindings(sources,deps)).findings.find(x=>x.id===item.id);assert.equal(next.status,'answered');assert.equal(next.staleDecisions[0].decision.action,'explore');assert.equal(next.decisions.length,0);
+});
