@@ -178,9 +178,14 @@ test('here now is the agents holding work', () => {
   assert.deepEqual(stale.hereIdle, { count: 2, oldest: ago(12 * DAY), actors: ['studio#3', 'studio#4'], words: '2 idle claims, oldest 12d' });
   assert.match(channelText(stale), /^ {2}2 idle claims, oldest 12d: studio#3, studio#4$/m);
   assert.match(channelView({ workspace: { name: 'Acme' }, csrf: '' }, stale), /<details data-here-idle><summary>2 idle claims, oldest 12d<\/summary><ul class="source-list"><li>studio#3<\/li><li>studio#4<\/li><\/ul><\/details>/);
-  // A claim inside the window with no line (windowed out by --since) shows its claim's age.
-  const claimed = model({ c: claims({ claims: [{ phase: 3, provider: 'codex', at: ago(2 * DAY) }], prs: [] }), p: prs({ items: [] }), project: studio({ waits: { state: 'read', items: [], more: 0 } }), since: ago(DAY) });
-  assert.deepEqual(claimed.hereNow.map(h => h.words), ['Acme crates · codex · claimed 2d ago · Caught up']);
+  // --since narrows the feed shown, never Here now: the same sources with and without a narrow window give the same agents, activity, unread and idle fold.
+  const sources = { c: claims({ claims: [...claims().claims, { phase: 3, provider: 'codex', at: ago(10 * DAY) }, { phase: 4, provider: 'codex', at: ago(12 * DAY) }] }),
+    project: studio({ waits: { state: 'read', more: 0, items: [...studio().waits.items, { branch: 'codex/phase-3-crates', phase: 3, state: 'active', since: ago(10 * DAY), headAt: ago(HOUR), next: 'keep going' }] } }) };
+  const whole = model(sources), narrow = model({ ...sources, since: ago(30 * MIN) });
+  assert.ok(narrow.lines.length < whole.lines.length, 'the narrow window shows fewer lines');
+  assert.deepEqual([narrow.hereNow, narrow.hereIdle], [whole.hereNow, whole.hereIdle]);
+  assert.deepEqual(whole.hereNow.map(h => [h.actor, h.last.age, h.unread]), [['studio#2', '30m', 3], ['studio#1', '50m', 2], ['studio#3', '1h', 1]]);
+  assert.deepEqual(whole.hereIdle.actors, ['studio#4']);
   // Nobody holds work, and the claims could not be read: neither is shown as an agent.
   assert.deepEqual(model({ c: { state: 'read', claims: [], prs: [] } }).hereNow, []);
   assert.deepEqual(model({ c: { state: 'unavailable', why: 'x' } }).hereNow, []);
