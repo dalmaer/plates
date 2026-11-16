@@ -128,10 +128,20 @@ means the owner cannot act yet: `plates home` lists it as waiting, with that
 reason, never as the owner's. A Markdown table of the data may follow the
 bullets. Two or more walk boxes: one `### ` sub-heading per box, in the
 boxes' order. A choice records the decision (`plates walk done <n> --choice
-"<choice>"`) and ticks the walk's box; what it changes is the conductor's
-next step, which Then says. A choice listed under **Keeps it open** (it must
-also be a Choice; "Not enough data yet", say) writes the same evidence row
-but ticks nothing: the walk stays open and can be answered again.
+"<choice>"`); Then says what happens next.
+
+A multi-choice answer checks acceptance only when its exact Choices label has a
+Then clause `Choice A: the phase is built.` (or `Choice A: built.`). Each clause
+must contain only that declaration; conditional or other prose records an answer
+and leaves the walk open. Multiple choices may declare completion. With no
+completion declaration, a single-choice walk retains the legacy completion
+behavior. Observation-only walks without Choices still work; a note alone cannot
+complete a multi-choice walk. **Keeps it open** always leaves acceptance unchecked.
+`Retire it`, or a choice whose Then clause is `the phase is superseded.` or
+`the phase is retired.` (also `superseded.` or `retired.`), records retirement as
+`status: superseded`, never built, and leaves acceptance unchecked. The choice's
+Then remains the next action for any follow-up. Completing a walk marks the phase
+built only when no other acceptance boxes remain open.
 `--check` notes, never refuses, a phase with an open walk and no Your part,
 and a Your part with no Ask, no Choices or no Ready.
 

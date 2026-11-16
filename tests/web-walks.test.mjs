@@ -141,7 +141,7 @@ test('public acceptance requires exact preview digest acknowledgement and writes
 });
 
 test('source-valid choices and Keeps it open cannot be bypassed for acceptance',async()=>{
- const h=walkHarness();h.source.files[phasePath]+='\n## Your part\n\n- **Ready:** yes\n- **Choices:** Keep it | Drop it | Not enough data yet\n- **Keeps it open:** Not enough data yet\n- **Then:** Record the answer.\n';
+ const h=walkHarness();h.source.files[phasePath]+='\n## Your part\n\n- **Ready:** yes\n- **Choices:** Keep it | Drop it | Not enough data yet\n- **Keeps it open:** Not enough data yet\n- **Then:** Keep it: the phase is built. Drop it: the phase is superseded. Not enough data yet: read it later.\n';
  let m=await complete(h);await assert.rejects(preview(h,m),bad('invalid_choice'));m=await save(h,m,{choice:'Not enough data yet'});await assert.rejects(preview(h,m),bad('choice_keeps_open'));m=await save(h,m,{choice:'Keep it'});assert.match((await preview(h,m)).files[1].content,/Chose: Keep it/);
 });
 test('target box is rederived after another box is inserted and only selected acceptance changes',async()=>{
