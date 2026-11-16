@@ -7,9 +7,9 @@ attempt: {"accepted":true,"verified":true,"rework":0,"lessonStatus":{"status":"n
 - Date: 2026-11-16
 - Phase: 112
 - Revision: plates base 17261aa1 and working tree; Ledger `138ff9871d99b404fcd4d2f6a75ccca634470ff7` (its main), a fresh clone
-- Claim being checked: the first three Acceptance boxes: the workflow contract's negative controls, the required consumer validation (local `check:all`, separate `test:later`, and the complete hosted `scope`/`test`/`later`/`web` union), and the exact-head review of Ledger PR 162.
+- Claim being checked: the first three Acceptance boxes: the workflow contract's negative controls, the required consumer validation (local `check:all`, separate `test:later`, and the complete hosted `scope`/`test`/`later`/`web` union), and the exact-head review of dalmaer/ledger#162.
 
-Proof only: Ledger PR 162 merged on 2026-10-23, so nothing was built. Run by the conductor (small phase).
+Proof only: dalmaer/ledger#162 merged on 2026-10-23, so nothing was built. Run by the conductor (small phase).
 
 ## Automated checks
 
@@ -30,8 +30,8 @@ All in the fresh Ledger clone after `npm ci` (exit 0) and `npm --prefix web ci` 
 
 | Did | Expected | Observed | Proves / does not prove |
 | --- | --- | --- | --- |
-| Read Ledger's `test.yml` at `138ff987` | an independent graph after scope | `test`, `later` and `web` need only `scope` | The PR-162 graph is preserved on current main. It does not prove speed. |
-| Read PR 162's review list | a review at the merged head | reviews at `b5d077b9` by the cross-review and the owner | The exact head was reviewed. |
+| Read Ledger's `test.yml` at `138ff987` | an independent graph after scope | `test`, `later` and `web` need only `scope` | The dalmaer/ledger#162 graph is preserved on current main. It does not prove speed. |
+| Read dalmaer/ledger#162's review list | a review at the merged head | reviews at `b5d077b9` by the cross-review and the owner | The exact head was reviewed. |
 | ⚑ parent reviews this evidence before broader rollout | the owner's decision | The owner reviewed it on 2026-11-16: "looks good. Complete." | The stage is accepted; it does not prove speed or equivalence. |
 
 ## Gaps and decision
