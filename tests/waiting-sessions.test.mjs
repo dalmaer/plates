@@ -167,6 +167,11 @@ test('the hosted store: a key shown once, sealed records, a revoked key refused'
   assert.deepEqual(await store.list(1), [], 'revoking removes its snapshot');
   await assert.rejects(store.resolve(key), e => e.status === 401, 'a revoked key is refused');
   await assert.rejects(store.push(resolved, snap), e => e.status === 401, 'and cannot push');
+  // Removing an owner from ownerIds refuses their existing unrevoked device key.
+  const withSecondOwner = createWaitingStore({ ...config, ownerIds: [1, 2] }, fetcher, { now });
+  const { key: removedOwnerKey } = await withSecondOwner.createKey(2, 'Former Acme Mac');
+  assert.equal((await withSecondOwner.resolve(removedOwnerKey)).userId, 2);
+  await assert.rejects(store.resolve(removedOwnerKey), e => e.status === 401 && e.code === 'device_key_required', 'a removed owner\'s key is refused');
 });
 
 test('the push route takes a device key and nothing else; the CLI pushes this machine\'s snapshot', async t => {
@@ -177,10 +182,12 @@ test('the push route takes a device key and nothing else; the CLI pushes this ma
   const clock = () => Date.parse(at(30)); // one clock for the service and the push, so the test never ages
   const service = createWebService({ ...h.config, storageUrl: config.storageUrl }, { fetcher, now: clock });
   const { key } = await createWaitingStore(h.config, fetcher, { now: clock }).createKey(1, 'Acme Mac');
+  const { key: removedOwnerKey } = await createWaitingStore({ ...h.config, ownerIds: [1, 2] }, fetcher, { now: clock }).createKey(2, 'Former Acme Mac');
   const call = (authorization, body = '{}') => service(new Request(`${h.config.origin}/api/sessions/waiting`, { method: 'POST', headers: { ...(authorization ? { authorization } : {}), 'content-type': 'application/json' }, body }));
   assert.equal((await call(null)).status, 401, 'no key');
   assert.equal((await call('Bearer pdk_short')).status, 401, 'a malformed key');
   assert.equal((await call(`Bearer pdk_${'y'.repeat(43)}`)).status, 401, 'an unknown key');
+  assert.equal((await call(`Bearer ${removedOwnerKey}`, JSON.stringify({ schema: 1, machine: 'Acme Mac', scannedAt: at(29), sessions: [], scripts: [] }))).status, 401, 'a removed owner\'s key');
   assert.equal((await call(`Bearer ${key}`, JSON.stringify({ schema: 1 }))).status, 400, 'a malformed snapshot');
 
   // The largest snapshot the scanner can build is accepted, stored and read back: bounds count UTF-16 units, and a
