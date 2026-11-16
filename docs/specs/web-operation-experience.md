@@ -162,7 +162,7 @@ are outside web admission and are not represented as budget-controlled. V1 does
 not cancel a run by logical ID after its attempt changes. New storage activation
 requires separate owner approval and actual database proof.
 
-Plan publication first supports an existing canonical `keel-night-plan` branch.
+Plan publication first supports an existing canonical `plates-night-plan` branch.
 Review exact canonical plan bytes, UTC date, numeric repository/ref identities,
 prior head/blob, source digest, human attribution, effects and a complete diff.
 Validate the canonical non-draft schema. Permit measure/triage edits, preserve

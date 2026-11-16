@@ -74,7 +74,7 @@ OPENAI_API_KEY is not set"):
   severity, a body) and the publish job posts one `COMMENT` review: the
   summary, opened by a hidden marker so it is a status board that owes no
   answer, with the valid findings as its inline comments (each opening
-  with a `<!-- keel:cross-review finding -->` marker and its priority).
+  with a `<!-- plates:cross-review finding -->` marker and its priority).
   A finding dropped is named in the summary, with why; prose with no block
   posts the summary alone. Should GitHub refuse the inline comments, the
   review is posted with the findings listed in its summary instead.

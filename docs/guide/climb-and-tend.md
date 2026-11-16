@@ -114,7 +114,7 @@ hour repeatable, under one protocol (`.agents/climb/PROTOCOL.md`):
   with an open PR waits for you to read it. A job whose last three PRs were
   closed unmerged proposes its own retirement: if you keep declining its
   work, it stops asking.
-- **Or chosen by tonight's plan.** When the plan branch `keel-night-plan`
+- **Or chosen by tonight's plan.** When the plan branch `plates-night-plan`
   holds a plan dated today (UTC), climb runs its first `climb:<job>` build
   item whose job may run (one `"climb".jobs` names, with no open PR, not
   retiring), and nothing else; a plan with no climb item means no climb
@@ -212,12 +212,12 @@ reference is `plates --agent-help climb`. You don't need to run them yourself.
 
 ## What you'll see
 
-- **A climb PR** on `keel-climb/<job>/<date>`: a before-and-after table,
+- **A climb PR** on `plates-climb/<job>/<date>`: a before-and-after table,
   each kept change as its own commit with its numbers, what was tried and
   reverted, the gate's line, and the merge danger (a two-way door).
 - **A proposals night's PR** lists each proposal or proposed rank; you
   decide each.
-- **A tend PR** on `keel-tend/<date>`: each finding and what was done
+- **A tend PR** on `plates-tend/<date>`: each finding and what was done
   (resolved only when the measures, run again, no longer report it), the
   record count before and after, and a checklist of what only you can
   choose, also committed as `docs/tend/<date>.md`. A pass that only
@@ -250,7 +250,7 @@ reference is `plates --agent-help climb`. You don't need to run them yourself.
 
 - It never pushes to `main` and never merges. The workflows push only their
   own branch prefix, and a pass with tonight's plan adds one commit of ticks
-  on top of `keel-night-plan`, with a lease, from its publish job.
+  on top of `plates-night-plan`, with a lease, from its publish job.
 - With a plan, it never builds what the plan does not name.
 - The agent cannot write to the repo even if a brief or a finding talks it
   into trying: it runs in a job whose token only reads (Codex with no

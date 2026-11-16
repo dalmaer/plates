@@ -1,6 +1,6 @@
 {
   "name": "audits",
-  "summary": "Audits: a model reads the plate through one lens (security, tests, performance, size, correctness) when a provider's quota has room. `plates audit due` says which lenses are due and who has room, `brief` hands an agent the read-only brief, `record` checks its findings against the audited commit and writes docs/audits/<date>-<lens>.md; each finding is triage for the night. Audits propose; they never build.",
+  "summary": "Audits: a model reads the plate through one lens (security, tests, performance, size, correctness) when a provider's quota has room. `plates audit due` says which lenses are due and who has room, `brief` hands an agent the read-only brief, `record` checks its findings against the audited commit and writes docs/audits/<date>-<lens>.md; each finding is triage for the night. `run` previews then dispatches one lens through the owner's local host with --yes, returning a receipt without waiting or recording. Audits propose; they never build.",
   "optional": true,
   "requires": ["night"],
   "source": { "repo": "shadcn/improve", "path": "skills/improve/references/audit-playbook.md", "commit": "cac56e1", "license": "MIT" },

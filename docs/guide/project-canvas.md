@@ -106,7 +106,8 @@ looked at the card and re-based. The approved Plates canvas is in this state.
 When plates's own content is still on the card, the re-base republishes nothing;
 the next changed pulse is edited on top.
 
-Plates's edit sets two properties, `plates.hash` and `plates.operation`, and never
+The canvas property names remain held legacy keys (`keel.project` and `keel.key`
+identify the managed card). Plates's edit sets two properties, `keel.hash` and `keel.operation`, and never
 removes or overwrites a property it did not set. After a re-base onto a card a
 person renamed or rewrote, the next sync does replace what they see: a new
 version with plates's content, and plates's title. Their version stays in the
@@ -198,7 +199,7 @@ the night proof have been walked.
 
 Ordinary `plates retro` remains read-only. `plates retro capture --record <file>`
 validates and previews an authored JSON summary; `--yes` saves it under the
-configured retros directory. Decisions are pending, picked or declined; picked
+`paths.retros` directory (default `docs/retros`). Decisions are pending, picked or declined; picked
 and declined choices require the owner's attribution, date and reason. It never
 chooses for you. Only explicitly selected supported sessions can contribute
 aggregate counts; manual and unsupported-provider summaries carry their coverage.

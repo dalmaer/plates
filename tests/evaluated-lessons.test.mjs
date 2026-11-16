@@ -132,3 +132,19 @@ test('native publication races refuse without replacing the winning file',async 
   try{await assert.rejects(withLearningWriter(root,lock=>publishInbox(root,name,null,'Acme approved',lock,{operationId:randomUUID(),requestDigest:'a'.repeat(64)})),/EEXIST/);}finally{fsp.link=nativeLink;syncBuiltinESMExports();}
   assert.equal(await readFile(destination,'utf8'),'Acme winning file');assert((await readdir(join(root,'docs/inbox'))).some(f=>f.endsWith('.pending')));
 });
+
+test('GitHub request selectors require database IDs and optional paired node/thread IDs', async () => {
+  const { selection } = await import('../lib/evaluated-lessons.mjs');
+  const valid = { selector: { kind: 'github-review', repo: 'acme/widgets', prNumber: 1, reviewId: 2,
+    threadId: 'PRRT_acme', commentId: 3, reviewedHead: 'a'.repeat(40), expectedBodySha256: 'b'.repeat(64) },
+    classification: { value: 'unresolved', attribution: 'manual', actor: 'Acme', rationale: 'Inspect this finding.' } };
+  assert.doesNotThrow(() => selection(valid));
+  assert.doesNotThrow(() => selection({ ...valid, selector: { ...valid.selector, threadId: null, commentId: null } }));
+  for (const [key, values] of Object.entries({ reviewId: [null, '2', 0, -1, 1.5], commentId: ['3', 0, -1, 1.5], threadId: [3, '', 'bad id', 'a'.repeat(129)] })) {
+    for (const value of values) assert.throws(() => selection({ ...valid, selector: { ...valid.selector, [key]: value } }), undefined, `${key}: ${value}`);
+  }
+});
+test('evaluation ledger unknown operation lists the shipped operations', async () => {
+  const { evaluations } = await import('../lib/evaluation-ledger.mjs');
+  await assert.rejects(evaluations({ action: 'unknown' }), /plan, freeze, inspect, run, resume, reconcile, cancel or compare/);
+});
