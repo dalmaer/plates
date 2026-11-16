@@ -791,3 +791,20 @@ test('a rotated push subscription keeps notifications coming', async t => {
   await notifier.notify(1, [{ kind: 'night', state: 'red', project: 'studio', date: '2026-11-01' }]);
   assert.deepEqual(delivered.sort(), [rotated.subscription.endpoint, other.subscription.endpoint].sort());
 });
+
+test('installation reuses only digest-addressed public HTTP assets', async () => {
+  const pwa = createPwa(), seen = [], caches = fakeCaches();
+  const worker = workerScope({ origin: 'https://plates.acme.test', caches, fetch: async request => { seen.push(request); return new Response('public shell'); } });
+  shellWorker(worker.scope, { version: pwa.version, shell: pwa.shell, offline: '/offline' });
+  await worker.dispatch('install');
+  assert.equal(seen.length, pwa.shell.length);
+  for (const request of seen) {
+    const path = new URL(request.url).pathname;
+    assert.equal(request.credentials, 'omit');
+    assert.equal(request.cache, /\.[a-f0-9]{12}\./.test(path) ? 'default' : 'reload', path);
+  }
+  // An unhashed asset supplied to the worker must still be refreshed.
+  const legacy = workerScope({ origin: 'https://plates.acme.test', caches: fakeCaches(), fetch: async request => { assert.equal(request.cache, 'reload'); return new Response('public shell'); } });
+  shellWorker(legacy.scope, { version: 'legacy', shell: ['/assets/theme.mjs'], offline: '/offline' });
+  await legacy.dispatch('install');
+});

@@ -66,10 +66,10 @@ async function sources({ reviews = true, files = {}, issues = null, waits = null
         for (const [key, expression] of Object.entries(variables).filter(([k]) => /^e\d+$/.test(k))) repository[`d${key.slice(1)}`] = expression === 'plates-verify:deploys.jsonl' && deployRecords.text !== null ? { isBinary: false, isTruncated: false, text: deployRecords.text } : null;
         return Response.json({ data: { rateLimit: rate, repository } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
       }
-      // The backlog's claims read (phase 178): the claim branches the test pushed to the checkout's remote, and no open PRs.
+      // The backlog's claims read (phase 178): the claim branches the test pushed to the checkout's remote, and the same open PRs.
       // Pending review's read (phase 186): the same open PRs the fake gh lists.
       if (query.includes('PlatesPending')) return Response.json({ data: { rateLimit: rate, repository: { pullRequests: { totalCount: (prs ?? []).length, nodes: prs ?? [] } } } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
-      if (query.includes('PlatesClaims')) return Response.json({ data: { rateLimit: rate, repository: { refs: { totalCount: claimRefs.length, nodes: claimRefs }, pullRequests: { totalCount: 0, nodes: [] } } } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
+      if (query.includes('PlatesClaims')) return Response.json({ data: { rateLimit: rate, repository: { refs: { totalCount: claimRefs.length, nodes: claimRefs }, pullRequests: { totalCount: (prs ?? []).length, nodes: (prs ?? []).map(p => ({ ...p, headRefName: p.headRefName ?? `acme-review-${p.number}` })) } } } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
       // The ready PRs' checks read (phase 176): the same answer the fake gh gives.
       if (query.includes('PlatesReadyChecks')) return Response.json({ data: { rateLimit: rate, repository: ready } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
       return Response.json({ data: { rateLimit: rate, ...(query.includes('PlatesReviewWindow') ? { repository: review } : {}) } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });

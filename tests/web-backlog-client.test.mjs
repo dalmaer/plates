@@ -2,6 +2,8 @@
 // /api/backlog with backoff and renders the list and sidebar again, then stops.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import vm from 'node:vm';
+import { readFile } from 'node:fs/promises';
 import { startBacklogClient, nextDelay, BACKLOG_DELAYS, MAX_READS } from '../lib/web/backlog-client.mjs';
 import { renderBacklog, renderSidebar } from '../lib/web/backlog-views.mjs';
 
@@ -103,4 +105,27 @@ test('By goal reads the backlog and arranges it', async () => {
   await p.run();
   assert.deepEqual(asked, ['/api/backlog']);
   assert.match(p.list.innerHTML, /data-goal="app0:goal:none"/); assert.match(p.side.outerHTML, /<a href="\/backlog" aria-current="true">Backlog/);
+});
+
+// Exercise the browser entrypoint, replacing only the browser-only module loader.
+test('warm pages wire disclosure and times without loading the rendering graph', async () => {
+  const source = (await readFile(new URL('../lib/web/backlog-client.mjs', import.meta.url), 'utf8'))
+    .replace(/export /g, '').replace("import('/assets/backlog-views.mjs')", 'loadViews()');
+  for (const view of ['backlog', 'goals', 'recurring', 'agents', 'channel', 'history']) {
+    const p = page('false'), events = [], time = { dataset: { local: 'time' }, getAttribute: () => '2026-11-06T07:23:00Z', textContent: '' };
+    p.root.dataset.view = view;
+    p.root.addEventListener = event => events.push(event);
+    p.root.querySelectorAll = selector => selector === 'time[data-local]' ? [time] : [];
+    let imports = 0;
+    vm.runInNewContext(source, { document: p.document, window: { ...p.window, fetch() {} }, loadViews() { imports++; return Promise.resolve({ renderBacklog, renderSidebar }); } });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(imports, 0, view);
+    assert.deepEqual(events, ['click', 'keydown'], view);
+    assert.ok(time.textContent, view);
+    assert.equal(p.timers.length, 0);
+  }
+  const p = page(); let imports = 0;
+  vm.runInNewContext(source, { document: p.document, window: { ...p.window, fetch() {} }, loadViews() { imports++; return Promise.resolve({ renderBacklog, renderSidebar }); } });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(imports, 1); assert.equal(p.timers.length, 1, 'loading pages still poll');
 });
