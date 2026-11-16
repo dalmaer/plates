@@ -1,13 +1,13 @@
 {
   "verbs": 55,
-  "flags": 227,
-  "counted": "verbs: every key of `verbs` in lib/cli.mjs (\"goal add\" is one verb). flags: each distinct --flag a verb's usage string names counts once for that verb, so --dry-run on two verbs counts twice; the shared flags --json, --yes and --help count once for the whole CLI, and only when some usage string names them (--help is read by the dispatcher and named by none, so it does not count); each top-level flag in FLAGS (--agent-help, --version) counts once.",
+  "flags": 237,
+  "counted": "verbs: every key of `verbs` in lib/cli.mjs, including retired stubs (\"goal add\" is one verb). flags: each distinct --flag a verb's usage string names counts once for that verb, so --dry-run on two verbs counts twice; the shared flags --json and --yes count once for the whole CLI, and only when some usage string names them; --help and -h are top-level help aliases, not shared verb flags or additional counted options; each top-level flag in FLAGS (--agent-help, --version) counts once.",
   "surface": {
     "shared": ["--json", "--yes"],
     "topLevel": ["--agent-help", "--version"],
     "verbs": {
       "autonomy": ["--digest", "--level", "--merge", "--mode", "--push", "--push-prefix"],
-      "names": ["--digest", "--machine", "--only", "--recover", "--repo", "--run", "--verify"],
+      "names": ["--digest", "--machine", "--morning-run", "--only", "--recover", "--repo", "--run", "--verify"],
       "migrate": ["--digest"],
       "evidence rederive": [],
       "status": ["--project"],
@@ -27,7 +27,7 @@
       "doctor": ["--fix", "--github"],
       "update": ["--local", "--no-self-update"],
       "lessons": ["--dry-run", "--since", "--to"],
-      "learn": ["--check", "--cost", "--digest", "--guard", "--input", "--kind", "--link", "--manifest", "--note", "--outcome", "--read", "--shape", "--state"],
+      "learn": ["--check", "--cost", "--digest", "--evidence", "--family", "--guard", "--input", "--kind", "--link", "--manifest", "--migration", "--name", "--note", "--outcome", "--practice", "--read", "--row", "--rows", "--rule", "--shape", "--state", "--where"],
       "improve": ["--report", "--selftest", "--sessions", "--transcripts"],
       "persona run": ["--all"],
       "audit due": ["--date", "--quota", "--quota-url"],
