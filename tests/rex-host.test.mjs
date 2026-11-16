@@ -12,7 +12,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
-import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, realpath } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, realpath, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as audit from '../practices/audits/files/scripts/plates/audit.mjs';
@@ -210,6 +210,21 @@ test('the brief reaches the harness only on stdin', async t => {
   await writeFile(join(broken.bin, 'rex'), `#!${process.execPath}\nif (process.argv[2] === 'ls') { console.log('[]'); process.exit(0); }\nif (process.argv[2] === 'new') { console.log('{"session_id":"session:acme-new"}'); process.exit(0); }\nprocess.exit(5);\n`, { mode: 0o755 });
   await assert.rejects(startHost({ host: { file: 'hosts.json', start: null, state: null, harness: [broken.harness] }, plate: 'Acme', provider: 'claude', checkout: broken.checkout, brief: BRIEF, tab: 'phase-7', env: broken.env }), /rex run exited 5/);
   assert.deepEqual(await readdir(broken.briefDir), []);
+});
+
+test('a brief is never written inside the checkout or any git working tree', async t => {
+  const w = await world(t);
+  const host = { file: 'hosts.json', start: null, state: null, harness: [w.harness] };
+  const other = join(w.base, 'acme-other-repo');
+  await mkdir(other);
+  execFileSync('git', ['init', '-q', other]);
+  await symlink(other, join(w.base, 'acme-link'));
+  for (const [state, where] of [[join(w.checkout, '.state'), /inside this checkout/], [join(other, 'state'), /inside the git working tree/], [join(w.base, 'acme-link', 'state'), /inside the git working tree/]]) {
+    const env = { ...w.env, XDG_STATE_HOME: state };
+    await assert.rejects(startHost({ host, plate: 'Acme', provider: 'claude', checkout: w.checkout, brief: BRIEF, tab: 'phase-7', env }), where);
+    assert.equal(existsSync(join(state, 'plates', 'rex-briefs')), false, `nothing made under ${state}`);
+  }
+  assert.ok(!(await w.rexCalls()).some(c => c.args[0] === 'run'), 'no tab is opened');
 });
 
 test("state comes from the rex tab and the run's own artifact", async t => {
