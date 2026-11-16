@@ -71,7 +71,7 @@
     },
     ".github/workflows/claude.yml": {
       "practice": "claude",
-      "sha256": "25b0be5c1716614e540ee696def9e9ed3e786ab995f609981dc48ade75f2ee0b"
+      "sha256": "04ca6e3ea4ddd63c9fe1368d2475d43842f4b00af7cc4ce7dda1370aa690dd00"
     },
     ".github/workflows/plates-climb.yml": {
       "practice": "climb",

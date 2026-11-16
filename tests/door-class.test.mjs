@@ -160,3 +160,8 @@ test('home declares the doors of every writer its answers reach', async () => {
   }
   for (const operation of VERB_OPERATIONS.home) assert.ok(Object.values(reaches).some(ops => ops.includes(operation)), `${operation} is reached by one of home's writers`);
 });
+
+test('a Claude tool-permission list is not a workflow command', () => {
+  const ops = workflowOperations('            --disallowedTools "Bash(gh release*),Bash(gh secret*)"\n            --allowedTools "Bash(npm test)"\n          gh release create v1\n');
+  assert.deepEqual(ops.map(o => o.command), ['gh release create v1'], 'only the real command line counts');
+});
