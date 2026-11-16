@@ -16,7 +16,7 @@ import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, realpath, symlink } f
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import * as audit from '../practices/audits/files/scripts/plates/audit.mjs';
-import { attachJournal, cancelAttach, rexBriefFile, attach, attachPreview, findRex, hostState, isHostSession, readLocalHost, rexLabel, rexState, startHost, localHostExecutions, REX_RECEIPT } from '../lib/attach.mjs';
+import { attachJournal, cancelAttach, settleCancel, recoverCancels, rexBriefFile, attach, attachPreview, findRex, hostState, isHostSession, readLocalHost, rexLabel, rexState, startHost, localHostExecutions, REX_RECEIPT } from '../lib/attach.mjs';
 import { auditRun, runsDir, runState } from '../lib/audit-run.mjs';
 
 const BRIEF = 'Phase 7: Build the anvil (acme)\nACME-BRIEF-MARKER-7f3e: only the harness may read this.\n';
@@ -357,8 +357,9 @@ test('a cancel is journaled before any effect, closes the Rex tab plates opened 
   const [m] = [/^rex:([^/]+)\/(.+)$/.exec(receipt)];
   assert.deepEqual(await a.w.closes(), [{ args: ['block', 'close', '-s', m[1], m[2]], recorded: true }], 'the one block plates opened is closed, after the cancel was journaled');
   assert.equal(existsSync(rexBriefFile(a.w.env, digest)), false, 'the brief file is gone');
-  const entry = JSON.parse(await readFile(join(a.dir, `${digest}.json`), 'utf8'));
-  assert.deepEqual([entry.cancelled.stop, entry.cancelled.brief, entry.cancelled.done], ['stopped', 'removed', true]);
+  const effects = JSON.parse(await readFile(join(a.dir, `${digest}.cancelled.json`), 'utf8'));
+  assert.deepEqual([effects.stop, effects.brief, effects.done], ['stopped', 'removed', true]);
+  assert.equal(JSON.parse(await readFile(join(a.dir, `${digest}.json`), 'utf8')).cancelled, undefined, 'the entry itself is attach\'s alone');
   assert.equal(JSON.parse(await readFile(join(a.dir, `${digest}.cancel.json`), 'utf8')).why, 'built elsewhere');
   // A restarted session's check, and the backlog no longer shows the run.
   assert.equal((await cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 7, check: true }, a.deps())).exitCode, 1);
@@ -374,7 +375,7 @@ test('cancelling twice, two cancels at once, or a cancel racing a finish has one
   const third = await a.cancel({ why: 'three' });
   assert.deepEqual([third.data.already, third.data.attaches[0].cancel], [true, x.data.attaches[0].cancel]);
   assert.ok((await a.w.closes()).length <= 2 && (await a.w.closes()).every(c => c.recorded));
-  assert.equal(JSON.parse(await readFile(join(a.dir, `${x.data.attaches[0].digest}.json`), 'utf8')).cancelled.done, true);
+  assert.equal(JSON.parse(await readFile(join(a.dir, `${x.data.attaches[0].digest}.cancelled.json`), 'utf8')).done, true);
   // The run already finished when the cancel came: nothing is closed (its tab is left to read), and the cancel stands.
   const b = await attached(t);
   await attach(b.args, b.deps());
@@ -412,7 +413,7 @@ test('cancel, restart, recover: no duplicate dispatch', async t => {
   assert.equal(runCalls(await a.w.rexCalls()).length, runsBefore, 'no tab is opened again');
   assert.equal(a.claims.length, claimsBefore, 'nothing is claimed again');
   assert.equal((await a.w.closes()).length, 1, 'recovery closed the tab the receipt names');
-  assert.equal(JSON.parse(await readFile(join(a.dir, `${digest}.json`), 'utf8')).cancelled.done, true);
+  assert.equal(JSON.parse(await readFile(join(a.dir, `${digest}.cancelled.json`), 'utf8')).done, true);
   assert.equal((await attach(a.args, a.deps())).data.state, 'cancelled');
   assert.equal((await a.w.closes()).length, 1, 'a settled cancel is not acted on again');
 
@@ -461,4 +462,60 @@ test("a host's session is stopped through its stop command, or said to be its ow
   await assert.rejects(readLocalHost({ root: w.checkout, provider: 'claude', env: w.env }), /stop, when present, is an argv array/);
   await writeFile(join(cfg, 'local-hosts.json'), JSON.stringify({ hosts: { claude: { start: ['/bin/acme-host'], stop: ['/bin/acme-host', 'stop'] } } }));
   assert.deepEqual((await readLocalHost({ root: w.checkout, provider: 'claude', env: w.env })).stop, ['/bin/acme-host', 'stop']);
+});
+
+test('a cancel never takes an unknown Rex answer for an end', async t => {
+  const sessions = [{ session_id: 'session:acme-anvils', label: 'acme-claude' }];
+  // Rex answers something unrecognised (or a failed call): the run is not "ended"; the stop stays pending and nothing is closed.
+  const a = await attached(t);
+  await attach(a.args, a.deps());
+  for (const wait of [{ stdout: '', code: 1 }, { stdout: 'garbage', code: 0 }, { stderr: 'Error: connection refused\n', code: 1 }]) {
+    await a.w.setMode({ ls: 'ok', sessions, wait, journal: a.dir });
+    const r = await a.cancel();
+    assert.deepEqual([r.data.attaches[0].cancelled.stop, r.data.attaches[0].cancelled.done], ['pending', false], JSON.stringify(wait));
+  }
+  assert.deepEqual(await a.w.closes(), []);
+  // Once Rex says it is running, recovery closes it.
+  await a.w.setMode({ ls: 'ok', sessions, wait: RUNNING, journal: a.dir });
+  assert.equal((await a.cancel()).data.attaches[0].cancelled.stop, 'stopped');
+  assert.equal((await a.w.closes()).length, 1);
+});
+
+test('settling a cancel never overwrites a newer receipt, and stops the run it names', async t => {
+  // A settle working from a stale snapshot (listed before the dispatch wrote its receipt) neither erases the receipt
+  // nor misses the run it names.
+  const b = await attached(t);
+  const done = await attach(b.args, b.deps());
+  const { digest } = done.data, journal = attachJournal(b.dir);
+  const stale = { digest, intent: done.data.receipt && JSON.parse(await readFile(join(b.dir, `${digest}.json`), 'utf8')).intent };
+  await journal.cancel(digest, { at: '2026-11-16T00:00:00.000Z', by: 'owner' });
+  const settled = await settleCancel(stale, { journal, env: b.w.env, root: b.w.checkout });
+  assert.equal(settled.stop, 'stopped', 'the fresh receipt names the block, and it is closed');
+  assert.deepEqual(JSON.parse(await readFile(join(b.dir, `${digest}.json`), 'utf8')).receipt, done.data.receipt, 'the receipt is untouched');
+  // A cancel settled as "unknown" before any receipt existed is settled again once a receipt names the run.
+  const c = await attached(t);
+  const { ROUTE_HANDLERS } = await import('../lib/attach.mjs');
+  let release; const gate = new Promise(r => { release = r; });
+  const slow = { ...ROUTE_HANDLERS, 'local-host': { ...ROUTE_HANDLERS['local-host'], dispatch: async ctx => { await gate; return ROUTE_HANDLERS['local-host'].dispatch(ctx); } } };
+  const pending = attach(c.args, c.deps({ handlers: slow }));
+  for (let i = 0; i < 50 && !(await attachJournal(c.dir).list()).length; i++) await new Promise(r => setTimeout(r, 20));
+  const early = await c.cancel();
+  assert.equal(early.data.attaches[0].cancelled.stop, 'unknown', 'no receipt yet');
+  release();
+  const late = await pending;
+  assert.deepEqual([late.data.state, late.data.cancelled.stop], ['cancelled', 'stopped'], 'the dispatch that finished after the cancel stopped its own run');
+  assert.ok(JSON.parse(await readFile(join(c.dir, `${late.data.digest}.json`), 'utf8')).receipt, 'and its receipt stands');
+  assert.deepEqual(await recoverCancels(attachJournal(c.dir), { env: c.w.env, root: c.w.checkout }), [], 'nothing left to settle');
+});
+
+test('a cancel record that cannot be read is never taken for not cancelled', async t => {
+  // A cancel record that cannot be read: --check says cancelled (exit 1) and names it; attach refuses; the backlog shows nothing running.
+  const d = await attached(t);
+  const first = await attach(d.args, d.deps());
+  await writeFile(join(d.dir, `${first.data.digest}.cancel.json`), '{ torn');
+  const check = await cancelAttach({ root: d.w.checkout, projectId: 'acme', phase: 7, check: true }, d.deps());
+  assert.equal(check.exitCode, 1);
+  assert.match(check.text, /a cancel record that cannot be read \(.*\.cancel\.json: .*\); treat it as cancelled/);
+  await assert.rejects(attach(d.args, d.deps()), e => e.exitCode === 1 && /cancel .* could not be read.*nothing is dispatched until it is/.test(e.message));
+  assert.deepEqual(await localHostExecutions(d.w.checkout, { env: d.w.env, journal: attachJournal(d.dir) }), []);
 });
