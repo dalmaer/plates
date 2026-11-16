@@ -388,3 +388,45 @@ test('gate preserves configured NODE_TEST overrides but excludes inherited runne
   const results = await measure({ root, config, env: { ...ENV, NODE_TEST_ACME_EXPLICIT: 'inherited', NODE_TEST_ACME_INHERITED: 'inherited', NODE_TEST_CONTEXT: 'child-v8' }, measures: MEASURES.filter(m => m.id === 'gate') });
   assert.equal(results[0].state, 'ok', JSON.stringify(results));
 });
+
+test('improve shares one parsed test-runs snapshot across time, ledger and proofs_hold measures, and refreshes after a local gate writes a run', async t => {
+  const { default: fsp } = await import('node:fs/promises');
+  const { syncBuiltinESMExports } = await import('node:module');
+  const dir = await project(t);
+  await put(dir, { tests: { 'an anvil drops': ['pass', 20] } });
+  await put(dir, { tests: { 'an anvil drops': ['pass', 22] } });
+  await record(dir, { kind: 'stalls', version: 1, date: '2026-10-01T01:00:00Z', completed: true, tests: [], stallsReceipts: [], dir: '.', config: 'acmecfg', flagsHash: 'acmeflags', commit: 'a'.repeat(40) });
+  const config = JSON.parse(await readFile(join(dir, '.plates', 'plates.json'), 'utf8'));
+  const selected = MEASURES.filter(m => m.time || ['flaky_tests', 'slow_tests', 'proofs_hold'].includes(m.id));
+  const counts = new Map(), orig = fsp.readFile;
+  fsp.readFile = async (p, ...rest) => {
+    const key = String(p);
+    if (key.includes('.plates/test-runs/') && key.endsWith('.json')) counts.set(key, (counts.get(key) ?? 0) + 1);
+    return orig(p, ...rest);
+  };
+  syncBuiltinESMExports();
+  try {
+    await measure({ root: dir, config, env: ENV, measures: selected });
+  } finally {
+    fsp.readFile = orig;
+    syncBuiltinESMExports();
+  }
+  assert.ok(counts.size >= 3, 'all retained ledger JSON files were read');
+  assert.deepEqual([...counts.values()].filter(n => n > 1), [], `expected each ledger JSON file read once, got ${JSON.stringify([...counts])}`);
+
+  // When gate runs locally and writes a new test-run record, post-gate measures refresh once and see it.
+  await writeFile(join(dir, 'record-gate-run.mjs'), `
+    import { writeFileSync } from 'node:fs';
+    writeFileSync('.plates/test-runs/2026-10-05T00-00-00Z-gate-added.json', JSON.stringify({
+      commit: 'c-acmetree1', tree: 'acmetree1', dirty: false,
+      machine: { os: 'linux', arch: 'x64', cpus: 4 }, node: 'v24.21.0',
+      date: '2026-10-05T00:00:00.000Z',
+      busy: { start: { load: [0.2], cores: 4 }, end: { load: [0.2], cores: 4 } },
+      tests: [{ file: 'tests/anvils.test.mjs', name: 'an anvil drops', outcome: 'fail', ms: 15 }]
+    }) + '\\n');
+    console.log('# tests 1');
+  `);
+  const withGate = MEASURES.filter(m => m.id === 'gate_time' || m.id === 'gate' || m.id === 'flaky_tests' || m.id === 'proofs_hold');
+  const postGate = await measure({ root: dir, config: { ...config, check: 'node record-gate-run.mjs', tests: { window: 2 } }, env: ENV, measures: withGate });
+  assert.equal(postGate.find(r => r.id === 'flaky_tests').value, 1, 'post-gate ledger measures observe the run recorded during gate');
+});

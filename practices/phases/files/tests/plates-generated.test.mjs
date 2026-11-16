@@ -120,3 +120,52 @@ test('a directory declared in reads keeps its ignored files, however git lists t
   assert.ok(leftOut(dir).includes('inputs/catalog.json'));
   assert.deepEqual(await survivors(dir, [{ path: 'docs/ACME.md', reads: ['inputs'], args: ['rewrites.mjs'] }]), []);
 });
+
+test('survivors queries git ls-files once and runs co-generated outputs in one shared generator invocation', async t => {
+  const { chmod, readFile } = await import('node:fs/promises');
+  const dir = await mkdtemp(join(tmpdir(), 'plates-generated-acme-'));
+  const binDir = await mkdtemp(join(tmpdir(), 'plates-generated-bin-'));
+  t.after(async () => {
+    await rm(dir, { recursive: true, force: true });
+    await rm(binDir, { recursive: true, force: true });
+  });
+  execFileSync('git', ['init', '-q'], { cwd: dir, stdio: 'ignore' });
+  const gitLog = join(binDir, 'git.log'), genLog = join(binDir, 'gen.log'), gitWrap = join(binDir, 'git');
+  await mkdir(join(dir, 'docs'), { recursive: true });
+  await writeFile(join(dir, 'docs', 'A.md'), '# A\n');
+  await writeFile(join(dir, 'docs', 'B.md'), '# B\n');
+  await writeFile(join(dir, 'docs', 'C.md'), '# C\n');
+  await writeFile(join(dir, 'gen-ab.mjs'), `import { appendFileSync, writeFileSync } from 'node:fs';\nappendFileSync(${JSON.stringify(genLog)}, 'ab\\n');\nwriteFileSync('docs/A.md', '# A\\n');\nwriteFileSync('docs/B.md', '# B\\n');\n`);
+  await writeFile(join(dir, 'gen-c.mjs'), `import { writeFileSync } from 'node:fs';\nwriteFileSync('docs/C.md', '# C\\n');\n`);
+
+  const origPath = process.env.PATH;
+  if (process.platform !== 'win32') {
+    const realGit = execFileSync('which', ['git'], { encoding: 'utf8' }).trim();
+    await writeFile(gitWrap, `#!/bin/sh\nprintf '%s\\n' "$*" >> '${gitLog.replaceAll("'", "'\\''")}'\nexec '${realGit.replaceAll("'", "'\\''")}' "$@"\n`);
+    await chmod(gitWrap, 0o755);
+    process.env.PATH = `${binDir}:${origPath}`;
+  }
+  try {
+    const out = await survivors(dir, [
+      { path: 'docs/A.md', args: ['gen-ab.mjs'] },
+      { path: 'docs/B.md', args: ['gen-ab.mjs'] },
+      { path: 'docs/C.md', args: ['gen-c.mjs'] },
+    ]);
+    assert.deepEqual(out, []);
+  } finally {
+    process.env.PATH = origPath;
+  }
+  if (process.platform !== 'win32') {
+    assert.equal((await readFile(gitLog, 'utf8')).trim().split('\n').filter(l => /\bls-files\b/.test(l)).length, 1, 'leftOut runs git ls-files once');
+  }
+  assert.equal((await readFile(genLog, 'utf8')).trim().split('\n').length, 1, 'co-generated files share one generator run');
+
+  // If a shared generator rewrites A.md but appends to B.md, B.md is still caught and named.
+  await writeFile(join(dir, 'gen-partial.mjs'), `import { appendFileSync, writeFileSync } from 'node:fs';\nwriteFileSync('docs/A.md', '# A\\n');\nappendFileSync('docs/B.md', 'more\\n');\n`);
+  const partial = await survivors(dir, [
+    { path: 'docs/A.md', args: ['gen-partial.mjs'] },
+    { path: 'docs/B.md', args: ['gen-partial.mjs'] },
+  ]);
+  assert.equal(partial.length, 1);
+  assert.match(partial[0], /^docs\/B\.md:/);
+});
