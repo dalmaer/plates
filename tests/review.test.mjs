@@ -1523,3 +1523,34 @@ test('live review priorities survive the real reader into finding scores', async
   assert.deepEqual(findings.map(f=>f.severity),['high','high','medium','low',null]);
   assert.deepEqual(findings.map(f=>priorityScore({...f,effort:'S',confidence:'HIGH',risk:'LOW'}).score),[3,3,2,1,null]);
 });
+
+
+test('image-only review excerpts retain both comments and unknown severity in findings', async t => {
+  const { normalizeReview } = await import('../lib/findings.mjs');
+  const dir = await project(t);
+  const gh = await stubGh(t, { threads: [
+    { id: 'PRRT_image', path: 'acme.js', line: 7, comments: [c(501, 'acme-reviewer', '<img src="https://images.acme.test/screenshot.png">')] },
+    { id: 'PRRT_defect', path: 'acme.js', line: 12, comments: [c(502, 'acme-reviewer', '**P1** The brakes are disconnected.')] },
+  ], reviews: [ON_HEAD] });
+  const result = plates(dir, gh, ['acme/app#3', '--json']);
+  assert.equal(result.code, 1, result.err + result.out);
+  const data = result.json();
+  assert.equal(data.comments[0].text, '');
+  const findings = normalizeReview(data);
+  assert.equal(findings.length, 2);
+  const [image, defect] = findings;
+  assert.equal(image.localId, 'PRRT_image');
+  assert.equal(image.title, 'Review comment PRRT_image (no text excerpt)');
+  assert.equal(image.source.url, data.comments[0].url);
+  assert.ok(image.source.url);
+  assert.deepEqual(image.evidence, [{ path: 'acme.js', line: 7, what: '' }]);
+  assert.equal(image.severity, null);
+  assert.equal(image.priority.score, null);
+  assert.equal(defect.title, 'P1 The brakes are disconnected.');
+  assert.equal(defect.severity, 'high');
+  const whitespace = normalizeReview({ ...data, comments: [{ ...data.comments[0], text: '  \n\t' }] })[0];
+  assert.equal(whitespace.title, image.title);
+  assert.equal(whitespace.id, image.id);
+  assert.equal(whitespace.source.url, image.source.url);
+  assert.equal(writesIn(await gh.calls()).length, 0);
+});

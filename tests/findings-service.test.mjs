@@ -88,3 +88,25 @@ test('answering a review retains triage as history, never an approval of changed
  review.comments[0].answered=true;review.contentRevision='after';
  const next=(await collectFindings(sources,deps)).findings.find(x=>x.id===item.id);assert.equal(next.status,'answered');assert.equal(next.staleDecisions[0].decision.action,'explore');assert.equal(next.decisions.length,0);
 });
+test('local-only audit projects retain stable distinct identities and support triage',async t=>{
+ const f=await fixture(t),other=await fixture(t);for(const project of [f,other])await writeFile(join(project.root,'.plates/plates.json'),JSON.stringify({name:'Acme local'}));
+ const a=(await collectFindings(f)).findings[0],b=(await collectFindings(other)).findings[0];
+ assert.match(a.source.repo,/^local:[a-f0-9]{64}$/);assert.notEqual(a.id,b.id);assert.equal(a.id,(await collectFindings(f)).findings[0].id);
+ const {from}=await input(f);assert.equal((await decideFinding({...f,from,yes:true})).data.status,'recorded');assert.equal((await collectFindings(f)).findings[0].decisions.length,1);
+});
+test('decision property order does not create a second choice or lose its assessment',async t=>{
+ const f=await fixture(t),assessment={effort:'M',confidence:'MED',risk:'LOW'}, {from,item}=await input(f,{assessment});
+ await decideFinding({...f,from,yes:true});
+ const reverse=value=>Array.isArray(value)?value.map(reverse):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).reverse().map(([k,v])=>[k,reverse(v)])):value;
+ await writeFile(from,JSON.stringify(reverse({findingId:item.id,findingDigest:item.digest,decision,assessment})));
+ assert.equal((await decideFinding({...f,from,yes:true})).data.status,'already-recorded');
+ const current=(await collectFindings(f)).findings[0];assert.equal(current.decisionConflict,false);assert.equal(current.decisionHistory.length,1);assert.equal(current.priority.score,3/2*.6);
+});
+test('legacy noncanonical record identities remain readable and idempotent',async t=>{
+ const {createHash}=await import('node:crypto');const f=await fixture(t),{from}=await input(f);await decideFinding({...f,from,yes:true});
+ const base=join(f.env.XDG_STATE_HOME,'plates/findings'),dir=join(base,(await readdir(base))[0]),file=(await readdir(dir)).find(n=>n.endsWith('.json'));
+ const record=JSON.parse(await readFile(join(dir,file),'utf8'));record.payload=Object.fromEntries(Object.entries(record.payload).reverse());
+ const legacy=createHash('sha256').update(JSON.stringify(record.payload)).digest('hex')+'.json';assert.notEqual(file,legacy);
+ await writeFile(join(dir,legacy),JSON.stringify(record)+'\n',{mode:0o600});await rm(join(dir,file));
+ assert.equal((await decideFinding({...f,from,yes:true})).data.status,'already-recorded');assert.equal((await collectFindings(f)).findings[0].decisionHistory.length,1);
+});

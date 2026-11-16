@@ -16,7 +16,8 @@ plates findings list --review owner/repo#42 --observations observations.json
 observation files. It does not run an audit, agent or measurement. Reading a PR
 uses the normal review reader and its read receipt. Output includes source,
 evidence, source status, stable source-qualified ID and an exact `digest` for
-triage. Bad/missing selected sources appear in `gaps` and produce exit 1; this
+triage. Local-only projects use a stable identity derived from the canonical
+checkout path; they do not need a GitHub repository. Bad/missing selected sources appear in `gaps` and produce exit 1; this
 view is never proof of whole-project health. Conflicting copies of one identity
 are excluded with a gap; other sources remain usable. Historical audits are evidence at
 their recorded commits, not claims about current code.
@@ -78,7 +79,7 @@ An optional `assessment` supplies the four priority factors explicitly.
 An optional `duplicateOf` names another observed finding; grouping is explicit,
 not a guess from similar prose, and retains every observation. Decisions are
 private immutable records outside Git, keyed by canonical checkout. Repeating
-the same choice is idempotent. Source changes make decisions stale. Review replies and answered status count as
+the same choice is idempotent even when JSON object properties are reordered. Source changes make decisions stale. Review replies and answered status count as
 source changes: prior triage remains in history, not current approval of changed
 evidence. The revision is conservatively PR-wide in this increment. Different
 choices for the same revision are surfaced as conflicts, not silently resolved
