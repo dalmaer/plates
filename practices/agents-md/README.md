@@ -13,7 +13,8 @@ is the project's prose. Existing independent guides and aliases are preserved.
 **Its files.** The selected guide (seeded skeleton with an empty region per
 practice), an eligible managed `CLAUDE.md` doorway, and the `agents-md` block
 (⚑ steps). A CLAUDE-only project uses `CLAUDE.md` itself; it needs no
-`AGENTS.md` or self-pointing doorway.
+`AGENTS.md` or self-pointing doorway. The managed cold-start skill lives at
+`.agents/skills/plates/SKILL.md`, with `.claude/skills/plates` as its symlink doorway.
 
 **Read this before touching that (phase 65).** `.plates/plates.json`
 `"contracts"` maps path patterns to the document to read before editing a

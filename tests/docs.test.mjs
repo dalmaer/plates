@@ -175,3 +175,84 @@ test('drift-19: operating examples name current branch and marker writers', asyn
   for (const old of ['keel/update-v','keel-night/', 'keel-climb/', '<!-- keel:class', '<!-- keel:cross-review']) assert.ok(!guide.includes(old), old);
   assert.match(await document('practices/climb/files/.agents/climb/PROTOCOL.md'), /plates-climb\/<job>\/<date>/);
 });
+
+test('drift-21: the phase contract documents recommendation validation for every spec', async () => {
+  const contract = await document('practices/phases/files/docs/phases/README.md');
+  assert.match(contract, /\*\*Recommend:\*\*/);
+  assert.match(contract, /every spec version/);
+  assert.match(contract, /exact.*Choices/s);
+});
+
+test('drift-21: release scope and template placeholders match their documented contracts', async () => {
+  const { PLACEHOLDERS } = await import('../lib/practices.mjs');
+  const source = await document('lib/practices.mjs');
+  const comment = source.slice(source.indexOf('// Templates know'), source.indexOf('// A seeded entry'));
+  assert.deepEqual([...comment.matchAll(/\{\{(\w+)\}\}/g)].map(m => m[1]).filter((v, i, a) => a.indexOf(v) === i), PLACEHOLDERS);
+  assert.match(comment, /six placeholders/);
+  const design = (await document('docs/design.md')).split('**Settled 2026-10-04 (phase 22):**')[1].split('- **The isocan canvas.')[0];
+  assert.match(design, /`docs\/lessons\.md`/);
+  assert.match(source.slice(source.indexOf('The practice version this plates carries')), /docs\/lessons\.md/);
+});
+
+test('drift-21: preflight documentation orders the actual stages and names refusal exit', async () => {
+  const { focusedPlan } = await import('../scripts/check-focused.mjs');
+  const order = (await focusedPlan([], CLI_ROOT)).stages.map(s => s.id).join(' → ');
+  for (const path of ['docs/development/validation-audit.md', 'docs/specs/validation-efficiency.md']) {
+    assert.ok((await document(path)).includes(order), `${path}: ${order}`);
+  }
+  assert.match(await document('docs/development/validation-preflight.md'), /`--records-only`[\s\S]*?exit 3/);
+});
+
+test('drift-21: partial practice file lists point to the complete manifest', async () => {
+  for (const name of ['climb', 'night']) {
+    const readme = await document(`practices/${name}/README.md`);
+    assert.match(readme, /\*\*Selected files\.\*\*/);
+    assert.match(readme, /\[practice\.json\]\(practice\.json\)/);
+  }
+  const manifest = JSON.parse(await document('practices/agents-md/practice.json'));
+  for (const file of manifest.files.filter(f => f.path.includes('/skills/'))) {
+    assert.ok((await document('practices/agents-md/README.md')).includes('`' + file.path + '`'), file.path);
+  }
+});
+
+test('drift-21: the Discord pilot does not deny its recorded live attempts', async () => {
+  const doc = await document('docs/development/discord-pilot.md');
+  assert.match(doc, /Four separately approved local attempts/);
+  assert.doesNotMatch(doc, /No live activation, app install, credential provisioning, paid call, message,/);
+  assert.match(doc, /## Before another live attempt/);
+});
+
+const phaseDocument = async id => {
+  const name = (await readdir(join(CLI_ROOT, 'docs/phases'))).find(n => n.startsWith(`${id}-`));
+  return document(`docs/phases/${name}`);
+};
+const sectionText = (doc, name) => doc.split(`## ${name}\n`)[1]?.split('\n## ')[0] ?? '';
+for (const [id, pending, stale] of [
+  [94, /nightly schedule.*second.*key|nightly schedule.*key.*second/s, /Choose and verify.*destination|Node v24\.21\.0/],
+  [98, /Inspect.*005[\s\S]*proof/, /fresh owner-supplied.*code|finish approved hosted migrations 004\/005/],
+  [101, /isolated restore target/, /Owner selects a private backup destination/],
+  [151, /Inspect.*005–013 and 022[\s\S]*proof/, /Step 6 with.*migration 005/],
+  [154, /[Aa]pply 016[\s\S]*owner/, /Build the renewal/],
+  [174, /owner.*session.*phone/s, /with migration 017 applied/],
+  [184, /[Ww]rite one event.*web.*read.*\/backlog\/history/s, /Apply migration 019/],
+]) test(`drift-22: phase ${id} next action preserves remaining proof without repeating recorded work`, async () => {
+  const doc = await phaseDocument(id), next = sectionText(doc, 'Next action');
+  assert.match(next, pending);
+  assert.doesNotMatch(next, stale);
+  if ([94, 151].includes(id)) assert.doesNotMatch(sectionText(doc, 'Deliberately open'), /Backup destination remains open|Backup destination[^\n]*still the owner/);
+  if (id === 151) assert.doesNotMatch(sectionText(doc, 'Your part'), /conductor applies 005|Switch on.*migration 005/);
+});
+
+test('drift-22: backlog syntax and event fields agree with the CLI and SQL', async () => {
+  const doc = await document('docs/specs/web-backlog.md');
+  const cli = await document('lib/cli.mjs');
+  for (const mode of ['attach', 'assist']) {
+    const usage = new RegExp("throw new UsageError\\('(plates home --" + mode + " [^']+)'\\)").exec(cli)?.[1];
+    assert.ok(usage, mode);
+    assert.ok(doc.includes('`' + usage + '`'), usage);
+  }
+  assert.doesNotMatch(doc, /CLI `backlog attach`|not-now\(reason\)|176, planned/);
+  const phase = await phaseDocument(176);
+  assert.ok(doc.includes(`176, ${/^status: (.+)$/m.exec(phase)[1]}`));
+  assert.match(doc, /`reason`[^\n]*`none`[^\n]*`stated`/);
+});

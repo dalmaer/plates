@@ -29,7 +29,7 @@ reconciliation, roadmap, rendered files, inbox and whitespace, then recheck the
 input identity. Unavailable required references fail; unchanged remote history
 is explicitly not refreshed. A result named `record-checks` is not a full test
 pass. Prior full-gate evidence retains its original revision. `--records-only`
-refuses a broad selection instead of executing it; eligible selections still run
+refuses a broad selection with exit 3 instead of executing it; eligible selections still run
 their checks. It is not a way to approve broad changes.
 
 Changes to this policy or its executable checks require the full gate and review.

@@ -66,7 +66,7 @@ adds agents makes the queue longer. This one has two jobs:
     repair previews.
   - **Review session** (174): `/review`, one card at a time, keys 1–4/W/N,
     Undo.
-  - **Merge from docket** (176, planned).
+  - **Merge from docket** (176, partial; App write grant and owner merge remain).
 - **Agent routes:**
   - `/spin` and the conduct skill;
   - `plates goodnight` and the night plan (phase 76: the night builds only
@@ -430,7 +430,9 @@ the provider name it reports, which must be a key of `agents`.
 no owner words.** Each record:
 - `at`, `actor` (owner or agent provider), `key`, `action`;
 - `action` is one of: view, attach, assist, dispatch, release, answer,
-  not-now(reason);
+  not-now;
+- `reason` is `none` or `stated` for `not-now`, and null for other actions;
+  it records only whether a reason was given, never the owner's words;
 - `route`, `lane`, display position, `takes`, outcome, receipt link.
 
 **Storage:**
@@ -454,7 +456,7 @@ It never changes ordering without a visible, owner-chosen rule.
 - `plates home --recurring [--json]` and `plates home --agents [--json]` print
   the sidebar's Recurring and Agents (with Pending review) in the same form.
 - `plates home --attach <key> --route <r> [--provider <p>] [--yes]` (181).
-- `plates home --assist <key> <assist> [--yes]` (182).
+- `plates home --assist <key> --recommend <choice> --why "<line>" --evidence <link>... [--provider <p>] [--yes]` (182).
 
 Each adds flags to `home`, counted against the flag budget (196 of 200 used),
 so 178 adds `--backlog` and `--lane`, and later phases reuse `--route` and
@@ -549,7 +551,7 @@ and read-only until its write increment.
   - routes `session` and `tonight`;
   - the `agents` policy with a session-only default;
   - presence;
-  - CLI `backlog attach`.
+  - CLI `plates home --attach <key> --route <r> [--provider <p>] [--yes]`.
   - Robot after this, through the generated rubric, as an increment gated by
     `robot.on`.
 - **Acceptance:**
@@ -615,7 +617,7 @@ and read-only until its write increment.
 ### 184. The backlog remembers what happened to each item
 
 - **Done when:** `backlog_events` records attach, assist, dispatch, release,
-  answer and not-now(reason) locally and hosted. `plates home --backlog
+  answer and not-now with a separate reason code locally and hosted. `plates home --backlog
   --since` reads it back.
 - **Acceptance:**
   - [ ] Events hold no source text or owner words:
