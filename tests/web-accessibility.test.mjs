@@ -111,6 +111,11 @@ test('global destinations stay reachable with one current page and main content 
   assert.doesNotMatch(plateWorkspaceStyles,/\.message-sidebar-links\{display:none/);
 });
 
+test('on a phone a long answer choice wraps instead of being clipped',()=>{
+  const phone=backlogStyles.match(/@media\(max-width:600px\)\{(.*)\}\s*$/s)?.[1]??backlogStyles.split('@media(max-width:600px){')[1];
+  assert.match(phone,/\.backlog-row \*\{white-space:normal\}/,'every row element, the choice links included, wraps at 600px and under');
+});
+
 test('answer choices stay links to where Home answers, each a full touch target',()=>{
   const html=renderBacklog({...model,lanes:[{lane:'yours',title:'Yours',items:[{key:'studio:phase:1',projectId:'studio',title:'Acme choice',question:{ask:'Ship?',choices:['Yes','No'],recommend:'Yes'},answers:[{id:'yes'}]}]}]});
   assert.match(html,/<a class="p-badge" href="\/review" data-recommended>Yes · Recommended<\/a><a class="p-badge" href="\/review">No<\/a>/);
