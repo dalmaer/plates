@@ -498,7 +498,7 @@
       ],
       "ownerAttended": true,
       "rollback": "A failure inside the transaction rolls back by itself; the migration refuses an ambiguous partial state. After commit, keep nightOperations off, and reapply 013 (never 009 or 010) if admission must be restored.",
-      "proof": "The applied version: file name and SHA-256. The commit result, docs/evidence/2026-10-31-web-night-retries-hosted-proof.sql's result (the role denials, the saved 010 delegate and a service-role shared-lane exercise) and its hosted race between a night retry and an ordinary job on one lane."
+      "proof": "The applied version: file name and SHA-256. The commit result, docs/evidence/2026-11-15-web-night-retries-after-rpc-names-proof.sql's result after 023 (the canonical wrapper, role denials, saved 010 delegate and a service-role shared-lane exercise) and its hosted race between a night retry and an ordinary job on one lane."
     },
     {
       "id": "migration-023",

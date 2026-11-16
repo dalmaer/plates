@@ -48,6 +48,70 @@ async function facts(db) {
     proconfig, prosecdef, proowner, pg_get_function_arguments(oid) args
     FROM pg_proc WHERE pronamespace='public'::regnamespace ORDER BY proname`)).rows;
 }
+
+test('night-retry activation proof follows 010 -> 023 -> 013 -> 023', async t => {
+  const { db, apply, range } = await setup(t);
+  await range(1, 10);
+  const admission = (await db.query(`SELECT prosrc FROM pg_proc WHERE oid='public.keel_job_rpc(text,text,text,jsonb)'::regprocedure`)).rows[0].prosrc;
+  await apply(repair);
+  await apply('013-night-retries.sql');
+  const original = await readFile(new URL('../docs/evidence/2026-10-31-web-night-retries-hosted-proof.sql', import.meta.url), 'utf8');
+  await assert.rejects(db.exec(original), /the saved delegate is not 010's admission/);
+  await apply(repair);
+  await assert.rejects(db.exec(original), /public keel_job_rpc is not the 013 wrapper/);
+  assert.equal((await db.query(`SELECT prosrc FROM pg_proc WHERE oid='keel_private.job_rpc_before_night(text,text,text,jsonb)'::regprocedure`)).rows[0].prosrc, admission);
+
+  const plan = JSON.parse(await readFile(new URL('../docs/specs/web-activation-plan.json', import.meta.url), 'utf8'));
+  const step = plan.steps.find(s => s.migration === '013-night-retries.sql');
+  const path = step.proof.match(/docs\/evidence\/[^\s']+\.sql/)[0];
+  assert.equal(path, 'docs/evidence/2026-11-15-web-night-retries-after-rpc-names-proof.sql');
+  const sql = await readFile(new URL(`../${path}`, import.meta.url), 'utf8');
+  const pass = async () => assert.equal((await db.exec(sql)).at(-1).rows[0].result, 'PASS 013-night-retries after-rpc-names hosted proof');
+  const rows = async () => {
+    const tables = (await db.query(`SELECT tablename FROM pg_tables WHERE schemaname='keel_private' ORDER BY tablename`)).rows;
+    return Promise.all(tables.map(async ({ tablename }) => (await db.query(`SELECT count(*)::int AS n FROM keel_private.${tablename}`)).rows[0].n));
+  };
+  const before = await rows();
+  await pass();
+  assert.deepEqual(await rows(), before, 'the proof rolls back its synthetic rows');
+  const race = sql.slice(sql.indexOf('/* TWO-CONNECTION RACE'), sql.lastIndexOf('*/'));
+  const steps = race.split(/^(?=-- \[\d+\] tab [AB]\b)/m).slice(1);
+  assert.equal(steps.length, 5);
+  for (const statement of steps) await db.exec(statement.replaceAll('pg_sleep(8)', 'pg_sleep(0)'));
+  assert.deepEqual(await rows(), before, 'serial race rehearsal cleans up');
+  await pass();
+
+  const signature = '(text,text,text,jsonb)';
+  const definition = (await db.query(`SELECT pg_get_functiondef('public.plates_job_rpc${signature}'::regprocedure) AS sql`)).rows[0].sql;
+  const forward = `CREATE OR REPLACE FUNCTION public.plates_job_rpc(p_operation text,p_scope text,p_id text,p_data jsonb DEFAULT '{}'::jsonb)
+    RETURNS jsonb LANGUAGE sql SECURITY DEFINER SET search_path='' AS 'SELECT public.keel_job_rpc($1, $2, $3, $4)'`;
+  await t.test('canonical name may forward to the legacy wrapper', async () => {
+    await db.exec('BEGIN');
+    try {
+      await db.exec(definition.replace('FUNCTION public.plates_job_rpc(', 'FUNCTION public.keel_job_rpc('));
+      await db.exec(forward);
+      await pass();
+    } finally { await db.exec('ROLLBACK'); }
+  });
+  const mutations = [
+    ['delegate forwarder', `CREATE OR REPLACE FUNCTION keel_private.job_rpc_before_night(p_operation text,p_scope text,p_id text,p_data jsonb DEFAULT '{}'::jsonb)
+      RETURNS jsonb LANGUAGE sql SECURITY DEFINER SET search_path='' AS 'SELECT public.plates_job_rpc($1, $2, $3, $4)'`, /saved admission delegate is a forwarder/],
+    ['wrong delegate body', `CREATE OR REPLACE FUNCTION keel_private.job_rpc_before_night(p_operation text,p_scope text,p_id text,p_data jsonb DEFAULT '{}'::jsonb)
+      RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS 'BEGIN RETURN null; END'`, /saved delegate is not 010's admission/],
+    ['wrong wrapper body', definition.replace('keel_private.job_rpc_before_night(', 'public.keel_job_rpc('), /does not resolve to the 013 wrapper/],
+    ['forwarding cycle', forward, /does not resolve to the 013 wrapper/],
+    ['delegate grant', `GRANT EXECUTE ON FUNCTION keel_private.job_rpc_before_night${signature} TO service_role`, /service_role can execute the saved admission delegate/],
+    ['browser grant', `GRANT EXECUTE ON FUNCTION public.plates_job_rpc${signature} TO authenticated`, /a browser role can execute public.plates_job_rpc/],
+    ['table grant', 'GRANT SELECT ON keel_private.night_retries TO service_role', /service_role holds a privilege/],
+  ];
+  for (const [name, mutation, error] of mutations) await t.test(name, async () => {
+    await db.exec('BEGIN');
+    try {
+      await db.exec(mutation);
+      await assert.rejects(db.exec(sql), error);
+    } finally { await db.exec('ROLLBACK'); }
+  });
+});
 async function verify(db) {
   const all = await facts(db);
   for (const [suffix, args] of Object.entries(calls)) {

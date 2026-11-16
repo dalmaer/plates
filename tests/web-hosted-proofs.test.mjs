@@ -41,6 +41,7 @@ const PROOFS = [
     wrong: 'grant usage on sequence keel_private.editor_draft_generation to service_role',
     refused: /service_role holds a privilege on keel_private\.editor_draft_generation/ },
   { migration: '013-night-retries.sql', proof: '2026-10-31-web-night-retries-hosted-proof.sql',
+    planProof: '2026-11-15-web-night-retries-after-rpc-names-proof.sql',
     wrong: 'grant execute on function keel_private.job_rpc_before_night(text,text,text,jsonb) to service_role',
     refused: /service_role can execute the saved admission delegate/ },
   { migration: '014-plates-names.sql', proof: '2026-10-31-web-plates-names-hosted-proof.sql',
@@ -128,8 +129,10 @@ test('every hosted proof runs clean on its migration', async t => {
       assert.doesNotMatch(text, /supabase\.co|https?:\/\/(?!github\.com\/acme\/)|@[a-z0-9-]+\.[a-z]/i, 'no private identifiers');
       // Applied migrations retain inspection/walk steps instead of instructions
       // to apply them again. Their proof procedures still need local rehearsal.
-      const step = plan.steps.find(s => s.proof.includes(`docs/evidence/${p.proof}`));
-      assert.ok(step?.proof.includes(`docs/evidence/${p.proof}`), 'its plan step names the proof');
+      // The original 013 proof retains its historical 001-013 rehearsal here;
+      // the current plan's repaired order is tested in web-late-rpc-migrations.
+      const step = plan.steps.find(s => s.proof.includes(`docs/evidence/${p.planProof ?? p.proof}`));
+      assert.ok(step, 'its plan step names the proof');
       const { race } = parts(text);
       assert.equal(race.length > 0, /race/i.test(step.proof), 'a race exactly where the plan names one');
 
