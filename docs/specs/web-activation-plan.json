@@ -235,7 +235,7 @@
       ],
       "ownerAttended": true,
       "rollback": "A failure inside the transaction rolls back by itself. The function only reads; after commit, the history page can be hidden by redeploying the pinned deployment.",
-      "proof": "The applied version: file name and SHA-256. The commit result, and docs/evidence/2026-10-31-web-run-history-hosted-proof.sql's result: the role denials and one bounded actor-scoped history call."
+      "proof": "The applied version: file name and SHA-256. The commit result, and docs/evidence/2026-11-15-web-run-history-after-rpc-names-proof.sql's result after 023 (the plates_run_history contract and its keel_ forwarder): the role denials and one bounded actor-scoped history call."
     },
     {
       "id": "connections-choice",
@@ -365,7 +365,7 @@
       ],
       "ownerAttended": true,
       "rollback": "A failure inside the transaction rolls back by itself. After commit, keep fleetUpdates.enabled false; never replay 010 after 013.",
-      "proof": "The applied version: file name and SHA-256. The commit result, docs/evidence/2026-10-31-web-fleet-updates-hosted-proof.sql's result (the role denials and a service-role preparation exercise) and its two-connection race between an update preparation and an ordinary job on one lane."
+      "proof": "The applied version: file name and SHA-256. The commit result, docs/evidence/2026-11-15-web-fleet-updates-after-rpc-names-proof.sql's result after 023 (the plates_* contract, the keel_* forwarders, the role denials and a service-role preparation exercise) and its two-connection race between an update preparation and an ordinary job on one lane."
     },
     {
       "id": "fleet-canary-choice",

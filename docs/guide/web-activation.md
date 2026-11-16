@@ -77,7 +77,7 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
 14. **migration-007** (phase 102, migration, owner attends). Apply 007-run-history.sql, the read-only history RPC over the 004 operation store. It has no recovery or purge. Immediately run 023-late-rpc-names.sql before using this feature, then verify both keel_* and plates_* callers; repeat 023 after later replays.
    - Needs first: phase 94.
    - Rollback: A failure inside the transaction rolls back by itself. The function only reads; after commit, the history page can be hidden by redeploying the pinned deployment.
-   - Proof to record: The applied version: file name and SHA-256. The commit result, and docs/evidence/2026-10-31-web-run-history-hosted-proof.sql's result: the role denials and one bounded actor-scoped history call.
+   - Proof to record: The applied version: file name and SHA-256. The commit result, and docs/evidence/2026-11-15-web-run-history-after-rpc-names-proof.sql's result after 023 (the plates_run_history contract and its keel_ forwarder): the role denials and one bounded actor-scoped history call.
 15. **connections-choice** (phase 103, decision, owner attends). Owner decides whether to switch on the optional connection vault now, and which provider (OpenAI or Anthropic) to validate. Declining skips the connection steps and model routing (106), which needs them.
    - Rollback: No hosted change; connections stay disabled.
    - Proof to record: The owner's dated choice, recorded in phase 103.
@@ -113,7 +113,7 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
 24. **migration-010** (phase 105, migration, owner attends). Apply 010-fleet-updates.sql (update preparation sharing the job lanes and charges) after 009. Immediately run 023-late-rpc-names.sql before using this feature, then verify both keel_* and plates_* callers; repeat 023 after later replays.
    - Needs first: phases 94, 104.
    - Rollback: A failure inside the transaction rolls back by itself. After commit, keep fleetUpdates.enabled false; never replay 010 after 013.
-   - Proof to record: The applied version: file name and SHA-256. The commit result, docs/evidence/2026-10-31-web-fleet-updates-hosted-proof.sql's result (the role denials and a service-role preparation exercise) and its two-connection race between an update preparation and an ordinary job on one lane.
+   - Proof to record: The applied version: file name and SHA-256. The commit result, docs/evidence/2026-11-15-web-fleet-updates-after-rpc-names-proof.sql's result after 023 (the plates_* contract, the keel_* forwarders, the role denials and a service-role preparation exercise) and its two-connection race between an update preparation and an ordinary job on one lane.
 25. **fleet-canary-choice** (phase 105, decision, owner attends). Owner selects one adopted canary project (Plates itself cannot stand in), the exact trusted build (commit, CLI and practice versions, bundle digest), the container image digest, platform and network policy, and the runtime allowance. Docker must be available for the isolated worker walk.
    - Rollback: No hosted change; fleet updates stay disabled.
    - Proof to record: The owner's dated selection, recorded in phase 105.

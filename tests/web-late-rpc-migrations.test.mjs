@@ -49,6 +49,56 @@ async function facts(db) {
     FROM pg_proc WHERE pronamespace='public'::regnamespace ORDER BY proname`)).rows;
 }
 
+test('each 005-013 step proof the plan names holds right after its migration and 023', async t => {
+  const plan = JSON.parse(await readFile(new URL('../docs/specs/web-activation-plan.json', import.meta.url), 'utf8'));
+  const steps = plan.steps.filter(s => s.kind === 'migration' && s.migration >= '005-' && s.migration < '013-');
+  assert.equal(steps.length, 8, '005 through 012');
+  for (const step of steps) await t.test(step.migration, async t => {
+    const { db, apply, range } = await setup(t);
+    await range(1, Number(step.migration.slice(0, 3)));
+    await apply(repair);
+    const paths = step.proof.match(/docs\/evidence\/[^\s']+\.sql/g) ?? [];
+    assert.equal(paths.length, 1, `${step.id} names one proof`);
+    const sql = await readFile(new URL(`../${paths[0]}`, import.meta.url), 'utf8');
+    const cut = sql.indexOf('/* TWO-CONNECTION RACE');
+    const rows = async () => {
+      const tables = (await db.query(`SELECT tablename FROM pg_tables WHERE schemaname='keel_private' ORDER BY tablename`)).rows;
+      return Promise.all(tables.map(async ({ tablename }) => (await db.query(`SELECT count(*)::int AS n FROM keel_private.${tablename}`)).rows[0].n));
+    };
+    const before = await rows();
+    await db.exec(cut < 0 ? sql : sql.slice(0, cut));
+    assert.deepEqual(await rows(), before, 'the proof rolls back its synthetic rows');
+    if (cut >= 0) {
+      const race = sql.slice(cut, sql.lastIndexOf('*/'));
+      for (const statement of race.split(/^(?=-- \[\d+\] tab [AB]\b)/m).slice(1)) await db.exec(statement.replaceAll('pg_sleep(8)', 'pg_sleep(0)'));
+      assert.deepEqual(await rows(), before, 'serial race rehearsal cleans up');
+    }
+  });
+});
+
+test('the fleet-update proof checks 010 through the repaired names and refuses a wrong one', async t => {
+  const { db, apply, range } = await setup(t);
+  await range(1, 10);
+  await apply(repair);
+  const original = await readFile(new URL('../docs/evidence/2026-10-31-web-fleet-updates-hosted-proof.sql', import.meta.url), 'utf8');
+  await assert.rejects(db.exec(original), /keel_job_rpc is not 010's body/, 'the historical proof expects 010 under the legacy name');
+  const sql = await readFile(new URL('../docs/evidence/2026-11-15-web-fleet-updates-after-rpc-names-proof.sql', import.meta.url), 'utf8');
+  const body = sql.slice(0, sql.indexOf('/* TWO-CONNECTION RACE'));
+  assert.equal((await db.exec(body)).at(-1).rows[0].result, 'PASS 010-fleet-updates after-rpc-names hosted proof');
+  const sig = '(text,text,text,jsonb)';
+  const mutations = [
+    ['legacy name not a forwarder', `CREATE OR REPLACE FUNCTION public.keel_job_rpc(p_operation text,p_scope text,p_id text,p_data jsonb DEFAULT '{}'::jsonb)
+      RETURNS jsonb LANGUAGE sql SECURITY DEFINER SET search_path='' AS 'SELECT null::jsonb'`, /keel_job_rpc is not 023's forwarder to plates_job_rpc/],
+    ['implementation not 010', `CREATE OR REPLACE FUNCTION public.plates_job_rpc(p_operation text,p_scope text,p_id text,p_data jsonb DEFAULT '{}'::jsonb)
+      RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS 'BEGIN RETURN null; END'`, /plates_job_rpc is not 010's body/],
+    ['browser grant on the forwarder', `GRANT EXECUTE ON FUNCTION public.keel_job_rpc${sig} TO authenticated`, /a browser role can execute keel_job_rpc/],
+  ];
+  for (const [name, mutation, error] of mutations) await t.test(name, async () => {
+    await db.exec('BEGIN');
+    try { await db.exec(mutation); await assert.rejects(db.exec(body), error); } finally { await db.exec('ROLLBACK'); }
+  });
+});
+
 test('night-retry activation proof follows 010 -> 023 -> 013 -> 023', async t => {
   const { db, apply, range } = await setup(t);
   await range(1, 10);
