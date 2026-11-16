@@ -390,7 +390,7 @@ transport stays separate from the independent acceptance authority.
   `plates phase claim`, `plates ready`, `plates integrate`, `plates drain`,
   `plates promote`, `plates issue`, `plates loose-ends`, `plates sessions`.
 - **Workspace and canvas:** `plates canvas`, `plates workspace`,
-  `plates home`, `plates board`.
+  `plates home`.
 - **Policy: autonomy, capacity, doors:** `plates autonomy`. Capacity and door
   policy have no verb of their own.
 
@@ -399,6 +399,15 @@ existing retro surface: bounded supplied PR metadata, candidate limit, previous
 report and reference mix. Plates owns these private evidence and judgment records.
 The retained local execution prototype remains unexposed pending review of an
 adopted execution boundary; it grants no process, provider or scheduling authority.
+
+### Retired compatibility stubs
+
+`plates board` is retired in phase 156; it only directs callers to `plates home`
+and exits 2. It remains in the surface budget while the stub is exposed, but is
+not an active owned operation.
+
+The dispatcher accepts `plates --help` and `plates -h` as top-level help aliases.
+They are not shared per-verb flags; use `plates help --json` for verb synopses.
 
 ## Rules plates holds itself to
 
