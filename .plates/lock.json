@@ -75,7 +75,7 @@
     },
     ".github/workflows/plates-climb.yml": {
       "practice": "climb",
-      "sha256": "48a7108e69fc362bd5ab4148ea2eb2f45d47afa1a47d6f2fd390457827cdcd7e"
+      "sha256": "d9a4ca5dea7191d6ffdcfa57f9860ee2b7999151c14a772f29304897662633ed"
     },
     ".github/workflows/plates-cross-review.yml": {
       "practice": "cross-review",
@@ -91,7 +91,7 @@
     },
     ".github/workflows/plates-night.yml": {
       "practice": "night",
-      "sha256": "e102adb8bcfad4f522f5ad20237482cd2669dc895829ad28b55071af0264391f"
+      "sha256": "70bdf96a724797395db7b6841cd122be1abe9ca0df27507d9d765e9a083e595c"
     },
     ".github/workflows/plates-publish.yml": {
       "practice": "delivery",
@@ -159,7 +159,7 @@
     },
     "renovate.json": {
       "practice": "renovate",
-      "sha256": "fd83325f1ef12226434ecfa9668efaafc166ada353184071a418d145507231c2"
+      "sha256": "785a3e97e782c3da06cda7bcca2519eb8701e14cdf6ae9031d1b3e721147bcfc"
     },
     "scripts/plates/audit.mjs": {
       "practice": "audits",
@@ -231,7 +231,7 @@
     },
     "scripts/plates/lib.mjs": {
       "practice": "night",
-      "sha256": "2fbfa42d51a5a717c3115e67a5738e1f37e7a24915da47d54f40d3f612b71be0"
+      "sha256": "632eb3a074228c6da091646b930de989f4aeb5c6d7f17d0cd66e6de997225dd1"
     },
     "scripts/plates/milestones.mjs": {
       "practice": "night",

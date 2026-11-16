@@ -2224,7 +2224,13 @@ export function gateEnv(env, config) {
   // Both spellings belong to climb (phase 47); leaving the legacy alias lets
   // child compatibility recreate the override and redirect a gate's Git calls.
   const base = Object.fromEntries(Object.entries(env).filter(([k]) => !k.startsWith('NODE_TEST_') && !['PLATES_AGENT_GIT', 'KEEL_AGENT_GIT'].includes(k)));
-  return { ...base, ...(config?.env ?? {}) };
+  const result = { ...base, ...(config?.env ?? {}) };
+  // Hosted measures need GitHub reads, but dependency/build/gate children do not.
+  // Strip after config overlay so a configured environment cannot restore them.
+  if (env.GITHUB_ACTIONS === 'true') {
+    for (const key of ['GH_TOKEN', 'GITHUB_TOKEN', 'STITCH_API_KEY', 'VERCEL_TOKEN', 'VERCEL_API_TOKEN']) delete result[key];
+  }
+  return result;
 }
 
 // ---- running a script --------------------------------------------------------

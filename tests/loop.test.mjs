@@ -324,11 +324,11 @@ test('plates-loop.yml reads Loop and files findings, and nothing else; it skips 
   const code = yml.split('\n').filter(l => !/^\s*#/.test(l)).join('\n');
   assert.doesNotMatch(code, /loop\.mjs (decide|push|mine|propose)\b/, 'a pull that could decide would dismiss insights for the whole workspace');
   assert.match(code, /node scripts\/loop\.mjs pull/);
-  assert.match(code, /npm install -g @google\/stitch@0\n[\s\S]*stitch enable loop\n[\s\S]*scripts\/loop\.mjs pull/, 'the official CLI, from npm, pinned to a major');
+  assert.match(code, /npm install -g @google\/stitch@0\.11\.0 --ignore-scripts\n[\s\S]*stitch enable loop\n[\s\S]*scripts\/loop\.mjs pull/, 'the official CLI, from npm, pinned to the checked exact release with lifecycle scripts disabled');
   assert.match(code, /::notice::Skipped: add the STITCH_API_KEY secret/);
   assert.match(code, /STITCH_API_KEY: \$\{\{ secrets\.STITCH_API_KEY \}\}/);
   assert.doesNotMatch(code, /curl|https?:\/\/\S*install/i, 'never installed from a URL');
-  assert.match(code, /check\(\) \{ if \[ -f scripts\/plates\/gate\.mjs \]; then node scripts\/plates\/gate\.mjs; else \{\{check\}\}; fi; \}\n\s+if node scripts\/loop\.mjs render --check && check; then/, 'the gate is render --check, then the project\'s own (through gate.mjs, which reuses CI\'s exact result, when the night is here)');
+  assert.match(code, /check\(\) \{ if \[ -f scripts\/plates\/gate\.mjs \]; then GH_TOKEN="\$GATE_TOKEN" env -u GATE_TOKEN node scripts\/plates\/gate\.mjs; else \(unset GATE_TOKEN; \{\{check\}\}\); fi; \}\n\s+if node scripts\/loop\.mjs render --check && check; then/, 'the gate is render --check, then the project\'s own (through gate.mjs, which reuses CI\'s exact result, when the night is here)');
   assert.match(code, /node scripts\/plates\/drain\.mjs plates-loop\/ --yes --gate-passed/, 'the project\'s own drain, never plates\'s CLI');
   assert.doesNotMatch(code, /anthropic|claude -p/i, 'no model proposes here');
   for (const dir of [PRACTICE, join(PLATES, 'practices', 'loop')]) {
@@ -791,7 +791,7 @@ test('Loop read resilience is bounded and cannot retry writes or deterministic f
 test('Loop workflow reports collection separately and only judges validation after collection', async()=>{
   const yml=await readFile(join(PRACTICE,'.github/workflows/plates-loop.yml'),'utf8');
   assert.match(yml,/name: Pull Loop's insights\n\s+id: insights/);
-  assert.match(yml,/name: Validation verdict[\s\S]*if: always\(\) && steps.insights.outcome == 'success'/);
+  assert.match(yml,/name: Validation verdict[\s\S]*if: always\(\) && steps.insights.outputs.ready == 'true'/);
   assert.match(yml,/COLLECTION: \$\{\{ steps.insights.outcome \}\}/);
   assert.match(yml,/VALIDATION: \$\{\{ steps.gate.outputs.gate \}\}/);
 });

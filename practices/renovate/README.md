@@ -9,7 +9,7 @@ branch updated in place, so no lane ever holds more than one PR:
 
 - `renovate/patch-minor`, **daily**: every patch and minor bump, npm and
   Actions alike, in one PR that Renovate merges itself once the checks are
-  green.
+  green and the release-age check has passed.
 - `renovate/lock-file-maintenance`, **Mondays**: the lockfile refreshed,
   merged the same way.
 - `renovate/major-weekly`, **Mondays**: every major together, and any
@@ -18,6 +18,13 @@ branch updated in place, so no lane ever holds more than one PR:
 - `renovate/node`, **Mondays**: `.nvmrc`, a Dockerfile's `FROM node:` image
   and `@types/node` in one PR, for a person. One PR, because a project that
   holds `.nvmrc` and its image to one major (a test can) fails a split one.
+
+The shared release cooldown is `minimumReleaseAge: "3 days"` with
+`internalChecksFilter: "strict"`: updates still pending the age check are
+filtered out instead of being proposed early. The same inherited policy covers
+the auto-merge lanes, including lockfile maintenance; enforcement depends on
+the package manager supplying release timestamps. It does not pin transitive
+runtime installs outside Renovate's managed dependency files.
 
 Renovate's PRs come from its app, not `GITHUB_TOKEN`, so they do run the
 project's checks: automerge waits on the real suite. Without a check workflow

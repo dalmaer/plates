@@ -6,6 +6,7 @@
   "feedbackProject": "dalmaer/keel",
   "inbox": "dalmaer/plates-inbox",
   "plates": "self",
+  "setup": "npm ci --ignore-scripts",
   "stack": [
     "node",
     "github-actions",

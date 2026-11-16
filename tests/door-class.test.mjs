@@ -62,6 +62,13 @@ test('every operation has a door', async () => {
   assert.throws(() => doorOf('acme teleport'), /has no door/);
 });
 
+test('workflow Git authentication setup is a reversible local edit, not a remote credential change', () => {
+  const [setup, unknown] = workflowOperations('gh auth setup-git\ngh auth login\n');
+  assert.equal(setup.op, 'local edit');
+  assert.equal(doorOf(setup.op).door, 'reversible');
+  assert.equal(unknown.op, undefined, 'other auth commands still need their own classification');
+});
+
 test('merge danger says the door', () => {
   // pr-body keeps its own copy of the class words (it ships without lib/); they stay equal.
   assert.deepEqual(DOOR_CLASSES, MERGE_DOOR);
