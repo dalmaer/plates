@@ -4,12 +4,12 @@
 // (plates's lesson 52). The list and the probe are scripts/plates/generated.mjs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { GENERATORS, generatedFiles, survivors, projectConfig, leftOut } from '../scripts/plates/generated.mjs';
+import { GENERATORS, generatedFiles, survivors, projectConfig, leftOut, runNode } from '../scripts/plates/generated.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -119,4 +119,71 @@ test('a directory declared in reads keeps its ignored files, however git lists t
   `);
   assert.ok(leftOut(dir).includes('inputs/catalog.json'));
   assert.deepEqual(await survivors(dir, [{ path: 'docs/ACME.md', reads: ['inputs'], args: ['rewrites.mjs'] }]), []);
+});
+
+test('survivors queries git ls-files once and runs co-generated outputs in one shared generator invocation', async t => {
+  const { chmod, readFile } = await import('node:fs/promises');
+  const dir = await mkdtemp(join(tmpdir(), 'plates-generated-acme-'));
+  const binDir = await mkdtemp(join(tmpdir(), 'plates-generated-bin-'));
+  t.after(async () => {
+    await rm(dir, { recursive: true, force: true });
+    await rm(binDir, { recursive: true, force: true });
+  });
+  execFileSync('git', ['init', '-q'], { cwd: dir, stdio: 'ignore' });
+  const gitLog = join(binDir, 'git.log'), genLog = join(binDir, 'gen.log'), gitWrap = join(binDir, 'git');
+  await mkdir(join(dir, 'docs'), { recursive: true });
+  await writeFile(join(dir, 'docs', 'A.md'), '# A\n');
+  await writeFile(join(dir, 'docs', 'B.md'), '# B\n');
+  await writeFile(join(dir, 'docs', 'C.md'), '# C\n');
+  await writeFile(join(dir, 'gen-ab.mjs'), `import { appendFileSync, writeFileSync } from 'node:fs';\nappendFileSync(${JSON.stringify(genLog)}, 'ab\\n');\nwriteFileSync('docs/A.md', '# A\\n');\nwriteFileSync('docs/B.md', '# B\\n');\n`);
+  await writeFile(join(dir, 'gen-c.mjs'), `import { writeFileSync } from 'node:fs';\nwriteFileSync('docs/C.md', '# C\\n');\n`);
+
+  const origPath = process.env.PATH;
+  if (process.platform !== 'win32') {
+    const realGit = execFileSync('which', ['git'], { encoding: 'utf8' }).trim();
+    await writeFile(gitWrap, `#!/bin/sh\nprintf '%s\\n' "$*" >> '${gitLog.replaceAll("'", "'\\''")}'\nexec '${realGit.replaceAll("'", "'\\''")}' "$@"\n`);
+    await chmod(gitWrap, 0o755);
+    process.env.PATH = `${binDir}:${origPath}`;
+  }
+  try {
+    const out = await survivors(dir, [
+      { path: 'docs/A.md', args: ['gen-ab.mjs'] },
+      { path: 'docs/B.md', args: ['gen-ab.mjs'] },
+      { path: 'docs/C.md', args: ['gen-c.mjs'] },
+    ]);
+    assert.deepEqual(out, []);
+  } finally {
+    process.env.PATH = origPath;
+  }
+  if (process.platform !== 'win32') {
+    assert.equal((await readFile(gitLog, 'utf8')).trim().split('\n').filter(l => /\bls-files\b/.test(l)).length, 1, 'leftOut runs git ls-files once');
+  }
+  assert.equal((await readFile(genLog, 'utf8')).trim().split('\n').length, 1, 'co-generated files share one generator run');
+
+  // If a shared generator rewrites A.md but appends to B.md, B.md is still caught and named.
+  await writeFile(join(dir, 'gen-partial.mjs'), `import { appendFileSync, writeFileSync } from 'node:fs';\nwriteFileSync('docs/A.md', '# A\\n');\nappendFileSync('docs/B.md', 'more\\n');\n`);
+  const partial = await survivors(dir, [
+    { path: 'docs/A.md', args: ['gen-partial.mjs'] },
+    { path: 'docs/B.md', args: ['gen-partial.mjs'] },
+  ]);
+  assert.equal(partial.length, 1);
+  assert.match(partial[0], /^docs\/B\.md:/);
+});
+
+// A generator stopped for its time or output bound is waited for, so probeGroup never removes its checkout under it.
+test('a stopped generator has exited before runNode returns, and one ignoring SIGTERM is killed', { timeout: 20_000 }, async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'plates-generated-stop-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const alive = pid => { try { process.kill(pid, 0); return true; } catch { return false; } };
+  // Takes 300 ms to finish after SIGTERM, then exits. Its output overflows only once its handler is installed, so a
+  // slow start cannot let SIGTERM's default action win.
+  await writeFile(join(dir, 'slow-exit.mjs'), "import { writeFileSync } from 'node:fs';\nprocess.on('SIGTERM', () => setTimeout(() => { writeFileSync('exited', 'acme'); process.exit(0); }, 300));\nprocess.stdout.write('anvil '.repeat(1000));\nsetInterval(() => {}, 1000);\n");
+  const slow = await runNode(['slow-exit.mjs'], dir, { timeout: 60_000, maxOutput: 1024, grace: 10_000 });
+  assert.match(slow.error?.message ?? '', /exceeded maxBuffer/);
+  assert.equal(await readFile(join(dir, 'exited'), 'utf8').catch(() => null), 'acme', 'returned before the generator exited');
+  // Ignores SIGTERM: escalated to SIGKILL after the grace period.
+  await writeFile(join(dir, 'stubborn.mjs'), "import { writeFileSync } from 'node:fs';\nprocess.on('SIGTERM', () => {});\nwriteFileSync('pid', String(process.pid));\nsetInterval(() => process.stdout.write('anvil '.repeat(1000)), 5);\n");
+  const stubborn = await runNode(['stubborn.mjs'], dir, { timeout: 60_000, maxOutput: 64 * 1024, grace: 200 });
+  assert.match(stubborn.error?.message ?? '', /exceeded maxBuffer/);
+  assert.equal(alive(Number(await readFile(join(dir, 'pid'), 'utf8'))), false, 'the stubborn generator still runs');
 });

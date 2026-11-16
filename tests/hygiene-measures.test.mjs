@@ -361,3 +361,52 @@ test('explicit generated file banners exclude tracked Rust bindings without matc
   assert.equal(ordinary.value,1,'a later comment cannot exclude handwritten bindings');
   assert.ok(propose([ordinary],{repo}));
 });
+
+test('longFiles batches historical blob reads via cat-file --batch and isolates oversized historical blobs', async t => {
+  const { chmod } = await import('node:fs/promises');
+  const p = await gitProject(t);
+  for (let round = 1; round <= 3; round++) {
+    for (let f = 0; f < 3; f++) {
+      await p.put(`src/mod-${f}.mjs`, `export function acme${f}() {\n${`  // Acme — ⚑ round ${round}\n`.repeat(12 + round + f)}}\n`);
+    }
+    p.commit();
+  }
+  if (process.platform !== 'win32') {
+    const logDir = await scratch(t), logPath = join(logDir, 'git-calls.log'), wrapper = join(logDir, 'git-wrap');
+    await writeFile(wrapper, `#!/bin/sh\nprintf '%s\\n' "$*" >> '${logPath.replaceAll("'", "'\\''")}'\nexec git "$@"\n`);
+    await chmod(wrapper, 0o755);
+    const res = await longFiles({ root: p.root, env: { ...p.env, PLATES_GIT: wrapper }, config: { hygiene: { longFileLines: 10 } }, now });
+    assert.equal(res.value, 3, JSON.stringify(res));
+    assert.ok(res.facts.files.every(f => f.history.complete && f.history.entries.length === 3));
+    const calls = (await readFile(logPath, 'utf8')).trim().split('\n');
+    assert.equal(calls.filter(c => /\bcat-file --batch-check\b/.test(c)).length, 1);
+    assert.equal(calls.filter(c => /\bcat-file --batch$/.test(c)).length, 1);
+    assert.equal(calls.filter(c => /\bcat-file blob\b/.test(c)).length, 0, 'no per-revision cat-file blob spawns');
+    assert.equal(calls.filter(c => /\brev-parse\b.*:/.test(c)).length, 0, 'no per-revision rev-parse commit:path spawns');
+  }
+
+  // An oversized historical blob is recorded as a history gap for that revision without losing newer revisions.
+  const q = await gitProject(t);
+  await q.put('src/grow.mjs', `export function grow() {\n${'  // padded historical line\n'.repeat(40)}}\n`);
+  q.commit();
+  await q.put('src/grow.mjs', source(12));
+  q.commit();
+  const bounded = await longFiles({ ...q, config: { hygiene: { longFileLines: 10 } }, limits: { fileBytes: 400 }, now });
+  assert.equal(bounded.value, 1, JSON.stringify(bounded));
+  assert.equal(bounded.facts.files[0].history.complete, false);
+  assert.equal(bounded.facts.files[0].history.entries[0].lines, 14);
+  assert.equal(bounded.facts.files[0].history.entries[1].lines, null);
+  assert.match(bounded.facts.files[0].history.gaps.join(' '), /byte bound/);
+});
+
+test('a parent directory swapped for a symlink mid-scan is checked again before the next read',async t=>{
+  const p=await gitProject(t);await p.put('src/a.js',source(10));await p.put('src/b.js',source(10));p.commit();
+  const external=await scratch(t);await writeFile(join(external,'b.js'),source(100));
+  // The canonical blob of src/a.js is hashed between the two reads; this git swaps src/ for a symlink first.
+  const fake=join(await scratch(t),'acme-git');
+  await writeFile(fake,`#!/bin/sh\ncase "$*" in *--path=src/a.js*) mv "${p.root}/src" "${p.root}/src-moved"; ln -s "${external}" "${p.root}/src";; esac\nexec git "$@"\n`,{mode:0o755});
+  const r=await longFiles({...p,env:{...p.env,PLATES_GIT:fake},config:{hygiene:{longFileLines:1}},now});
+  assert.equal(r.facts.coverage.scanned,1);
+  assert.ok(r.facts.coverage.gaps.some(g=>/^src\/b\.js: symlink/.test(g)),JSON.stringify(r.facts.coverage.gaps));
+  assert.ok(!r.facts.files.some(f=>f.path==='src/b.js'));
+});

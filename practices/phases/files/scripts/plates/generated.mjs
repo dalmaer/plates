@@ -22,8 +22,9 @@ import { milestoneSource } from '../roadmap.mjs';
 //
 // Zero dependencies. Generators run with the test runner's NODE_TEST_*
 // variables stripped, so a generator that runs tests runs them.
+import { constants } from 'node:fs';
 import { readFile, appendFile, mkdtemp, cp, rm, mkdir } from 'node:fs/promises';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join, dirname, relative, sep } from 'node:path';
 
@@ -68,8 +69,9 @@ export function leftOut(root) {
  * a directory holding one, or anything inside one (git may list an ignored file
  * under a declared directory on its own). Rotating test ledgers are never copied.
  */
-function copyFilter(root, g, skip = leftOut(root)) {
-  const needed = [g.path, ...(g.reads ?? []), ...g.args.filter(a => !a.startsWith('-') && !/\s/.test(a))]
+function copyFilter(root, group, skip = leftOut(root)) {
+  const entries = Array.isArray(group) ? group : [group];
+  const needed = entries.flatMap(g => [g.path, ...(g.reads ?? []), ...g.args.filter(a => !a.startsWith('-') && !/\s/.test(a))])
     .map(p => p.split(sep).join('/').replace(/^\.\//, '').replace(/\/$/, ''));
   const out = new Set(skip.filter(p => !needed.some(n => n === p || n.startsWith(`${p}/`) || p.startsWith(`${n}/`))));
   return src => {
@@ -81,6 +83,75 @@ function copyFilter(root, g, skip = leftOut(root)) {
 }
 
 const env = () => Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('NODE_TEST_')));
+const MAX_OUTPUT = 64 * 1024 * 1024;
+
+/**
+ * Runs one generator in its copy. A timeout or an output overflow sends SIGTERM and, if the generator has not exited
+ * after `grace` ms, SIGKILL; the result is only returned once it has exited, so its checkout is never removed under it.
+ */
+export function runNode(args, cwd, { timeout = 5 * 60_000, maxOutput = MAX_OUTPUT, grace = 5_000 } = {}) {
+  return new Promise(done => {
+    let settled = false, stopped = null, killer = null, stdout = '', stderr = '', bytes = 0;
+    const child = spawn(process.execPath, args, { cwd, env: env(), stdio: ['ignore', 'pipe', 'pipe'] });
+    const finish = result => { if (!settled) { settled = true; clearTimeout(timer); clearTimeout(killer); done(result); } };
+    const stop = error => {
+      if (stopped) return;
+      stopped = error; clearTimeout(timer);
+      child.kill('SIGTERM');
+      killer = setTimeout(() => child.kill('SIGKILL'), grace);
+    };
+    const timer = setTimeout(() => stop(new Error('generator timed out')), timeout);
+    const onChunk = (chunk, isErr) => {
+      if (stopped) return;
+      bytes += chunk.length;
+      if (bytes > maxOutput) { stop(new Error('generator output exceeded maxBuffer')); return; }
+      if (isErr) stderr += chunk.toString('utf8'); else stdout += chunk.toString('utf8');
+    };
+    child.stdout.on('data', chunk => onChunk(chunk, false));
+    child.stderr.on('data', chunk => onChunk(chunk, true));
+    // A spawn failure has no process to wait for; once a process is stopped, only its exit settles the result.
+    child.on('error', error => { if (!stopped || child.pid === undefined) finish({ error: stopped ?? error, status: null, stdout, stderr }); });
+    child.on('close', status => finish(stopped ? { error: stopped, status: null, stdout, stderr } : { error: null, status, stdout, stderr }));
+  });
+}
+
+async function probeGroup(root, group, skip) {
+  const tmp = await mkdtemp(join(tmpdir(), 'plates-generated-'));
+  const dir = join(tmp, 'project');
+  try {
+    await cp(root, dir, { recursive: true, verbatimSymlinks: true, mode: constants.COPYFILE_FICLONE, filter: copyFilter(root, group, skip) });
+    const targets = [];
+    for (const g of group) {
+      const file = join(dir, g.path);
+      const marker = `<!-- plates generated-file probe ${Date.now().toString(36)}${Math.random().toString(36).slice(2)}: a hand edit, which the generator must not keep -->`;
+      await mkdir(dirname(file), { recursive: true });
+      await appendFile(file, `\n${marker}\n`);
+      targets.push({ g, file, marker });
+    }
+    const [first] = group;
+    const r = await runNode(first.args, dir);
+    const command = `node ${first.args.map(a => (/\s/.test(a) ? JSON.stringify(a) : a)).join(' ')}`;
+    const said = `${r.stderr ?? ''}${r.stdout ?? ''}`;
+    const results = [];
+    for (const { g, file, marker } of targets) {
+      if (g.refuses) {
+        const kept = (await readFile(file, 'utf8').catch(() => '')).includes(marker);
+        if (r.error) { results.push(`${g.path}: its renderer \`${command}\` did not run (${r.error.message})`); continue; }
+        if (!kept) { results.push(`${g.path}: \`${command}\` overwrote a line appended to it; a managed file's edit is refused and named, never overwritten`); continue; }
+        if (r.status === 0 || !said.includes(g.path)) { results.push(`${g.path}: \`${command}\` kept a line appended to it without refusing and naming the file (exit ${r.status})`); continue; }
+        results.push(null);
+        continue;
+      }
+      if (r.error || r.status !== 0) {
+        results.push(`${g.path}: its generator \`${command}\` failed (${r.error?.message ?? `exit ${r.status}`}): ${said.trim().split('\n').slice(-3).join(' | ')}`);
+        continue;
+      }
+      const after = await readFile(file, 'utf8').catch(() => '');
+      results.push(after.includes(marker) ? `${g.path}: a line appended to it survived \`${command}\`; its generator must rewrite it whole` : null);
+    }
+    return results;
+  } finally { await rm(tmp, { recursive: true, force: true }); }
+}
 
 /**
  * One generator probed: copy root, append a marker line to g.path, run the
@@ -88,36 +159,36 @@ const env = () => Object.fromEntries(Object.entries(process.env).filter(([k]) =>
  * `refuses` entry: when the generator refused, naming the file, and kept the
  * edit), else the problem.
  */
-export async function probe(root, g) {
-  const tmp = await mkdtemp(join(tmpdir(), 'plates-generated-'));
-  const dir = join(tmp, 'project');
-  try {
-    await cp(root, dir, { recursive: true, verbatimSymlinks: true, filter: copyFilter(root, g) });
-    const file = join(dir, g.path);
-    const marker = `<!-- plates generated-file probe ${Date.now().toString(36)}${Math.random().toString(36).slice(2)}: a hand edit, which the generator must not keep -->`;
-    await mkdir(dirname(file), { recursive: true });
-    await appendFile(file, `\n${marker}\n`);
-    const r = spawnSync(process.execPath, g.args, { cwd: dir, env: env(), encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 5 * 60_000 });
-    const command = `node ${g.args.map(a => (/\s/.test(a) ? JSON.stringify(a) : a)).join(' ')}`;
-    const said = `${r.stderr ?? ''}${r.stdout ?? ''}`;
-    if (g.refuses) {
-      const kept = (await readFile(file, 'utf8').catch(() => '')).includes(marker);
-      if (r.error) return `${g.path}: its renderer \`${command}\` did not run (${r.error.message})`;
-      if (!kept) return `${g.path}: \`${command}\` overwrote a line appended to it; a managed file's edit is refused and named, never overwritten`;
-      if (r.status === 0 || !said.includes(g.path)) return `${g.path}: \`${command}\` kept a line appended to it without refusing and naming the file (exit ${r.status})`;
-      return null;
-    }
-    if (r.error || r.status !== 0) return `${g.path}: its generator \`${command}\` failed (${r.error?.message ?? `exit ${r.status}`}): ${said.trim().split('\n').slice(-3).join(' | ')}`;
-    const after = await readFile(file, 'utf8').catch(() => '');
-    return after.includes(marker) ? `${g.path}: a line appended to it survived \`${command}\`; its generator must rewrite it whole` : null;
-  } finally { await rm(tmp, { recursive: true, force: true }); }
+export async function probe(root, g, skip = leftOut(root)) {
+  return (await probeGroup(root, [g], skip))[0];
 }
 
 /** Every generated file under root probed: [problem]. */
 export async function survivors(root, list) {
-  const out = [];
-  for (const g of list) { const p = await probe(root, g); if (p) out.push(p); }
-  return out;
+  if (!list.length) return [];
+  const skip = leftOut(root);
+  const groups = [], byCommand = new Map();
+  for (const [index, g] of list.entries()) {
+    const key = !g.refuses ? JSON.stringify(g.args) : null;
+    const shared = key !== null ? byCommand.get(key) : null;
+    if (shared && !shared.items.some(x => x.g.path === g.path)) {
+      shared.items.push({ index, g });
+    } else {
+      const group = { items: [{ index, g }] };
+      groups.push(group);
+      if (key !== null && !byCommand.has(key)) byCommand.set(key, group);
+    }
+  }
+  const problems = new Array(list.length).fill(null);
+  let cursor = 0;
+  await Promise.all(Array.from({ length: Math.min(4, groups.length) }, async () => {
+    while (cursor < groups.length) {
+      const group = groups[cursor++];
+      const res = await probeGroup(root, group.items.map(x => x.g), skip);
+      for (let i = 0; i < group.items.length; i++) problems[group.items[i].index] = res[i];
+    }
+  }));
+  return problems.filter(Boolean);
 }
 
 /** The project's .plates/plates.json, or {} when it has none. */
