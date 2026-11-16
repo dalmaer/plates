@@ -249,6 +249,21 @@ through `gh`. The hosted `/agents` shows the same, reading pull requests with
 the App's Pull requests read (a plate without it says "not read"), and the
 sidebar's Agents and Pending review carry their counts on every page.
 
+`plates channel [<project>]` (phase 194) is each plate's channel, read only:
+newest last, who claimed which phase (joined), the pull requests opened, the
+changes in flight (pushed, CI, waiting to deploy), production's deploys and
+the sessions waiting on you, each line with its plate, its actor
+(`<plate>#<phase>`, else `<plate>#<PR>`) and a link. **Here now** lists the
+agents holding work (live claims, and PRs naming an unclaimed phase) with
+their last line's age and the lines from the last 24 hours, or Caught up; no
+read position is kept yet. A source that could not be read is a gap line
+naming it, never a quiet channel. The feed covers seven days (`--since`
+narrows it), and more than three joined/left lines on a plate within ten
+minutes fold into one. The hosted `/channel` (the footer's Channel link)
+renders the same model: All, a chip per plate with its line count, Here now
+and the lines; each plate's page carries its own Channel section. Agents'
+own lines and the owner's checkpoints are later increments.
+
 On the web, **Since you last looked** starts at your previous visit. A visit is a
 run of Home page loads less than thirty minutes apart, and "since" is the last
 load of the visit before this one; a reload, the page's background refresh and

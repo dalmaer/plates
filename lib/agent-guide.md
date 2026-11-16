@@ -13,29 +13,30 @@ Verbs (`--json` for data):
 - `plates render` — practices; `--check` reads only
 - `plates init [dir] --description "<p>"` — new project
 - `plates names` — preview, apply, recover, verify
-- `plates migrate [root]` — rename preview; `--yes --digest <sha>` applies
+- `plates migrate [root]` — rename; `--yes --digest <sha>` applies
 - `plates adopt [dir]` — adopt a repo; `--dry-run` writes nothing
 - `plates doctor` — drift; `--fix`
 - `plates update` — PR or `--local`
 - `plates lessons` — lessons and drift home; exit 3
 - `plates learn` — lessons → proposals and decisions
-- `plates improve` — measures, bounds, a proposal; `--report`
+- `plates improve` — measures and a proposal; `--report`
 - `plates persona run` — own goals
 - `plates audit due|brief|record|run` — audits
 - `plates time` — gate/test medians, failures
 - `plates test <file> --stalls` — wall-clock tests
-- `plates drain <prefix>` — newest passing PR per queue; exit 3
+- `plates drain <prefix>` — newest green PR per queue; exit 3
 - `plates night plan|tick` — the plan
 - `plates goodnight` — shape it
 - `plates morning` — brief; `--send`
 - `plates production` — incidents
-- `plates fleet` — fleet practice, health, CI
+- `plates fleet` — practice, health, CI
 - `plates fleet update` — PRs for projects behind
 - `plates loose-ends` — unfinished work
 - `plates sessions` — chats waiting on you
 - `plates issue new --agent` — rubric issue; `--yes` makes it
 - `plates review <repo>#<n>` — comments; `--wait`; `--close`
 - `plates home|board` — what needs you; `board` retired
+- `plates channel` — what agents do
 - `plates promote [<commit>]` — tested commit to prod; `--back`
 - `plates walk done|decide` — settle a walk or proposal
 - `plates canvas` — snapshot, render, sync, live
@@ -2043,6 +2044,21 @@ is previewed through `--answer`'s writer and written only after `y`; a refused
 write comes back once at the end with its reason. It prints the end summary
 (`--json`: `{schema, docket, settled, putOff, again, quit}`, each settled
 entry with its `sets`, with the cards on stderr). Exit 0.
+
+`plates channel [<project>] [--since <time>] [--fresh] [--json]` (phase 194)
+is each plate's channel, read only, the same model as `/channel` on the
+owner's site and a plate page's Channel section: lines `{at, plate, kind,
+actor, text, ref, source}`, newest last, from the claims (`joined`), open PRs
+(`pr`), changes in flight (`pushed`, `ci`, `deploy`), deploy records
+(`deploy`) and sessions waiting on you (`waiting`) that `plates home` reads.
+`actor` is `<plate>#<phase>`, else `<plate>#<PR>`. A source not read is a
+`gap` line naming it, never a quiet channel. Seven days by default; `--since`
+(an ISO time or `6h`, `2d`) narrows it. More than three joined/left lines on a
+plate within ten minutes fold into one. `hereNow: [{actor, title, provider,
+last, unread, caughtUp, words}]` is the agents holding work (claims, and PRs
+naming an unclaimed phase); unread counts the last 24 hours, as no read
+position is kept yet. It stores, posts and writes nothing. Exit 0; an
+unknown plate or `--since` exits 2.
 
 <!-- topic: walk | settle the owner's turn: walk done and walk decide -->
 

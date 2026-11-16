@@ -390,7 +390,8 @@ transport stays separate from the independent acceptance authority.
   `plates phase claim`, `plates ready`, `plates integrate`, `plates drain`,
   `plates promote`, `plates issue`, `plates loose-ends`, `plates sessions`.
 - **Workspace and canvas:** `plates canvas`, `plates workspace`,
-  `plates home`, `plates board`.
+  `plates home`, `plates channel` (its read model is `lib/channel.mjs`,
+  rendered by the CLI and `lib/web/channel-views.mjs`), `plates board`.
 - **Policy: autonomy, capacity, doors:** `plates autonomy`. Capacity and door
   policy have no verb of their own.
 
