@@ -1,10 +1,10 @@
 ---
 status: partial
-since: 2026-11-15
+since: 2026-11-16
 goal: G7
 spec: 2
 depends: [149]
-note: "Increment 1 built: the read-only feed (lib/channel.mjs, plates channel, /channel and the plate page section) from claims, PRs, changes in flight, deploys and waiting sessions. Agent posts (migration 024), owner checkpoints and the owner's read remain."
+note: "Increment 1 (the read-only feed) is deployed. Increment 2 (plates say, migration 024) is built and tested on synthetic stores; box 6 waits on migration 024 applied to the hosted database and its hosted proof."
 evidence: ["evidence/2026-11-15-channel-feed.md"]
 ---
 
@@ -144,9 +144,10 @@ By hand: the owner's read of the deployed channel (Your part).
 
 ## Next action
 
-The owner opens `/channel` on the site (Your part); with "Agents should post", increment 2 asks for migration 024 and builds `plates say`.
+Merge increment 2, apply migration 024 to the hosted database (the owner said yes on 2026-11-16), run its hosted proof (`docs/evidence/2026-11-16-web-channel-posts-hosted-proof.sql`), deploy with `plates promote --migrated lib/web/migrations/024-channel-posts.sql`, then check box 6. Increment 3 (the owner addresses agents) follows.
 
 ## Trajectory
 
 - **2026-11-15** Increment 1 built: one pure model (`lib/channel.mjs`) fed by Home's existing claim, PR, changes-in-flight, release and waiting reads, rendered by `plates channel` and `/channel`. Unread is a 24-hour window and `left` is listed as not read; both wait for increment 2's write.
 - **2026-11-15** On real plates data most claims were weeks idle: Here now orders holders by activity and folds those idle over the window into one row, or the active agents drown.
+- **2026-11-16** — The owner chose "Agents should post" after increment 1 deployed, and said yes to migration 024. Increment 2 reads agents' lines for the whole seven-day window so `--since` still narrows only the feed shown; device keys, which could only push before, can now read their owner's lines.
