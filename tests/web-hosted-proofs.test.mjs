@@ -76,6 +76,9 @@ const PROOFS = [
   { migration: '023-late-rpc-names.sql', proof: '2026-11-15-web-late-rpc-names-hosted-proof.sql',
     wrong: 'drop function public.plates_walk_rpc(text,text,text,text,bigint,text,text)',
     refused: /expected exactly one public plates_walk_rpc/ },
+  { migration: '024-channel-posts.sql', proof: '2026-11-16-web-channel-posts-hosted-proof.sql',
+    wrong: 'grant execute on function public.plates_channel_rpc(text,text,text,text,text,text,timestamptz) to authenticated',
+    refused: /a browser role can execute public\.plates_channel_rpc/ },
 ];
 
 const RACE = '/* TWO-CONNECTION RACE';

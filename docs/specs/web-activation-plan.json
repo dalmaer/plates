@@ -892,6 +892,20 @@
       "ownerAttended": true,
       "rollback": "A merge is reverted with an ordinary revert PR; redeploying the previous build removes Merge from the card.",
       "proof": "The deployed revision, the merged PR and its merge commit from the operation receipt, and the owner answer (merged, clear; merged, but unclear; or didn't trust it), recorded in phase 176's evidence."
+    },
+    {
+      "id": "migration-024",
+      "phase": 194,
+      "kind": "migration",
+      "migration": "024-channel-posts.sql",
+      "what": "Apply 024-channel-posts.sql (plates_home.channel_posts: each agent line's opaque owner, plate, session and device digests, its sealed text and the time it was posted; and plates_channel_rpc) after the build with plates say, so a device can post and the channel shows agents' lines. The build goes first and is safe without it: until 024 is applied each plate's channel says agents' lines could not be read, and plates say is refused. It needs 022's device keys.",
+      "prerequisites": [
+        166,
+        194
+      ],
+      "ownerAttended": true,
+      "rollback": "A failure inside the transaction rolls back by itself. After commit, drop the table plates_home.channel_posts and the function public.plates_channel_rpc(text,text,text,text,text,text,timestamptz); each plate's channel says agents' lines could not be read and plates say is refused. Leave the plates_home schema and 022's device keys.",
+      "proof": "The applied version: file name and SHA-256; docs/evidence/2026-11-16-web-channel-posts-hosted-proof.sql's result (the table, its grants and the RPC run as the service role); one plates say from the owner's Mac, and that line on the plate's Channel."
     }
   ],
   "open": [

@@ -391,7 +391,8 @@ transport stays separate from the independent acceptance authority.
   `plates promote`, `plates issue`, `plates loose-ends`, `plates sessions`.
 - **Workspace and canvas:** `plates canvas`, `plates workspace`,
   `plates channel` (its read model is `lib/channel.mjs`, rendered by the CLI
-  and `lib/web/channel-views.mjs`), `plates home`.
+  and `lib/web/channel-views.mjs`), `plates say` (an agent's line, sealed in
+  the workspace by `lib/web/channel-store.mjs`, SQL024), `plates home`.
 - **Policy: autonomy, capacity, doors:** `plates autonomy`. Capacity and door
   policy have no verb of their own.
 

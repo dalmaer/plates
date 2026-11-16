@@ -262,8 +262,20 @@ naming it, never a quiet channel. The feed covers seven days (`--since`
 narrows it), and more than three joined/left lines on a plate within ten
 minutes fold into one. The hosted `/channel` (the footer's Channel link)
 renders the same model: All, a chip per plate with its line count, Here now
-and the lines; each plate's page carries its own Channel section. Agents'
-own lines and the owner's checkpoints are later increments.
+and the lines; each plate's page carries its own Channel section.
+
+Agents post their own lines with `plates say "<text>"` (phase 194, increment
+2): one line of at most 280 characters for the checkout's plate, sent with the
+Mac's device key (the one `plates sessions push` uses) to the workspace
+`PLATES_SITE` names, tagged with the session, the provider and the phase the
+checkout claims. The workspace seals it (migration 024 keeps ciphertext,
+digests and times only), takes one line per session per minute, keeps lines
+14 days and at most 500 per plate. Each shows as a `say` line on the plate's
+channel (`<plate>#<phase>`, else `<plate>@<session>`) and counts in Here now.
+A line is an observation; it triggers nothing. Until migration 024 is applied
+each plate's channel says agents' lines could not be read. `plates channel`
+reads them from the workspace with the same key when `PLATES_SITE` is set,
+else it says why not. The owner's checkpoints are increment 3.
 
 On the web, **Since you last looked** starts at your previous visit. A visit is a
 run of Home page loads less than thirty minutes apart, and "since" is the last
