@@ -286,6 +286,9 @@ process.kill(process.ppid, 'SIGTERM');
   // How a harness takes its brief: the host may say; else a claude or codex TUI is "arg", their headless forms and anything else stdin.
   for (const [harness, prompt, want] of [[['/x/claude'], undefined, 'arg'], [['/x/claude', '-p'], undefined, 'stdin'], [['/x/claude', '--print', '--model', 'm'], undefined, 'stdin'],
     [['/x/codex'], undefined, 'arg'], [['/x/codex', '--full-auto'], undefined, 'arg'], [['/x/codex', 'exec', '-'], undefined, 'stdin'], [['/x/agent'], undefined, 'stdin'],
+    // An option's value is never codex's subcommand.
+    [['/x/codex', '--model', 'm', 'exec', '-'], undefined, 'stdin'], [['/x/codex', '-m', 'o3', '--full-auto', 'e'], undefined, 'stdin'], [['/x/codex', '--model=m', 'exec'], undefined, 'stdin'],
+    [['/x/codex', '--model', 'exec'], undefined, 'arg'], [['/x/codex', '-c', 'k=v', '--', 'exec'], undefined, 'stdin'],
     [['/x/agent'], 'arg', 'arg'], [['/x/claude'], 'stdin', 'stdin']]) assert.equal(attachLib.harnessPrompt({ harness, prompt }), want, `${harness.join(' ')} ${prompt ?? ''}`);
   const config = join(w.base, 'config', 'plates');
   await mkdir(config, { recursive: true });
@@ -297,6 +300,35 @@ process.kill(process.ppid, 'SIGTERM');
   // The preview says which, and the effect carries it.
   const shown = attachPreview({ projectId: 'acme', phase: 7, title: 'Build the anvil', route: 'local-host', provider: 'claude', phaseText: { doneWhen: 'x', acceptance: 'y', context: {} }, host: await read({ harness: ['/bin/claude'] }) });
   assert.equal(shown.effect.host.prompt, 'arg');
+});
+
+test('an attach dispatches the prompt mode its preview showed', async t => {
+  // A host that says "prompt": "stdin" for a claude harness (whose default is "arg"): the preview says stdin, its digest
+  // covers it, and the dispatch pipes the brief on stdin, never pointing the agent at a file.
+  const w = await world(t, { sessions: [{ session_id: 'session:acme-anvils', label: 'acme-claude' }] });
+  const store = new Map();
+  const journal = { read: async d => store.get(d) ?? null, write: async (d, x) => { store.set(d, structuredClone(x)); }, list: async () => [] };
+  const deps = { journal, env: w.env, claim: async () => ({ data: { ok: true, claimed: true, sha: 'c'.repeat(40) }, text: 'claimed' }), events: async () => null };
+  const config = { name: 'Acme', agents: { claude: {} }, backlog: { routes: ['session', 'local-host'] } };
+  const args = { root: w.checkout, projectId: 'acme', phase: 7, title: 'Build the anvil', route: 'local-host', provider: 'claude', config, phaseText: { doneWhen: 'The anvil lands.', acceptance: '- [ ] Lands.', context: {} }, host: { file: 'hosts.json', start: null, state: null, harness: [w.tui], prompt: 'stdin' } };
+  const shown = await attach(args, deps);
+  assert.equal(shown.data.effect.host.prompt, 'stdin');
+  assert.match(shown.text, /claude, brief on stdin, in a new Rex tab/);
+  const done = await attach({ ...args, yes: true }, deps);
+  assert.equal(done.exitCode, 0, done.text);
+  const run = runCalls(await w.rexCalls())[0].args;
+  assert.ok(!run.includes('--prompt=arg'), 'dispatched as previewed: stdin');
+  const got = await w.tuiRun();
+  assert.equal(got.stdin, done.data.effect.brief.text, 'the previewed bytes, on stdin');
+  assert.deepEqual(got.argv, [], 'no startup prompt');
+  // And the other way: a host saying "arg" for a harness whose default is stdin.
+  const v = await world(t, { sessions: [{ session_id: 'session:acme-anvils', label: 'acme-claude' }] });
+  const store2 = new Map();
+  const deps2 = { ...deps, env: v.env, journal: { read: async d => store2.get(d) ?? null, write: async (d, x) => { store2.set(d, structuredClone(x)); }, list: async () => [] } };
+  const other = await attach({ ...args, root: v.checkout, host: { ...args.host, harness: [v.harness], prompt: 'arg' }, yes: true }, deps2);
+  assert.equal(other.data.effect.host.prompt, 'arg');
+  assert.ok(runCalls(await v.rexCalls())[0].args.includes('--prompt=arg'));
+  assert.match((await v.harnessRun()).argv.at(-1), /^Your brief from plates is in the private file /);
 });
 
 test('a brief is never written inside the checkout or any git working tree', async t => {
