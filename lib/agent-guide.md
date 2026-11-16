@@ -1,6 +1,6 @@
 # plates — agent cold start
 
-Read AGENTS.md.
+Read `.plates/plates.json`’s `guide` or AGENTS.md.
 
 Verbs (`--json` for data):
 
@@ -31,9 +31,9 @@ Verbs (`--json` for data):
 - `plates production` — incidents
 - `plates fleet` — fleet practice, health, CI
 - `plates fleet update` — PRs for projects behind
-- `plates loose-ends` — unfinished work
-- `plates sessions` — chats waiting on you
-- `plates findings` — priority and payoff
+- `plates loose-ends` — unfinished
+- `plates sessions` — waiting chats
+- `plates findings` — triage
 - `plates issue new --agent` — rubric issue; `--yes` makes it
 - `plates review <repo>#<n>` — comments; `--wait`; `--close`
 - `plates home|board` — what needs you; `board` retired

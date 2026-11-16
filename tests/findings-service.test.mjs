@@ -58,3 +58,10 @@ test('exploration can conclude explicitly without erasing history',async t=>{
  const current=(await collectFindings(f)).findings[0];assert.equal(current.decisionConflict,false);assert.equal(current.decisions[0].decision.action,'keep');assert.equal(current.decisionHistory.length,2);
  assert.equal((await decideFinding({...f,from,yes:true})).data.status,'already-recorded');
 });
+test('oversized decisions are rejected before they can poison the ledger',async t=>{
+ const f=await fixture(t),{from,item}=await input(f);
+ await writeFile(from,JSON.stringify({findingId:item.id,findingDigest:item.digest,decision:{...decision,rationale:'a'.repeat(1024*1024)}}));
+ await assert.rejects(decideFinding({...f,from,yes:true}),/record limit/);
+ await assert.rejects(readdir(f.env.XDG_STATE_HOME),{code:'ENOENT'});
+ assert.equal((await collectFindings(f)).findings.length,1);
+});
