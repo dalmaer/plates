@@ -1492,3 +1492,23 @@ test('review gates never load the optional quality observer even with a private 
   assert.equal(Object.hasOwn(gated.json(), 'qualityObservation'), false);
   assert.equal(writesIn(await gh.calls()).length, 0);
 });
+
+
+test('review contentRevision binds full bodies and follow-ups beyond displayed excerpts', async t => {
+  const dir = await project(t);
+  const read = async comments => {
+    const gh = await stubGh(t, { threads: [{id:'PRRT_revision',path:'acme.js',line:1,comments}], reviews:[ON_HEAD] });
+    return plates(dir,gh,['acme/app#3','--json']).json();
+  };
+  const first = c(301,'acme-reviewer','Same title\nOriginal detail');
+  const before = await read([first]);
+  const same = await read([first]);
+  const edited = await read([{...first,body:'Same title\nChanged detail'}]);
+  const followUp = await read([first,c(302,'acme-reviewer','More evidence')]);
+  assert.match(before.contentRevision,/^[a-f0-9]{64}$/);
+  assert.equal(before.contentRevision,same.contentRevision);
+  assert.equal(before.comments[0].text,edited.comments[0].text);
+  assert.equal(before.comments[0].answered,followUp.comments[0].answered);
+  assert.notEqual(before.contentRevision,edited.contentRevision);
+  assert.notEqual(before.contentRevision,followUp.contentRevision);
+});

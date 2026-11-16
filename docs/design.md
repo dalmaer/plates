@@ -376,7 +376,11 @@ transport stays separate from the independent acceptance authority.
   `plates shape`. The top-level flags `--agent-help` and `--version` belong
   here too.
 - **Evidence, proof and review:** `plates evidence rederive`, `plates prove`,
-  `plates review`, `plates walk`, `plates decision`.
+  `plates review`, `plates walk`, `plates decision`, `plates findings`.
+  Findings owns a common observation/priority/payoff decision contract, not a
+  second executor. `list` selects recorded audits, explicit `--review` PRs and
+  `--observations` files; `decide --from` previews and `--yes` records local triage.
+  Existing source tools retain budgets, execution, review replies and proof.
 - **Lessons and learning:** `plates lessons`, `plates learn`, `plates retro`,
   `plates feedback`.
   The evaluated-learning slice uses `--input` for the selected record,

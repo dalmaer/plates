@@ -52,6 +52,8 @@ import { fileURLToPath } from 'node:url';
 // project; in plates's own tree, the night practice's source.
 const LIB = existsSync(fileURLToPath(new URL('./lib.mjs', import.meta.url))) ? './lib.mjs' : '../../../../night/files/scripts/plates/lib.mjs';
 const { isMain, main, rootOf } = await import(LIB);
+const SCORE = existsSync(fileURLToPath(new URL('./finding-score.mjs', import.meta.url))) ? './finding-score.mjs' : '../../../../night/files/scripts/plates/finding-score.mjs';
+const { auditLeverage } = await import(SCORE);
 
 export const LENS_DIR = '.agents/audits';
 export const AUDITS = 'docs/audits';
@@ -413,10 +415,8 @@ const KEY_SHAPED = /(?:sk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9
  */
 const ABSOLUTE = /(?<![\w.~-])(?:\/(?:Users|home|private|var|tmp|root|workspace|workspaces|opt|mnt|srv|Volumes|usr|etc|nix|data|builds|github|runner|cygdrive)\/|~\/|file:\/\/|[A-Za-z]:\\)/;
 const text = (v, max) => typeof v === 'string' && v.trim().length > 0 && v.length <= max;
-const WEIGHT = { severity: { high: 3, medium: 2, low: 1 }, effort: { S: 1, M: 2, L: 4 }, confidence: { HIGH: 1, MED: 0.6, LOW: 0.3 }, risk: { LOW: 1, MED: 0.8, HIGH: 0.6 } };
-
-/** Leverage: severity over effort, discounted by confidence and the fix's risk. Pure. */
-export const leverage = f => (WEIGHT.severity[f.severity] / WEIGHT.effort[f.effort]) * WEIGHT.confidence[f.confidence] * WEIGHT.risk[f.risk];
+/** Shared leverage: severity over effort, discounted by confidence and risk. */
+export const leverage = auditLeverage;
 
 /**
  * Check a findings document's shape against a lens: the problems, by field.

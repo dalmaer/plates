@@ -139,7 +139,7 @@
     },
     "docs/phases/README.md": {
       "practice": "phases",
-      "sha256": "79ad68e7b0ef488f9e38855806dd99f8506216a874b8f07d0b428796f7df0eec"
+      "sha256": "4081495401790105ccd0a869d4e60ab6cf8535f413ee4a5394b539f7f42bc726"
     },
     "docs/plates-lessons.md": {
       "practice": "lessons",
@@ -155,7 +155,7 @@
     },
     "docs/templates/phase.md": {
       "practice": "phases",
-      "sha256": "5bcd3fca90ae060d07350b51d25a47a6b8c3e496bab3d59f04ecf1e740416044"
+      "sha256": "ba2e6cf3e3e6c9b686cf4d235f0b7bcda27c32378073e126d4aaf35aa9693cdd"
     },
     "renovate.json": {
       "practice": "renovate",
@@ -163,7 +163,7 @@
     },
     "scripts/plates/audit.mjs": {
       "practice": "audits",
-      "sha256": "296904ff9bc4b7fe8ecefc9d95178bcfa16eb3d5f478ede5d69758b5fc3ee71e"
+      "sha256": "783d8db390b3cae635cbfc065fddfc9c8aa41e29e251875ee45bda73e2468981"
     },
     "scripts/plates/autonomy-context.mjs": {
       "practice": "night",
@@ -208,6 +208,10 @@
     "scripts/plates/drain.mjs": {
       "practice": "night",
       "sha256": "7e09f5990b0369b0aea6a9f72be45d3e756a08ef2b15891563ef3316e6ef13d4"
+    },
+    "scripts/plates/finding-score.mjs": {
+      "practice": "night",
+      "sha256": "2a9fe6c054198679d00fbb36a2011772192d1f5a06e7aafd3322a785b4a9f215"
     },
     "scripts/plates/gate.mjs": {
       "practice": "night",
