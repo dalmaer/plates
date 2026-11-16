@@ -214,10 +214,10 @@ The tab runs `lib/rex-run.mjs`, which reads the brief from a mode-600 file under
 plates's state directory (`$XDG_STATE_HOME/plates/rex-briefs`, else
 `~/.local/state/plates/rex-briefs`) and starts the harness with only the basic
 environment. With `stdin` it deletes the file and pipes the brief in. With `arg`
-a brief of at most 16 KiB is the startup prompt and its file is deleted at once;
-a longer one stays in its private file, the startup prompt is one short line
-naming that file, and the runner removes it when the agent exits or the tab is
-closed. The brief is never in Rex's argv, the environment or the tab's output,
+the brief stays in its private file whatever its size, the startup prompt is one
+short line naming that file (a brief holds decision context, and any process's
+arguments are visible to `ps`), and the runner removes the file when the agent
+exits or the tab is closed. The brief is never in any argv, the environment or the tab's output,
 and the tab shows the agent working, so you can watch it and step in. An agent
 that asks before working in a folder (Claude Code's trust check) asks in the
 tab first; the brief follows your answer. The receipt is `rex:<session id>/<block id>`, and the

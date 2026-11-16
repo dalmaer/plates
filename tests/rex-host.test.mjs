@@ -234,39 +234,37 @@ test('the brief reaches the harness only on stdin', async t => {
 test('an interactive agent keeps the tab as its input and gets the brief as its startup prompt', async t => {
   // The owner's report (2026-11-16): a claude or codex TUI in a Rex tab started at an empty prompt,
   // because the brief was piped on stdin, which a TUI does not read as its first prompt (and a pipe is not the tab).
+  // The brief is private (decision context) and argv is visible to ps: at any size, the startup prompt
+  // only names the brief's private file, which is there while the agent reads it and gone once the run ends.
   const marker = 'ACME-BRIEF-MARKER-7f3e';
-  const w = await world(t);
-  const r = await startHost({ host: { file: 'hosts.json', start: null, state: null, harness: [w.tui, '--model', 'acme'] }, plate: 'Acme', provider: 'claude', checkout: w.checkout, brief: BRIEF, tab: 'phase-7', env: w.env });
-  assert.equal(r.via, 'rex');
-  const run = runCalls(await w.rexCalls())[0].args, dash = run.indexOf('--');
-  assert.deepEqual(run.slice(dash + 1, dash + 4).map((a, i) => i === 1 ? a.split('/').pop() : a), [process.execPath, 'rex-run.mjs', '--prompt=arg']);
-  assert.deepEqual(run.slice(dash + 5), ['--', w.tui, '--model', 'acme'], 'Rex is never given the brief');
-  for (const c of await w.rexCalls()) assert.ok(!JSON.stringify(c.args).includes(marker));
-  const got = await w.tuiRun();
-  assert.ok(got, 'the agent ran');
-  assert.deepEqual(got.argv, ['--model', 'acme', BRIEF], 'the brief, byte for byte, is its startup prompt');
-  assert.equal(got.stdin, 'TAB-INPUT: typed by the owner\n', "its stdin is the tab's own input, not a pipe from plates");
-  for (const k of ['REX_SESSION', 'REX_BLOCK', 'GH_TOKEN', 'PLATES_BRIEF_TEST']) assert.ok(!(k in got.env), `${k} does not reach the agent`);
-  const tab = await w.tabOutput();
-  assert.ok(!tab.includes(marker), 'the tab never shows the brief');
-  assert.match(tab, /^plates: running .*\/claude --model acme in .*, brief as its startup prompt\n/);
-  assert.match(tab, /acme tui at work/);
-  assert.deepEqual(await readdir(w.briefDir), [], 'a brief passed whole leaves no file');
-
-  // A brief too long for one argument: the prompt names its private file, which is there while the
-  // agent reads it and gone once the run ends. The brief itself is never an argument.
   const long = `${BRIEF}${'The anvil is heavy. '.repeat(1200)}\n`;
   assert.ok(Buffer.byteLength(long) > 16 * 1024);
-  const v = await world(t);
-  await startHost({ host: { file: 'hosts.json', start: null, state: null, harness: [v.tui] }, plate: 'Acme', provider: 'claude', checkout: v.checkout, brief: long, tab: 'phase-7', env: v.env });
-  const big = await v.tuiRun();
-  assert.equal(big.argv.length, 1);
-  assert.ok(!big.argv[0].includes(marker) && Buffer.byteLength(big.argv[0]) < 512, 'a short startup prompt');
-  assert.equal(dirname(big.named), v.briefDir, 'it names a file in the private brief directory');
-  assert.equal(big.pointed, long, 'the file holds the brief while the agent runs');
-  assert.equal(big.stdin, 'TAB-INPUT: typed by the owner\n');
-  assert.ok(!(await v.tabOutput()).includes(marker));
-  assert.deepEqual(await readdir(v.briefDir), [], 'removed when the run ended');
+  for (const [brief, extra] of [[BRIEF, ['--model', 'acme']], [long, []]]) {
+    const w = await world(t);
+    const r = await startHost({ host: { file: 'hosts.json', start: null, state: null, harness: [w.tui, ...extra] }, plate: 'Acme', provider: 'claude', checkout: w.checkout, brief, tab: 'phase-7', env: w.env });
+    assert.equal(r.via, 'rex');
+    const run = runCalls(await w.rexCalls())[0].args, dash = run.indexOf('--');
+    assert.deepEqual(run.slice(dash + 1, dash + 4).map((a, i) => i === 1 ? a.split('/').pop() : a), [process.execPath, 'rex-run.mjs', '--prompt=arg']);
+    assert.deepEqual(run.slice(dash + 5), ['--', w.tui, ...extra], 'Rex is never given the brief');
+    for (const c of await w.rexCalls()) assert.ok(!JSON.stringify(c.args).includes(marker));
+    const got = await w.tuiRun();
+    assert.ok(got, 'the agent ran');
+    assert.equal(got.argv.length, extra.length + 1);
+    assert.deepEqual(got.argv.slice(0, -1), extra);
+    assert.ok(!got.argv.join('\n').includes(marker) && !got.argv.join('\n').includes('Build the anvil'), 'no brief bytes on its argv');
+    assert.ok(Buffer.byteLength(got.argv.at(-1)) < 512, 'a short startup prompt');
+    assert.equal(dirname(got.named), w.briefDir, 'it names a file in the private brief directory');
+    assert.equal(got.pointed, brief, 'the file holds the brief, byte for byte, while the agent runs');
+    assert.equal(got.stdin, 'TAB-INPUT: typed by the owner\n', "its stdin is the tab's own input, not a pipe from plates");
+    for (const k of ['REX_SESSION', 'REX_BLOCK', 'GH_TOKEN', 'PLATES_BRIEF_TEST']) assert.ok(!(k in got.env), `${k} does not reach the agent`);
+    const tab = await w.tabOutput();
+    assert.ok(!tab.includes(marker), 'the tab never shows the brief');
+    assert.match(tab, /^plates: running .*\/claude.* in .*, brief as its startup prompt \(a private file it is pointed to\)\n/);
+    assert.match(tab, /acme tui at work/);
+    assert.deepEqual(await readdir(w.briefDir), [], 'removed when the run ended');
+  }
+  const v = await world(t), w = v;
+  await mkdir(v.briefDir, { recursive: true, mode: 0o700 });
 
   // Stopping the run (the tab closed, or SIGTERM) removes the file too, while the agent is still going.
   // The agent itself stops the runner once it is up, so the order is fixed: it sees the file, then the stop.
