@@ -3940,3 +3940,23 @@ test('night and loop: publication refuses a substituted commit or source revisio
     assert.equal(result.calls.length, 0, 'no PR is created or edited');
   }
 });
+
+test('loop gate: gate.mjs gets a read token for its CI lookup, a project check never does', async t => {
+  const template = await readFile(new URL('../practices/loop/files/.github/workflows/plates-loop.yml', import.meta.url), 'utf8');
+  const step = template.split('      - name: Gate\n')[1].split('\n      - ')[0];
+  assert.match(step, /GATE_TOKEN: \$\{\{ github\.token \}\}/, 'the read-only job token, not a secret');
+  const script = runBlocks(template.replaceAll('{{check}}', 'node check.mjs')).find(b => b.step === 'Gate').script;
+  const dir = await mkdtemp(join(tmpdir(), 'acme-loop-gate-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const report = name => `process.getBuiltinModule('fs').appendFileSync(${JSON.stringify(join(dir, 'seen'))}, ${JSON.stringify(name)} + '=' + (process.env.GH_TOKEN ? 'token' : 'none') + ',' + (process.env.GATE_TOKEN ? 'gate' : 'nogate') + '\\n')`;
+  await mkdir(join(dir, 'scripts'), { recursive: true });
+  await writeFile(join(dir, 'scripts/loop.mjs'), '');
+  await writeFile(join(dir, 'check.mjs'), report('check'));
+  const env = { ...process.env, GATE_TOKEN: 'acme-read-token', GITHUB_OUTPUT: join(dir, 'out') };
+  delete env.GH_TOKEN;
+  assert.equal(run('bash', ['-e', '-c', script], { cwd: dir, env }).status, 0);
+  await mkdir(join(dir, 'scripts/plates'), { recursive: true });
+  await writeFile(join(dir, 'scripts/plates/gate.mjs'), report('gate'));
+  assert.equal(run('bash', ['-e', '-c', script], { cwd: dir, env }).status, 0);
+  assert.deepEqual((await readFile(join(dir, 'seen'), 'utf8')).trim().split('\n'), ['check=none,nogate', 'gate=token,nogate']);
+});

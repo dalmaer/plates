@@ -166,8 +166,12 @@ jobs:
       - name: Gate
         id: gate
         if: steps.insights.outputs.ready == 'true'
+        # gate.mjs reads an exact CI result with this read-only token and runs
+        # the check without it; a project check (no gate.mjs) never sees it.
+        env:
+          GATE_TOKEN: ${{ github.token }}
         run: |
-          check() { if [ -f scripts/plates/gate.mjs ]; then node scripts/plates/gate.mjs; else {{check}}; fi; }
+          check() { if [ -f scripts/plates/gate.mjs ]; then GH_TOKEN="$GATE_TOKEN" env -u GATE_TOKEN node scripts/plates/gate.mjs; else (unset GATE_TOKEN; {{check}}); fi; }
           if node scripts/loop.mjs render --check && check; then
             echo "gate=ok" >> "$GITHUB_OUTPUT"
           else
