@@ -288,8 +288,10 @@ test("mid-read source access revocation denies all buffered private history", as
   await h.addOperation();
   h.source.files["docs/night/2026-10-21.json"] = JSON.stringify(nightRecord());
   const target = gitBlob(h.source.files["docs/night/2026-10-21.json"]);
+  // Revoked however the blob is read: alone by REST, or in a batched GraphQL read.
   const fetcher = async (url, options) =>
-    url.endsWith(`/git/blobs/${target}`)
+    url.endsWith(`/git/blobs/${target}`) ||
+    (url.endsWith("/graphql") && String(options?.body).includes(target))
       ? Response.json({}, { status: 403 })
       : h.fetcher(url, options);
   const service = createRunReceipts(h.config, {
@@ -433,4 +435,28 @@ test("CLI archives retain canonical and legacy path identities without rewriting
   assert.deepEqual(invalid.observations.map(i => i.source.path), [paths[1]]);
   assert.ok(invalid.coverage.gaps.some(g => g.code === 'invalid'));
   assert.deepEqual(h.source.writes, []);
+});
+
+test("a page of archived records is read in a few batched GitHub requests, not one per record", async () => {
+  const h = runReceiptsHarness();
+  h.state.now = Date.parse("2026-10-21T12:00:00.000Z");
+  for (let d = 1; d <= 30; d++) {
+    const date = `2026-09-${String(d).padStart(2, "0")}`;
+    h.source.files[`docs/night/${date}.json`] = JSON.stringify(nightRecord(date));
+    h.source.files[`.plates/test-runs/acme-${d}.json`] = JSON.stringify(stallsRecord());
+  }
+  let calls = 0;
+  const fetcher = async (url, options) => {
+    if (url.startsWith("https://api.github.com")) calls++;
+    return h.fetcher(url, options);
+  };
+  const page = await createRunReceipts(h.config, { fetcher, now: () => h.state.now }).list(h.access, token, h.project);
+  assert.equal(page.observations.filter(i => i.kind === "authored-cli").length, 30);
+  assert.ok(calls <= 6, `${calls} GitHub requests for 60 archived records`);
+  assert.deepEqual(h.source.blobReads, [60]);
+  // A batch GitHub does not answer verified falls back to one REST read per record, with the same records.
+  h.source.blobBatchFails = true; calls = 0;
+  const fallback = await createRunReceipts(h.config, { fetcher, now: () => h.state.now }).list(h.access, token, h.project);
+  assert.deepEqual(fallback.observations.map(i => i.id).sort(), page.observations.map(i => i.id).sort());
+  assert.ok(calls >= 60);
 });
