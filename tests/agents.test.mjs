@@ -12,6 +12,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { run } from './helpers/run.mjs';
 import { runBlocks } from './helpers/workflows.mjs';
 import { load } from '../lib/practices.mjs';
+import { WORKFLOW_ACTIONS } from '../lib/telemetry.mjs';
 import { AGENTS, AGENT_PASSES, DEFAULT_AGENT, agentOf, agentsProblems, passAgentProblems, codexVerdict, stepUse, BUDGET_STEPS, authorOf, reviewerOf, crossReviewerProblems, prefixAuthors, agentGitArgs, gateEnv, AGENT_GIT_DIR, coAuthorsOf, commitAuthorOf, pushAuthorsOf, pushReviewerOf } from '../practices/night/files/scripts/plates/lib.mjs';
 
 const PLATES = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -162,7 +163,7 @@ test('adapters: each provider\'s step is its own action at its major, with its r
       // (its credit, its secret). It is held to the same adapter as the first.
       assert.equal(mine.length, key === 'crossReview' || provider === 'codex' ? 2 : 1, `${w[key].path}: ${key === 'crossReview' || provider === 'codex' ? 'a first and a fallback' : 'one'} ${provider} step`);
       for (const step of mine) {
-        assert.match(step, new RegExp(`\\n {8}uses: ${a.action.replace('/', '\\/')}@${a.major}\\n`), `${w[key].path}: ${provider} at ${a.major}`);
+        assert.match(step, new RegExp(`\\n {8}uses: ${a.action.replace('/', '\\/')}@[0-9a-f]{40} # ${a.major}(?:\\.\\d+)*\\n`), `${w[key].path}: ${provider} at ${a.major}`);
         // Its secrets: only its own, all declared for this workflow by the practice.
         const used = [...step.matchAll(/secrets\.([A-Za-z_]\w*)/g)].map(m => m[1]);
         assert.deepEqual([...new Set(used)].sort(), [...a.secrets].sort(), `${w[key].path}: ${provider}'s step is given ${used}`);
@@ -235,11 +236,12 @@ test('the default: a project naming no agent runs Claude, and Claude\'s step pas
   const w = await workflows();
   const [climbStep] = agentSteps(w.climb.text, 'claude');
   const [tendStep] = agentSteps(w.tend.text, 'claude');
-  // Phase 47 selects Claude by default; phase 155 also requires finalized baseline admission. Action permissions and arguments stay unchanged.
-  assert.equal(climbStep, CLAUDE_BEFORE.climb.replace("if: steps.pick.outputs.job != ''", "if: steps.pick.outputs.job != '' && steps.admission.outputs.state == 'admitted' && steps.on.outputs.agent == 'claude'"));
-  assert.equal(tendStep, CLAUDE_BEFORE.tend.replace("if: steps.pick.outputs.run == 'yes'", "if: steps.pick.outputs.run == 'yes' && steps.on.outputs.agent == 'claude'"));
+  // Phase 47 selects Claude by default; phase 155 also requires finalized baseline admission; actions are pinned to reviewed commits. Action permissions and arguments stay unchanged.
+  const pinned = s => s.replace('uses: anthropics/claude-code-action@v1', `uses: ${WORKFLOW_ACTIONS.claudeCode}`);
+  assert.equal(climbStep, pinned(CLAUDE_BEFORE.climb).replace("if: steps.pick.outputs.job != ''", "if: steps.pick.outputs.job != '' && steps.admission.outputs.state == 'admitted' && steps.on.outputs.agent == 'claude'"));
+  assert.equal(tendStep, pinned(CLAUDE_BEFORE.tend).replace("if: steps.pick.outputs.run == 'yes'", "if: steps.pick.outputs.run == 'yes' && steps.on.outputs.agent == 'claude'"));
   const [review] = agentSteps(w.crossReview.text, 'claude');
-  const expected = CLAUDE_BEFORE.crossReview
+  const expected = pinned(CLAUDE_BEFORE.crossReview)
     .replace("if: steps.which.outputs.review == 'true'", "if: steps.which.outputs.review == 'true' && steps.which.outputs.agent == 'claude'")
     .replace(',mcp__github_inline_comment__create_inline_comment', '')
     // Phase 46: the review job's read-only token, as climb's and tend's since ledger#92.

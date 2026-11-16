@@ -426,7 +426,7 @@ no journal entries are silently pruned by the night wrapper. Exceeding the
 temporary directory is used). In CI, `PLATES_CANVAS_PERSISTENCE=artifact-v1` enables
 this contract and `PLATES_CANVAS_RECOVERY` names the verified downloaded envelope.
 Snapshots, rendered views, receipts and recovery state use
-`actions/upload-artifact@v7` with 90-day retention. A normal failed sync exports
+`actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2` with 90-day retention. A normal failed sync exports
 its pending journal in `finally`, so the next fresh checkout can reconcile it
 without resending a creation. Abrupt process termination or upload failure can
 leave no usable artifact; that case stops for manual recovery. The workflow

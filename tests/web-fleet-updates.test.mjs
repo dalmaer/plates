@@ -20,7 +20,7 @@ import {
 import { publicationObjects, gitTree } from "../lib/web/fleet-provider.mjs";
 import { hash } from "../lib/web/common.mjs";
 import { gitBlob } from "../lib/web/decision-github.mjs";
-import { legacyUpdateWorkflow } from "../lib/web/update-workflow.mjs";
+import { legacyUpdateWorkflow, canonicalUpdateWorkflow } from "../lib/web/update-workflow.mjs";
 const project = (h) => h.access.projects[0],
   opts = (h) => ({ reauthorize: h.refreshAccess });
 async function reviewed(h) {
@@ -147,6 +147,19 @@ test('fleet comparison keeps canonical config authoritative and reads legacy sna
   h.source.files['.keel/keel.json'] = h.source.files['.plates/plates.json'];
   h.source.files['.plates/plates.json'] = '{bad canonical';
   await assert.rejects(h.fleet.comparison(h.access, token, project(h)));
+});
+// The bytes a workflow had before actions were pinned: each reviewed commit back to the tag it replaced.
+const unpin = text => text.replace(/uses: (actions\/(?:checkout|setup-node|upload-artifact|download-artifact))@[0-9a-f]{40} # v[\d.]+/g,
+  (_, action) => `uses: ${action}@${action.endsWith('download-artifact') ? 'v8' : 'v7'}`);
+
+test('an update worker registered before action pinning keeps working, byte for byte', async () => {
+  for (const make of [canonicalUpdateWorkflow, legacyUpdateWorkflow]) {
+    const h = await fleetUpdatesHarness(), r = h.updateRegistration;
+    h.source.files[r.workflow.path] = unpin(make(h.config.fleetUpdates.target));
+    assert.match(h.source.files[r.workflow.path], /uses: actions\/checkout@v7\n/);
+    r.workflow.workflowBlob = gitBlob(h.source.files[r.workflow.path]); h.registerUpdate();
+    assert.equal((await reviewed(h)).p.canApply, true);
+  }
 });
 test('fleet preparation accepts exact legacy workflow pins but refuses changed source', async () => {
   const h = await fleetUpdatesHarness(), r = h.updateRegistration;

@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { load, fill } from '../lib/practices.mjs';
-import { WORKFLOWS, TELEMETRY_OFF, telemetryConfig } from '../lib/telemetry.mjs';
+import { WORKFLOWS, TELEMETRY_OFF, telemetryConfig, WORKFLOW_ACTIONS } from '../lib/telemetry.mjs';
 import { shellProblems } from './helpers/workflows.mjs';
 
 const practices = await load();
@@ -17,8 +17,8 @@ const telemetry = { endpoint: 'secret:ACME_OTLP_ENDPOINT', protocol: 'http/proto
 const on = { ...base, telemetry };
 const render = (path, config) => fill(templateOf(path), config, path);
 const count = (text, needle) => text.split(needle).length - 1;
-const CLAUDE = 'uses: anthropics/claude-code-action@v1\n';
-const CODEX = 'uses: openai/codex-action@v1\n';
+const CLAUDE = `uses: ${WORKFLOW_ACTIONS.claudeCode}\n`;
+const CODEX = `uses: ${WORKFLOW_ACTIONS.codex}\n`;
 const EXPORT = ['CLAUDE_CODE_ENABLE_TELEMETRY', 'OTEL_METRICS_EXPORTER', 'OTEL_LOGS_EXPORTER', 'OTEL_EXPORTER_OTLP_PROTOCOL', 'OTEL_EXPORTER_OTLP_ENDPOINT', 'OTEL_EXPORTER_OTLP_HEADERS', 'OTEL_RESOURCE_ATTRIBUTES'];
 
 /** Each step's text (from its "- " line to the next at the same indent). */

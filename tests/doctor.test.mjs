@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { lineDiff, blockBody, lessonsTableShapes, runsTest, globRegex } from '../lib/doctor.mjs';
 import { lessonsTableSplit, setupEnvProblems, platformCalls, platformLints } from '../practices/night/files/scripts/plates/lib.mjs';
 import { sha256 } from '../lib/lock.mjs';
+import { WORKFLOW_ACTIONS } from '../lib/telemetry.mjs';
 
 const PLATES = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BIN = join(PLATES, 'bin', 'plates.mjs');
@@ -141,9 +142,10 @@ test('a change plates has since made too is behind, not both: render takes plate
   const dir = await project(t);
   const path = '.github/workflows/plates-night.yml';
   const now = await readFile(join(dir, path), 'utf8'); // plates's template today
-  assert.match(now, /@v7/);
-  const old = now.replaceAll('@v7', '@v5').replace('\n', '\n# a line plates has since dropped\n'); // what plates wrote
-  const edited = old.replaceAll('@v5', '@v7'); // the project's Renovate, on plates's old file
+  assert.ok(now.includes(WORKFLOW_ACTIONS.checkout));
+  const oldPin = 'actions/checkout@0000000000000000000000000000000000000000 # v5.0.0';
+  const old = now.replaceAll(WORKFLOW_ACTIONS.checkout, oldPin).replace('\n', '\n# a line plates has since dropped\n'); // what plates wrote
+  const edited = old.replaceAll(oldPin, WORKFLOW_ACTIONS.checkout); // the project's Renovate, on plates's old file
   assert.notEqual(edited, now);
   const previous = join(dir, '..', 'previous');
   await mkdir(join(previous, 'practices/night/files/.github/workflows'), { recursive: true });

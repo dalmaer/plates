@@ -10,6 +10,7 @@ import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { run } from './helpers/run.mjs';
 import { runBlocks } from './helpers/workflows.mjs';
+import { WORKFLOW_ACTIONS } from '../lib/telemetry.mjs';
 
 const PLATES = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PRACTICE = join(PLATES, 'practices/cross-review/files');
@@ -186,7 +187,7 @@ test('off: with no crossReview key the workflow ends at its first step; with no 
   const text = (await readFile(WORKFLOW, 'utf8')).split('\n  publish:\n')[0];
   const steps = text.split(/\n(?= {6}- )/).filter(s => /^ {6}- /.test(s));
   const names = steps.map(s => /^ {6}- (?:name: (.+)|uses: (\S+))/.exec(s)).map(m => m[1] ?? m[2]);
-  assert.deepEqual(names.slice(0, 4), ['actions/checkout@v7', 'Is cross-review on?', 'Configured?', 'Which pull request or push?']);
+  assert.deepEqual(names.slice(0, 4), [WORKFLOW_ACTIONS.checkout.split(' ')[0], 'Is cross-review on?', 'Configured?', 'Which pull request or push?']);
   // A PR's config is the default branch's; after a push (plates#65), the event's commit the publisher is checked at.
   assert.ok(steps[0].includes("\n          ref: ${{ (github.event_name == 'push' || github.event_name == 'schedule') && github.sha || github.event.repository.default_branch }}\n"), 'the config is the default branch\'s, or the pushed commit\'s');
   assert.match(steps[2], /if: steps\.on\.outputs\.on == 'true'/);
@@ -705,7 +706,7 @@ test('phase 46: Claude, holding the review job\'s read-only token, reads the dif
   // The token each job's gh holds: the job's own (github.token), read-only in the review job, and handed to Claude's action.
   // issues: read since phase 60: the tracking issues of the reviews after a push.
   assert.match(review, /\n {4}permissions:\n {6}contents: read\n {6}pull-requests: read\n {6}issues: read\n {4}outputs:/);
-  assert.match(review, /uses: anthropics\/claude-code-action@v1\n {8}with:\n[\s\S]*?\n {10}github_token: \$\{\{ github\.token \}\}\n/);
+  assert.match(review, new RegExp(`uses: ${WORKFLOW_ACTIONS.claudeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\n {8}with:\\n[\\s\\S]*?\\n {10}github_token: \\$\\{\\{ github\\.token \\}\\}\\n`));
   const tools = /--allowedTools "([^"]*)"/.exec(review)[1].split(',');
   // Every tool Claude has reads: the files (Read, Grep, Glob), and the PR through gh, whose endpoints need pull-requests: read.
   assert.deepEqual(tools, ['Read', 'Grep', 'Glob', 'Bash(gh pr diff:*)', 'Bash(gh pr view:*)']);

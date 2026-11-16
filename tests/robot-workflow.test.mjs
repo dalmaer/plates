@@ -8,6 +8,7 @@ import { join,resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { run } from './helpers/run.mjs';
 import { runBlocks,shellProblems } from './helpers/workflows.mjs';
+import { WORKFLOW_ACTIONS } from '../lib/telemetry.mjs';
 const workflow=resolve('practices/climb/files/.github/workflows/plates-robot.yml');
 const router=resolve('practices/climb/files/.github/workflows/plates-robot-route.yml');
 const git=(dir,...args)=>execFileSync('git',['-C',dir,...args],{encoding:'utf8'}).trim();
@@ -157,7 +158,7 @@ test('robot completed review skips message artifacts while retaining exact-head 
  const post=text.split('\n  review-post:\n')[1];
  assert.match(review,/outputs:\n      complete: \$\{\{ steps.review.outputs.complete \}\}/);
  assert.match(review,/name: Capture reviewer final message\n        if: steps.review.outputs.complete != 'true'/);
- assert.match(review,/uses: actions\/upload-artifact@v7\n        if: steps.review.outputs.complete != 'true'\n        with:\n          name: robot-review-message/);
+ assert.ok(review.includes(`uses: ${WORKFLOW_ACTIONS.uploadArtifact}\n        if: steps.review.outputs.complete != 'true'\n        with:\n          name: robot-review-message`));
  assert.match(post,/if: needs.review-agent.result == 'success' && needs.review-agent.outputs.complete != 'true'\n        with:\n          name: robot-review-message/);
  assert.match(post,/ROBOT_HEAD: \$\{\{ needs.publish.outputs.head \}\}/);
 });

@@ -321,6 +321,27 @@ test("an impossible external begin result never becomes an execution grant", asy
 });
 
 
+// The bytes a workflow had before actions were pinned: each reviewed commit back to the tag it replaced.
+const unpin = text => text.replace(/uses: (actions\/(?:checkout|setup-node|upload-artifact|download-artifact))@[0-9a-f]{40} # v[\d.]+/g,
+  (_, action) => `uses: ${action}@${action.endsWith('download-artifact') ? 'v8' : 'v7'}`);
+
+test("a typecheck worker registered before action pinning keeps working, byte for byte", async () => {
+  for (const workflow of [TYPECHECK_WORKFLOW, LEGACY_TYPECHECK_WORKFLOW].map(unpin)) {
+    assert.match(workflow, /uses: actions\/checkout@v7\n/);
+    const h = await jobsHarness();
+    h.source.files[h.routineId] = workflow;
+    h.registration.workflow.workflowBlob = blob(workflow);
+    h.register();
+    assert.equal((await preview(h)).canApply, true);
+    // Half pinned is neither reviewed shape.
+    const mixed = workflow.replace("uses: actions/checkout@v7", TYPECHECK_WORKFLOW.match(/uses: actions\/checkout@[^\n]+/)[0]);
+    h.source.files[h.routineId] = mixed;
+    h.registration.workflow.workflowBlob = blob(mixed);
+    h.register();
+    await assert.rejects(preview(h), { code: "worker_source_unsupported" });
+  }
+});
+
 test("reviewed workflow generations retain exact source pins and reject changed shapes", async () => {
   for (const workflow of [TYPECHECK_WORKFLOW, LEGACY_TYPECHECK_WORKFLOW]) {
     const h = await jobsHarness();
