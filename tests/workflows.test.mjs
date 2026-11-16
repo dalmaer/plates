@@ -133,7 +133,7 @@ export function problems(name, text, declared = []) {
   }
   const body = lines.map(l => l.line).join('\n');
   if (/^\s*git commit\b/m.test(body) && !/git status --porcelain/.test(body)) out.push('commits without testing git status --porcelain');
-  if (/--gate-passed/.test(text) && !/GATE: \$\{\{ steps\.(improve|gate)\.outputs\.gate \}\}/.test(text)) out.push('--gate-passed, but GATE is not the gate this run ran (plates improve\'s measure, or a gate step)');
+  if (/--gate-passed/.test(text) && !/GATE: \$\{\{ (?:steps\.(?:improve|gate)|needs\.(?:night|loop))\.outputs\.gate \}\}/.test(text)) out.push('--gate-passed, but GATE is not the gate this run ran (plates improve\'s measure, or a gate step)');
   return out;
 }
 
@@ -238,7 +238,7 @@ test('the night workflow measures before it drains, pushes only its dated branch
   const at = s => { const i = night.indexOf(s); assert.ok(i >= 0, `missing: ${s}`); return i; };
   assert.ok(at('node scripts/plates/improve.mjs --report --json') < at('node scripts/plates/drain.mjs plates-night/'), 'improve runs before the drain, so machine_prs counts last night\'s PR');
   assert.ok(at('git status --porcelain') < at('git commit'));
-  assert.match(night, /git push --force-with-lease="refs\/heads\/\$BRANCH:\$EXPECTED" origin "HEAD:refs\/heads\/\$BRANCH"/);
+  assert.match(night, /git push --force-with-lease="refs\/heads\/\$BRANCH:\$EXPECTED" origin "\$head:refs\/heads\/\$BRANCH"/);
   assert.match(night, /cancel-in-progress: false/);
   assert.match(night, /- name: Verdict\n\s+if: always\(\)\n/, 'the verdict runs even after a failed step');
   assert.match(night, /if \[ "\$CODE" = 2 \] \|\| \[ -z "\$CODE" \]; then[\s\S]*?exit 1/, 'a broken instrument (or no reading) is red');
@@ -256,7 +256,7 @@ test('mutations: a workflow that breaks a rule fails', async () => {
     const found = problems('plates-night.yml', text, w.declared);
     assert.ok(found.some(p => pattern.test(p)), `${why}: expected a problem matching ${pattern}, got ${JSON.stringify(found)}`);
   };
-  const push = 'git push --force-with-lease="refs/heads/$BRANCH:$EXPECTED" origin "HEAD:refs/heads/$BRANCH"';
+  const push = 'git push --force-with-lease="refs/heads/$BRANCH:$EXPECTED" origin "$head:refs/heads/$BRANCH"';
   assert.ok(night.includes(push));
   fails(night.replace(push, 'git push origin main'), /names main|no explicit/, 'git push origin main');
   fails(night.replace(push, 'git push'), /no explicit/, 'a bare git push');
@@ -266,7 +266,7 @@ test('mutations: a workflow that breaks a rule fails', async () => {
   fails(night.replace(/concurrency:\n\s+group: plates-night\n/, ''), /no concurrency group/, 'no concurrency');
   fails(night.replace('cron: "23 7 * * *"', 'cron: "23 7 * *"'), /invalid cron/, 'four fields');
   fails(night.replace('cron: "23 7 * * *"', 'cron: "61 7 * * *"'), /invalid cron/, 'minute 61');
-  fails(night.replace('    env:\n      GH_TOKEN: ${{ github.token }}\n', '    env:\n      GH_TOKEN: ${{ github.token }}\n      ACME: ${{ secrets.ACME_SECRET }}\n'), /ACME_SECRET is not declared/, 'an undeclared secret');
+  fails(night.replace('          GH_TOKEN: ${{ github.token }}\n', '          GH_TOKEN: ${{ github.token }}\n          ACME: ${{ secrets.ACME_SECRET }}\n'), /ACME_SECRET is not declared/, 'an undeclared secret');
   fails(night.replace(/if \[ "\$GATE" = ok \]; then\n(\s+)(.*drain\.mjs plates-night\/ --yes --gate-passed)/, '$1$2\n$1true'), /outside an if on the gate/, 'an unconditional --gate-passed');
   fails(night.replace('drain.mjs plates-night/ --yes --gate-passed', 'drain.mjs plates/ --yes --gate-passed'), /not this workflow's prefix/, 'draining another prefix');
   fails(`${night}\n      - run: gh pr merge 1 --squash\n`, /merges directly/, 'a direct merge');
@@ -764,7 +764,9 @@ export function setupTokenProblems(text) {
   // A workflow of several jobs (climb, tend: the agent's and the judge's) installs in each: every Install step is held to it.
   const installs = steps.filter(s => /^\s+- name: Install\s*$/.test(s.lines[0]));
   const configs = steps.filter(s => s.lines.some(l => /^\s+id: config\s*$/.test(l)));
-  const expr = 'GH_TOKEN: ${{ secrets[steps.config.outputs.setup_token] || github.token }}';
+  const expr = /^name: plates-(night|loop)$/m.test(text)
+    ? "GH_TOKEN: ${{ secrets[steps.config.outputs.setup_token] || '' }}"
+    : 'GH_TOKEN: ${{ secrets[steps.config.outputs.setup_token] || github.token }}';
   if (!configs.length || configs.some(config => !/fs\.appendFileSync\(process\.env\.GITHUB_OUTPUT, `setup_token=\$\{tok \?\? ""\}\\n`\)/.test(config.lines.join('\n')))) out.push('the config step does not output setup_token');
   if (configs.some(config => !/!\/\^\[A-Z_\]\[A-Z0-9_\]\*\$\/\.test\(tok\)/.test(config.lines.join('\n')))) out.push('the config step does not check setupToken is a secret name');
   if (!installs.length) return [...out, 'no Install step'];
@@ -805,14 +807,14 @@ test('the setupToken secret reaches only the Install step, as GH_TOKEN, and is n
     }
   }
   // Mutations: each way the token leaks or goes missing is caught.
-  const expr = '          GH_TOKEN: ${{ secrets[steps.config.outputs.setup_token] || github.token }}\n';
+  const expr = "          GH_TOKEN: ${{ secrets[steps.config.outputs.setup_token] || '' }}\n";
   for (const name of ['plates-night.yml', 'plates-loop.yml']) {
     const t = all.find(w => w.name === name).template;
     assert.ok(t.includes(expr), name);
     for (const [why, text] of [
       ['no token for setup', t.replace(expr, '')],
-      ['no fallback to the job token', t.replace(' || github.token }}', ' }}')],
-      ['at job level', t.replace(expr, '').replace('    env:\n      GH_TOKEN: ${{ github.token }}\n', '    env:\n      GH_TOKEN: ${{ secrets[steps.config.outputs.setup_token] || github.token }}\n')],
+      ['install receives the job token', t.replace(" || '' }}", ' || github.token }}')],
+      ['at job level', t.replace(expr, '').replace('    steps:\n', `    env:\n${expr.replace('          ', '      ')}    steps:\n`)],
       ['also in another step', t.replace(/(      - name: (?:Validation verdict|Verdict)\n(?:        id:[^\n]*\n)?(?:        if:[^\n]*\n)?)/, `$1        env:\n${expr}`)],
       ['echoed', t.replace('bash -e -c "$SETUP"', 'echo "$GH_TOKEN"\n            bash -e -c "$SETUP"')],
       ['exported to later steps', t.replace('bash -e -c "$SETUP"', 'bash -e -c "$SETUP"\n            echo "GH_TOKEN=x" >> "$GITHUB_ENV"')],
@@ -877,10 +879,11 @@ test('every run: block in every workflow parses as bash, and every inline node -
  * bare origin and a stub gh. Returns { dir, files: the paths the pushed
  * branch's commit carries, out }.
  */
-async function nightCommit(t, night, { health, ignore = '', tracked = {}, existingPr = '', listExit = 0, editExit = 0, planDay = '', before = async () => {}, after = async () => {} }) {
+async function nightCommit(t, night, { health, ignore = '', tracked = {}, existingPr = '', listExit = 0, editExit = 0, planDay = '', publishHead, publishBase, before = async () => {}, after = async () => {} }) {
   const steps = runBlocks(night);
   const where = steps.find(b => b.step === 'Where the health page goes');
   const open = steps.find(b => b.step === "Open the night's pull request");
+  const prepare = steps.find(b => b.step === "Prepare the night's pull request");
   assert.ok(where && open, 'both steps are in the workflow');
   const base = await mkdtemp(join(tmpdir(), 'plates-wf-night-'));
   t.after(() => rm(base, { recursive: true, force: true }));
@@ -889,18 +892,23 @@ async function nightCommit(t, night, { health, ignore = '', tracked = {}, existi
   for (const d of [dir, bin, temp, join(dir, 'scripts/plates'), join(dir, '.plates')]) await mkdir(d, { recursive: true });
   git(['init', '-q', '--bare', origin], base);
   git(['init', '-q', '-b', 'main']);
-  for (const f of ['lib.mjs', 'pr-body.mjs', 'names.mjs']) await writeFile(join(dir, 'scripts/plates', f), await readFile(join(PLATES, 'practices/night/files/scripts/plates', f), 'utf8'));
+  await cp(join(PLATES, 'practices/night/files/scripts/plates'), join(dir, 'scripts/plates'), { recursive: true });
   await writeFile(join(dir, '.plates/plates.json'), `${JSON.stringify({ name: 'Acme', ...(health ? { health } : {}) })}\n`);
   await writeFile(join(dir, '.gitignore'), ignore);
   for (const [f, text] of Object.entries(tracked)) { await mkdir(dirname(join(dir, f)), { recursive: true }); await writeFile(join(dir, f), text); }
   git(['add', '-A']);
   git(['commit', '-q', '-m', 'acme']);
   git(['remote', 'add', 'origin', origin]);
+  const sourceSha = git(['rev-parse', 'HEAD']).trim();
+  const publisher = join(base, 'publisher');
+  git(['clone', '-q', dir, publisher], base);
+  git(['remote', 'set-url', 'origin', origin], publisher);
   await before(dir, base);
   // gh keeps the body it is handed (--body-file), for the reader's check.
   await writeFile(join(bin, 'gh'), `#!${process.execPath}
 const fs = require('node:fs');
 const args = process.argv.slice(2);
+if (args[0] === 'auth' && args[1] === 'setup-git') process.exit(0);
 fs.appendFileSync(${JSON.stringify(join(base, 'gh.jsonl'))}, JSON.stringify(args) + '\\n');
 if (args[0] === 'pr' && args[1] === 'list') {
   if (${listExit}) { console.error('Acme PR lookup failed'); process.exit(${listExit}); }
@@ -930,7 +938,14 @@ if (args[0] === 'pr' && args[1] === 'list') {
   await writeFile(join(temp, 'improve.json'), JSON.stringify({ date: '2026-10-05', report: `${page}/2026-10-05.md`, nightRecovery:{branch:'plates-night/2026-10-05',head:'',attempts:0}, changedHistoricalHealthPaths: [] }));
   await writeFile(join(temp, 'pr.json'), JSON.stringify(nightPr({ date: '2026-10-05', report: `${page}/2026-10-05.md`, proposal: { id: 'prs_stale', state: 'outside', text: 'Close or merge the Acme PRs.' },
     results: [{ id: 'gate', state: 'ok', detail: 'npm test passed, 12 tests', bound: 0, better: 'lower', value: 0 }, { id: 'prs_stale', state: 'outside', detail: '2 stale', bound: 0, better: 'lower', value: 2 }] })));
-  const o = run('bash', ['-e', '-c', open.script], { cwd: dir, env: { ...env, DAY: '2026-10-05', PLAN_DAY: planDay, BASE: 'main', HEALTH: page ?? '' } });
+  const jobEnv = { ...env, GITHUB_SHA: sourceSha, DAY: '2026-10-05', PLAN_DAY: planDay, BASE: 'main', HEALTH: page ?? '' };
+  const prepared = run('bash', ['-e', '-c', prepare.script], { cwd: dir, env: jobEnv });
+  const head = /^head=(.*)$/m.exec(await readFile(out, 'utf8'))?.[1] ?? '';
+  // Only fixed data paths cross runners. Candidate source never reaches publisher's worktree.
+  const planFile = join(dir, '.plates/night/plan.json');
+  try { await mkdir(join(publisher, '.plates/night'), { recursive: true }); await cp(planFile, join(publisher, '.plates/night/plan.json')); } catch (e) { if (e.code !== 'ENOENT') throw e; }
+  const o = prepared.status === 0 ? run('bash', ['-e', '-c', open.script], { cwd: publisher, env: { ...jobEnv, HEAD: publishHead ?? head, GITHUB_SHA: publishBase ?? sourceSha } }) : prepared;
+  assert.equal(git(['rev-parse', 'HEAD'], publisher).trim(), sourceSha, 'publisher never checks out the prepared commit');
   const outputs = Object.fromEntries((await readFile(out, 'utf8')).trim().split('\n').filter(Boolean).map(l => l.split('=')));
   const branch = run('git', ['--git-dir', origin, 'show', 'refs/heads/plates-night-plan:.plates/night/plan.json']);
   const pushed = run('git', ['--git-dir', origin, 'show', '--name-only', '--format=', 'refs/heads/plates-night/2026-10-05']);
@@ -1007,7 +1022,7 @@ test('the night commits its page from the configured health dir (read at run tim
   assert.ok(own.body.trimEnd().endsWith('```') && own.body.indexOf('```plates-impact') > at[2], 'the plates-impact block is last');
   // No body is built in inline JS: the open step calls pr-body.mjs, and no node -e writes body.md.
   const blocks = runBlocks(night);
-  assert.match(blocks.find(b => b.step === "Open the night's pull request").script, /node scripts\/plates\/pr-body\.mjs --input "\$RUNNER_TEMP\/pr\.json" --files [^\n]*> "\$RUNNER_TEMP\/body\.md"/);
+  assert.match(blocks.find(b => b.step === "Prepare the night's pull request").script, /node scripts\/plates\/pr-body\.mjs --input "\$RUNNER_TEMP\/pr\.json" --files [^\n]*> "\$RUNNER_TEMP\/body\.md"/);
   assert.match(blocks.find(b => b.step === 'Measure').script, /improve\.mjs --report --json --pr-input "\$RUNNER_TEMP\/pr\.json"/);
   for (const b of blocks) for (const n of inlineNode(b.script)) assert.doesNotMatch(n.js, /body|Proposal|keel-impact/, `step "${b.step}" builds a PR body in inline JS`);
   // The configured dir ignored: red, naming the fix, and nothing pushed.
@@ -1211,7 +1226,7 @@ test('a default night writes its plan to plates-night-plan from its PR step, the
   const publishing = blocks.filter(b => /node scripts\/plates\/night-plan\.mjs publish\b/.test(b.script)).map(b => b.step);
   assert.deepEqual(publishing, ["Open the night's pull request"], 'only the PR step writes the plan branch');
   assert.doesNotMatch(blocks.find(b => b.step === 'Plan the night').script, /\bgit push\b|publish/, 'the plan step only reads');
-  assert.match(night, /\n {8}id: pr\n {8}env:\n(?: {10}.*\n)*? {10}PLAN_DAY: \$\{\{ steps\.plan\.outputs\.day \}\}\n/, 'the date is the plan step\'s, never another night\'s');
+  assert.match(night, /\n {8}id: pr\n {8}env:\n(?: {10}.*\n)*? {10}PLAN_DAY: \$\{\{ needs\.night\.outputs\.plan_day \}\}\n/, 'the date is the plan step\'s, never another night\'s');
   const { writePlan, defaultPlan } = await import('../lib/night-plan.mjs');
   const plan = defaultPlan({ date: '2026-10-05' });
   const withPlan = async dir => { await cp(join(PLATES, 'practices/night/files/scripts/plates'), join(dir, 'scripts/plates'), { recursive: true }); await writePlan(dir, plan); };
@@ -3849,4 +3864,79 @@ test('claude agent: a PR comment or review works on the PR head, an issue on the
   assert.equal(evaluate({ issue: { number: 7, pull_request: { url: 'x' } } }), 'refs/pull/7/head', 'a comment on a PR: its head');
   assert.equal(evaluate({ issue: { number: 7 } }), '', 'an issue: the default branch');
   assert.match(agent, /permissions:\n\s+contents: read\n\s+pull-requests: read\n\s+issues: read/, 'still read-only');
+});
+
+// Credential boundaries hold for templates and installed workflows alike.
+test('night and loop: installs and gates have read-only jobs, and publication runs only trusted source', async () => {
+  const all = await shipped(), rendered = await renderedWorkflows(all);
+  for (const name of ['plates-night.yml', 'plates-loop.yml']) {
+    const w = all.find(w => w.name === name);
+    for (const text of [w.template, rendered.get(w.path)].filter(Boolean)) {
+      assert.doesNotMatch(text.split('jobs:')[0], /: write/, `${name}: no workflow-wide write grants`);
+      for (const job of jobsOf(text)) {
+        const runsProject = /npm ci|gate\.mjs|improve\.mjs --report/.test(job.text);
+        if (runsProject) {
+          assert.doesNotMatch(job.text, /: write/, `${name}/${job.id}: project code cannot write`);
+          assert.doesNotMatch(job.text.split('    steps:')[0], /GH_TOKEN|STITCH_API_KEY/, 'no job-wide credentials');
+          for (const checkout of job.text.split(/\n(?= {6}- )/).filter(s => /uses: actions\/checkout@/.test(s))) assert.match(checkout, /persist-credentials: false/);
+        }
+        if (/: write/.test(job.text)) {
+          assert.doesNotMatch(job.text, /npm (?:ci|install)|improve\.mjs --report|gate\.mjs|git (?:checkout|switch|apply)/, 'publisher never executes the candidate');
+          assert.match(job.text, /git fetch -q .*\.bundle/, 'publication receives Git objects only');
+        }
+      }
+      for (const step of text.split(/\n(?= {6}- )/)) {
+        if (/secrets\.STITCH_API_KEY/.test(step)) {
+          if (/^ {6}- name: Configured\?\n/.test(step)) assert.match(step, /STITCH_CONFIGURED: \$\{\{ secrets\.STITCH_API_KEY != '' \}\}/);
+          else assert.match(step, /^ {6}- name: Pull Loop's insights\n/);
+        }
+      }
+    }
+  }
+  const config = JSON.parse(await readFile(join(PLATES, '.plates/plates.json'), 'utf8'));
+  assert.equal(config.setup, 'npm ci --ignore-scripts');
+  for (const file of ['../practices/night/files/scripts/plates/lib.mjs', '../scripts/plates/lib.mjs']) {
+    const { gateEnv } = await import(file);
+    const tokens = { GH_TOKEN: 'fake-read-token', GITHUB_TOKEN: 'fake-token', STITCH_API_KEY: 'fake-key', VERCEL_TOKEN: 'fake-key', VERCEL_API_TOKEN: 'fake-key' };
+    const env = gateEnv({ GITHUB_ACTIONS: 'true', ...tokens }, { env: { ...tokens, ACME: 'kept' } });
+    for (const key of Object.keys(tokens)) assert.equal(env[key], undefined, `${file}: ${key} must not reach project commands`);
+    assert.equal(env.ACME, 'kept');
+  }
+});
+
+test('Stitch installs use the recorded exact version with lifecycle scripts disabled and no provider key', async () => {
+  const all = await shipped(), rendered = await renderedWorkflows(all);
+  for (const name of ['plates-loop.yml', 'plates-climb.yml']) {
+    const w = all.find(w => w.name === name);
+    for (const text of [w.template, rendered.get(w.path)].filter(Boolean)) {
+      const installs = text.split(/\n(?= {6}- )/).filter(s => /npm install -g @google\/stitch/.test(s));
+      assert.equal(installs.length, 1);
+      assert.match(installs[0], /npm install -g @google\/stitch@0\.11\.0 --ignore-scripts/);
+      assert.doesNotMatch(installs[0], /secrets\.|GH_TOKEN|STITCH_API_KEY/);
+    }
+  }
+});
+
+test('Renovate keeps four lanes behind a strict three-day release cooldown', async () => {
+  for (const file of ['practices/renovate/files/renovate.json', 'renovate.json']) {
+    const config = JSON.parse(await readFile(join(PLATES, file), 'utf8'));
+    assert.equal(config.minimumReleaseAge, '3 days', file);
+    assert.equal(config.internalChecksFilter, 'strict', file);
+    assert.equal(config.lockFileMaintenance.automerge, true);
+    assert.deepEqual([...new Set(config.packageRules.map(r => r.groupSlug).filter(Boolean))].sort(), ['node', 'patch-minor', 'weekly']);
+    assert.ok(config.packageRules.filter(r => r.groupSlug !== 'patch-minor').every(r => r.automerge === false));
+  }
+});
+
+
+test('night and loop: publication refuses a substituted commit or source revision before pushing', async t => {
+  const night = await readFile(join(PLATES, 'practices/night/files/.github/workflows/plates-night.yml'), 'utf8');
+  const { writePlan, defaultPlan } = await import('../lib/night-plan.mjs');
+  for (const options of [{ publishHead: 'f'.repeat(40) }, { publishBase: 'f'.repeat(40) }]) {
+    const result = await nightCommit(t, night, { ...options, planDay: '2026-10-05', before: dir => writePlan(dir, defaultPlan({ date: '2026-10-05' })) });
+    assert.notEqual(result.status, 0, 'unverified commit must stop publication');
+    assert.equal(result.files, null, 'no branch is pushed');
+    assert.equal(result.planBranch, null, 'the plan branch is not pushed either');
+    assert.equal(result.calls.length, 0, 'no PR is created or edited');
+  }
 });

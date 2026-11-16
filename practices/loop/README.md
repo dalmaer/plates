@@ -128,8 +128,8 @@ own `scripts/loop.*` is still there.
 
 **The night.** `plates-loop.yml` runs at 09:43 UTC and does the following:
 
-1. Installs the official stitch CLI, `npm install -g @google/stitch@0`
-   (major 0, checked against 0.11.0; a 1.0 never arrives unseen).
+1. Installs the official stitch CLI, `npm install -g @google/stitch@0.11.0 --ignore-scripts`
+   (the recorded checked release, with lifecycle scripts disabled).
 2. Turns Loop on in the CLI and runs `pull`.
 3. Runs the gate: `render --check`, then the project's `{{check}}`.
 4. Opens one `plates-loop/<date>` PR when `docs/loop/`, `docs/LOOP.md` or an
@@ -223,3 +223,11 @@ failures at most twice, after two and four seconds, with a notice for each retry
 Authentication/permission errors, malformed output, writes and the project gate
 are never automatically retried. Resolve a persistent failure before starting a
 fresh workflow on the corrected revision; rerunning an old run uses its old code.
+
+The pull and gate job has read-only GitHub permissions and no persisted checkout
+credentials. Only the pull step receives `STITCH_API_KEY`; the setup-token
+exception remains confined to Install. Publication uses a fresh runner, the
+workflow source revision and a bundle of prepared Git objects. It never checks
+out candidate code or installs dependencies with a write token. The exact Stitch
+pin does not lock its transitive dependency tree; a reviewed lockfile requires
+registry access and is not supplied by the runtime install.

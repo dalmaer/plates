@@ -158,8 +158,10 @@ test('actual workflow shell: off has no CLI calls; on consumes report exactly on
     const on = await workflow(t, { workflowText }); assert.equal(on.status, 0, on.stderr);
     assert.deepEqual(on.calls.map(a => a.slice(0, 3)), [['plates', '--version'], ['isocan', '--version'], ['plates', 'canvas', 'night']]);
     assert.ok(on.calls[2].includes('--yes'));
-    assert.ok(on.yaml.indexOf("- name: Open the night's pull request") < on.yaml.indexOf('- name: Project the night'));
-    assert.match(on.yaml, /CANVAS_OUTCOME.*steps.canvas.outcome/);
+    const prepare = on.yaml.indexOf("- name: Prepare the night's pull request");
+    assert.ok(prepare >= 0 && prepare < on.yaml.indexOf('- name: Project the night'), 'canvas follows the local data commit');
+    assert.match(on.yaml, /canvas: \$\{\{ steps.canvas.outcome \}\}/);
+    assert.match(on.yaml, /CANVAS_OUTCOME.*needs.night.outputs.canvas/);
     assert.match(on.yaml, /retention-days: 90/);
     assert.equal(on.yaml, workflowText, 'the shell ran the full rendered variant');
   });

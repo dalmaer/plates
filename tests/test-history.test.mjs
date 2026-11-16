@@ -351,9 +351,17 @@ async function stagingFixture(t, production = false, workflowText) {
   assert.deepEqual(nightRecovery, { branch: `plates-night/${day}`, head: '', attempts: 0 });
   const report = produced?.data ?? { date: day, report: today, changedHistoricalHealthPaths: [earlier], nightRecovery };
   await writeFile(join(temp, 'improve.json'), JSON.stringify(report)); await writeFile(join(temp, 'pr.json'), '{}');
-  const script = runBlocks(workflowText ?? await readFile(workflow, 'utf8')).find(b => b.step === "Open the night's pull request").script;
-  // GITHUB_OUTPUT as Actions provides it: the step records its default-plan write there (phase 78).
-  const execute = () => run('bash', ['-e', '-o', 'pipefail', '-c', script], { cwd: root, env: { ...process.env, DAY: day, BASE: 'main', HEALTH: health, RUNNER_TEMP: temp, GITHUB_OUTPUT: join(temp, 'outputs'), PATH: `${commands}:${process.env.PATH}` } });
+  const blocks = runBlocks(workflowText ?? await readFile(workflow, 'utf8'));
+  const prepare = blocks.find(b => b.step === "Prepare the night's pull request").script;
+  const publish = blocks.find(b => b.step === "Open the night's pull request").script;
+  // Staging moved to preparation. Run both actual steps, passing the prepared
+  // commit as Actions' job output; a preparation refusal must stop publication.
+  const execute = () => {
+    const env = { ...process.env, DAY: day, PLAN_DAY: day, BASE: 'main', HEALTH: health, GITHUB_SHA: before, RUNNER_TEMP: temp, GITHUB_OUTPUT: join(temp, 'outputs'), PATH: `${commands}:${process.env.PATH}` };
+    const prepared = run('bash', ['-e', '-o', 'pipefail', '-c', prepare], { cwd: root, env });
+    if (prepared.status !== 0) return prepared;
+    return run('bash', ['-e', '-o', 'pipefail', '-c', publish], { cwd: root, env: { ...env, HEAD: git('rev-parse', 'HEAD') } });
+  };
   return { root, temp, report, git, before, earlier, unrelated, today, execute };
 }
 test('night historical health staging commits the earlier remeasurement and today only, preserving unrelated staged and untracked files', async t => {

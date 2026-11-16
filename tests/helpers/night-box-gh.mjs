@@ -23,7 +23,12 @@ const fail = (why, code = 1) => { process.stderr.write(`${why}\n`); process.exit
 const pick = rows => { const f = opt('--json'); return f ? rows.map(r => Object.fromEntries(f.split(',').map(k => [k, r[k] ?? null]))) : rows; };
 const repo = opt('--repo') ?? 'acme/anvils';
 
-if (a[0] === 'api' && a[1] === '/repos/acme/anvils') {
+if (a.length === 2 && a[0] === 'auth' && a[1] === 'setup-git') {
+  // The split publisher installs gh's helper on its runner. This box uses a
+  // local bare origin, so no credential helper is needed for its Git transport.
+  if (!process.env.GH_TOKEN) fail('stub gh: setup-git requires the step token');
+  process.exit(0);
+} else if (a[0] === 'api' && a[1] === '/repos/acme/anvils') {
   out({ id: 7, full_name: 'acme/anvils' });
 } else if (a[0] === 'api' && a[1] === '/repos/acme/anvils/labels?per_page=100&page=1') {
   out([{ id: 11, name: 'keel:morning' }]);
