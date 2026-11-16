@@ -5,7 +5,7 @@ owes: walk
 goal: G2
 spec: 2
 depends: [124]
-note: "The 20 cookie, operation-marker and public RPC writer rows are dual: the hosted build writes plates names and reads both. Main 827852b is deployed as the rollback baseline and migration 014 is applied (2026-10-31). The owner's browser session/login/OAuth upgrade-and-rollback check and the evidence of both callers serving remain."
+note: "The 20 cookie, operation-marker and public RPC writer rows are dual: the hosted build writes plates names and reads both. Main 827852b is deployed as the rollback baseline and migration 014 is applied (2026-10-31). Repair migration 023 is applied (2026-11-16) and its hosted proof passed; production serves 1367c3f8. The owner's browser session/login/OAuth upgrade-and-rollback check and the evidence of both callers serving remain."
 evidence: ["evidence/2026-10-24-hosted-name-transition.md"]
 issue: 243
 ---

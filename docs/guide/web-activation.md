@@ -2,9 +2,9 @@
 
 <!-- Generated from docs/specs/web-activation-plan.json by renderActivationGuide in lib/web/activation-plan.mjs. Edit the JSON, never this page; tests/web-activation-plan.test.mjs fails when it is stale, and rewrites it when run with PLATES_WRITE_ACTIVATION_GUIDE=1. -->
 
-The records report migrations 001–004, 014 and 017–019 applied; 005–013, 015–016 and 020–022 remain pending, and the new repair 023 runs where it is sequenced below. Phase 151 records steps 1–5 completed on 2026-10-31. This is a reconciliation of source records, not a fresh database inspection: phase 127 says 014 applied, but unchanged 014 requires the 005–013 RPCs that phase 151 still calls pending. The applied bytes and actual optional RPC inventory remain unknown. Inspect that discrepancy before further hosted changes; do not infer that 005–013 ran.
+The records report migrations 001–004, 014, 017–019 and the repair 023 applied (023 on 2026-11-16, with its hosted proof). A read-only check of the hosted database just before 023 found all ten 005–013 RPC pairs installed under both keel_* and plates_* names, and 022's two tables present. So 005–013 and 022 appear applied but are not recorded, and their applied bytes are unchecked: that settles the earlier contradiction (phase 127 says 014 applied, but unchanged 014 requires the 005–013 RPCs that phase 151 still calls pending) in favour of 005–013 having run. Before running any 005–013 or 022 step, inspect its applied file identity and run its proof instead of reapplying it. 015–016 and 020–021 were not inspected and remain pending.
 
-The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json), read on 2026-11-15, and belongs to [phase 151](../phases/151-the-hosted-workspace-is-the-owners-daily-driver.md). A step for a phase that is not built or partial is refused.
+The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json), read on 2026-11-16, and belongs to [phase 151](../phases/151-the-hosted-workspace-is-the-owners-daily-driver.md). A step for a phase that is not built or partial is refused.
 
 ## How the session runs
 
@@ -25,6 +25,7 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
 - 017-not-now.sql (phase 173): [evidence](../phases/173-every-item-waiting-on-the-owner-can-be-answered.md)
 - 018-last-looked.sql (phase 166): [evidence](../phases/166-home-says-what-needs-you-what-happened-and-what.md)
 - 019-backlog-events.sql (phase 184): [evidence](../evidence/2026-11-06-backlog-events.md)
+- 023-late-rpc-names.sql (phase 127): [evidence](../evidence/2026-10-24-hosted-name-transition.md)
 
 ## Steps
 
@@ -151,10 +152,10 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
    - Needs first: phases 94, 105.
    - Rollback: A failure inside the transaction rolls back by itself; the migration refuses an ambiguous partial state. After commit, keep nightOperations off, and reapply 013 (never 009 or 010) if admission must be restored.
    - Proof to record: The applied version: file name and SHA-256. The commit result, docs/evidence/2026-11-15-web-night-retries-after-rpc-names-proof.sql's result after 023 (the canonical wrapper, role denials, saved 010 delegate and a service-role shared-lane exercise) and its hosted race between a night retry and an ordinary job on one lane.
-35. **migration-023** (phase 127, migration, owner attends). After 005–013, run 023-late-rpc-names.sql again to reconcile all installed optional RPCs. Earlier optional steps also run this repeatable repair before their feature gates. It copies or refreshes plates_* implementations, restores keel_* forwarders, skips absent stores and refuses overloads or signature drift under the original migration lock. It does not modify core RPCs or enable features.
+35. **late-rpc-names-inspect** (phase 127, decision, owner attends). 023 was applied on 2026-11-16 and its hosted proof passed (phase 127 evidence). Do not treat it as pending. It is repeatable: run it again after any 005–013 replay, and once more to confirm its definitions and grants stay unchanged, which was not done on 2026-11-16. Never replay 014 as a repair.
    - Needs first: phase 94.
-   - Rollback: On failure the transaction must be rolled back; inspect the reported contract before retrying. After commit retain both names and the private data. Keep affected feature gates off if either caller fails; never replay 014 as a repair.
-   - Proof to record: The applied version: file name and SHA-256, compared with source. Inspect pg_proc for each installed 005–013 pair: canonical arguments/defaults, identical implementation body under plates_*, keel_* forwarding, owners and service-role-only grants. Run one bounded read through each name as service_role, check the private job delegate is not a forwarder, and repeat 023 to confirm unchanged definitions and grants. Record absent stores explicitly. Local tests/web-late-rpc-migrations.test.mjs is rehearsal only, not hosted proof. Run docs/evidence/2026-11-15-web-late-rpc-names-hosted-proof.sql; retain its absent-store notices and result.
+   - Rollback: Inspection does not change the database. If the hosted behavior fails, retain the original evidence, keep affected feature gates off and inspect the reported contract; do not undo an applied migration.
+   - Proof to record: The applied version: file name and SHA-256 matched to source. docs/evidence/2026-11-15-web-late-rpc-names-hosted-proof.sql's result, with any absent-store notices, and, for the confirming run, unchanged pg_proc definitions and grants for each installed 005–013 pair.
 36. **night-operations-gate** (phase 107, env, owner attends). Write the reviewed night-retries/<project>.json profile in the private workspace, then set nightOperations {retryEnabled, planWrites, verifiedAt, restoreReconciledAt, profiles} and redeploy. Retry needs Actions write and the jobs gate; plan writes need Contents write.
    - Needs first: phases 97, 101, 104.
    - Rollback: Set retryEnabled and planWrites false and redeploy. A retry already dispatched is reconciled from its original receipt, never sent again.
