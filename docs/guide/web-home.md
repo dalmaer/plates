@@ -193,8 +193,15 @@ command, or one that answers anything else, leaves the card at "claimed".
 
 A host may also name a `harness` (phase 193): the agent command itself,
 `"harness": ["/abs/path/agent", "arg", ...]`, validated like `start` (an argv
-array of at most 16 entries whose first is an absolute path), which reads the
-brief on stdin with the checkout as its working directory. A host may have
+array of at most 16 entries whose first is an absolute path), run with the
+checkout as its working directory, and optionally `"prompt": "stdin"` or
+`"prompt": "arg"`, how it takes the brief. `stdin` is for a headless agent
+(`claude -p`, `codex exec`): the brief is its standard input. `arg` is for an
+interactive one (the `claude` and `codex` terminal apps): it keeps the tab's
+terminal as its input, so you can type to it, and the brief is its startup
+prompt, its last argument. Without `prompt`, a harness named `claude` or `codex`
+is `arg` unless its arguments make it headless (as above); any other harness is
+`stdin`. A host may have
 `start`/`state`, a `harness`, or both. When Rex answers on this machine (a `rex`
 executable on the host environment's PATH, and `rex ls --json` answering JSON
 within 5 s), `plates home --attach --route local-host` and `plates audit run`
@@ -205,10 +212,15 @@ when one has exactly that label and created otherwise, Plates opens one new
 tab per run, keep-open and unfocused, labelled `phase-<n>` or `audit-<lens>`.
 The tab runs `lib/rex-run.mjs`, which reads the brief from a mode-600 file under
 plates's state directory (`$XDG_STATE_HOME/plates/rex-briefs`, else
-`~/.local/state/plates/rex-briefs`), deletes it and starts the harness with the
-brief on stdin and only the basic environment: the brief is never in argv, the
-environment or the tab's output, and the tab shows the agent working, so you can
-watch it and step in. The receipt is `rex:<session id>/<block id>`, and the
+`~/.local/state/plates/rex-briefs`) and starts the harness with only the basic
+environment. With `stdin` it deletes the file and pipes the brief in. With `arg`
+a brief of at most 16 KiB is the startup prompt and its file is deleted at once;
+a longer one stays in its private file, the startup prompt is one short line
+naming that file, and the runner removes it when the agent exits or the tab is
+closed. The brief is never in Rex's argv, the environment or the tab's output,
+and the tab shows the agent working, so you can watch it and step in. An agent
+that asks before working in a folder (Claude Code's trust check) asks in the
+tab first; the brief follows your answer. The receipt is `rex:<session id>/<block id>`, and the
 card's presence comes from Rex (`rex wait`): a running tab is `running`; an exit
 is `finished` only when it is 0 and, for an audit, its findings file exists;
 anything else, or a tab Rex no longer knows, is `failed`. Plates reads `rex ls`

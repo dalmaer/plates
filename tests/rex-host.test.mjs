@@ -14,10 +14,13 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
 import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, realpath, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import * as audit from '../practices/audits/files/scripts/plates/audit.mjs';
+import * as attachLib from '../lib/attach.mjs';
 import { attach, attachPreview, findRex, hostState, isHostSession, readLocalHost, rexLabel, rexState, startHost, localHostExecutions, REX_RECEIPT } from '../lib/attach.mjs';
 import { auditRun, runsDir, runState } from '../lib/audit-run.mjs';
+import { run as runChild } from './helpers/run.mjs';
+const runNode = (args, opts) => runChild(process.execPath, args, opts);
 
 const BRIEF = 'Phase 7: Build the anvil (acme)\nACME-BRIEF-MARKER-7f3e: only the harness may read this.\n';
 const NOW = Date.parse('2026-11-15T12:00:00Z');
@@ -43,9 +46,12 @@ if (args[0] === 'ls') { if (mode.ls === 'fail') process.exit(1); if (mode.ls ===
 if (args[0] === 'new') { console.log(JSON.stringify({ session_id: 'session:acme-new', initial_windows: [{ window_id: 'window:acme-1', block_ids: ['block:acme-shell'], revision: 1 }] })); process.exit(0); }
 if (args[0] === 'run') {
   const i = args.indexOf('--');
-  // The tab: the command with stdout and stderr together, as a terminal shows them.
+  // The tab: the command with stdout and stderr together, as a terminal shows them,
+  // and the tab's own input (what the owner types; a file stands in for the terminal) as its stdin.
   let out = '', status = 0;
-  try { out = execFileSync('/bin/sh', ['-c', 'exec "$@" 2>&1', 'sh', ...args.slice(i + 1)], { cwd: at('-c'), env: { ...process.env, REX_SESSION: at('-s'), REX_BLOCK: 'block:acme-tab-1' }, encoding: 'utf8' }); }
+  const input = path.join(logs, 'tab-input.txt'); fs.writeFileSync(input, 'TAB-INPUT: typed by the owner\\n');
+  const fd = fs.openSync(input, 'r');
+  try { out = execFileSync('/bin/sh', ['-c', 'exec "$@" 2>&1', 'sh', ...args.slice(i + 1)], { cwd: at('-c'), env: { ...process.env, REX_SESSION: at('-s'), REX_BLOCK: 'block:acme-tab-1' }, encoding: 'utf8', stdio: [fd, 'pipe', 'pipe'] }); }
   catch (e) { out = String(e.stdout ?? ''); status = e.status ?? 1; }
   fs.writeFileSync(path.join(logs, 'tab-output.txt'), out);
   fs.writeFileSync(path.join(logs, 'tab-exit'), String(status));
@@ -62,6 +68,18 @@ const fs = require('node:fs'); const chunks = [];
 process.stdin.on('data', c => chunks.push(c));
 process.stdin.on('end', () => { fs.writeFileSync(${JSON.stringify(join(logs, 'harness.json'))}, JSON.stringify({ stdin: Buffer.concat(chunks).toString(), argv: process.argv.slice(2), cwd: process.cwd(), env: process.env })); console.log('acme agent at work'); });
 `, { mode: 0o755 });
+  // An interactive agent (named as the claude TUI is): its first prompt is its last argument, and its
+  // stdin is whatever the tab gives it. A prompt naming a private file is read while the agent runs.
+  await mkdir(join(base, 'tui'));
+  const tui = join(base, 'tui', 'claude');
+  await writeFile(tui, `#!${process.execPath}
+const fs = require('node:fs'); const chunks = [];
+const argv = process.argv.slice(2), first = argv[argv.length - 1] ?? '';
+const named = /private file (\\S+) \\./.exec(first)?.[1] ?? null;
+const pointed = named && fs.existsSync(named) ? fs.readFileSync(named, 'utf8') : null;
+process.stdin.on('data', c => chunks.push(c));
+process.stdin.on('end', () => { fs.writeFileSync(${JSON.stringify(join(logs, 'tui.json'))}, JSON.stringify({ stdin: Buffer.concat(chunks).toString(), argv, named, pointed, env: process.env })); console.log('acme tui at work'); });
+`, { mode: 0o755 });
   const start = join(base, 'start.cjs');
   await writeFile(start, `#!${process.execPath}
 const fs = require('node:fs'); const chunks = [];
@@ -72,7 +90,8 @@ process.stdin.on('end', () => { fs.appendFileSync(${JSON.stringify(join(logs, 's
   const env = { PATH: `${bin}:${SYSTEM_PATH}`, HOME: base, TMPDIR: base, XDG_STATE_HOME: state, XDG_CONFIG_HOME: join(base, 'config'), GH_TOKEN: 'acme-not-a-token', PLATES_BRIEF_TEST: 'acme' };
   const lines = async f => existsSync(join(logs, f)) ? (await readFile(join(logs, f), 'utf8')).trim().split('\n').filter(Boolean).map(l => JSON.parse(l)) : [];
   return {
-    base, bin, checkout, logs, env, harness, start, setMode,
+    base, bin, checkout, logs, env, harness, tui, start, setMode,
+    tuiRun: async () => existsSync(join(logs, 'tui.json')) ? JSON.parse(await readFile(join(logs, 'tui.json'), 'utf8')) : null,
     rexCalls: () => lines('rex-calls.jsonl'),
     startRuns: () => lines('start-runs.jsonl'),
     harnessRun: async () => existsSync(join(logs, 'harness.json')) ? JSON.parse(await readFile(join(logs, 'harness.json'), 'utf8')) : null,
@@ -210,6 +229,76 @@ test('the brief reaches the harness only on stdin', async t => {
   await writeFile(join(broken.bin, 'rex'), `#!${process.execPath}\nif (process.argv[2] === 'ls') { console.log('[]'); process.exit(0); }\nif (process.argv[2] === 'new') { console.log('{"session_id":"session:acme-new"}'); process.exit(0); }\nprocess.exit(5);\n`, { mode: 0o755 });
   await assert.rejects(startHost({ host: { file: 'hosts.json', start: null, state: null, harness: [broken.harness] }, plate: 'Acme', provider: 'claude', checkout: broken.checkout, brief: BRIEF, tab: 'phase-7', env: broken.env }), /rex run exited 5/);
   assert.deepEqual(await readdir(broken.briefDir), []);
+});
+
+test('an interactive agent keeps the tab as its input and gets the brief as its startup prompt', async t => {
+  // The owner's report (2026-11-16): a claude or codex TUI in a Rex tab started at an empty prompt,
+  // because the brief was piped on stdin, which a TUI does not read as its first prompt (and a pipe is not the tab).
+  const marker = 'ACME-BRIEF-MARKER-7f3e';
+  const w = await world(t);
+  const r = await startHost({ host: { file: 'hosts.json', start: null, state: null, harness: [w.tui, '--model', 'acme'] }, plate: 'Acme', provider: 'claude', checkout: w.checkout, brief: BRIEF, tab: 'phase-7', env: w.env });
+  assert.equal(r.via, 'rex');
+  const run = runCalls(await w.rexCalls())[0].args, dash = run.indexOf('--');
+  assert.deepEqual(run.slice(dash + 1, dash + 4).map((a, i) => i === 1 ? a.split('/').pop() : a), [process.execPath, 'rex-run.mjs', '--prompt=arg']);
+  assert.deepEqual(run.slice(dash + 5), ['--', w.tui, '--model', 'acme'], 'Rex is never given the brief');
+  for (const c of await w.rexCalls()) assert.ok(!JSON.stringify(c.args).includes(marker));
+  const got = await w.tuiRun();
+  assert.ok(got, 'the agent ran');
+  assert.deepEqual(got.argv, ['--model', 'acme', BRIEF], 'the brief, byte for byte, is its startup prompt');
+  assert.equal(got.stdin, 'TAB-INPUT: typed by the owner\n', "its stdin is the tab's own input, not a pipe from plates");
+  for (const k of ['REX_SESSION', 'REX_BLOCK', 'GH_TOKEN', 'PLATES_BRIEF_TEST']) assert.ok(!(k in got.env), `${k} does not reach the agent`);
+  const tab = await w.tabOutput();
+  assert.ok(!tab.includes(marker), 'the tab never shows the brief');
+  assert.match(tab, /^plates: running .*\/claude --model acme in .*, brief as its startup prompt\n/);
+  assert.match(tab, /acme tui at work/);
+  assert.deepEqual(await readdir(w.briefDir), [], 'a brief passed whole leaves no file');
+
+  // A brief too long for one argument: the prompt names its private file, which is there while the
+  // agent reads it and gone once the run ends. The brief itself is never an argument.
+  const long = `${BRIEF}${'The anvil is heavy. '.repeat(1200)}\n`;
+  assert.ok(Buffer.byteLength(long) > 16 * 1024);
+  const v = await world(t);
+  await startHost({ host: { file: 'hosts.json', start: null, state: null, harness: [v.tui] }, plate: 'Acme', provider: 'claude', checkout: v.checkout, brief: long, tab: 'phase-7', env: v.env });
+  const big = await v.tuiRun();
+  assert.equal(big.argv.length, 1);
+  assert.ok(!big.argv[0].includes(marker) && Buffer.byteLength(big.argv[0]) < 512, 'a short startup prompt');
+  assert.equal(dirname(big.named), v.briefDir, 'it names a file in the private brief directory');
+  assert.equal(big.pointed, long, 'the file holds the brief while the agent runs');
+  assert.equal(big.stdin, 'TAB-INPUT: typed by the owner\n');
+  assert.ok(!(await v.tabOutput()).includes(marker));
+  assert.deepEqual(await readdir(v.briefDir), [], 'removed when the run ended');
+
+  // Stopping the run (the tab closed, or SIGTERM) removes the file too, while the agent is still going.
+  // The agent itself stops the runner once it is up, so the order is fixed: it sees the file, then the stop.
+  const file = join(v.briefDir, 'acme-stop.brief'), seen = join(v.logs, 'slow.json');
+  await writeFile(file, long, { mode: 0o600 });
+  const slow = join(v.base, 'slow.cjs');
+  await writeFile(slow, `#!${process.execPath}
+const fs = require('node:fs');
+process.on('SIGTERM', () => { fs.writeFileSync(${JSON.stringify(seen)}, JSON.stringify({ before, after: fs.existsSync(${JSON.stringify(file)}) })); process.exit(0); });
+const before = fs.existsSync(${JSON.stringify(file)});
+setInterval(() => {}, 1000);
+process.kill(process.ppid, 'SIGTERM');
+`, { mode: 0o755 });
+  const stopped = runNode([join(import.meta.dirname, '..', 'lib', 'rex-run.mjs'), '--prompt=arg', file, '--', slow], { cwd: v.checkout, env: v.env, timeout: 20_000 });
+  assert.equal(stopped.status, 0, "the runner exits with the agent's code");
+  assert.deepEqual(JSON.parse(await readFile(seen, 'utf8')), { before: true, after: false }, 'kept while the agent runs; removed before the stop reaches it');
+  assert.equal(existsSync(file), false, 'removed when the run is stopped');
+
+  // How a harness takes its brief: the host may say; else a claude or codex TUI is "arg", their headless forms and anything else stdin.
+  for (const [harness, prompt, want] of [[['/x/claude'], undefined, 'arg'], [['/x/claude', '-p'], undefined, 'stdin'], [['/x/claude', '--print', '--model', 'm'], undefined, 'stdin'],
+    [['/x/codex'], undefined, 'arg'], [['/x/codex', '--full-auto'], undefined, 'arg'], [['/x/codex', 'exec', '-'], undefined, 'stdin'], [['/x/agent'], undefined, 'stdin'],
+    [['/x/agent'], 'arg', 'arg'], [['/x/claude'], 'stdin', 'stdin']]) assert.equal(attachLib.harnessPrompt({ harness, prompt }), want, `${harness.join(' ')} ${prompt ?? ''}`);
+  const config = join(w.base, 'config', 'plates');
+  await mkdir(config, { recursive: true });
+  const read = async h => { await writeFile(join(config, 'local-hosts.json'), JSON.stringify({ hosts: { claude: h } })); return readLocalHost({ root: w.checkout, provider: 'claude', env: w.env }); };
+  assert.equal((await read({ harness: ['/bin/claude'] })).prompt, 'arg');
+  assert.equal((await read({ harness: ['/bin/acme-agent'], prompt: 'arg' })).prompt, 'arg');
+  assert.equal((await read({ harness: ['/bin/claude'], prompt: 'stdin' })).prompt, 'stdin');
+  for (const h of [{ harness: ['/bin/claude'], prompt: 'argv' }, { harness: ['/bin/claude'], prompt: 1 }, { start: ['/bin/acme-host'], prompt: 'arg' }]) await assert.rejects(read(h), /prompt, when present, is "stdin" or "arg" and goes with a harness/);
+  // The preview says which, and the effect carries it.
+  const shown = attachPreview({ projectId: 'acme', phase: 7, title: 'Build the anvil', route: 'local-host', provider: 'claude', phaseText: { doneWhen: 'x', acceptance: 'y', context: {} }, host: await read({ harness: ['/bin/claude'] }) });
+  assert.equal(shown.effect.host.prompt, 'arg');
 });
 
 test('a brief is never written inside the checkout or any git working tree', async t => {
