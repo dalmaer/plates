@@ -175,13 +175,14 @@ test('a stopped generator has exited before runNode returns, and one ignoring SI
   const dir = await mkdtemp(join(tmpdir(), 'plates-generated-stop-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
   const alive = pid => { try { process.kill(pid, 0); return true; } catch { return false; } };
-  // Takes 300 ms to finish after SIGTERM, then exits.
-  await writeFile(join(dir, 'slow-exit.mjs'), "import { writeFileSync } from 'node:fs';\nwriteFileSync('pid', String(process.pid));\nprocess.on('SIGTERM', () => setTimeout(() => { writeFileSync('exited', 'acme'); process.exit(0); }, 300));\nsetInterval(() => {}, 1000);\n");
-  const slow = await runNode(['slow-exit.mjs'], dir, { timeout: 200, grace: 5_000 });
-  assert.match(slow.error?.message ?? '', /timed out/);
+  // Takes 300 ms to finish after SIGTERM, then exits. Its output overflows only once its handler is installed, so a
+  // slow start cannot let SIGTERM's default action win.
+  await writeFile(join(dir, 'slow-exit.mjs'), "import { writeFileSync } from 'node:fs';\nprocess.on('SIGTERM', () => setTimeout(() => { writeFileSync('exited', 'acme'); process.exit(0); }, 300));\nprocess.stdout.write('anvil '.repeat(1000));\nsetInterval(() => {}, 1000);\n");
+  const slow = await runNode(['slow-exit.mjs'], dir, { timeout: 60_000, maxOutput: 1024, grace: 10_000 });
+  assert.match(slow.error?.message ?? '', /exceeded maxBuffer/);
   assert.equal(await readFile(join(dir, 'exited'), 'utf8').catch(() => null), 'acme', 'returned before the generator exited');
   // Ignores SIGTERM: escalated to SIGKILL after the grace period.
-  await writeFile(join(dir, 'stubborn.mjs'), "import { writeFileSync } from 'node:fs';\nwriteFileSync('pid', String(process.pid));\nprocess.on('SIGTERM', () => {});\nsetInterval(() => process.stdout.write('anvil '.repeat(1000)), 5);\n");
+  await writeFile(join(dir, 'stubborn.mjs'), "import { writeFileSync } from 'node:fs';\nprocess.on('SIGTERM', () => {});\nwriteFileSync('pid', String(process.pid));\nsetInterval(() => process.stdout.write('anvil '.repeat(1000)), 5);\n");
   const stubborn = await runNode(['stubborn.mjs'], dir, { timeout: 60_000, maxOutput: 64 * 1024, grace: 200 });
   assert.match(stubborn.error?.message ?? '', /exceeded maxBuffer/);
   assert.equal(alive(Number(await readFile(join(dir, 'pid'), 'utf8'))), false, 'the stubborn generator still runs');
