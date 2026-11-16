@@ -239,7 +239,7 @@
     },
     "scripts/plates/morning.mjs": {
       "practice": "night",
-      "sha256": "a66aa9d00e4109c7cd23f13513e0a528480559d80a7c561b11d316e3a7c8cd9a"
+      "sha256": "1cd9d9767dd6336b21dd8ad0b644a1a1c321ea58835803f46d0862dcba826822"
     },
     "scripts/plates/names-environment.d.mts": {
       "practice": "night",
@@ -347,11 +347,11 @@
     },
     "scripts/plates/test-ledger.mjs": {
       "practice": "night",
-      "sha256": "429371ccdfc9ab7c3c11c09042ad5d7e7105c8f895e55baa29f4528631566422"
+      "sha256": "9dbdf50cb7fae83b0a4a9e44f491f9a97090c161b8fdc4dfc0e467137c143c4e"
     },
     "scripts/plates/time-measures.mjs": {
       "practice": "night",
-      "sha256": "912c3deac5440efcd3de459fb51e02346d6bbdb7e1ba6e62e340a416ebcc1aac"
+      "sha256": "320b5336400def08cd9573e5d829ea4706b265cc82ad3e996bfe2d7e42070c0b"
     },
     "scripts/plates/time-proposal-remeasurement.mjs": {
       "practice": "night",
