@@ -5,7 +5,7 @@ goal: G2
 spec: 2
 depends: [110]
 review: wait
-note: "Ledger main 138ff987 passes the contract test, check:all, test:later and the hosted scope/test/later/web union; PR 162 was reviewed at its exact head; the owner reviewed the evidence on 2026-11-16."
+note: "Ledger main 138ff987 passes the contract test, check:all, test:later and the hosted scope/test/later/web union; dalmaer/ledger#162 was reviewed at its exact head; the owner reviewed the evidence on 2026-11-16."
 evidence: ["evidence/2026-10-23-consumer-validation-reconciliation.md", "evidence/2026-11-16-ledger-independent-validation-acceptance.md"]
 ---
 
