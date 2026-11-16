@@ -14,9 +14,9 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
 import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, realpath, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import * as audit from '../practices/audits/files/scripts/plates/audit.mjs';
-import { attach, attachPreview, findRex, hostState, isHostSession, readLocalHost, rexLabel, rexState, startHost, localHostExecutions, REX_RECEIPT } from '../lib/attach.mjs';
+import { attachJournal, cancelAttach, rexBriefFile, attach, attachPreview, findRex, hostState, isHostSession, readLocalHost, rexLabel, rexState, startHost, localHostExecutions, REX_RECEIPT } from '../lib/attach.mjs';
 import { auditRun, runsDir, runState } from '../lib/audit-run.mjs';
 
 const BRIEF = 'Phase 7: Build the anvil (acme)\nACME-BRIEF-MARKER-7f3e: only the harness may read this.\n';
@@ -52,6 +52,13 @@ if (args[0] === 'run') {
   // Rex 0.1.0-preview.18's shape.
   console.log(JSON.stringify({ window_id: 'window:acme-2', block_ids: ['block:acme-tab-1'], revision: 4 })); process.exit(0);
 }
+if (args[0] === 'block' && args[1] === 'close') {
+  // A cancel closes only the block plates opened; it says whether the cancel was already journaled when the close came.
+  const j = mode.journal; const recorded = !!j && fs.existsSync(j) && fs.readdirSync(j).some(n => n.endsWith('.cancel.json'));
+  fs.appendFileSync(path.join(logs, 'closes.jsonl'), JSON.stringify({ args, recorded }) + '\\n');
+  if (mode.close === 'gone') { process.stderr.write('Error: block target not found\\n'); process.exit(3); }
+  process.exit(mode.close === 'fail' ? 1 : 0);
+}
 if (args[0] === 'wait') { const w = mode.wait ?? {}; if (w.stdout) process.stdout.write(w.stdout); if (w.stderr) process.stderr.write(w.stderr); process.exit(w.code ?? 0); }
 process.exit(64);
 `, { mode: 0o755 });
@@ -74,6 +81,7 @@ process.stdin.on('end', () => { fs.appendFileSync(${JSON.stringify(join(logs, 's
   return {
     base, bin, checkout, logs, env, harness, start, setMode,
     rexCalls: () => lines('rex-calls.jsonl'),
+    closes: () => lines('closes.jsonl'),
     startRuns: () => lines('start-runs.jsonl'),
     harnessRun: async () => existsSync(join(logs, 'harness.json')) ? JSON.parse(await readFile(join(logs, 'harness.json'), 'utf8')) : null,
     tabOutput: async () => readFile(join(logs, 'tab-output.txt'), 'utf8').catch(() => ''),
@@ -314,4 +322,143 @@ test('audit run and local-host attach use rex when configured', async t => {
   assert.deepEqual(runCalls(await v.rexCalls())[0].args.slice(0, 7), ['run', '-s', 'session:acme-anvils', '-c', v.checkout, '--label', 'phase-7']);
   assert.equal((await v.harnessRun()).stdin, done.data.effect.brief.text, 'the previewed bytes, on stdin');
   assert.deepEqual(await v.startRuns(), []);
+});
+
+// ---- Cancel, safe across restarts (phases 181 and 193) -------------------------------
+const RUNNING = { stderr: 'Error: wait timed out after 1s: context deadline exceeded\n', code: 1 };
+async function attached(t, { sessions = [{ session_id: 'session:acme-anvils', label: 'acme-claude' }], handlers } = {}) {
+  const w = await world(t, { sessions });
+  const dir = join(w.base, 'journal');
+  const config = { name: 'Acme', agents: { claude: {} }, backlog: { routes: ['session', 'local-host'] } };
+  const claims = [];
+  const deps = (extra = {}) => ({ journal: attachJournal(dir), env: w.env, claim: async a => { claims.push(a); return { data: { ok: true, claimed: true, sha: 'c'.repeat(40) }, text: 'claimed' }; }, events: async () => null, ...(handlers ? { handlers } : {}), ...extra });
+  const args = { root: w.checkout, projectId: 'acme', phase: 7, title: 'Build the anvil', route: 'local-host', provider: 'claude', config, phaseText: { doneWhen: 'The anvil lands.', acceptance: '- [ ] Lands.', context: {} }, host: { file: 'hosts.json', start: null, state: null, harness: [w.harness] }, yes: true };
+  await w.setMode({ ls: 'ok', sessions, wait: RUNNING, journal: dir });
+  return { w, dir, deps, args, claims, cancel: (extra = {}, d = {}) => cancelAttach({ root: w.checkout, projectId: 'acme', phase: 7, yes: true, ...extra }, deps(d)) };
+}
+
+test('a cancel is journaled before any effect, closes the Rex tab plates opened and removes the brief', async t => {
+  const a = await attached(t);
+  const done = await attach(a.args, a.deps());
+  assert.equal(done.exitCode, 0, done.text);
+  const { digest } = done.data, receipt = done.data.receipt.result.session;
+  // The brief file is named by the attach's digest and its path is in the receipt, so recovery can find it from the journal alone.
+  assert.equal(done.data.receipt.result.briefFile, rexBriefFile(a.w.env, digest));
+  assert.match(done.data.effect.brief.text, /If this session restarts or resumes, first run: plates home --cancel acme:phase:7 --check\. If it says cancelled \(exit 1\), stop/);
+  // As a run that has not read its brief yet (or a runner killed before it removed it) would leave it.
+  await writeFile(rexBriefFile(a.w.env, digest), BRIEF, { mode: 0o600 });
+  const preview = await cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 7 }, a.deps());
+  assert.equal(preview.exitCode, 3);
+  assert.deepEqual(await a.w.closes(), [], 'a preview stops nothing');
+  assert.equal((await cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 7, check: true }, a.deps())).exitCode, 0, 'and records nothing');
+  const r = await a.cancel({ why: 'built elsewhere' });
+  assert.equal(r.exitCode, 0, r.text);
+  assert.deepEqual([r.data.state, r.data.already], ['cancelled', false]);
+  const [m] = [/^rex:([^/]+)\/(.+)$/.exec(receipt)];
+  assert.deepEqual(await a.w.closes(), [{ args: ['block', 'close', '-s', m[1], m[2]], recorded: true }], 'the one block plates opened is closed, after the cancel was journaled');
+  assert.equal(existsSync(rexBriefFile(a.w.env, digest)), false, 'the brief file is gone');
+  const entry = JSON.parse(await readFile(join(a.dir, `${digest}.json`), 'utf8'));
+  assert.deepEqual([entry.cancelled.stop, entry.cancelled.brief, entry.cancelled.done], ['stopped', 'removed', true]);
+  assert.equal(JSON.parse(await readFile(join(a.dir, `${digest}.cancel.json`), 'utf8')).why, 'built elsewhere');
+  // A restarted session's check, and the backlog no longer shows the run.
+  assert.equal((await cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 7, check: true }, a.deps())).exitCode, 1);
+  assert.deepEqual(await localHostExecutions(a.w.checkout, { env: a.w.env, journal: attachJournal(a.dir) }), []);
+});
+
+test('cancelling twice, two cancels at once, or a cancel racing a finish has one outcome', async t => {
+  const a = await attached(t);
+  await attach(a.args, a.deps());
+  const [x, y] = await Promise.all([a.cancel({ why: 'one' }), a.cancel({ why: 'two' })]);
+  assert.deepEqual([x.data.already, y.data.already].sort(), [false, true], 'one cancel is the first');
+  assert.deepEqual(x.data.attaches[0].cancel, y.data.attaches[0].cancel, 'both see the same record');
+  const third = await a.cancel({ why: 'three' });
+  assert.deepEqual([third.data.already, third.data.attaches[0].cancel], [true, x.data.attaches[0].cancel]);
+  assert.ok((await a.w.closes()).length <= 2 && (await a.w.closes()).every(c => c.recorded));
+  assert.equal(JSON.parse(await readFile(join(a.dir, `${x.data.attaches[0].digest}.json`), 'utf8')).cancelled.done, true);
+  // The run already finished when the cancel came: nothing is closed (its tab is left to read), and the cancel stands.
+  const b = await attached(t);
+  await attach(b.args, b.deps());
+  await b.w.setMode({ ls: 'ok', sessions: [{ session_id: 'session:acme-anvils', label: 'acme-claude' }], wait: { stdout: '{"exit_code":0}' }, journal: b.dir });
+  const r = await b.cancel();
+  assert.deepEqual([r.data.attaches[0].cancelled.stop, r.data.attaches[0].cancelled.done], ['ended', true]);
+  assert.deepEqual(await b.w.closes(), []);
+  assert.equal((await attach(b.args, b.deps())).data.state, 'cancelled');
+  // A dispatch that finishes after a cancel landed stops what it just started and reports the cancel.
+  const c = await attached(t);
+  let journalRef = null;
+  const { ROUTE_HANDLERS } = await import('../lib/attach.mjs');
+  const racing = { ...ROUTE_HANDLERS, 'local-host': { ...ROUTE_HANDLERS['local-host'], dispatch: async ctx => { const out = await ROUTE_HANDLERS['local-host'].dispatch(ctx); await journalRef.cancel(ctx.digest, { at: '2026-11-16T00:00:00.000Z', by: 'owner' }); return out; } } };
+  const d = c.deps({ handlers: racing }); journalRef = d.journal;
+  const late = await attach(c.args, d);
+  assert.deepEqual([late.exitCode, late.data.state, late.data.cancelled.stop], [1, 'cancelled', 'stopped']);
+  assert.equal((await c.w.closes()).length, 1);
+});
+
+test('cancel, restart, recover: no duplicate dispatch', async t => {
+  const a = await attached(t);
+  const done = await attach(a.args, a.deps());
+  const { digest } = done.data;
+  await writeFile(rexBriefFile(a.w.env, digest), BRIEF, { mode: 0o600 });
+  // Rex is not answering when the owner cancels: the cancel is journaled; its effects wait.
+  const noRex = await cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 7, yes: true }, a.deps({ env: { ...a.w.env, PATH: SYSTEM_PATH } }));
+  assert.equal(noRex.data.attaches[0].cancelled.stop, 'pending');
+  assert.equal(noRex.data.attaches[0].cancelled.done, false);
+  assert.equal(existsSync(rexBriefFile(a.w.env, digest)), false, 'the brief is removed at once all the same');
+  assert.match(noRex.text, /1 not finished yet/);
+  // plates restarts (a new journal reader on the same directory) and the owner runs the same attach again.
+  const runsBefore = runCalls(await a.w.rexCalls()).length, claimsBefore = a.claims.length;
+  const again = await attach(a.args, a.deps());
+  assert.deepEqual([again.exitCode, again.data.state], [1, 'cancelled']);
+  assert.equal(runCalls(await a.w.rexCalls()).length, runsBefore, 'no tab is opened again');
+  assert.equal(a.claims.length, claimsBefore, 'nothing is claimed again');
+  assert.equal((await a.w.closes()).length, 1, 'recovery closed the tab the receipt names');
+  assert.equal(JSON.parse(await readFile(join(a.dir, `${digest}.json`), 'utf8')).cancelled.done, true);
+  assert.equal((await attach(a.args, a.deps())).data.state, 'cancelled');
+  assert.equal((await a.w.closes()).length, 1, 'a settled cancel is not acted on again');
+
+  // plates was killed after journaling the intent, before the receipt: the brief, named by the digest, is still found and removed;
+  // nothing is recovered or dispatched afterwards.
+  const { ROUTE_HANDLERS } = await import('../lib/attach.mjs');
+  const killed = { ...ROUTE_HANDLERS, 'local-host': { ...ROUTE_HANDLERS['local-host'], dispatch: async () => { throw new Error('killed'); } } };
+  const b = await attached(t, { handlers: killed });
+  await assert.rejects(attach(b.args, b.deps()), /killed/);
+  const [entry] = await attachJournal(b.dir).list();
+  assert.ok(entry.intent && !entry.receipt);
+  await mkdir(dirname(rexBriefFile(b.w.env, entry.digest)), { recursive: true });
+  await writeFile(rexBriefFile(b.w.env, entry.digest), BRIEF, { mode: 0o600 });
+  const r = await b.cancel();
+  assert.deepEqual([r.data.attaches[0].cancelled.stop, r.data.attaches[0].cancelled.brief], ['unknown', 'removed']);
+  const recovered = await attach(b.args, { ...b.deps(), handlers: ROUTE_HANDLERS });
+  assert.equal(recovered.data.state, 'cancelled', 'an uncertain dispatch that was cancelled is not recovered');
+  assert.deepEqual(runCalls(await b.w.rexCalls()), [], 'and never dispatched');
+});
+
+test("a host's session is stopped through its stop command, or said to be its owner's to stop", async t => {
+  const w = await world(t, { rex: false });
+  const dir = join(w.base, 'journal');
+  const stop = join(w.base, 'stop.cjs');
+  await writeFile(stop, `#!${process.execPath}\nrequire('node:fs').appendFileSync(${JSON.stringify(join(w.logs, 'stops.jsonl'))}, JSON.stringify(process.argv.slice(2)) + '\\n');\n`, { mode: 0o755 });
+  const config = { name: 'Acme', agents: { claude: {} }, backlog: { routes: ['session', 'local-host'] } };
+  const host = { file: 'hosts.json', start: [w.start, 'start'], state: null, harness: null };
+  const deps = readHost => ({ journal: attachJournal(dir), env: w.env, claim: async () => ({ data: { ok: true, claimed: true, sha: 'c'.repeat(40) }, text: 'claimed' }), events: async () => null, readHost });
+  const args = { root: w.checkout, projectId: 'acme', phase: 7, title: 'Build the anvil', route: 'local-host', provider: 'claude', config, phaseText: { doneWhen: 'x', acceptance: 'y', context: {} }, host, yes: true };
+  assert.equal((await attach(args, deps(() => assert.fail('no host read')))).data.receipt.result.session, 'acme-session-1');
+  const none = await cancelAttach({ root: w.checkout, projectId: 'acme', phase: 7, yes: true }, deps(async () => ({ ...host })));
+  assert.deepEqual([none.data.attaches[0].cancelled.stop, none.data.attaches[0].cancelled.done], ['not-stoppable', true]);
+  assert.match(none.text, /has no stop command; stop session acme-session-1 yourself/);
+  // With a stop command configured (read when cancelling, so it is never part of the attach's digest).
+  const v = await world(t, { rex: false });
+  const dir2 = join(v.base, 'journal');
+  const deps2 = readHost => ({ ...deps(readHost), journal: attachJournal(dir2), env: v.env });
+  await attach({ ...args, root: v.checkout, host: { ...host, start: [v.start, 'start'] } }, deps2(() => assert.fail('no host read')));
+  const stopped = await cancelAttach({ root: v.checkout, projectId: 'acme', phase: 7, yes: true }, deps2(async () => ({ ...host, stop: [stop, 'stop'] })));
+  assert.equal(stopped.data.attaches[0].cancelled.stop, 'stopped');
+  assert.deepEqual((await readFile(join(w.logs, 'stops.jsonl'), 'utf8')).trim().split('\n').map(l => JSON.parse(l)), [['stop', 'acme-session-1']]);
+  // The stop command is validated like start.
+  const cfg = join(w.base, 'config', 'plates');
+  await mkdir(cfg, { recursive: true });
+  await writeFile(join(cfg, 'local-hosts.json'), JSON.stringify({ hosts: { claude: { start: ['/bin/acme-host'], stop: 'nope' } } }));
+  await assert.rejects(readLocalHost({ root: w.checkout, provider: 'claude', env: w.env }), /stop, when present, is an argv array/);
+  await writeFile(join(cfg, 'local-hosts.json'), JSON.stringify({ hosts: { claude: { start: ['/bin/acme-host'], stop: ['/bin/acme-host', 'stop'] } } }));
+  assert.deepEqual((await readLocalHost({ root: w.checkout, provider: 'claude', env: w.env })).stop, ['/bin/acme-host', 'stop']);
 });
