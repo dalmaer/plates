@@ -460,3 +460,20 @@ test("a page of archived records is read in a few batched GitHub requests, not o
   assert.deepEqual(fallback.observations.map(i => i.id).sort(), page.observations.map(i => i.id).sort());
   assert.ok(calls >= 60);
 });
+
+test("when a batch read fails, its REST fallbacks run a bounded few at a time", async () => {
+  const h = runReceiptsHarness();
+  h.state.now = Date.parse("2026-10-21T12:00:00.000Z");
+  for (let d = 1; d <= 30; d++) h.source.files[`.plates/test-runs/acme-${d}.json`] = JSON.stringify(stallsRecord());
+  h.source.blobBatchFails = true;
+  let inFlight = 0, most = 0, rest = 0;
+  const fetcher = async (url, options) => {
+    if (!String(url).includes("/git/blobs/")) return h.fetcher(url, options);
+    rest++; inFlight++; most = Math.max(most, inFlight);
+    try { await new Promise(r => setTimeout(r, 2)); return await h.fetcher(url, options); } finally { inFlight--; }
+  };
+  const page = await createRunReceipts(h.config, { fetcher, now: () => h.state.now }).list(h.access, token, h.project);
+  assert.equal(page.observations.filter(i => i.kind === "authored-cli").length, 30);
+  assert.ok(rest >= 30);
+  assert.ok(most > 1 && most <= 8, `at most 8 fallback reads in flight (saw ${most})`); // READ_CONCURRENCY
+});
