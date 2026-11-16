@@ -85,21 +85,33 @@ function copyFilter(root, group, skip = leftOut(root)) {
 const env = () => Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('NODE_TEST_')));
 const MAX_OUTPUT = 64 * 1024 * 1024;
 
-function runNode(args, cwd) {
+/**
+ * Runs one generator in its copy. A timeout or an output overflow sends SIGTERM and, if the generator has not exited
+ * after `grace` ms, SIGKILL; the result is only returned once it has exited, so its checkout is never removed under it.
+ */
+export function runNode(args, cwd, { timeout = 5 * 60_000, maxOutput = MAX_OUTPUT, grace = 5_000 } = {}) {
   return new Promise(done => {
-    let settled = false, stdout = '', stderr = '', bytes = 0;
+    let settled = false, stopped = null, killer = null, stdout = '', stderr = '', bytes = 0;
     const child = spawn(process.execPath, args, { cwd, env: env(), stdio: ['ignore', 'pipe', 'pipe'] });
-    const finish = result => { if (!settled) { settled = true; clearTimeout(timer); done(result); } };
-    const timer = setTimeout(() => { child.kill('SIGTERM'); finish({ error: new Error('generator timed out'), status: null, stdout, stderr }); }, 5 * 60_000);
+    const finish = result => { if (!settled) { settled = true; clearTimeout(timer); clearTimeout(killer); done(result); } };
+    const stop = error => {
+      if (stopped) return;
+      stopped = error; clearTimeout(timer);
+      child.kill('SIGTERM');
+      killer = setTimeout(() => child.kill('SIGKILL'), grace);
+    };
+    const timer = setTimeout(() => stop(new Error('generator timed out')), timeout);
     const onChunk = (chunk, isErr) => {
+      if (stopped) return;
       bytes += chunk.length;
-      if (bytes > MAX_OUTPUT) { child.kill('SIGTERM'); finish({ error: new Error('generator output exceeded maxBuffer'), status: null, stdout, stderr }); return; }
+      if (bytes > maxOutput) { stop(new Error('generator output exceeded maxBuffer')); return; }
       if (isErr) stderr += chunk.toString('utf8'); else stdout += chunk.toString('utf8');
     };
     child.stdout.on('data', chunk => onChunk(chunk, false));
     child.stderr.on('data', chunk => onChunk(chunk, true));
-    child.on('error', error => finish({ error, status: null, stdout, stderr }));
-    child.on('close', status => finish({ error: null, status, stdout, stderr }));
+    // A spawn failure has no process to wait for; once a process is stopped, only its exit settles the result.
+    child.on('error', error => { if (!stopped || child.pid === undefined) finish({ error: stopped ?? error, status: null, stdout, stderr }); });
+    child.on('close', status => finish(stopped ? { error: stopped, status: null, stdout, stderr } : { error: null, status, stdout, stderr }));
   });
 }
 

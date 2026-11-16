@@ -398,3 +398,15 @@ test('longFiles batches historical blob reads via cat-file --batch and isolates 
   assert.equal(bounded.facts.files[0].history.entries[1].lines, null);
   assert.match(bounded.facts.files[0].history.gaps.join(' '), /byte bound/);
 });
+
+test('a parent directory swapped for a symlink mid-scan is checked again before the next read',async t=>{
+  const p=await gitProject(t);await p.put('src/a.js',source(10));await p.put('src/b.js',source(10));p.commit();
+  const external=await scratch(t);await writeFile(join(external,'b.js'),source(100));
+  // The canonical blob of src/a.js is hashed between the two reads; this git swaps src/ for a symlink first.
+  const fake=join(await scratch(t),'acme-git');
+  await writeFile(fake,`#!/bin/sh\ncase "$*" in *--path=src/a.js*) mv "${p.root}/src" "${p.root}/src-moved"; ln -s "${external}" "${p.root}/src";; esac\nexec git "$@"\n`,{mode:0o755});
+  const r=await longFiles({...p,env:{...p.env,PLATES_GIT:fake},config:{hygiene:{longFileLines:1}},now});
+  assert.equal(r.facts.coverage.scanned,1);
+  assert.ok(r.facts.coverage.gaps.some(g=>/^src\/b\.js: symlink/.test(g)),JSON.stringify(r.facts.coverage.gaps));
+  assert.ok(!r.facts.files.some(f=>f.path==='src/b.js'));
+});

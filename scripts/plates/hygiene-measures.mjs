@@ -180,24 +180,22 @@ export function largestSections(text) {
     .sort((a, b) => b.lines - a.lines || a.start - b.start).slice(0, 5);
 }
 
-// Never follow a symlink component, including a replaced parent directory.
-async function localBytes(root, path, max, checkedDirs) {
+// Never follow a symlink component, including a replaced parent directory. Every component is lstat'd again before
+// each read, so a parent swapped for a symlink mid-scan is refused. Under a canonical root, real directories and a
+// non-symlink file make a canonical path; a directory's realpath is still confirmed once per scan (`canonicalDirs`).
+async function localBytes(root, path, max, canonicalDirs) {
   let full = root;
   const parts = path.split('/');
   for (let i = 0; i < parts.length; i++) {
     full = join(full, parts[i]);
-    if (i < parts.length - 1) {
-      if (checkedDirs?.has(full)) continue;
-      const s = await lstat(full);
-      if (s.isSymbolicLink() || !s.isDirectory()) throw new Error('symlink or non-directory source component');
-      if (await realpath(full) !== full) throw new Error('source escaped canonical root');
-      checkedDirs?.add(full);
-      continue;
-    }
     const s = await lstat(full);
-    if (s.isSymbolicLink()) throw new Error('symlink or non-directory source component');
+    if (s.isSymbolicLink() || (i < parts.length - 1 && !s.isDirectory())) throw new Error('symlink or non-directory source component');
+    if (i < parts.length - 1 && canonicalDirs && !canonicalDirs.has(full)) {
+      if (await realpath(full) !== full) throw new Error('source escaped canonical root');
+      canonicalDirs.add(full);
+    }
   }
-  if (!checkedDirs && await realpath(full) !== full) throw new Error('source escaped canonical root');
+  if (!canonicalDirs && await realpath(full) !== full) throw new Error('source escaped canonical root');
   const file = await open(full, constants.O_RDONLY | constants.O_NOFOLLOW);
   try {
     const before = await file.stat();
@@ -239,7 +237,7 @@ export async function longFiles({ root, config = {}, env = process.env, now = Da
   };
   try {
     root = await realpath(root);
-    const checkedDirs = new Set();
+    const canonicalDirs = new Set();
     const top = (await git(['rev-parse', '--show-toplevel'])).trim();
     if (await realpath(top) !== root) throw new Error('project root is not its own Git worktree; parent Git is not a source');
     facts.head = (await git(['rev-parse', '--verify', 'HEAD'])).trim();
@@ -251,7 +249,7 @@ export async function longFiles({ root, config = {}, env = process.env, now = Da
     if (entries.length > cap.files) throw new Error('tracked file count exceeds bound');
     let managed = new Set();
     try {
-      const lock = JSON.parse((await localBytes(root, '.plates/lock.json', cap.fileBytes, checkedDirs)).toString('utf8'));
+      const lock = JSON.parse((await localBytes(root, '.plates/lock.json', cap.fileBytes, canonicalDirs)).toString('utf8'));
       if (!lock?.files || typeof lock.files !== 'object' || Array.isArray(lock.files)) throw new Error('malformed managed file inventory');
       managed = new Set(Object.keys(lock.files));
     } catch (e) { if (e.code !== 'ENOENT') throw new Error(`managed file inventory unavailable: ${e.message}`); }
@@ -265,7 +263,7 @@ export async function longFiles({ root, config = {}, env = process.env, now = Da
       if (stage !== '0' || seen.has(path)) { gaps.push(`${path}: unmerged or duplicate index entry`); continue; }
       seen.add(path);
       try {
-        const bytes = await localBytes(root, path, Math.min(cap.fileBytes, cap.totalBytes - facts.coverage.bytes), checkedDirs);
+        const bytes = await localBytes(root, path, Math.min(cap.fileBytes, cap.totalBytes - facts.coverage.bytes), canonicalDirs);
         facts.coverage.bytes += bytes.length;
         if (bytes.includes(0)) { facts.coverage.excluded++; continue; }
         const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);

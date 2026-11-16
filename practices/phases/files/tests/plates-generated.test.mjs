@@ -4,12 +4,12 @@
 // (plates's lesson 52). The list and the probe are scripts/plates/generated.mjs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { GENERATORS, generatedFiles, survivors, projectConfig, leftOut } from '../scripts/plates/generated.mjs';
+import { GENERATORS, generatedFiles, survivors, projectConfig, leftOut, runNode } from '../scripts/plates/generated.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -168,4 +168,21 @@ test('survivors queries git ls-files once and runs co-generated outputs in one s
   ]);
   assert.equal(partial.length, 1);
   assert.match(partial[0], /^docs\/B\.md:/);
+});
+
+// A generator stopped for its time or output bound is waited for, so probeGroup never removes its checkout under it.
+test('a stopped generator has exited before runNode returns, and one ignoring SIGTERM is killed', { timeout: 20_000 }, async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'plates-generated-stop-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const alive = pid => { try { process.kill(pid, 0); return true; } catch { return false; } };
+  // Takes 300 ms to finish after SIGTERM, then exits.
+  await writeFile(join(dir, 'slow-exit.mjs'), "import { writeFileSync } from 'node:fs';\nwriteFileSync('pid', String(process.pid));\nprocess.on('SIGTERM', () => setTimeout(() => { writeFileSync('exited', 'acme'); process.exit(0); }, 300));\nsetInterval(() => {}, 1000);\n");
+  const slow = await runNode(['slow-exit.mjs'], dir, { timeout: 200, grace: 5_000 });
+  assert.match(slow.error?.message ?? '', /timed out/);
+  assert.equal(await readFile(join(dir, 'exited'), 'utf8').catch(() => null), 'acme', 'returned before the generator exited');
+  // Ignores SIGTERM: escalated to SIGKILL after the grace period.
+  await writeFile(join(dir, 'stubborn.mjs'), "import { writeFileSync } from 'node:fs';\nwriteFileSync('pid', String(process.pid));\nprocess.on('SIGTERM', () => {});\nsetInterval(() => process.stdout.write('anvil '.repeat(1000)), 5);\n");
+  const stubborn = await runNode(['stubborn.mjs'], dir, { timeout: 60_000, maxOutput: 64 * 1024, grace: 200 });
+  assert.match(stubborn.error?.message ?? '', /exceeded maxBuffer/);
+  assert.equal(alive(Number(await readFile(join(dir, 'pid'), 'utf8'))), false, 'the stubborn generator still runs');
 });
