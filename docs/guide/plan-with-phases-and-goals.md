@@ -124,10 +124,23 @@ happen first>` in place of `**Ready:** yes` says the owner cannot act yet:
 the plate's page lists it under Waiting on time or agents with that reason, never as the owner's. A
 Markdown table of the data may follow the bullets.
 Two walk boxes: one `### ` sub-heading per box, in order. The owner answers
-with `plates walk done <phase> --choice "<choice>"` (or its walk on the hosted home), which records the choice and ticks the walk's box (a choice listed under
-Keeps it open records it and leaves the walk open, to be answered again): the change a choice asks
-for is the conductor's next step, and Then says so. A choice not in the list
-is refused. `npm run roadmap -- --check` notes a walk with no Your part, and
+with `plates walk done <phase> --choice "<choice>"` (or its walk on the hosted home),
+which records the choice. The change a choice asks for is the conductor's next
+step, and Then says so. A choice not in the list is refused.
+
+A multi-choice answer checks acceptance only when its exact Choices label has a
+Then clause `Choice A: the phase is built.` (or `Choice A: built.`). Each clause
+must contain only that declaration; conditional or other prose records an answer
+and leaves the walk open. Multiple choices may declare completion. With no
+completion declaration, a single-choice walk retains the legacy completion
+behavior. Observation-only walks without Choices still work; a note alone cannot
+complete a multi-choice walk. **Keeps it open** always leaves acceptance unchecked.
+`Retire it`, or a choice whose Then clause is `the phase is superseded.` or
+`the phase is retired.` (also `superseded.` or `retired.`), records retirement as
+`status: superseded`, never built, and leaves acceptance unchecked. The choice's
+Then remains the next action for any follow-up. Completing a walk marks the phase
+built only when no other acceptance boxes remain open.
+`npm run roadmap -- --check` notes a walk with no Your part, and
 a Your part with no Ask, Choices or Ready (advice, never a failure). Lived-in counts are
 a project's choice: `"phases": {"livedIn": true}` in `.plates/plates.json` turns
 them on; off, the roadmap and `plates status` count built only. In a repo whose phases live in the projects shape

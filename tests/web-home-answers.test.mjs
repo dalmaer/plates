@@ -129,8 +129,14 @@ async function walkCli(t, files = WALK_FILES) {
 }
 const postJson = (h, path, body, cookie) => new Request(`${h.config.origin}${path}`, { method: 'POST', headers: { cookie, 'content-type': 'application/json', origin: h.config.origin }, body: JSON.stringify(body) });
 
-test('a walk answered on the web writes what plates home --answer writes in the CLI', async t => {
-  const h = walkWeb(), web = createWebService(h.config, { fetcher: h.fetcher, now: () => h.state.now }), signed = await h.login();
+for (const [label, choices, then, status] of [
+  ['incomplete', 'Needs changes | Works', 'Record what happened.', 'partial'],
+  ['complete', 'Works | Needs changes', 'Works: the phase is built. Needs changes: fix the Acme result.', 'built'],
+  ['retired', 'Retire it | Keep both', 'Retire it: the conductor drafts the Acme removal. Keep both: recorded.', 'superseded'],
+]) test(`the ${label} walk answered on the web writes what plates home --answer writes in the CLI`, async t => {
+  const files = { ...WALK_FILES, 'docs/phases/02-walk.md': WALK_FILES['docs/phases/02-walk.md']
+    .replace('Works | Needs changes', choices).replace('- **Keeps it open:** Needs changes\n', '').replace('Record what happened.', then) };
+  const h = walkWeb(files), web = createWebService(h.config, { fetcher: h.fetcher, now: () => h.state.now }), signed = await h.login();
   const home = await (await web(h.request('/api/home', { cookie: signed.cookie }))).json();
   const walk = home.walks.find(w => w.key === 'studio:walk:2');
   const choice = walk.answers.find(a => a.id.startsWith('choice-'));
@@ -144,12 +150,14 @@ test('a walk answered on the web writes what plates home --answer writes in the 
   const applied = await web(postJson(h, '/api/projects/studio/decisions/apply', { previewId: preview.id, publicAcknowledgement: preview.digest, csrf: signed.session.csrf }, signed.cookie));
   assert.equal((await applied.json()).state, 'committed');
   // The CLI, on the same files: the same phase and evidence bytes.
-  const cli = await walkCli(t);
+  const cli = await walkCli(t, files);
   const r = run(process.execPath, [join(PLATES, 'bin', 'plates.mjs'), 'home', '--answer', walk.key, choice.id, '--why', 'Tried it on the Acme phone.', '--yes', '--json'], { cwd: cli.root, env: cli.env });
   assert.equal(r.status, 0, r.stdout + r.stderr);
   const { readFile: readText } = await import('node:fs/promises');
   for (const path of preview.files.map(f => f.path).filter(p => p !== 'docs/ROADMAP.md')) assert.equal(h.source.files[path], await readText(join(cli.root, path), 'utf8'), `${path}: the same bytes in both forms`);
-  assert.match(h.source.files['docs/phases/02-walk.md'], /^- \[x\]/m, 'the box is checked');
+  assert.equal(JSON.parse(r.stdout).result.status, status);
+  assert.match(h.source.files['docs/phases/02-walk.md'], new RegExp(`^status: ${status}$`, 'm'));
+  assert.match(h.source.files['docs/phases/02-walk.md'], status === 'built' ? /^- \[x\]/m : /^- \[ \]/m, 'only a completing answer checks acceptance');
 });
 
 test('a web walk answer is refused at apply when the box text changed since its preview', async () => {

@@ -2062,7 +2062,14 @@ Next action to `None.`; it regenerates the roadmap. A box that is not a walk
 place of `--note` answers the phase's Your part: the row reads "Chose: <c>."
 and the note, if any; `choice` and `then` (what the choice's Then says) are
 in the JSON. A choice not among the part's Choices (case aside): exit 2,
-nothing written. A choice records; it changes nothing else. A choice in the
+nothing written. Multi-choice answers require an exact choice-scoped Then clause
+`<choice>: the phase is built.` (or `<choice>: built.`) to check acceptance.
+Other answers keep the walk open; a note alone cannot bypass the choice. With no
+completion declaration, single-choice walks keep the legacy completion behavior.
+`Retire it`, or a Then clause `<choice>: the phase is superseded.` /
+`<choice>: the phase is retired.` (also bare `superseded.` / `retired.`), records
+`status: superseded` without checking acceptance, retaining Then as the next
+action. A choice in the
 part's `keepsOpen` (`**Keeps it open:**`) writes the row and ticks nothing:
 status, owes and the box stay as they were (`keepsOpen: true`).
 Hosted guided walks author `docs/walks/<id>.json` definitions with stable steps,

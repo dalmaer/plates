@@ -495,7 +495,7 @@ const yourPart = ({ ready = '- **Ready:** yes', table = '' } = {}) => `## Your p
 - **Choices:** Keep it | Drop it | Not enough data yet
 - **Keeps it open:** Not enough data yet
 - **Takes:** 5 minutes
-- **Then:** Keep it: nothing changes. Drop it: the conductor drafts a phase that retires it. Not enough data yet: it is read again in November.
+- **Then:** Keep it: the phase is built. Drop it: the conductor drafts a phase that retires it. Not enough data yet: it is read again in November.
 ${ready}
 ${table}`;
 
@@ -567,11 +567,11 @@ test('plates walk done --choice records the choice and its note, and refuses a c
     assert.match(r.text, /the walk stays open[\s\S]*Recorded; the walk stays open\.\nThen: it is read again in November\./);
     assert.equal((await board({ root }, deps(root))).items.find(i => i.phase === 10).waits, 'owner', 'still ready: the owner can choose again');
     // A closing choice still ticks the box and settles the walk.
-    const closed = await walkDone({ root, phase: '10', choice: 'Drop it', today: TODAY });
+    const closed = await walkDone({ root, phase: '10', choice: 'Keep it', today: TODAY });
     assert.equal(closed.data.keepsOpen, false);
     assert.equal(closed.data.status, 'built', 'a closing choice settles the walk like any read');
     assert.match(await readFile(join(root, 'docs/phases/10-rule.md'), 'utf8'), /^- \[x\] ⚑ by hand: the owner drops one on a coyote\.$/m);
-    assert.match(await readFile(join(root, 'docs/evidence/acme-1.md'), 'utf8'), /\| Chose: Drop it\. \|\n$/);
+    assert.match(await readFile(join(root, 'docs/evidence/acme-1.md'), 'utf8'), /\| Chose: Keep it\. \|\n$/);
     assert.match(await roadmap({ root, mode: 'check', today: TODAY }), /Checked roadmap/);
     // From the CLI: an unknown choice exits 2.
     const env = { ...process.env, PLATES_GH: join(root, 'no-gh') };
