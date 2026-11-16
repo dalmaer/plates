@@ -11,7 +11,8 @@ import { fileURLToPath } from 'node:url';
 import { run as runNode } from './helpers/run.mjs';
 import { projectHarness } from './helpers/web-projects.mjs';
 import { channelFor, channelInputOf, channelText, foldRoutine, KINDS, WINDOW_DAYS, FOLD, lineTime } from '../lib/channel.mjs';
-import { channelView, channelSection } from '../lib/web/channel-views.mjs';
+import { channelView, channelSection, renderChannel } from '../lib/web/channel-views.mjs';
+import { startBacklogClient } from '../lib/web/backlog-client.mjs';
 import { claimMessage } from '../lib/claim.mjs';
 
 const NOW = Date.parse('2026-11-15T18:00:00Z');
@@ -22,7 +23,7 @@ const MAIN = 'a'.repeat(40);
 const studio = (over = {}) => ({ id: 'studio', name: 'Acme Studio', repo: 'acme/studio', state: 'complete', gaps: [],
   roadmap: { phases: [{ id: 1, title: 'Acme anvils' }, { id: 2, title: 'Acme bellows' }, { id: 3, title: 'Acme crates' }] },
   waits: { state: 'read', more: 0, items: [
-    { branch: 'claude/phase-1-anvils', phase: 1, state: 'active', since: ago(50 * MIN), next: 'keep going' },
+    { branch: 'claude/phase-1-anvils', phase: 1, state: 'active', since: ago(50 * MIN), headAt: ago(50 * MIN), next: 'keep going' },
     { branch: 'codex/phase-2-bellows', phase: 2, state: 'ci', since: ago(30 * MIN), next: 'wait for PR #21\'s checks' },
     { branch: 'claude/tidy', phase: null, state: 'deploy', since: ago(20 * MIN), next: 'promote it' },
     { branch: 'claude/old', phase: null, state: 'done', since: ago(10 * MIN), next: 'nothing' },
@@ -94,6 +95,14 @@ test('an unread source is a gap, never quiet', () => {
   assert.deepEqual(missing.lines.filter(l => l.kind === 'gap').map(l => l.text), ['claims unread: not read', 'deploys unread: the deploy records were not read', 'open pull requests unread: not read', 'pushes and CI are not read here: The delivery practice is off on this plate.']);
   // No remote is no claim, not an unread one.
   assert.ok(!model({ c: { state: 'none', why: 'no git remote here' } }).lines.some(l => l.source === 'claims'));
+  // A waits read that is 'read' overall but lost a source (no Checks permission) names it; the unknown item gives no line.
+  const partial = model({ project: studio({ waits: { state: 'read', more: 0, items: [{ branch: 'codex/phase-2-bellows', phase: 2, state: 'unknown', since: null, next: 'read checks' }],
+    coverage: { checks: { state: 'unavailable', why: 'the App cannot read check runs: Checks read needed' }, prs: { state: 'read', why: null } },
+    gaps: { count: 2, items: [{ kind: 'source', source: 'checks', why: 'checks not read: the App cannot read check runs: Checks read needed', branch: 'codex/phase-2-bellows' }, { kind: 'partial', source: 'activity', why: 'one page of repository activity' }] } } }) });
+  assert.deepEqual(partial.lines.filter(l => l.source === 'waits').map(l => [l.kind, l.text]), [
+    ['gap', 'activity partly read: one page of repository activity'],
+    ['gap', 'checks unread: the App cannot read check runs: Checks read needed'],
+  ]);
   // A bounded read says what it left out.
   assert.ok(model({ project: studio({ waits: { ...studio().waits, more: 2 } }) }).lines.some(l => l.kind === 'gap' && l.text === '2 more changes in flight not listed: the read keeps the newest'));
 });
@@ -115,6 +124,11 @@ test('here now is the agents holding work', () => {
   assert.deepEqual(quietClaim.hereNow.map(h => h.actor), ['studio#2', 'studio#3', 'studio#1']);
   assert.equal(quietClaim.hereNow[1].words, 'Acme crates · codex · last line 40m ago · 1 unread', 'its own joined line is its last line');
   assert.equal(old.readFrom, ago(DAY));
+  // An active change's line is its last push (the branch head), not when its work began: a claim ten days old pushed ten minutes ago is here, not idle.
+  const pushed = model({ c: claims({ claims: [{ phase: 3, provider: 'codex', at: ago(10 * DAY) }], prs: [] }), p: prs({ items: [] }),
+    project: studio({ waits: { state: 'read', more: 0, items: [{ branch: 'codex/phase-3-crates', phase: 3, state: 'active', since: ago(10 * DAY), headAt: ago(10 * MIN), next: 'keep going' }] } }) });
+  assert.deepEqual(pushed.lines.filter(l => l.kind === 'pushed').map(l => [l.at, l.text]), [[ago(10 * MIN), 'pushed codex/phase-3-crates']]);
+  assert.deepEqual([pushed.hereNow.map(h => [h.actor, h.last.age, h.unread]), pushed.hereIdle], [[['studio#3', '10m', 1]], null]);
   // Holders with no activity past the window still hold the work: one trailing row, oldest first named, never drowning the active ones.
   const stale = model({ c: claims({ claims: [...claims().claims, { phase: 3, provider: 'codex', at: ago(10 * DAY) }, { phase: 4, provider: 'codex', at: ago(12 * DAY) }] }) });
   assert.deepEqual(stale.hereNow.map(h => h.actor), ['studio#2', 'studio#1']);
@@ -138,6 +152,7 @@ test('routine lines fold and the window holds', () => {
   assert.deepEqual(burst.lines.map(l => [l.kind, l.actor, l.text, l.folded]), [['joined', 'studio', '5 agents rotated: studio#1, studio#2, studio#3, studio#4, studio#5', 5]]);
   assert.equal(burst.lines[0].at, ago(52 * MIN), 'the folded line is the run\'s last');
   assert.equal(burst.hereNow.length, 5, 'folding a line never hides an agent');
+  assert.ok(burst.hereNow.every(h => h.last?.kind === 'joined' && h.unread === 1 && !h.caughtUp), 'Here now reads each agent\'s own lines, unfolded');
   const three = model({ ...base, c: claims({ claims: [claim(1, 60), claim(2, 58), claim(3, 56)], prs: [] }) });
   assert.equal(three.lines.length, FOLD.more, 'three in ten minutes stay three lines');
   const spread = model({ ...base, c: claims({ claims: [claim(1, 60), claim(2, 55), claim(3, 49), claim(4, 40)], prs: [] }) });
@@ -265,4 +280,29 @@ test('the CLI and the web show one channel', async () => {
     assert.equal(s.cli(['anvils', '--json']).status, 2);
     assert.equal(s.cli(['--since', 'yesterday-ish']).status, 2);
   } finally { await s.done(); }
+});
+
+// The page renders from Home's cache; while a plate is loading or stale, the backlog pages' client reads /api/channel and renders it again.
+test('the channel page reads again while a plate is loading or stale', async () => {
+  const loading = channelFor([channelInputOf({ id: 'studio', name: 'Acme Studio', repo: 'acme/studio', state: 'loading', gaps: [] })], { now: NOW, waiting: { items: [] } });
+  const stale = channelFor([channelInputOf(studio({ state: 'stale' }), { claims: claims(), prs: prs() })], { now: NOW, waiting: waiting() });
+  const read = model();
+  assert.deepEqual([loading.plates[0].state, stale.plates[0].state, read.plates[0].state], ['loading', 'stale', 'read']);
+  const html = channelView({ workspace: { name: 'Acme' }, csrf: '' }, loading);
+  assert.match(html, /data-backlog-root data-view="channel" data-loading="true"/);
+  assert.match(html, /<script type="module" src="\/assets\/backlog-client\.mjs"><\/script>/);
+  assert.match(channelView({ workspace: { name: 'Acme' }, csrf: '' }, read), /data-loading="false"/);
+  const list = { innerHTML: 'cold' }, status = { textContent: '' }, timers = [];
+  const root = { dataset: { loading: 'true', view: 'channel' }, querySelector: q => (q === '[data-backlog-list]' ? list : null) };
+  const document = { querySelector: q => ({ '[data-backlog-root]': root, '[data-backlog-status]': status })[q] ?? null };
+  const window = { setTimeout: fn => { timers.push(fn); return timers.length; }, clearTimeout: () => {} };
+  const answers = [stale, read], asked = [];
+  const fetch = async url => { asked.push(url); return { status: 200, json: async () => answers.shift() }; };
+  const client = startBacklogClient({ document, window, fetch, renderBacklog: () => '', renderSidebar: () => '', renderChannel });
+  await timers.shift()();
+  assert.match(list.innerHTML, /Acme Studio<\/strong><span>9 lines · stale<\/span>/);
+  await timers.shift()();
+  assert.deepEqual([asked, root.dataset.loading, status.textContent, timers.length], [['/api/channel', '/api/channel'], 'false', 'Every plate is read.', 0]);
+  assert.equal(list.innerHTML, renderChannel(read));
+  await client.done;
 });
