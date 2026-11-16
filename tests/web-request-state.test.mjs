@@ -216,6 +216,36 @@ test('a cancelled request does not fail another request waiting on its shared re
   assert.equal((await waiting).status, 200, 'the still-connected request gets the renewed session');
 });
 
+test("waiting on another instance's renewal claim survives the waiting request's cancellation", async () => {
+  const h = harness(); h.state.refreshMode = 'ok';
+  const signed = await h.login(); h.state.now += 28801000;
+  // Instance A claims the renewal and holds it while GitHub is slow.
+  let claimed, release;
+  const holding = new Promise(resolve => { claimed = resolve; });
+  const slow = new Promise(resolve => { release = resolve; });
+  const a = createWebService(h.config, { now: () => h.state.now, fetcher: async (url, options = {}) => {
+    if (url.includes('/access_token')) { claimed(); await slow; }
+    return h.fetcher(url, options);
+  } });
+  // Instance B honours cancellation on every call, as a real fetch does.
+  const b = createWebService(h.config, { now: () => h.state.now, fetcher: async (url, options = {}) => {
+    if (options.signal?.aborted) throw options.signal.reason;
+    return h.fetcher(url, options);
+  } });
+  const owner = a(h.request('/api/session', { cookie: signed.cookie }));
+  await holding;
+  const cancel = new AbortController();
+  const cancelled = b(new Request(h.request('/api/session', { cookie: signed.cookie }), { signal: cancel.signal })).catch(error => error);
+  await new Promise(resolve => setTimeout(resolve, 20));
+  const waiting = b(h.request('/api/session', { cookie: signed.cookie }));
+  await new Promise(resolve => setTimeout(resolve, 20));
+  cancel.abort();
+  release();
+  await cancelled;
+  assert.equal((await owner).status, 200);
+  assert.equal((await waiting).status, 200, "B's still-connected request gets A's renewed pair");
+});
+
 test('overlapping checks preserve serial failure precedence regardless of completion order', async () => {
   for (const status of [401, 404, 500]) {
     const h = harness();
