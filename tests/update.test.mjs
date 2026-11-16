@@ -21,6 +21,7 @@ import { update, selfUpdate, BRANCH } from '../lib/update.mjs';
 import { load as loadMigrations, collect, compareVersions, view } from '../lib/migrations.mjs';
 import * as m0001 from '../migrations/0001-milestone-to-goal.mjs';
 import * as m0002 from '../migrations/0002-projects-run-on-their-own.mjs';
+import { WORKFLOW_ACTIONS } from '../lib/telemetry.mjs';
 
 const PLATES = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BIN = join(PLATES, 'bin', 'plates.mjs');
@@ -247,7 +248,7 @@ test('0001 converts acme-groove: milestones become goals, plates\'s roadmap repl
   // 0004 too: acme-groove runs node's test runner, so it gains the test ledger; and 0005: its
   // test glob misses tests/plates-generated.test.mjs, and its night has no CI keeping test runs.
   assert.deepEqual(r.data.migrations.map(m => m.id), ['0001-milestone-to-goal', '0004-test-ledger', '0005-test-ledger-reach', '0006-lived-in-kept']);
-  assert.match(r.data.migrations[2].notes?.[0] ?? '', /upload-artifact@v7[\s\S]*plates-test-runs/, 'ci is the project\'s own: the update says how its CI keeps the test runs');
+  assert.match(r.data.migrations[2].notes?.[0] ?? '', new RegExp(`${WORKFLOW_ACTIONS.uploadArtifact.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s\\S]*plates-test-runs`), 'ci is the project\'s own: the update says how its CI keeps the test runs');
   assert.match(r.text, /0005-test-ledger-reach — .*\n {4}⚑ your CI does not keep the test ledger's runs/);
   assert.deepEqual(r.data.migrations[0].edits.sort((a, b) => a.path.localeCompare(b.path)), [
     { path: '.plates/plates.json', action: 'write' },

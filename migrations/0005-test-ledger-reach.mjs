@@ -23,6 +23,7 @@
 import { withLedger } from './0004-test-ledger.mjs';
 import { packageDirs } from '../lib/stacks.mjs';
 import { expandGate, runsTest } from '../lib/doctor.mjs';
+import { WORKFLOW_ACTIONS } from '../lib/telemetry.mjs';
 
 export const id = '0005-test-ledger-reach';
 export const to = '0.8.0';
@@ -34,7 +35,7 @@ export const SHIPPED = Object.freeze({ phases: ['tests/roadmap.test.mjs', 'tests
 /** The step a project's own CI adds after its tests, so the night reads CI's runs (the ci practice's check.yml carries it). */
 export const UPLOAD_STEP = [
   '- if: always()',
-  '  uses: actions/upload-artifact@v7',
+  `  uses: ${WORKFLOW_ACTIONS.uploadArtifact}`,
   '  with: { name: plates-test-runs, path: .plates/test-runs/, include-hidden-files: true, if-no-files-found: ignore, retention-days: 30 }',
 ].join('\n');
 

@@ -84,12 +84,12 @@ jobs:
       artifact_digest: ${{ steps.archive.outputs.artifact-digest }}
       result_digest: ${{ steps.observe.outputs.digest }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
           fetch-depth: 1
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 26.13.1
       - name: Observe pull requests
@@ -101,7 +101,7 @@ jobs:
         run: node scripts/plates/reconcile-actions.mjs --produce
       - name: Keep reconciliation result
         id: archive
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: plates-reconciliation-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/result.json
@@ -118,10 +118,10 @@ jobs:
       NAMES_EVIDENCE: ${{ github.event_name == 'workflow_dispatch' && inputs.names_evidence == true }}
     steps:
       # The whole history: some measures read it.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
       # The project's install, read from .plates/plates.json at run time (so a
@@ -145,7 +145,7 @@ jobs:
           '
       - name: Check out the exact observation source
         if: github.event_name == 'workflow_dispatch' && inputs.names_evidence == true
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: dalmaer/plates
           ref: ${{ inputs.names_source_sha }}
@@ -256,7 +256,7 @@ jobs:
 
       - name: Retain production evidence
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: plates-production-${{ github.run_attempt }}
           path: ${{ runner.temp }}/plates-production/
@@ -419,7 +419,7 @@ jobs:
       # persists between nights only as this artifact (it is never committed).
       - name: Keep the test ledger
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: plates-test-runs
           # Explicit telemetry paths only: never upload local workaround transcripts.
@@ -679,7 +679,7 @@ jobs:
 
       - name: Keep the canvas snapshot and receipt
         if: always() && steps.canvas.outputs.enabled == 'true'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: plates-canvas-night-${{ github.run_attempt }}
           path: ${{ runner.temp }}/plates-canvas-night/
@@ -765,7 +765,7 @@ jobs:
           '
       - name: Retain immutable observation for this attempt
         if: always() && steps.names_collect.outcome == 'success'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ steps.names_collect.outputs.name }}
           path: ${{ steps.names_collect.outputs.paths }}

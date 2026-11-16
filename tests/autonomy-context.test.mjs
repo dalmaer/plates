@@ -7,6 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { renderAutonomyContext, revisionAutonomyContext, AUTONOMY_PROMPT_VERSION } from '../practices/night/files/scripts/plates/autonomy-context.mjs';
 import { runBlocks } from './helpers/workflows.mjs';
 import { run } from './helpers/run.mjs';
+import { WORKFLOW_ACTIONS } from '../lib/telemetry.mjs';
 const repository = 'acme/anvils';
 const runtime = resolve('practices/night/files/scripts/plates');
 const git = (root, ...args) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8' }).trim();
@@ -187,7 +188,7 @@ test('mention advisory failure preserves original eligibility and discards parti
     ['issues', { issue: { body: '' }, label: { name: 'claude' } }],
   ]) assert.equal(permits({ event_name, event }, false, 'failure'), true);
   assert.match(job, /echo "enabled=false"/);
-  assert.match(job, /- if: steps.configured.outputs.enabled == 'true'\n        uses: anthropics\/claude-code-action@v1/);
+  assert.ok(job.includes(`- if: steps.configured.outputs.enabled == 'true'\n        uses: ${WORKFLOW_ACTIONS.claudeCode}`));
 });
 
 test('guidance runtime is file-only for Claude, absent from Base, and respects local ownership and drift', async t => {

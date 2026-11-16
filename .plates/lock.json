@@ -67,47 +67,47 @@
     },
     ".github/workflows/check.yml": {
       "practice": "ci",
-      "sha256": "44f76b737a0411bb4d0be8921239da22157ca19b641b12d44ac8eb2e14ed584a"
+      "sha256": "d6f2aa8c5d1e1d643aa2c0b30f0465dd6a1f614f70bcaa1a82d2722d827f4d33"
     },
     ".github/workflows/claude.yml": {
       "practice": "claude",
-      "sha256": "1bebb74c9cbb5bb3547ae9786c98497f50f4bcabf91919be51a578dbdb145a00"
+      "sha256": "25b0be5c1716614e540ee696def9e9ed3e786ab995f609981dc48ade75f2ee0b"
     },
     ".github/workflows/plates-climb.yml": {
       "practice": "climb",
-      "sha256": "7cf20aab7b8ad67dc8faebf7e2177e662c40a50d3c2f1e50daa0576c8334d0be"
+      "sha256": "48a7108e69fc362bd5ab4148ea2eb2f45d47afa1a47d6f2fd390457827cdcd7e"
     },
     ".github/workflows/plates-cross-review.yml": {
       "practice": "cross-review",
-      "sha256": "dd163f8008fa2fb76a4450912d65593ddf03467740a62fa2d23661aa60f74040"
+      "sha256": "7a78fa736fc35b986895b0b7be11545bf81fd4ed3e510d8d6f50ff1e3f9e6adb"
     },
     ".github/workflows/plates-impact.yml": {
       "practice": "reconciliation",
-      "sha256": "9d7a241c9a57a984e93b8e75db67c58036e766d45d074ef071fa95a931b3d9bb"
+      "sha256": "88aa128aa93f3c5a6900f9eb7d468032826d138cf9183601a24d30309337c148"
     },
     ".github/workflows/plates-morning.yml": {
       "practice": "night",
-      "sha256": "66e51b69aa63e54d849951a29fcf9d73e73ca1b37cb96d07dd36e9122649a275"
+      "sha256": "ccb0eb53ef889a933060a705741e6fab7db13f394d371bf91a57f5d09be1edb0"
     },
     ".github/workflows/plates-night.yml": {
       "practice": "night",
-      "sha256": "6f04e1a9f2e11696188ec5b5751e85c0e3d4228cc29ad486f93d5399f22b04be"
+      "sha256": "e102adb8bcfad4f522f5ad20237482cd2669dc895829ad28b55071af0264391f"
     },
     ".github/workflows/plates-publish.yml": {
       "practice": "delivery",
-      "sha256": "839405ff17252096b6709ddb0956ab07efb558b226983d68f6d5c837661d6e5c"
+      "sha256": "91c5368f3e3d2f3dcbd7b93310b5ab47b9cbb10a2ea8ddcd5435a78d84aec554"
     },
     ".github/workflows/plates-robot-route.yml": {
       "practice": "climb",
-      "sha256": "316db5b107f1426bd50b6f0cea7b549410a24ab753e6779b8512bd638948b7e5"
+      "sha256": "2756e52ea28c5ee955b5a72c31e2a7a63abe530dc625dea341f76b3b5b761421"
     },
     ".github/workflows/plates-robot.yml": {
       "practice": "climb",
-      "sha256": "963ee5f598785730c4af3383c46edbc3da6a9741887a6586a8ca8d8bbc68adc5"
+      "sha256": "40361cea7f309583e73d04328ffc103b93ec7fe1faba6577da10de9ac04fcbd5"
     },
     ".github/workflows/plates-tend.yml": {
       "practice": "climb",
-      "sha256": "291944c65210f2b7618cdcba875b16671d2e81a1f88ad85a73bedfb34caea39d"
+      "sha256": "3ee73f8671bc87e82df7f7a5cdffac654c1e767c8e939a194fd9df1995bd53df"
     },
     "AGENTS.md#agents-md": {
       "practice": "agents-md",

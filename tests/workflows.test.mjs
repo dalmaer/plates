@@ -15,6 +15,12 @@ import { concurrencyOf, concurrencyProblems, deliveryOf, deliveryProblems, workf
 import { run } from './helpers/run.mjs';
 import {nameRow} from '../lib/names.mjs';
 import { AGENTS } from '../practices/night/files/scripts/plates/lib.mjs';
+import { WORKFLOW_ACTIONS } from '../lib/telemetry.mjs';
+import { legacyUpdateWorkflow, canonicalUpdateWorkflow } from '../lib/web/update-workflow.mjs';
+import { LEGACY_TYPECHECK_WORKFLOW, TYPECHECK_WORKFLOW } from '../lib/web/job-workflow.mjs';
+import { scheduleWorkflow } from '../lib/web/job-schedules.mjs';
+import { LEDGER_UPLOAD_STEP } from '../lib/adopt.mjs';
+import { UPLOAD_STEP as M0005_UPLOAD_STEP } from '../migrations/0005-test-ledger-reach.mjs';
 import { runBlocks, inlineNode, shellProblems } from './helpers/workflows.mjs';
 
 export { runBlocks, inlineNode, shellProblems };
@@ -1002,7 +1008,7 @@ export function ledgerProblems(name, text) {
   if (!keep) out.push(`${name}: no "Keep the test ledger" step`);
   else {
     if (!/\n\s+if: always\(\)\n/.test(keep.body)) out.push(`${name}: the ledger is kept only when the run passed (a failing run is the one that names a flaky test)`);
-    if (!/uses: actions\/upload-artifact@v\d+/.test(keep.body)) out.push(`${name}: the ledger is not uploaded as an artifact`);
+    if (!/uses: actions\/upload-artifact@[0-9a-f]{40} # v\d+/.test(keep.body)) out.push(`${name}: the ledger is not uploaded as an artifact`);
     if (!/\n\s+name: plates-test-runs\n/.test(keep.body)) out.push(`${name}: the artifact is not named plates-test-runs (the night reads it by name)`);
     if (!(name === 'plates-night.yml' ? JSON.stringify(/\n          path: \|\n((?:            [^\n]+\n)+)/.exec(keep.body)?.[1].trim().split('\n').map(x=>x.trim())) === JSON.stringify(['.plates/test-runs/*.json','.plates/test-runs/retention','.plates/test-runs/recovery/status.json']) : /\n\s+path: \.plates\/test-runs\/\n/.test(keep.body))) out.push(`${name}: the artifact is not .plates/test-runs/`);
     if (!/include-hidden-files: true/.test(keep.body)) out.push(`${name}: .plates is hidden; upload-artifact skips it unless told`);
@@ -1102,7 +1108,7 @@ export function climbWorkflowProblems(text) {
   const climbAt = text.indexOf('      - name: Climb\n');
   const climbNext = text.indexOf('\n      - ', climbAt + 1);
   const climbStep = climbAt < 0 ? '' : text.slice(climbAt, climbNext < 0 ? undefined : climbNext + 1);
-  if (!/\n\s+timeout-minutes: \$\{\{ fromJSON\(steps\.pick\.outputs\.minutes\) \}\}\n/.test(climbStep) || !/\n\s+uses: anthropics\/claude-code-action@v\d+\n/.test(climbStep)) out.push('the agent\'s step is not time-boxed by the budget (steps.pick.outputs.minutes)');
+  if (!/\n\s+timeout-minutes: \$\{\{ fromJSON\(steps\.pick\.outputs\.minutes\) \}\}\n/.test(climbStep) || !/\n\s+uses: anthropics\/claude-code-action@[0-9a-f]{40} # v\d+(?:\.\d+)*\n/.test(climbStep)) out.push('the agent\'s step is not time-boxed by the budget (steps.pick.outputs.minutes)');
   const at = s => text.indexOf(s);
   const push = at('git push');
   for (const verb of ['settle', 'guard', 'report']) {
@@ -1112,7 +1118,7 @@ export function climbWorkflowProblems(text) {
   }
   const kept = at('if [ "$KEPT" = 0 ]');
   if (kept < 0 || (push >= 0 && kept > push)) out.push('the push does not wait on a kept change: a night that kept nothing must open nothing');
-  const steps = [...text.matchAll(/^ {6}- (?:name: (.+)|uses: (\S+))$/gm)].map(m => m[1] ?? m[2]);
+  const steps = [...text.matchAll(/^ {6}- (?:name: (.+)|uses: (\S+)(?:\s+#.*)?)$/gm)].map(m => m[1] ?? m[2]);
   if (!(steps[0]?.startsWith('actions/checkout') && steps[1] === 'Is climb on?')) out.push('"Is climb on?" is not the first step after checkout');
   if (!/climb is off/.test(text)) out.push('climb off is not said');
   return out;
@@ -1360,7 +1366,7 @@ export function tendWorkflowProblems(text) {
   const tendAt = text.indexOf('      - name: Tend\n');
   const tendNext = text.indexOf('\n      - ', tendAt + 1);
   const tendStep = tendAt < 0 ? '' : text.slice(tendAt, tendNext < 0 ? undefined : tendNext + 1);
-  if (!/\n\s+timeout-minutes: \$\{\{ fromJSON\(steps\.pick\.outputs\.minutes\) \}\}\n/.test(tendStep) || !/\n\s+uses: anthropics\/claude-code-action@v\d+\n/.test(tendStep)) out.push('the agent\'s step is not time-boxed by the budget (steps.pick.outputs.minutes)');
+  if (!/\n\s+timeout-minutes: \$\{\{ fromJSON\(steps\.pick\.outputs\.minutes\) \}\}\n/.test(tendStep) || !/\n\s+uses: anthropics\/claude-code-action@[0-9a-f]{40} # v\d+(?:\.\d+)*\n/.test(tendStep)) out.push('the agent\'s step is not time-boxed by the budget (steps.pick.outputs.minutes)');
   const at = s => text.indexOf(s);
   const push = at('git push');
   for (const verb of ['tend-input --record', 'guard --job tend', 'tend-report']) {
@@ -1374,7 +1380,7 @@ export function tendWorkflowProblems(text) {
     if (/\bgh pr (close|merge)\b|\bgh (api|repo)\b[^\n]*(-X|--method)\s*DELETE|\bgit push\b[^\n]*(--delete|\s:refs)|\bgit branch -[dD]\b|\bgh repo delete\b/.test(line)) out.push(`line ${n}: closes, merges or deletes; tend only proposes that`);
   }
   if (/^\s+issues: write$/m.test(text)) out.push('issues: write: tend files no issue');
-  const steps = [...text.matchAll(/^ {6}- (?:name: (.+)|uses: (\S+))$/gm)].map(m => m[1] ?? m[2]);
+  const steps = [...text.matchAll(/^ {6}- (?:name: (.+)|uses: (\S+)(?:\s+#.*)?)$/gm)].map(m => m[1] ?? m[2]);
   if (!(steps[0]?.startsWith('actions/checkout') && steps[1] === 'Is tend on?')) out.push('"Is tend on?" is not the first step after checkout');
   if (!/tend is off/.test(text)) out.push('tend off is not said');
   if (!/^ {4}- cron: "\d+ \d+ \* \* 1"$/m.test(text)) out.push('tend is not weekly on Mondays');
@@ -1696,9 +1702,9 @@ export function actionMajorProblems(files) {
   const seen = new Map(); // owner/repo → Map(major → Set(file))
   for (const { file, text } of files) {
     for (const { line } of code(text)) {
-      const m = /^\s*(?:-\s+)?uses:\s*["']?([\w.-]+\/[\w.-]+)(?:\/[^@\s"']*)?@v?(\d+)(?:\.[\w.-]*)?["']?\s*$/.exec(line);
+      const m = /^\s*(?:-\s+)?uses:\s*["']?([\w.-]+\/[\w.-]+)(?:\/[^@\s"']*)?@(?:[0-9a-f]{40}["']?\s+#\s*v?(\d+)(?:\.[\w.-]*)?|(?![0-9a-f]{40}(?:["'\s]|$))v?(\d+)(?:\.[\w.-]*)?["']?(?:\s+#.*)?)\s*$/.exec(line);
       if (!m) continue;
-      const [, action, major] = m;
+      const action = m[1], major = m[2] ?? m[3];
       if (!seen.has(action)) seen.set(action, new Map());
       const majors = seen.get(action);
       if (!majors.has(major)) majors.set(major, new Set());
@@ -1719,18 +1725,112 @@ test('one major version per action across every workflow plates ships and plates
   for (const n of (await readdir(join(PLATES, '.github/workflows'))).filter(n => /\.ya?ml$/.test(n))) {
     files.push({ file: `.github/workflows/${n}`, text: await readFile(join(PLATES, '.github/workflows', n), 'utf8') });
   }
-  assert.ok(files.some(f => /uses: actions\/upload-artifact@v\d/.test(f.text)), 'no workflow uses upload-artifact; the mutation below would prove nothing');
+  assert.ok(files.some(f => f.text.includes(`uses: ${WORKFLOW_ACTIONS.uploadArtifact}`)), 'no workflow uses upload-artifact; the mutation below would prove nothing');
   assert.deepEqual(actionMajorProblems(files), []);
-  // v7 and v7.0.1 agree.
-  assert.deepEqual(actionMajorProblems([{ file: 'a.yml', text: '      - uses: actions/checkout@v7\n' }, { file: 'b.yml', text: '        uses: actions/checkout@v7.0.1\n' }]), []);
+  // v7, v7.0.1 and a SHA pin commented v7.0.1 agree.
+  assert.deepEqual(actionMajorProblems([
+    { file: 'a.yml', text: '      - uses: actions/checkout@v7\n' },
+    { file: 'b.yml', text: '        uses: actions/checkout@v7.0.1\n' },
+    { file: 'c.yml', text: `      - uses: ${WORKFLOW_ACTIONS.checkout}\n` },
+  ]), []);
   // Mutation: one template on another major fails, naming the action and both files.
-  const i = files.findIndex(f => /uses: actions\/upload-artifact@v\d+/.test(f.text));
-  const mutated = files.map((f, j) => j === i ? { ...f, text: f.text.replace(/uses: actions\/upload-artifact@v\d+/, 'uses: actions/upload-artifact@v6') } : f);
+  const i = files.findIndex(f => f.text.includes(`uses: ${WORKFLOW_ACTIONS.uploadArtifact}`));
+  const mutated = files.map((f, j) => j === i ? { ...f, text: f.text.replace(`uses: ${WORKFLOW_ACTIONS.uploadArtifact}`, 'uses: actions/upload-artifact@0000000000000000000000000000000000000000 # v6.0.0') } : f);
   assert.notDeepEqual(mutated[i].text, files[i].text, 'the mutation did not apply');
   const p = actionMajorProblems(mutated);
   assert.equal(p.length, 1, p.join('\n'));
   assert.match(p[0], /^actions\/upload-artifact is used at 2 majors: v6 in /);
   assert.ok(p[0].includes(files[i].file), p[0]);
+});
+
+/**
+ * Every non-local `uses:` in `files` ([{ file, text }]) that is not pinned to a
+ * 40-character commit SHA. Local `./` actions are part of the checked-out
+ * repository; third-party actions are pinned to reviewed commits. [string].
+ */
+export function actionPinProblems(files) {
+  const out = [];
+  for (const { file, text } of files) {
+    for (const { line, n } of code(text)) {
+      const m = /^\s*(?:-\s+)?uses:\s*(.+)$/.exec(line);
+      if (!m) continue;
+      const raw = m[1].trim();
+      const quoted = /^(['"])([^'"]*)\1(?:\s+#.*)?$/.exec(raw);
+      const unquoted = !quoted && !/^['"]/.test(raw) ? /^([^\s#]+)(?:\s+#.*)?$/.exec(raw) : null;
+      const ref = quoted?.[2] ?? unquoted?.[1] ?? '';
+      if (ref.startsWith('./')) continue;
+      if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+(?:\/[^\s@#]+)*@[0-9a-f]{40}$/.test(ref)) {
+        out.push(`${file}:${n}: third-party uses is not pinned to a 40-character commit SHA: ${raw}`);
+      }
+    }
+  }
+  return out;
+}
+
+test('every shipped workflow template and workflow generator pins third-party uses: to a 40-character SHA', async () => {
+  const all = await shipped();
+  const renderConfig = {
+    name: 'Acme Widgets',
+    tagline: 'Widgets for Acme.',
+    repo: 'acme/widgets',
+    practices: ['base', 'ci', 'night', 'claude', 'climb', 'cross-review', 'delivery', 'loop', 'reconciliation'],
+    reconciliation: { githubAccess: { enabled: true, repositories: ['acme/widgets'] } },
+    telemetry: { endpoint: 'secret:ACME_OTLP_ENDPOINT', protocol: 'http/protobuf' },
+    publish: { workflows: ['deploy.yml'] },
+  };
+  const updateTarget = {
+    repoId: 1,
+    repositoryNodeId: 'R_1',
+    repo: 'dalmaer/plates',
+    commit: 'e011dc0be3d94abf5eb21d836a2f3509aa6c2f74',
+    cliVersion: '0.8.38',
+    practiceVersion: '0.8.38',
+    bundleDigest: 'a'.repeat(64),
+  };
+  const files = [];
+  for (const practice of await readdir(join(PLATES, 'practices'))) {
+    const dir = join(PLATES, 'practices', practice, 'files', '.github', 'workflows');
+    for (const name of (await readdir(dir).catch(() => [])).filter(n => /\.ya?ml$/.test(n))) {
+      files.push({ file: `practices/${practice}/files/.github/workflows/${name}`, text: await readFile(join(dir, name), 'utf8') });
+    }
+  }
+  for (const name of (await readdir(join(PLATES, '.github/workflows'))).filter(n => /\.ya?ml$/.test(n))) {
+    files.push({ file: `.github/workflows/${name}`, text: await readFile(join(PLATES, '.github/workflows', name), 'utf8') });
+  }
+  for (const w of all) {
+    files.push({ file: `fill(${w.path})`, text: fill(w.template, renderConfig, w.path) });
+  }
+  files.push(
+    { file: 'lib/web/update-workflow.mjs:legacyUpdateWorkflow', text: legacyUpdateWorkflow(updateTarget) },
+    { file: 'lib/web/update-workflow.mjs:canonicalUpdateWorkflow', text: canonicalUpdateWorkflow(updateTarget) },
+    { file: 'lib/web/job-workflow.mjs:LEGACY_TYPECHECK_WORKFLOW', text: LEGACY_TYPECHECK_WORKFLOW },
+    { file: 'lib/web/job-workflow.mjs:TYPECHECK_WORKFLOW', text: TYPECHECK_WORKFLOW },
+    { file: 'lib/web/job-schedules.mjs:scheduleWorkflow', text: scheduleWorkflow() },
+    { file: 'lib/adopt.mjs:LEDGER_UPLOAD_STEP', text: LEDGER_UPLOAD_STEP },
+    { file: 'migrations/0005-test-ledger-reach.mjs:UPLOAD_STEP', text: M0005_UPLOAD_STEP },
+  );
+  assert.ok(files.every(f => /\buses:/.test(f.text)), 'every workflow source checked has at least one uses: line');
+  assert.deepEqual(actionPinProblems(files), []);
+
+  // Local ./ actions pass; tags, branches and short SHAs fail.
+  assert.deepEqual(actionPinProblems([
+    { file: 'local.yml', text: '      - uses: ./.github/actions/setup\n      - uses: "./tools/check" # local\n' },
+    { file: 'subpath.yml', text: '      - uses: github/codeql-action/init@0123456789abcdef0123456789abcdef01234567 # v3.28.0\n' },
+  ]), []);
+  for (const bad of [
+    '      - uses: actions/checkout@v7\n',
+    '      - uses: actions/checkout@v7.0.1\n',
+    '      - uses: actions/checkout@main\n',
+    '      - uses: actions/checkout@3d3c42e\n',
+    '      - uses: "actions/checkout@v7"\n',
+    '      - uses: docker://alpine:3.19\n',
+  ]) {
+    const problems = actionPinProblems([{ file: 'bad.yml', text: bad }]);
+    assert.equal(problems.length, 1, bad);
+    assert.match(problems[0], /^bad\.yml:1: third-party uses is not pinned to a 40-character commit SHA:/);
+  }
+  const unpinnedGenerator = scheduleWorkflow().replace(WORKFLOW_ACTIONS.checkout, 'actions/checkout@v7');
+  assert.equal(actionPinProblems([{ file: 'scheduleWorkflow', text: unpinnedGenerator }]).length, 1);
 });
 
 // ---- phase 42: cross-review -------------------------------------------------------
@@ -1950,7 +2050,7 @@ export function crossReviewProblems(text) {
   }
   if (!/node "\$review_scripts\/cross-review\.mjs" summary [^\n]*--out "\$RUNNER_TEMP\/review\.json"/.test(text)) out.push('the summary review is not the script\'s (cross-review.mjs summary): its event would be the workflow\'s to get wrong');
   const reviewStep = /\n {6}- name: Review\n[\s\S]*?(?=\n {6}(?:#|- )|$)/.exec(text)?.[0] ?? '';
-  if (!/\n\s+timeout-minutes: \$\{\{ fromJSON\(steps\.which\.outputs\.minutes\) \}\}\n/.test(reviewStep) || !/\n\s+uses: anthropics\/claude-code-action@v\d+\n/.test(reviewStep)) out.push('the agent\'s step is not time-boxed by the budget (steps.which.outputs.minutes)');
+  if (!/\n\s+timeout-minutes: \$\{\{ fromJSON\(steps\.which\.outputs\.minutes\) \}\}\n/.test(reviewStep) || !/\n\s+uses: anthropics\/claude-code-action@[0-9a-f]{40} # v\d+(?:\.\d+)*\n/.test(reviewStep)) out.push('the agent\'s step is not time-boxed by the budget (steps.which.outputs.minutes)');
   // Phase 45: two agent steps per provider: the first, run only when the config names it, and the fallback, run only
   // when "Could the reviewer start?" hands the review to it; Codex's in its read-only sandbox.
   const agents = stepsOf(text).filter(st => /\n\s+uses:\s*(?:anthropics\/claude-code-action|openai\/codex-action)@/.test(`\n${st}`));
@@ -2352,12 +2452,12 @@ test('phase 46: cross-review\'s agent, Claude or Codex, runs in a job whose toke
     ['the publish job checks out the run\'s commit', t.replace(publish, publish.replace(`          ${trustedRef}\n`, ''))],
     // Phase 60, plates#65: after a push the default branch is the pushed code, and the review job ran it.
     // plates#65: after a push no commit is run for what it is; only the publisher plates rendered, checked byte for byte.
-    ['the publish job checks out after a push', t.replace(publish, publish.replace("      - uses: actions/checkout@v7\n        if: github.event_name == 'pull_request' || github.event_name == 'issue_comment'\n", '      - uses: actions/checkout@v7\n'))],
+    ['the publish job checks out after a push', t.replace(publish, publish.replace(`      - uses: ${WORKFLOW_ACTIONS.checkout}\n        if: github.event_name == 'pull_request' || github.event_name == 'issue_comment'\n`, `      - uses: ${WORKFLOW_ACTIONS.checkout}\n`))],
     // plates#65: the path is the event's. The review job's word (it ran the pushed code) never picks the PR path.
-    ['the checkout on the review job\'s word', t.replace(publish, publish.replace("      - uses: actions/checkout@v7\n        if: github.event_name == 'pull_request' || github.event_name == 'issue_comment'\n", "      - uses: actions/checkout@v7\n        if: needs.review.outputs.mode == 'pr'\n"))],
+    ['the checkout on the review job\'s word', t.replace(publish, publish.replace(`      - uses: ${WORKFLOW_ACTIONS.checkout}\n        if: github.event_name == 'pull_request' || github.event_name == 'issue_comment'\n`, `      - uses: ${WORKFLOW_ACTIONS.checkout}\n        if: needs.review.outputs.mode == 'pr'\n`))],
     ['the PR summary on the review job\'s word', t.replace(publish, publish.replace("      - name: Post the summary\n        if: github.event_name == 'pull_request' || github.event_name == 'issue_comment'\n", "      - name: Post the summary\n        if: needs.review.outputs.mode == 'pr'\n"))],
     ['a push event reaching the PR summary', t.replace(publish, publish.replace("      - name: Post the summary\n        if: github.event_name == 'pull_request' || github.event_name == 'issue_comment'\n", "      - name: Post the summary\n        if: github.event_name == 'pull_request' || github.event_name == 'issue_comment' || github.event_name == 'push'\n"))],
-    ['a push event reaching the PR checkout', t.replace(publish, publish.replace("      - uses: actions/checkout@v7\n        if: github.event_name == 'pull_request' || github.event_name == 'issue_comment'\n", "      - uses: actions/checkout@v7\n        if: github.event_name == 'pull_request' || github.event_name == 'issue_comment' || github.event_name == 'push'\n"))],
+    ['a push event reaching the PR checkout', t.replace(publish, publish.replace(`      - uses: ${WORKFLOW_ACTIONS.checkout}\n        if: github.event_name == 'pull_request' || github.event_name == 'issue_comment'\n`, `      - uses: ${WORKFLOW_ACTIONS.checkout}\n        if: github.event_name == 'pull_request' || github.event_name == 'issue_comment' || github.event_name == 'push'\n`))],
     ['the publisher on the review job\'s word alone', t.replace(publish, publish.replace("        id: publisher\n        if: (github.event_name == 'push' || github.event_name == 'schedule') && (needs.review.outputs.mode == 'push' || needs.review.outputs.mode == 'start')\n", "        id: publisher\n        if: needs.review.outputs.mode == 'push'\n"))],
     ['the push post on the review job\'s word alone', t.replace(publish, publish.replace("      - name: Post after the push\n        if: (github.event_name == 'push' || github.event_name == 'schedule') && needs.review.outputs.mode == 'push'\n", "      - name: Post after the push\n        if: needs.review.outputs.mode == 'push'\n"))],
     ['a start on any event', t.replace(publish, publish.replace("      - name: Start the record\n        if: (github.event_name == 'push' || github.event_name == 'schedule') && needs.review.outputs.mode == 'start'\n", "      - name: Start the record\n        if: needs.review.outputs.mode == 'start'\n"))],
@@ -2375,7 +2475,7 @@ test('phase 46: cross-review\'s agent, Claude or Codex, runs in a job whose toke
     ['the start step takes any suggestion as the before', t.replace(startStep, startStep.replace(' && [ "$STARTAT" = "$BEFORE" ]', ''))],
     ['the start step asks GitHub nothing', t.replace(startStep, startStep.replace('.status === "ahead" ? 0 : 1)\' "$RUNNER_TEMP/start-below.json"; then at="$STARTAT"; fi', '.status ? 0 : 0)\' "$RUNNER_TEMP/start-below.json"; then at="$STARTAT"; fi'))],
     ['a start runs the repository\'s script', t.replace(startStep, startStep.replace('        run: |\n', '        run: |\n          node scripts/plates/cross-review.mjs config\n'))],
-    ['a start downloads an artifact it has not', t.replace(publish, publish.replace("      - uses: actions/download-artifact@v8\n        if: needs.review.outputs.mode != 'start'\n", '      - uses: actions/download-artifact@v8\n'))],
+    ['a start downloads an artifact it has not', t.replace(publish, publish.replace(`      - uses: ${WORKFLOW_ACTIONS.downloadArtifact}\n        if: needs.review.outputs.mode != 'start'\n`, `      - uses: ${WORKFLOW_ACTIONS.downloadArtifact}\n`))],
     ['the publish job runs whatever happened', t.replace(publish, publish.replace("    if: needs.review.outputs.ran == 'true' || needs.review.outputs.mode == 'start'\n", '    if: always()\n'))],
     ['the publish job with no if', t.replace(publish, publish.replace("    if: needs.review.outputs.ran == 'true' || needs.review.outputs.mode == 'start'\n", ''))],
     ['the publish job for any mode', t.replace(publish, publish.replace("    if: needs.review.outputs.ran == 'true' || needs.review.outputs.mode == 'start'\n", "    if: needs.review.outputs.ran == 'true' || needs.review.outputs.mode != ''\n"))],
@@ -2771,7 +2871,7 @@ test('plates-morning republishes the plan card after each pass when the canvas i
   assert.match(card, /node scripts\/plates\/canvas-recovery\.mjs --workflow plates-morning\.yml/);
   assert.match(guards, /node scripts\/plates\/canvas-recovery\.mjs --workflow plates-night\.yml/);
   // The journal travels as the night's does: kept, red or green, for 90 days, under the name the recovery reads.
-  assert.match(morning, /- name: Keep the canvas journal\n {8}if: always\(\) && steps\.canvas\.outputs\.enabled == 'true'\n {8}uses: actions\/upload-artifact@v\d+\n {8}with:\n {10}name: plates-canvas-card-\$\{\{ github\.run_attempt \}\}\n {10}path: \$\{\{ runner\.temp \}\}\/plates-canvas-card\/\n/);
+  assert.match(morning, /- name: Keep the canvas journal\n {8}if: always\(\) && steps\.canvas\.outputs\.enabled == 'true'\n {8}uses: actions\/upload-artifact@[0-9a-f]{40} # v\d+(?:\.\d+)*\n {8}with:\n {10}name: plates-canvas-card-\$\{\{ github\.run_attempt \}\}\n {10}path: \$\{\{ runner\.temp \}\}\/plates-canvas-card\/\n/);
   // The secret the night's Install step may hold reaches only the card job's Install step too.
   assert.deepEqual(setupTokenProblems(morning), [], 'setupToken only in Install');
 

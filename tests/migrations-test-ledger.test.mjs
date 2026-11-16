@@ -17,6 +17,7 @@ import { view, collect } from '../lib/migrations.mjs';
 import * as m0004 from '../migrations/0004-test-ledger.mjs';
 import * as m0005 from '../migrations/0005-test-ledger-reach.mjs';
 import { notesOf, noteLines, updateBody } from '../lib/update.mjs';
+import { WORKFLOW_ACTIONS } from '../lib/telemetry.mjs';
 
 const PLATES = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const REPORTERS = '--test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/plates/test-ledger.mjs --test-reporter-destination=stdout';
@@ -180,7 +181,7 @@ test('0005: with the night on and ci off, the update says how to keep CI\'s test
   assert.equal(await m0005.applies(project), true);
   assert.deepEqual(await m0005.up(project), [], 'plates never edits the project\'s own workflows');
   const [note] = await m0005.notes(project);
-  for (const said of ['actions/upload-artifact@v7', 'name: plates-test-runs', 'path: .plates/test-runs/', 'include-hidden-files: true', 'if: always()', 'nightly runs only']) assert.ok(note.includes(said), said);
+  for (const said of [WORKFLOW_ACTIONS.uploadArtifact, 'name: plates-test-runs', 'path: .plates/test-runs/', 'include-hidden-files: true', 'if: always()', 'nightly runs only']) assert.ok(note.includes(said), said);
   assert.doesNotMatch(note, /\n\s*\n/, 'no blank line: a commit message would end the note there');
   // In the update: the commit carries it under the migration, and the PR shows it first among the notes.
   const { applied } = await collect(dir, [m0005]);

@@ -138,7 +138,7 @@ jobs:
       # After a push (plates#65) the event's own commit, the one the publisher
       # is checked at, never the default branch's tip when this job starts:
       # a later push could change the scripts this job runs.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ (github.event_name == 'push' || github.event_name == 'schedule') && github.sha || github.event.repository.default_branch }}
           fetch-depth: 0
@@ -382,7 +382,7 @@ jobs:
       # The PR's head, for the agent to read. Nothing here runs its code.
       - name: Check out the pull request
         if: steps.which.outputs.review == 'true'
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ steps.which.outputs.sha }}
           persist-credentials: false
@@ -407,7 +407,7 @@ jobs:
         if: steps.which.outputs.review == 'true' && steps.which.outputs.agent == 'claude'
         continue-on-error: true
         timeout-minutes: ${{ fromJSON(steps.which.outputs.minutes) }}
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc # v1.0.276
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -427,7 +427,7 @@ jobs:
         if: steps.which.outputs.review == 'true' && steps.which.outputs.agent == 'codex'
         continue-on-error: true
         timeout-minutes: ${{ fromJSON(steps.which.outputs.minutes) }}
-        uses: openai/codex-action@v1
+        uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675 # v1.13
         env:
           GH_TOKEN: ""
           TMPDIR: /tmp/plates-codex
@@ -490,7 +490,7 @@ jobs:
         if: steps.start.outputs.fallback == 'claude'
         continue-on-error: true
         timeout-minutes: ${{ fromJSON(steps.start.outputs.minutes || steps.which.outputs.minutes) }}
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc # v1.0.276
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -505,7 +505,7 @@ jobs:
         if: steps.start.outputs.fallback == 'codex'
         continue-on-error: true
         timeout-minutes: ${{ fromJSON(steps.start.outputs.minutes || steps.which.outputs.minutes) }}
-        uses: openai/codex-action@v1
+        uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675 # v1.13
         env:
           GH_TOKEN: ""
           TMPDIR: /tmp/plates-codex
@@ -564,7 +564,7 @@ jobs:
           fi
       - name: Keep the review
         if: steps.which.outputs.review == 'true'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: plates-cross-review
           path: ${{ runner.temp }}/handoff/
@@ -632,12 +632,12 @@ jobs:
       # Which of these runs is the event's (plates#65), never the review job's
       # word: on a push the review job ran the pushed code, and the default
       # branch is the pushed code.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: github.event_name == 'pull_request' || github.event_name == 'issue_comment'
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: needs.review.outputs.mode != 'start'
         with:
           name: plates-cross-review

@@ -42,11 +42,11 @@ jobs:
       text: ${{ steps.risk.outputs.text }}
     steps:
       # Policy and renderer come from the default branch, never the mentioned PR.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
       - name: Render bounded project guidance
@@ -97,11 +97,11 @@ jobs:
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.configured.outputs.enabled == 'true'
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
       - if: steps.configured.outputs.enabled == 'true'
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
       - if: steps.configured.outputs.enabled == 'true'
@@ -110,7 +110,7 @@ jobs:
         if: steps.configured.outputs.enabled == 'true'
         run: echo "telemetry off (.plates/plates.json names no telemetry endpoint)"
       - if: steps.configured.outputs.enabled == 'true'
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc # v1.0.276
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}

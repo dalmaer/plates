@@ -44,12 +44,12 @@ jobs:
       plan_ticks: ${{ steps.prepare.outputs.plan_ticks }}
       plan_date: ${{ steps.prepare.outputs.plan_date }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
       # Durable remote plan: .keel/night/plan.json on the plan branch
@@ -180,7 +180,7 @@ jobs:
         run: node "$RUNNER_TEMP/trusted/robot.mjs" context --json
       # Upload BEFORE any untrusted agent runs: immutable admission, not agent-written metadata.
       - if: always() && steps.prepare.outcome == 'success'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: robot-plan
           path: ${{ runner.temp }}/robot-plan.json
@@ -206,7 +206,7 @@ jobs:
         id: build_claude
         if: steps.prepare.outputs.ready == 'true' && steps.prepare.outputs.author == 'claude'
         timeout-minutes: ${{ fromJSON(steps.prepare.outputs.build_minutes) }}
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc # v1.0.276
         env:
           # v1 forwards this explicitly; Bash also gets PID isolation, not just env removal.
           CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
@@ -226,7 +226,7 @@ jobs:
         id: build_codex
         if: steps.prepare.outputs.ready == 'true' && steps.prepare.outputs.author == 'codex'
         timeout-minutes: ${{ fromJSON(steps.prepare.outputs.build_minutes) }}
-        uses: openai/codex-action@v1
+        uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675 # v1.13
         env:
           GH_TOKEN: ""
           TMPDIR: /tmp/plates-codex
@@ -308,7 +308,7 @@ jobs:
           echo "Agent's commits: $(g rev-list --count "$GITHUB_SHA..$tip") on $BRANCH, taken as objects"
 
           cp "$RUNNER_TEMP/message.txt" "$out/message.txt"
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always() && steps.prepare.outputs.ready == 'true'
         with:
           name: robot-agent
@@ -326,12 +326,12 @@ jobs:
       head: ${{ steps.judge.outputs.head }}
       judge_ran: ${{ steps.judge.outcome != '' && steps.judge.outcome != 'skipped' }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
       - name: Read the config
@@ -375,18 +375,18 @@ jobs:
             npm ci
           fi
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: robot-plan
           path: ${{ runner.temp }}/plan
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: robot-agent
           path: ${{ runner.temp }}/handoff
       - name: Trusted sandbox full gate and dropped-test guard
         id: judge
         run: node scripts/plates/robot.mjs judge --json
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: robot-judged
           path: ${{ runner.temp }}/robot-judgment.json
@@ -410,24 +410,24 @@ jobs:
       # fails; that failure still leaves this job, and the run, red.
       published: ${{ steps.publish.outcome }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: robot-plan
           path: ${{ runner.temp }}/plan
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: needs.agent.outputs.ready == 'true'
         continue-on-error: true
         with:
           name: robot-agent
           path: ${{ runner.temp }}/handoff
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: needs.judge.result == 'success'
         with:
           name: robot-judged
@@ -484,12 +484,12 @@ jobs:
       pull-requests: read
       actions: read
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
       - name: Verify actual published head and remaining shared allowance
@@ -503,7 +503,7 @@ jobs:
         run: |
           node scripts/plates/robot.mjs review-prepare --json
           mkdir -p /tmp/plates-codex
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: robot-review-plan
           path: ${{ runner.temp }}/robot-review.json
@@ -529,7 +529,7 @@ jobs:
         id: review_claude
         if: steps.review.outputs.reviewer == 'claude'
         timeout-minutes: ${{ fromJSON(steps.review.outputs.minutes) }}
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@f3b070c88125d33dbae5653df5f143101d4ea9dc # v1.0.276
         env:
           # v1 forwards this explicitly; Bash also gets PID isolation, not just env removal.
           CLAUDE_CODE_SUBPROCESS_ENV_SCRUB: "1"
@@ -549,7 +549,7 @@ jobs:
         id: review_codex
         if: steps.review.outputs.reviewer == 'codex'
         timeout-minutes: ${{ fromJSON(steps.review.outputs.minutes) }}
-        uses: openai/codex-action@v1
+        uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675 # v1.13
         env:
           GH_TOKEN: ""
           TMPDIR: /tmp/plates-codex
@@ -567,7 +567,7 @@ jobs:
           ROBOT_OUTCOME: ${{ steps.review.outputs.reviewer == 'codex' && steps.review_codex.outcome || steps.review_claude.outcome }}
           ROBOT_MESSAGE_FILE: ${{ steps.review.outputs.reviewer == 'codex' && format('{0}/codex-review-message.md', runner.temp) || steps.review_claude.outputs.execution_file }}
         run: node scripts/plates/robot.mjs message --json
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: steps.review.outputs.complete != 'true'
         with:
           name: robot-review-message
@@ -584,24 +584,24 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: needs.review-agent.result == 'success'
         with:
           name: robot-review-plan
           path: ${{ runner.temp }}/review
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: needs.review-agent.result == 'success' && needs.review-agent.outputs.complete != 'true'
         with:
           name: robot-review-message
           path: ${{ runner.temp }}/review
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: robot-plan
           path: ${{ runner.temp }}/plan
