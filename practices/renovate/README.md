@@ -19,6 +19,13 @@ branch updated in place, so no lane ever holds more than one PR:
   and `@types/node` in one PR, for a person. One PR, because a project that
   holds `.nvmrc` and its image to one major (a test can) fails a split one.
 
+The Node lane moves the Node a project runs on, never the oldest Node it
+promises to support: `engines.node` keeps its `>=` floor (`rangeStrategy:
+"replace"` leaves a range a newer Node already satisfies), so raising the floor
+is a person's decision with its own PR. Renovate once proposed `>=24` to `>=26`
+for plates and every new project (dalmaer/plates#433); that would have dropped
+a supported LTS for anyone installing the CLI.
+
 The shared release cooldown is `minimumReleaseAge: "3 days"` with
 `internalChecksFilter: "strict"`: updates still pending the age check are
 filtered out instead of being proposed early. The same inherited policy covers
@@ -73,8 +80,8 @@ practice came from, where each keeps a version of its own:
 - **ledger**: *stays local*; plates takes nothing. Its weekly, grouped,
   never-automerged lanes and its regex manager for action versions inside
   `scripts/agent-workflows.ts` are deliberate for a repo that generates its
-  workflows. Plates's four lanes already move Node with `engines.node` (the npm
-  manager reads it), which was the one rule worth comparing.
+  workflows. Plates's lanes move Node's pins, and leave `engines.node`'s floor to a
+  person (see the Node lane above), which was the one rule worth comparing.
 - **isocan**: *stays local* (3 Oct). Plates's file was isocan's, less two rules
   that were isocan's alone (its workspace packages, its timezone). Since
   phase 29 both render from the project, so isocan can take plates's file with
