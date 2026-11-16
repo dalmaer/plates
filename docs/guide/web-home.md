@@ -226,10 +226,27 @@ is `finished` only when it is 0 and, for an audit, its findings file exists;
 anything else, or a tab Rex no longer knows, is `failed`. Plates reads `rex ls`
 and calls only `rex new`, `rex run` and `rex wait`: it never types into,
 closes, relabels or kills a tab or session, and never touches a session other
-than the exactly-labelled one, or a tab other than the one it opened. Without
-Rex, or without a harness, the host runs exactly as above; a host with only a
-harness and no Rex is refused, saying why. Remove `harness` to go back. Rex
-reports terminal sessions and presence; plates does not own it.
+than the exactly-labelled one, or a tab other than the one it opened. The one
+exception is your cancel, below, which closes only the tab that attach opened.
+Without Rex, or without a harness, the host runs exactly as above; a host with
+only a harness and no Rex is refused, saying why. Remove `harness` to go back.
+Rex reports terminal sessions and presence; plates does not own it.
+
+To cancel a phase's attach, run `plates home --cancel <plate>:phase:<n>` in the
+plate's checkout: a preview (exit 3) of what will be stopped. With
+`--why "<line>" --yes`, Plates first records the cancel in the attach journal,
+create-only, so the first cancel is the only one. Then it stops what the receipt
+names, unless that has already ended: the Rex tab it opened (`rex block close`),
+or a host session through the host's optional `"stop": ["/abs/path/host", "stop"]`
+command (`stop... <session id>`). It also removes the run's private brief file,
+which an attach names by its digest. If Rex or the host does not answer, the
+cancel is kept and the next attach or cancel finishes it, including after plates,
+the session or Rex restarts. A cancelled phase is never dispatched, recovered or resumed again, even when its
+brief changes later (a new attach digest). A dispatch that finishes after the cancel stops what it just
+started. Cancelling twice gives the same record. The claim is kept: release it
+with `plates phase claim <n> --release`. A local host's brief ends by telling a
+restarted agent to run `plates home --cancel <key> --check` first. That check is
+read only and exits 1 when the phase is cancelled, and the agent then stops.
 
 `plates home --backlog --since YYYY-MM-DD` (phase 184) reads back what
 happened to each item since that date: the counts per action, each route's

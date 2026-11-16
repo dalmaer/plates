@@ -170,6 +170,41 @@ test('plates home --attach previews, then claims and hands over the session brie
   }
 });
 
+test('plates home --cancel previews, records the cancel once, and a restarted session checks it', async t => {
+  const x = await acme(t);
+  const plates = (args, env) => { const r = run(process.execPath, [BIN, 'home', ...args], { cwd: x.a, env }); return { code: r.status, out: r.stdout, err: r.stderr }; };
+  const env = x.env('acme-laptop', 'claude');
+  assert.equal(plates(['--cancel', 'app:phase:1', '--check'], env).code, 0, 'nothing attached is not cancelled');
+  assert.match(plates(['--cancel', 'app:phase:1', '--yes'], env).out + plates(['--cancel', 'app:phase:1', '--yes'], env).err, /no attach in this checkout's journal: nothing to cancel/);
+  assert.equal(plates(['--attach', 'app:phase:1', '--route', 'session', '--provider', 'claude', '--yes'], env).code, 0);
+  const check = () => plates(['--cancel', 'app:phase:1', '--check', '--json'], env);
+  assert.deepEqual([check().code, JSON.parse(check().out).state], [0, 'not-cancelled']);
+  const preview = plates(['--cancel', 'app:phase:1'], env);
+  assert.equal(preview.code, 3, preview.err);
+  assert.match(preview.out, /Nothing is cancelled yet/);
+  assert.equal(check().code, 0, 'a preview records nothing');
+  const done = plates(['--cancel', 'app:phase:1', '--why', 'Built elsewhere', '--yes', '--json'], env);
+  assert.equal(done.code, 0, done.err);
+  const first = JSON.parse(done.out);
+  assert.deepEqual([first.state, first.already, first.attaches[0].cancelled.stop, first.attaches[0].cancelled.done], ['cancelled', false, 'none', true]);
+  assert.equal(first.attaches[0].cancel.why, 'Built elsewhere');
+  // A restarted session's check: exit 1, stop.
+  const after = check();
+  assert.equal(after.code, 1);
+  assert.match(plates(['--cancel', 'app:phase:1', '--check'], env).out, /cancelled at .*Built elsewhere.*Stop: do not continue/);
+  // A second cancel, and attach again with the same brief: the one record, nothing handed over again.
+  const again = JSON.parse(plates(['--cancel', 'app:phase:1', '--yes', '--json'], env).out);
+  assert.deepEqual([again.already, again.attaches[0].cancel], [true, first.attaches[0].cancel]);
+  const re = plates(['--attach', 'app:phase:1', '--route', 'session', '--provider', 'claude', '--yes'], env);
+  assert.equal(re.code, 1);
+  assert.match(re.out, /This attach was cancelled at .*It is not dispatched again/);
+  assert.doesNotMatch(re.out, /\/spin 1/);
+  for (const [args, says] of [[['--cancel', 'app:phase:1', '--check', '--yes'], /--cancel <key> \[--check/], [['--cancel'], /--cancel needs a value/], [['--cancel', 'forge:phase:1', '--check'], /forge's; this checkout is app/], [['--cancel', 'app:phase:1', '--why', 'a\tb', '--yes'], /--why is one line/]]) {
+    const r = plates(args, env);
+    assert.equal(r.code, 2, `${args.join(' ')}: ${r.out}${r.err}`); assert.match(r.out + r.err, says);
+  }
+});
+
 // ---- phase 183: the local-host route ------------------------------------------------
 const LOCAL = { ...CONFIG, backlog: { routes: ['session', 'local-host'] } };
 /**
