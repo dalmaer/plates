@@ -47,7 +47,7 @@ test('/backlog lists every plate\'s work in lanes, behind Home\'s auth', async (
   const page = await s.get('/backlog');
   assert.equal(page.status, 200);
   const html = await page.text();
-  assert.match(html, /<a href="\/backlog" aria-current="page">Backlog <span class="p-badge">\d+<\/span><\/a>/);
+  assert.match(html, /<a href="\/backlog" aria-current="true">Backlog <span class="p-badge">\d+<\/span><\/a>/);
   assert.doesNotMatch(html, /data-sidebar-soon/, 'nothing still to come (phase 186)');
   assert.match(html, /<a href="\/agents">Agents <span class="p-badge">1<\/span><\/a><a href="\/agents#pending">Pending review<\/a>/, 'Agents counts what is at work; Pending review has no count without the Pull requests read');
   assert.match(html, /<a href="\/recurring">Recurring<\/a>/, 'Recurring is live (phase 185)');
@@ -163,11 +163,11 @@ test('/backlog/goals arranges the backlog by goal, one card per phase', async ()
   await s.get('/api/backlog');
   const html = await (await s.get('/backlog/goals')).text();
   assert.match(html, /data-backlog-root data-view="goals" data-endpoint="\/api\/backlog"/);
-  assert.match(html, /<a href="\/backlog">List<\/a> · <a href="\/backlog\/goals" aria-current="page">By goal<\/a>/);
+  assert.match(html, /<a href="\/backlog">List<\/a> · <a href="\/backlog\/goals" aria-current="true">By goal<\/a>/);
   assert.match(html, /data-goal="studio:goal:G1"[^>]*><h2 id="goal-studio:goal:G1">Acme Studio · G1 — A dependable studio <span class="meta">/);
   assert.match(html, /data-member="studio:phase:2:box [^"]+">walk \(box \d+\)/, 'the walk is nested under its phase');
   const list = await (await s.get('/backlog')).text();
-  assert.match(list, /<a href="\/backlog" aria-current="page">List<\/a> · <a href="\/backlog\/goals">By goal<\/a>/);
+  assert.match(list, /<a href="\/backlog" aria-current="true">List<\/a> · <a href="\/backlog\/goals">By goal<\/a>/);
   assert.equal((await s.get('/backlog/goals?x=1')).status, 400);
   assert.equal((await s.web(s.h.request('/assets/backlog-grouping.mjs'))).status, 200);
 });
@@ -179,7 +179,7 @@ test('/backlog/history reads back what happened, and says so before 019', async 
   await before.get('/api/backlog');
   const html = await (await before.get('/backlog/history')).text();
   assert.match(html, /data-view="history"/);
-  assert.match(html, /<a href="\/backlog\/history" aria-current="page">History<\/a>/);
+  assert.match(html, /<a href="\/backlog\/history" aria-current="true">History<\/a>/);
   assert.equal(html.match(/Events are not stored yet/g)?.length, 1, 'said once');
   assert.doesNotMatch(html, /\b0 events?\b|nothing recorded|data-backlog-history>/, 'never a zero');
   const unstored = await (await before.get('/api/backlog/history')).json();

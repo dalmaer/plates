@@ -43,7 +43,7 @@ test('/agents lists who works on what, and what waits for review, behind Home\'s
   assert.deepEqual(model.sidebar.counts, { agents: 1, pending: 1 });
   const html = await (await s.get('/agents')).text();
   assert.match(html, /data-backlog-root data-view="agents" data-endpoint="\/api\/agents"/);
-  assert.match(html, /<a href="\/agents" aria-current="page">Agents <span class="p-badge">1<\/span><\/a><a href="\/agents#pending">Pending review <span class="p-badge">1<\/span><\/a>/);
+  assert.match(html, /<a href="\/agents" aria-current="true">Agents <span class="p-badge">1<\/span><\/a><a href="\/agents#pending">Pending review <span class="p-badge">1<\/span><\/a>/);
   assert.match(html, /data-route="worker" data-off><p><strong>Worker<\/strong> · off: durable workers are disabled until activated \(phase 104\) \(<code>worker<\/code>: studio\)/);
   assert.match(html, /data-pending="studio:review:5"[^]*?<span class="p-badge">approved<\/span>/);
   // The other pages' sidebars carry the same counts.
