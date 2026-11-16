@@ -258,9 +258,6 @@ const COMMAND = { test: s => /^\.{0,2}\/\S/.test(s) || RUNNERS.test(s) || /^[a-z
 /** The tests/ paths a phase's Acceptance cites. */
 export const citedTests = acceptance => [...new Set((acceptance.match(TEST_PATH) ?? []))];
 
-/** A line asking for a measure that has no bound (the night's selftest refuses one: lesson 6). */
-export const UNBOUNDED_MEASURE = /\bmeasure[^.\n]*\b(no bound|unbounded|recorded only|recorded-only|without (a )?bound)/i;
-
 /** A section's items: a bullet with its wrapped lines, or a paragraph, as one line each. */
 export function items(text) {
   const out = [];
