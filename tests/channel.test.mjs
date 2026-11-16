@@ -87,6 +87,14 @@ test('an unread source is a gap, never quiet', () => {
   const quiet = model({ c: { state: 'read', claims: [], prs: [] }, p: { state: 'read', items: [] }, project: studio({ waits: { state: 'read', items: [], more: 0 }, release: { state: 'none', main: MAIN, production: null, ahead: null, why: 'no production deploy recorded' } }), w: { items: [], why: 'from acme-mac' } });
   assert.deepEqual(quiet.lines, [], 'read and empty is quiet');
   assert.match(channelText(quiet), /^ {2}none in the window$/m);
+  // A session waiting on you with no recorded time is kept, dated at this read and marked: never "no lines" while someone waits.
+  const undated = model({ c: { state: 'read', claims: [], prs: [] }, p: { state: 'read', items: [] }, project: studio({ waits: { state: 'read', items: [], more: 0 }, release: { state: 'none', main: MAIN, production: null, ahead: null } }),
+    w: { items: [{ kind: 'session', title: '🏠 [studio] Remote Control is waiting on you', why: 'Ship the anvils?', read: 'claude --resume acme-3', plate: 'studio', ref: 'acme-3' }], why: 'from acme-mac' }, since: ago(HOUR) });
+  assert.deepEqual(undated.lines, [{ at: new Date(NOW).toISOString(), plate: 'studio', kind: 'waiting', actor: 'studio', text: '🏠 [studio] Remote Control is waiting on you (since unknown): Ship the anvils?',
+    ref: 'claude --resume acme-3', source: 'waiting', phase: null, pr: null, timeUnknown: true }], 'kept inside even a narrowed window');
+  assert.deepEqual([undated.hereNow, undated.hereIdle, undated.plates[0].count], [[], null, 1], 'a waiting session is a line, not an agent holding work');
+  assert.doesNotMatch(channelText(undated), /none in the window/);
+  assert.match(channelSection(undated), /<span class="p-badge">waiting<\/span> 🏠 \[studio\] Remote Control is waiting on you \(since unknown\)/);
   // A plate that could not be read, a source no reader returned, a practice that is off: each says so.
   const none = channelFor([channelInputOf({ id: 'anvils', name: 'Acme Anvils', repo: 'acme/anvils', state: 'unavailable', gaps: [{ source: 'project', reason: 'The App cannot read acme/anvils.' }] })], { now: NOW, waiting: null });
   assert.deepEqual(none.lines.map(l => l.text), ['sessions waiting on you unread', 'Acme Anvils was not read: The App cannot read acme/anvils.']);
