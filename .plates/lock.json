@@ -39,7 +39,7 @@
     },
     ".agents/robot/PROTOCOL.md": {
       "practice": "climb",
-      "sha256": "300a0cfa452b4dc510e8177eb36d40cc6323d90db659b5c786d6524b5b24b3f4"
+      "sha256": "184d309281912716899f6609652aca591acabf3b791d9504447e49d89cbe74ae"
     },
     ".agents/skills/conduct/SKILL.md": {
       "practice": "conduct",
@@ -99,11 +99,11 @@
     },
     ".github/workflows/plates-robot-route.yml": {
       "practice": "climb",
-      "sha256": "2756e52ea28c5ee955b5a72c31e2a7a63abe530dc625dea341f76b3b5b761421"
+      "sha256": "140ce39211a1f16a7adb4bb240c48d8aba1a295809b10350b99b728f87312595"
     },
     ".github/workflows/plates-robot.yml": {
       "practice": "climb",
-      "sha256": "40361cea7f309583e73d04328ffc103b93ec7fe1faba6577da10de9ac04fcbd5"
+      "sha256": "8d2d98937b0b68ddbe9870293f0d3af0af79fa892c546003c757cceaade026e0"
     },
     ".github/workflows/plates-tend.yml": {
       "practice": "climb",
@@ -139,7 +139,7 @@
     },
     "docs/phases/README.md": {
       "practice": "phases",
-      "sha256": "79ad68e7b0ef488f9e38855806dd99f8506216a874b8f07d0b428796f7df0eec"
+      "sha256": "4081495401790105ccd0a869d4e60ab6cf8535f413ee4a5394b539f7f42bc726"
     },
     "docs/plates-lessons.md": {
       "practice": "lessons",
@@ -155,7 +155,7 @@
     },
     "docs/templates/phase.md": {
       "practice": "phases",
-      "sha256": "5bcd3fca90ae060d07350b51d25a47a6b8c3e496bab3d59f04ecf1e740416044"
+      "sha256": "ba2e6cf3e3e6c9b686cf4d235f0b7bcda27c32378073e126d4aaf35aa9693cdd"
     },
     "renovate.json": {
       "practice": "renovate",

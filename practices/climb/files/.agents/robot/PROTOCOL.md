@@ -14,7 +14,9 @@ configured gate; report actual commands and results. The trusted judge reruns
 the full gate and compares executed tests with the trusted base. No scalar
 improvement target or invented measurement is required.
 
-Commit to the brief's keel/robot-N branch. Both providers use the disposable
+Commit to the exact branch named by the trusted brief (`plates/robot-N` for a
+fresh run; an existing PR keeps its branch, including `keel/robot-N`).
+Both providers use the disposable
 .plates/agent-git directory: git --git-dir=.plates/agent-git --work-tree=. <command>.
 Only commit objects leave the sandbox, never git config/hooks or working files.
 Finish with a concise account of the change, proof and remaining question.

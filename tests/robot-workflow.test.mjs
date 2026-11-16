@@ -24,11 +24,12 @@ test('robot workflow keeps build agent judge publisher boundaries and explicitly
  assert.doesNotMatch(text,/danger-full-access|safety-strategy: unsafe|gh pr merge/);
  assert.ok(section('agent').indexOf('name: robot-plan')<section('agent').indexOf('name: Robot build Claude'));
 });
-test('robot workflow object-only handoff executes without loading agent git hooks or config',async t=>{
+for (const branch of ['plates/robot-1', 'keel/robot-1', 'acme/retained-robot']) test(`robot workflow object-only handoff preserves ${branch} without loading agent git hooks or config`,async t=>{
  const root=await mkdtemp(join(tmpdir(),'acme-robot-shell-'));t.after(()=>rm(root,{recursive:true,force:true}));
  const temp=join(root,'temp');await mkdir(temp);
  git(root,'init','-q','-b','main');await writeFile(join(root,'acme.txt'),'base');git(root,'add','acme.txt');git(root,'commit','-qm','base');
- const base=git(root,'rev-parse','HEAD');git(root,'switch','-qc','keel/robot-1');
+ const base=git(root,'rev-parse','HEAD');git(root,'switch','-qc',branch);
+ await writeFile(join(temp,'robot-plan.json'),JSON.stringify({branch}));
  await mkdir(join(root,'.plates'));git(root,'clone','-q','--bare',join(root,'.git'),join(root,'.plates/agent-git'));
  const a=(...args)=>git(root,'--git-dir=.plates/agent-git','--work-tree=.',...args);
  a('config','user.name','Acme');a('config','user.email','acme@example.test');await writeFile(join(root,'acme.txt'),'fixed');a('add','acme.txt');a('commit','-qm','fixed');
@@ -37,10 +38,61 @@ test('robot workflow object-only handoff executes without loading agent git hook
  const script=runBlocks(await readFile(workflow,'utf8')).find(b=>b.step==='Take agent commits as objects only').script;
  const r=run('bash',['-e','-o','pipefail','-c',script],{cwd:root,env:{...process.env,RUNNER_TEMP:temp,GITHUB_SHA:base,ISSUE:'1'}});
  assert.equal(r.status,0,r.stdout+r.stderr);
- git(root,'fetch','-q',join(temp,'handoff/robot.bundle'),'refs/heads/keel/robot-1');
+ git(root,'fetch','-q',join(temp,'handoff/robot.bundle'),`refs/heads/${branch}`);
  assert.equal(git(root,'show','FETCH_HEAD:acme.txt'),'fixed');assert.equal(await readFile(join(temp,'handoff/message.txt'),'utf8'),'Acme corrected.');
 });
 
+
+
+// Exercise Actions' outer filter too: a correct inline router is unreachable
+// if GitHub skips the job before it starts.
+test('robot router event filter accepts both exact queue labels',async()=>{
+ const text=await readFile(router,'utf8');
+ const expression=text.split('    if: >-\n')[1].split('    runs-on:')[0].trim()
+  .replaceAll('github.event.issue.labels.*.name','github.event.issue.labels.map(l => l.name)');
+ const accepts=(event,eventName)=>Function('github','contains',`return ${expression}`)({event,event_name:eventName},(values,value)=>values.includes(value));
+ for(const name of ['plates:agent','keel:agent']) for(const action of ['labeled','reopened','created']) {
+  const event={sender:{type:'User'},issue:{labels:[{name}]},label:{name},action};
+  assert.equal(accepts(event,action==='created'?'issue_comment':'issues'),true,`${name} ${action}`);
+  assert.equal(accepts({...event,sender:{type:'Bot'}},'issues'),false);
+  assert.equal(accepts({...event,issue:{...event.issue,pull_request:{}}},'issues'),false);
+ }
+ for(const name of ['other','plates:agent-extra','KEEL:agent']) {
+  assert.equal(accepts({sender:{type:'User'},issue:{labels:[{name}]},label:{name},action:'labeled'},'issues'),false);
+ }
+ assert.equal(accepts({sender:{type:'User'},issue:{labels:[{name:'plates:agent'}]},label:{name:'other'},action:'labeled'},'issues'),false);
+});
+
+for (const branch of ['plates/robot-1','keel/robot-1','acme/retained-robot']) test(`robot fetch and checkout use the planned branch ${branch}`,async t=>{
+ const root=await mkdtemp(join(tmpdir(),'acme-robot-branch-'));t.after(()=>rm(root,{recursive:true,force:true}));
+ const temp=join(root,'temp'),checkout=join(root,'checkout'),origin=join(root,'origin.git');
+ await mkdir(temp);await mkdir(checkout);await mkdir(join(checkout,'scripts/plates'),{recursive:true});
+ git(checkout,'init','-q','-b','main');await writeFile(join(checkout,'acme.txt'),'base');git(checkout,'add','acme.txt');git(checkout,'commit','-qm','base');
+ const base=git(checkout,'rev-parse','HEAD'),previous=branch==='plates/robot-1'?null:base;
+ if(previous)git(checkout,'branch',branch);
+ git(checkout,'clone','-q','--bare',join(checkout,'.git'),origin);
+ git(checkout,'remote','add','origin',origin);
+ if(previous)git(checkout,'branch','-D',branch);
+ git(checkout,'switch','--detach',base);
+ await writeFile(join(temp,'robot-plan.json'),JSON.stringify({branch,previousHead:previous}));
+ // A synthetic trusted runtime models only local fetch and sandbox success.
+ await writeFile(join(checkout,'scripts/plates/robot.mjs'),`import {execFileSync} from 'node:child_process';
+import {writeFileSync} from 'node:fs';
+if(process.argv[2]==='fetch') {
+ writeFileSync(process.env.RUNNER_TEMP+'/fetch-ref',process.env.ROBOT_FETCH_REF);
+ execFileSync('git',['fetch','-q','origin',process.env.ROBOT_FETCH_REF]);
+}
+`);
+ const blocks=runBlocks(await readFile(workflow,'utf8'));
+ for(const name of ["Fetch the robot branch's recorded head",'Prepare isolated git objects for either provider']) {
+  const result=run('bash',['--noprofile','--norc','-e','-o','pipefail','-c',blocks.find(b=>b.step===name).script],{cwd:checkout,env:{...process.env,RUNNER_TEMP:temp,GITHUB_SHA:base,ISSUE:'1'}});
+  assert.equal(result.status,0,result.stdout+result.stderr);
+ }
+ if(previous)assert.equal(await readFile(join(temp,'fetch-ref'),'utf8'),`refs/heads/${branch}`);
+ else assert.equal(existsSync(join(temp,'fetch-ref')),false);
+ assert.equal(git(checkout,'symbolic-ref','HEAD'),`refs/heads/${branch}`);
+ assert.equal(git(checkout,'--git-dir=.plates/agent-git','symbolic-ref','HEAD'),`refs/heads/${branch}`);
+});
 
 test('robot recovery explicitly schedules review after successful publication despite skipped judge',async()=>{
  const text=await readFile(workflow,'utf8');
@@ -108,14 +160,16 @@ let receiptBody;globalThis.fetch=async (url,options)=>{const u=new URL(url),path
   assert.ok(out.calls.findIndex(c=>c.path===configPath)<out.calls.findIndex(c=>c.path===dispatchPath));
   assert.ok(out.calls.findIndex(c=>c.path===receiptPath)<out.calls.findIndex(c=>c.path===dispatchPath));
   assert.equal(out.posts[0].path,receiptPost);
-  assert.equal(out.posts[0].body.body,`<!-- keel:robot-authorization ${JSON.stringify({version:1,repo,issueNumber:7,bodyHash,writer:user.login,eventName:'issue_comment',action:'created',commentId:23})} -->`);
+  assert.equal(out.posts[0].body.body,`<!-- plates:robot-authorization ${JSON.stringify({version:1,repo,issueNumber:7,bodyHash,writer:user.login,eventName:'issue_comment',action:'created',commentId:23})} -->`);
   assert.deepEqual(out.posts[1],{path:dispatchPath,method:'POST',body:{ref:'release/acme',inputs:{robot_trigger:JSON.stringify({version:1,repo,eventName:'issue_comment',action:'created',issueNumber:7,commentId:23,sender:user.login,authorizationId:91,bodyHash})}}});
  }
- for (const action of ['labeled','reopened']) {
-  const out=await invoke({eventName:'issues',payload:{...event,action,label:{name:'keel:agent'}}});
+ for (const name of ['plates:agent','keel:agent']) for (const action of ['labeled','reopened','created']) {
+  const currentIssue={...issue,labels:[{name}]};
+  const out=await invoke({eventName:action==='created'?'issue_comment':'issues',payload:{...event,issue:currentIssue,action,label:{name}},overrides:{[issuePath]:{status:200,data:currentIssue}}});
   assert.equal(out.status,0,out.stderr);assert.equal(out.posts.length,2);
   const trigger=JSON.parse(out.posts[1].body.inputs.robot_trigger);
-  assert.equal(trigger.action,action);assert.equal(trigger.commentId,null);assert.equal(trigger.eventName,'issues');
+  assert.equal(trigger.action,action);assert.equal(trigger.commentId,action==='created'?23:null);assert.equal(trigger.eventName,action==='created'?'issue_comment':'issues');
+  assert.match(out.posts[0].body.body,/^<!-- plates:robot-authorization /);
  }
  const rejected = [
   {payload:{...event,issue:{...issue,body:undefined}}},
@@ -323,7 +377,7 @@ test('robot preparation failure is the agent job output the publisher records',a
  git(root,'switch','-qc','acme-previous');await writeFile(join(root,'acme.txt'),'robot change\n');git(root,'commit','-qam','robot');const previous=git(root,'rev-parse','HEAD');
  git(root,'switch','-q','main');await writeFile(join(root,'acme.txt'),'owner change\n');git(root,'commit','-qam','owner');const sha=git(root,'rev-parse','HEAD');
  git(root,'branch','-q','-D','acme-previous');git(root,'switch','-q','--detach',sha);
- await writeFile(join(temp,'robot-plan.json'),JSON.stringify({previousHead:previous}));
+ await writeFile(join(temp,'robot-plan.json'),JSON.stringify({branch:'plates/robot-1',previousHead:previous}));
  const script=runBlocks(text).find(b=>b.step==='Prepare isolated git objects for either provider').script;
  const r=run('bash',['--noprofile','--norc','-e','-o','pipefail','-c',script],{cwd:root,env:{...process.env,RUNNER_TEMP:temp,GITHUB_SHA:sha,ISSUE:'1'}});
  assert.notEqual(r.status,0,'a conflicting merge fails the preparation step');
