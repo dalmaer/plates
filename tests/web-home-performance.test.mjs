@@ -8,7 +8,7 @@ import { createProjectReader } from '../lib/web/projects.mjs';
 import { projectHarness } from './helpers/web-projects.mjs';
 
 const independent = new Set(['plates_home_quota_rpc', 'plates_not_now_rpc', 'plates_last_looked_rpc', 'plates_waiting_rpc']);
-test('Home starts all four independent store reads together and preserves gaps', async () => {
+test('Home overlaps its independent reads with quota, records a visit only after quota, and preserves gaps', async () => {
   const h = projectHarness(), started = []; let active = 0, peak = 0;
   const fetcher = async (url, options) => {
     const name = new URL(url).pathname.split('/').at(-1), p = JSON.parse(options.body ?? '{}');
@@ -22,9 +22,22 @@ test('Home starts all four independent store reads together and preserves gaps',
   };
   const read = createHomeReader(h.config, { fetcher, now: () => h.state.now });
   const model = await read(h.access, 'fake-token', { cacheOnly: true, visit: true });
-  assert.equal(peak, 4);
-  assert.equal(started.length, 4); assert.ok(started.some(([name, op]) => name === 'plates_last_looked_rpc' && op === 'visit'));
+  assert.equal(peak, 3, 'quota, Not now and waiting overlap; the visit write waits for quota');
+  assert.equal(started.length, 4); assert.deepEqual(started.at(-1), ['plates_last_looked_rpc', 'visit']);
   assert.ok(JSON.stringify(model).includes('Not now records could not be read'));
+});
+
+test('a failed quota read records no visit', async () => {
+  const h = projectHarness(), seen = [];
+  const fetcher = async (url, options) => {
+    const name = new URL(url).pathname.split('/').at(-1), p = JSON.parse(options.body ?? '{}');
+    if (independent.has(name)) seen.push([name, p.p_operation]);
+    if (name === 'plates_home_quota_rpc') return Response.json({ error: 'unavailable' }, { status: 503 });
+    return h.fetcher(url, options);
+  };
+  const read = createHomeReader(h.config, { fetcher, now: () => h.state.now });
+  await assert.rejects(read(h.access, 'fake-token', { cacheOnly: true, visit: true }));
+  assert.ok(!seen.some(([name, op]) => name === 'plates_last_looked_rpc' && op === 'visit'), 'no visit is written');
 });
 
 test('each independent store refusal still fails the Home read', async () => {
