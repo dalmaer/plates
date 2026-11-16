@@ -73,7 +73,7 @@ test('Recurring reads its own endpoint, and times are said in the viewer\'s zone
   assert.equal(times[0].textContent, '23:23 PST', 'said in the viewer\'s zone before any read');
   await p.run();
   assert.deepEqual(asked, ['/api/recurring']);
-  assert.match(p.list.innerHTML, /data-recurring-plate="studio"/); assert.match(p.side.outerHTML, /<a href="\/recurring" aria-current="page">Recurring/);
+  assert.match(p.list.innerHTML, /data-recurring-plate="studio"/); assert.match(p.side.outerHTML, /<a href="\/recurring" aria-current="true">Recurring/);
   assert.equal(p.timers.length, 0, 'every plate read: done');
   assert.equal(localTime('2026-11-09T10:18:00.000Z', 'weekday-time', 'Europe/London'), 'Mon, 10:18 GMT');
   assert.equal(localTime('nope', 'time'), null);
@@ -90,7 +90,7 @@ test('Agents reads its own endpoint', async () => {
   await p.run(); assert.equal(p.timers.length, 1, 'still loading: read again');
   await p.run(); assert.equal(p.timers.length, 0);
   assert.deepEqual(asked, ['/api/agents', '/api/agents']);
-  assert.match(p.list.innerHTML, /Pending review/); assert.match(p.side.outerHTML, /<a href="\/agents" aria-current="page">Agents <span class="p-badge">0<\/span>/);
+  assert.match(p.list.innerHTML, /Pending review/); assert.match(p.side.outerHTML, /<a href="\/agents" aria-current="true">Agents <span class="p-badge">0<\/span>/);
 });
 
 // Phase 179: By goal reads the backlog's endpoint and renders its own arrangement, with the backlog's sidebar.
@@ -102,5 +102,5 @@ test('By goal reads the backlog and arranges it', async () => {
   startBacklogClient({ document: p.document, window: p.window, fetch: async url => { asked.push(url); return { status: 200, json: async () => answers.shift() }; }, renderBacklog, renderSidebar, renderByGoal });
   await p.run();
   assert.deepEqual(asked, ['/api/backlog']);
-  assert.match(p.list.innerHTML, /data-goal="app0:goal:none"/); assert.match(p.side.outerHTML, /<a href="\/backlog" aria-current="page">Backlog/);
+  assert.match(p.list.innerHTML, /data-goal="app0:goal:none"/); assert.match(p.side.outerHTML, /<a href="\/backlog" aria-current="true">Backlog/);
 });

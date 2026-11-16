@@ -35,7 +35,7 @@ test('/recurring lists each plate\'s routines, with Humans and Links, behind Hom
   // The page: the same shell and sidebar as the backlog, Recurring current, times in UTC for the client to say locally.
   const html = await (await s.get('/recurring')).text();
   assert.match(html, /data-backlog-root data-view="recurring" data-endpoint="\/api\/recurring"/);
-  assert.match(html, /<a href="\/recurring" aria-current="page">Recurring <span class="p-badge">2<\/span><\/a>/);
+  assert.match(html, /<a href="\/recurring" aria-current="true">Recurring <span class="p-badge">2<\/span><\/a>/);
   assert.match(html, /<a href="\/backlog">Backlog<\/a>/);
   assert.match(html, /data-routine="tend"[^]*?weekly on <time datetime="[^"]+T10:18:00\.000Z" data-local="weekday-time">Mon, 10:18 UTC<\/time>/);
   assert.match(html, /<ul data-sidebar-links><li>Acme Studio: <a href="https:\/\/github.com\/acme\/studio"[^>]*>repo ↗<\/a> · <a href="https:\/\/canvas.acme.example"[^>]*>canvas ↗<\/a> · <a href="https:\/\/studio.acme.example"[^>]*>production ↗<\/a><\/li><\/ul>/);

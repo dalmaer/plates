@@ -10,7 +10,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
-import { PGlite } from '@electric-sql/pglite';
+import { primeMigratedSnapshots, restoreMigratedPGlite } from './helpers/web-pglite.mjs';
 
 const ROOT = new URL('../', import.meta.url);
 const MIGRATIONS = new URL('lib/web/migrations/', ROOT);
@@ -99,12 +99,8 @@ function parts(text) {
 }
 
 async function database(upTo) {
-  const db = new PGlite();
-  await db.exec('CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;');
-  const files = (await readdir(MIGRATIONS)).filter(f => f.endsWith('.sql')).sort();
-  assert.ok(files.includes(upTo), upTo);
-  for (const file of files.slice(0, files.indexOf(upTo) + 1)) await db.exec(await readFile(new URL(file, MIGRATIONS), 'utf8'));
-  return db;
+  await primeMigratedSnapshots(PROOFS.map(p => p.migration));
+  return restoreMigratedPGlite({ upTo });
 }
 
 /** Row counts of every private table: a proof must leave each unchanged. */

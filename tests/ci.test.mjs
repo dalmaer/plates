@@ -2,10 +2,10 @@
 // used by the production night and adoption preview. No real project data.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, chmod } from 'node:fs/promises';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { readCiUsage, readCiGate, ciOptions } from '../practices/night/files/scripts/plates/ci.mjs';
+import { readCiUsage, readCiGate, ciOptions, actionsClient } from '../practices/night/files/scripts/plates/ci.mjs';
 import { gateWorkflowOf } from '../practices/night/files/scripts/plates/lib.mjs';
 import { MEASURES, measure } from '../practices/night/files/scripts/plates/improve.mjs';
 import { ghStub, scratch, ENV } from './helpers/improve.mjs';
@@ -542,4 +542,44 @@ test('CI attempt-scoped readers allow absent job attempts but reject present mis
     assert.equal(unknown.weightedMinutes, null);
     assert.equal((await reuse([invalid])).reused, false, JSON.stringify(extra));
   }
+});
+
+
+test('Actions job reads overlap within four slots and isolate failed pages', async t => {
+  const rows = Array.from({ length: 16 }, (_, i) => run(i + 1));
+  let active = 0, peak = 0;
+  const started = performance.now();
+  const result = await readCiUsage({ repo, now, request: async path => {
+    if (path === `repos/${repo}`) return { private: false, created_at: '2020-01-01T00:00:00Z' };
+    if (path.includes('/actions/runs?')) return page('workflow_runs', rows);
+    const id = Number(/runs\/(\d+)\//.exec(path)?.[1]);
+    assert.ok(id);
+    peak = Math.max(peak, ++active);
+    await new Promise(resolve => setTimeout(resolve, 15));
+    active--;
+    if (id === 2) throw new Error('Acme unavailable');
+    return page('jobs', [job(100 + id, id)]);
+  } });
+  t.diagnostic(`Actions 16 runs: ${(performance.now() - started).toFixed(1)} ms; peak ${peak}`);
+  assert.equal(result.observedWeightedMinutes, 15);
+  assert.equal(result.weightedMinutes, null);
+  assert.equal(result.coverage.complete, false);
+  assert.equal(result.workflows[0].runs.find(r => r.id === 1).runComplete, true, 'another run failing must not poison a successful run');
+  assert.ok(peak > 1 && peak <= 4, `expected 2–4 concurrent requests, got ${peak}`);
+});
+
+
+test('Actions transport yields to the event loop and reserves its request budget before dispatch', async t => {
+  const dir = await scratch(t), stub = join(dir, 'acme-gh');
+  await writeFile(stub, "#!/bin/sh\nsleep 0.03\nprintf '{}'\n");
+  await chmod(stub, 0o755);
+  const client = actionsClient({ repo, env: { ...ENV, PLATES_GH: stub }, limits: { requests: 2 } });
+  let yielded = false;
+  const timer = setTimeout(() => { yielded = true; }, 0);
+  t.after(() => clearTimeout(timer));
+  const reads = [client.get('acme-one'), client.get('acme-two')];
+  await assert.rejects(client.get('acme-three'), /request budget exhausted/);
+  await Promise.all(reads);
+  assert.equal(yielded, true, 'the gh transport must not block the event loop');
+  assert.equal(client.coverage.requests, 2);
 });

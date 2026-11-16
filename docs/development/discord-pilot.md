@@ -310,7 +310,7 @@ hosted-service restrictions must be checked against the chosen deployment.
 does not generally authorize third-party use of personal subscription login.
 Use provider-approved billing credentials unless a different route is verified.
 
-## Shortest remaining onboarding sequence
+## Before another live attempt
 
 1. Approve mode A with two dedicated workers, provider-approved billing/auth,
    pinned models and small admission allowances, accepting that dollar estimates
@@ -319,14 +319,15 @@ Use provider-approved billing credentials unless a different route is verified.
    network using the [host guide](discord-host.md), on internal storage. Validate
    the worker boundary without credentials, then test session resume/cancellation
    in the separately approved live acceptance run.
-3. Approve/create/install the two bots with `#test` overrides. Enter the four secrets
-   (or explicitly approved alternatives) in the secure store and privately configure
-   verified IDs. Do not include Ben's bot yet.
+3. Recheck the existing two bots, `#test` overrides, private secret bindings and
+   verified IDs from the retained trial. Provision changes only under their own
+   approval. Do not include Ben's bot yet.
 4. Review the exact dry-run digest, then separately approve one bounded live test
    through `startPilot` on that verified host. In a human-created thread, mention
    Codex, observe a Claude handoff and four-hop bound, then test human stop.
    Record live evidence before expanding to `#agents` or enabling auto-start.
 
-No live activation, app install, credential provisioning, paid call, message,
-push/PR/merge or deployment has occurred. Full repository integration gates remain
-required before publication; only focused checks were requested during the backup.
+The four stopped local attempts are recorded in the trial evidence above; they
+do not establish a successful conversation or an enabled persistent service.
+Another live attempt needs its own exact approval. Full repository integration
+gates remain required before publication.

@@ -5,7 +5,7 @@
 // read: the morning's brief and the plan card.
 //
 //   the evening   the owner shapes tonight's plan (plates goodnight, --yes pushes it)
-//   the night     plates-night.yml's own steps: Plan the night, Measure, Open the night's pull request
+//   the night     plates-night.yml's own steps: Plan the night, Measure, Prepare/Open the night's pull request
 //   the card      plates-morning.yml after each pass: decide, then the card (the fake isocan home)
 //   climb         plates-climb.yml's own steps: Read tonight's plan, Pick tonight's job, Tick tonight's plan
 //   the morning   plates-morning.yml at 17:07 UTC: decide, finalize, send, the card; and once more after
@@ -211,7 +211,7 @@ async function box(t, { broken = null } = {}) {
   await chmod(join(bin, 'gh'), 0o755);
   await chmod(join(bin, 'date'), 0o755);
 
-  const clean = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^(GITHUB_|RUNNER_|PLATES_GH$|NODE_OPTIONS$)/.test(k)));
+  const clean = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^(GITHUB_|GH_|RUNNER_|PLATES_GH$|NODE_OPTIONS$)/.test(k)));
   /** The world at `now`: a runner's environment, the stub gh, the frozen clock, no network. */
   const world = now => ({
     ...clean, PATH: `${bin}:${dirname(process.execPath)}:${process.env.PATH}`, TZ: 'UTC', CI: 'true',
@@ -227,7 +227,7 @@ async function box(t, { broken = null } = {}) {
     git(base, 'clone', '-q', origin, at);
     const temp = join(base, `${String(jobs).padStart(2, '0')}-${name}-temp`);
     await mkdir(temp);
-    return { dir: at, temp };
+    return { dir: at, temp, sha: git(at, 'rev-parse', 'HEAD') };
   };
   const texts = {};
   /** One named step of a shipped workflow, its own shell, in `j`'s checkout at `now`: { status, out, outputs }. */
@@ -235,28 +235,45 @@ async function box(t, { broken = null } = {}) {
     texts[yml] ??= await readFile(join(PLATES, yml), 'utf8');
     const blocks = runBlocks(texts[yml]).filter(b => b.step === name);
     assert.equal(blocks.length, 1, `${yml} has one step "${name}"`);
-    // runBlocks extracts shell only; Actions also supplies this step's literal
-    // recovery setting. Read it from the Measure header, never forge a lease.
+    // runBlocks extracts shell only; read the step-scoped token and literal
+    // recovery setting from its header, never forge a recovery lease.
     const stepEnv = {};
+    const preceding = texts[yml].split('\n').slice(0, blocks[0].line - 1);
+    const start = preceding.findLastIndex(line => line.trim() === `- name: ${name}`);
+    if (preceding.slice(start).some(line => line.trim() === 'GH_TOKEN: ${{ github.token }}')) stepEnv.GH_TOKEN = 'acme-step-token';
     if (yml === NIGHT_YML && name === 'Measure') {
-      const preceding = texts[yml].split('\n').slice(0, blocks[0].line - 1);
-      const start = preceding.findLastIndex(line => /^\s*- name: Measure$/.test(line));
       const recovery = /^\s+PLATES_NIGHT_RECOVERY: "([^"]+)"$/m.exec(preceding.slice(start).join('\n'))?.[1];
       assert.equal(recovery, '1', 'the shipped Measure step enables actual prior-branch recovery');
       stepEnv.PLATES_NIGHT_RECOVERY = recovery;
     }
     const output = join(j.temp, `output-${Math.random().toString(36).slice(2)}`);
     await writeFile(output, '');
-    const r = run('bash', ['-e', '-c', blocks[0].script], { cwd: j.dir, env: { ...world(now), RUNNER_TEMP: j.temp, GITHUB_OUTPUT: output, GITHUB_ENV: join(j.temp, 'env'), ...stepEnv, ...env } });
+    const r = run('bash', ['-e', '-c', blocks[0].script], { cwd: j.dir, env: { ...world(now), GITHUB_SHA: j.sha, RUNNER_TEMP: j.temp, GITHUB_OUTPUT: output, GITHUB_ENV: join(j.temp, 'env'), ...stepEnv, ...env } });
     const outputs = Object.fromEntries((await readFile(output, 'utf8')).split('\n').filter(l => /^\w+=/.test(l)).map(l => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]));
     return { status: r.status, out: r.stdout + r.stderr, outputs };
+  };
+  const publishNight = async (j, now, env) => {
+    const prepared = await step(NIGHT_YML, "Prepare the night's pull request", j, now, env);
+    assert.equal(prepared.status, 0, prepared.out);
+    assert.match(prepared.outputs.head, /^[a-f0-9]{40}$/, 'the night prepared a commit');
+    const kept = await step(NIGHT_YML, 'Keep publication data', j, now);
+    assert.equal(kept.status, 0, kept.out);
+    assert.equal(kept.outputs.ready, 'true');
+    assert.match(texts[NIGHT_YML], /publish:\n    needs: night\n    if: always\(\) && needs.night.outputs.transfer == 'true'/);
+    const publisher = await job('night-publish');
+    await cp(join(j.temp, 'publication'), join(publisher.temp, 'publication'), { recursive: true });
+    const restored = await step(NIGHT_YML, 'Restore publication data', publisher, now);
+    assert.equal(restored.status, 0, restored.out);
+    const opened = await step(NIGHT_YML, "Open the night's pull request", publisher, now, { ...env, HEAD: prepared.outputs.head });
+    assert.equal(git(publisher.dir, 'rev-parse', 'HEAD'), publisher.sha, 'the publisher never checks out the prepared commit');
+    return opened;
   };
   const ghState = async () => JSON.parse(await readFile(state, 'utf8'));
   const ghCalls = async () => (await readFile(log, 'utf8')).split('\n').filter(Boolean).map(l => JSON.parse(l).a);
   /** A file on a branch of the origin, or null. */
   const onOrigin = (branch, path) => { const r = run('git', ['--git-dir', origin, 'show', `refs/heads/${branch}:${path}`]); return r.status === 0 ? r.stdout : null; };
   const planOn = branch => JSON.parse(onOrigin(branch, branch === PLAN_BRANCH ? REMOTE_PLAN : `docs/night/${NIGHT}.json`) ?? 'null');
-  return { base, root, origin, f, versions, broken, world, job, step, ghState, ghCalls, onOrigin, planOn, texts };
+  return { base, root, origin, f, versions, broken, world, job, step, publishNight, ghState, ghCalls, onOrigin, planOn, texts };
 }
 
 // ---- the night ----------------------------------------------------------------
@@ -351,7 +368,7 @@ async function night(t, options) {
     assert.equal(measured.outputs.day, NIGHT, measured.out);
     const measurement = JSON.parse(await readFile(join(b.night.temp, 'improve.json'), 'utf8'));
     assert.deepEqual(measurement.nightRecovery, { branch: `plates-night/${NIGHT}`, head: '', attempts: 0 }, 'the real reader observed no prior branch in the bare origin');
-    const pr = await b.step(NIGHT_YML, 'Open the night\'s pull request', b.night, AT.night, { DAY: measured.outputs.day, PLAN_DAY: NIGHT, BASE: 'main', HEALTH: 'docs/health' });
+    const pr = await b.publishNight(b.night, AT.night, { DAY: measured.outputs.day, PLAN_DAY: NIGHT, BASE: 'main', HEALTH: 'docs/health' });
     assert.equal(pr.status, 0, pr.out);
     assert.match(pr.out, /the default plan is not written to plates-night-plan: tonight's plan is the owner's/);
     const record = b.planOn(`plates-night/${NIGHT}`);
@@ -553,7 +570,7 @@ test("a night started under keel's names finishes under them, and drains with pl
   const selected=await b.step(NIGHT_YML,'Plan the night',nightJob,AT.night);assert.equal(selected.status,0,selected.out);assert.match(selected.out,/"branch":"keel-night-plan"/);
   assert.deepEqual(JSON.parse(await readFile(join(nightJob.dir,PLAN),'utf8')),owner);
   const measured=await b.step(NIGHT_YML,'Measure',nightJob,AT.night);assert.equal(measured.outputs.day,NIGHT,measured.out);
-  const opened=await b.step(NIGHT_YML,"Open the night's pull request",nightJob,AT.night,{DAY:NIGHT,PLAN_DAY:NIGHT,BASE:'main',HEALTH:'docs/health'});assert.equal(opened.status,0,opened.out);
+  const opened=await b.publishNight(nightJob,AT.night,{DAY:NIGHT,PLAN_DAY:NIGHT,BASE:'main',HEALTH:'docs/health'});assert.equal(opened.status,0,opened.out);
   assert.ok(b.planOn(`keel-night/${NIGHT}`));assert.equal(b.planOn(`plates-night/${NIGHT}`),null);
   const finalJob=await b.job('Acme-upgraded-final');
   const ticked=await record({root:finalJob.dir,date:NIGHT,ticks:[{id:'acme-followup',status:'done',note:'Acme reviewed'}],env:b.world(AT.morning)});assert.equal(ticked.recorded,true,JSON.stringify(ticked));

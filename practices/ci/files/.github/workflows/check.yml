@@ -59,10 +59,11 @@ jobs:
           fi
       # The test ledger's record of this run (scripts/plates/test-ledger.mjs, the
       # night practice), kept as an artifact even when the check failed: the
-      # night reads the newest ones on the default branch to say which test is
+      # night reads default-branch push runs only; PR/manual artifacts cannot
+      # supply reusable history. Keep failed pushes too, to say which test is
       # flaky or slower. A project without the reporter has nothing to keep.
       - name: Keep the test ledger
-        if: always()
+        if: always() && github.event_name == 'push'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: plates-test-runs

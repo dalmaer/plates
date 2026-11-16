@@ -45,14 +45,14 @@ Plates work: deciding, walking, reading what changed and what ran.
 
 ## Your part
 
-- **Ask:** Switch on the next piece of the web workspace: private drafts for walks (migration 005)? I run it in your signed-in Supabase tab while you watch.
-- **Why:** Steps 1–5 and migrations 017 and 018 are done; 005 is next in the plan and lets you start a walk on your phone and finish it later.
-- **Look at:** Step 6 of the [activation guide](../guide/web-activation.md).
+- **Ask:** Inspect the installed private drafts store (migration 005) and run its hosted proof? I check it in your signed-in Supabase tab while you watch.
+- **Why:** The 2026-11-16 inventory found 005–013 and 022 installed but unrecorded; their applied file identities and hosted proofs still need checking, starting with private drafts.
+- **Look at:** The inventory and private-drafts proof in the [activation guide](../guide/web-activation.md).
 - **Choices:** Go | Not this week
 - **Recommend:** Go
 - **Keeps it open:** Not this week
 - **Takes:** About 15 minutes, with Supabase open in Chrome.
-- **Then:** Go: the conductor applies 005, runs its proof, records it, and asks about the next step the same way. Not this week: it waits.
+- **Then:** Go: the conductor inspects 005, runs its proof, records the result, and asks about the next step the same way. Not this week: it waits.
 - **Ready:** yes
 
 ## Real surfaces
@@ -69,14 +69,18 @@ By hand: the activation session's hosted proofs; a week of use.
 
 ## Deliberately open
 
-- **Backup destination** (phase 94) is still the owner's decision; activation
-  of anything that stores private data waits for it or records the risk.
+- **Backup operation** (phase 94): the destination and first encrypted read-back
+  were recorded on 2026-10-31. The nightly schedule and second decryption-key copy
+  remain the owner's actions; inspect backup freshness before new migrations.
 
 ## Next action
 
-Step 6 with the owner present: migration 005 with its proof and a draft
-revision race (rehearsed on PGlite), then steps 7–13. The owner installs the
-nightly backup schedule.
+Inspect installed 005–013 and 022 against their applied file identities and
+hosted proofs with the owner, starting with 005's draft revision race; do not
+reapply them. The 2026-11-16 inventory and repair 023 proof are recorded in the
+[activation guide](../guide/web-activation.md). Continue its remaining gates and
+owner walks only after those checks. The owner installs the nightly backup
+schedule and stores the second decryption-key copy.
 
 ## Trajectory
 - **2026-11-06** "Book a session" became one step at a time: each activation step is its own short question.

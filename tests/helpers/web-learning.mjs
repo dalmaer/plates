@@ -68,6 +68,8 @@ export function learningHarness() {
     if (path === "/repositories/101")
       return other.fetcher(new URL("/repositories/102", u).href, options);
     if (path.startsWith("/repos/acme/keel-private/")) {
+      if (path === "/repos/acme/keel-private/git/ref/heads/main")
+        return Response.json({ ref: "refs/heads/main", object: { type: "commit", sha: workspace.head } });
       if (path === "/repos/acme/keel-private/commits/main")
         return Response.json({ sha: workspace.head });
       if (path.includes("/contents/")) {

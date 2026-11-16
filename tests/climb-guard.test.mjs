@@ -139,7 +139,7 @@ test('build guard: fails when the build output changes and no harmless reason na
   const dir = await acme(t, { climb: cfg, config: { check: LEDGER_TEST }, files: { 'build.mjs': build('acme anvils\n'), '.gitignore': 'dist/\n', 'acme.test.mjs': suite('acme adds') } });
   const base = git(dir, ['rev-parse', 'HEAD']);
   const m = await load(dir);
-  json(climb(dir, ['measure', 'build-time', '--baseline', '--runs', '1', '--json']));
+  await write(dir, { '.plates/climb/.gitignore': '/*\n!/lessons/\n', '.plates/climb/night.json': JSON.stringify({ job: 'build-time', kind: 'timed', date: '2026-10-06', started: '2026-10-06T00:00:00.000Z', base, command: cfg.build, margin: 0.05, attempts: 10, rounds: 2, baseline: { median: 10, spread: 0, times: [10] }, tried: [], gate: null, final: null }) });
   const at = async (branch, text) => { git(dir, ['checkout', '-q', '-b', branch, base]); return commit(dir, { 'build.mjs': text }, `acme: ${branch}`); };
 
   await at('same', `// one pass, not two\n${build('acme anvils\n')}`);
@@ -247,7 +247,7 @@ test('sandbox: a path git quotes (a non-ASCII byte, a quote) is read as it is: a
 
 test('a forged base: the judge passes the run\'s commit, and a pass or night record naming another base is refused; the commits before it never escape the guard (ledger#92)', async t => {
   // tend: an evidence edit, then a cited fix; the agent's record names the fix's parent as its base.
-  const dir = await acme(t, { climb: { jobs: ['test-time'], testCommand: 'node t.mjs' }, config: { check: 'true' }, files: { 't.mjs': '\n', 'docs/evidence/01-acme.md': '# checked\n', 'docs/acme.md': '# Acme\n' } });
+  const dir = await acme(t, { climb: { jobs: ['perf'], perf: { command: 'node t.mjs', better: 'lower' } }, config: { check: 'true' }, files: { 't.mjs': 'console.log(1);\n', 'docs/evidence/01-acme.md': '# checked\n', 'docs/acme.md': '# Acme\n' } });
   const base = git(dir, ['rev-parse', 'HEAD']);
   git(dir, ['checkout', '-q', '-b', 'keel-tend/2026-10-12']);
   const hidden = await commit(dir, { 'docs/evidence/01-acme.md': '# checked, and lived-in\n' }, 'acme: evidence\n\nTend: drift:1');
@@ -267,10 +267,10 @@ test('a forged base: the judge passes the run\'s commit, and a pass or night rec
   assert.match(json(honest).problems.join('\n'), /^docs\/evidence\/01-acme\.md:1: edits evidence/m);
 
   // climb: the night's record names a commit past the run's.
-  git(dir, ['checkout', '-q', '-f', '-b', 'keel-climb/test-time/2026-10-12', base]);
-  json(climb(dir, ['measure', 'test-time', '--baseline', '--runs', '1', '--json']));
-  const first = await commit(dir, { 't.mjs': '// first\n' }, 'acme: first');
-  await commit(dir, { 't.mjs': '// second\n' }, 'acme: second');
+  git(dir, ['checkout', '-q', '-f', '-b', 'keel-climb/perf/2026-10-12', base]);
+  json(climb(dir, ['measure', 'perf', '--baseline', '--runs', '1', '--json']));
+  const first = await commit(dir, { 't.mjs': 'console.log(1); // first\n' }, 'acme: first');
+  await commit(dir, { 't.mjs': 'console.log(1); // second\n' }, 'acme: second');
   const nightFile = join(dir, '.plates/climb/night.json');
   const night = JSON.parse(await readFile(nightFile, 'utf8'));
   assert.equal(night.base, base);

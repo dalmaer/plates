@@ -390,8 +390,8 @@ transport stays separate from the independent acceptance authority.
   `plates phase claim`, `plates ready`, `plates integrate`, `plates drain`,
   `plates promote`, `plates issue`, `plates loose-ends`, `plates sessions`.
 - **Workspace and canvas:** `plates canvas`, `plates workspace`,
-  `plates home`, `plates channel` (its read model is `lib/channel.mjs`,
-  rendered by the CLI and `lib/web/channel-views.mjs`), `plates board`.
+  `plates channel` (its read model is `lib/channel.mjs`, rendered by the CLI
+  and `lib/web/channel-views.mjs`), `plates home`.
 - **Policy: autonomy, capacity, doors:** `plates autonomy`. Capacity and door
   policy have no verb of their own.
 
@@ -400,6 +400,15 @@ existing retro surface: bounded supplied PR metadata, candidate limit, previous
 report and reference mix. Plates owns these private evidence and judgment records.
 The retained local execution prototype remains unexposed pending review of an
 adopted execution boundary; it grants no process, provider or scheduling authority.
+
+### Retired compatibility stubs
+
+`plates board` is retired in phase 156; it only directs callers to `plates home`
+and exits 2. It remains in the surface budget while the stub is exposed, but is
+not an active owned operation.
+
+The dispatcher accepts `plates --help` and `plates -h` as top-level help aliases.
+They are not shared per-verb flags; use `plates help --json` for verb synopses.
 
 ## Rules plates holds itself to
 
@@ -481,7 +490,8 @@ dependency-free runtime gate. This is not a decision to port Plates.
   **Settled 2026-10-04 (phase 22):** two versions. The CLI's is
   `package.json` and the release tag; the practice's is `practices/VERSION`,
   the one file every reader goes through. `plates release` always bumps the
-  CLI, and bumps the practice only when `practices/` or `migrations/` differ
+  CLI, and bumps the practice only when `practices/`, `migrations/` or
+  `docs/lessons.md` differ
   from the last practice release (the last commit that changed
   `practices/VERSION`, else its tag); the WHATSNEW entry says which kind it
   was, and `plates update` carries only practice entries. What settled it: the

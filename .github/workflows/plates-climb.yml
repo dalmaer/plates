@@ -359,16 +359,19 @@ jobs:
       # STITCH_API_KEY, no stitch, a pull that fails) is a notice, never red:
       # the night proposes for the findings already here, and its record
       # says why it did not pull.
+      - name: Install the stitch CLI
+        if: steps.pick.outputs.job == 'loop'
+        run: |
+          if [ ! -f .github/workflows/plates-loop.yml ]; then
+            if ! { npm install -g @google/stitch@0.11.0 --ignore-scripts && stitch enable loop; }; then
+              echo "::notice::The stitch CLI could not be installed or switched on; the pull says so below."
+            fi
+          fi
       - name: Pull Loop's findings
         if: steps.pick.outputs.job == 'loop'
         env:
           STITCH_API_KEY: ${{ secrets.STITCH_API_KEY }}
         run: |
-          if [ -n "$STITCH_API_KEY" ] && [ ! -f .github/workflows/plates-loop.yml ]; then
-            if ! { npm install -g @google/stitch@0 && stitch enable loop; }; then
-              echo "::notice::The stitch CLI could not be installed or switched on; the pull says so below."
-            fi
-          fi
           node scripts/plates/climb.mjs loop-pull
 
       # Codex's sandbox keeps .git read-only (phase 47): its commits go to a

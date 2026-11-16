@@ -50,7 +50,13 @@ Do not generate expected results and pretend they were observed. Automated captu
 
 ## Next action
 
-Use the fresh owner-supplied Vercel authentication code to finish approved hosted migrations 004/005 and their role/concurrency proof, then deploy and walk a real authored result. Keep source submission disabled until separate Contents-write approval and the instance opt-in. Follow the owner steps in the evidence; synthetic observations are not that walk.
+Inspect the installed migration 005 file identity and run its hosted role and
+concurrency proof with the owner; the 2026-11-16 read-only inventory found its
+RPCs installed but unrecorded. Migration 004 and Contents-write approval were
+recorded on 2026-10-31. Follow the [activation guide](../guide/web-activation.md):
+verify the current draft/source-write gates and serving revision, then walk a
+real authored result. Do not reapply installed migrations or reuse an old
+sign-in code; synthetic observations are not the owner's walk.
 
 ## Trajectory
 

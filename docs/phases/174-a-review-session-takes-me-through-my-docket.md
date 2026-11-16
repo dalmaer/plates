@@ -71,7 +71,9 @@ By hand: the owner's session on the phone. "Not the right shape" changes the des
 
 ## Next action
 
-Deploy phases 173 and 174 with migration 017 applied, then the owner runs a real session on the phone.
+Verify the serving build includes phases 173 and 174, deploying it if needed,
+then the owner runs a real session on the phone. Phase 173 records migration 017 applied on 2026-11-04;
+inspect its retained proof and current behavior rather than reapplying it.
 
 ## Trajectory
 

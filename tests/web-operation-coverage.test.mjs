@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseRenameArgs } from '../lib/rename.mjs';
 import { verbs } from '../lib/cli.mjs';
 import cliData from '../lib/web/capability-cli-data.mjs';
+import routineData from '../lib/web/capability-routine-data.mjs';
 import { capabilityCatalogue } from '../lib/web/capability-registry.mjs';
 import { auditOperationCoverage, reviewedOperationSources } from '../lib/web/capability-source-inventory.mjs';
 import { parseArgs } from '../lib/goodnight.mjs';
@@ -17,6 +18,39 @@ const access = { userId: 1, workspace: { id: 'acme', name: 'Acme' }, projects: [
 const config = { workspace: { id: 'acme', repoId: 3 }, ownerIds: [1], projectRepoIds: { studio: 2 } };
 const enabled = { ...config, nightOperations: {retryEnabled:true,planWrites:true,profiles:['studio'],verifiedAt:'2026-10-21T00:00:00.000Z',restoreReconciledAt:'2026-10-21T00:00:00.000Z'}, decisionWrites: true, workspaceWrites: true, media: { bucket: 'acme' }, jobs: { enabled: true, verifiedAt: '2026-10-21T00:00:00.000Z', restoreReconciledAt: '2026-10-21T00:00:00.000Z', scheduleWrites: true }, fleetUpdates: { enabled: true, publishEnabled: true }, connections: { enabled: true, vaultVerifiedAt: '2026-10-21T00:00:00.000Z' }, modelRouting: { enabled: true, verifiedAt: '2026-10-21T00:00:00.000Z', restoreReconciledAt: '2026-10-21T00:00:00.000Z' } };
 const catalogue = (c = config, a = access, projectId = 'studio') => capabilityCatalogue(a, c, { projectId });
+
+test('CLI capability synopses and summaries follow every dispatcher entry', () => {
+  const rows = catalogue().rows;
+  for (const entry of cliData) {
+    const verb = verbs.get(entry.command);
+    assert.equal(entry.usage, verb.usage, entry.command);
+    assert.equal(entry.summary, verb.summary, entry.command);
+    assert.equal(rows.find(row => row.id === entry.id).cli[0].usage, verb.usage, entry.command);
+  }
+});
+
+test('active CLI forms name exactly the flags exposed by dispatcher help', () => {
+  for (const entry of cliData) {
+    if (verbs.get(entry.command).retired) continue; // A retirement error is not an executable form.
+    const flags = [...new Set(entry.forms.flatMap(form => form.arguments.map(argument => argument.token)))].sort();
+    assert.deepEqual(flags, [...new Set(verbs.get(entry.command).usage.match(/--[a-z][a-z0-9-]*/g))].sort(), entry.command);
+  }
+});
+
+test('climb catalogue covers the canonical dispatch cases and declared parser flags', async () => {
+  const entry = routineData.find(row => row.id === 'routine.climb');
+  const source = await readFile(join(root, entry.source), 'utf8');
+  // These checks bind the two explicit declarations, not arbitrary JS grammar.
+  // The reviewed-source audit below still covers the full parser closure.
+  const dispatch = source.slice(source.indexOf('switch (o.verb)'));
+  const commands = [...dispatch.matchAll(/case '([^']+)'/g)].map(match => match[1]);
+  assert.ok(commands.length > 0);
+  assert.deepEqual(entry.forms.filter(form => form !== 'distill propose').sort(), commands.sort());
+  const declarations = source.slice(source.indexOf('const FLAGS ='), source.indexOf('export function parseArgs'));
+  const flags = [...declarations.matchAll(/'(--[a-z-]+)':/g)].map(match => match[1]);
+  assert.ok(flags.length > 0);
+  assert.deepEqual([...entry.arguments].sort(), [...flags, '--json'].sort());
+});
 
 async function copyBoundary(t) {
   const directory = await mkdtemp(join(tmpdir(), 'plates-acme-coverage-'));
@@ -192,7 +226,6 @@ test('migration catalogue matches the shared approval parser without enabling we
 test('harness evaluation forms declare versioned local live stages without enabling hosted execution', () => {
   const expected = ['evaluations plan', 'evaluations freeze', 'evaluations inspect', 'evaluations run', 'evaluations resume',
     'evaluations reconcile', 'evaluations cancel', 'evaluations compare', 'evaluations corpus inspect', 'evaluations corpus export'];
-  const comparisonActions = ['evaluations resume', 'evaluations cancel', 'evaluations compare'];
   for (const configuration of [config, enabled]) {
     const row = catalogue(configuration).rows.find(row => row.id === 'cli.retro');
     assert.equal(row.readiness.state, 'unsupported');
@@ -215,10 +248,6 @@ test('harness evaluation forms declare versioned local live stages without enabl
   assert.match(declaration.usage, /--credential-fd <N>/);
   assert.match(declaration.followUp, /grants no provider transfer, spend or permission/);
   assert.match(declaration.followUp, /no hosted activation/);
-  for (const form of declaration.forms.filter(form => form.subcommand?.startsWith('evaluations '))) {
-    assert.equal(form.parserSource, form.subcommand.startsWith('evaluations corpus ') ? 'lib/evaluation-corpus.mjs'
-      : comparisonActions.includes(form.subcommand) ? 'lib/evaluation-comparison.mjs' : 'lib/evaluation-ledger.mjs');
-  }
   const paths = reviewedOperationSources().files.map(file => file.path);
   for (const path of ['lib/evaluation-ledger.mjs', 'lib/evaluation-records.mjs', 'lib/evaluation-comparison.mjs', 'lib/evaluation-comparison-report.mjs', 'lib/session-ledger-io.mjs']) assert.ok(paths.includes(path));
 });

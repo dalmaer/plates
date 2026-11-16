@@ -17,6 +17,8 @@
     "enabled": true
   },
   "rangeStrategy": "bump",
+  "minimumReleaseAge": "3 days",
+  "internalChecksFilter": "strict",
   "labels": [
     "dependencies"
   ],

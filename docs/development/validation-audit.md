@@ -153,10 +153,11 @@ input schema does not silently adopt any of those policies.
 
 When changing this analyzer, run
 `npm run check:focused -- tests/validation-audit.test.mjs`. The source runner
-always includes helper, README, guide, CLI, adoption, managed-skill, package capability and preflight
-regression tests under
-the hermetic preload with concurrency two, then checks roadmap, managed render,
-inbox and whitespace in order. Whitespace checks compare staged and unstaged tracked
+checks managed render first, then runs helper, README, guide, CLI, adoption,
+managed-skill, package capability and preflight regression tests alongside the
+focused files under the hermetic preload with concurrency two, then checks
+roadmap, inbox and whitespace. The stage order is
+`render → focused-and-conventions → roadmap → inbox → whitespace`. Whitespace checks compare staged and unstaged tracked
 changes against HEAD. Mark new files with `git add -N <files>` first, as /spin
 requires; untracked files are not covered and the preflight never stages them.
 Add other affected test files explicitly. Inspect
