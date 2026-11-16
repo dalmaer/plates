@@ -181,14 +181,14 @@ test('a web walk answer is refused at apply when the box text changed since its 
 // past the 25s source deadline in production (upstream_unavailable). Reads run
 // at most READ_CONCURRENCY at a time, within the call budget, and the
 // inventory bound fits. Counted, never timed.
-test('a 190-phase plate previews and applies a walk answer, reading its blobs a bounded few at a time', async () => {
-  const READ_CONCURRENCY = 8, CALL_BUDGET = 600; // lib/web/decision-github.mjs READ_CONCURRENCY, SOURCE_CALL_LIMIT
+test('a 190-phase plate previews and applies a walk answer, reading its phases in a few batched requests', async () => {
+  const BLOB_BATCH = 100; // lib/web/decision-github.mjs BLOB_BATCH
   const h = walkWeb();
-  let inFlight = 0, most = 0, blobs = 0, counting = false;
+  let rest = 0, batches = 0, counting = false;
   const fetcher = async (url, options) => {
-    if (!counting || !String(url).includes('/git/blobs/')) return h.fetcher(url, options);
-    blobs++; inFlight++; most = Math.max(most, inFlight);
-    try { await new Promise(r => setImmediate(r)); return await h.fetcher(url, options); } finally { inFlight--; }
+    if (counting && String(url).includes('/git/blobs/')) rest++;
+    if (counting && String(url).endsWith('/graphql') && String(options?.body).includes('query DecisionBlobs')) batches++;
+    return h.fetcher(url, options);
   };
   const web = createWebService(h.config, { fetcher, now: () => h.state.now }), signed = await h.login();
   const home = await (await web(h.request('/api/home', { cookie: signed.cookie }))).json();
@@ -199,11 +199,12 @@ test('a 190-phase plate previews and applies a walk answer, reading its blobs a 
   const answered = await web(postJson(h, '/api/home/answer', { key: walk.key, answer: choice.id, why: 'Tried it on the Acme phone.', csrf: signed.session.csrf }, signed.cookie));
   assert.equal(answered.status, 200, await answered.clone().text());
   const { preview } = await answered.json();
-  assert.ok(most > 1 && most <= READ_CONCURRENCY, `at most ${READ_CONCURRENCY} blob reads in flight (saw ${most})`);
-  assert.ok(blobs >= 190 && blobs <= CALL_BUDGET, `the preview's ${blobs} blob reads fit the call budget`);
+  // One GET per phase ran past the 25 s source deadline on a 180-phase plate; the inventory is now a few requests.
+  assert.equal(rest, 0, 'no phase is read alone');
+  assert.ok(batches >= 2 && batches <= 2 * Math.ceil(192 / BLOB_BATCH), `the preview read its phases in ${batches} batched requests`);
   const applied = await web(postJson(h, '/api/projects/studio/decisions/apply', { previewId: preview.id, publicAcknowledgement: preview.digest, csrf: signed.session.csrf }, signed.cookie));
   assert.equal((await applied.json()).state, 'committed', 'its apply re-reads the same inventory and writes');
-  assert.ok(most <= READ_CONCURRENCY);
+  assert.equal(rest, 0);
 });
 
 // Phase 187: Done on a step writes from the card. A partial phase whose next
