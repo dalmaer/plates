@@ -3,13 +3,18 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {tokens,controls} from '../lib/web/design.mjs';
 import {errorView} from '../lib/web/views.mjs';
-import {clearPrivateView} from '../lib/web/safety-client.mjs';
+import {clearPrivateView,startSafety} from '../lib/web/safety-client.mjs';
 import {startBacklogClient} from '../lib/web/backlog-client.mjs';
 import {startJobClient} from '../lib/web/job-client.mjs';
 import {backlogView,recurringView,agentsView,renderBacklog,backlogStyles} from '../lib/web/backlog-views.mjs';
-import {navigation} from '../lib/web/navigation.mjs';
+import {navigation,navigationStyles} from '../lib/web/navigation.mjs';
 import {describeRoute,lensRoute} from '../lib/web/navigation-routes.mjs';
-import {versionsView,fleetStyles} from '../lib/web/fleet-views.mjs';
+import {versionsView,lessonTraceView,fleetStyles} from '../lib/web/fleet-views.mjs';
+import {attachStoredView} from '../lib/web/attach-views.mjs';
+import {changeIndexView,journalStyles} from '../lib/web/change-views.mjs';
+import {capabilityView} from '../lib/web/capability-views.mjs';
+import {decisionView,previewView,operationView} from '../lib/web/decision-views.mjs';
+import {startDecisionClient} from '../lib/web/decision-client.mjs';
 import {jobStyles} from '../lib/web/job-views.mjs';
 import {walkStyles} from '../lib/web/walk-views.mjs';
 import {plateWorkspaceStyles} from '../lib/web/plate-workspace-styles.mjs';
@@ -170,4 +175,104 @@ test('finishing an earlier answer does not restart a focused final Undo timer',a
   await p.tick();assert.equal(p.sent.length,1,'only the earlier answer is sent');
   await p.tick();assert.equal(p.sent.length,1,'the final answer stays held while Undo is focused');
   p.click('[data-review-undo]');await p.tick();assert.equal(p.sent.length,1,'Undo remains usable after the earlier answer finishes');client.stop();
+});
+
+test('unsaved-edits modal uses .p-dialog, wrapped action spacing and distinct button variants',()=>{
+  const children=[],controls={};
+  const root={append:node=>children.push(node),prepend(){},querySelector:()=>({textContent:''})};
+  const document={activeElement:{focus(){}},querySelector:()=>null,addEventListener(){},removeEventListener(){},
+    createElement:tag=>({tag,innerHTML:'',attributes:{},setAttribute(k,v){this.attributes[k]=v;},querySelector:s=>controls[s]??=({disabled:false,focus(){}}),addEventListener(){},showModal(){},close(){},remove(){}})};
+  const window={navigator:{onLine:true},location:{assign(){}},addEventListener(){},removeEventListener(){}};
+  const guard=startSafety({root,document,window,readDirty:()=>true,save:async()=>true});
+  guard.navigate('/daily');
+  assert.equal(children.length,1);
+  const [dialog]=children;
+  assert.equal(dialog.className,'p-dialog');
+  assert.match(dialog.innerHTML,/<div data-safety-actions><button type="button" data-safety-save>Save and leave<\/button><button type="button" class="p-danger" data-safety-discard>Discard and leave<\/button><button type="button" class="p-quiet" data-safety-cancel>Stay here<\/button><\/div>/);
+  const actionsRule=navigationStyles.split('[data-safety-actions]{')[1]?.split('}')[0]??'';
+  assert.match(actionsRule,/display:flex/);assert.match(actionsRule,/flex-wrap:wrap/);assert.match(actionsRule,/gap:var\(--s-2\)/);
+  guard.stop();
+});
+
+test('stored attach receipts include skip navigation and scrollable contained observations',()=>{
+  const html=attachStoredView(access,access.projects[0],{
+    state:'uncertain',note:'Acme uncertain attach',
+    previewUrl:`/projects/studio/attach/previews/${'a'.repeat(64)}`,
+    operationUrl:`/projects/studio/attach/operations/${'b'.repeat(64)}`,
+    journalState:'uncertain',stage:'ref-uncertain',
+    observations:{ref:`https://github.com/acme/studio/git/refs/heads/claims/phase-1-${'c'.repeat(64)}`},
+  });
+  assert.match(html,/<body><a class="skip" href="#main">Skip to content<\/a>/);
+  assert.match(html,/<pre class="decision-file" tabindex="0">/);
+  assert.doesNotMatch(html,/<pre>/);
+});
+
+function assertSequentialHeadings(html,label){
+  const levels=[...html.matchAll(/<h([1-6])\b/g)].map(m=>Number(m[1]));
+  assert.equal(levels[0],1,`${label}: starts with h1`);
+  for(let i=1;i<levels.length;i++)assert.ok(levels[i]<=levels[i-1]+1,`${label}: heading h${levels[i-1]} -> h${levels[i]} must not skip a level`);
+}
+
+test('secondary views keep sequential headings, flat adoption lists and hidden empty decision regions',async()=>{
+  const changesHtml=changeIndexView({project:access.projects[0],items:[{id:'acme-search',changeId:'acme-search',title:'Acme search',outcome:'Fast search.',publishedAt:'2026-10-21',revision:'b'.repeat(40),captures:[]}],gaps:[]},access);
+  assertSequentialHeadings(changesHtml,'changeIndexView');
+  assert.match(changesHtml,/<h2><a [^>]*>Acme search<\/a><\/h2>/);
+  assert.match(rule(journalStyles,'.journal-card h2'),/font-size:21px/);
+
+  const traceHtml=lessonTraceView({
+    id:`lesson-${'a'.repeat(40)}`,readAt:'2026-10-21T12:00:00Z',
+    source:{state:'evidenced',label:'Original lesson',reason:'Observed.'},
+    adoptions:[{project:{id:'studio'},reason:'Separate observations.',practice:'1.0.0',lockPractice:'1.0.0',source:{head:'b'.repeat(40)},
+      lesson:{state:'evidenced',label:'Lesson text',reason:'Row observed.'},
+      guards:[{state:'evidenced',label:'Installed guard',reason:'Guard observed.'}],
+      migrations:[{state:'evidenced',label:'Recorded migration',reason:'Migration observed.'}],
+      protection:{state:'unavailable',label:'Executed protection',reason:'Not established.'},
+      acceptance:{state:'unavailable',label:'Project acceptance',reason:'Not established.'}}],
+  },access);
+  assertSequentialHeadings(traceHtml,'lessonTraceView');
+  assert.match(traceHtml,/<h2>Original lesson<\/h2>/);
+  assert.doesNotMatch(traceHtml,/<article class="fleet-panel">(?:(?!<\/article>)[\s\S])*<article class="fleet-panel">/);
+  assert.match(traceHtml,/<ul class="fleet-projects"><li>[\s\S]*?Lesson text[\s\S]*?<\/li>/);
+
+  const capHtml=capabilityView({project:access.projects[0],rows:[{id:'cli.night',title:'Inspect night',group:'Daily work',treatment:'limited',effect:'local',scope:'project',readiness:{state:'available',reason:'Available.'},cli:[{command:'plates night',usage:'plates night',forms:[{subcommand:'run',positionals:'',arguments:[]}]}]}],coverage:{gaps:[]}},access);
+  assertSequentialHeadings(capHtml,'capabilityView');
+  assert.match(capHtml,/<h3>plates night<\/h3>/);
+  assert.doesNotMatch(capHtml,/<h4\b/);
+
+  const detail={project:access.projects[0],source:{path:'docs/reviews/acme.md',head:'c'.repeat(40),branch:'main',visibility:'private'},target:{kind:'shaping',path:'docs/shaping/acme.json',question:'scope'},question:{title:'Which Acme scope?',body:'Choose one.',choices:[]},context:{},supported:true,submissionEnabled:true};
+  const decHtml=decisionView(detail,access);
+  assert.match(decHtml,/<section data-decision-preview aria-label="Exact change preview" hidden><\/section>/);
+  assert.match(decHtml,/<section data-decision-operation aria-label="Operation receipt" hidden><\/section>/);
+  const prevHtml=previewView({id:'a'.repeat(64),operationId:'b'.repeat(64),operationUrl:`/projects/studio/operations/${'b'.repeat(64)}`,expiresAt:'2099-10-21T00:00:00.000Z',project:access.projects[0],source:detail.source,target:detail.target,contextDigest:'e'.repeat(64),consequence:'Record choice.',content:'# Acme\n',commitMessage:'Record choice',visibility:'private',canSubmit:true},access);
+  assert.doesNotMatch(prevHtml,/<section data-decision-preview[^>]*\bhidden\b/);
+  assert.match(prevHtml,/<section data-decision-operation[^>]*\bhidden\b/);
+  const opHtml=operationView({id:'b'.repeat(64),projectId:'studio',project:access.projects[0],previewId:'a'.repeat(64),state:'committed',receipt:{}},access);
+  assert.match(opHtml,/<section data-decision-preview[^>]*\bhidden\b/);
+  assert.doesNotMatch(opHtml,/<section data-decision-operation[^>]*\bhidden\b/);
+
+  // Client unhides preview and operation regions when populated and hides preview again on edit.
+  const formHandlers={},rootHandlers={};
+  const previewZone={hidden:true,innerHTML:'',replaceChildren(){this.innerHTML='';},querySelector:()=>null};
+  const operationZone={hidden:true,innerHTML:'',querySelector:()=>null};
+  const ack={disabled:false,checked:false};
+  const form={dataset:{kind:'shaping',path:'docs/shaping/acme.json',question:'scope'},reportValidity:()=>true,addEventListener:(t,fn)=>formHandlers[t]=fn,removeEventListener(){},
+    querySelector:s=>s==='[name="answer"]'?{value:'Smaller scope'}:s==='fieldset'||s==='[data-preview-button]'?{disabled:false}:null};
+  const nodes={'[data-decision-csrf]':{value:'fake-acme-csrf'},'[data-decision-form]':form,'[data-decision-preview]':previewZone,'[data-decision-operation]':operationZone,'[data-decision-status]':{textContent:''},'[data-preview-ack]':ack,'[data-apply-decision]':{disabled:false}};
+  const root={dataset:{project:'studio'},querySelector:s=>nodes[s]??null,addEventListener:(t,fn)=>rootHandlers[t]=fn,removeEventListener(){}};
+  const operationId='b'.repeat(64),previewId='a'.repeat(64);
+  const responses=[
+    {id:previewId,operationId,operationUrl:`/projects/studio/operations/${operationId}`,expiresAt:'2099-10-21T00:00:00.000Z',project:access.projects[0],content:'# Acme',commitMessage:'Msg',visibility:'private',canSubmit:true},
+    {id:previewId,operationId,operationUrl:`/projects/studio/operations/${operationId}`,expiresAt:'2099-10-21T00:00:00.000Z',project:access.projects[0],content:'# Acme',commitMessage:'Msg',visibility:'private',canSubmit:true},
+    {id:operationId,previewId,state:'committed'},
+  ];
+  const client=startDecisionClient({document:{querySelector:s=>s==='[data-decision-root]'?root:null},window:{location:{pathname:'/projects/studio/decisions',search:''},history:{replaceState(){}},setTimeout:()=>1,clearTimeout(){}},fetch:async()=>({status:200,json:async()=>responses.shift()}),renderDecisionPreview:()=>'<section>Preview</section>',renderDecisionOperation:()=>'<section>Operation</section>'});
+  await client.preview({preventDefault(){}});
+  assert.equal(previewZone.hidden,false);
+  formHandlers.input();
+  assert.equal(previewZone.hidden,true);
+  await client.preview({preventDefault(){}});
+  rootHandlers.change({target:{checked:true,matches:s=>s==='[data-preview-ack]'}});
+  await client.apply();
+  assert.equal(operationZone.hidden,false);
+  client.stop();
 });
