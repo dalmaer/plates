@@ -17,3 +17,11 @@ Integrated gate results are recorded below after completion; targeted fixtures d
 - `git diff --check`: passed.
 - Initial focused/full attempts were interrupted by registry network policy; retained as interrupted, not passes. Verification restarted with permitted registry access.
 - `npm run check`: passed (unit suite: 4673 passed, 12 skipped, 0 failed; installed checks and roadmap/render/inbox checks also passed).
+
+## 2026-11-16 refresh
+
+Rebased onto main `a92f0458`. The baseline note's [2026-11-16 refresh](../research/2026-11-13-delivery-flow-baseline.md#refresh-2026-11-16)
+re-reads both sources through the same readers. It covers 32 integration records (the newest from
+15 November, before this week's speed work) and 22 main CI check jobs timed from their own start and finish.
+It shows no measured speedup in either source, and says why: the records predate the changes, and the CI check
+job does not exercise the paths those changes sped up. Phase 188 stays partial.

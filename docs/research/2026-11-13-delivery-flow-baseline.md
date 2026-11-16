@@ -65,3 +65,49 @@ p90 607574 ms. No record-check samples: totals and percentiles are null, not zer
 No unavailable gate lists, not-run gates or unknown modes in this retained sample.
 This verifies the instrument against actual stored records, not current operating
 coverage; the stale-window caveat above still applies.
+
+## Refresh, 2026-11-16
+
+Read-only, at main `a92f0458ab1c1bdf69c6be2f5042c45a698afd2d` after this week's speed work (#455, #457–#463,
+#471). Same sources and readers as above. This refresh does not establish a speedup.
+
+**Integration records.** `plates-integrations` was at `785f9953bbb6201db19a31858c245aca29d314eb` on 2026-11-16.
+32 valid records, 0 skipped, from 2026-11-05T01:24:48.095Z to 2026-11-15T06:42:41.267Z. That is 9 records more
+than on 13 November, all from 14–15 November. Outcomes: 19 landed, 3 partial, 3 nothing-ready, 6 blocked,
+1 refused, 0 error. Through the summary added here:
+
+| Window (2026-11-16 read) | Runs | Run p50 / p90 (ms) | Full gates | Gate p50 / p90 (ms) |
+|---|---:|---:|---:|---:|
+| 5–7 Nov (the 13 November sample) | 23 | 454552 / 938075 | 24 | 462641 / 607574 |
+| 14–15 Nov (new) | 9 | 480633 / 1154255 | 10 | 471922 / 607713 |
+| All | 32 | 469719 / 1003045 | 34 | 468271 / 607713 |
+
+No record-check samples, so those figures are null, not zero. No unavailable, not-run or unknown-mode gates.
+**Coverage limit:** the newest record (15 November 06:42Z) predates every speed change named above. The
+integration records therefore say nothing yet about their effect. The 9-run window is too small to call a
+change either way.
+
+**Main CI, check job.** `gh run list --workflow check.yml --branch main --limit 60` on 2026-11-16 returned
+34 successful, 21 cancelled and 5 failed runs. For the 22 newest successful runs (2026-11-15T20:01Z to
+2026-11-16T20:20Z), `gh run view --json jobs` gave each check job's own start and finish. That is a better
+measure than the 13 November created-to-updated proxy, and it separates runner queue time. The GitHub API
+rate limit stopped the read at 22 runs; the 12 older ones were not read.
+
+| Window | Runs | Check job p50 / p90 (s) | Queue p50 / max (s) |
+|---|---:|---:|---:|
+| Before `a05ae583` (#449, test speed) | 14 | 862 / 1058 | 3 / 32 |
+| From `a05ae583` on | 8 | 845 / 1029 | 4 / 34 |
+
+The check job's median moved by 17 s, within the spread of a single window (689–1063 s). This shows no
+CI speedup, and runner queue time is not a constraint. The speed work mostly targeted the hosted web
+service, `plates home`, the night and local test files. CI's check job measures none of the first three,
+so no change there was expected. On a 14-core Mac, `npm test` measured 354 s on 2026-11-16, against
+about 14 minutes for the CI check job on its runner.
+
+**Not measured, still unknown (not zero):**
+- review wait, human minutes, active coding time and compute cost;
+- the hosted service in production (the web speedups were measured in-process, in the PRs that made them);
+- any integration run after 15 November.
+
+The next step is unchanged: join recent main changes to their integration, PR and check paths, measure
+review wait, then pick one constraint.
