@@ -50,7 +50,7 @@ the project's autonomy level and door classes allow.
 - **Keeps it open:** Not yet
 - **Takes:** 10 minutes.
 - **Then:** The conductor connects the bot to one project's channel and runs the walk.
-- **Ready when:** the three chat-seam tests pass.
+- **Ready when:** phase 194's owner checkpoints (its increment 3) are built, and the owner wants its optional Discord mirror.
 
 ## Real surfaces
 
@@ -71,9 +71,10 @@ server.
 
 ## Next action
 
-The owner names the server and channels and adds the bot token as a secret;
-the conductor writes the gateway connection (outbound only, no message-content
-intent) and walks `/plates status` and a hand-off. Then door classes from 145.
+Nothing here until phase 194's increment 3 is built: the channel on the Plates
+site is where agents and the owner talk. Then, only if the owner wants the
+optional mirror (194's increment 4), the owner names the server and adds the
+bot token, and the conductor writes the outbound gateway and walks it.
 
 ## Trajectory
 
