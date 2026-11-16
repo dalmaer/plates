@@ -6,6 +6,8 @@ export function homeDatabase(now) {
     const path = new URL(url).pathname;
     // SQL022 applied, and no device has pushed: Home's waiting-sessions read finds nothing (tests/waiting-sessions.test.mjs runs the real store).
     if (path.endsWith('/rpc/plates_waiting_rpc')) return JSON.parse(options.body).p_operation === 'list' ? json({ items: [] }) : json({ found: false });
+    // SQL024 applied, and no agent has posted: the channel's agents' lines are none (tests/channel-say.test.mjs runs the real store).
+    if (path.endsWith('/rpc/plates_channel_rpc')) return JSON.parse(options.body).p_operation === 'list' ? json({ items: [] }) : json({ revoked: true });
     if (!path.includes('/rpc/plates_home_')) return null;
     const p = JSON.parse(options.body), clock = now();
     if (path.endsWith('cache_rpc')) {

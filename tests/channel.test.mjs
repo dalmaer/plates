@@ -286,8 +286,11 @@ else { console.error('gh: Not Found (HTTP 404)'); process.exit(1); }
 }
 
 // What a reader adds about its own read, not the sources: when it read (and so the window's start and each gap's time and each age).
+// Each form's own sources (sessions waiting on you, agents' lines) are left out, and each plate's count with them.
+const own = l => l.source === 'waiting' || l.source === 'says';
 const readless = m => ({ ...m, generatedAt: null, window: { ...m.window, from: null }, readFrom: null,
-  lines: m.lines.filter(l => l.source !== 'waiting').map(l => (l.kind === 'gap' ? { ...l, at: null } : l)),
+  plates: m.plates.map(p => ({ ...p, count: m.lines.filter(l => l.plate === p.projectId && !own(l)).length })),
+  lines: m.lines.filter(l => !own(l)).map(l => (l.kind === 'gap' ? { ...l, at: null } : l)),
   hereNow: m.hereNow.map(({ words, last, sinceAge, ...h }) => ({ ...h, last: last && { ...last, age: null } })), hereIdle: m.hereIdle && { ...m.hereIdle, words: null } });
 
 test('the CLI and the web show one channel', async () => {
@@ -297,13 +300,16 @@ test('the CLI and the web show one channel', async () => {
     assert.equal(run.status, 0, run.stderr);
     const cli = JSON.parse(run.stdout), web = (await s.web()).channel;
     // The fixture exercises claims, PRs and deploys, so equality is not two empty readers agreeing.
-    assert.deepEqual(cli.lines.map(l => [l.kind, l.actor]), [['joined', 'studio#1'], ['joined', 'studio#2'], ['pr', 'studio#2'], ['pr', 'studio!22'], ['deploy', 'studio'], ['gap', 'studio']]);
-    assert.equal(cli.lines.at(-1).text, 'pushes and CI are not read here: The delivery practice is off on this plate: ready and integrate, the tested ref and deploy records are its, so its waits are not read.');
+    assert.deepEqual(cli.lines.filter(l => l.source !== 'says').map(l => [l.kind, l.actor]), [['joined', 'studio#1'], ['joined', 'studio#2'], ['pr', 'studio#2'], ['pr', 'studio!22'], ['deploy', 'studio'], ['gap', 'studio']]);
+    assert.equal(cli.lines.filter(l => l.source !== 'says').at(-1).text, 'pushes and CI are not read here: The delivery practice is off on this plate: ready and integrate, the tested ref and deploy records are its, so its waits are not read.');
     assert.deepEqual(readless(web), readless(cli), 'the same lines and the same Here now in both forms');
     assert.deepEqual(cli.hereNow.map(h => [h.actor, h.title, h.provider, h.unread]), [['studio#2', 'Acme phase 2', 'acme-codex', 2], ['studio#1', 'Acme phase 1', 'claude', 1]]);
     // Sessions waiting on you are each form's own source, as on Home: this machine's scan (none here) and the devices' pushes (none yet, a gap).
     assert.deepEqual(cli.lines.filter(l => l.source === 'waiting'), []);
     assert.deepEqual(web.lines.filter(l => l.source === 'waiting').map(l => [l.kind, l.plate, l.text]), [['gap', null, 'sessions waiting on you unread: no device has sent waiting sessions yet (plates sessions push)']]);
+    // Agents' own lines (plates say) too: the web reads the workspace's posts (none here); the CLI names no workspace, so it says why (tests/channel-say.test.mjs reads them in both).
+    assert.deepEqual(web.lines.filter(l => l.source === 'says'), []);
+    assert.deepEqual(cli.lines.filter(l => l.source === 'says').map(l => [l.kind, l.plate, l.text]), [['gap', 'studio', 'agents\' own lines unread: agents\' lines are kept on your Plates workspace; set PLATES_SITE and a device key to read them here']]);
     // The page, the plate's section and the terminal each say every line and every Here now row.
     const page = channelView(s.access, web), section = channelSection(web), text = s.cli([]).stdout;
     const esc = v => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -329,7 +335,7 @@ test('the CLI and the web show one channel', async () => {
     // One plate, by name; a plate that is not here is refused.
     const one = s.cli(['studio', '--json', '--since', '30m']);
     assert.equal(one.status, 0, one.stderr);
-    assert.deepEqual(JSON.parse(one.stdout).lines.map(l => l.kind), ['gap'], '--since narrows the window');
+    assert.deepEqual(JSON.parse(one.stdout).lines.map(l => [l.kind, l.source]), [['gap', 'says'], ['gap', 'waits']], '--since narrows the window');
     assert.equal(s.cli(['anvils', '--json']).status, 2);
     assert.equal(s.cli(['--since', 'yesterday-ish']).status, 2);
   } finally { await s.done(); }

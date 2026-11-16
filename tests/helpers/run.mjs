@@ -43,7 +43,12 @@ export function run(cmd, args = [], { cwd, env, input, timeout } = {}) {
   const plates = /(^|[/\\])bin[/\\]plates\.mjs$/.test(String(args[0] ?? ''));
   // The same for the runme queue they read: never the developer's ~/.runme.
   const given = env ?? process.env, scans = plates && ['home', 'sessions', 'channel'].includes(args[1]);
-  const childEnv = scans ? { ...given, ...(given.PLATES_CLAUDE_DIR ? {} : { PLATES_CLAUDE_DIR: '/nonexistent/plates-test-claude' }), ...(given.RUNME_DIR ? {} : { RUNME_DIR: '/nonexistent/plates-test-runme' }) } : given;
+  let childEnv = scans ? { ...given, ...(given.PLATES_CLAUDE_DIR ? {} : { PLATES_CLAUDE_DIR: '/nonexistent/plates-test-claude' }), ...(given.RUNME_DIR ? {} : { RUNME_DIR: '/nonexistent/plates-test-runme' }) } : given;
+  // plates say posts, and plates channel reads agents' lines, on the workspace PLATES_SITE names with the device key (PLATES_DEVICE_KEY,
+  // else the macOS keychain): a test reaches only its own stub on localhost with a key it set, never a real site or the developer's keychain.
+  if (plates && ['say', 'channel'].includes(args[1]) && !(/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(childEnv.PLATES_SITE ?? '') && childEnv.PLATES_DEVICE_KEY)) {
+    childEnv = Object.fromEntries(Object.entries(childEnv).filter(([k]) => k !== 'PLATES_SITE' && k !== 'PLATES_DEVICE_KEY'));
+  }
   const r = spawnSync(cmd, args, { cwd, input, timeout, encoding: 'utf8', env: cleanEnv(childEnv), maxBuffer: 64 * 1024 * 1024 });
   if (r.error) throw r.error;
   return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
