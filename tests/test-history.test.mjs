@@ -686,3 +686,24 @@ test('history recognizes each night workflow independently',async t=>{
   assert.equal(result.selected.length,1);assert.equal(result.selected[0].workflowId,legacy?12:10);
  }
 });
+
+
+test('history verifies newest samples lazily and retains rejected candidates', async t => {
+  const root = await project(t);
+  const items = Array.from({ length: 80 }, (_, i) => ({ id: i + 1, kind: 'ci' }));
+  items.push({ id: 81, kind: 'night', date: '2026-10-09T02:00:00Z' });
+  const f = fixture(items);
+  f.routes['repos/acme/app/actions/runs/180'].head_repository.id = 8;
+  const started = performance.now();
+  const result = await recover(root, f, { github: async path => {
+    await new Promise(resolve => setTimeout(resolve, 3));
+    return f.github(path);
+  } });
+  const reads = f.calls.filter(path => /actions\/(artifacts|runs)\/\d+$/.test(path));
+  t.diagnostic(`History 81 artifacts: ${(performance.now() - started).toFixed(1)} ms; ${reads.length} verification reads`);
+  assert.deepEqual(result.selected.map(row => row.artifactId), [81, 79, 78]);
+  assert.ok(result.gaps.some(g => g.code === 'artifact-rejected' && g.artifactId === 80));
+  assert.ok(result.gaps.some(g => g.code === 'ci-sampled'), 'unverified omissions stay visible');
+  assert.equal(result.complete, false);
+  assert.equal(reads.length, 8, 'only the selected samples and rejected newest candidate need full identity checks');
+});

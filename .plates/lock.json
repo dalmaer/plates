@@ -179,7 +179,7 @@
     },
     "scripts/plates/ci.mjs": {
       "practice": "night",
-      "sha256": "f971394c913bc36cee493a02521d5d7e6f4727d6b85f00a62eb39f6a73c6c1ba"
+      "sha256": "d9f757ab58acb63d2fff2386a0a499bf0f26c2e318dff79302c1571082e379de"
     },
     "scripts/plates/climb-execution.mjs": {
       "practice": "climb",
@@ -343,7 +343,7 @@
     },
     "scripts/plates/test-history.mjs": {
       "practice": "night",
-      "sha256": "2cf60a228b3534b4ca1b9e194ef493eeb054b2e076449bae2391ab6de8672d25"
+      "sha256": "181649e1c67b7b81ed21b3b5d7b0e163a30585bcfef6f172370846ba81492feb"
     },
     "scripts/plates/test-ledger.mjs": {
       "practice": "night",
