@@ -62,6 +62,15 @@ test('only the explicitly completing choice builds; another choice cannot borrow
   assert.doesNotMatch(changedPhase(p, raw), /^(owes|waits):/m);
 });
 
+test('a choice label inside a longer one never borrows its declaration', () => {
+  // "Works" sits inside "Not Works:"; "Useful" inside "Not useful:".
+  assert.equal(plan(phase({ choices: 'Works | Not Works', then: 'Not Works: the phase is built.' }), 'Works').data.status, 'partial');
+  assert.equal(plan(phase({ choices: 'Works | Not Works', then: 'Not Works: the phase is built.' }), 'Not Works').data.status, 'built');
+  assert.equal(plan(phase({ choices: 'Useful | Not useful', then: 'Not useful: superseded.' }), 'Useful').data.status, 'partial', 'Useful never retires');
+  assert.equal(plan(phase({ choices: 'Useful | Not useful', then: 'Not useful: fix it. Useful: built.' }), 'Useful').data.status, 'built', 'Useful completes from its own clause');
+  assert.equal(plan(phase({ choices: 'Useful | Not useful', then: 'Not useful: fix it. Useful: built.' }), 'Not useful').data.status, 'partial');
+});
+
 test('conditional, negated and unscoped Then prose never declares a completing choice', () => {
   for (const then of ['Looks right: the phase is not built.', 'Looks right: the phase is built after another review.', 'Looks right: if checks pass, the phase is built.', 'The phase is built.']) {
     assert.equal(plan(phase({ then }), 'Looks right').data.status, 'partial', then);
