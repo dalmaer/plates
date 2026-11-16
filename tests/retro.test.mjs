@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import fsPromises from 'node:fs/promises';
+import { syncBuiltinESMExports } from 'node:module';
 // plates retro (phase 40): the worksheet from a synthetic transcript, in the
 // shapes Claude Code writes (entry types and field names, never a real
 // session's words). Every message, result and quoted string carries a marker;
@@ -202,6 +205,9 @@ test('no transcript for the repo is said, not an error', async t => {
   assert.equal(r.exitCode, 0);
   assert.equal(r.data.session, null);
   assert.match(r.text, /^no session transcript for this repo/);
+  await writeFile(join(w.dir, `${w.sid}.jsonl`), '');
+  const empty = await retro({ root: w.root, session: w.sid, env: w.env });
+  assert.equal(empty.data.session, null, 'an empty transcript is absent, not a missing-session error');
 });
 
 test('a command head keeps the shape and drops the words', () => {
@@ -224,4 +230,40 @@ test('a repo with no commit yet has no real work, and says so', async t => {
   assert.equal(r.exitCode, 0);
   assert.equal(r.data.realWork, false);
   assert.equal(r.text, 'no commit yet: no retro');
+});
+
+
+test('retro streams large transcripts and skips old subagents with since', async t => {
+  const w = await world(t);
+  await commit(w.root, { 'src/acme.mjs': 'export {};\n' }, 'Acme code');
+  const padding = JSON.stringify({ type: 'assistant', timestamp: '2000-01-01T00:00:00Z', message: { content: [{ type: 'text', text: 'Acme '.repeat(160) }] } }) + '\n';
+  const large = padding.repeat(24000);
+  const end = transcript(w.sid, w.root, Date.now() + 60000).tool('Bash', { command: 'acme check' }, { error: true }).text();
+  await writeFile(join(w.dir, `${w.sid}.jsonl`), large + 'torn json\n' + end);
+  const old = join(w.dir, w.sid, 'subagents', 'acme-old.jsonl');
+  await writeFile(old, large);
+  await fsPromises.utimes(old, new Date(0), new Date(0));
+  let wholeReads = 0, oldStreams = 0;
+  const originalStream = fs.createReadStream;
+  const streamSpy = t.mock.method(fs, 'createReadStream', (...args) => {
+    if (args[0] === old) oldStreams++;
+    return originalStream(...args);
+  });
+  const original = fsPromises.readFile;
+  const spy = t.mock.method(fsPromises, 'readFile', (...args) => {
+    if (String(args[0]).endsWith('.jsonl')) wholeReads++;
+    return original(...args);
+  });
+  syncBuiltinESMExports();
+  t.after(() => { spy.mock.restore(); streamSpy.mock.restore(); syncBuiltinESMExports(); });
+  const started = performance.now();
+  const result = await retro({ root: w.root, session: w.sid, since: w.base, env: w.env });
+  t.diagnostic(`Retro 48,000 transcript messages: ${(performance.now() - started).toFixed(1)} ms`);
+  assert.equal(result.data.counts.errors, 1);
+  assert.equal(result.data.signals.errors[0].line, 24002, 'pointers retain original physical lines');
+  assert.equal(result.data.subagents, 0);
+  assert.equal(wholeReads, 0, 'transcripts must be consumed incrementally');
+  assert.equal(oldStreams, 0, 'old subagent files must be skipped before reading');
+  await writeFile(join(w.dir, `${w.sid}.jsonl`), 'null\n');
+  await assert.rejects(retro({ root: w.root, session: w.sid, env: w.env }), TypeError, 'consumer failures must not be hidden as missing transcripts');
 });
