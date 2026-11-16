@@ -476,9 +476,60 @@ test('phone toolbars fit their controls', () => {
 // Phase 170: recovery is the page shown when the app is broken. It links only
 // its own sheet, which inlines the tokens at build time, so it renders when
 // plates.css is missing. No theme script: the system scheme decides.
+function splitSelectors(list) {
+  const out = []; let depth = 0, start = 0;
+  for (let i = 0; i < list.length; i++) {
+    if (list[i] === '(') depth++; else if (list[i] === ')') depth--;
+    else if (list[i] === ',' && depth === 0) { out.push(list.slice(start, i).trim()); start = i + 1; }
+  }
+  return out.concat(list.slice(start).trim()).filter(Boolean);
+}
+function matchSimple(selector, element) {
+  let s = selector.trim(), b = 0, c = 0;
+  if (!s) return null;
+  while (s.length) {
+    if (s[0] === '*') { s = s.slice(1); continue; }
+    let m = /^([a-z0-9-]+)/i.exec(s);
+    if (m) { if (element.tag !== m[1].toLowerCase()) return null; c++; s = s.slice(m[0].length); continue; }
+    m = /^\.([a-z0-9_-]+)/i.exec(s);
+    if (m) { if (!element.classes.includes(m[1])) return null; b++; s = s.slice(m[0].length); continue; }
+    m = /^\[class~=(?:["']?([a-z0-9_-]+)["']?)\]/i.exec(s);
+    if (m) { if (!element.classes.includes(m[1])) return null; b++; s = s.slice(m[0].length); continue; }
+    m = /^:(where|is|not)\(/.exec(s);
+    if (m) {
+      let depth = 1, end = m[0].length;
+      while (end < s.length && depth > 0) { if (s[end] === '(') depth++; else if (s[end] === ')') depth--; end++; }
+      const parts = splitSelectors(s.slice(m[0].length, end - 1)), hits = parts.map(p => matchSimple(p, element));
+      if (m[1] === 'not' ? hits.some(Boolean) : !hits.some(Boolean)) return null;
+      if (m[1] !== 'where') {
+        const all = parts.map(p => matchSimple(p, { tag: p.match(/^[a-z0-9-]+/i)?.[0]?.toLowerCase() ?? element.tag, classes: [...p.matchAll(/(?:\.|class~=["']?)([a-z0-9_-]+)/gi)].map(x => x[1]) })).filter(Boolean);
+        const max = all.sort((x, y) => y[0] - x[0] || y[1] - x[1])[0] ?? [0, 0];
+        b += max[0]; c += max[1];
+      }
+      s = s.slice(end); continue;
+    }
+    return null;
+  }
+  return [b, c];
+}
+function cascaded(css, element) {
+  const matched = [];
+  rules(css).filter(rule => rule.context === '').forEach((rule, order) => {
+    const specs = splitSelectors(rule.selector).map(part => matchSimple(part, element)).filter(Boolean);
+    if (!specs.length) return;
+    const spec = specs.sort((x, y) => y[0] - x[0] || y[1] - x[1])[0];
+    matched.push({ spec, order, body: declarationsOf(rule) });
+  });
+  matched.sort((x, y) => x.spec[0] - y.spec[0] || x.spec[1] - y.spec[1] || x.order - y.order);
+  const style = {};
+  for (const { body } of matched) for (const [prop, val] of body) style[prop] = val;
+  return style;
+}
 test('recovery stands alone', () => {
   const pwa = createPwa(), model = { recovery: { state: 'quarantined', startedAt: '2026-10-21T16:00:00.000Z', reconciledAt: null, epoch: 'acme-epoch' }, revision: { value: 'a'.repeat(40) }, cliVersion: '0.8.35', nodeVersion: 'v22.0.0', observedAt: '2026-10-21T16:00:00.000Z' };
   const html = pwa.assets.rewrite(pwa.decorate(recoveryView(model, { csrf: 'fake-csrf-acme' })));
+  const reopened = recoveryView({ ...model, recovery: { ...model.recovery, state: 'reconciled', reconciledAt: '2026-10-21T16:05:00.000Z' } }, { csrf: 'fake-csrf-acme' });
+  assert.match(reopened, /<a class="button" href="\/">Open workspace<\/a>/, 'reopened recovery renders a button link');
   const sheets = [...html.matchAll(/<link rel="stylesheet" href="([^"]+)"/g)].map(([, href]) => href);
   assert.deepEqual(sheets, [pwa.assets.url('/assets/recovery.css')], 'recovery links only its own sheet');
   assert.doesNotMatch(html, /\/assets\/(?:plates|keel)\./, 'recovery does not link plates.css');
@@ -489,9 +540,18 @@ test('recovery stands alone', () => {
   const used = new Set([...css.matchAll(/var\(--([a-z0-9-]+)\)/g)].map(([, name]) => name));
   for (const name of ['ink', 'paper', 'action', 'on-action', 'line-strong', 'ring', 'r-sm', 'r']) assert.ok(layout.includes(`var(--${name})`), `the recovery layout uses --${name}`);
   for (const [themeName, theme] of Object.entries({ light, dark })) for (const name of used) assert.ok(theme[name], `${themeName}: recovery.css defines --${name}`);
+  const plainLink = cascaded(css, { tag: 'a', classes: [] });
+  assert.equal(plainLink.color, 'var(--action)', 'plain links use --action');
+  for (const cls of ['button', 'p-button']) {
+    const buttonLink = cascaded(css, { tag: 'a', classes: [cls] });
+    assert.equal(buttonLink.background, 'var(--action)', `a.${cls} keeps --action fill`);
+    assert.equal(buttonLink.color, 'var(--on-action)', `a.${cls} keeps --on-action label`);
+  }
   for (const theme of [light, dark]) {
-    const color = name => parseColor(resolver(theme)(name));
-    assert.ok(contrast(color('ink'), color('paper')) >= 4.5 && contrast(color('on-action'), color('action')) >= 4.5, 'recovery text reads in both themes');
+    const resolve = resolver(theme), color = name => parseColor(resolve(name));
+    const tokenOf = value => /^var\(--([a-z0-9-]+)\)$/.exec(value)?.[1];
+    const buttonLink = cascaded(css, { tag: 'a', classes: ['button'] });
+    assert.ok(contrast(color('ink'), color('paper')) >= 4.5 && contrast(color(tokenOf(buttonLink.color)), color(tokenOf(buttonLink.background))) >= 4.5, 'recovery text and button links read in both themes');
   }
 });
 

@@ -9,6 +9,7 @@ import { harness } from './helpers/web-http.mjs';
 import { createWebService } from '../lib/web/server.mjs';
 import { createPwa, shellWorker, SHELL } from '../lib/web/pwa.mjs';
 import { shellRefresh, startPwa } from '../lib/web/pwa-client.mjs';
+import { navigation, navigationFooter } from '../lib/web/navigation.mjs';
 import * as safetyClient from '../lib/web/safety-client.mjs';
 const { startSafety } = safetyClient;
 // Read at call time, so this file loads (and its tests fail) without the export.
@@ -471,14 +472,81 @@ test('waiting-on-owner events reach the notifier', async t => {
   assert.equal((await database.db.query('SELECT count(*)::int n FROM plates_push.ledger')).rows[0].n, 3);
 });
 
+function parseHtmlDom(html) {
+  const VOID = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr']);
+  const unescape = text => text.replace(/&(amp|lt|gt|quot|#39);/g, (_, e) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" })[e]);
+  const element = (tag, attributes = {}) => {
+    const node = {
+      tag, attributes, children: [], listeners: {}, textContent: '', disabled: false, className: attributes.class ?? '',
+      value: attributes.value ?? '',
+      setAttribute(name, val) { node.attributes[name] = String(val); if (name === 'value') node.value = String(val); },
+      getAttribute: name => Object.hasOwn(node.attributes, name) ? node.attributes[name] : null,
+      hasAttribute: name => Object.hasOwn(node.attributes, name),
+      addEventListener(name, handler) { node.listeners[name] = handler; },
+      append(...nodes) { node.children.push(...nodes); },
+      prepend(...nodes) { node.children.unshift(...nodes); },
+      querySelector: selector => findIn(node, selector),
+    };
+    return node;
+  };
+  const matchesPart = (node, part) => {
+    let rest = part;
+    const tag = /^([a-z0-9-]+)/i.exec(rest);
+    if (tag) { if (node.tag !== tag[1].toLowerCase()) return false; rest = rest.slice(tag[0].length); }
+    while (rest.length) {
+      const cls = /^\.([a-z0-9_-]+)/i.exec(rest);
+      if (cls) { if (!(node.attributes.class ?? node.className ?? '').split(/\s+/).includes(cls[1])) return false; rest = rest.slice(cls[0].length); continue; }
+      const attr = /^\[([a-z0-9_-]+)(?:=(?:"([^"]*)"|'([^']*)'|([^\]]*)))?\]/i.exec(rest);
+      if (!attr) return false;
+      const [, name, dq, sq, raw] = attr, wanted = dq ?? sq ?? raw;
+      if (!node.hasAttribute(name)) return false;
+      if (wanted !== undefined && node.getAttribute(name) !== wanted) return false;
+      rest = rest.slice(attr[0].length);
+    }
+    return true;
+  };
+  const findSteps = (root, steps, index) => {
+    for (const child of root.children) {
+      if (matchesPart(child, steps[index])) {
+        if (index === steps.length - 1) return child;
+        const hit = findSteps(child, steps, index + 1);
+        if (hit) return hit;
+      }
+      const deeper = findSteps(child, steps, index);
+      if (deeper) return deeper;
+    }
+    return null;
+  };
+  const findIn = (root, selector) => {
+    for (const branch of selector.split(',').map(s => s.trim()).filter(Boolean)) {
+      const hit = findSteps(root, branch.split(/\s+/), 0);
+      if (hit) return hit;
+    }
+    return null;
+  };
+  const root = element('#document'), stack = [root];
+  for (const [, close, rawTag, rawAttrs] of html.matchAll(/<(\/)?([a-z0-9-]+)([^>]*)>/gi)) {
+    const tag = rawTag.toLowerCase();
+    if (close) { while (stack.length > 1 && stack.pop().tag !== tag); continue; }
+    const attrs = {};
+    for (const [, name, dq, sq, bare] of rawAttrs.matchAll(/([a-z0-9_:-]+)(?:=(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/gi)) {
+      attrs[name] = unescape(dq ?? sq ?? bare ?? '');
+    }
+    const node = element(tag, attrs);
+    stack.at(-1).children.push(node);
+    if (!VOID.has(tag) && !rawAttrs.trimEnd().endsWith('/')) stack.push(node);
+  }
+  return {
+    body: findIn(root, 'body') ?? element('body'),
+    createElement: tag => element(tag),
+    querySelector: selector => findIn(root, selector),
+  };
+}
+
 test('a signed-in page offers notifications and subscribes with the session CSRF', async () => {
   const keys = vapidKeys(Buffer.alloc(32, 7)), phone = device('https://web.push.apple.com/QAcmePhone');
-  const element = () => { const node = { attributes: {}, listeners: {}, textContent: '', disabled: false,
-    setAttribute(name, value) { node.attributes[name] = value; }, addEventListener(name, handler) { node.listeners[name] = handler; } }; return node; };
-  const nav = { children: [], append(...nodes) { nav.children.push(...nodes); } };
-  const document = { body: { hasAttribute: () => false }, createElement: element,
-    querySelector: selector => ({ 'meta[name="plates-shell"]': { getAttribute: () => 'a'.repeat(32) }, '[data-navigation] nav': nav,
-      '[data-navigation] input[name="csrf"]': { value: 'Acme-csrf' } })[selector] ?? null };
+  const access = { workspace: { name: 'Acme' }, csrf: 'Acme-csrf', projects: [{ id: 'studio', name: 'Acme Studio', repo: 'acme/studio' }] };
+  const document = parseHtmlDom(`<head><meta name="plates-shell" content="${'a'.repeat(32)}"></head><body>${navigation(access)}<main id="main"></main>${navigationFooter(access)}</body>`);
   let subscribed = null, permissionAsked = 0;
   const subscription = { endpoint: phone.subscription.endpoint, toJSON: () => phone.subscription, unsubscribe: async () => true };
   const registration = { update: async () => {}, pushManager: { getSubscription: async () => subscribed,
@@ -491,7 +559,9 @@ test('a signed-in page offers notifications and subscribes with the session CSRF
   const navigator = { onLine: true, serviceWorker: { addEventListener() {}, register: async () => registration, controller: null } };
   const client = startPwa({ window, document, navigator });
   await client.ready; await new Promise(resolve => setImmediate(resolve));
-  const [button, status] = nav.children;
+  const button = document.querySelector('[data-navigation] nav [data-push-toggle]');
+  const status = document.querySelector('[data-navigation] nav [data-push-status]');
+  assert.ok(button && status, 'notification controls render inside the workspace navigation');
   assert.equal(button.textContent, 'Turn on notifications');
   await button.listeners.click();
   assert.equal(permissionAsked, 1);

@@ -139,7 +139,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mkdir -p "$RUNNER_TEMP/trusted"
           cp scripts/plates/*.mjs "$RUNNER_TEMP/trusted/"
-          BRANCH="keel/robot-$ISSUE"
+          BRANCH=$(node -e 'const p = JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")); if (typeof p.branch !== "string" || !p.branch) throw new Error("robot plan branch unavailable"); console.log(p.branch)' "$RUNNER_TEMP/robot-plan.json")
+          git check-ref-format --branch "$BRANCH" > /dev/null
           previous=$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).previousHead || "")' "$RUNNER_TEMP/robot-plan.json")
           if [ -n "$previous" ]; then
             ROBOT_FETCH_REF="refs/heads/$BRANCH" node "$RUNNER_TEMP/trusted/robot.mjs" fetch --json
@@ -155,7 +156,8 @@ jobs:
           ISSUE: ${{ steps.prepare.outputs.issue }}
         run: |
           export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null
-          BRANCH="keel/robot-$ISSUE"
+          BRANCH=$(node -e 'const p = JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")); if (typeof p.branch !== "string" || !p.branch) throw new Error("robot plan branch unavailable"); console.log(p.branch)' "$RUNNER_TEMP/robot-plan.json")
+          git check-ref-format --branch "$BRANCH" > /dev/null
           previous=$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).previousHead || "")' "$RUNNER_TEMP/robot-plan.json")
           if [ -n "$previous" ]; then
             git switch -c "$BRANCH" "$previous"
@@ -254,7 +256,8 @@ jobs:
         env:
           ISSUE: ${{ steps.prepare.outputs.issue }}
         run: |
-          BRANCH="keel/robot-$ISSUE"
+          BRANCH=$(node -e 'const p = JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")); if (typeof p.branch !== "string" || !p.branch) throw new Error("robot plan branch unavailable"); console.log(p.branch)' "$RUNNER_TEMP/robot-plan.json")
+          git check-ref-format --branch "$BRANCH" > /dev/null
           src=.plates/agent-git
           dst="$RUNNER_TEMP/agent-objects"
           out="$RUNNER_TEMP/handoff"

@@ -39,7 +39,7 @@
     },
     ".agents/robot/PROTOCOL.md": {
       "practice": "climb",
-      "sha256": "300a0cfa452b4dc510e8177eb36d40cc6323d90db659b5c786d6524b5b24b3f4"
+      "sha256": "184d309281912716899f6609652aca591acabf3b791d9504447e49d89cbe74ae"
     },
     ".agents/skills/conduct/SKILL.md": {
       "practice": "conduct",
@@ -99,11 +99,11 @@
     },
     ".github/workflows/plates-robot-route.yml": {
       "practice": "climb",
-      "sha256": "2756e52ea28c5ee955b5a72c31e2a7a63abe530dc625dea341f76b3b5b761421"
+      "sha256": "140ce39211a1f16a7adb4bb240c48d8aba1a295809b10350b99b728f87312595"
     },
     ".github/workflows/plates-robot.yml": {
       "practice": "climb",
-      "sha256": "40361cea7f309583e73d04328ffc103b93ec7fe1faba6577da10de9ac04fcbd5"
+      "sha256": "8d2d98937b0b68ddbe9870293f0d3af0af79fa892c546003c757cceaade026e0"
     },
     ".github/workflows/plates-tend.yml": {
       "practice": "climb",
