@@ -1512,3 +1512,14 @@ test('review contentRevision binds full bodies and follow-ups beyond displayed e
   assert.notEqual(before.contentRevision,edited.contentRevision);
   assert.notEqual(before.contentRevision,followUp.contentRevision);
 });
+test('live review priorities survive the real reader into finding scores', async t => {
+  const { normalizeReview, priorityScore } = await import('../lib/findings.mjs');
+  const dir = await project(t);
+  const labels = ['**[P0]** Critical', '**P1** Important', '**<sub>![P2 Badge](https://example.test/badge.svg)</sub>** Normal', 'P3 Minor', 'Unlabelled finding mentions P1 later'];
+  const gh = await stubGh(t, { threads: labels.map((body,i)=>({id:`PRRT_priority_${i}`,path:'acme.js',line:i+1,comments:[c(400+i,'acme-reviewer',body)]})), reviews:[ON_HEAD] });
+  const data=plates(dir,gh,['acme/app#3','--json']).json();
+  assert.deepEqual(data.comments.map(c=>c.severity),['P0','P1','P2','P3',null]);
+  const findings=normalizeReview(data);
+  assert.deepEqual(findings.map(f=>f.severity),['high','high','medium','low',null]);
+  assert.deepEqual(findings.map(f=>priorityScore({...f,effort:'S',confidence:'HIGH',risk:'LOW'}).score),[3,3,2,1,null]);
+});

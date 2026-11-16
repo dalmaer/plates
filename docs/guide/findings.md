@@ -33,7 +33,9 @@ is not yet wired. No parallel runner or schedule is introduced.
 Priority retains the audit leverage formula: severity / effort × confidence ×
 risk, with high/medium/low = 3/2/1, S/M/L = 1/2/4, HIGH/MED/LOW confidence =
 1/.6/.3 and LOW/MED/HIGH risk = 1/.8/.6. Unknown factors stay unknown, not zero.
-This is an ordering aid, not measured ROI or permission to execute.
+Explicit opening PR priority labels map P0/P1 to high, P2 to medium and P3
+to low; unlabelled reviews stay unknown. This is an ordering aid, not measured
+ROI or permission to execute.
 
 Copy the finding ID and digest into a decision file:
 
