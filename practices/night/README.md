@@ -20,7 +20,7 @@ every night at 07:23 UTC (and by hand):
 0. Read-only production observation supplies evidence for tonight's plan. The
    plan is written before gate or agent work begins (phase 73):
    `node scripts/plates/night-plan.mjs tonight` reads the plan branch
-   `keel-night-plan` and uses its `.plates/night/plan.json`
+   `plates-night-plan` and uses its `.plates/night/plan.json`
    when it is valid and dated for this run's UTC date; otherwise it writes
    plates's default plan (the night's measure item, the newest earlier health
    page's proposal, the climb job `climb.mjs pick` would choose, the robot's
@@ -36,7 +36,7 @@ every night at 07:23 UTC (and by hand):
    plan as it ended to `docs/night/<date>.json`, and the page shows it under
    "Tonight's plan"; each pass that builds ticks its own item on the plan
    branch (`node scripts/plates/night-plan.mjs record`, phase 76). A night that
-   ran the default plan writes it to `keel-night-plan` from its PR step
+   ran the default plan writes it to `plates-night-plan` from its PR step
    (`night-plan.mjs publish`, phase 78), so the passes tick it as they tick
    an owner's: only when the branch holds no plan for tonight or a later
    night (never the owner's), with a lease; a failed write is red at the
@@ -57,10 +57,10 @@ every night at 07:23 UTC (and by hand):
    directory; `docs/inbox/`, `docs/INBOX.md`, `.plates/bounds.json`, a tracked one that
    is gone staged as its deletion; nothing else a gate run leaves behind;
    paths read literally, never as git pathspec magic), it is committed on
-   `keel-night/<date>`, pushed to that branch only, and opened as one PR
+   `plates-night/<date>`, pushed to that branch only, and opened as one PR
    whose body is `scripts/plates/pr-body.mjs`'s (below), with the page's
    proposal as its note.
-3. `node scripts/plates/drain.mjs keel-night/ --yes` keeps the queue at one:
+3. `node scripts/plates/drain.mjs plates-night/ --yes` keeps the queue at one:
    each older PR is merged when it holds only data (`docs/health/`, the
    configured health directory's dated pages, the plan records
    `docs/night/<date>.json`, `docs/inbox/`, `docs/INBOX.md`, `.plates/bounds.json`) and still merges, and
@@ -82,7 +82,7 @@ every night at 07:23 UTC (and by hand):
    `.plates/plates.json` `morning.assignee` and labelled `keel:morning` (closing the
    previous one; GitHub emails the assignee). On every run once the night is
    over, sent or not, `morning.mjs finalize` puts the final outcomes in `docs/night/<date>.json` and the page's "Tonight's
-   plan" as one data-only PR, `keel-night/<date>-final`, which the drain
+   plan" as one data-only PR, `plates-night/<date>-final`, which the drain
    merges with the series (a run with nothing new changes nothing, so a
    later build outcome still arrives). Only the send job may write issues; a failed send
    is red. The send job also has `actions: read` solely to restore production
@@ -271,7 +271,7 @@ the run, and so does a test that ran without stalls and never with them
 too; the others still run. A run no stall landed in runs once more with its
 first stall inside half that run's time; none again is inconclusive, and
 fails: zero stalls judged nothing. A narrowed run never does. A passing test that said
-`t.diagnostic('keel:inconclusive <what it measured>')` judges real time on
+`t.diagnostic('plates:inconclusive <what it measured>')` judges real time on
 purpose and the machine kept it from judging: the ledger records it
 `inconclusive`, neither pass nor fail, so it is never flaky, never slower,
 and never a cited proof's pass. A failing test stays a failure.
@@ -282,7 +282,7 @@ its wall time in ms, bound `"climb".buildBudgetMs` (no ratchet), else
 recorded only (no bound, never outside, so the pages keep a trend). No
 `build` is n/a; a failing build is broken, never a time. With the climb
 practice on, the page also says when a climb job's last three
-`keel-climb/<job>/` PRs were closed unmerged: that job proposes its own
+`plates-climb/<job>/` PRs were closed unmerged: that job proposes its own
 retirement (gh's list of every state, read-only: a merged or open PR among
 the newest three breaks the streak).
 
@@ -311,7 +311,7 @@ a migration rewrote the project's own files. Bad input (an unknown door
 or surface, a summary that is not a picture) is exit 2.
 
 Practice updates go out from plates: `plates fleet update` opens the
-`keel/update-v<version>` PR in each project that is behind, with the owner's
+`plates/update-v<version>` PR in each project that is behind, with the owner's
 own `gh` login. A person merges it. (`plates-update.yml`, which pulled plates
 into each project weekly, was retired in 0.3.0 by migration 0002.)
 
@@ -391,13 +391,13 @@ The workflow restores `recovery.json` from the latest **canvas-enabled attempt**
 of this repository's default-branch `plates-night.yml` or `plates-morning.yml`
 (whose card job writes the same canvas, phase 78), including failed attempts;
 `scripts/plates/canvas-recovery.mjs` holds the rules for both. A plates-morning
-attempt with no `keel-canvas-card-<attempt>` artifact never reached its card
+attempt with no `plates-canvas-card-<attempt>` artifact never reached its card
 job and is skipped; one still running makes the card wait a pass (exit 3)
 and the night refuse, as for an unfinished night.
 It reads the committed config at each candidate's source commit to establish
 opt-in, rejects PR/fork/other-branch runs, and verifies repository, commit, run
 ID and attempt against artifact provenance. Artifact names include the attempt:
-`keel-canvas-night-<attempt>`. A missing, expired, oversized or ambiguous artifact
+`plates-canvas-night-<attempt>`. A missing, expired, oversized or ambiguous artifact
 for the latest expected attempt is a manual-recovery failure, never permission
 to fall back to an older journal. Reruns recover the immediately preceding
 attempt. Discovery is bounded to the latest 100 workflow runs.

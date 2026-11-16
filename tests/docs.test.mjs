@@ -109,3 +109,69 @@ test('each kind of drift fails the check (mutations of the README text, in memor
   // A newly registered verb with no row.
   assert.deepEqual(docGaps(text, [...names, 'frobnicate'], shipped).filter(g => !base.includes(g)), ['verb missing from README: plates frobnicate']);
 });
+
+// Audit regressions: the operating instructions must name the shipped contracts.
+const document = path => readFile(join(CLI_ROOT, path), 'utf8');
+test('drift-7: canvas examples include admission and held property names', async () => {
+  const spec = await document('docs/specs/isocan-project-canvas.md');
+  const { parseCanvasArgs } = await import('../lib/canvas.mjs');
+  const examples = [...spec.matchAll(/`plates canvas connect ([^`]+)`/g)];
+  assert.equal(examples.length, 2);
+  for (const [, args] of examples) assert.equal(parseCanvasArgs('connect', args.split(' ')).audience, 'owner-only');
+  assert.match(spec, /implemented-by/);
+  assert.match(spec, /cadence:"manual"/);
+  assert.match(spec, /plates canvas night --report/);
+  assert.match(await document('docs/guide/project-canvas.md'), /`keel.hash` and `keel.operation`/);
+});
+test('drift-9: web instructions describe gated writes, saved drafts and media', async () => {
+  const readme = await document('README.md');
+  assert.doesNotMatch(readme, /Phase 97 now contains locally verified|does not write decisions/);
+  assert.match(readme, /docs\/guide\/web-activation.md/);
+  assert.doesNotMatch(await document('docs/guide/web-home.md'), /This is a read-only view/);
+  assert.doesNotMatch(await document('docs/guide/web-auth-service.md'), /Media remains planned|then explicitly report that the feature is unavailable/);
+  assert.match(await document('docs/guide/web-daily-learning.md'), /encrypted.*draft|draft.*encrypted/s);
+  assert.doesNotMatch(await document('docs/guide/web-daily-learning.md'), /Hosted execution and publication are unavailable/);
+});
+test('drift-10: hosted publication names the current canonical plan destination', async () => {
+  for (const path of ['docs/guide/web-night-operations.md', 'docs/specs/web-daily-learning.md', 'docs/specs/web-operation-experience.md']) {
+    assert.match(await document(path), /plates-night-plan/, path);
+  }
+});
+test('drift-11: agent help exposes audit, all optional practices and home modes', async () => {
+  const guide = await document('lib/agent-guide.md');
+  assert.match(guide, /<!-- topic: audit \|/);
+  for (const mode of ['--backlog','--recurring','--agents','--attach','--assist','--names-evidence']) {
+    assert.ok(guide.slice(guide.indexOf('<!-- topic: home |'), guide.indexOf('<!-- topic:', guide.indexOf('<!-- topic: home |') + 1)).includes(mode), mode);
+  }
+  for (const name of await readdir(join(CLI_ROOT, 'practices'))) {
+    const practice = JSON.parse(await document(`practices/${name}/practice.json`).catch(() => '{}'));
+    if (!practice.optional) continue;
+    for (const topic of ['init','adopt']) {
+      const section = guide.split(`<!-- topic: ${topic} |`)[1].split('<!-- topic:')[0];
+      assert.ok(section.includes('`'+name+'`'), `${topic}: ${name}`);
+    }
+  }
+  assert.match(await document('practices/audits/README.md'), /plates audit run/);
+});
+test('drift-12: delivery instructions include the configured Vercel target and grants', async () => {
+  assert.doesNotMatch(await document('docs/philosophy.md'), /does not adopt `delivery`/);
+  const guide = await document('docs/guide/delivery.md');
+  for (const term of ['vercel:<project>', '--migrated', '--migrations-from', '--watch', 'agentPromote']) assert.ok(guide.includes(term), term);
+});
+test('drift-13: review instructions describe the one progress extension', async () => {
+  for (const path of ['lib/agent-guide.md','README.md','docs/guide/reviews-and-prs.md','docs/guide/spin-a-phase.md']) assert.match(await document(path), /2N/, path);
+  assert.match(await document('lib/agent-guide.md'), /count, limit, base, reached, pushes, trend/);
+  assert.match(await document('docs/guide/when-something-is-red.md'), /OPENAI_API_KEY/);
+});
+test('drift-14: evaluation specifications describe shipped approval and lifecycle surfaces', async () => {
+  assert.match(await document('docs/specs/decisions-and-feedback.md'), /plates shape plan <file> --yes --digest/);
+  const learning = await document('docs/specs/evaluated-learning-records.md');
+  assert.match(learning, /plates learn evaluate package/);
+  assert.doesNotMatch(learning, /verification_interface_unavailable/);
+  assert.doesNotMatch(await document('docs/specs/harness-regression-evaluation.md'), /compare and rescore remain planned|Comparison states are draft, frozen, admitted/);
+});
+test('drift-19: operating examples name current branch and marker writers', async () => {
+  const guide = await document('lib/agent-guide.md');
+  for (const old of ['keel/update-v','keel-night/', 'keel-climb/', '<!-- keel:class', '<!-- keel:cross-review']) assert.ok(!guide.includes(old), old);
+  assert.match(await document('practices/climb/files/.agents/climb/PROTOCOL.md'), /plates-climb\/<job>\/<date>/);
+});

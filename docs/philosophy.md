@@ -222,10 +222,12 @@ Repository inspection on **2026-11-02**, based on main `63a48c7d`, found:
   The future candidate-validation work must cover both PR and integrator paths.
 - [Delivery](guide/delivery.md) already supports a tested ref, serial publication,
   serving-version verification and guarded promotion/rollback. Existing phases
-  80–82 own those mechanisms and their outstanding walks. Plates' own
-  [.plates/plates.json](../.plates/plates.json) does not adopt `delivery`, has no
-  delivery block, and declares production disabled/not applicable. That is a
-  configuration observation, not proof that the hosted web service does not exist.
+  80–82 own those mechanisms and their outstanding walks. **Updated 2026-11-15:**
+  Plates now adopts `delivery`; its
+  [.plates/plates.json](../.plates/plates.json) configures `promote: "vercel:plates"`
+  and `grant.agentPromote: true` under phase 177. Production-error collection
+  remains disabled/not applicable. Configuration is not serving-version or
+  rollout verification.
 - CLI/practice delivery means a reviewed release, installed source/managed bytes
   and compatible consumer updates. Hosted web delivery means an actual serving
   revision, runtime configuration, database compatibility and operating checks.

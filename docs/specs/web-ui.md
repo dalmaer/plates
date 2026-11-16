@@ -481,10 +481,10 @@ diff transactions are new work for commands that do not currently support them.
 The first delivery plan is [workspace phases 93–101](web-workspace.md#phases-and-release-criteria),
 under goal G7. Phase 93 enforces private storage, 94 connects owner-approved
 resources, 95 authenticates, and 96 ships the first useful read-only Home.
-Decision and guided-walk implementations in 97–98 have local proof; their hosted
-migrations and real-owner writes remain separate acceptance. Visual changes
-follow in 99; daily work and learning follow in 100, with live acceptance and
-restore in 101. Do not wait
+Phase 97 is built with hosted decision-commit evidence. Guided walks (98),
+private media (99), Daily drafts and learning (100) have implemented routes
+with separate activation and owner-use evidence; live acceptance and restore
+remain recorded in 101. Do not wait
 for a graphical version of every CLI flag. Link-outs are staged delivery, not the
 end state for core operations. [Fleet phases 102–108](web-fleet-operations.md)
 add run history, connections/capacity, workers, fleet rollouts, routing, operation
@@ -509,7 +509,8 @@ and observations; do not manufacture performance or usability results.
   authenticated remote access with app code in public Plates, shared records in a
   private workspace and project facts in each project. The workspace spec
   replaces the earlier local-first delivery recommendation. Vercel and Supabase Free are now selected and provisioned; the approved
-  read-only GitHub App is installed and live login/access checks pass. Expanded worker/provider
+  initially read-only GitHub App is installed and live login/access checks pass;
+  enabled source writers require their scoped grants. Expanded worker/provider
   permissions remain explicit setup choices.
 - **Agent launch integration:** initial “View next work” can expose a prepared
   brief/command. Launching a particular host requires a supported host adapter,

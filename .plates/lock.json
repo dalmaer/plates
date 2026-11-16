@@ -3,7 +3,7 @@
   "files": {
     ".agents/climb/PROTOCOL.md": {
       "practice": "climb",
-      "sha256": "42d14a46b85303a99d01402101a2a6439b9fb14adf2559abdae421506d81236f"
+      "sha256": "058b5c1dd97f9ba0c89b9a2599642b57243af2d00ac570a42bb8093e727061eb"
     },
     ".agents/climb/TEND.md": {
       "practice": "climb",
@@ -143,7 +143,7 @@
     },
     "docs/plates-lessons.md": {
       "practice": "lessons",
-      "sha256": "ce901fd03435f87f2efcc7908f36028eb2c4f2c0d851a2a71203d91c7546abcf"
+      "sha256": "fd9e40ea1de2a7c7fa2f633b86015f1912fb31433bffb6311c3886bb1563e5bc"
     },
     "docs/reconciliation.md": {
       "practice": "reconciliation",

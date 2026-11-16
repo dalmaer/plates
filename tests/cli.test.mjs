@@ -487,3 +487,14 @@ test('plates board is retired and names plates home', async () => {
     assert.match(await readFile(join(PLATES, 'lib', 'work-items.mjs'), 'utf8'), /export async function workItems/);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
+
+test('learn accepts --json before evaluate without changing dispatch', async () => {
+  const { verbs, CLI_ROOT } = await import('../lib/cli.mjs');
+  const command = verbs.get('learn');
+  for (const args of [['evaluate','propose','acme','--json'], ['--json','evaluate','propose','acme']]) {
+    await assert.rejects(command.run(args, { cwd: CLI_ROOT }), /absolute_request_required/);
+  }
+  await assert.rejects(command.run(['unknown'], { cwd: CLI_ROOT }), /evaluate/);
+  await assert.rejects(verbs.get('adopt').run(['--with'], { cwd: CLI_ROOT }), /--agent-help init/);
+  await assert.rejects(command.run(['--json','evaluate','inspect','acme','--json'], { cwd: CLI_ROOT }), /duplicate/);
+});

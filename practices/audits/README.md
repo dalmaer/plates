@@ -33,9 +33,12 @@ whose own window must have room, and a time bound (`minutes`).
   night once, as triage in lane `audit:<lens>`: an audit proposes, a person
   decides, and a kept finding becomes a phase or a climb.
 
-Nothing here starts a model or schedules one. Running a lens through a local
-agent host, and a routine that runs a due lens when there is room, are later
-increments of plates phase 192; scheduling model spend is the owner's ⚑.
+`plates audit run <lens>` previews a dispatch (exit 3); `--yes` starts a model
+through the owner's configured local host when quota has room, in a detached
+checkout of HEAD outside the project. It returns a receipt without waiting and
+does not record findings; use `record` after inspecting the result. A host with
+a configured harness uses a labelled Rex tab when available. `due`, `brief` and
+`record` start no model. Scheduling model spend remains the owner's ⚑.
 
 Opt in with `plates adopt --with audits`. It requires the night practice: the
 runner uses the night's `lib.mjs`, and the night reads the findings.

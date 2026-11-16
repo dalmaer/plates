@@ -157,7 +157,7 @@ count against the time limit. Give a named test its clock (`mock.timers` in
 with stalls on every gate, from a fresh seed, and a failure prints the seed
 and the command that replays it. A test that judges real time on purpose (a
 frame rate, playback) can say the machine kept it from judging:
-`t.diagnostic('keel:inconclusive <what it measured>')`. The ledger records it
+`t.diagnostic('plates:inconclusive <what it measured>')`. The ledger records it
 as inconclusive, neither pass nor fail.
 
 ## The commands
@@ -187,7 +187,7 @@ Without plates installed, the project's own copy runs the same measures:
 (whether a file is merely behind plates's template, plates's inbox) it reports
 as plates-side only, never as zero.
 
-`plates drain <prefix>` is the queue rule by hand: `plates drain keel-night/`
+`plates drain <prefix>` is the queue rule by hand: `plates drain plates-night/`
 shows what it would merge or close and exits 3; add `--yes` to act.
 `--gate-passed` is for the workflow, which passes it only when the gate
 passed on the newest PR's tree.
@@ -226,7 +226,7 @@ plates night tick climb-test-time --status done --note "12% faster" --link https
   so a plan made before 07:23 UTC is for that morning's night and one made
   after is for the next. In California, an evening plan is for the next UTC
   date; in Berlin, too.
-- **Where it travels.** The night reads the branch `keel-night-plan` (one
+- **Where it travels.** The night reads the branch `plates-night-plan` (one
   file, `.plates/night/plan.json`): a valid plan dated for tonight is used;
   none, another night's, or a refused one means the default plan, and the
   step's log says which and why. The owner shapes it with `plates goodnight
@@ -294,7 +294,7 @@ plates goodnight --yes                             # "that's the plan": write it
   `.plates/plates.json`), and none when climb is off.
 - **Saying it.** `plates goodnight --yes` checks the plan again, fills in what
   was settled and left open, writes `.plates/night/plan.json` shaped by the
-  owner, and force-pushes it to `keel-night-plan`: one commit holding that one
+  owner, and force-pushes it to `plates-night-plan`: one commit holding that one
   file, made from git's object store, so your working tree, your index and
   every other branch (main above all) are untouched. That push is the only
   summons. The branch is never merged. Exit 1 if the plan was written but the
@@ -369,7 +369,7 @@ plates morning --card --yes           # the plan as the live canvas card night-p
   night whose builds never finish: by then the morning reads the new night.
   Only its send job may write issues; a failed send turns it red. Every run
   once the night is over, sent or not, keeps one data-only PR,
-  `keel-night/<date>-final`, that puts the final outcomes in
+  `plates-night/<date>-final`, that puts the final outcomes in
   `docs/night/<date>.json` and the page's "Tonight's plan", so a build that
   finishes after the brief still reaches the archive; a run with nothing new
   commits nothing, but opens that PR if an earlier run pushed its branch
@@ -397,7 +397,7 @@ plates morning --card --yes           # the plan as the live canvas card night-p
 
 ## What you'll see
 
-The night's PR, `keel-night/<date>`, holds the health page, tonight's plan
+The night's PR, `plates-night/<date>`, holds the health page, tonight's plan
 record and any bound that tightened. Its body is Summary, Evidence and Merge danger
 ([Reviews and PRs](reviews-and-prs.md)) with the page's proposal as its
 note. Merging it is safe: it is data, and the drain would merge it anyway.

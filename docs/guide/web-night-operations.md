@@ -16,7 +16,7 @@ consequences. Public-repository publication requires its own explicit
 acknowledgement. Saving a private editor draft never grants this approval.
 
 The first adapter appends one conditional commit to an **existing**
-`keel-night-plan` branch. Another owner edit or night tick requires a fresh review.
+`plates-night-plan` branch. Another owner edit or night tick requires a fresh review.
 The commit preserves other files and history. It does not create robot issues,
 force-push, start a night or grant a model budget. Missing branch/file setup remains
 unsupported by this publication flow; an ordinary preview must not create it.

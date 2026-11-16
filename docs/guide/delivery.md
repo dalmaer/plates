@@ -85,8 +85,8 @@ before it pushes. Exit codes: 0 moved, created or nothing to do; 1 refused;
 
 ## Making a deploy follow the tested ref
 
-Plates does not deploy; each project keeps its own mechanism. It only has to
-start from the tested ref instead of `main`:
+Projects can keep their own deploy mechanism or select the Vercel promotion
+adapter below. Either starts from the tested ref instead of `main`:
 
 - **A deploy service outside GitHub Actions, watching a branch** (isocan's
   Cloud Build trigger): point the trigger at the tested ref. isocan already
@@ -179,10 +179,10 @@ node scripts/plates/verify.mjs live <sha> [--json]
   a checkout with `fetch-depth: 0`.
 
 **Where the result goes.** `--record` adds the result to the branch
-`keel-verify`, file `verify.json` (newest first, the last 30, and every failure of the last 72 hours so a burst of passes never drops one before its brief reads it, and the latest result of each site whatever its age, so production's last verify is never lost to previews; each with the
+`plates-verify`, file `verify.json` (newest first, the last 30, and every failure of the last 72 hours so a burst of passes never drops one before its brief reads it, and the latest result of each site whatever its age, so production's last verify is never lost to previews; each with the
 commit, the outcome, the time, the site, what production served, each failure
 and the Actions run), with a lease; a file there that is not a verify record
-is never replaced, nor is a `keel-verify` branch with no `verify.json`; every other file on the branch is kept. With the delivery practice on, the night's morning brief
+is never replaced, nor is a `plates-verify` branch with no `verify.json`; every other file on the branch is kept. With the delivery practice on, the night's morning brief
 and `plates home` read it:
 
 - **Home** (`plates home`, in its Production verify row): when the latest verify failed, an owner's item, "production
@@ -200,6 +200,22 @@ A project may add its own channel (ledger's Telegram alert) beside these.
 
 ## Promoting production
 
+For `vercel:<project>`, configure `delivery.vercel.scope` and an external
+`delivery.vercel.checkout`. Promotion records the serving deployment first,
+deploys the exact tested commit, checks its revision and smoke paths, then watches
+error logs with `--watch <seconds>` (default 120). A failed check rolls back to the
+recorded deployment and verifies it. `plates promote --back` without a commit
+returns to the last good deployment. Ref-based targets still require a commit
+for rollback.
+
+New files under `delivery.migrations` (default `lib/web/migrations`) must be
+acknowledged with repeatable `--migrated <file>` after the owner applies them.
+If no last-good or serving commit is available, `--migrations-from <commit>`
+names the migration baseline. Neither flag applies a migration. The owner's
+`delivery.grant: {agentPromote: true, since: "YYYY-MM-DD"}` permits agent promotion
+within that grant; no workflow runs promotion. See the
+[delivery practice](../../practices/delivery/README.md) for the Vercel flow.
+
 Where a project promotes by hand (isocan moves a `prod` tag, and its deploy
 follows the tag), `plates promote` is that gesture with a guard on it. Name the
 ref in `.plates/plates.json`:
@@ -209,7 +225,7 @@ ref in `.plates/plates.json`:
 ```
 
 `promote` is `"tag:<name>"` or `"branch:<name>"` (never the default branch, nor
-the tested ref), or `"none"`; a project without one has no promote. It needs
+the tested ref), `"vercel:<project>"`, or `"none"`; a project without one has no promote. It needs
 `site` and `version`, because every promotion ends in a verify.
 
 ```bash
@@ -327,8 +343,8 @@ on their own change and push. Phase 83 makes that one run:
 
 - The publisher does not merge, and never writes `main`; `plates integrate`
   does, and only with a tree its gate passed. The verifier writes only the
-  `keel-verify` data branch, and only with `--record`. `plates promote` writes
-  only the production ref, and only with `--yes`.
+  `plates-verify` data branch, and only with `--record`. `plates promote` moves
+  the configured production ref or Vercel deployment only with `--yes`.
 - It does not promote on its own. No workflow runs `plates promote`.
 - The publisher does not batch untested commits into one test run; "newest
   passing wins" is its batching. `plates integrate` batches ready changes

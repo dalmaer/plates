@@ -42,7 +42,7 @@ numbers go in the message, and `compare --decide` writes them there for you.
    limit, or three misses in a row), or when the budget is nearly spent. A
    change you have not decided when time runs out is dropped, not kept.
 6. **One PR.** You do not push, and you do not open it: the workflow does,
-   on `keel-climb/<job>/<date>`, from `climb.mjs report`: the before-and-after
+   on `plates-climb/<job>/<date>`, from `climb.mjs report`: the before-and-after
    table, each kept change with its numbers, and what was tried and reverted,
    with why. A night that keeps nothing opens nothing, and that is a fine
    night. (A hygiene night that keeps nothing files one issue instead; the
