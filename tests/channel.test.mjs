@@ -44,7 +44,7 @@ test('the feed is built from what plates already reads', () => {
   const m = model();
   // Time order, newest last, each line with its plate, kind, actor and link.
   assert.deepEqual(m.lines.map(l => [l.kind, l.actor]), [
-    ['joined', 'studio#1'], ['joined', 'studio#2'], ['pr', 'studio#2'], ['pr', 'studio#22'], ['pushed', 'studio#1'], ['ci', 'studio#2'], ['deploy', 'studio'], ['deploy', 'studio'], ['waiting', 'studio'],
+    ['joined', 'studio#1'], ['joined', 'studio#2'], ['pr', 'studio#2'], ['pr', 'studio!22'], ['pushed', 'studio#1'], ['ci', 'studio#2'], ['deploy', 'studio'], ['deploy', 'studio'], ['waiting', 'studio'],
   ]);
   for (const l of m.lines) {
     assert.ok(KINDS.includes(l.kind), l.kind);
@@ -129,6 +129,25 @@ test('here now is the agents holding work', () => {
     project: studio({ waits: { state: 'read', more: 0, items: [{ branch: 'codex/phase-3-crates', phase: 3, state: 'active', since: ago(10 * DAY), headAt: ago(10 * MIN), next: 'keep going' }] } }) });
   assert.deepEqual(pushed.lines.filter(l => l.kind === 'pushed').map(l => [l.at, l.text]), [[ago(10 * MIN), 'pushed codex/phase-3-crates']]);
   assert.deepEqual([pushed.hereNow.map(h => [h.actor, h.last.age, h.unread]), pushed.hereIdle], [[['studio#3', '10m', 1]], null]);
+  // A branch sent back is dated honestly: its last push at the head's time, and the failure or the return at its own.
+  const sentBack = model({ c: claims({ claims: [{ phase: 3, provider: 'codex', at: ago(20 * DAY) }], prs: [] }), p: prs({ items: [] }),
+    project: studio({ waits: { state: 'read', more: 0, items: [
+      { branch: 'codex/phase-3-crates', phase: 3, state: 'branch', since: ago(HOUR), headAt: ago(15 * DAY), next: 'fix test on codex/phase-3-crates (PR #31)' },
+      { branch: 'claude/tidy', phase: null, state: 'branch', since: ago(2 * HOUR), headAt: ago(3 * DAY), next: 'sent back by plates integrate (conflicts with main): fix it on claude/tidy, then plates ready again' },
+      { branch: 'claude/quiet', phase: null, state: 'branch', since: ago(5 * HOUR), next: 'no push for 5 h: plates ready claude/quiet if it is done' },
+    ] } }) });
+  assert.deepEqual(sentBack.lines.filter(l => l.source === 'waits').map(l => [l.at, l.kind, l.text]), [
+    [ago(3 * DAY), 'pushed', 'last pushed claude/tidy'],
+    [ago(5 * HOUR), 'pushed', 'last pushed claude/quiet'],
+    [ago(2 * HOUR), 'pr', 'claude/tidy was sent back by plates integrate (conflicts with main): fix it on claude/tidy, then plates ready again'],
+    [ago(HOUR), 'ci', 'checks failed on codex/phase-3-crates: fix test on codex/phase-3-crates (PR #31)'],
+  ], 'a push fifteen days ago is not shown as an hour ago (and falls outside the window)');
+  assert.deepEqual(sentBack.hereNow.map(h => [h.actor, h.last.kind, h.last.age]), [['studio#3', 'ci', '1h']], 'activity follows the same lines');
+  // PR #3 naming no phase and phase 3 are two identities: the PR's lines never count as the phase's in Here now.
+  const clash = model({ c: claims({ claims: [{ phase: 3, provider: 'codex', at: ago(3 * DAY) }], prs: [] }), project: studio({ waits: { state: 'read', items: [], more: 0 } }),
+    p: prs({ items: [{ number: 3, title: 'Acme renovate bump', url: 'https://github.com/acme/studio/pull/3', createdAt: ago(10 * MIN), isDraft: false, author: 'renovate' }] }) });
+  assert.deepEqual(clash.lines.filter(l => l.kind !== 'waiting' && l.kind !== 'deploy').map(l => [l.actor, l.phase, l.pr, l.kind]), [['studio#3', 3, null, 'joined'], ['studio!3', null, 3, 'pr']]);
+  assert.deepEqual(clash.hereNow.map(h => [h.actor, h.last.kind, h.last.age, h.unread, h.caughtUp]), [['studio#3', 'joined', '3d', 0, true]]);
   // Holders with no activity past the window still hold the work: one trailing row, oldest first named, never drowning the active ones.
   const stale = model({ c: claims({ claims: [...claims().claims, { phase: 3, provider: 'codex', at: ago(10 * DAY) }, { phase: 4, provider: 'codex', at: ago(12 * DAY) }] }) });
   assert.deepEqual(stale.hereNow.map(h => h.actor), ['studio#2', 'studio#1']);
@@ -249,7 +268,7 @@ test('the CLI and the web show one channel', async () => {
     assert.equal(run.status, 0, run.stderr);
     const cli = JSON.parse(run.stdout), web = (await s.web()).channel;
     // The fixture exercises claims, PRs and deploys, so equality is not two empty readers agreeing.
-    assert.deepEqual(cli.lines.map(l => [l.kind, l.actor]), [['joined', 'studio#1'], ['joined', 'studio#2'], ['pr', 'studio#2'], ['pr', 'studio#22'], ['deploy', 'studio'], ['gap', 'studio']]);
+    assert.deepEqual(cli.lines.map(l => [l.kind, l.actor]), [['joined', 'studio#1'], ['joined', 'studio#2'], ['pr', 'studio#2'], ['pr', 'studio!22'], ['deploy', 'studio'], ['gap', 'studio']]);
     assert.equal(cli.lines.at(-1).text, 'pushes and CI are not read here: The delivery practice is off on this plate: ready and integrate, the tested ref and deploy records are its, so its waits are not read.');
     assert.deepEqual(readless(web), readless(cli), 'the same lines and the same Here now in both forms');
     assert.deepEqual(cli.hereNow.map(h => [h.actor, h.title, h.provider, h.unread]), [['studio#2', 'Acme phase 2', 'acme-codex', 2], ['studio#1', 'Acme phase 1', 'claude', 1]]);

@@ -253,7 +253,7 @@ sidebar's Agents and Pending review carry their counts on every page.
 newest last, who claimed which phase (joined), the pull requests opened, the
 changes in flight (pushed, CI, waiting to deploy), production's deploys and
 the sessions waiting on you, each line with its plate, its actor
-(`<plate>#<phase>`, else `<plate>#<PR>`) and a link. **Here now** lists the
+(`<plate>#<phase>`, else `<plate>!<PR>` for a PR naming no phase) and a link. **Here now** lists the
 agents holding work (live claims, and PRs naming an unclaimed phase) with
 their last line's age and the lines from the last 24 hours, or Caught up; no
 read position is kept yet. A source that could not be read is a gap line

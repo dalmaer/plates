@@ -2048,10 +2048,10 @@ entry with its `sets`, with the cards on stderr). Exit 0.
 `plates channel [<project>] [--since <time>] [--fresh] [--json]` (phase 194)
 is each plate's channel, read only, the same model as `/channel` on the
 owner's site and a plate page's Channel section: lines `{at, plate, kind,
-actor, text, ref, source}`, newest last, from the claims (`joined`), open PRs
+actor, text, ref, source, phase, pr}`, newest last, from the claims (`joined`), open PRs
 (`pr`), changes in flight (`pushed`, `ci`, `deploy`), deploy records
 (`deploy`) and sessions waiting on you (`waiting`) that `plates home` reads.
-`actor` is `<plate>#<phase>`, else `<plate>#<PR>`. A source not read is a
+`actor` is `<plate>#<phase>`, else `<plate>!<PR>`. A source not read is a
 `gap` line naming it, never a quiet channel. Seven days by default; `--since`
 (an ISO time or `6h`, `2d`) narrows it. More than three joined/left lines on a
 plate within ten minutes fold into one. `hereNow: [{actor, title, provider,
