@@ -1,3 +1,4 @@
+import { packedTarball } from './helpers/packed-tarball.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { run, runAsync } from './helpers/run.mjs';
@@ -76,7 +77,7 @@ test('competing fresh processes cannot replace workspace ownership', async t => 
 });
 test('packed CLI loads workspace runtime and completes lifecycle outside a source checkout', async t => {
   const dest = await mkdtemp(join(tmpdir(), 'plates-workspace-pack-')); t.after(() => rm(dest, { recursive: true, force: true }));
-  const packed = run('npm', ['pack', '--ignore-scripts', '--json', '--pack-destination', dest], { cwd: root });
+  const packed = await packedTarball(dest);
   assert.equal(packed.status, 0, packed.stderr);
   const entry = JSON.parse(packed.stdout)[0]; assert.ok(entry.files.some(f => f.path === 'lib/web/workspace.mjs'));
   const unpacked = run('tar', ['-xzf', join(dest, entry.filename), '-C', dest]); assert.equal(unpacked.status, 0, unpacked.stderr);

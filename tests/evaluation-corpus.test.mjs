@@ -1,3 +1,4 @@
+import { packedTarball } from './helpers/packed-tarball.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fsp from 'node:fs/promises';
@@ -95,7 +96,7 @@ test('historical probes reject original behavior and accept only scoped correcte
 });
 test('packed installed CLI includes and inspects the complete corpus without source checkout history', async t => {
   const root = await temporary(t), env = { ...process.env, HOME: root, PLATES_CLAUDE_DIR: join(root, 'transcripts'), npm_config_cache: join(root, 'cache') };
-  const packed = run('npm', ['pack', '--offline', '--ignore-scripts', '--json', '--pack-destination', root], { cwd: repository, env, timeout: 60000 }); assert.equal(packed.status, 0, packed.stderr);
+  const packed = await packedTarball(root); assert.equal(packed.status, 0, packed.stderr);
   const [{ filename, files }] = JSON.parse(packed.stdout); assert.ok(files.some(f => f.path === 'lib/evaluation-corpus/catalog.json'));
   assert.ok(files.some(f => f.path === 'lib/evaluation-corpus/private/coordinator-guidance.json'));
   const installed = run('npm', ['install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund', '--prefix', join(root, 'consumer'), join(root, filename)], { env, timeout: 60000 }); assert.equal(installed.status, 0, installed.stderr);

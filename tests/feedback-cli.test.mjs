@@ -1,3 +1,4 @@
+import { packedTarball } from './helpers/packed-tarball.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, writeFile, rm, readdir, mkdir } from 'node:fs/promises';
@@ -96,7 +97,7 @@ test('the item model reads persisted feedback metadata and keeps missing sources
 
 test('packed CLI in an adopted Acme repository preserves private capture and exposes shipped help without a checkout', async t => {
   const temp=await mkdtemp(join(tmpdir(),'acme-feedback-pack-'));t.after(()=>rm(temp,{recursive:true,force:true}));
-  const packed=run('npm',['pack','--ignore-scripts','--json','--pack-destination',temp],{cwd:resolve('.')});assert.equal(packed.status,0,packed.stderr);
+  const packed=await packedTarball(temp);assert.equal(packed.status,0,packed.stderr);
   const tar=run('tar',['-xzf',join(temp,JSON.parse(packed.stdout)[0].filename),'-C',temp]);assert.equal(tar.status,0,tar.stderr);
   const bin=join(temp,'package/bin/plates.mjs'), f=await feedbackFixture(t);
   await writeFile(join(f.root,'AGENTS.md'),'# Acme\n\nAcme owner guidance remains.\n');

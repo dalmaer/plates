@@ -1,3 +1,4 @@
+import { packedTarball } from './helpers/packed-tarball.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, writeFile, rm, cp, readdir } from 'node:fs/promises';
@@ -8,7 +9,7 @@ import { run } from './helpers/run.mjs';
 const cli=(bin,root,args)=>{const r=run(process.execPath,[bin,...args,'--json'],{cwd:root,env:{...process.env,PLATES_GH:'/acme/no-gh'}});return {code:r.status,data:JSON.parse(r.stdout),err:r.stderr};};
 test('packed fresh-process lifecycle renders adopted review, validates real roadmap and refuses stale approval',async t=>{
  const home=await mkdtemp(join(tmpdir(),'acme-shaping-packed-'));t.after(()=>rm(home,{recursive:true,force:true}));
- const pack=run('npm',['pack','--ignore-scripts','--json','--pack-destination',home],{cwd:resolve('.')});assert.equal(pack.status,0,pack.stderr);
+ const pack=await packedTarball(home);assert.equal(pack.status,0,pack.stderr);
  execFileSync('tar',['-xzf',join(home,JSON.parse(pack.stdout)[0].filename),'-C',home]);
  const bin=join(home,'package/bin/plates.mjs'),root=join(home,'Acme');
  const init=cli(bin,home,['init',root,'--description','Acme test application.','--with','shaping']);assert.equal(init.code,0,JSON.stringify(init));
