@@ -10,6 +10,10 @@ import { claimMessage } from '../lib/claim.mjs';
 /** The real service; the App lists one claim (codex on phase 1) and two open PRs, one set to auto-merge. pulls: the installation's Pull requests permission. */
 async function hosted({ pulls = 'read' } = {}) {
   const h = projectHarness(), graphql = [];
+  const prs = [
+    { number: 5, title: 'Acme anvils', headRefName: 'work/phase-2', url: 'https://github.com/acme/studio/pull/5', createdAt: '2026-10-01T00:00:00Z', isDraft: false, reviewDecision: 'APPROVED', autoMergeRequest: null, author: { login: 'acme' } },
+    { number: 6, title: 'Acme bump', headRefName: 'renovate/acme', url: 'https://github.com/acme/studio/pull/6', createdAt: '2026-09-01T00:00:00Z', isDraft: false, reviewDecision: null, autoMergeRequest: { enabledAt: '2026-09-01T01:00:00Z' }, author: { login: 'renovate' } },
+  ];
   h.source.files['.plates/plates.json'] = JSON.stringify({ ...JSON.parse(h.source.files['.plates/plates.json']), agents: { claude: {}, codex: {} } });
   const fetcher = async (url, options) => {
     const u = new URL(url);
@@ -17,14 +21,16 @@ async function hosted({ pulls = 'read' } = {}) {
     const query = u.pathname === '/graphql' ? JSON.parse(options.body).query : '';
     if (query.includes('PlatesClaims')) {
       graphql.push('claims');
+      if (pulls) {
+        assert.match(query, /orderBy: \{ field: CREATED_AT, direction: ASC \}/);
+        for (const field of ['headRefName', 'title', 'isDraft', 'reviewDecision', 'autoMergeRequest']) assert.ok(query.includes(field), field);
+      }
       const at = new Date(h.state.now - 3_600_000).toISOString().replace(/\.\d{3}Z$/, 'Z');
-      return Response.json({ data: { repository: { refs: { totalCount: 1, nodes: [{ name: 'phase-1', target: { oid: 'c'.repeat(40), message: claimMessage({ phase: 1, provider: 'codex', machine: 'acme-mac', at, token: 't' }), committedDate: at } }] }, pullRequests: { totalCount: 0, nodes: [] } } } });
+      return Response.json({ data: { repository: { refs: { totalCount: 1, nodes: [{ name: 'phase-1', target: { oid: 'c'.repeat(40), message: claimMessage({ phase: 1, provider: 'codex', machine: 'acme-mac', at, token: 't' }), committedDate: at } }] }, pullRequests: { totalCount: prs.length, nodes: prs } } } });
     }
     if (query.includes('PlatesPending')) {
       graphql.push('pending');
-      return Response.json({ data: { repository: { pullRequests: { totalCount: 2, nodes: [
-        { number: 5, title: 'Acme anvils', url: 'https://github.com/acme/studio/pull/5', createdAt: '2026-10-01T00:00:00Z', isDraft: false, reviewDecision: 'APPROVED', autoMergeRequest: null, author: { login: 'acme' } },
-        { number: 6, title: 'Acme bump', url: 'https://github.com/acme/studio/pull/6', createdAt: '2026-09-01T00:00:00Z', isDraft: false, reviewDecision: null, autoMergeRequest: { enabledAt: '2026-09-01T01:00:00Z' }, author: { login: 'renovate' } }] } } } });
+      return Response.json({ data: { repository: { pullRequests: { totalCount: prs.length, nodes: prs } } } });
     }
     return h.fetcher(url, options);
   };
@@ -68,4 +74,13 @@ test('signed out, Agents is refused', async () => {
   const api = await s.web(s.h.request('/api/agents'));
   assert.equal(api.status, 401); assert.deepEqual(await api.json(), { error: 'sign_in_required' });
   assert.equal(s.graphql.length, 0);
+});
+
+test('the claims and pending sidebar use one open-PR query per plate per pass', async () => {
+  const s = await hosted();
+  await s.get('/api/agents');
+  assert.deepEqual(s.graphql, ['claims']);
+  s.graphql.length = 0;
+  await s.get('/backlog');
+  assert.deepEqual(s.graphql, ['claims'], 'a new request reads again; no cross-request reuse');
 });
