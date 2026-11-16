@@ -103,6 +103,22 @@ test('an unread source is a gap, never quiet', () => {
     ['gap', 'activity partly read: one page of repository activity'],
     ['gap', 'checks unread: the App cannot read check runs: Checks read needed'],
   ]);
+  // Every waits gap is named, whatever its kind: a branch head ahead of this clock leaves the item unknown, with a skew gap, under coverage that says read.
+  const skew = model({ project: studio({ waits: { state: 'read', more: 0, coverage: { branches: { state: 'read', why: null } },
+    items: [{ branch: 'claude/phase-1-anvils', phase: 1, state: 'unknown', since: null, next: 'read claude/phase-1-anvils\'s head commit: headAt is 12 min after now: clock skew' }],
+    gaps: { count: 1, items: [{ kind: 'skew', source: 'branches', why: 'headAt is 12 min after now: clock skew', branch: 'claude/phase-1-anvils' }] } } }) });
+  assert.deepEqual(skew.lines.filter(l => l.source === 'waits').map(l => [l.kind, l.text]), [['gap', 'branches ahead of this clock on claude/phase-1-anvils: headAt is 12 min after now: clock skew']], 'the gap names it once; the item is not named again');
+  // An item the channel cannot say as a line, with no gap of its own, is named by itself: unknown, or a state this module does not know.
+  const odd = model({ project: studio({ waits: { state: 'read', more: 0, items: [
+    { branch: 'claude/mystery', phase: null, state: 'unknown', since: null, next: 'read the observations of claude/mystery again before acting' },
+    { branch: 'claude/novel', phase: null, state: 'teleporting', since: ago(MIN), next: 'nothing known' },
+    { branch: 'claude/timeless', phase: null, state: 'integration', since: null, next: 'run plates integrate' },
+  ] } }) });
+  assert.deepEqual(odd.lines.filter(l => l.source === 'waits').map(l => l.text), [
+    'claude/mystery is unknown: read the observations of claude/mystery again before acting',
+    'claude/novel is teleporting: nothing known',
+    'claude/timeless is integration with no readable time: run plates integrate',
+  ]);
   // A bounded read says what it left out.
   assert.ok(model({ project: studio({ waits: { ...studio().waits, more: 2 } }) }).lines.some(l => l.kind === 'gap' && l.text === '2 more changes in flight not listed: the read keeps the newest'));
 });
