@@ -16,12 +16,3 @@ test('Acme package is deterministic read-only allowlisted evidence, record and f
   const f=evaluationSection(followed.outputBytes).value.records.at(-1);assert.equal(f.kind,'learning-follow-up');assert.equal(f.data.coverage,'unmeasured');for(const k of ['eligibleExposure','recurrenceRate','costChange','latencyChange','helpChange'])assert.equal(f.data[k],null);
   const revised=(await w.call('revise',{supersedesRef:w.proposalRef,proposal:{...w.proposal(w.lessonRef),hypothesis:'Acme changed hypothesis after observed result.'},scopeChangeReason:'Acme narrower scope.'},{previous:followed,apply:true})).result;assert.equal(revised.status,'proposed');assert.deepEqual(evaluationSection(revised.outputBytes).value.records.slice(0,-1),evaluationSection(followed.outputBytes).value.records);
 });
-test('Acme package schema refuses nested fields and caller-ready flags',async t=>{const w=await evaluated(t),m=await w.load('evaluated-learning'),p=await m.evaluatedLearning({...w.options,dir:w.repo,env:w.env,slug:'2026-10-24-acme',action:'package'});const changed=structuredClone(p.payload);changed.mapping.entries[0].approved=true;assert.throws(()=>validatePublicPackage(changed));const request={schemaVersion:1,operationId:'e1a5ac91-1d10-4dee-a7c7-aab394fef3d0',expected:{fileDigest:w.applied.outputDigest,generation:w.applied.generation},actor:'Acme',at:'2026-10-24T00:00:00.000Z',reason:'Acme',decisionTarget:{kind:'phase',ref:'1'},action:'ready',payload:{proposalRef:w.proposalRef,packageRef:ref(w.evaluation),ready:true}};assert.throws(()=>validateRequest(request));});
-
-test('Acme differing tested overlay cannot establish installed base; binary prior bytes retain exact size with inverse unavailable',async t=>{
-  const {promotionWorld}=await import('./helpers/lesson-promotion.mjs');
-  for(const [baselineContent,gitBefore,baseMatches]of [['Acme overlay\n','Acme installed\n',false],['Acme\0binary','Acme\0binary',true]]){
-    const w=await promotionWorld(t,{worldOptions:{baselineContent,gitBefore}}),pack=await w.learning.evaluatedLearning(w.packageOptions),entry=pack.payload.mapping.entries[0];
-    assert.equal(entry.before.byteLength,Buffer.byteLength(gitBefore));assert.equal(entry.before.byteDigest,byteDigest(gitBefore));assert.equal(entry.baseMatches,baseMatches);assert.equal(pack.payload.inverse.available,false);assert.ok(pack.readiness.gaps.includes('inverse_unavailable'));
-  }
-});

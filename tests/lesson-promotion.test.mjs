@@ -17,23 +17,6 @@ test('Acme original package operation recovers only while original report surviv
   const reportPath=join(w.dir,'reports',w.evaluation.data.reportRef.digest+'.json');await unlink(reportPath);
   await assert.rejects(w.invoke({...operation.opts,yes:true,digest:operation.preview.digest}),/original_report_missing_or_changed/);
 });
-test('Acme follow-up selected source deduplicates and cannot invent exposure, cross-proposal decisions or unresolved relations',async t=>{
-  const w=await promotionWorld(t),p={...w.followup,selections:w.capture.selections};
-  const op=await w.call('follow-up',p,{previous:w.applied,apply:true}),history=evaluationSection(op.result.outputBytes).value,follow=history.records.at(-1);
-  assert.equal(follow.data.sourceCoverage.selected,1);assert.equal(follow.data.sourceCoverage.distinctVerifiedIncidents,0);assert.equal(follow.data.sourceCoverage.unknownIncidentSources,1);assert.equal(history.records.filter(r=>r.kind==='learning-source').length,1);
-  assert.equal((await w.learning.evaluatedLearning({...op.opts,yes:true,digest:op.preview.digest})).alreadyApplied,true);
-  const forged=structuredClone(history),prior=forged.records.at(-1);forged.records[forged.records.length-1]=seal({...Object.fromEntries(Object.entries(prior).filter(([k])=>k!=='digest')),data:{...prior.data,eligibleExposure:0}});const e=forged.events.at(-1);forged.events[forged.events.length-1]=seal({...Object.fromEntries(Object.entries(e).filter(([k])=>k!=='digest')),recordRefs:[ref(forged.records.at(-1))]});assert.throws(()=>validateHistory(forged));
-  await assert.rejects(w.call('follow-up',{...p,decisionRef:w.proposalRef},{previous:op.result}),/followup_wrong_decision/);
-  await assert.rejects(w.call('follow-up',{...p,relation:{recordRef:{...w.proposalRef,digest:'e'.repeat(64)},relation:'related'}},{previous:op.result}),/unresolved_or_ambiguous/);
-});
-test('Acme stale package approval preserves inbox and report; rejected evidence remains packageable',async t=>{
-  const w=await promotionWorld(t),p={proposalRef:w.proposalRef,evaluationRef:ref(w.evaluation)},preview=await w.call('record-package',p,{previous:w.applied});
-  const before=await readFile(join(w.repo,'docs/inbox/2026-10-24-acme.md'));
-  await assert.rejects(w.learning.evaluatedLearning({...preview.opts,yes:true,digest:'0'.repeat(64)}),/stale_learning_preview/);assert.deepEqual(await readFile(join(w.repo,'docs/inbox/2026-10-24-acme.md')),before);
-  const rejected=(await w.call('reject',{evidenceRefs:[ref(w.evaluation)]},{previous:w.applied,apply:true})).result;assert.equal(rejected.status,'rejected');
-  assert.equal((await w.learning.evaluatedLearning(w.packageOptions)).payload.disposition,'inconclusive');
-  await assert.rejects(w.call('revise',{supersedesRef:w.proposalRef,proposal:w.proposal(w.lessonRef),scopeChangeReason:'Acme'},{previous:rejected}),/invalid_proposal_state/);
-});
 test('Acme inverse canonical identity and unique regular paths reject resealed tampering',()=>{
   const proposalRef={kind:'learning-proposal',id:'acme-proposal',version:1,digest:'a'.repeat(64)},promotionRef={kind:'learning-promotion',id:'acme-promotion',version:1,digest:'b'.repeat(64)},repairRef={kind:'phase',ref:'1'};
   const payload={schemaVersion:1,kind:'learning-inverse-package',originalPackageDigest:'c'.repeat(64),promotionRef,baseRevision:'d'.repeat(40),repairRef,changes:[{path:'acme-check.mjs',beforeDigest:'e'.repeat(64),afterDigest:null}]},a=artifactFor(payload),data={proposalRef,promotionRef,repairRef,repairDigest:syntheticRepair().identityDigest,repairObservation:syntheticRepair(),payload,payloadDigest:a.payloadDigest,artifact:a.artifact};

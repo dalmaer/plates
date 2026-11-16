@@ -17,7 +17,7 @@ test('source gate requires installed stage once and a disjoint complete test-fil
   assert.equal(scripts.check, 'node scripts/plates/test-ledger.mjs --run "npm test && npm run test:installed && npm run roadmap:check && npm run render:check && npm run inbox:check"', 'mandatory installed stage must remain in the configured gate');
   assert.equal(scripts.test, prefix + ' --test-concurrency=32 tests/*.test.mjs tests/helpers/*.test.mjs');
   assert.equal(scripts['test:installed'], 'node scripts/check-installed.mjs');
-  assert.equal(scripts['test:installed:node'], prefix + ' --test-concurrency=1 tests/installed/evaluation-live-cli.test.mjs tests/installed/evaluation-live-deadlines.test.mjs tests/installed/evaluation-live-transfer.test.mjs tests/installed/validation-request-budget.test.mjs tests/installed/evaluation-credential-pipe.test.mjs');
+  assert.equal(scripts['test:installed:node'], prefix + ' --test-concurrency=5 tests/installed/evaluation-live-cli.test.mjs tests/installed/evaluation-live-deadlines.test.mjs tests/installed/evaluation-live-transfer.test.mjs tests/installed/validation-request-budget.test.mjs tests/installed/evaluation-credential-pipe.test.mjs');
   const plans = await Promise.all(['test', 'test:installed:node'].map(key => nodePlan({ root: ROOT, script: scripts[key], words: shellWords, flags: flagsIn })));
   for (const plan of plans) assert.equal(plan.available, true, JSON.stringify(plan));
   const selected = plans.flatMap(p => p.expectedFiles);

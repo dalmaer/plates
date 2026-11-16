@@ -13,10 +13,10 @@ import { parseHygieneProposal, makeHygieneProposal, formatHygieneProposal } from
 import {
   MEASURES, selftest, measure, improve, propose, tighten, conductCost, commandKind, exitCode, FIXTURE,
 } from '../lib/improve.mjs';
-import { PLATES, BIN, ENV, plates, byId, scratch, project, snapshot, ghStub, setConfig } from './helpers/improve.mjs';
+import { PLATES, BIN, ENV, plates, byId, scratch, project, projectQuickGate, snapshot, ghStub, setConfig } from './helpers/improve.mjs';
 
 test('in the project, a lessons table split by a blank line counts as lint (lessons-table-split)', async t => {
-  const dir = await project(t);
+  const dir = await projectQuickGate(t);
   const env = { ...ENV, PLATES_GH: '/nonexistent/gh' };
   const lessons = join(dir, 'docs', 'lessons.md');
   await writeFile(lessons, '# Lessons\n\n| # | Shape | Cost | Guard |\n| --- | --- | --- | --- |\n| 1 | **Acme widgets drift.** | A day. | A test. |\n\n| 2 | **Acme gears slip.** | A week. | planned |\n');
@@ -28,7 +28,7 @@ test('in the project, a lessons table split by a blank line counts as lint (less
 });
 
 test('--report writes the page to .plates/plates.json `health`; an ignored health dir is lint (health-ignored); a bad one breaks the report', async t => {
-  const dir = await project(t);
+  const dir = await projectQuickGate(t);
   const env = { ...ENV, PLATES_GH: '/nonexistent/gh' };
   // The project ignores the default, as ledger's phase 33 did, and names its own.
   await writeFile(join(dir, '.gitignore'), '/docs/health/\n');
@@ -170,7 +170,7 @@ test('machine_prs: a project with its own Renovate config reports renovate/ as i
 });
 
 test('ci_red_streak counts verdicts only: cancelled and skipped runs between failures neither break nor add to the streak', async t => {
-  const dir = await project(t);
+  const dir = await projectQuickGate(t);
   await setConfig(dir, { repo: 'acme/storefront' });
   const runs = JSON.stringify([{ conclusion: '' }, { conclusion: 'failure' }, { conclusion: 'cancelled' }, { conclusion: 'skipped' }, { conclusion: 'cancelled' },
     { conclusion: 'failure' }, { conclusion: 'cancelled' }, { conclusion: 'success' }, { conclusion: 'failure' }]);
@@ -322,7 +322,7 @@ console.log(JSON.stringify(out)); process.exit(1);
 });
 
 test('the health dir: a dated-page ignore rule is health-ignored, a symlink out of the repo and pathspec magic break the report', async t => {
-  const dir = await project(t);
+  const dir = await projectQuickGate(t);
   const env = { ...ENV, PLATES_GH: '/nonexistent/gh' };
   const lint = async () => byId(JSON.parse(run(process.execPath, ['scripts/plates/improve.mjs', '--json'], { cwd: dir, env }).stdout), 'lint').facts.lint.filter(l => l.rule.startsWith('health'));
   // #77: a rule for the pages, not the directory: an x.md probe missed it.
@@ -362,7 +362,7 @@ test('the health dir: a dated-page ignore rule is health-ignored, a symlink out 
 });
 
 test('lessons-table-split: a row an unescaped | splits into more cells than the header is lint, an escaped \\| is not', async t => {
-  const dir = await project(t);
+  const dir = await projectQuickGate(t);
   const env = { ...ENV, PLATES_GH: '/nonexistent/gh' };
   const lessons = join(dir, 'docs', 'lessons.md');
   const table = cell => `# Lessons\n\n| # | Shape | Cost | Guard |\n| --- | --- | --- | --- |\n| 1 | **Acme reads ${cell}.** | A day. | A test. |\n| 2 | **Acme gears slip.** | A week. | planned |\n`;

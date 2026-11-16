@@ -13,6 +13,7 @@ const PLATES = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 const NON_TIMING_CLIMB_FILES = [
   'tests/climb-guard.test.mjs',
+  'tests/climb-guard-isolation.test.mjs',
   'tests/climb-hygiene.test.mjs',
   'tests/climb-pick.test.mjs',
   'tests/climb-tend.test.mjs',
