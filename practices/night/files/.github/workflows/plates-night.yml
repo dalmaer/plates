@@ -282,11 +282,6 @@ jobs:
           if node -e "process.exit(JSON.parse(require('fs').readFileSync('.plates/plates.json', 'utf8')).plates === 'self' ? 0 : 1)"; then
             echo "self=true" >> "$GITHUB_OUTPUT"
           fi
-      - name: Gather what came home
-        if: steps.self.outputs.self == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: node bin/plates.mjs learn || echo "::warning::plates learn did not finish; see its output above."
 
       # Recover bounded, identity-verified history; gaps remain visible to measures.
       - name: Gather the test ledger
@@ -380,6 +375,14 @@ jobs:
             for (const m of r.measures ?? []) console.log(`${m.id.padEnd(22)} ${String(m.value ?? "-").padStart(6)}  ${m.state.padEnd(8)} ${m.detail}`);
             if (r.error) console.log(`improve: ${r.error}`);
           ' "$RUNNER_TEMP/improve.json" "$GITHUB_OUTPUT"
+
+      # Learning writes tracked inbox data. Measure the exact clean revision
+      # first so those proposals do not prevent reuse of its CI gate.
+      - name: Gather what came home
+        if: steps.self.outputs.self == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node bin/plates.mjs learn || echo "::warning::plates learn did not finish; see its output above."
 
       # Tonight's history includes bounded, redacted failure output in the gate
       # receipt, bound to its invocation and commit. No raw logs are uploaded.

@@ -67,7 +67,7 @@
     },
     ".github/workflows/check.yml": {
       "practice": "ci",
-      "sha256": "d6f2aa8c5d1e1d643aa2c0b30f0465dd6a1f614f70bcaa1a82d2722d827f4d33"
+      "sha256": "d49d14de90c95a4bb0fccf6e2421e473ec0d261aad58caed76b3dab3780d5ec1"
     },
     ".github/workflows/claude.yml": {
       "practice": "claude",
@@ -91,7 +91,7 @@
     },
     ".github/workflows/plates-night.yml": {
       "practice": "night",
-      "sha256": "70bdf96a724797395db7b6841cd122be1abe9ca0df27507d9d765e9a083e595c"
+      "sha256": "ab51030dd368594b39e1777212953ba41141c3d112afa5fd62bf7ffc1ee557d6"
     },
     ".github/workflows/plates-publish.yml": {
       "practice": "delivery",

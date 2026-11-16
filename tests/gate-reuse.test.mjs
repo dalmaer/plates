@@ -245,6 +245,32 @@ test('the night\'s gate measure reuses through the same function, with the tests
   assert.equal(a.ran(), true);
 });
 
+test('night workflow measures the clean revision before learning writes inbox proposals', async t => {
+  for (const path of ['practices/night/files/.github/workflows/plates-night.yml', '.github/workflows/plates-night.yml']) {
+    const workflow = await readFile(resolve(path), 'utf8');
+    const a = await acme(t, { config: UNTIL_CHANGE });
+    const stub = await ghStub(t, actions([{ ...a.head(), minutes: 30 * 24 * 60 }]));
+    let measured;
+    // Exercise the two operations in the shipped order. Learning's external
+    // read is represented by its local effect: a new, untracked inbox proposal.
+    const operations = [
+      { at: workflow.indexOf('      - name: Gather what came home\n'), run: async () => {
+        await mkdir(join(a.root, 'docs/inbox'), { recursive: true });
+        await writeFile(join(a.root, 'docs/inbox/acme.md'), 'Acme proposal\n');
+      } },
+      { at: workflow.indexOf('      - name: Measure\n'), run: async () => {
+        [measured] = await measure({ root: a.root, config: UNTIL_CHANGE, env: stub.env, measures: MEASURES.filter(m => m.id === 'gate') });
+      } },
+    ];
+    assert.ok(operations.every(operation => operation.at >= 0), path);
+    for (const operation of operations.sort((a, b) => a.at - b.at)) await operation.run();
+    assert.equal(measured.facts.source, 'github-actions', path);
+    assert.equal(measured.facts.sha, a.head().sha, 'reuse still names the exact tested commit');
+    assert.equal(a.ran(), false, 'learning did not force another full gate');
+    assert.equal(await readFile(join(a.root, 'docs/inbox/acme.md'), 'utf8'), 'Acme proposal\n', 'learning still runs');
+  }
+});
+
 test('the loop\'s gate step and the pre-push helper: the shipped shell reuses for an unchanged pull and runs for a changed one', async t => {
   const a = await acme(t, { scripts: true });
   const stub = await ghStub(t, actions([a.head()]));

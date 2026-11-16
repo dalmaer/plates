@@ -1280,7 +1280,7 @@ export function ledgerProblems(name, text) {
   const keep = step('Keep the test ledger');
   if (!keep) out.push(`${name}: no "Keep the test ledger" step`);
   else {
-    if (!/\n\s+if: always\(\)\n/.test(keep.body)) out.push(`${name}: the ledger is kept only when the run passed (a failing run is the one that names a flaky test)`);
+    if (!/\n\s+if: always\(\)(?: && github\.event_name == 'push')?\n/.test(keep.body)) out.push(`${name}: the ledger is kept only when the run passed (a failing run is the one that names a flaky test)`);
     if (!/uses: actions\/upload-artifact@[0-9a-f]{40} # v\d+/.test(keep.body)) out.push(`${name}: the ledger is not uploaded as an artifact`);
     if (!/\n\s+name: plates-test-runs\n/.test(keep.body)) out.push(`${name}: the artifact is not named plates-test-runs (the night reads it by name)`);
     if (!(name === 'plates-night.yml' ? JSON.stringify(/\n          path: \|\n((?:            [^\n]+\n)+)/.exec(keep.body)?.[1].trim().split('\n').map(x=>x.trim())) === JSON.stringify(['.plates/test-runs/*.json','.plates/test-runs/retention','.plates/test-runs/recovery/status.json']) : /\n\s+path: \.plates\/test-runs\/\n/.test(keep.body))) out.push(`${name}: the artifact is not .plates/test-runs/`);
@@ -1301,6 +1301,19 @@ export function ledgerProblems(name, text) {
   return out;
 }
 
+test('CI history uploads exclude PR and manual runs while retaining failed pushes', async () => {
+  const all = await shipped();
+  const check = all.find(w => w.name === 'check.yml');
+  for (const text of [check.template, await readFile(join(PLATES, check.path), 'utf8')]) {
+    const keep = text.split(/(?=      - name: )/).find(step => step.startsWith('      - name: Keep the test ledger\n'));
+    assert.ok(keep, 'the ledger upload still exists');
+    assert.match(keep, /\n\s+if: always\(\) && github\.event_name == 'push'\n/,
+      'only push artifacts enter history, including failed or cancelled gates');
+    assert.match(text, /\n  pull_request:/, 'PRs still run their gate');
+    assert.match(text, /\n  workflow_dispatch:/, 'manual runs still run their gate');
+  }
+});
+
 test('check.yml keeps each run\'s test ledger as an artifact, red or green; the night reads the newest by name, read-only, before improve, and keeps its own', async () => {
   const all = await shipped();
   for (const name of ['check.yml', 'plates-night.yml']) {
@@ -1311,7 +1324,7 @@ test('check.yml keeps each run\'s test ledger as an artifact, red or green; the 
   const check = all.find(w => w.name === 'check.yml').template;
   const night = all.find(w => w.name === 'plates-night.yml').template;
   const fails = (name, text, pattern, why) => assert.ok(ledgerProblems(name, text).some(p => pattern.test(p)), `${why}: ${JSON.stringify(ledgerProblems(name, text))}`);
-  fails('check.yml', check.replace(/(- name: Keep the test ledger\n)\s+if: always\(\)\n/, '$1'), /only when the run passed/, 'kept only on green');
+  fails('check.yml', check.replace(/(- name: Keep the test ledger\n)\s+if: always\(\)[^\n]*\n/, '$1'), /only when the run passed/, 'kept only on green');
   fails('check.yml', check.replace('include-hidden-files: true', 'include-hidden-files: false'), /hidden/, 'hidden files skipped');
   fails('check.yml', check.replace('if-no-files-found: ignore', 'if-no-files-found: error'), /must not go red/, 'red without a reporter');
   fails('plates-night.yml', night.replace('--branch "$BASE"', ''), /default branch/, 'unbound artifact branch');
