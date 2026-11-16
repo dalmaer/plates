@@ -35,7 +35,8 @@ function toolVersion() {
 // npm's automatic files/ignore rules. Source-only docs/tests are not pack inputs.
 // Git internals and installed dependencies are not inputs to this dependency-free
 // package. Hash bytes and modes, not mtimes, so same-size edits invalidate reuse.
-function treeKey(root) {
+function treeState(root) {
+  const files = new Map();
   const pkg = JSON.parse(readFileSync(join(root, 'package.json')));
   assert.ok(Array.isArray(pkg.files) && !pkg.bundleDependencies && !pkg.bundledDependencies,
     'packed fixtures require explicit files and no bundled dependencies');
@@ -58,7 +59,7 @@ function treeKey(root) {
       hash.update(JSON.stringify([relative, info.mode]));
       if (info.isSymbolicLink()) hash.update(readlinkSync(path));
       else if (info.isDirectory()) walk(path, relative + '/');
-      else hash.update(readFileSync(path));
+      else { const bytes = readFileSync(path); hash.update(bytes); files.set(relative, createHash('sha1').update(bytes).digest('hex')); }
     }
   }
   for (const path of roots) {
@@ -66,14 +67,17 @@ function treeKey(root) {
     hash.update(JSON.stringify([path, info.mode]));
     if (info.isDirectory()) walk(full, path + '/');
     else if (info.isSymbolicLink()) hash.update(readlinkSync(full));
-    else hash.update(readFileSync(full));
+    else { const bytes = readFileSync(full); hash.update(bytes); files.set(path, createHash('sha1').update(bytes).digest('hex')); }
   }
-  return hash.digest('hex');
+  return { key: hash.digest('hex'), files };
 }
+const treeKey = root => treeState(root).key;
+// Which packed inputs differ between two states: the evidence for a writer racing the pack.
+const changedInputs = (a, b) => [...new Set([...a.files.keys(), ...b.files.keys()])].filter(path => a.files.get(path) !== b.files.get(path)).sort();
 
 export async function packedTarball(destination, { cwd = source, cache = runCache } = {}) {
   cwd = await realpath(cwd);
-  const key = treeKey(cwd), entry = join(cache, key), receipt = join(entry, 'result.json');
+  const initial = treeState(cwd), key = initial.key, entry = join(cache, key), receipt = join(entry, 'result.json');
   await mkdir(cache, { recursive: true });
   let owner = false;
   try { await mkdir(entry); owner = true; } catch (error) { if (error.code !== 'EEXIST') throw error; }
@@ -83,11 +87,20 @@ export async function packedTarball(destination, { cwd = source, cache = runCach
       const config = join(entry, 'npmrc'), globalConfig = join(entry, 'global-npmrc');
       await writeFile(config, ''); await writeFile(globalConfig, '');
       const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !/^npm_config_/i.test(name)));
-      result = run('npm', ['pack', '--offline', '--ignore-scripts', '--json', '--pack-destination', entry], {
-        cwd, timeout: 60000, env: { ...env, npm_config_cache: join(entry, 'npm-cache'), npm_config_userconfig: config,
-          npm_config_globalconfig: globalConfig, npm_config_update_notifier: 'false' },
-      });
-      assert.equal(treeKey(cwd), key, 'package source changed while packing');
+      // A test running alongside may briefly write inside the package inputs. A pack only counts when
+      // the inputs are byte-identical before and after it; retry a few times for a transient writer,
+      // and if they keep moving, fail naming the files so the writer can be found.
+      for (let attempt = 1; ; attempt++) {
+        result = run('npm', ['pack', '--offline', '--ignore-scripts', '--json', '--pack-destination', entry], {
+          cwd, timeout: 60000, env: { ...env, npm_config_cache: join(entry, 'npm-cache'), npm_config_userconfig: config,
+            npm_config_globalconfig: globalConfig, npm_config_update_notifier: 'false' },
+        });
+        const after = treeState(cwd);
+        if (after.key === key) break;
+        if (attempt >= 4) assert.fail(`package source changed while packing: ${changedInputs(initial, after).slice(0, 10).join(', ') || 'file modes or links'}`);
+        await setTimeout(250 * attempt);
+        if (treeKey(cwd) !== key) { await setTimeout(1000); if (treeKey(cwd) !== key) assert.fail(`package source changed while packing and did not settle: ${changedInputs(initial, treeState(cwd)).slice(0, 10).join(', ')}`); }
+      }
     } catch (error) { result = { status: 1, stdout: '', stderr: error.message }; }
     await writeFile(receipt + '.tmp', JSON.stringify(result));
     await rename(receipt + '.tmp', receipt);
