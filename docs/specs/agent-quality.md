@@ -74,8 +74,10 @@ Total cost includes unsuccessful attempts and every stage. Missing charge,
 token price or human time stays null. Label estimates and known subtotals;
 never compute a complete cost per success from incomplete costs. Follow up
 at 7 and 30 days after meaningful use, with exposure and observation evidence.
-Not used, immature, unobserved and observed without regression are different
-states.
+The report emits three maturity buckets: `unknown`, `immature` and `mature`.
+Missing first use, conflicting first-use observations or incomplete exposure
+evidence stays `unknown`; an observation before its due date is `immature`.
+A `mature` observation retains its regression count, including zero.
 
 Weekly local reports retain dated observations and compare explicit prior
 reports. Critical confirmed regressions merit immediate human investigation;

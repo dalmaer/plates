@@ -28,6 +28,7 @@ retained harness sources or baseline configurations must be resolved.
 
 ```
 plates learn evaluate inspect <slug>
+plates learn evaluate package <slug> [--manifest <absolute-workspace.json>] [--state <absolute-private-state>]
 plates learn evaluate propose <slug> --input <absolute-request.json>
 plates learn evaluate plan <slug> --input <absolute-request.json> --manifest <absolute-workspace.json> --state <absolute-private-state>
 plates learn evaluate decide <slug> --input <absolute-request.json>
@@ -129,14 +130,19 @@ Action payloads (all fields required; absent optional values use explicit null):
   for an atomically created replacement version in the same record. Standalone
   supersede performs no cross-file mutation, circular relation or self-reference.
 
-`evaluate propose` accepts capture/propose/revise only, `plan` bind-plan only, and
-`decide` reject/supersede only. No action can be selected through a legacy
+`evaluate propose` accepts capture/propose/revise; `plan` accepts bind-plan and
+register-screening; `decide` accepts reject/supersede,
+evaluate and the verified promotion actions (record-package, ready, promote,
+request-rollback, observe-rollback).
+`follow-up` accepts follow-up. No action can be selected through a legacy
 `outcome`, `kind`, arbitrary state name or undocumented alias.
 
-For this slice `follow-up` and requests to evaluated, ready-for-review, promoted
-or rolled-back return exit 2, `verification_interface_unavailable`, without
-writes. They are reserved surfaces, not working capabilities. Do not accept a
-caller-supplied `verified`, `accepted`, `approved`, `merged` or metric field.
+`register-screening` binds criteria before execution; `evaluate` verifies a
+terminal comparison and retains its report, including inconclusive results.
+`package` reads the verified evidence for review without writing. Readiness,
+promotion, rollback and follow-up have their own source/evidence verification
+and exact preview approvals; none follows from a caller-supplied `verified`,
+`accepted`, `approved`, `merged` or metric field.
 
 ## Source selection and verification boundary
 
@@ -149,6 +155,10 @@ A selector is a request to READ authority, never proof. Two selector variants:
 {kind:"harness-artifact", experimentId, planDigest, slot, intentDigest,
  artifactDigest, verdictDigest, checkId}
 ```
+
+`reviewId` and non-null `commentId` are positive integer database IDs.
+`threadId` is a 1–128 character node ID (letters, digits, `_`, `-`); thread and
+comment IDs must either both be null or both be present.
 
 `selections` entries have EXACT fields `{selector, classification}`. `selector`
 is one of the two variants above; `classification` has the attributed shape

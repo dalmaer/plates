@@ -152,7 +152,7 @@ In one project, by hand:
 
 ```bash
 plates update --local        # look first: the whole update as a working-tree diff
-plates update                # the same, committed on keel/update-v<version>; exit 3
+plates update                # the same, committed on plates/update-v<version>; exit 3
 plates update --yes          # ⚑ push that branch and open the PR
 ```
 

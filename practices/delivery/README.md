@@ -55,7 +55,7 @@ the checkout) or `--within` seconds pass, then each `delivery.smoke` path's
 status (redirects not followed). It passes only on what it saw, and fails
 naming each check. `verify.mjs live <sha>` (one read; exit 0 yes, 1 no) lets
 a deploy step skip a commit production already has. `--record` adds the
-result to the branch `keel-verify` (`verify.json`, or `--record --failed "<reason>"`
+result to the branch `plates-verify` (`verify.json`, or `--record --failed "<reason>"`
 for a failure the project's own checks found); a failed latest verify is
 an owner's item on `plates home`, and each failure of the day before a night
 is a line in that night's morning brief.
@@ -108,7 +108,9 @@ workflow (`ci.gateWorkflow`, else `check.yml`, else the one running the
 check). `site` is https (http on localhost only) and required with `version`
 or `smoke`; `version` and each smoke path start with `/`; a smoke status is a
 code or a list of codes (default 200). `promote` is `tag:<name>`,
-`branch:<name>` (never the default branch or the tested ref) or `none`, and
+`branch:<name>` (never the default branch or the tested ref), `vercel:<project>`
+(with `delivery.vercel`, optional `delivery.migrations` and `delivery.grant` as
+described above) or `none`, and
 needs `site` and `version`. `"workflows"` maps a workflow's file or `name:` to `"test"`, `"publish"`, `"deploy"` or `"none"` when a project overrides `workflow-concurrency`'s step/trigger/name classification. Each error names its key. `"delivery".docsOnly` is the night's gate
 (phase 79).
 
@@ -118,7 +120,7 @@ needs `site` and `version`. `"workflows"` maps a workflow's file or `name:` to `
 requires `night` (the gate result reader, `scripts/plates/ci.mjs` and `lib.mjs`,
 and the morning brief, `scripts/plates/morning.mjs`, which reads the verify
 record). Optional: `plates adopt --with delivery`; its publisher pushes a branch
-on the project's remote, and `verify.mjs --record` pushes `keel-verify`.
+on the project's remote, and `verify.mjs --record` pushes `plates-verify`.
 
 **Lineage.** Plates phase 80, from isocan's `release-order.sh` and
 `release.yml` publish job (`green`, a queued group, skip the superseded,

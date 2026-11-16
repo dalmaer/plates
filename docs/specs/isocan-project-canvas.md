@@ -132,7 +132,7 @@ Each entity has a stable key, kind, title, source references and owned fields.
 Use phase path/project anchor, existing lesson fingerprint, canonical Loop
 finding id/aliases, GitHub repository id + PR number, CI run id + attempt, or
 retro record UUID. Never identify an entity solely by title or line number.
-Relations carry their own provenance: `implements`, `addresses`, `supersedes`,
+Relations carry their own provenance: `implemented-by`, `addresses`, `supersedes`,
 `derived-from`, `ships-in`, `adopted-by`. Unverified or heuristic matches are
 suggestions and excluded from outcome counts until explicitly linked.
 
@@ -203,7 +203,7 @@ Current `plates retro` deliberately writes nothing and only counts supported
 session transcripts. Leave that default intact. Propose an explicit
 `plates retro capture --session <id> --since <sha> --record <file> --json` flow:
 preview counts and redaction, then persist a user-reviewed record under the
-configured `docs/retros/`. Unsupported providers can supply an explicitly
+configured `paths.retros` directory (default `docs/retros/`). Unsupported providers can supply an explicitly
 manual summary with `coverage: manual`; no fabricated transcript counts.
 
 Schema: UUID, date, source revision/range, provider, optional local session
@@ -219,20 +219,21 @@ raw transcripts, command text, transcript pointers, local absolute paths, tokens
 secrets and personal session identities. Local session pointers remain local.
 Existing privacy rules on loose ends remain intact.
 
-## Proposed CLI and configuration
+## CLI and configuration
 
-These commands and fields are **new contracts**, not commands to run today.
+These commands are implemented; remote writes require an explicit preview and approval.
 All commands support `--json`; stdout is machine-readable, diagnostics stderr.
 
 | Command | Contract |
 | --- | --- |
-| `plates canvas connect --create --title <title> --space <id>` | preview home/identity/access and creation plan; `--yes` performs it and stores stable binding |
-| `plates canvas connect --canvas <address>` | validate explicit existing target and rights; preview managed region, attach only with `--yes` |
+| `plates canvas connect --create --title <title> --space <id> --home <origin> --audience owner-only` | preview home/identity/access and creation plan; `--yes` performs it and stores stable binding |
+| `plates canvas connect --canvas <address> --audience owner-only` | validate explicit existing target and rights; preview managed region, attach only with `--yes` |
 | `plates canvas snapshot --output <file>` | local collection, no remote canvas writes; `--github` explicitly refreshes GitHub facts |
 | `plates canvas render --snapshot <file> --output <dir>` | deterministic Markdown, HTML and manifest; no external requests |
 | `plates canvas sync [--dry-run]` | plan by default; `--yes` applies approved managed content changes with a receipt |
+| `plates canvas night --report <file>` | publish an existing night report; preview by default, `--yes` applies |
 | `plates canvas status` | binding, last success, pending changes, conflicts and coverage; read-only |
-| `plates canvas live [--keep <N>] [--off]` | preview moving the binding between immutable and live mode, and retention; `--yes` writes the binding only |
+| `plates canvas live [--card <key>...] [--keep <N>] [--off]` | preview moving the binding between immutable and live mode, and retention; `--yes` writes the binding only |
 | `plates canvas rebase [--onto <version-id>]` | preview a refused live card; `--yes` records the named current version as the base, with no remote write |
 | `plates canvas disconnect` | preview; `--yes` disables publishing, leaves remote canvas intact |
 
@@ -242,8 +243,8 @@ includes `schema`, `operation`, `changes`, `coverage`, `warnings` and `exitCode`
 Partial collection may render locally, with `complete:false`; it must never
 replace a known-good remote metric with zero. Exit 1 does not erase its output.
 
-Proposed config: `canvas: {provider:"isocan", projectKey, home, canvasId,
-spaceId, enabled, privacy:"summary", cadence:"nightly"}`. No secrets. Store
+Connection config: `canvas: {provider:"isocan", projectKey, home, canvasId,
+spaceId, audience:"owner-only", actorId, enabled, privacy:"summary", mode:"immutable", cadence:"manual"}`. No secrets. Store
 managed logical key → item id, content/version hashes and receipt ids in the
 recoverable sync manifest, not in phase front matter. Config migration is
 optional/additive: old projects continue unchanged. Snapshot schemas are
@@ -284,7 +285,8 @@ receipt until isocan supports safe conditional advancement. This is an explicit
 limited mode, not fulfillment of the complete live-pulse acceptance test.
 
 **13 October 2026:** isocan `7bb1f4e` exposes that primitive as `edit
---if-version --if-meta --op-id`. Live mode uses it for the pulse only, after an
+--if-version --if-meta --op-id`. Live mode defaults to the pulse; repeated
+`--card <key>` selects up to 16 distinct keys in `canvas.liveKeys`, after an
 explicit previewed switch. A refusal is recorded and waits for the owner;
 nothing is adopted as a new base without them. Atomic multi-card publication
 is still unavailable and is not simulated.

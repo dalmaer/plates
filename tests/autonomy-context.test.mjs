@@ -188,7 +188,7 @@ test('mention advisory failure preserves original eligibility and discards parti
     ['issues', { issue: { body: '' }, label: { name: 'claude' } }],
   ]) assert.equal(permits({ event_name, event }, false, 'failure'), true);
   assert.match(job, /echo "enabled=false"/);
-  assert.ok(job.includes(`- if: steps.configured.outputs.enabled == 'true'\n        uses: ${WORKFLOW_ACTIONS.claudeCode}`));
+  assert.ok(new RegExp(`- if: steps\\.configured\\.outputs\\.enabled == 'true'\\n        (?:id: answer\\n        )?uses: ${WORKFLOW_ACTIONS.claudeCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(job), 'the action runs only when configured');
 });
 
 test('guidance runtime is file-only for Claude, absent from Base, and respects local ownership and drift', async t => {

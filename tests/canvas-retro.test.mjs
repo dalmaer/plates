@@ -155,7 +155,7 @@ test('schema, privacy and reference validation reject unsafe authored fields wit
 
 test('configured repository directory works and path or symlink escapes cannot write outside it', async t => {
   const w = await world(t);
-  const config = path => writeFile(join(w.root, '.plates/plates.json'), JSON.stringify({ name: 'Acme', retros: { dir: path } }));
+  const config = path => writeFile(join(w.root, '.plates/plates.json'), JSON.stringify({ name: 'Acme', paths: { retros: path } }));
   for (const path of ['../outside', w.tmp, 'docs/../../outside', '.git/retros', '.plates/retros', '.keel/retros', 'docs/.keel/retros', 'docs\\retros', 'docs/../retros']) {
     await config(path);
     assert.equal((await capture({ ...w, yes: true })).exitCode, 2, path);
@@ -187,4 +187,13 @@ test('simultaneous captures cannot replace a different owner record', async t =>
   ]);
   assert.deepEqual(results.map(r => r.exitCode).sort(), [0, 1]);
   assert.deepEqual(JSON.parse(await readFile(w.output)), results.find(r => r.exitCode === 0).data.record);
+});
+
+test('capture uses paths.retros, the directory the snapshot collector reads', async t => {
+  const w = await world(t);
+  await writeFile(join(w.root, '.plates/plates.json'), JSON.stringify({ name: 'Acme', paths: { retros: 'docs/reviewed-retros' } }));
+  const result = await capture({ ...w, yes: true });
+  assert.equal(result.exitCode, 0);
+  assert.deepEqual(JSON.parse(await readFile(join(w.root, 'docs/reviewed-retros', `${ID}.json`))), result.data.record);
+  await assert.rejects(readFile(w.output), { code: 'ENOENT' });
 });

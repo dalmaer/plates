@@ -1,11 +1,12 @@
 import './helpers/hermetic.mjs';
 import platesReleaseSource from './helpers/web-night-plates-release.mjs';
-import test from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, readlink, symlink, link, rm, stat, readdir, chmod, realpath } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, readlink, symlink, link, rm, stat, readdir, chmod, realpath, cp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { execFileSync } from 'node:child_process';
+import childProcess, { execFileSync } from 'node:child_process';
+import { syncBuiltinESMExports } from 'node:module';
 import { createHash } from 'node:crypto';
 import { inflateSync } from 'node:zlib';
 import { pathToFileURL } from 'node:url';
@@ -25,9 +26,23 @@ async function lockManagedFiles(root, ...paths) {
   await put(root, '.keel/lock.json', JSON.stringify(lock));
 }
 
+// Build once, then copy both tracked and deliberately untracked state. Keep
+// symlinks relative and copy Git objects/indexes instead of sharing hardlinks.
+let template;
+after(async () => { if (template) await rm(await template, { recursive: true, force: true }); });
 async function fixture(t, prefix = 'plates-rename-acme-') {
   const root = await realpath(await mkdtemp(join(tmpdir(), prefix)));
   t.after(() => rm(root, { recursive: true, force: true }));
+  template ??= (async () => {
+    const base = await realpath(await mkdtemp(join(tmpdir(), 'plates-rename-template-')));
+    try { return await buildFixture(base); }
+    catch (error) { await rm(base, { recursive: true, force: true }); throw error; }
+  })();
+  await cp(await template, root, { recursive: true, verbatimSymlinks: true });
+  return root;
+}
+
+async function buildFixture(root) {
   git(root, 'init', '-q');
   const script = '// Keel health\nconst root = ".keel"; const receipt = "keel:robot-issue";\n';
   const workflow = 'name: keel-night\nconcurrency:\n  group: keel-night\non:\n  schedule: [{cron: "0 1 * * *"}]\njobs:\n  check:\n    run: node scripts/keel/check.mjs\n';
@@ -64,6 +79,35 @@ async function fixture(t, prefix = 'plates-rename-acme-') {
   await put(root, 'personal-notes.txt', 'unrelated Keel note; leave untouched\n');
   return root;
 }
+
+test('fixture copies initialize Git once and isolate worktrees, indexes and relative links', async t => {
+  const original = childProcess.execFileSync;
+  let initializations = 0;
+  childProcess.execFileSync = (command, args, ...options) => {
+    if (command === 'git' && args.includes('init')) initializations++;
+    return original(command, args, ...options);
+  };
+  syncBuiltinESMExports();
+  let first, second;
+  try {
+    [first, second] = await Promise.all([fixture(t), fixture(t)]);
+    assert.equal(initializations, 1, 'one baseline initialization for independent fixtures');
+  } finally {
+    childProcess.execFileSync = original;
+    syncBuiltinESMExports();
+  }
+  const head = git(second, 'rev-parse', 'HEAD'), status = git(second, 'status', '--porcelain');
+  await put(first, 'src/app.mjs', 'export const changed = true;\n');
+  git(first, 'add', 'src/app.mjs'); git(first, 'commit', '-qm', 'Acme independent edit');
+  assert.equal(git(second, 'rev-parse', 'HEAD'), head);
+  assert.equal(git(second, 'status', '--porcelain'), status);
+  assert.equal(await get(second, 'src/app.mjs'), 'export const userFeature = true;\n');
+  for (const root of [first, second]) {
+    assert.equal(await readlink(join(root, '.claude/skills/keel')), '../../.agents/skills/keel');
+    assert.equal(await realpath(join(root, '.claude/skills/keel')), join(root, '.agents/skills/keel'));
+    assert.equal(await get(root, 'personal-notes.txt'), 'unrelated Keel note; leave untouched\n');
+  }
+});
 
 test('preview is read-only, names changes, and needs explicit approval', async t => {
   const root = await fixture(t), before = git(root, 'status', '--porcelain');

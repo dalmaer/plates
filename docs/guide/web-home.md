@@ -11,11 +11,12 @@ caveats are one footer line. Open a plate for the same sections through its
 lens, plus what waits on time or agents. Search and the Fix / Decide / Try it
 filter narrow Needs you; source problems stay listed under Your plates.
 
-This is a read-only view. “Inspect source” opens the exact GitHub revision behind
-an item. A phase marked built is a source claim, not proof that this deployment
-or a person’s acceptance has been verified. Decision submission, guided walk
-observations, screenshot galleries, routine execution and fleet updates arrive
-in their own phases. No model call is needed to rank Home.
+“Inspect source” opens the exact GitHub revision behind an item. Home answers
+preview and apply not-now, walk decisions/completion, loose-end marks and PR
+merges through their respective write gates. A phase marked built is a source
+claim, not proof that this deployment or a person’s acceptance has been verified.
+Guided walks, private media, routines and fleet updates have separate activation
+and evidence requirements. No model call is needed to rank Home.
 
 ## Ask for something
 

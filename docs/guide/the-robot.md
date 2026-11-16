@@ -96,7 +96,7 @@ preserves recorded heads, avoids duplicate questions, and posts at most 10 new
 questions per run. JSON reports rejected questions and the omitted count;
 already-posted questions do not consume that bound on later scans.
 
-With tonight's plan (the plan branch `keel-night-plan` holds a valid plan dated
+With tonight's plan (the plan branch `plates-night-plan` holds a valid plan dated
 today, UTC), a scheduled or manual scan admits only the plan's open `robot:#<n>`
 build items, in plan order, and never lists or reads another `keel:agent`
 issue: there is no fallback. A planned issue the robot refuses (its rubric, its
@@ -107,7 +107,7 @@ the build's 45 minutes, never raise them, and the weekly allowance still
 governs. The judge and the publisher refuse any path the plan's `willNotTouch`
 covers (that exact path, or anything under it). The publisher ticks the admitted
 item running, then done with its PR or failed with why, as one commit on top of
-`keel-night-plan`, pushed with a lease; it never touches a plan for another
+`plates-night-plan`, pushed with a lease; it never touches a plan for another
 night. A writer's own label or comment, routed, is that writer asking now, not
 the night, so the plan does not choose it. A refused plan, or one for another
 night, is no plan: the scan admits as above. Loop findings do not become robot
@@ -125,9 +125,9 @@ body/writer/provider authorization to its review, without changing acceptance.
 The worker uses sandbox guards. Each agent's brief sits alone in
 `$RUNNER_TEMP/robot-brief/`; Claude is granted that folder (`--add-dir`) and no
 other part of the runner's temp. Agents and
-judges cannot publish. A trusted publisher opens a `keel/robot-<issue>` PR,
+judges cannot publish. A trusted publisher opens a `plates/robot-<issue>` PR,
 invokes review by the other provider and reports the actual PR on the issue.
-Standalone cross-review refuses `keel/robot-` branches, even with a matching
+Standalone cross-review refuses `plates/robot-` branches, even with a matching
 prefix or `/review` comment: its separate allowance cannot bypass the robot
 budget or choose the builder as reviewer. Continue through the issue conversation.
 Only verified human write/maintain/admin permission can start comment follow-up.

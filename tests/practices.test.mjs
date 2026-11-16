@@ -1,3 +1,4 @@
+import { copyPackageSource } from './helpers/copy-package-source.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm, lstat, appendFile } from 'node:fs/promises';
@@ -204,7 +205,10 @@ test('--self --check passes on plates', () => {
 test('--self --check fails on a copy of plates whose managed file or block was edited', async () => {
   const dir = await temp('copy');
   try {
-    await copyProject(PLATES, dir);
+    await copyPackageSource(PLATES, dir, [
+      'scripts/render.mjs', '.plates/lock.json',
+      ...targets(await config(PLATES), await load()).map(file => file.path),
+    ]);
     assert.equal(node(dir, RENDER, '--self', '--check').status, 0, 'the untouched copy checks clean');
     await appendFile(join(dir, 'scripts/roadmap.mjs'), '// a local edit\n');
     const agents = join(dir, 'AGENTS.md');

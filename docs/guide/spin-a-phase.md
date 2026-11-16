@@ -73,9 +73,10 @@ around: a phase built twice, and a review that never ends.
    Claude reviews what Codex wrote, and Codex what Claude wrote. Each comment
    is validated against the code, then answered: fixed, tracked in an issue,
    or not valid. See [Reviews and PRs](reviews-and-prs.md).
-5. **Stop at three rounds.** A round is a push a reviewer answered with at
-   least one finding. At the limit (three, or `"review": {"rounds": N}` in
-   `.plates/plates.json`), `plates review <pr>` exits 3 and the session stops
+5. **Respect the review checkpoint.** A round is a push a reviewer answered with at
+   least one finding. At N (three by default, or `"review": {"rounds": N}` in
+   `.plates/plates.json`), progress grants one extension to 2N; repeating findings
+   stop at N. At the effective limit `plates review <pr>` exits 3 and the session stops
    pushing fixes. It sorts each open finding with `plates review <pr> --class
    security|overwrite|approval|other <ids>`, which leaves the finding
    unanswered, and reports. The choice is yours: merge with the rest

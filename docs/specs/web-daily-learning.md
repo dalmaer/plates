@@ -22,9 +22,12 @@ enable public project decisions. Provider credentials stay server-side.
 ## Daily work
 
 The project view selects an explicit UTC date and reads existing records at named
-immutable revisions. Inspect `keel-night-plan:.keel/night/plan.json`,
-`keel-night/<date>-final:docs/night/<date>.json`,
-`keel-night/<date>:docs/night/<date>.json`, and default-branch records. Missing,
+immutable revisions. Inspect `plates-night-plan:.plates/night/plan.json`,
+`plates-night/<date>-final:docs/night/<date>.json`,
+`plates-night/<date>:docs/night/<date>.json`, and default-branch records.
+Legacy `keel-night-plan`/`keel-night/*` and `.keel/night/plan.json` remain read
+aliases; publication requires the current `plates-night-plan:.plates/night/plan.json`
+source and never writes a legacy branch. Missing,
 invalid, forbidden and unavailable reads remain distinct coverage observations.
 Reuse the existing `validatePlan`, `furthestItems` and `readiness` semantics where
 pure; do not call filesystem/Git entry points in a hosted request. Show the source

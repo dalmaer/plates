@@ -17,7 +17,7 @@ values stay unavailable. The web reader does not execute project scripts or
 claim to validate the complete runner configuration. Weekly allowances and
 per-run allowances remain separate.
 
-## Shape an unsaved evening draft
+## Shape an evening draft
 
 Edit an available authored plan, choose eligible lanes and allocations, and use
 **Validate unsaved preview**. The server checks fresh source identity, canonical
@@ -25,11 +25,14 @@ plan shape and the observed lane limits. The result shows the entire unsaved pla
 and any validation problems. A changed source requires a new inspection. Editing
 while validation is in flight invalidates that response.
 
-Draft text exists only in the current page. Leaving or reloading loses it; it is
-not stored in localStorage, saved to a repository, published or scheduled. The
-CLI command is a copy control, not execution. The existing explicit workflow is
-`plates goodnight`; inspect its selected plan and authority before running it in an
-authorized checkout. Hosted execution and publication are unavailable here.
+Unsaved text remains in the current page. With the private draft store enabled,
+Save retains an encrypted Daily draft across reloads; restore requires fresh
+source validation. Drafts are not stored in localStorage and saving does not
+publish or schedule them. Review and Publish uses the separately enabled
+night-plan writer, exact source/digest approval and the existing canonical
+`plates-night-plan:.plates/night/plan.json` destination. See
+[night operations](web-night-operations.md). The CLI copy control still offers
+`plates goodnight` for an authorized checkout; publishing a plan does not run it.
 
 ## Inspect lessons and their origins
 

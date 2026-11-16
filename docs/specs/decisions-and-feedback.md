@@ -107,8 +107,8 @@ Proposed commands, all with `--json`:
 
 - `plates shape check <file>` validates without writing.
 - `plates shape render <file> --output <new-directory>` renders a local review.
-- `plates shape plan <file>` previews phase drafts and/or robot rubrics.
-- `plates shape plan <file> --yes` writes the exact reviewed drafts locally.
+- `plates shape plan <file>` previews phase drafts and/or robot rubrics (exit 0, no writes).
+- `plates shape plan <file> --yes --digest <reviewed-digest>` writes the exact reviewed drafts locally.
 
 A version-1 record has an ID, revision, goal, bounded source references,
 questions, answers, proposed decisions and work items. Each question has a

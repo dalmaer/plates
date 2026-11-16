@@ -3,7 +3,7 @@
 Setup guide, updated 22 October 2026 UTC. Phase 93 provides local manifest and state
 initialization. The first private service is deployed: owner GitHub login,
 logout, current membership and project access checks pass on HTTPS, with serving
-Node v24.21.0. Supabase holds encrypted sessions; the read-only GitHub App is
+Node v24.21.0. Supabase holds encrypted sessions; the initially read-only GitHub App is
 installed on the approved selected repositories. Production secrets are injected
 by Vercel. The [service guide](web-auth-service.md) gives the exact
 configuration and ordered migrations. Home requires migrations 001–003;
@@ -19,9 +19,9 @@ media activation. These source features are not a claim that the production
 instance has been upgraded. Its serving Node version above is historical; a new
 deployment must verify the current minimum Node 24.22.1.
 
-Phase 96 adds the read-only
-[Home board](web-home.md), including decisions, ready walks, source changes and
-project summaries with explicit coverage gaps; the
+Phase 96 adds the source-backed [Home board](web-home.md), including decisions,
+ready walks, source changes and project summaries with explicit coverage gaps.
+Phase 97 adds gated decisions and phase 173 adds Home answers. The
 backup destination remains open in [phase 94](../phases/94-private-instance-has-approved-connections.md).
 See [the contract](../specs/web-workspace.md) for the storage boundaries.
 
@@ -291,10 +291,10 @@ still separate activation steps; see [Private captures](web-changes.md).
    unresolved operations are reconciled before replay, and private artifacts and
    source records retain coverage. Record the actual observation window.
 
-Sign-in and read-only Home checks have dated phase evidence. The write, media
-and restore journeys remain future checks. Retain expected and observed results
-separately. A
-login callback, merged change or empty error window alone is not acceptance.
+Sign-in, Home and phase 97 hosted decision writes have dated phase evidence.
+Media activation and restore journeys retain their separate checks; consult
+[activation](web-activation.md) before treating an implemented route as enabled.
+Retain expected and observed results separately. A login callback, merged change or empty error window alone is not acceptance.
 
 ## Optional provider policy and credential storage
 
