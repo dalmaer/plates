@@ -75,6 +75,12 @@ const treeKey = root => treeState(root).key;
 // Which packed inputs differ between two states: the evidence for a writer racing the pack.
 const changedInputs = (a, b) => [...new Set([...a.files.keys(), ...b.files.keys()])].filter(path => a.files.get(path) !== b.files.get(path)).sort();
 
+// One pack may take PACK_TIMEOUT; a transient writer can cost up to PACK_ATTEMPTS packs plus their
+// backoff. Waiters on another worker's pack wait for that whole worst case, never less.
+const PACK_TIMEOUT = 60000, PACK_ATTEMPTS = 4;
+const PACK_BACKOFF = Array.from({ length: PACK_ATTEMPTS - 1 }, (_, i) => 250 * (i + 1) + 2000).reduce((a, b) => a + b, 0);
+const WAIT_DEADLINE = PACK_ATTEMPTS * PACK_TIMEOUT + PACK_BACKOFF + 5000;
+
 export async function packedTarball(destination, { cwd = source, cache = runCache } = {}) {
   cwd = await realpath(cwd);
   const initial = treeState(cwd), key = initial.key, entry = join(cache, key), receipt = join(entry, 'result.json');
@@ -92,12 +98,12 @@ export async function packedTarball(destination, { cwd = source, cache = runCach
       // and if they keep moving, fail naming the files so the writer can be found.
       for (let attempt = 1; ; attempt++) {
         result = run('npm', ['pack', '--offline', '--ignore-scripts', '--json', '--pack-destination', entry], {
-          cwd, timeout: 60000, env: { ...env, npm_config_cache: join(entry, 'npm-cache'), npm_config_userconfig: config,
+          cwd, timeout: PACK_TIMEOUT, env: { ...env, npm_config_cache: join(entry, 'npm-cache'), npm_config_userconfig: config,
             npm_config_globalconfig: globalConfig, npm_config_update_notifier: 'false' },
         });
         const after = treeState(cwd);
         if (after.key === key) break;
-        if (attempt >= 4) assert.fail(`package source changed while packing: ${changedInputs(initial, after).slice(0, 10).join(', ') || 'file modes or links'}`);
+        if (attempt >= PACK_ATTEMPTS) assert.fail(`package source changed while packing: ${changedInputs(initial, after).slice(0, 10).join(', ') || 'file modes or links'}`);
         await setTimeout(250 * attempt);
         if (treeKey(cwd) !== key) { await setTimeout(1000); if (treeKey(cwd) !== key) assert.fail(`package source changed while packing and did not settle: ${changedInputs(initial, treeState(cwd)).slice(0, 10).join(', ')}`); }
       }
@@ -105,7 +111,7 @@ export async function packedTarball(destination, { cwd = source, cache = runCach
     await writeFile(receipt + '.tmp', JSON.stringify(result));
     await rename(receipt + '.tmp', receipt);
   }
-  const deadline = Date.now() + 65000;
+  const deadline = Date.now() + WAIT_DEADLINE;
   let result;
   while (!result) {
     try { result = JSON.parse(await readFile(receipt, 'utf8')); }
