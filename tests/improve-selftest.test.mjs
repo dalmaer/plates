@@ -33,3 +33,18 @@ test('selftest fails when any one measure is made to report a neutral value, n/a
   assert.equal(all.exitCode, 1);
   assert.deepEqual(all.data.missed.map(x => x.id), MEASURES.map(m => m.id), 'all misses, in declared order across home and project measures');
 });
+
+test('selftest grades a copy, so a measure writing into its project leaves the shipped fixture untouched', async () => {
+  const { readdir, writeFile } = await import('node:fs/promises');
+  const { join } = await import('node:path');
+  const fixture = join(import.meta.dirname, 'fixtures', 'improve', 'unhealthy');
+  const listing = async () => (await readdir(fixture, { recursive: true })).sort();
+  const before = await listing();
+  let graded;
+  const writer = { ...outside('acme-writer', false), run: async ({ root }) => { graded = root; await writeFile(join(root, '.plates', 'acme-run.json'), '{}\n'); return { value: 1 }; } };
+  const result = await selftest({ measures: [writer, outside('acme-project', true)] });
+  assert.equal(result.exitCode, 0, result.text);
+  assert.notEqual(graded, fixture, 'the measure saw a copy');
+  assert.deepEqual(await listing(), before, 'shipped fixture unchanged');
+  assert.equal(result.data.fixture, fixture, 'the report names the shipped fixture');
+});
