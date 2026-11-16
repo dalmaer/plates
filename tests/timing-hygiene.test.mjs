@@ -21,8 +21,113 @@ import { stallsPins } from '../practices/night/files/scripts/plates/test-ledger.
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PLATES = resolve(HERE, '..');
 
-/** A file that times a suite: it runs climb compare or measure. */
-export const timesASuite = text => /\[\s*['"](?:compare|measure)['"]/.test(text);
+/** Climb jobs that read ledger counts, proposals or printed output rather than wall-clock duration. */
+const NON_TIMING_JOBS = new Set(['hygiene', 'lessons', 'loop', 'perf']);
+
+/** Strip comments while keeping literals intact, and split top-level test() blocks so one non-timing test never exempts another. */
+function parseTopBlocks(src) {
+  let out = '', i = 0, prev = ';';
+  const cuts = [], tpl = [];
+  while (i < src.length) {
+    const c = src[i];
+    if (c === "'" || c === '"') {
+      const q = c; out += src[i++];
+      while (i < src.length) {
+        if (src[i] === '\\') { out += src.slice(i, i + 2); i += 2; continue; }
+        if (src[i] === q) { out += src[i++]; break; }
+        out += src[i++];
+      }
+      prev = 's';
+    } else if (c === '`') {
+      out += src[i++];
+      while (i < src.length) {
+        if (src[i] === '\\') { out += src.slice(i, i + 2); i += 2; continue; }
+        if (src[i] === '`') { out += src[i++]; prev = 's'; break; }
+        if (src[i] === '$' && src[i + 1] === '{') { tpl.push(0); out += src.slice(i, i + 2); i += 2; prev = '{'; break; }
+        out += src[i++];
+      }
+    } else if (c === '/' && src[i + 1] === '/') {
+      while (i < src.length && src[i] !== '\n') i++;
+    } else if (c === '/' && src[i + 1] === '*') {
+      i += 2;
+      while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) i++;
+      i += 2;
+    } else if (c === '/' && /[=(,{[:;!&|?+\-~^%]/.test(prev)) {
+      out += src[i++];
+      let inClass = false;
+      while (i < src.length && src[i] !== '\n') {
+        if (src[i] === '\\') { out += src.slice(i, i + 2); i += 2; continue; }
+        if (src[i] === '[') inClass = true;
+        else if (src[i] === ']') inClass = false;
+        else if (src[i] === '/' && !inClass) { out += src[i++]; break; }
+        out += src[i++];
+      }
+      prev = 'r';
+    } else if (tpl.length && c === '{') {
+      tpl[tpl.length - 1]++; out += src[i++]; prev = '{';
+    } else if (tpl.length && c === '}') {
+      if (tpl[tpl.length - 1] > 0) { tpl[tpl.length - 1]--; out += src[i++]; prev = '}'; }
+      else {
+        tpl.pop(); out += src[i++];
+        while (i < src.length) {
+          if (src[i] === '\\') { out += src.slice(i, i + 2); i += 2; continue; }
+          if (src[i] === '`') { out += src[i++]; prev = 's'; break; }
+          if (src[i] === '$' && src[i + 1] === '{') { tpl.push(0); out += src.slice(i, i + 2); i += 2; prev = '{'; break; }
+          out += src[i++];
+        }
+      }
+    } else {
+      if (!tpl.length && (i === 0 || src[i - 1] === '\n') && /^(?:for\s*\([^\n]+\)\s*\{?\s*)?test\s*\(/.test(src.slice(i))) {
+        cuts.push(out.length);
+      }
+      if (!/\s/.test(c)) prev = c;
+      out += src[i++];
+    }
+  }
+  if (!cuts.length) return { preamble: '', blocks: [out] };
+  return { preamble: out.slice(0, cuts[0]), blocks: cuts.map((at, k) => out.slice(at, cuts[k + 1] ?? out.length)) };
+}
+
+function everyAcmeSetsClimb(block) {
+  let seen = 0;
+  for (const m of block.matchAll(/\bacme\s*\(/g)) {
+    seen++;
+    let i = m.index + m[0].length, d = 1;
+    while (i < block.length && d > 0) {
+      if (block[i] === '(') d++;
+      else if (block[i] === ')') d--;
+      i++;
+    }
+    if (!/\bclimb\s*:/.test(block.slice(m.index + m[0].length, i - 1))) return false;
+  }
+  return seen > 0;
+}
+
+const nonTimingJobsOnly = s => /jobs\s*:\s*\[\s*(?:['"](?:hygiene|lessons|loop|perf)['"]\s*,?\s*)+\]/.test(s)
+  && !/\bTIMED\b|jobs\s*:\s*\[[^\]]*['"](?:test-time|build-time)['"]/.test(s);
+
+/** A file that times a suite: it runs wall-clock climb compare or measure. */
+export function timesASuite(text) {
+  const { preamble, blocks } = parseTopBlocks(String(text ?? ''));
+  const localNonTimingAcme = /\bfunction\s+acme\s*\(/.test(preamble) && nonTimingJobsOnly(preamble);
+  // A helper outside any test (const compare = dir => climb(dir, ['compare'])) times whatever
+  // test calls it: count it unless the file's own acme only builds non-timing jobs.
+  for (const m of preamble.matchAll(/\[\s*['"]measure['"](?:\s*,\s*(['"])([^'"]+)\1)?/g)) {
+    if (!NON_TIMING_JOBS.has(m[2])) return true;
+  }
+  if (/\[\s*['"]compare['"]/.test(preamble) && !localNonTimingAcme) return true;
+  for (const b of blocks) {
+    for (const m of b.matchAll(/\[\s*['"]measure['"](?:\s*,\s*(['"])([^'"]+)\1)?/g)) {
+      if (!NON_TIMING_JOBS.has(m[2])) return true;
+    }
+    if (/\[\s*['"]compare['"]/.test(b)) {
+      const scopedNonTiming = nonTimingJobsOnly(b) && everyAcmeSetsClimb(b);
+      const inheritedNonTiming = localNonTimingAcme && !/\bTIMED\b|jobs\s*:\s*\[[^\]]*['"](?:test-time|build-time)['"]/.test(b) && !/\bclimb\s*:/.test(b);
+      if (!scopedNonTiming && !inheritedNonTiming) return true;
+    }
+  }
+  return false;
+}
 
 /** What is wrong with one test file (`file` is repo-relative) under the rule, given the pinned files: [string]. */
 export function timingProblems(file, text, pins) {
@@ -90,4 +195,11 @@ test('issue 64: a mocked test cannot exempt an unrelated real-sleep suite in the
       assert.deepEqual(timingProblems(file, text, [file]), [], 'the mixed file is allowed when pinned');
     }
   }
+});
+
+test('a compare or measure helper defined outside any test still marks the file as timing', () => {
+  const helper = "const compare = dir => climb(dir, ['compare', '--json']);\n";
+  assert.equal(timesASuite(`${helper}test('acme', async t => { const dir = await acme(t); compare(dir); });\n`), true, 'a compare helper with a default (timed) project');
+  assert.equal(timesASuite("const measure = dir => climb(dir, ['measure', 'test-time']);\ntest('acme', () => {});\n"), true, 'a timed measure helper');
+  assert.equal(timesASuite("const measure = dir => climb(dir, ['measure', 'hygiene']);\ntest('acme', () => {});\n"), false, 'a non-timing measure helper');
 });

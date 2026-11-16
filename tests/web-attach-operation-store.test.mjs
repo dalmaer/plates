@@ -1,21 +1,22 @@
 // Phase 181: actual local SQL, not a mock state machine. No hosted acceptance.
-import { test } from 'node:test';
+import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile, readdir } from 'node:fs/promises';
-import { PGlite } from '@electric-sql/pglite';
+import { readFile } from 'node:fs/promises';
 import { createOperationStore } from '../lib/web/operation-store.mjs';
 import { prepareClaimIntent } from '../lib/web/attach-github.mjs';
 import { hash, seal } from '../lib/web/common.mjs';
+import { closeSharedMigratedPGlites, primeMigratedSnapshots, restoreMigratedPGlite, sharedMigratedPGlite } from './helpers/web-pglite.mjs';
 const migrations = new URL('../lib/web/migrations/', import.meta.url);
 const config = { storageUrl:'https://acme.example', storageKey:'fake-acme-key', encryptionKey:Buffer.alloc(32,7) };
 const sql = name => readFile(new URL(name,migrations),'utf8');
 const observation = stage => ({stage,at:'2026-11-14T12:00:00.000Z'});
+const storeTargets = ['013-night-retries.sql','019-backlog-events.sql','021-attach-outcomes.sql'];
+let counter = 0;
+after(() => closeSharedMigratedPGlites());
 async function harness(t,{latest=true}={}) {
- const db=new PGlite(); t.after(()=>db.close());
- await db.exec('CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;');
- for(const name of (await readdir(migrations)).filter(n=>n.endsWith('.sql')&&n<'020-').sort())await db.exec(await sql(name));
- if(latest) {await db.exec(await sql('020-attach-operation-stages.sql'));await db.exec(await sql('021-attach-outcomes.sql'));}
- let counter=0;
+ await primeMigratedSnapshots(storeTargets);
+ const db=latest?await sharedMigratedPGlite({upTo:'021-attach-outcomes.sql'}):await restoreMigratedPGlite({upTo:'019-backlog-events.sql'});
+ if(!latest)t.after(()=>db.close());
  const state={calls:[],alter:null,lose:false};
  const raw=async(operation,identity,value=null,name='plates_decision_rpc')=>{
   const p={p_operation:operation,p_id:identity.id,p_scope:identity.scope,p_project:identity.project,p_preview:identity.previewId,p_fence:identity.fence,p_value:value};
@@ -176,9 +177,8 @@ test('missing migration and malformed encrypted replies cannot confer a stage gr
 });
 
 test('020 requires migrated forwarder and rolls back before changing schema',async t=>{
- const db=new PGlite();t.after(()=>db.close());
- await db.exec('CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;');
- for(const name of (await readdir(migrations)).filter(n=>n.endsWith('.sql')&&n<'014-').sort())await db.exec(await sql(name));
+ await primeMigratedSnapshots(storeTargets);
+ const db=await restoreMigratedPGlite({upTo:'013-night-retries.sql'});t.after(()=>db.close());
  await assert.rejects(db.exec(await sql('020-attach-operation-stages.sql')),/apply 014-plates-names.sql first/);
  await db.exec('ROLLBACK');
  assert.equal((await db.query("SELECT count(*)::int n FROM information_schema.columns WHERE table_schema='keel_private' AND table_name='decision_operations' AND column_name='attach_stage'")).rows[0].n,0);

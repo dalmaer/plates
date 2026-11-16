@@ -1,18 +1,14 @@
 // Real local SQL plus synthetic GitHub; neither provider nor hosted DB is used.
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {readFile,readdir} from 'node:fs/promises';
-import {PGlite} from '@electric-sql/pglite';
 import {createAttachOperations} from '../lib/web/attach-operations.mjs';
 import {createOperationStore} from '../lib/web/operation-store.mjs';
 import {prepareClaimIntent} from '../lib/web/attach-github.mjs';
 import {hash} from '../lib/web/common.mjs';
+import {restoreMigratedPGlite} from './helpers/web-pglite.mjs';
 const at=Date.parse('2026-11-14T12:00:00Z'),parentToken='fake-acme-parent',childToken='fake-acme-child';
 async function harness(t,options={}) {
- const db=new PGlite();t.after(()=>db.close());
- await db.exec('CREATE ROLE anon;CREATE ROLE authenticated;CREATE ROLE service_role;');
- const directory=new URL('../lib/web/migrations/',import.meta.url);
- for(const file of (await readdir(directory)).filter(f=>f.endsWith('.sql')).sort())await db.exec(await readFile(new URL(file,directory),'utf8'));
+ const db=await restoreMigratedPGlite();t.after(()=>db.close());
  const config={storageUrl:'https://acme.example',storageKey:'fake-key',encryptionKey:Buffer.alloc(32,7)};
  const publication={appId:11,clientId:'acme-client',clientSecret:'fake-acme-secret',installationId:21,actorId:1,ownerId:2,repoId:102,repositoryNodeId:'R_acme',repo:'acme/studio'};
  const identity=Object.fromEntries(['id','scope','project','previewId','fence'].map(k=>[k,hash('Acme-'+k)]));
