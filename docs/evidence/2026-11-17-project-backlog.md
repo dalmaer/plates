@@ -48,3 +48,23 @@ The builder used `node --import ./tests/helpers/hermetic.mjs --test --test-repor
 - Waiting work is preserved behind its prerequisite or collapsed source details; it is not called Ready or Needs you merely to fit the four-state view.
 - Chat presentation, global empty-section/copy cleanup and navigation removal are later increments. The phase remains partial.
 - The next owner step is the five-minute project-page walk after an approved deployment: read an item, open Assign, inspect the existing command preview, answer a decision where available, and say whether the view is simpler. Do not mark the complete site assignment flow accepted while hosted apply is unavailable.
+
+## Landing observation, 2026-11-17
+
+The implementation commit is `505653f5a3cfbfa15b1c1de33c57c7ac96dea889`. `plates ready --check "npm run typecheck" --json` exited 0 with typecheck status 0. `plates integrate --json` exited 0, ran `npm run check` once on the combined candidate and pushed `ff82b6f71b94d449a8077287479a9b6c8b9e3264` to main. Its durable integration record is `25b7fb9d052f6b365c9cea5d02a55916d8dfdb53` on `plates-integrations`.
+
+The local gate reported 5,164 source tests: 5,152 passed, 12 skipped, zero failed; the installed-package suite passed all 45 tests. Roadmap, render and inbox checks passed. The ledger reported no flaky or slower test, while omitting the busy runs from timing comparisons; this is not quiet-host performance evidence. Existing blocked ready branches were reported unchanged and were not integrated with this increment.
+
+The existing owner grant (`delivery.grant.agentPromote: true`, since 2026-11-04) authorizes guarded promotion to the configured Plates target. The earlier deployment-approval wording does not require a new grant for that same operation and destination. Hosted quota delivery, hosted attachment and owner acceptance remain separate.
+
+CI run [44197236832](https://github.com/dalmaer/plates/actions/runs/44197236832) passed on the exact main revision; source results were 5,148 passed, 16 skipped, zero failed, and installed results were 23 passed, 10 skipped. This is separate remote evidence from the local full gate. Typecheck run [44197236852](https://github.com/dalmaer/plates/actions/runs/44197236852) passed. Publisher run [44199578172](https://github.com/dalmaer/plates/actions/runs/44199578172) advanced the tested ref to that revision.
+
+The exact-commit promotion preview exited 3 as expected: tested ref and passing gate were verified, no migration files were added, and the serving prior revision was retained as the rollback target. No deployment result is inferred from that preview.
+
+## Deployment observation, 2026-11-17
+
+`plates promote ff82b6f71b94d449a8077287479a9b6c8b9e3264 --yes --json` exited 0 under the existing owner grant. Production at [Plates](https://plates.dionisaledge.com) reports exactly that revision. All three configured smoke paths matched their expected 401 status; no error was logged during the 120-second watch beginning at 23:29:16.025 UTC, across 12 reads. No rollback was needed. The durable deployment record is `2bb1b64819f843aecebd19b6f284922763d0d9eb` on `plates-verify`.
+
+This supersedes the earlier not-run deployment observation without changing the historical checks. The authenticated project-page experience and decision/Assign interaction still need the owner's five-minute walk. The owner was asked to open an item and Assign, try a decision where available, and choose simpler or adjust first. That feedback is pending; the later channel and navigation increments wait on it. Hosted quota and attachment activation remain unavailable, and the phase stays partial.
+
+The retrospective reviewed navigation, automatable checks, missing standards, guide health, tool economy, no-op instructions and information gaps. No new rule or lesson was applied. Private run logs and handoff records remain outside the checkout.
