@@ -1,10 +1,10 @@
 ---
-status: planned
+status: partial
 since: 2026-11-17
 goal: G7
 spec: 2
 depends: [194, 181, 192]
-note: "The owner asked to radically simplify the hosted workspace (2026-11-17) and approved a clickable mock: a backlog, the agents on it, and the decisions only the owner can make."
+note: "Increment 1 (Home: chips that say why, needs-you cards answered in place, the Deploy command card) is merged and deployed (3d805c7). Increment 2, the project page backlog with Assign, is next."
 evidence: []
 ---
 
@@ -131,9 +131,10 @@ Automated: the named tests; `npm run check`. By hand: the owner's walk.
 
 ## Next action
 
-Build increment 1, Home.
+Build increment 2, the project page: the project's decisions as Home's cards, then one ordered Backlog with four states and Assign through attach, recommending the agent with the most room by the quota snapshot. Reuse Home's card and chip components and tokens from increment 1.
 
 ## Trajectory
 
 - **2026-11-17** — The owner approved a clickable mock of the three-thing model and asked for non-green projects to say why on their chip.
 - **2026-11-17** — The owner asked that quota decide which models do the work. Assign reuses the quota snapshot plates already reads for audits (192) and the routing policy (106) rather than a new mechanism.
+- **2026-11-17** — Increment 1 deployed as 3d805c7. Deploy stays a copyable `plates promote` command: promote runs from the owner's checkout, and a hosted deploy would bypass its checks. Increment 2 is attached to Codex in Rex, chosen by quota (Claude 93% of its week used, Codex 48%).
