@@ -313,7 +313,10 @@ than pass.
 (`--with climb`), or `.plates/plates.json` lists it; plates does not switch it on
 for itself until its owner says so with a budget.
 
-**Its files.** `.github/workflows/plates-climb.yml`, `plates-tend.yml`,
+**Selected files.** The complete installed file list and runtime imports live in
+[practice.json](practice.json). The following is an overview.
+
+`.github/workflows/plates-climb.yml`, `plates-tend.yml`,
 `scripts/plates/climb.mjs`, `tend.mjs`, `distill.mjs` (phase 31's rules, which
 plates's `lib/distill.mjs` re-exports), `.agents/climb/PROTOCOL.md`,
 `TEND.md`, `.agents/climb/jobs/test-time.md`, `hygiene.md`,

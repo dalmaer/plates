@@ -149,6 +149,7 @@ test('tokens meet contrast over the wash in both themes', () => {
     };
     const textSurfaces = ['paper', 'surface', 'surface-raised', 'surface-solid', 'field'];
     for (const text of ['ink', 'muted', 'action', 'green', 'danger', 'ok']) check(text, textSurfaces, 4.5);
+    check('caution', ['paper', 'surface-solid'], 3);
     for (const edge of ['line-strong', 'ring']) check(edge, ['field', 'surface'], 3);
     // Phase 169: Home's state tints. Warning text reads on the page and on its
     // own tint; every tint carries ink and muted text.

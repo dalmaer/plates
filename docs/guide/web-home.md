@@ -193,8 +193,15 @@ command, or one that answers anything else, leaves the card at "claimed".
 
 A host may also name a `harness` (phase 193): the agent command itself,
 `"harness": ["/abs/path/agent", "arg", ...]`, validated like `start` (an argv
-array of at most 16 entries whose first is an absolute path), which reads the
-brief on stdin with the checkout as its working directory. A host may have
+array of at most 16 entries whose first is an absolute path), run with the
+checkout as its working directory, and optionally `"prompt": "stdin"` or
+`"prompt": "arg"`, how it takes the brief. `stdin` is for a headless agent
+(`claude -p`, `codex exec`): the brief is its standard input. `arg` is for an
+interactive one (the `claude` and `codex` terminal apps): it keeps the tab's
+terminal as its input, so you can type to it, and the brief is its startup
+prompt, its last argument. Without `prompt`, a harness named `claude` or `codex`
+is `arg` unless its arguments make it headless (as above); any other harness is
+`stdin`. A host may have
 `start`/`state`, a `harness`, or both. When Rex answers on this machine (a `rex`
 executable on the host environment's PATH, and `rex ls --json` answering JSON
 within 5 s), `plates home --attach --route local-host` and `plates audit run`
@@ -205,19 +212,42 @@ when one has exactly that label and created otherwise, Plates opens one new
 tab per run, keep-open and unfocused, labelled `phase-<n>` or `audit-<lens>`.
 The tab runs `lib/rex-run.mjs`, which reads the brief from a mode-600 file under
 plates's state directory (`$XDG_STATE_HOME/plates/rex-briefs`, else
-`~/.local/state/plates/rex-briefs`), deletes it and starts the harness with the
-brief on stdin and only the basic environment: the brief is never in argv, the
-environment or the tab's output, and the tab shows the agent working, so you can
-watch it and step in. The receipt is `rex:<session id>/<block id>`, and the
+`~/.local/state/plates/rex-briefs`) and starts the harness with only the basic
+environment. With `stdin` it deletes the file and pipes the brief in. With `arg`
+the brief stays in its private file whatever its size, the startup prompt is one
+short line naming that file (a brief holds decision context, and any process's
+arguments are visible to `ps`), and the runner removes the file when the agent
+exits or the tab is closed. The brief is never in any argv, the environment or the tab's output,
+and the tab shows the agent working, so you can watch it and step in. An agent
+that asks before working in a folder (Claude Code's trust check) asks in the
+tab first; the brief follows your answer. The receipt is `rex:<session id>/<block id>`, and the
 card's presence comes from Rex (`rex wait`): a running tab is `running`; an exit
 is `finished` only when it is 0 and, for an audit, its findings file exists;
 anything else, or a tab Rex no longer knows, is `failed`. Plates reads `rex ls`
 and calls only `rex new`, `rex run` and `rex wait`: it never types into,
 closes, relabels or kills a tab or session, and never touches a session other
-than the exactly-labelled one, or a tab other than the one it opened. Without
-Rex, or without a harness, the host runs exactly as above; a host with only a
-harness and no Rex is refused, saying why. Remove `harness` to go back. Rex
-reports terminal sessions and presence; plates does not own it.
+than the exactly-labelled one, or a tab other than the one it opened. The one
+exception is your cancel, below, which closes only the tab that attach opened.
+Without Rex, or without a harness, the host runs exactly as above; a host with
+only a harness and no Rex is refused, saying why. Remove `harness` to go back.
+Rex reports terminal sessions and presence; plates does not own it.
+
+To cancel a phase's attach, run `plates home --cancel <plate>:phase:<n>` in the
+plate's checkout: a preview (exit 3) of what will be stopped. With
+`--why "<line>" --yes`, Plates first records the cancel in the attach journal,
+create-only, so the first cancel is the only one. Then it stops what the receipt
+names, unless that has already ended: the Rex tab it opened (`rex block close`),
+or a host session through the host's optional `"stop": ["/abs/path/host", "stop"]`
+command (`stop... <session id>`). It also removes the run's private brief file,
+which an attach names by its digest. If Rex or the host does not answer, the
+cancel is kept and the next attach or cancel finishes it, including after plates,
+the session or Rex restarts. A cancelled phase is never dispatched, recovered or resumed again, even when its
+brief changes later (a new attach digest). A cancel recorded before the run starts, even while the attach is
+still taking its claim, leaves it unstarted: the two race one create-only decision. A dispatch that finishes
+after the cancel stops what it just started. Cancelling twice gives the same record. The claim is kept: release it
+with `plates phase claim <n> --release`. A local host's brief ends by telling a
+restarted agent to run `plates home --cancel <key> --check` first. That check is
+read only and exits 1 when the phase is cancelled, and the agent then stops.
 
 `plates home --backlog --since YYYY-MM-DD` (phase 184) reads back what
 happened to each item since that date: the counts per action, each route's
@@ -249,6 +279,65 @@ the fleet's open pull requests not set to auto-merge, oldest first, read
 through `gh`. The hosted `/agents` shows the same, reading pull requests with
 the App's Pull requests read (a plate without it says "not read"), and the
 sidebar's Agents and Pending review carry their counts on every page.
+
+`plates channel [<project>]` (phase 194) is each plate's channel, read only:
+newest last, who claimed which phase (joined), the pull requests opened, the
+changes in flight (pushed, CI, waiting to deploy), production's deploys and
+the sessions waiting on you, each line with its plate, its actor
+(`<plate>#<phase>`, else `<plate>!<PR>` for a PR naming no phase) and a link. **Here now** lists the
+agents holding work (live claims, and PRs naming an unclaimed phase) with
+their last line's age and the lines from the last 24 hours, or Caught up; no
+read position is kept yet. A source that could not be read is a gap line
+naming it, never a quiet channel. The feed covers seven days (`--since`
+narrows it), and more than three joined/left lines on a plate within ten
+minutes fold into one. The hosted `/channel` (the footer's Channel link)
+renders the same model: All, a chip per plate with its line count, Here now
+and the lines; each plate's page carries its own Channel section.
+
+Agents post their own lines with `plates say "<text>"` (phase 194, increment
+2): one line of at most 280 characters for the checkout's plate, sent with the
+Mac's device key (the one `plates sessions push` uses) to the workspace
+`PLATES_SITE` names, tagged with the session, the provider and the phase the
+checkout claims. The workspace seals it (migration 024 keeps ciphertext,
+digests and times only), takes one line per session per minute, keeps lines
+14 days and at most 500 per plate. Each shows as a `say` line on the plate's
+channel (`<plate>#<phase>`, else `<plate>@<session>`) and counts in Here now.
+A line is an observation; it triggers nothing. Until migration 024 is applied
+each plate's channel says agents' lines could not be read. `plates channel`
+reads them from the workspace with the same key when `PLATES_SITE` is set,
+else it says why not.
+
+The owner addresses agents from `/channel` (phase 194, increment 3): a form,
+signed in, with the same origin and CSRF checks as Home's answers, posts one
+line to one plate. The workspace seals it with the owner's mark under the
+owner's own digest, never a device key (migration 025; until it is applied the
+form says the channel cannot take your lines yet). A line that names `@2`,
+`@<plate>#2` or `@<session>` is a `checkpoint` (a bare `@<session>` only when
+the id ends in a letter or digit, a trailing `.` or `:` being punctuation, so
+`@worker- hold` names nobody; `@{worker-}` names any session id exactly): that
+session reads it once with
+`plates channel inbox`, and both forms show it answered once that session or
+phase next says something. An agent's line naming another agent is a `say`
+line and reaches no inbox; a device-key post shaped like the owner's line is
+refused by name.
+
+Plates posts its own steps for an attach or a Rex run to the same channel, as
+`progress` lines from the provider `plates`: the phase was dispatched (to which
+Rex tab and session, or which local host, or handed over as a `/spin` brief),
+recovered, or cancelled. They go through the same route, device key and limits
+as `plates say`, one session per step and attach, so one step never waits on
+another's minute. Posting is best effort: with no `PLATES_SITE`, no device key
+or no answer, the attach or cancel still stands and its result carries a
+`progressNote` saying why the line was not posted. `plates channel` and
+`/channel` show the same lines, each attributed to the device that posted it
+("plates on Acme Mac: ..."): they say what plates on that machine did, not the
+owner's word. A device key may post only these three steps: the workspace refuses,
+by name, any other line from a device with the provider plates, so preview,
+correction, finished and accepted can never come from a device. An
+agent's `plates say` cannot use the provider `plates`, and no line triggers
+anything. Preview ready, correction requested and accepted may come only from
+the owner's signed-in site session; increment 3 lets the owner post lines there,
+but does not post those steps yet.
 
 On the web, **Since you last looked** starts at your previous visit. A visit is a
 run of Home page loads less than thirty minutes apart, and "since" is the last

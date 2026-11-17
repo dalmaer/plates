@@ -18,6 +18,8 @@ import { encryptPayload, vapidAuthorization, vapidKeys, publicKeyObject, validSu
 import { createPushStore } from '../lib/web/push-store.mjs';
 import { notificationsFor, createPushNotifier, waitingEvents } from '../lib/web/push-notify.mjs';
 import { projectHarness } from './helpers/web-projects.mjs';
+import { startReviewClient } from '../lib/web/review-client.mjs';
+import { reviewSnapshot } from './helpers/review-fixture.mjs';
 
 // ---- fakes: a browser cache, a worker global, a push database and a push service
 
@@ -662,6 +664,140 @@ test('a new shell never reloads over unsaved edits', async () => {
   assert.deepEqual([third.counts.reloads, loaded], [1, 0]);
 });
 
+function reviewSurface({ version }) {
+  const rootEvents = {}, documentListeners = {}, windowListeners = {}, workerListeners = {}, timers = new Map();
+  let timerId = 0;
+  const counts = { reloads: 0, updates: 0 };
+  const add = (bag, name, fn) => { (bag[name] ??= []).push(fn); };
+  const remove = (bag, name, fn) => { bag[name] = (bag[name] ?? []).filter(h => h !== fn); };
+  const makeNode = (tag, attrs = {}) => {
+    const node = {
+      tag, attributes: { ...attrs }, children: [], listeners: {}, textContent: '', type: '', value: attrs.value ?? '', hidden: false, disabled: false,
+      setAttribute(name, val) { node.attributes[name] = String(val); },
+      getAttribute: name => Object.hasOwn(node.attributes, name) ? node.attributes[name] : null,
+      hasAttribute: name => Object.hasOwn(node.attributes, name),
+      addEventListener(name, fn) { node.listeners[name] = fn; },
+      removeEventListener() {},
+      append(...els) { node.children.push(...els); },
+      prepend(...els) { node.children.unshift(...els); },
+      remove() { const at = root.children.indexOf(node); if (at >= 0) root.children.splice(at, 1); },
+    };
+    return node;
+  };
+  const csrf = makeNode('input', { 'data-review-csrf': '', value: 'fake-acme-csrf' });
+  const whyField = { hidden: true }, whyError = { textContent: '' }, whyInput = { value: '', setAttribute() {}, focus() {} };
+  const chooseDate = { focus() {}, setAttribute() {} }, laterPanel = { hidden: true, querySelector: () => ({ focus() {} }) };
+  const reasonInput = { value: '' }, untilDate = { value: '2099-01-01' }, toast = { hidden: true, innerHTML: '', contains: () => false };
+  const nodes = { '[data-review-csrf]': csrf, '[data-review-why]': whyField, '[data-review-why-error]': whyError, '[data-review-why-input]': whyInput,
+    '[data-review-later]': laterPanel, '[data-review-choose-date]': chooseDate, '[data-review-reason]': reasonInput,
+    '[data-review-until-date]': untilDate, '[data-review-toast]': toast };
+  const root = {
+    dataset: { endpoint: '/api/home' }, children: [csrf],
+    append(...els) { root.children.push(...els); },
+    prepend(...els) { root.children.unshift(...els); },
+    contains: () => true,
+    querySelector: selector => nodes[selector]
+      ?? (selector === '[data-safety-status]' ? root.children.find(c => c.hasAttribute?.('data-safety-status')) ?? null : null)
+      ?? (selector === '[data-shell-notice]' ? root.children.find(c => c.hasAttribute?.('data-shell-notice')) ?? null : null),
+    querySelectorAll: selector => {
+      const keep = [...selector.matchAll(/\[([a-z-]+)\]/g)].map(([, attr]) => attr);
+      return root.children.filter(c => !keep.some(attr => c.hasAttribute?.(attr)));
+    },
+    insertAdjacentHTML() { whyInput.value = ''; reasonInput.value = ''; root.children.push(makeNode('article')); },
+    addEventListener: (type, fn) => add(rootEvents, type, fn),
+    removeEventListener: (type, fn) => remove(rootEvents, type, fn),
+  };
+  const document = {
+    visibilityState: 'visible', body: makeNode('body'), activeElement: null, createElement: tag => makeNode(tag),
+    addEventListener: (name, fn) => add(documentListeners, name, fn),
+    removeEventListener: (name, fn) => remove(documentListeners, name, fn),
+    querySelector: selector => {
+      if (selector === 'meta[name="plates-shell"]') return { getAttribute: () => version };
+      if (selector === 'main' || selector === '[data-review-root]') return root;
+      for (const part of selector.split(',').map(s => s.trim())) {
+        if (part === '[data-safety-status]') { const hit = root.querySelector('[data-safety-status]'); if (hit) return hit; }
+        if (part === '[data-review-root]') return root;
+      }
+      return null;
+    },
+  };
+  const navigator = { onLine: true, serviceWorker: { addEventListener: (name, fn) => { workerListeners[name] = fn; },
+    register: async () => ({ update: async () => { counts.updates++; } }), controller: { postMessage() {} } } };
+  const window = {
+    navigator,
+    setTimeout: (fn, ms) => { timers.set(++timerId, { fn, ms }); return timerId; },
+    clearTimeout: id => timers.delete(id),
+    scrollTo() {},
+    addEventListener: (name, fn) => add(windowListeners, name, fn),
+    removeEventListener: (name, fn) => remove(windowListeners, name, fn),
+    location: { pathname: '/review', search: '', reload: () => { counts.reloads++; }, assign() {} },
+  };
+  const fetch = async url => url === '/api/home' ? Response.json(reviewSnapshot()) : Response.json({ state: 'written', until: '2099-01-01' });
+  const target = selector => ({ dataset: {}, matches: s => s === selector, closest: s => s === 'button,a' ? target(selector) : null });
+  const click = selector => { for (const fn of rootEvents.click ?? []) fn({ target: target(selector) }); };
+  const beforeunload = () => {
+    const event = { defaultPrevented: false, preventDefault() { event.defaultPrevented = true; } };
+    for (const fn of windowListeners.beforeunload ?? []) fn(event);
+    return event.defaultPrevented;
+  };
+  return { root, document, window, navigator, fetch, workerListeners, counts, whyInput, reasonInput, click, beforeunload };
+}
+
+test('a shell update preserves an unsent review reason', async () => {
+  const oldVersion = 'a'.repeat(32), newVersion = 'b'.repeat(32);
+  const safety = () => import('../lib/web/safety-client.mjs');
+
+  // Typing into the answer's why field registers unsaved work without an injected guard.
+  const first = reviewSurface({ version: oldVersion });
+  const review = startReviewClient(first);
+  const pwa = startPwa({ window: first.window, document: first.document, navigator: first.navigator, safety });
+  await pwa.ready; await tick(); await tick();
+  assert.ok(first.root.querySelector('[data-safety-status]'), 'the safety status element survives card rendering');
+  first.click('[data-review-add-why]');
+  first.whyInput.value = 'Acme needs owner confirmation first';
+  first.workerListeners.message({ data: { type: 'plates-shell', version: newVersion } });
+  await tick(); await tick();
+  assert.equal(first.counts.reloads, 0, 'the shell update does not reload over an unsent why');
+  assert.equal(hasUnsavedEdits(first.document), true);
+  assert.equal(first.beforeunload(), true, 'unloading is prevented while a why is typed');
+  const firstNotice = first.root.querySelector('[data-shell-notice]');
+  assert.ok(firstNotice, 'the update notice is shown');
+  assert.equal(firstNotice.textContent.trim(), 'A new version is ready. Reload when you have saved.');
+  review.stop();
+
+  // Typing into Not now's optional reason field is preserved the same way.
+  const second = reviewSurface({ version: oldVersion });
+  const secondReview = startReviewClient(second);
+  await startPwa({ window: second.window, document: second.document, navigator: second.navigator, safety }).ready;
+  await tick(); await tick();
+  second.click('[data-review-choose-date]');
+  second.reasonInput.value = 'Acme needs another observation';
+  assert.equal(hasUnsavedEdits(second.document), true);
+  assert.equal(second.beforeunload(), true);
+  second.workerListeners.message({ data: { type: 'plates-shell', version: newVersion } });
+  await tick(); await tick();
+  assert.equal(second.counts.reloads, 0, 'the shell update does not reload over an unsent Not now reason');
+  const secondNotice = second.root.querySelector('[data-shell-notice]');
+  assert.ok(secondNotice);
+  second.reasonInput.value = '';
+  secondNotice.children[0].listeners.click();
+  assert.equal(second.counts.reloads, 1);
+  secondReview.stop();
+
+  // With both reason fields empty and nothing in flight, a shell update reloads at once.
+  const clean = reviewSurface({ version: oldVersion });
+  const cleanReview = startReviewClient(clean);
+  await startPwa({ window: clean.window, document: clean.document, navigator: clean.navigator, safety }).ready;
+  await tick(); await tick();
+  assert.equal(hasUnsavedEdits(clean.document), false);
+  assert.equal(clean.beforeunload(), false);
+  clean.workerListeners.message({ data: { type: 'plates-shell', version: newVersion } });
+  await tick(); await tick();
+  assert.equal(clean.counts.reloads, 1);
+  assert.equal(clean.root.querySelector('[data-shell-notice]'), null);
+  cleanReview.stop();
+});
+
 test('navigation preloads and gives up on a stalled network', async () => {
   const origin = 'https://plates.acme.test', caches = fakeCaches(), calls = [];
   let mode = 'up';
@@ -790,4 +926,21 @@ test('a rotated push subscription keeps notifications coming', async t => {
   } });
   await notifier.notify(1, [{ kind: 'night', state: 'red', project: 'studio', date: '2026-11-01' }]);
   assert.deepEqual(delivered.sort(), [rotated.subscription.endpoint, other.subscription.endpoint].sort());
+});
+
+test('installation reuses only digest-addressed public HTTP assets', async () => {
+  const pwa = createPwa(), seen = [], caches = fakeCaches();
+  const worker = workerScope({ origin: 'https://plates.acme.test', caches, fetch: async request => { seen.push(request); return new Response('public shell'); } });
+  shellWorker(worker.scope, { version: pwa.version, shell: pwa.shell, offline: '/offline' });
+  await worker.dispatch('install');
+  assert.equal(seen.length, pwa.shell.length);
+  for (const request of seen) {
+    const path = new URL(request.url).pathname;
+    assert.equal(request.credentials, 'omit');
+    assert.equal(request.cache, /\.[a-f0-9]{12}\./.test(path) ? 'default' : 'reload', path);
+  }
+  // An unhashed asset supplied to the worker must still be refreshed.
+  const legacy = workerScope({ origin: 'https://plates.acme.test', caches: fakeCaches(), fetch: async request => { assert.equal(request.cache, 'reload'); return new Response('public shell'); } });
+  shellWorker(legacy.scope, { version: 'legacy', shell: ['/assets/theme.mjs'], offline: '/offline' });
+  await legacy.dispatch('install');
 });

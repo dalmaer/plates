@@ -1,3 +1,5 @@
+import fsPromises from 'node:fs/promises';
+import { syncBuiltinESMExports } from 'node:module';
 // plates loose-ends (phase 24): synthetic Claude Code transcripts, built from
 // the real format's shapes (entry types and field names, never a real
 // session's words), synthetic git repos laid out the way a person's code
@@ -592,4 +594,37 @@ test('the loose-ends marks module and the scanner name the same file and moves',
   assert.deepEqual(entry, { fingerprint: 'phase:3', kind: 'phase', move: 'drop', date: '2026-11-06', reason: 'Done.' });
   assert.equal(shared.withMark([{ fingerprint: 'phase:3', move: 'park' }, { fingerprint: 'x', move: 'drop' }], entry), `${JSON.stringify({ marks: [{ fingerprint: 'x', move: 'drop' }, entry] }, null, 2)}\n`, 'a new mark replaces its fingerprint\'s');
   assert.throws(() => shared.marksIn('{ not json'));
+});
+
+
+test('loose ends streams full history including old questions and middle edits', async t => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'plates-acme-stream-')));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await repo(root, 'acme/stream', { '.plates/plates.json': '{"repo":"acme/stream"}', 'acme.txt': 'before' });
+  await writeFile(join(root, 'acme.txt'), 'after');
+  const claude = join(root, 'claude'), dir = join(claude, 'projects', encodeDir(root));
+  await mkdir(dir, { recursive: true });
+  const padding = JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text: 'Acme '.repeat(160) }] } }) + '\n';
+  const middle = transcript('acme-large', root, Date.now() + 60000).tool('Edit', { file_path: 'acme.txt', new_string: 'Acme 🦉'.repeat(50000) }).text();
+  await writeFile(join(dir, 'acme-large.jsonl'), transcript('acme-large', root).user('Acme large').text() + padding.repeat(12000) + middle + padding.repeat(12000) + transcript('acme-large', root).say('Acme finished').text());
+  const old = join(dir, 'acme-old.jsonl');
+  await writeFile(old, transcript('acme-old', root, 0).user('Acme old').say('Still waiting?').text());
+  await fsPromises.utimes(old, new Date(0), new Date(0));
+  let wholeReads = 0;
+  const original = fsPromises.readFile;
+  const spy = t.mock.method(fsPromises, 'readFile', (...args) => {
+    if (String(args[0]).endsWith('.jsonl')) wholeReads++;
+    return original(...args);
+  });
+  syncBuiltinESMExports();
+  t.after(() => { spy.mock.restore(); syncBuiltinESMExports(); });
+  const started = performance.now();
+  const result = await looseEnds({ home: root, env: { ...process.env, PLATES_CLAUDE_DIR: claude, PLATES_GH: join(root, 'no-gh') } });
+  t.diagnostic(`Loose ends 24,000 transcript messages: ${(performance.now() - started).toFixed(1)} ms`);
+  const sessions = result.data.projects[0].items.filter(i => i.kind === 'session');
+  assert.ok(sessions.some(i => i.session === 'acme-large' && i.files.includes('acme.txt')));
+  assert.ok(sessions.some(i => i.session === 'acme-old' && i.ending === 'question'));
+  assert.equal(wholeReads, 0, 'transcripts must be consumed incrementally');
+  await writeFile(join(dir, 'acme-invalid.jsonl'), 'null\n');
+  await assert.rejects(looseEnds({ home: root, env: { ...process.env, PLATES_CLAUDE_DIR: claude, PLATES_GH: join(root, 'no-gh') } }), TypeError, 'consumer failures must not be hidden as unreadable files');
 });

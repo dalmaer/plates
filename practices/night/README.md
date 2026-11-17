@@ -324,14 +324,26 @@ The night spends no model tokens: it measures, deterministically.
 in `.plates/plates.json`: `setup`, the install command (default `npm ci` when
 there is a lockfile); `env`, variables for every gate run; `setupToken`, a
 repo secret's name passed as `GH_TOKEN` to the install step only, so setup
-can clone a private repo the gate needs; `health`, above.
+can clone a private repo the gate needs; `health`, above. Without `setupToken`,
+Install receives no GitHub token. Consumer setup may need lifecycle scripts;
+Plates itself sets `setup: "npm ci --ignore-scripts"` for its development tools.
+
+The measurement job has read-only permissions and checks out without persisted
+credentials. API tokens are step-scoped; hosted project commands receive no
+GitHub, Stitch or Vercel token through `gateEnv`. A separate publisher receives
+a commit bundle and explicit report/plan data, checks the named commit and its
+parent, then pushes objects without checking out candidate code. Only that job
+has repository write permissions; it installs no dependencies and runs no gate.
 
 **What it needs (⚑).** No secret. The repo setting *Allow GitHub Actions to
 create and approve pull requests*, or `gh pr create` is refused (the run
 pushes the branch and ends green with a notice). Squash merges allowed, for
 the drain.
 
-**Its files.** `.github/workflows/plates-night.yml`, `scripts/plates/improve.mjs`,
+**Selected files.** The complete installed file list and runtime imports live in
+[practice.json](practice.json). The following is an overview.
+
+`.github/workflows/plates-night.yml`, `scripts/plates/improve.mjs`,
 `scripts/plates/drain.mjs`, `scripts/plates/lib.mjs`, `scripts/plates/test-ledger.mjs`,
 `scripts/plates/stalls.mjs`, `scripts/plates/pr-body.mjs` (managed), and the `night` block of the selected working guide (so it needs agents-md). They need the
 phases practice's `scripts/roadmap.mjs` for the phase measures; with phases

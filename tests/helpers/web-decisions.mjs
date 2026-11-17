@@ -30,6 +30,13 @@ export function decisionHarness() {
     }
     return Response.json({data:{node:vars.id===state.repositoryNodeId?{...repo(),commit:commit(c),...blobs}:null}});
    }
+   if(body.query.startsWith('query DecisionBlobs')){
+    // Batched blob reads by oid, as GitHub answers them; state.blobReads counts the blobs each request asked for.
+    const all=[...Object.values(state.files),...Object.values(state.revisions).flatMap(files=>Object.values(files))],node={};
+    const asked=[...body.query.matchAll(/b(\d+):object\(oid:"([a-f0-9]{40})"\)/g)];(state.blobReads??=[]).push(asked.length);
+    for(const [,k,oid] of asked){const content=state.blobBatchFails?undefined:all.find(v=>gitBlob(v)===oid);node[`b${k}`]=content===undefined?null:{oid,byteSize:Buffer.byteLength(content),isBinary:false,isTruncated:false,text:content};}
+    return Response.json({data:{node:vars.id===state.repositoryNodeId?{...repo(),...node}:null}});
+   }
    const input=vars.input;state.writes.push(input);state.onDispatch?.();if(state.hold)await state.hold;
    if(state.mode==='refused'||input.branch.id!==state.branchNodeId||state.refMissing||input.expectedHeadOid!==state.head)return Response.json({data:{createCommitOnBranch:null},errors:[{type:'STALE_DATA'}]});
    if(state.mode==='never')throw Error('Synthetic uncertain transport');

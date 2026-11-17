@@ -2,6 +2,8 @@
 // /api/backlog with backoff and renders the list and sidebar again, then stops.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import vm from 'node:vm';
+import { readFile } from 'node:fs/promises';
 import { startBacklogClient, nextDelay, BACKLOG_DELAYS, MAX_READS } from '../lib/web/backlog-client.mjs';
 import { renderBacklog, renderSidebar } from '../lib/web/backlog-views.mjs';
 
@@ -62,7 +64,7 @@ test('the page keeps reading while a plate is stale', async () => {
 // Phase 185: the same client serves Recurring, reading its own endpoint, and says every time in the viewer's zone.
 test('Recurring reads its own endpoint, and times are said in the viewer\'s zone', async () => {
   const { renderRecurring } = await import('../lib/web/backlog-views.mjs');
-  const { localTime } = await import('../lib/web/backlog-client.mjs');
+  const { localTime, plainGmt } = await import('../lib/web/backlog-client.mjs');
   const p = page(), asked = [];
   p.root.dataset.view = 'recurring';
   const times = [{ attrs: { datetime: '2026-11-06T07:23:00.000Z' }, dataset: { local: 'time' }, textContent: '07:23 UTC', getAttribute(k) { return this.attrs[k]; } }];
@@ -73,10 +75,22 @@ test('Recurring reads its own endpoint, and times are said in the viewer\'s zone
   assert.equal(times[0].textContent, '23:23 PST', 'said in the viewer\'s zone before any read');
   await p.run();
   assert.deepEqual(asked, ['/api/recurring']);
-  assert.match(p.list.innerHTML, /data-recurring-plate="studio"/); assert.match(p.side.outerHTML, /<a href="\/recurring" aria-current="page">Recurring/);
+  assert.match(p.list.innerHTML, /data-recurring-plate="studio"/); assert.match(p.side.outerHTML, /<a href="\/recurring" aria-current="true">Recurring/);
   assert.equal(p.timers.length, 0, 'every plate read: done');
   assert.equal(localTime('2026-11-09T10:18:00.000Z', 'weekday-time', 'Europe/London'), 'Mon, 10:18 GMT');
   assert.equal(localTime('nope', 'time'), null);
+  // ICU 79 (Homebrew's Node 26.13.1) says a zero offset "GMT+0"; the views say GMT on every build, and keep real offsets.
+  assert.equal(plainGmt('Mon, 10:18 GMT+0'), 'Mon, 10:18 GMT');
+  assert.equal(plainGmt('10:18 GMT+05:30'), '10:18 GMT+05:30');
+  assert.equal(plainGmt('10:18 GMT+01'), '10:18 GMT+01');
+  // Both formatters go through plainGmt: with a formatter that says London as ICU 79 does, each still says GMT.
+  const { timeText } = await import('../lib/web/recurring-model.mjs');
+  const RealFormat = Intl.DateTimeFormat;
+  Intl.DateTimeFormat = function (...a) { const f = new RealFormat(...a); return { format: d => f.format(d).replace(/GMT(?![+-])/, 'GMT+0') }; };
+  try {
+    assert.equal(localTime('2026-11-09T10:18:00.000Z', 'weekday-time', 'Europe/London'), 'Mon, 10:18 GMT', 'localTime says a zero offset as GMT');
+    assert.equal(timeText('2026-11-09T10:18:00.000Z', 'weekday-time', { timeZone: 'Europe/London' }), 'Mon, 10:18 GMT', 'timeText says a zero offset as GMT');
+  } finally { Intl.DateTimeFormat = RealFormat; }
 });
 
 // Phase 186: the same client serves Agents, reading /api/agents while a plate loads.
@@ -90,7 +104,7 @@ test('Agents reads its own endpoint', async () => {
   await p.run(); assert.equal(p.timers.length, 1, 'still loading: read again');
   await p.run(); assert.equal(p.timers.length, 0);
   assert.deepEqual(asked, ['/api/agents', '/api/agents']);
-  assert.match(p.list.innerHTML, /Pending review/); assert.match(p.side.outerHTML, /<a href="\/agents" aria-current="page">Agents <span class="p-badge">0<\/span>/);
+  assert.match(p.list.innerHTML, /Pending review/); assert.match(p.side.outerHTML, /<a href="\/agents" aria-current="true">Agents <span class="p-badge">0<\/span>/);
 });
 
 // Phase 179: By goal reads the backlog's endpoint and renders its own arrangement, with the backlog's sidebar.
@@ -102,5 +116,35 @@ test('By goal reads the backlog and arranges it', async () => {
   startBacklogClient({ document: p.document, window: p.window, fetch: async url => { asked.push(url); return { status: 200, json: async () => answers.shift() }; }, renderBacklog, renderSidebar, renderByGoal });
   await p.run();
   assert.deepEqual(asked, ['/api/backlog']);
-  assert.match(p.list.innerHTML, /data-goal="app0:goal:none"/); assert.match(p.side.outerHTML, /<a href="\/backlog" aria-current="page">Backlog/);
+  assert.match(p.list.innerHTML, /data-goal="app0:goal:none"/); assert.match(p.side.outerHTML, /<a href="\/backlog" aria-current="true">Backlog/);
+});
+
+// Exercise the browser entrypoint, replacing only the browser-only module loader.
+test('warm pages wire disclosure and times without loading the rendering graph', async () => {
+  const raw = await readFile(new URL('../lib/web/backlog-client.mjs', import.meta.url), 'utf8');
+  // Static imports cannot run in a script context: strip each and supply its real bindings instead.
+  const bindings = {};
+  for (const [, names, from] of raw.matchAll(/^import\s*\{([^}]+)\}\s*from\s*'([^']+)';$/gm)) {
+    const module = await import(new URL(from, new URL('../lib/web/', import.meta.url)).href);
+    for (const name of names.split(',').map(n => n.trim()).filter(Boolean)) bindings[name] = module[name];
+  }
+  const source = raw.replace(/^import\s*\{[^}]+\}\s*from\s*'[^']+';$/gm, '')
+    .replace(/export /g, '').replace("import('/assets/backlog-views.mjs')", 'loadViews()');
+  for (const view of ['backlog', 'goals', 'recurring', 'agents', 'channel', 'history']) {
+    const p = page('false'), events = [], time = { dataset: { local: 'time' }, getAttribute: () => '2026-11-06T07:23:00Z', textContent: '' };
+    p.root.dataset.view = view;
+    p.root.addEventListener = event => events.push(event);
+    p.root.querySelectorAll = selector => selector === 'time[data-local]' ? [time] : [];
+    let imports = 0;
+    vm.runInNewContext(source, { ...bindings, document: p.document, window: { ...p.window, fetch() {} }, loadViews() { imports++; return Promise.resolve({ renderBacklog, renderSidebar }); } });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(imports, 0, view);
+    assert.deepEqual(events, ['click', 'keydown'], view);
+    assert.ok(time.textContent, view);
+    assert.equal(p.timers.length, 0);
+  }
+  const p = page(); let imports = 0;
+  vm.runInNewContext(source, { ...bindings, document: p.document, window: { ...p.window, fetch() {} }, loadViews() { imports++; return Promise.resolve({ renderBacklog, renderSidebar }); } });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(imports, 1); assert.equal(p.timers.length, 1, 'loading pages still poll');
 });

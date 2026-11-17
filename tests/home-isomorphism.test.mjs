@@ -66,10 +66,10 @@ async function sources({ reviews = true, files = {}, issues = null, waits = null
         for (const [key, expression] of Object.entries(variables).filter(([k]) => /^e\d+$/.test(k))) repository[`d${key.slice(1)}`] = expression === 'plates-verify:deploys.jsonl' && deployRecords.text !== null ? { isBinary: false, isTruncated: false, text: deployRecords.text } : null;
         return Response.json({ data: { rateLimit: rate, repository } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
       }
-      // The backlog's claims read (phase 178): the claim branches the test pushed to the checkout's remote, and no open PRs.
+      // The backlog's claims read (phase 178): the claim branches the test pushed to the checkout's remote, and the same open PRs.
       // Pending review's read (phase 186): the same open PRs the fake gh lists.
       if (query.includes('PlatesPending')) return Response.json({ data: { rateLimit: rate, repository: { pullRequests: { totalCount: (prs ?? []).length, nodes: prs ?? [] } } } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
-      if (query.includes('PlatesClaims')) return Response.json({ data: { rateLimit: rate, repository: { refs: { totalCount: claimRefs.length, nodes: claimRefs }, pullRequests: { totalCount: 0, nodes: [] } } } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
+      if (query.includes('PlatesClaims')) return Response.json({ data: { rateLimit: rate, repository: { refs: { totalCount: claimRefs.length, nodes: claimRefs }, pullRequests: { totalCount: (prs ?? []).length, nodes: (prs ?? []).map(p => ({ ...p, headRefName: p.headRefName ?? `acme-review-${p.number}` })) } } } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
       // The ready PRs' checks read (phase 176): the same answer the fake gh gives.
       if (query.includes('PlatesReadyChecks')) return Response.json({ data: { rateLimit: rate, repository: ready } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
       return Response.json({ data: { rateLimit: rate, ...(query.includes('PlatesReviewWindow') ? { repository: review } : {}) } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
@@ -653,7 +653,7 @@ test('agents match in both forms', async () => {
     assert.match(html, /data-agent="claude"[^]*?working on <strong>Acme Studio #1<\/strong> Acme phase 1/);
     assert.match(html, /data-agent="codex"[^]*?<p class="backlog-none">idle<\/p>/);
     assert.match(html, /data-pending="studio:review:21"/); assert.doesNotMatch(html, /studio:review:22/);
-    assert.match(html, /<a href="\/agents" aria-current="page">Agents <span class="p-badge">1<\/span><\/a><a href="\/agents#pending">Pending review <span class="p-badge">1<\/span><\/a>/);
+    assert.match(html, /<a href="\/agents" aria-current="true">Agents <span class="p-badge">1<\/span><\/a><a href="\/agents#pending">Pending review <span class="p-badge">1<\/span><\/a>/);
     const text = s.again(['--agents'], { env: { ACME_GH_PRS: JSON.stringify(PRS) } }).stdout;
     assert.match(text, /^ {2}claude: working on Acme Studio #1 Acme phase 1 · claimed on acme-mac$/m);
     assert.match(text, /^ {2}Acme Studio #21 {2}Acme anvils, sharper · review required {2}— \d+ days old$/m);
@@ -677,7 +677,7 @@ test('by goal matches in both forms', async () => {
     // The page arranges the same, and the terminal says it.
     const { backlogView } = await import('../lib/web/backlog-views.mjs');
     const html = backlogView(s.access, { schema: 1, generatedAt: new Date().toISOString(), lane: null, ...web }, { arrangement: 'goals' });
-    assert.match(html, /<a href="\/backlog\/goals" aria-current="page">By goal<\/a>/);
+    assert.match(html, /<a href="\/backlog\/goals" aria-current="true">By goal<\/a>/);
     for (const g of cli.groups) assert.ok(html.includes(`data-goal="${g.key}"`), g.key);
     assert.match(s.again(['--backlog', '--by-goal']).stdout, /^Acme Studio · G1 — A dependable studio {2}\(/m);
     assert.equal(s.again(['--backlog', '--by-goal', '--lane', 'yours']).status, 2, '--by-goal takes no --lane');

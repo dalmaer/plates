@@ -45,14 +45,22 @@ claims of existing checks or passing results.
 
 ## Deliberately open
 
-**Settled 2026-10-21:** owner selected Vercel and the private repository; repository creation and privacy were verified. The owner also selected an existing Pro team; the project and assigned domain are verified. The owner approved Supabase Free/iad1/production-only and the read-only selected-repository GitHub App. Database provisioning, connection, selected installation and live access are verified; serving Node v24.21.0 is established by phase 95. Backup destination remains open. No synthetic connection can satisfy the live resource checks.
+**Settled 2026-10-21:** owner selected Vercel and the private repository; repository creation and privacy were verified. The owner also selected an existing Pro team; the project and assigned domain are verified. The owner approved Supabase Free/iad1/production-only and the read-only selected-repository GitHub App. Database provisioning, connection, selected installation and live access are verified; phase 95 originally recorded serving Node v24.21.0.
+
+**Settled 2026-10-31:** Backup destination was chosen on 2026-10-31 and the first independent encrypted
+copy was read back; the provider upgrade was deferred. The nightly schedule
+and second key copy remain with the owner (Trajectory below). The 2026-10-31
+[activation proof](../evidence/2026-10-31-web-activation-plan.md#step-1-proof-2026-10-31)
+records serving Node v24.22.2, superseding the earlier runtime observation.
+No synthetic connection can satisfy the live resource checks.
 
 ## Next action
 
-Choose and verify the independent backup/restore destination. Private repository
-identity, selected App access, production secrets, HTTPS origin and serving
-Node v24.21.0 are verified by the deployed phase 95 walk. No backup destination
-or paid backup resource has been silently selected.
+The owner installs the nightly schedule and stores the decryption key's second
+copy, then verifies a scheduled encrypted backup can be read back. The destination
+and first copy were recorded on 2026-10-31; the provider upgrade remains deferred.
+Recheck the current runtime and backup freshness before further activation via
+the [activation guide](../guide/web-activation.md).
 
 ## Trajectory
 

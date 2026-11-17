@@ -326,3 +326,19 @@ test('phase 0 comes from the phase template and parses', async () => {
   assert.equal(npmName('Acme Notes!'), 'acme-notes');
   assert.equal(npmName('_Acme'), 'acme');
 });
+
+test('init and adopt order every shipped practice after its requirements', async t => {
+  const { ORDER } = await import('../lib/adopt.mjs');
+  const practices = await load();
+  assert.deepEqual([...ORDER].sort(), [...practices.keys()].sort(), 'adopt order covers the catalogue once');
+  const root = await scratch(t);
+  const result = plates(['init', 'acme-order', '--description', DESCRIPTION, '--with', optionalPractices().join(','), '--json'], root);
+  assert.equal(result.code, 0, result.err || result.out);
+  const installed = JSON.parse(result.out).config.practices;
+  assert.deepEqual(installed, ORDER, 'init uses the same complete order as adopt');
+  for (const [i, name] of installed.entries()) for (const required of practices.get(name).requires) {
+    assert.ok(installed.indexOf(required) < i, `${name} follows ${required}`);
+  }
+  const self = JSON.parse(await readFile(join(PLATES, '.plates/plates.json'), 'utf8')).practices;
+  assert.deepEqual(installed.filter(name => self.includes(name)), self, 'same order as the selected self practices');
+});

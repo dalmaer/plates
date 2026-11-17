@@ -49,7 +49,9 @@ Retention: how long events are kept. Settled when the readout is first used.
 
 ## Next action
 
-Apply migration 019 with the owner (activation step migration-019), then write one event from the web and read it back on /backlog/history.
+Write one event from the web and read it back on /backlog/history with the owner
+(activation step backlog-hosted-walk). Migration 019 and its hosted proof were
+recorded on 2026-11-07; do not reapply it.
 
 ## Trajectory
 - **2026-11-06** Events are short codes only (a Not now reason is stored as `stated` or `none`); the history readout is one function, used by the CLI and /backlog/history.

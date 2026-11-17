@@ -29,7 +29,7 @@ reconciliation, roadmap, rendered files, inbox and whitespace, then recheck the
 input identity. Unavailable required references fail; unchanged remote history
 is explicitly not refreshed. A result named `record-checks` is not a full test
 pass. Prior full-gate evidence retains its original revision. `--records-only`
-refuses a broad selection instead of executing it; eligible selections still run
+refuses a broad selection with exit 3 instead of executing it; eligible selections still run
 their checks. It is not a way to approve broad changes.
 
 Changes to this policy or its executable checks require the full gate and review.
@@ -197,7 +197,10 @@ operational evidence, not a reason to extend production deadlines or retry tests
 
 The ordinary `npm test` remains a literal Node command. The installed stage uses
 its own literal command, hermetic preload, reporters and file-scoped receipt plan,
-at concurrency one. It runs once; any failure fails `npm run check`. A preceding
+at concurrency five. Each file owns its temporary state; credential FIFO tests
+use descriptor 50 in their own children, so they need no separate serial lane.
+This remains a bounded stage after the 32-worker ordinary suite, not part of that
+loaded suite. It runs once; any failure fails `npm run check`. A preceding
 failed stage leaves it not run, never passed. Guards must prove the selected files
 are disjoint, their union covers both source test directories and the installed
 checks, and the installed stage cannot disappear from the configured gate.

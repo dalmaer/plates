@@ -117,6 +117,7 @@ the phase (no "lever", "walk" or bare phase numbers):
 - **Why:** <one sentence: what it settles or unblocks>
 - **Look at:** <one line; may link [text](url)>
 - **Choices:** <Choice A> | <Choice B> | …
+- **Recommend:** <Choice A>   (optional: an exact Choices label)
 - **Keeps it open:** <Choice B>   (optional: choices that leave the walk open)
 - **Takes:** <about how long, e.g. 5 minutes>
 - **Then:** <what happens after, per choice where they differ: "Choice A: …. Choice B: …">
@@ -143,7 +144,9 @@ complete a multi-choice walk. **Keeps it open** always leaves acceptance uncheck
 Then remains the next action for any follow-up. Completing a walk marks the phase
 built only when no other acceptance boxes remain open.
 `--check` notes, never refuses, a phase with an open walk and no Your part,
-and a Your part with no Ask, no Choices or no Ready.
+and a Your part with no Ask, no Choices or no Ready. For every spec version,
+it refuses a supplied **Recommend:** that is not an exact member of **Choices**.
+Omitting Recommend is allowed; superseded phases are exempt from these checks.
 
 Use [the template](../templates/phase.md). After editing: `npm run roadmap`,
 then `{{check}}`.

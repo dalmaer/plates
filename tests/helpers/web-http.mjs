@@ -82,6 +82,7 @@ export function harness({ createService: create = createWebService } = {}) {
       return json({ total_count: repositories.length + (state.partial ? 1 : 0), repositories });
     }
     if (path === '/repositories/101') return json({ id: 101, full_name: 'acme/plates-private', private: state.private, default_branch: 'main' });
+    if (path === '/repos/acme/plates-private/git/ref/heads/main') return json({ ref: 'refs/heads/main', object: { type: 'commit', sha: 'a'.repeat(40) } });
     if (path === '/repos/acme/plates-private/commits/main') return json({ sha: 'a'.repeat(40) });
     if (path.startsWith('/repos/acme/plates-private/contents/')) {
       assert.equal(parsed.searchParams.get('ref'), 'a'.repeat(40));

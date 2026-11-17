@@ -6,6 +6,7 @@
   "feedbackProject": "dalmaer/keel",
   "inbox": "dalmaer/plates-inbox",
   "plates": "self",
+  "setup": "npm ci --ignore-scripts",
   "stack": [
     "node",
     "github-actions",
@@ -56,11 +57,6 @@
       "tests/climb-admission.test.mjs",
       "tests/climb-codex.test.mjs",
       "tests/climb-execution-regression.test.mjs",
-      "tests/climb-guard.test.mjs",
-      "tests/climb-hygiene.test.mjs",
-      "tests/climb-pick.test.mjs",
-      "tests/climb-tend.test.mjs",
-      "tests/phase63-climb-loop.test.mjs",
       "tests/evidence.test.mjs"
     ]
   },
@@ -145,6 +141,12 @@
   "audits": {
     "providers": [
       "antigravity"
+    ]
+  },
+  "backlog": {
+    "routes": [
+      "session",
+      "local-host"
     ]
   }
 }

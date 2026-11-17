@@ -1,11 +1,11 @@
 ---
-status: designed
-since: 2026-11-15
+status: partial
+since: 2026-11-17
 goal: G7
 spec: 2
 depends: [149]
-note: "Specified: a per-project channel on the Plates site, built from claims, GitHub, deploys and waiting sessions first; agent posts and owner checkpoints follow, each its own merge."
-evidence: []
+note: "Increments 1–3 are built; migration 025 is applied with its hosted proof. Box 7 waits on the live round trip (an owner line on the deployed site reaching a session's plates channel inbox), which the owner's walk proves with box 8."
+evidence: ["evidence/2026-11-15-channel-feed.md", "evidence/2026-11-16-channel-say-hosted.md", "evidence/2026-11-16-channel-owner-lines.md"]
 ---
 
 # Each project has a channel on the Plates site
@@ -52,7 +52,9 @@ reused; Discord becomes an optional one-way mirror (increment 4).
   imports of its own beyond pure helpers: `{ at, plate, kind, actor, text,
   ref }`, `kind` one of `joined | left | pushed | pr | ci | deploy | waiting |
   say | owner | checkpoint | gap`. `actor` is the phase (`nerd#1405` style:
-  plate and phase, or the PR number when there is no phase). The CLI prints
+  plate and phase; a pull request naming no phase is `nerd!42`, so a pull
+  request and a phase with the same number never share an identity, and lines carry `phase` and `pr` as numbers
+  that Here now matches on). The CLI prints
   it (`plates channel [<project>] [--since <time>] [--json]`); the web renders
   the same model at `/channel` (All, then one chip per project with its line
   count) and as a Channel section on each plate's page.
@@ -97,12 +99,12 @@ reused; Discord becomes an optional one-way mirror (increment 4).
 
 ## Acceptance
 
-- [ ] Lines are built from claims, PRs, CI, deploys and waiting sessions in time order, each with plate, kind, actor and a link, and the same input gives the same lines: `tests/channel.test.mjs: "the feed is built from what plates already reads"`.
-- [ ] A source that cannot be read is a gap line naming it, and an empty source is not mistaken for a quiet one: `tests/channel.test.mjs: "an unread source is a gap, never quiet"`.
-- [ ] Here now lists each agent holding work with its title, last line age and unread count, and Caught up when nothing is unread: `tests/channel.test.mjs: "here now is the agents holding work"`.
-- [ ] `plates channel --json` and `/channel` render the same lines and the same Here now for the same sources: `tests/channel.test.mjs: "the CLI and the web show one channel"`.
-- [ ] Bursts of joined/left fold into one line and the feed stops at its window: `tests/channel.test.mjs: "routine lines fold and the window holds"`.
-- [ ] `plates say` posts one sealed line with session, provider and phase; over-long, too-frequent, key-shaped or keyless posts are refused naming why; the hosted proof shows the table holds ciphertext, digests and times only: `tests/channel-say.test.mjs`.
+- [x] Lines are built from claims, PRs, CI, deploys and waiting sessions in time order, each with plate, kind, actor and a link, and the same input gives the same lines: `tests/channel.test.mjs: "the feed is built from what plates already reads"`.
+- [x] A source that cannot be read is a gap line naming it, and an empty source is not mistaken for a quiet one: `tests/channel.test.mjs: "an unread source is a gap, never quiet"`.
+- [x] Here now lists each agent holding work with its title, last line age and unread count, and Caught up when nothing is unread: `tests/channel.test.mjs: "here now is the agents holding work"`.
+- [x] `plates channel --json` and `/channel` render the same lines and the same Here now for the same sources: `tests/channel.test.mjs: "the CLI and the web show one channel"`.
+- [x] Bursts of joined/left fold into one line and the feed stops at its window: `tests/channel.test.mjs: "routine lines fold and the window holds"`.
+- [x] `plates say` posts one sealed line with session, provider and phase; over-long, too-frequent, key-shaped or keyless posts are refused naming why; the hosted proof shows the table holds ciphertext, digests and times only: `tests/channel-say.test.mjs`.
 - [ ] The owner's line naming a phase reaches that session's `plates channel inbox` once, an agent's line naming another agent reaches no inbox, and a checkpoint shows answered after that session's next line: `tests/channel-inbox.test.mjs`.
 - [ ] ⚑ By hand: the owner opens the channel for plates on the site and sees today's agents, their lines and Here now match what is running.
 
@@ -142,4 +144,14 @@ By hand: the owner's read of the deployed channel (Your part).
 
 ## Next action
 
-Claim the phase and build increment 1: `lib/channel.mjs`, `plates channel`, `/channel` and the plate page section, from the existing readers, with `tests/channel.test.mjs`.
+The owner's walk (box 8): on `/channel` for plates, post a line naming `plates#194`; the phase-194 agent in Rex receives it with `plates channel inbox` and answers; the line shows answered. Then accept or correct. Increment 4 (the Discord mirror) stays optional.
+
+## Trajectory
+
+- **2026-11-15** Increment 1 built: one pure model (`lib/channel.mjs`) fed by Home's existing claim, PR, changes-in-flight, release and waiting reads, rendered by `plates channel` and `/channel`. Unread is a 24-hour window and `left` is listed as not read; both wait for increment 2's write.
+- **2026-11-15** On real plates data most claims were weeks idle: Here now orders holders by activity and folds those idle over the window into one row, or the active agents drown.
+- **2026-11-16** — The owner chose "Agents should post" after increment 1 deployed, and said yes to migration 024. Increment 2 reads agents' lines for the whole seven-day window so `--since` still narrows only the feed shown; device keys, which could only push before, can now read their owner's lines.
+- **2026-11-16** — Migration 024 was applied (its SHA-256 checked in the editor), its hosted proof passed, and the deploy `b461ee7` serves it. A real `plates say` from the owner's Mac posted and read back. Box 6 is checked.
+- **2026-11-16** — Increment 3 built with no new table: migration 025 adds owner-post and list-marked to `plates_channel_rpc`, and the owner's lines carry an owner digest (never a device key's) in the device column. A line counts as the owner's only when the row mark and the sealed kind agree. A device-key body carrying kind, to or by is refused as `channel_owner_only`.
+- **2026-11-16** — The inbox cursor is local, one file per session under the plates state dir; the workspace stores no read position. Before 025 is applied, the form says the channel cannot take the owner's lines yet, and everything else keeps working.
+- **2026-11-17** — Increment 3 ran as the owner's real task: attached to a Rex tab through the local-host route, its brief arrived as the startup prompt, its steps showed on this channel, and two review corrections were typed into its tab on the owner's behalf. Migration 025 was applied after its timestamp was moved under the lock, and its hosted proof passed.

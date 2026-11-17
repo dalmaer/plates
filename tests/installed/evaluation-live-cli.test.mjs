@@ -69,7 +69,8 @@ test('installed explicit original-ID GET settles original evidence without resta
   assert.equal(w.approve('reconcile',path,preview,false).recovered,true);assert.deepEqual(await w.events(),events);
 });
 for(const scenario of ['count-uncertain','count-closed','no-id'])test(`installed local-only ${scenario} preserves original unknown spend with no duplicate effects`,supported,async t=>{
-  const w=await liveCliWorld(t,installed,scenario);
+  // The never-resolving fetch proves uncertainty, not a twenty-second duration.
+  const w=await liveCliWorld(t,installed,scenario,scenario==='count-uncertain'?{countTimeoutMs:1000}:{});
   if(scenario.startsWith('count-'))await count(w);else await generation(w);
   const kind=scenario.startsWith('count-')?'count':'generation',base=kind==='count'?`execution/preparations/${w.slot}`:`execution/${w.slot}`;
   const intent=await w.receipt(base+(kind==='count'?'/count-intent.json':'/provider-intent.json'));
@@ -95,8 +96,11 @@ async function tree(root) { const result={};async function walk(dir){for(const e
 
 
 test('authored count slack survives controlled filesystem stall while original small budget fails closed',supported,async t=>{
-  for(const countTimeoutMs of [1000,COUNT_TIMEOUT_MS]) {
-    const w=await liveCliWorld(t,installed,'success',{writeStallMs:5500,...(countTimeoutMs===1000?{countTimeoutMs}:{})});
+  // Count reserves a fixed 3000 ms beyond its authored timeout. The stall
+  // must outlast that entire short reservation, including writer cleanup.
+  const shortTimeoutMs=150,writeStallMs=4000;
+  for(const countTimeoutMs of [shortTimeoutMs,COUNT_TIMEOUT_MS]) {
+    const w=await liveCliWorld(t,installed,'success',{writeStallMs,countTimeoutMs});
     const descriptor=JSON.parse(await readFile(w.count,'utf8'));
     assert.equal(descriptor.limits.timeoutMs,countTimeoutMs);
     assert.ok(countTimeoutMs+3000<w.plan.bundle.cases[0].limits.minutes*60000);
@@ -104,9 +108,9 @@ test('authored count slack survives controlled filesystem stall while original s
     assert.deepEqual(await w.events(),[],'preview does not reach delayed write');
     const outcome=w.call('run',w.count,['--yes','--digest',preview.digest,'--credential-fd','50'],true);
     const events=await w.events();
-    t.diagnostic(JSON.stringify({authoredCountTimeoutMs:countTimeoutMs,reservedMs:countTimeoutMs+3000,writeStallMs:5500,exitCode:outcome.status,providerCalls:events.filter(e=>e.event==='provider').length,writeResumed:events.some(e=>e.event==='count-write-resumed'),failure:outcome.status===0?null:(outcome.stdout+outcome.stderr).trim()}));
+    t.diagnostic(JSON.stringify({authoredCountTimeoutMs:countTimeoutMs,reservedMs:countTimeoutMs+3000,writeStallMs,exitCode:outcome.status,providerCalls:events.filter(e=>e.event==='provider').length,writeResumed:events.some(e=>e.event==='count-write-resumed'),failure:outcome.status===0?null:(outcome.stdout+outcome.stderr).trim()}));
     assert.equal(events.filter(e=>e.event==='count-write-stall').length,1,'actual immutable intent write stalled once');
-    if(countTimeoutMs===1000) {
+    if(countTimeoutMs===shortTimeoutMs) {
       assert.equal(outcome.status,2,outcome.stdout+outcome.stderr);
       assert.match(outcome.stdout+outcome.stderr,/evaluation_live_writer_(closed|stuck)/);
       assert.equal(events.some(e=>e.event==='provider'),false,'expired original budget never transfers');

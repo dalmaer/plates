@@ -7,14 +7,46 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { verbs, FLAGS } from '../lib/cli.mjs';
-import { checkSurface, surfaceOf, ownedVerbs, BUDGET_FILE, DESIGN_FILE } from '../lib/surface-budget.mjs';
+import { verbs, FLAGS, main } from '../lib/cli.mjs';
+import { NAMES_USAGE, parseNamesArgs } from '../lib/names-cli.mjs';
+import { checkSurface, surfaceOf, ownedVerbs, SHARED, BUDGET_FILE, DESIGN_FILE } from '../lib/surface-budget.mjs';
 
 const PLATES = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const real = () => ({ verbs: new Map(verbs), flags: [...FLAGS] });
 const budget = async () => JSON.parse(await readFile(join(PLATES, BUDGET_FILE), 'utf8'));
 const design = () => readFile(join(PLATES, DESIGN_FILE), 'utf8');
 const names = list => list.join('\n');
+
+test('names and learning help expose their parsed flags to the surface budget', async () => {
+  const b = await budget();
+  assert.equal(verbs.get('names').usage, NAMES_USAGE);
+  for (const [name, parser] of [['names', parseNamesArgs], ['learn', verbs.get('learn').run]]) {
+    const flags = [...new Set(parser.toString().match(/--[a-z][a-z0-9-]*/g))];
+    const usage = new Set(verbs.get(name).usage.match(/--[a-z][a-z0-9-]*/g));
+    for (const flag of flags) {
+      assert.ok(usage.has(flag), `${name} help omits ${flag}`);
+      assert.ok([...b.surface.shared, ...b.surface.verbs[name]].includes(flag), `${name} budget omits ${flag}`);
+    }
+  }
+});
+
+test('help aliases are top-level only, never advertised as shared verb flags', async () => {
+  assert.ok(!SHARED.includes('--help'));
+  let output = '';
+  assert.equal(await main(['--help', '--json'], { out: text => { output += text; } }), 0);
+  assert.equal(JSON.parse(output).verbs.length, verbs.size);
+  output = '';
+  assert.equal(await main(['status', '--help', '--json'], { out: text => { output += text; } }), 2);
+  assert.match(JSON.parse(output).error, /unexpected argument: --help/);
+});
+
+test('retired stubs remain budgeted without being advertised as active owned verbs', async () => {
+  const d = await design();
+  assert.equal(verbs.get('board').retired, true);
+  assert.ok(!ownedVerbs(d).includes('board'));
+  assert.ok(Object.hasOwn(surfaceOf(real()).verbs, 'board'), 'the exposed retirement stub still counts');
+  assert.deepEqual(checkSurface(real(), await budget(), d), []);
+});
 
 test('new surface needs the boundary', async () => {
   const [b, d] = [await budget(), await design()];
@@ -79,7 +111,7 @@ test('surface removed must lower the budget', async () => {
 test('the boundary owns every verb', async () => {
   const [b, d] = [await budget(), await design()];
   const owned = ownedVerbs(d);
-  assert.deepEqual([...owned].sort(), [...verbs.keys()].sort(), 'each verb is named exactly once');
+  assert.deepEqual([...owned].sort(), [...verbs].filter(([, verb]) => !verb.retired).map(([name]) => name).sort(), 'each verb is named exactly once');
   assert.equal(new Set(owned).size, owned.length);
 
   // A design text missing one verb fails, naming it.
@@ -92,13 +124,13 @@ test('the boundary owns every verb', async () => {
   more.verbs.set('frobnicate', { summary: 'acme', usage: 'plates frobnicate [--json]' });
   const raised = { ...b, verbs: b.verbs + 1, surface: { ...b.surface, verbs: { ...b.surface.verbs, frobnicate: [] } } };
   assert.deepEqual(checkSurface(more, raised, d), ['`plates frobnicate` is not named under "What Plates owns, verb by verb" in Own, adopt, watch in docs/design.md']);
-  const owns = d.replace('`plates board`.', '`plates board`, `plates frobnicate`.');
+  const owns = d.replace('`plates home`.', '`plates home`, `plates frobnicate`.');
   assert.deepEqual(checkSurface(more, raised, owns), []);
 
   // A verb listed that no longer exists fails, as does one listed twice.
-  const stale = d.replace('`plates board`.', '`plates board`, `plates acme-gone`.');
+  const stale = d.replace('`plates home`.', '`plates home`, `plates acme-gone`.');
   assert.deepEqual(checkSurface(real(), b, stale), ['`plates acme-gone` is named under "What Plates owns, verb by verb" in Own, adopt, watch in docs/design.md but is not a verb in lib/cli.mjs']);
-  const twice = d.replace('`plates board`.', '`plates board`, `plates drain`.');
+  const twice = d.replace('`plates home`.', '`plates home`, `plates drain`.');
   assert.deepEqual(checkSurface(real(), b, twice), ['`plates drain` is named more than once under "What Plates owns, verb by verb" in Own, adopt, watch in docs/design.md']);
 
   // Names outside the section do not count, and no section at all is a failure.

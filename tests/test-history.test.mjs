@@ -5,6 +5,7 @@ import { mkdtemp, mkdir, writeFile, readFile, rm, symlink, link, readdir, chmod,
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { deflateRawSync, crc32 } from 'node:zlib';
+import { runInNewContext } from 'node:vm';
 import { recoverTestHistory, readTestHistory } from '../practices/night/files/scripts/plates/test-history.mjs';
 import { stallsEvidence } from '../practices/night/files/scripts/plates/time-receipts.mjs';
 import { readRuns, readStalls } from '../practices/night/files/scripts/plates/test-ledger.mjs';
@@ -60,6 +61,30 @@ function fixture(items = [{ id: 1, kind: 'night' }, { id: 2, kind: 'ci' }]) {
     download: async id => { downloads.push(id); return archives[id]; } };
 }
 const recover = (root, f, extra = {}) => recoverTestHistory({ root, repo, branch, at, github: f.github, download: f.download, ...extra });
+test('push-only ledger uploads remove two history reads per PR without losing eligible evidence', async t => {
+  const items = [{ id: 1, kind: 'night' }, { id: 2, kind: 'ci' }, { id: 3, kind: 'ci' }];
+  const prs = Array.from({ length: 10 }, (_, i) => ({ id: i + 10, kind: 'ci' }));
+  const all = fixture([...items, ...prs]);
+  for (const item of prs) all.routes[`repos/acme/app/actions/runs/${item.id + 100}`].event = 'pull_request';
+  const before = await recover(await project(t), all);
+  assert.equal(before.selected.length, 3);
+  for (const path of ['practices/ci/files/.github/workflows/check.yml', '.github/workflows/check.yml']) {
+    const text = await readFile(resolve(path), 'utf8');
+    const condition = /- name: Keep the test ledger\n\s+if: ([^\n]+)/.exec(text)?.[1];
+    assert.ok(condition, path);
+    // These Actions expressions use the shared boolean/equality JS subset.
+    const uploads = event => runInNewContext(condition, { always: () => true, github: { event_name: event } }, { timeout: 100 });
+    assert.equal(uploads('push'), true, 'always() preserves failed-push evidence');
+    assert.equal(uploads('workflow_dispatch'), false, 'manual runs are not default-branch push evidence');
+    const selected = fixture([...items, ...prs.filter(() => uploads('pull_request'))]);
+    const after = await recover(await project(t), selected);
+    assert.deepEqual(after.selected, before.selected);
+    assert.deepEqual(selected.downloads, all.downloads, 'all eligible artifacts are still downloaded');
+    assert.equal(all.calls.length - selected.calls.length, prs.length * 2,
+      'each absent PR artifact saves its detail read and run-verification read');
+  }
+});
+
 test('history recovery preserves clean-source CI eligibility without hiding project changes', async t => {
   const root = await project(t), f = fixture();
   const git = args => {
@@ -351,9 +376,17 @@ async function stagingFixture(t, production = false, workflowText) {
   assert.deepEqual(nightRecovery, { branch: `plates-night/${day}`, head: '', attempts: 0 });
   const report = produced?.data ?? { date: day, report: today, changedHistoricalHealthPaths: [earlier], nightRecovery };
   await writeFile(join(temp, 'improve.json'), JSON.stringify(report)); await writeFile(join(temp, 'pr.json'), '{}');
-  const script = runBlocks(workflowText ?? await readFile(workflow, 'utf8')).find(b => b.step === "Open the night's pull request").script;
-  // GITHUB_OUTPUT as Actions provides it: the step records its default-plan write there (phase 78).
-  const execute = () => run('bash', ['-e', '-o', 'pipefail', '-c', script], { cwd: root, env: { ...process.env, DAY: day, BASE: 'main', HEALTH: health, RUNNER_TEMP: temp, GITHUB_OUTPUT: join(temp, 'outputs'), PATH: `${commands}:${process.env.PATH}` } });
+  const blocks = runBlocks(workflowText ?? await readFile(workflow, 'utf8'));
+  const prepare = blocks.find(b => b.step === "Prepare the night's pull request").script;
+  const publish = blocks.find(b => b.step === "Open the night's pull request").script;
+  // Staging moved to preparation. Run both actual steps, passing the prepared
+  // commit as Actions' job output; a preparation refusal must stop publication.
+  const execute = () => {
+    const env = { ...process.env, DAY: day, PLAN_DAY: day, BASE: 'main', HEALTH: health, GITHUB_SHA: before, RUNNER_TEMP: temp, GITHUB_OUTPUT: join(temp, 'outputs'), PATH: `${commands}:${process.env.PATH}` };
+    const prepared = run('bash', ['-e', '-o', 'pipefail', '-c', prepare], { cwd: root, env });
+    if (prepared.status !== 0) return prepared;
+    return run('bash', ['-e', '-o', 'pipefail', '-c', publish], { cwd: root, env: { ...env, HEAD: git('rev-parse', 'HEAD') } });
+  };
   return { root, temp, report, git, before, earlier, unrelated, today, execute };
 }
 test('night historical health staging commits the earlier remeasurement and today only, preserving unrelated staged and untracked files', async t => {
@@ -652,4 +685,25 @@ test('history recognizes each night workflow independently',async t=>{
   const result=await recover(root,f);assert.equal(result.imported,1,JSON.stringify(result));
   assert.equal(result.selected.length,1);assert.equal(result.selected[0].workflowId,legacy?12:10);
  }
+});
+
+
+test('history verifies newest samples lazily and retains rejected candidates', async t => {
+  const root = await project(t);
+  const items = Array.from({ length: 80 }, (_, i) => ({ id: i + 1, kind: 'ci' }));
+  items.push({ id: 81, kind: 'night', date: '2026-10-09T02:00:00Z' });
+  const f = fixture(items);
+  f.routes['repos/acme/app/actions/runs/180'].head_repository.id = 8;
+  const started = performance.now();
+  const result = await recover(root, f, { github: async path => {
+    await new Promise(resolve => setTimeout(resolve, 3));
+    return f.github(path);
+  } });
+  const reads = f.calls.filter(path => /actions\/(artifacts|runs)\/\d+$/.test(path));
+  t.diagnostic(`History 81 artifacts: ${(performance.now() - started).toFixed(1)} ms; ${reads.length} verification reads`);
+  assert.deepEqual(result.selected.map(row => row.artifactId), [81, 79, 78]);
+  assert.ok(result.gaps.some(g => g.code === 'artifact-rejected' && g.artifactId === 80));
+  assert.ok(result.gaps.some(g => g.code === 'ci-sampled'), 'unverified omissions stay visible');
+  assert.equal(result.complete, false);
+  assert.equal(reads.length, 8, 'only the selected samples and rejected newest candidate need full identity checks');
 });

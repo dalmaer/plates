@@ -10,7 +10,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
-import { PGlite } from '@electric-sql/pglite';
+import { primeMigratedSnapshots, restoreMigratedPGlite } from './helpers/web-pglite.mjs';
 
 const ROOT = new URL('../', import.meta.url);
 const MIGRATIONS = new URL('lib/web/migrations/', ROOT);
@@ -76,6 +76,12 @@ const PROOFS = [
   { migration: '023-late-rpc-names.sql', proof: '2026-11-15-web-late-rpc-names-hosted-proof.sql',
     wrong: 'drop function public.plates_walk_rpc(text,text,text,text,bigint,text,text)',
     refused: /expected exactly one public plates_walk_rpc/ },
+  { migration: '024-channel-posts.sql', proof: '2026-11-16-web-channel-posts-hosted-proof.sql',
+    wrong: 'grant execute on function public.plates_channel_rpc(text,text,text,text,text,text,timestamptz) to authenticated',
+    refused: /a browser role can execute public\.plates_channel_rpc/ },
+  { migration: '025-channel-owner-lines.sql', proof: '2026-11-16-web-channel-owner-lines-hosted-proof.sql',
+    wrong: 'grant execute on function public.plates_channel_rpc(text,text,text,text,text,text,timestamptz) to anon',
+    refused: /a browser role can execute public\.plates_channel_rpc/ },
 ];
 
 const RACE = '/* TWO-CONNECTION RACE';
@@ -99,12 +105,8 @@ function parts(text) {
 }
 
 async function database(upTo) {
-  const db = new PGlite();
-  await db.exec('CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;');
-  const files = (await readdir(MIGRATIONS)).filter(f => f.endsWith('.sql')).sort();
-  assert.ok(files.includes(upTo), upTo);
-  for (const file of files.slice(0, files.indexOf(upTo) + 1)) await db.exec(await readFile(new URL(file, MIGRATIONS), 'utf8'));
-  return db;
+  await primeMigratedSnapshots(PROOFS.map(p => p.migration));
+  return restoreMigratedPGlite({ upTo });
 }
 
 /** Row counts of every private table: a proof must leave each unchanged. */

@@ -43,6 +43,8 @@ test('stale: a branch older than a working day says split, refresh onto main, or
   assert.equal(i.state, 'active');
   assert.equal(i.stale, true);
   assert.equal(i.branchAgeMs, 30 * H * 60_000);
+  // Phase 194: the channel dates an active change by its last push, so the item carries the head's time beside since (work start).
+  assert.deepEqual([i.since, i.headAt], [at(30 * H), at(20)]);
   assert.match(i.next, /past same-day integration: split it, refresh it onto main, or replan it/);
 });
 

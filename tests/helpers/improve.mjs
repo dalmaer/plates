@@ -1,7 +1,8 @@
 // What tests/improve.test.mjs and tests/improve-measures.test.mjs share: plates
 // run from its bin, scratch projects, and a gh stub.
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, writeFile, rm, readdir, chmod } from 'node:fs/promises';
+import { after } from 'node:test';
+import { mkdtemp, readFile, writeFile, rm, readdir, chmod, cp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
 import { join, resolve, dirname } from 'node:path';
@@ -34,11 +35,24 @@ export async function scratch(t, prefix = 'plates-improve-') {
   return dir;
 }
 
-/** A fresh, healthy plates project (plates init), with no repo. */
-export async function project(t) {
-  const dir = join(await scratch(t), 'acme');
+// Initialize the identical Acme project once per file. Each case receives its
+// own files and Git database, including relative managed symlinks; no writable
+// state or Git objects are shared with the template or another case.
+let projectTemplate, templateRoot;
+after(async () => { if (templateRoot) await rm(templateRoot, { recursive: true, force: true }); });
+async function initializedProject() {
+  templateRoot = await mkdtemp(join(tmpdir(), 'plates-improve-template-'));
+  const dir = join(templateRoot, 'acme');
   const r = plates(['init', dir, '--description', 'Acme sells anvils.', '--name', 'Acme'], tmpdir());
   assert.equal(r.code, 0, r.err + r.out);
+  return dir;
+}
+
+/** A fresh copy of a healthy plates-init project, with no remote repo. */
+export async function project(t) {
+  const template = await (projectTemplate ??= initializedProject());
+  const dir = join(await scratch(t), 'acme');
+  await cp(template, dir, { recursive: true, verbatimSymlinks: true });
   return dir;
 }
 
