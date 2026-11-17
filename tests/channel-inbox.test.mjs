@@ -196,6 +196,24 @@ test('before migration 025 the form says the channel cannot take the owner\'s li
   assert.deepEqual((await inbox({ root, env, key: async () => s.key, fetcher: s.send })).data.items, []);
 });
 
+test('after the documented rollback of 025 the channel still reads: the owner\'s stored lines are hidden, agents\' lines show, and re-applying 025 brings them back', async t => {
+  const s = await service(t), origin = s.h.config.origin, root = await checkout(t);
+  const env = { PLATES_SESSION: 'acme-session-1', PLATES_PROVIDER: 'claude', PLATES_SITE: origin, XDG_STATE_HOME: s.state };
+  assert.equal((await s.ownerPost('@2 use the Acme staging data')).status, 303);
+  await say({ root, text: 'Starting the Acme bellows step', env, key: async () => s.key, fetcher: s.send });
+  // The rollback as web-activation step migration-025 writes it: re-apply 024's function; the owner's row stays stored.
+  await s.db.exec(await readFile(new URL('../lib/web/migrations/024-channel-posts.sql', import.meta.url), 'utf8'));
+  assert.deepEqual((await s.posts.list(1, 'studio')).map(l => [l.kind ?? 'say', l.text]), [['say', 'Starting the Acme bellows step']], 'agents\' lines still read; the unmarked owner line is hidden, never trusted');
+  assert.deepEqual((await readSays({ plates: ['studio'], env, key: async () => s.key, fetcher: s.send })).studio.items.map(l => l.text), ['Starting the Acme bellows step']);
+  assert.deepEqual((await inbox({ root, env, key: async () => s.key, fetcher: s.send })).data.items, [], 'an unmarked line reaches no inbox');
+  const refused = await s.ownerPost('@2 one more');
+  assert.equal(refused.status, 503);
+  assert.match(await refused.text(), /needs migration 025/);
+  // Re-applying 025 marks the stored line again: it reaches the session once.
+  await s.db.exec(await readFile(new URL('../lib/web/migrations/025-channel-owner-lines.sql', import.meta.url), 'utf8'));
+  assert.deepEqual((await inbox({ root, env, key: async () => s.key, fetcher: s.send })).data.items.map(i => i.text), ['@2 use the Acme staging data']);
+});
+
 test('a checkpoint shows answered after that session\'s next line', async t => {
   const s = await service(t), origin = s.h.config.origin, root = await checkout(t), other = await checkout(t, 'claude/phase-3-pump');
   const env = session => ({ PLATES_SESSION: session, PLATES_PROVIDER: 'claude', PLATES_SITE: origin, XDG_STATE_HOME: s.state });

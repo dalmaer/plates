@@ -918,7 +918,7 @@
         194
       ],
       "ownerAttended": true,
-      "rollback": "A failure inside the transaction rolls back by itself. After commit, re-apply 024-channel-posts.sql's create or replace function (its post and list are unchanged here); the form again says the channel cannot take the owner's lines, and the owner's lines already stored stay sealed in plates_home.channel_posts until they expire (14 days) or are deleted by their owner digest.",
+      "rollback": "A failure inside the transaction rolls back by itself. After commit, re-apply 024-channel-posts.sql's create or replace function (its post and list are unchanged here); the form again says the channel cannot take the owner's lines. The channel keeps reading: agents' lines show as before, and the owner's lines already stored, which 024's list cannot mark, are hidden from the channel and from every inbox (never trusted, never a read fault). They stay sealed in plates_home.channel_posts until they expire (14 days) or are deleted by their owner digest; re-applying 025 shows them again.",
       "proof": "The applied version: file name and SHA-256; docs/evidence/2026-11-16-web-channel-owner-lines-hosted-proof.sql's result (the RPC's grants, owner-post and list-marked run as the service role); one owner line naming a phase posted from the deployed /channel, and that session's plates channel inbox returning it once."
     }
   ],
