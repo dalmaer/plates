@@ -83,6 +83,14 @@ test('Recurring reads its own endpoint, and times are said in the viewer\'s zone
   assert.equal(plainGmt('Mon, 10:18 GMT+0'), 'Mon, 10:18 GMT');
   assert.equal(plainGmt('10:18 GMT+05:30'), '10:18 GMT+05:30');
   assert.equal(plainGmt('10:18 GMT+01'), '10:18 GMT+01');
+  // Both formatters go through plainGmt: with a formatter that says London as ICU 79 does, each still says GMT.
+  const { timeText } = await import('../lib/web/recurring-model.mjs');
+  const RealFormat = Intl.DateTimeFormat;
+  Intl.DateTimeFormat = function (...a) { const f = new RealFormat(...a); return { format: d => f.format(d).replace(/GMT(?![+-])/, 'GMT+0') }; };
+  try {
+    assert.equal(localTime('2026-11-09T10:18:00.000Z', 'weekday-time', 'Europe/London'), 'Mon, 10:18 GMT', 'localTime says a zero offset as GMT');
+    assert.equal(timeText('2026-11-09T10:18:00.000Z', 'weekday-time', { timeZone: 'Europe/London' }), 'Mon, 10:18 GMT', 'timeText says a zero offset as GMT');
+  } finally { Intl.DateTimeFormat = RealFormat; }
 });
 
 // Phase 186: the same client serves Agents, reading /api/agents while a plate loads.
