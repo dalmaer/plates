@@ -21,7 +21,7 @@ test('loading status counts observed data, separates gaps, bounds names and esca
     assert.match(renderHomeLoading({projects}), /aria-atomic="true" hidden>/);
   }
   const html = homeView(access, {...snapshot(),projects});
-  assert.ok(html.indexOf('data-home-loading') < html.indexOf('data-home-search'), 'status is above the filters');
+  assert.ok(html.indexOf('data-home-loading') < html.indexOf('data-home-root'), 'status is above Home\'s chips and cards');
   assert.match(html, /role="status" aria-live="polite" aria-atomic="true"/);
 });
 

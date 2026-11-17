@@ -15,7 +15,7 @@ import { projectHarness, phaseFile } from './helpers/web-projects.mjs';
 import { createHash } from 'node:crypto';
 import { createHomeReader } from '../lib/web/home.mjs';
 import { renderHomeSnapshot } from '../lib/web/views.mjs';
-import { HOME_SECTIONS, BACKLOG_LANES, MERGE_PERMISSION } from '../lib/work-items.mjs';
+import { HOME_SECTIONS, BACKLOG_LANES, MERGE_PERMISSION, DEPLOY_WHERE } from '../lib/work-items.mjs';
 import { backlogView, START_UNAVAILABLE } from '../lib/web/backlog-views.mjs';
 import { claimMessage } from '../lib/claim.mjs';
 import { waitsFixture } from './helpers/waits.mjs';
@@ -35,7 +35,7 @@ const reviewRepository = { open: { pageInfo: { hasNextPage: false }, nodes: [{ k
 const rate = { cost: 1, remaining: 4000, resetAt: new Date(Date.now() + 3600_000).toISOString() };
 
 /** The same sources, twice: the web's fake App API and a git checkout with a fake gh. */
-async function sources({ reviews = true, files = {}, issues = null, waits = null, runs = null, prs = null, config = {}, review = reviewRepository, ready = null, checksRead = !!waits, decisionWrites = false, setup = null } = {}) {
+async function sources({ reviews = true, files = {}, issues = null, waits = null, runs = null, prs = null, config = {}, review = reviewRepository, ready = null, checksRead = !!waits, decisionWrites = false, setup = null, compare = null } = {}) {
   const h = projectHarness();
   Object.assign(h.source.files, files);
   h.source.files['.plates/plates.json'] = JSON.stringify({ name: 'Acme Studio', repo: 'acme/studio', tagline: 'Publish useful things.', practice: '0.8.32', stack: ['node'], phases: { shape: 'files' },
@@ -47,7 +47,8 @@ async function sources({ reviews = true, files = {}, issues = null, waits = null
   h.source.revision = git(['rev-parse', 'HEAD']);
   const claimRefs = [], deployRecords = { text: null };
   // Before either form reads: what a test puts on the checkout's origin (and the App's answers) both forms see.
-  if (setup) await setup({ dir, root, git, deployRecords });
+  // A setup may move main (phase 196: production behind main); both forms read the head it leaves.
+  if (setup) { await setup({ dir, root, git, deployRecords }); h.source.revision = git(['rev-parse', 'HEAD']); }
   // The web: GraphQL through the App answers the review read.
   const fetcher = async (url, options) => {
     if (new URL(url).pathname === '/graphql') {
@@ -78,6 +79,8 @@ async function sources({ reviews = true, files = {}, issues = null, waits = null
     const u = new URL(url), key = `${u.pathname}${u.search}`;
     // Recurring's runs read (phase 185): the same runs the fake gh lists, for both of the App's lists.
     if (runs && u.pathname === '/repos/acme/studio/actions/runs') { h.source.requests.push({ url, options }); return Response.json({ workflow_runs: runs.map(r => ({ path: r.path, name: r.workflowName, status: r.status, conclusion: r.conclusion, created_at: r.createdAt, html_url: r.url })) }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } }); }
+    // Production behind main (phase 196): the App compares production's commit with main, as the CLI's git does.
+    if (compare && /^\/repos\/acme\/studio\/compare\//.test(u.pathname)) return Response.json(compare, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
     if (waits && Object.hasOwn(waits, key)) { h.source.requests.push({ url, options }); return Response.json(waits[key], { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } }); }
     return h.fetcher(url, options);
   };
@@ -119,6 +122,13 @@ const content = snapshot => ({
   ...Object.fromEntries(['decisions', 'walks', 'reviews', 'waiting', 'changes'].map(key => [key, snapshot[key].map(formless)])),
 });
 
+// Home at a glance (phase 196), less what a form can run (an answer's `unavailable`).
+const glanceOf = snapshot => ({ ...snapshot.home.glance, cards: snapshot.home.glance.cards.map(formless) });
+// Without an origin the CLI cannot read the deploy records, and its chip says so ('Not read: production'); the web reads them
+// through the App. Where a fixture has no origin, the glance is compared less that one reason ('main vs production' compares it whole).
+const withoutProduction = glance => ({ ...glance, chips: glance.chips.map(c => { const reasons = c.reasons.filter(r => r.text !== 'Not read: production');
+  return { ...c, reasons, tone: reasons[0]?.tone ?? 'green', reason: reasons[0]?.text ?? null, more: Math.max(0, reasons.length - 1) }; }) });
+
 test('the CLI and the web render one read model', async () => {
   const s = await sources();
   try {
@@ -129,9 +139,11 @@ test('the CLI and the web render one read model', async () => {
     for (const key of ['decisions', 'walks', 'reviews', 'waiting', 'changes']) assert.deepEqual(cli[key], web[key], `${key}: the same items in both forms`);
     assert.deepEqual(cli.projects, web.projects, 'the same plate, planning and gaps');
     assert.deepEqual(cli.coverage, web.coverage, 'the same coverage');
-    // The hosted page renders the model's four sections (phase 166), and the terminal the same headings.
+    // The hosted page renders Home at a glance (phase 196), then what happened and the ask; the glance is one model in both forms.
     const html = renderHomeSnapshot(s.web);
-    for (const title of ['Needs you', 'Since you last looked', 'What should happen next?', 'Your plates']) assert.ok(html.includes(`>${title}</h2>`), title);
+    for (const title of ['Projects', 'Needs you', 'Since you last looked', 'What should happen next?']) assert.ok(html.includes(`>${title}</h2>`), title);
+    assert.ok(!html.includes('>Your plates</h2>'), 'Home has no plate cards');
+    assert.deepEqual(withoutProduction(glanceOf(s.cli)), glanceOf(s.web), 'the same chips and cards in both forms');
   } finally { await s.done(); }
 });
 
@@ -159,10 +171,55 @@ test('main vs production is one model', async () => {
     assert.equal(web.projects[0].release.state, 'current');
     assert.deepEqual(row(cli), row(web), 'the same row on Your plates');
     assert.deepEqual(row(web), { state: 'current', main: short, production: short, ahead: 0, at: '2026-11-14', line: `production is main (${short}), deployed 2026-11-14` });
-    const text = s.again([], { state: 'state-release-text' });
+    // A plate's own lens still draws the row (until phase 196's increment 2); Home does not (phase 196): in step, its chip is green and says nothing.
+    const text = s.again(['--project', 'studio'], { state: 'state-release-text' });
     assert.equal(text.status, 0, text.stderr);
     assert.ok(text.stdout.split('\n').includes(`    release production is main (${short}), deployed 2026-11-14`), 'the terminal prints the row');
-    assert.match(renderHomeSnapshot(web), /class="plate-release" data-release="current" role="img" aria-label="production is main/, 'the card draws the row');
+    assert.match(renderHomeSnapshot(web, { projectId: 'studio' }), /class="plate-release" data-release="current" role="img" aria-label="production is main/, 'the plate draws the row');
+    assert.doesNotMatch(renderHomeSnapshot(web), /plate-release/, 'Home has no main → production row');
+    assert.ok(!web.home.glance.cards.some(c => c.kind === 'deploy'), 'production at main is no card');
+    assert.ok(!web.home.glance.chips[0].reasons.some(r => r.kind === 'deploy'), 'and no reason');
+    assert.deepEqual(glanceOf(cli), glanceOf(web));
+  } finally { await s.done(); }
+});
+
+// Production behind main (phase 196): both forms read the deploy record and main's lead, and Home draws the same
+// yellow chip and the same Deploy card: the checked promote's command, run in the plate's checkout, never a hosted deploy.
+test('production behind main is one Deploy card in both forms', async () => {
+  let deployed, main;
+  const s = await sources({ compare: { status: 'ahead', ahead_by: 1 }, setup: async ({ dir, root, git, deployRecords }) => {
+    const remote = join(dir, 'remote.git'), at = '2026-11-14T10:00:00.000Z';
+    execFileSync('git', ['init', '-q', '--bare', '-b', 'main', remote], { env: gitEnv });
+    git(['remote', 'add', 'origin', remote]);
+    deployed = git(['rev-parse', 'HEAD']);
+    git(['commit', '-q', '--allow-empty', '-m', 'Acme: one more change']); main = git(['rev-parse', 'HEAD']);
+    git(['push', '-q', 'origin', 'main']);
+    deployRecords.text = `${JSON.stringify({ schema: 1, project: 'studio', commit: deployed, action: 'deploy', at, ok: true, rolledBack: false, failed: null,
+      checks: [{ check: 'revision', ok: true, detail: 'Acme reports exactly' }], deployment: { id: 'dpl_acme1', url: 'https://acme.example' }, serving: { id: 'dpl_acme1', url: 'https://acme.example', commit: deployed } })}\n`;
+    const records = join(dir, 'deploys.jsonl'); await writeFile(records, deployRecords.text);
+    const blob = execFileSync('git', ['-C', root, 'hash-object', '-w', records], { env: gitEnv, encoding: 'utf8' }).trim();
+    const tree = execFileSync('git', ['-C', root, 'mktree'], { input: `100644 blob ${blob}\tdeploys.jsonl\n`, env: gitEnv, encoding: 'utf8' }).trim();
+    const commit = execFileSync('git', ['-C', root, 'commit-tree', tree, '-m', 'deploy'], { env: gitEnv, encoding: 'utf8' }).trim();
+    git(['push', '-q', 'origin', `${commit}:refs/heads/plates-verify`]);
+  } });
+  try {
+    const { cli, web } = s;
+    assert.deepEqual([web.projects[0].release.state, web.projects[0].release.ahead], ['behind', 1]);
+    assert.deepEqual(cli.projects[0].release, web.projects[0].release, 'the same release in both forms');
+    assert.deepEqual(glanceOf(cli), glanceOf(web), 'the same chips and cards in both forms');
+    const card = web.home.glance.cards.find(c => c.kind === 'deploy');
+    assert.equal(card.question, 'Production is 1 commit behind main');
+    assert.deepEqual(card.deploy, { command: `plates promote ${main}`, sha: main, where: DEPLOY_WHERE });
+    assert.deepEqual(card.answers, [], 'Deploy is not an answer the workspace writes');
+    assert.ok(web.home.glance.chips[0].reasons.some(r => r.tone === 'yellow' && r.text === 'Production 1 behind main'));
+    // The page: the command and a copy button, no form and no write route; the terminal prints the same command.
+    const html = renderHomeSnapshot(web), li = html.match(/<li class="glance-card p-card" data-card="studio:deploy:[\s\S]*?<\/li>/)[0];
+    assert.match(li, new RegExp(`<code class="glance-command" data-deploy-command>plates promote ${main}</code><button type="button" class="glance-answer" data-recommended="true" data-copy="plates promote ${main}"`));
+    assert.doesNotMatch(li, /<form|data-answer=|action=|\/api\//);
+    assert.doesNotMatch(html, /plate-release/, 'Home has no main → production row');
+    const text = s.again([], { state: 'state-deploy' });
+    assert.equal(text.status, 0, text.stderr);
+    assert.match(text.stdout, new RegExp(`^ {2}Acme Studio · Production is 1 commit behind main\n {6}production [0-9a-f]{7} is 1 commit behind main [0-9a-f]{7} \\(deployed 2026-11-14\\)\n {6}deploy: plates promote ${main}$`, 'm'), text.stdout);
   } finally { await s.done(); }
 });
 
@@ -178,9 +235,16 @@ test('an agent waiting on you is one model, and loud', async () => {
     assert.equal(w.count, blocked.length);
     assert.deepEqual(w.items.map(i => i.key), blocked.slice(0, 3).map(e => e.key), 'oldest first, as the docket walks them');
     assert.match(row(s.web).status, /^(broken|agent waiting on you)/);
-    const text = s.again([], { state: 'state-waiting' });
+    const text = s.again(['--project', 'studio'], { state: 'state-waiting' });
     assert.equal(text.status, 0, text.stderr);
     assert.ok(text.stdout.split('\n').some(l => l.startsWith(`    ⚑ AGENT WAITING ON YOU (${w.count}`) && l.includes(w.items[0].title)), text.stdout);
+    // Home (phase 196): the chip names it, and what agents wait on leads Needs you, in both forms.
+    const chip = s.web.home.glance.chips[0], agentReason = chip.reasons.find(r => r.kind === 'agent');
+    assert.ok(agentReason && /waiting on you$/.test(agentReason.text), JSON.stringify(chip));
+    assert.deepEqual(s.web.home.glance.cards.slice(0, blocked.length).map(c => c.key), blocked.map(e => e.key), 'agent waits first');
+    assert.deepEqual(withoutProduction(glanceOf(s.cli)), glanceOf(s.web));
+    const home = s.again([], { state: 'state-waiting-home' });
+    assert.ok(home.stdout.split('\n').some(l => l.startsWith('  ') && l.includes('Acme Studio: ') && l.includes(chip.reason)), home.stdout);
     const { renderPlateCards, renderPlateWorkspace } = await import('../lib/web/plate-workspace.mjs');
     const card = renderPlateCards(s.web);
     assert.match(card, /data-agent-waiting/);
@@ -387,19 +451,27 @@ test('the four home sections are one model', async () => {
     // The terminal says the four headings in order, with the model's counts, and the hedges once, in the footer.
     const text = runNode(process.execPath, [bin, 'home'], { cwd: join(s.dir, 'studio'),
       env: { ...gitEnv, PLATES_GH: join(s.dir, 'gh'), PLATES_CACHE: join(s.dir, 'cache'), PLATES_STATE: join(s.dir, 'other-state'), XDG_STATE_HOME: join(s.dir, 'other-state') } }).stdout;
-    const at = ['Needs you', 'Since you last looked', 'What should happen next', 'Your plates'].map(t => text.search(new RegExp(`^${t.replace('?', '\\?')}`, 'm')));
+    // Home (phase 196): Projects and Needs you (the glance), then Since and What next; Your plates is a plate's lens now.
+    const at = ['Projects', 'Needs you', 'Since you last looked', 'What should happen next'].map(t => text.search(new RegExp(`^${t.replace('?', '\\?')}`, 'm')));
     assert.ok(at.every((n, i) => n >= 0 && (i === 0 || n > at[i - 1])), text);
-    assert.match(text, new RegExp(`^Needs you \\(${sec(s.cli, 'needs-you').count}\\)$`, 'm'));
-    // The start line and the web's Start panel count what Needs you counts, the failed night's Fix (no answers) too.
-    assert.ok(sec(s.web, 'needs-you').count > s.web.docket.length, 'the fixture has a row with no answers');
-    assert.match(text, new RegExp(`^ {2}${sec(s.cli, 'needs-you').count} need you · about \\d+ min — plates home --review`, 'm'));
-    const { renderReviewStart } = await import('../lib/web/review-views.mjs');
-    assert.match(renderReviewStart(s.web), new RegExp(`<strong>${sec(s.web, 'needs-you').count} need you · `));
+    assert.doesNotMatch(text, /^Your plates/m);
+    const glance = s.cli.home.glance;
+    assert.deepEqual(withoutProduction(glanceOf(s.cli)), glanceOf(s.web), 'the same glance in both forms');
+    assert.match(text, new RegExp(`^Needs you \\(${glance.count}\\)$`, 'm'));
+    // Needs you's cards are the docket's items: the failed night (no answers) is its chip's reason, not a card.
+    assert.equal(glance.count, s.web.docket.length);
+    assert.match(text, new RegExp(`^ {2}${glance.count} need you · about \\d+ min — plates home --review`, 'm'));
+    assert.match(text, new RegExp(`^ {2}red {4}Acme Studio: A night item failed \\+${glance.chips[0].more}$`, 'm'), text);
     assert.match(text, new RegExp(`^Since you last looked \\(${sec(s.web, 'since').count}\\) — the last 7 days$`, 'm'));
     assert.match(text, /^What should happen next\? \(2 queued\)$/m);
-    assert.match(text, /^ {4}phases █{8}▒{8}░{4} 2 done · 2 partial · 1 not started$/m, 'the terminal draws the bar the card draws');
-    assert.match(text, /^ {2}Fix · Acme Studio: The night of/m);
-    assert.match(text, /^ {2}Acme Studio: broken\b/m);
+    // A plate's lens keeps the four sections, the phase bar the card draws, and the Fix (until phase 196's increment 2).
+    const lens = runNode(process.execPath, [bin, 'home', '--project', 'studio'], { cwd: join(s.dir, 'studio'),
+      env: { ...gitEnv, PLATES_GH: join(s.dir, 'gh'), PLATES_CACHE: join(s.dir, 'cache'), PLATES_STATE: join(s.dir, 'lens-state'), XDG_STATE_HOME: join(s.dir, 'lens-state') } }).stdout;
+    assert.match(lens, /^ {4}phases █{8}▒{8}░{4} 2 done · 2 partial · 1 not started$/m, 'the terminal draws the bar the card draws');
+    assert.match(lens, /^ {2}Fix · Acme Studio: The night of/m);
+    assert.match(lens, /^ {2}Acme Studio: broken\b/m);
+    const { renderReviewStart } = await import('../lib/web/review-views.mjs');
+    assert.match(renderReviewStart(s.web), new RegExp(`<strong>${sec(s.web, 'needs-you').count} need you · `));
     assert.doesNotMatch(text, /at least|At least|in this source read|Inspection only/);
   } finally { await s.done(); }
 });

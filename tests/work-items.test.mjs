@@ -603,7 +603,7 @@ test('the recommended answer is marked', async () => {
   assert.deepEqual(questionOf(walk), { ask: 'Retire the Acme board?', choices: ['Retire it', 'Keep both'], recommend: 'Retire it' });
   assert.equal(questionOf({ ...walk, details: { ...walk.details, recommend: 'Retire' } }).recommend, null);
   assert.equal(questionOf({ kind: 'review', title: 'acme/anvils#7' }), null, 'no Ask, no question');
-  // The review session's card says it in words, and Home's answers line too.
+  // The review session's card says it in words, and Home's card fills it (and says it to a screen reader).
   const keyed = { ...walk, key: itemKey(walk), answers: answersFor(walk, { form: 'web', decisionWrites: true }) };
   const { renderReviewCard } = await import('../lib/web/review-views.mjs');
   const card = renderReviewCard({ key: keyed.key, kind: 'walk', label: 'Walk', minutes: 1, sets: [], item: keyed });
@@ -611,7 +611,7 @@ test('the recommended answer is marked', async () => {
   assert.match(card, /<button type="button" class="p-lg p-quiet" data-answer="choice-keep-both" aria-keyshortcuts="2">Keep both<\/button>/);
   const { homeView } = await import('../lib/web/views.mjs');
   const snapshot = homeSnapshot([{ id: 'anvils', name: 'Acme Anvils', state: 'complete', gaps: [], changes: [], decisions: [], walks: [structuredClone(walk)], reviews: [], waiting: [] }], { can: { form: 'web', decisionWrites: true }, today: '2026-11-05' });
-  assert.match(homeView({ workspace: { name: 'Acme' }, projects: [], csrf: 'x', sourceRevision: 'a'.repeat(40) }, { ...snapshot, cursor: 'a'.repeat(64), quota: { state: 'unknown' } }), /Answers: Retire it \(Recommended\) · Keep both/);
+  assert.match(homeView({ workspace: { name: 'Acme' }, projects: [], csrf: 'x', sourceRevision: 'a'.repeat(40) }, { ...snapshot, cursor: 'a'.repeat(64), quota: { state: 'unknown' } }), /<button type="button" class="glance-answer" data-recommended="true" data-answer="choice-retire-it"[^>]*>Retire it<span class="sr-only"> \(recommended\)<\/span><\/button><button type="button" class="glance-answer" data-answer="choice-keep-both"[^>]*>Keep both<\/button>/);
 });
 
 // Phase 181: presence says claimed unless an execution source says more.

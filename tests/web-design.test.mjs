@@ -156,6 +156,10 @@ test('tokens meet contrast over the wash in both themes', () => {
     check('warn', [...textSurfaces, 'warn-tint'], 4.5);
     for (const text of ['ink', 'muted']) check(text, ['warn-tint', 'ok-tint', 'sunken'], 4.5);
     for (const tint of ['warn-tint', 'ok-tint', 'sunken']) if (color(tint)[3] !== 1) failures.push(`${themeName}: --${tint} is translucent`);
+    // Phase 196: Home's chips. A red chip's reason is --danger on --danger-tint, a yellow one's --warn on --warn-tint; the name is --ink on either.
+    check('danger', ['danger-tint'], 4.5);
+    check('ink', ['danger-tint', 'warn-tint'], 4.5);
+    for (const tint of ['danger-tint', 'warn-edge', 'danger-edge']) if (color(tint)[3] !== 1) failures.push(`${themeName}: --${tint} is translucent`);
     // Phase 170: a solid dialog stands 3:1 off the scrimmed page, by its fill
     // or by its --line-strong edge.
     const dimmed = over(color('scrim'), paper), dialog = color('surface-solid');
@@ -326,18 +330,18 @@ function colourLiterals(source, css = source) {
 }
 test('home uses only tokens', async () => {
   const source = readFileSync(new URL('../lib/web/views.mjs', import.meta.url), 'utf8');
-  const { styles } = await import('../lib/web/views.mjs');
-  assert.deepEqual(colourLiterals(source, styles), [], 'views.mjs takes every colour from a token');
+  const { styles, homeGlanceStyles } = await import('../lib/web/views.mjs');
+  assert.deepEqual(colourLiterals(source, styles + homeGlanceStyles), [], 'views.mjs takes every colour from a token');
   // Home's long lists opt into the design layer's solid card; the blur is capped.
   const home = homeView(access, snapshot());
-  // Phase 166: the four sections' rows, plate chips and verbs.
-  for (const card of ['need', 'since-plate', 'plate-chip']) assert.match(home, new RegExp(`class="${card}\\b[^"]*\\bp-card\\b`), `${card} is a .p-card`);
-  assert.match(home, /class="verb p-badge/, 'each row\'s verb is a .p-badge');
-  assert.equal(home.match(/<(?:input|select)\b[^>]*\sclass="p-field"/g)?.length, 2, 'toolbar fields are .p-field');
+  // Phase 196: Home is the projects' chips and Needs you's cards; what happened folds under them.
+  for (const card of ['glance-card', 'since-plate']) assert.match(home, new RegExp(`class="${card}\\b[^"]*\\bp-card\\b`), `${card} is a .p-card`);
+  assert.match(home, /class="glance-chip" data-tone="(?:red|yellow|green)"/, 'each project is a chip with its tone');
+  assert.doesNotMatch(home, /class="home-toolbar"/, 'Home has no search or filter toolbar');
   const { components } = await import('../lib/web/design.mjs');
   const card = rules(components).find(rule => rule.selector === '.p-card');
   assert.match(card.body, /background:var\(--surface-solid\)/, '.p-card is solid'); assert.doesNotMatch(card.body, /backdrop-filter/, '.p-card never blurs');
-  for (const rule of rules(styles)) if (/attention-card|\.need\b|since-plate|plate-chip|\.cards li/.test(rule.selector)) assert.doesNotMatch(rule.body, /backdrop-filter/, `${rule.selector} does not blur`);
+  for (const rule of rules(styles + homeGlanceStyles)) if (/attention-card|\.need\b|since-plate|plate-chip|glance-|\.cards li/.test(rule.selector)) assert.doesNotMatch(rule.body, /backdrop-filter/, `${rule.selector} does not blur`);
 });
 
 // ---- page stylesheets hold layout only ---------------------------------------
@@ -439,7 +443,10 @@ test('controls are styled once', () => {
 // (200 bytes across the sheets that carry the tokens), and its bar and legend to plate-workspace.css (300).
 // The plate's main-vs-production row (2026-11-15) added 400 to plate-workspace.css, from existing tokens only,
 // and its agent-waiting banner, card border and row tag (2026-11-15) 450 more.
-const CSS_BYTES_BEFORE_171 = 81980, PAGE_SHEETS_SINCE = { '/assets/plate-workspace.css': 9650, '/assets/backlog.css': 3300, '/assets/review-session.css': 450 };
+// Phase 196: Home's chip tints are three tokens in each theme (--warn-edge, --danger-tint, --danger-edge), carried by the
+// three sheets that hold the tokens; their bytes are capped here, and the chips' and cards' own rules ship in /assets/home.css.
+const HOME_GLANCE_TOKEN_BYTES = 1120;
+const CSS_BYTES_BEFORE_171 = 81980 + HOME_GLANCE_TOKEN_BYTES, PAGE_SHEETS_SINCE = { '/assets/plate-workspace.css': 9650, '/assets/backlog.css': 3300, '/assets/review-session.css': 450, '/assets/home.css': 3800 };
 test('the design layer keeps its budget with a bounded Home loading addition', () => {
   const table = assets.buildAssetTable(assets.defaultSources());
   const css = [...table.entries].filter(([, entry]) => entry.type.startsWith('text/css'));

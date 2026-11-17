@@ -18,51 +18,48 @@ function snapshot(projects=[plate()],options={}) {
 function freeze(value) { if (value && typeof value === 'object') { Object.freeze(value); Object.values(value).forEach(freeze); } return value; }
 const headings = html => [...html.matchAll(/<h2 id="[^"]+">([^<]+)<\/h2>/g)].map(m => m[1]);
 
-// Phase 166, increment 2: the hosted page is the model's four sections, in order, with its items and counts.
-test('the page shows the four sections in order with the model\'s items and counts', () => {
-  const data=freeze(snapshot()), before=JSON.stringify(data), html=homeView(access,data), four=data.home.sections, sec=id=>four.find(s=>s.id===id);
-  assert.deepEqual(headings(html), ['Your plates','Needs you','Since you last looked','What should happen next?','Your plates']);
-  // Needs you: one row per model row, in the model's order, each with its one verb.
-  const rows=[...html.matchAll(/<li class="need p-card" data-record="([^"]+)" data-verb="([^"]+)"[\s\S]*?<span class="verb[^"]*">([^<]+)<\/span>[\s\S]*?<h3>([^<]+)<\/h3>/g)].map(m=>[m[2],m[3],m[4]]);
-  assert.deepEqual(rows, sec('needs-you').items.map(r=>[r.verb,r.label,r.title]));
-  assert.deepEqual(rows.map(r=>r[0]), ['fix','decide','try'], 'the fixture has one of each, in rank');
-  assert.match(html, new RegExp(`id="needs-you-title">Needs you</h2><span class="meta">${sec('needs-you').count}</span>`));
-  // The Start panel counts what Needs you counts, the Fix with no answers too; its minutes and session cover the answerable ones.
-  assert.ok(sec('needs-you').count > data.docket.length, 'the fixture has a row with no answers');
-  assert.equal(Number(/<p class="review-start p-card"><strong>(\d+) need/.exec(html)[1]), sec('needs-you').count);
-  // Phase 173's answers are kept: each answerable row names them and opens the review session.
-  assert.match(html,/data-answers>Answers: Verified · Needs changes · Cannot check yet · Not yet|data-answers>Answers: [^<]*Not now/);
-  assert.match(html,/<a href="\/review" data-focus="answer-need-studio:walk:walk-one">Answer →<\/a>/);
-  assert.match(html,/Guided walks →/); assert.match(html,/What to check/);
+// Phase 196, increment 1: Home is the projects' chips and Needs you's cards, from the model's glance; what happened
+// and the ask fold under them. (Phase 166's four sections stay on a plate's page until phase 196's increment 2.)
+test('Home shows the projects\' chips and Needs you\'s cards, then what happened and the ask, folded', () => {
+  const data=freeze(snapshot()), before=JSON.stringify(data), html=homeView(access,data), glance=data.home.glance, sec=id=>data.home.sections.find(s=>s.id===id);
+  assert.deepEqual(headings(html), ['Projects','Needs you','Since you last looked','What should happen next?']);
+  // The chip: the night's failed item is the most urgent reason, then +2 (an agent waiting, a decision).
+  assert.match(html,/<a class="glance-chip" data-tone="red" data-chip="studio" data-focus="chip-studio" href="\/projects\/studio"><span class="glance-dot" aria-hidden="true"><\/span><span class="glance-chip-text"><strong>Acme Studio<\/strong><span class="glance-reason">A night item failed <span class="glance-more">\+2<\/span><\/span>/);
+  // Needs you: one card per docket item, in the glance's order, each its question.
+  const cards=[...html.matchAll(/<li class="glance-card p-card" data-card="([^"]+)"[\s\S]*?<h3 class="glance-question">([^<]+)<\/h3>/g)].map(m=>[m[1],m[2]]);
+  assert.deepEqual(cards, glance.cards.map(c=>[c.key,c.question]));
+  assert.equal(cards.length, data.docket.length, 'every docket item is a card');
+  assert.match(html, new RegExp(`id="needs-you-title">Needs you</h2><span class="meta">${glance.count}</span>`));
+  // The header says how many need you; no Start panel, search or filter on Home; no main → production row.
+  assert.match(html, new RegExp(`<a class="nav-needs" href="#needs-you" data-needs-count>${glance.count} need you</a>`));
+  assert.doesNotMatch(html,/review-start|data-home-search|data-home-filter|plate-release|class="plate-summary/);
+  // Answers are on the card: the walk's choices, its Not now, the step's answers marked unavailable with why.
+  assert.match(html,/data-answer="choice-verified" data-label="Verified"/); assert.match(html,/data-answer="not-now" data-label="Not now" data-needs-why="never" data-writer="not now"/);
+  assert.match(html,/data-answer="done"[^>]*aria-disabled="true" data-unavailable="Submission is disabled until the owner enables decision writes\."/);
   // Nothing waiting on time or agents is on home: it is on the plate's page.
   assert.doesNotMatch(html,/Acme waiting wait-one|Acme walk walk-later/);
-  // Since you last looked: grouped by plate, only inside the window, with the count.
+  // Since you last looked and the ask, folded: grouped by plate, only inside the window, with the count.
+  assert.ok(html.indexOf('id="since-title"') > html.indexOf('<details class="workspace-secondary"'));
   assert.match(html,new RegExp(`id="since-title">Since you last looked</h2><span class="meta">${sec('since').count} · the last 7 days</span>`));
   assert.match(html,/<h3>Acme Studio<\/h3><ul class="since-lines"><li><time>2026-10-20<\/time><span>Phase 4 built: Publish from a phone/);
   assert.match(html,/The night of 2026-10-20: 2 done, 1 failed/); assert.doesNotMatch(html,/An old Acme phase/);
-  // What should happen next?: the web cannot read what is queued yet; each source is one quiet line with its command.
   assert.match(html,/<p class="meta quiet-line" data-queue="night">Tonight&#39;s plan: not read here · <code>plates goodnight<\/code><\/p>/);
-  assert.match(html,/data-queue="agent">Open agent issues: not read here · <code>plates home<\/code>/);
-  assert.match(html,/id="next-title">What should happen next\?<\/h2><span class="meta">0 known queued<\/span>/);
-  // Your plates: one compact chip each, with the model's status.
-  assert.match(html,/<a class="plate-chip p-card" data-status="broken" data-focus="project-studio" href="\/projects\/studio"><strong>Acme Studio<\/strong><span>broken · 2 waiting<\/span><\/a>/);
-  // The hedges are one footer line, after the four.
-  assert.ok(html.indexOf('data-home-footer') > html.indexOf('id="plates"'));
+  // The hedges are one footer line, after everything.
+  assert.ok(html.indexOf('data-home-footer') > html.indexOf('id="next"'));
   assert.doesNotMatch(html,/At least|in this source read|Inspection only/);
   assert.equal(JSON.stringify(data),before,'rendering never mutates the snapshot');
   assert.match(html,/data-cursor="a{64}"/); assert.match(html,/data-endpoint="\/api\/home"/);
-  assert.match(html,/<script type="module" src="\/assets\/home-client.mjs"><\/script>/);
+  assert.match(html,/<script type="module" src="\/assets\/home-client.mjs"><\/script>/); assert.match(html,/<link rel="stylesheet" href="\/assets\/home.css">/);
   assert.doesNotMatch(html,/<script(?![^>]*src=)|\sonclick=|\soninput=/);
 });
-test('source problems sit under Your plates, never above Needs you, and never mean no work', () => {
+test('an unread plate is never green, its problems are listed, and unread never means no work', () => {
   const unread={...plate(),state:'unavailable',gaps:[{source:'project',reason:'Read unavailable'}],decisions:[],walks:[],waiting:[],changes:[],daily:null,planning:{source:'unknown',built:null,total:null,livedIn:null}};
   const html=renderHomeSnapshot(snapshot([unread]));
   assert.match(html,/Nothing known needs you\./); assert.doesNotMatch(html,/Nothing needs you\./);
-  assert.match(html,/id="needs-you-title">Needs you<\/h2><span class="meta">0 known<\/span>/);
+  assert.match(html,/data-tone="yellow" data-chip="studio"[\s\S]*?<span class="glance-reason">Not read: its sources<\/span>/);
   const problems=html.match(/<details class="source-problems"[\s\S]*?<\/details>/)[0];
   assert.match(problems,/1 source problem: Acme Studio/); assert.match(problems,/<strong>Acme Studio<\/strong> · project: Read unavailable/);
-  assert.ok(html.indexOf('source-problems') > html.indexOf('id="plates"'), 'under Your plates');
-  assert.match(html,/data-status="unread"[^>]*><strong>Acme Studio<\/strong><span>not read<\/span>/);
+  assert.ok(html.indexOf('source-problems') > html.indexOf('id="projects"'), 'under the projects');
   assert.match(html,/Counts marked &quot;known&quot; are what was read/);
 });
 test('all source text is escaped and only explicit HTTPS GitHub links become anchors', () => {
@@ -72,7 +69,6 @@ test('all source text is escaped and only explicit HTTPS GitHub links become anc
   const html=homeView({...access,workspace:{name:attack}},snapshot([p]));
   assert.doesNotMatch(html,/<img|href="javascript:|href="https:\/\/github\.com\.evil| onclick="/);
   assert.match(html,/&lt;img src=x onerror=&quot;alert\(1\)&quot;&gt;/);
-  assert.match(html,/Source link unavailable/);
   for(const value of ['javascript:alert(1)','http://github.com/acme','https://github.com.evil.test/acme','https://fake:secret@github.com/acme','https://github.com:123/acme','//github.com/acme']) assert.equal(safeSourceLink(value),null);
   assert.equal(safeSourceLink('https://github.com/acme/studio/blob/main/README.md'),'https://github.com/acme/studio/blob/main/README.md');
 });
@@ -88,8 +84,7 @@ test('empty/fallback pages, account controls, keyboard affordances and reduced-m
   assert.match(homeView(access),/Plates you can access/); assert.match(projectView(access.projects[0],access),/Project connected/);
   assert.match(signinView('fake-csrf-acme'),/Continue with GitHub/); assert.match(errorView(401,'acme'),/Please sign in/);
   const html=homeView(access,snapshot()); assert.match(html,/aria-live="polite"/); assert.match(html,/Skip to content/);
-  assert.match(html,/<label>Search this view<input type="search"/); assert.match(html,/<summary data-focus=/);
-  assert.match(html,/<option value="fix">Fix<\/option><option value="decide">Decide<\/option><option value="try">Try it<\/option>/);
+  assert.match(html,/<summary data-focus=/); assert.match(html,/<h1 class="sr-only">Home<\/h1>/);
   assert.equal((html.match(/fake-csrf-acme/g)||[]).length,1); assert.match(html,/method="post" action="\/api\/auth\/logout"/);
   assert.match(styles,/@media\(max-width:400px\)/); assert.match(styles,/@media\(max-width:600px\)\{\.need\{grid-template-columns:minmax\(0,1fr\)\}/); assert.match(styles,/prefers-reduced-motion:reduce/);
 });
@@ -100,7 +95,7 @@ test('uncached projects show loading, never empty counts', () => {
   const loading={...plate(),state:'loading',planning:{source:'unknown',built:null,total:null,livedIn:null},readAt:null,revision:null,decisions:[],walks:[],waiting:[],changes:[],daily:null,gaps:[{source:'project',reason:'Project sources are loading within the bounded fleet refresh.'}]};
   const html=homeView(access,snapshot([loading]));
   assert.match(html,/Reading what needs you…/); assert.match(html,/0 known · more loading/);
-  assert.match(html,/data-status="loading"[^>]*><strong>Acme Studio<\/strong><span>loading<\/span>/);
+  assert.match(html,/data-tone="yellow" data-chip="studio"[\s\S]*?<span class="glance-reason">Not read yet: loading<\/span>/);
   assert.doesNotMatch(html,/Nothing needs you\.|Progress unavailable/);
   // Without the model (an older cached response), the page says it is reading, never empty work.
   assert.match(renderHomeSnapshot({projects:[loading]}),/Reading your plates…/);
@@ -125,11 +120,11 @@ test('row text renders source markdown, never raw markers or markup', () => {
   const p=plate();
   p.decisions[0].why='**`phases_stuck`** (outside) — move *phase 0* and set `since:`. <img src=x onerror=alert(1)> **`a<b`**';
   p.decisions[0].next='Inspect **the source** first.';
-  const html=renderHomeSnapshot(snapshot([p])), card=html.match(/<li class="need p-card" data-record="need-studio:step:decision-one"[\s\S]*?<\/li>(?=<li class="need|<\/ol>)/)[0];
+  const html=renderHomeSnapshot(snapshot([p])), card=html.match(/<li class="glance-card p-card" data-card="studio:step:decision-one"[\s\S]*?<\/li>(?=<li class="glance-card|<\/ol>)/)[0];
   assert.match(card,/<strong><code>phases_stuck<\/code><\/strong> \(outside\)/);
   assert.match(card,/<em>phase 0<\/em>/); assert.match(card,/<code>since:<\/code>/);
   assert.match(card,/<strong><code>a&lt;b<\/code><\/strong>/); assert.match(card,/&lt;img src=x onerror=alert\(1\)&gt;/);
-  assert.match(card,/<strong>Next<\/strong> Inspect <strong>the source<\/strong> first\./);
+  assert.match(card,/<dt>Next<\/dt><dd>Inspect <strong>the source<\/strong> first\.<\/dd>/);
   assert.doesNotMatch(card.replace(/<[^>]+>/g,''),/\*\*|`/);
 });
 
@@ -151,10 +146,10 @@ test('lessons waiting are named and reviews at their limit are a fix', async () 
   assert.deepEqual(data.reviews.find(r => r.review.number === 12).review.mergeRule, { fixFirst: 1, track: 1, unsorted: 1 });
   // Fleet-wide: every plate's reviews, with the verdict and the counts; and the lessons row with its reason and command.
   const fleet = renderHomeSnapshot(data);
-  // Phase 166: reviews are Needs you rows; one at its round limit is a Fix, one with findings unanswered a Decide.
-  assert.match(fleet, /data-verb="fix"[\s\S]*?Round 3 of 3 · Stopped: repeating/);
-  assert.match(fleet, /Round 3 of 3 · Stopped: repeating · 1 fix first · 1 track · 1 unsorted/);
-  assert.match(fleet, /Round 6 of 6 · Extended: progress · 0 fix first · 2 track · 0 unsorted/);
+  // Phase 196: a review at its round limit is its plate's reason, and each review is a card with its round in More.
+  assert.match(fleet, /data-chip="studio"[\s\S]*?<span class="glance-reason">A review is at its limit<\/span>/);
+  assert.match(fleet, /<dt>Review<\/dt><dd>Round 3 of 3 · stopped: repeating<\/dd>/);
+  assert.match(fleet, /<dt>Review<\/dt><dd>Round 6 of 6 · extended: progress<\/dd>/);
   assert.match(fleet, /data-home-section="lessons"><strong>Lessons waiting<\/strong> <span class="meta">Unavailable here · plates-inbox is not readable by the App yet<\/span><p class="meta">Read it with <code>plates learn<\/code>/);
   // Per plate: only that plate's reviews, and the lessons row still named.
   const studio = renderHomeSnapshot(data, { projectId: 'studio' });
@@ -213,7 +208,7 @@ test('an ask is queued only after its preview is approved', async () => {
   // The form: a plate, the ask, the two destinations (tonight the default), and the command each runs.
   const html = renderHomeSnapshot(snapshot());
   const form = html.match(/<form class="ask-form p-card" data-ask-form[\s\S]*?<\/form>/)[0];
-  assert.ok(html.indexOf('data-ask-form') > html.indexOf('id="next-title"') && html.indexOf('data-ask-form') < html.indexOf('id="plates"'), 'in What should happen next?');
+  assert.ok(html.indexOf('data-ask-form') > html.indexOf('id="next-title"') && html.indexOf('data-ask-form') < html.indexOf('data-home-footer'), 'in What should happen next?');
   assert.match(form, /value="night" data-command="plates goodnight add --title \{ask\} --kind triage &amp;&amp; plates goodnight --yes" checked> Tonight&#39;s plan/);
   assert.match(form, /value="agent" data-command="plates issue new --agent --title \{ask\} --rubric &lt;rubric\.md&gt;"> An agent issue now <span class="meta">\(a command to run\)<\/span>/);
   assert.match(form, /<code data-ask-command>plates goodnight add --title &quot;&lt;ask&gt;&quot; --kind triage &amp;&amp; plates goodnight --yes<\/code>/);

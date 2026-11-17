@@ -57,8 +57,8 @@ test('/backlog lists every plate\'s work in lanes, behind Home\'s auth', async (
   if (keys['agent-ready'].length) assert.ok(html.includes(`/attach?key=${encodeURIComponent(keys['agent-ready'][0])}&amp;route=session">Preview attach</a>`), 'the phase opens a read-only preview');
   assert.match(html, /\/assets\/backlog\.[0-9a-f]{12}\.css/);
   assert.equal((await s.web(s.h.request('/assets/backlog.css'))).status, 200);
-  // Home links to it.
-  assert.match(await (await s.get('/')).text(), /<a href="\/backlog" data-backlog-link>/);
+  // Home's navigation links to it (phase 196: Home itself is the projects' chips and Needs you).
+  assert.match(await (await s.get('/')).text(), /<a data-nav-destination="backlog" href="\/backlog">Backlog<\/a>/);
   // A query it does not take is refused.
   assert.equal((await s.get('/backlog?lane=yours')).status, 400);
 });
