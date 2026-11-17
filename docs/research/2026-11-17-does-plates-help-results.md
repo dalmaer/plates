@@ -47,6 +47,28 @@ half-open, `from <= t < to`:
 - duo after: 2026-10-04T00:45:39Z to 2026-11-01T00:45:39Z
 - cajones after: 2026-10-04T00:45:34Z to 2026-11-01T00:45:34Z
 
+## Was the pre-registration left alone?
+
+Yes. The file was renamed with the project on 21 October and its text is
+byte-for-byte what was committed on 2 October:
+
+```sh
+git diff 45a52ee:docs/research/2026-10-02-does-keel-help-measures.md HEAD:docs/research/2026-10-02-does-plates-help-measures.md   # prints nothing
+```
+
+This is not the first time the after-adoption data was read. A draft results
+page was written on 4 November on a branch that never merged. This page was
+computed afresh, with its own script, without reading that draft first. Where
+the two overlap they agree on measure 1's run counts and longest streaks, on
+measure 3's evidence counts and on measure 6's label counts. They differ where
+a definition was chosen differently. The draft counted a Guard cell that
+matches the tail of a path (75% before, where this page's exact-path rule gives
+70%). It read phase moves along the first parent only (15 after, where this
+page counts 17). And for measure 5 it counted only transcripts briefed as
+builders (168 whole runs at the project root through 2 November, where this
+page counts every subagent and finds 193 through 22 October). Neither choice
+changes a reading below.
+
 ## What went differently from the plan
 
 1. **The reference was adopted.** isocan came under plates on 5 October,
