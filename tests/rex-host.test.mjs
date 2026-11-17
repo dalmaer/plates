@@ -989,3 +989,116 @@ test('a cancel is recorded while one attach still takes its claim after another 
   await recoverCancels(journal, { env: b.w.env, root: b.w.checkout });
   assert.equal(existsSync(marker), false);
 });
+
+test('local-host attach in Rex hands distinct claim ownership via a one-shot mode-0600 worker file removed on every path', async t => {
+  const w = await world(t, { sessions: [{ session_id: 'session:acme-anvils', label: 'acme-claude' }] });
+  const seed = join(w.base, 'seed'), origin = join(w.base, 'origin.git'), clone = join(w.base, 'clone');
+  await mkdir(join(seed, '.plates'), { recursive: true });
+  await mkdir(join(seed, 'docs', 'phases'), { recursive: true });
+  await mkdir(join(seed, 'docs', 'evidence'), { recursive: true });
+  const config = { name: 'Acme', repo: 'acme/app', practices: ['phases'], agents: { claude: {} }, backlog: { routes: ['session', 'local-host'] } };
+  await writeFile(join(seed, '.plates', 'plates.json'), JSON.stringify(config));
+  await writeFile(join(seed, 'docs', 'goals.json'), JSON.stringify([{ id: 'G0', title: 'Anvils', outcome: 'They land.' }]));
+  await writeFile(join(seed, 'docs', 'evidence', 'acme-0.md'), '# Evidence: phase 0\n');
+  const phaseDoc = (title, depends, status, evidence) => `---\nstatus: ${status}\nsince: 2026-10-01\ngoal: G0\ndepends: ${depends}\nnote: "Acme."\nevidence: ${evidence}\n---\n\n# ${title}\n\n## Done when\n\nThe anvil lands.\n\n## Scope\n\nSmall.\n\n## Acceptance\n\n- [${status === 'built' ? 'x' : ' '}] Lands. \`tests/anvil.test.mjs\`\n\n## Proof\n\nA command.\n\n## Deliberately open\n\nNothing.\n\n## Next action\n\nBuild it.\n`;
+  await writeFile(join(seed, 'docs', 'phases', '00-start.md'), phaseDoc('Start', '[]', 'built', '["evidence/acme-0.md"]'));
+  await writeFile(join(seed, 'docs', 'phases', '01-anvil.md'), phaseDoc('Build the anvil', '[0]', 'planned', '[]'));
+  git(w.base, 'init', '-q', '-b', 'main', seed);
+  git(seed, 'add', '-A'); git(seed, '-c', 'user.name=Acme', '-c', 'user.email=a@acme.test', 'commit', '-qm', 'acme');
+  git(w.base, 'clone', '-q', '--bare', seed, origin);
+  git(w.base, 'clone', '-q', origin, clone);
+
+  const gh = join(w.base, 'gh');
+  await writeFile(gh, `#!${process.execPath}\nconst a = process.argv.slice(2);\nif (a[0] === 'pr' && a[1] === 'list') { console.log('[]'); process.exit(0); }\nprocess.exit(1);\n`, { mode: 0o755 });
+  await mkdir(join(w.env.XDG_CONFIG_HOME, 'plates'), { recursive: true });
+  // Inspect briefDir while the interactive TUI harness is running: .brief is there, .worker is already unlinked.
+  const tuiCheck = join(w.base, 'tui-check', 'claude');
+  await mkdir(dirname(tuiCheck), { recursive: true });
+  await writeFile(tuiCheck, `#!${process.execPath}
+const fs = require('node:fs');
+const argv = process.argv.slice(2), first = argv[argv.length - 1] ?? '';
+const named = /private file (\\S+) \\./.exec(first)?.[1] ?? null;
+const during = fs.existsSync(${JSON.stringify(w.briefDir)}) ? fs.readdirSync(${JSON.stringify(w.briefDir)}) : [];
+fs.writeFileSync(${JSON.stringify(join(w.logs, 'tui-check.json'))}, JSON.stringify({ named, during, env: process.env }));
+`, { mode: 0o755 });
+  await writeFile(join(w.env.XDG_CONFIG_HOME, 'plates', 'local-hosts.json'), JSON.stringify({ hosts: { claude: { harness: [tuiCheck] } } }));
+
+  const env = { ...w.env, GIT_AUTHOR_NAME: 'Acme', GIT_AUTHOR_EMAIL: 'a@acme.test', GIT_COMMITTER_NAME: 'Acme', GIT_COMMITTER_EMAIL: 'a@acme.test', PLATES_GH: gh, PLATES_MACHINE: 'acme-laptop', PLATES_PROVIDER: 'claude', PLATES_SESSION: 'acme-parent-session', CLAUDE_CODE_SESSION_ID: 'acme-parent-claude' };
+  const done = await attachLib.attachCommand({ root: clone, key: 'app:phase:1', route: 'local-host', provider: 'claude', yes: true }, { env });
+  assert.equal(done.exitCode, 0, done.text);
+
+  const got = JSON.parse(await readFile(join(w.logs, 'tui-check.json'), 'utf8'));
+  assert.ok(!got.during.some(n => n.endsWith('.worker')), '.worker is already unlinked before the interactive harness runs');
+  for (const k of ['REX_SESSION', 'REX_BLOCK', 'GH_TOKEN', 'PLATES_BRIEF_TEST', 'PLATES_GH', 'CLAUDE_CODE_SESSION_ID']) {
+    assert.ok(!(k in got.env), `${k} is scrubbed from the Rex harness`);
+  }
+  assert.equal(got.env.PLATES_PROVIDER, 'claude');
+  assert.ok(got.env.PLATES_SESSION && got.env.PLATES_SESSION !== 'acme-parent-session', 'harness receives its own distinct worker session');
+  assert.deepEqual(await readdir(w.briefDir), [], 'neither brief nor worker handoff file remains');
+
+  const bin = join(import.meta.dirname, '..', 'bin', 'plates.mjs');
+  const workerEnv = { ...got.env, PLATES_GH: gh, PLATES_MACHINE: 'acme-laptop', CLAUDE_CODE_SESSION_ID: 'claude-native-tui-id' };
+  const resumed = runNode([bin, 'phase', 'claim', '1', '--json'], { cwd: clone, env: workerEnv });
+  assert.equal(resumed.status, 0, resumed.stdout + resumed.stderr);
+  assert.deepEqual([JSON.parse(resumed.stdout).held, JSON.parse(resumed.stdout).holder.mine], [true, true]);
+  assert.equal(runNode([bin, 'phase', 'claim', '1', '--json'], { cwd: clone, env }).status, 1, 'parent launcher session does not own the Rex worker claim');
+  assert.equal(runNode([bin, 'phase', 'claim', '1', '--release', '--json'], { cwd: clone, env: workerEnv }).status, 0);
+
+  // Inspect the created .worker right before rex run: mode 0600, O_EXCL, holding only {session, provider}, and removed if before() throws.
+  const inspectWorld = await world(t, { sessions: [{ session_id: 'session:acme-anvils', label: 'acme-claude' }] });
+  let inspectedWorker = null;
+  await assert.rejects(startHost({
+    host: { file: 'hosts.json', start: null, state: null, harness: [inspectWorld.harness] },
+    plate: 'Acme', provider: 'claude', checkout: inspectWorld.checkout, brief: BRIEF, briefName: 'a'.repeat(64), tab: 'phase-7', session: 'attach-acme-inspect', env: inspectWorld.env,
+    before: async () => {
+      const wf = `${rexBriefFile(inspectWorld.env, 'a'.repeat(64))}.worker`;
+      inspectedWorker = { mode: statSync(wf).mode & 0o777, parsed: JSON.parse(await readFile(wf, 'utf8')) };
+      throw new Error('abort-before-run');
+    },
+  }), /abort-before-run/);
+  assert.deepEqual(inspectedWorker, { mode: 0o600, parsed: { session: 'attach-acme-inspect', provider: 'claude' } });
+  assert.deepEqual(await readdir(inspectWorld.briefDir), [], 'failure in before() removes both .worker and .brief');
+
+  // Pre-existing .worker refuses exclusive O_EXCL creation without overwriting it, and removes the newly created .brief.
+  const preExisting = `${rexBriefFile(inspectWorld.env, 'b'.repeat(64))}.worker`;
+  await writeFile(preExisting, 'keep-existing', { mode: 0o600 });
+  await assert.rejects(startHost({
+    host: { file: 'hosts.json', start: null, state: null, harness: [inspectWorld.harness] },
+    plate: 'Acme', provider: 'claude', checkout: inspectWorld.checkout, brief: BRIEF, briefName: 'b'.repeat(64), tab: 'phase-7', session: 'attach-acme-excl', env: inspectWorld.env,
+  }), /EEXIST/);
+  assert.equal(await readFile(preExisting, 'utf8'), 'keep-existing', 'O_EXCL never overwrites a pre-existing .worker');
+  assert.equal(existsSync(rexBriefFile(inspectWorld.env, 'b'.repeat(64))), false, '.brief is cleaned up on O_EXCL failure');
+  await rm(preExisting);
+
+  // Error and cancel cleanup: a failed rex run, invalid .worker contents/mode, missing brief, and cancel all remove .worker and .brief.
+  const broken = await world(t);
+  await writeFile(join(broken.bin, 'rex'), `#!${process.execPath}\nif (process.argv[2] === 'ls') { console.log('[{"session_id":"session:acme","label":"acme-claude"}]'); process.exit(0); }\nprocess.exit(5);\n`, { mode: 0o755 });
+  await assert.rejects(startHost({ host: { file: 'hosts.json', start: null, state: null, harness: [broken.harness] }, plate: 'Acme', provider: 'claude', checkout: broken.checkout, brief: BRIEF, tab: 'phase-7', session: 'attach-acme-1', env: broken.env }), /rex run exited 5/);
+  assert.deepEqual(await readdir(broken.briefDir), [], 'failed rex run removes both .worker and .brief');
+
+  const runner = join(import.meta.dirname, '..', 'lib', 'rex-run.mjs');
+  const badBrief = join(broken.briefDir, 'bad.brief');
+  await writeFile(badBrief, BRIEF, { mode: 0o600 });
+  await writeFile(`${badBrief}.worker`, JSON.stringify({ session: 'attach-acme-1', provider: 'claude', token: 'forbidden' }), { mode: 0o600 });
+  const badRun = runNode([runner, badBrief, '--', broken.harness], { cwd: broken.checkout, env: broken.env });
+  assert.equal(badRun.status, 2);
+  assert.equal(await broken.harnessRun(), null, 'extra fields in .worker are refused before starting the harness');
+  assert.deepEqual(await readdir(broken.briefDir), [], 'invalid .worker removes both .worker and .brief');
+
+  await writeFile(badBrief, BRIEF, { mode: 0o600 });
+  await writeFile(`${badBrief}.worker`, JSON.stringify({ session: 'attach-acme-1', provider: 'claude' }), { mode: 0o644 });
+  assert.equal(runNode([runner, badBrief, '--', broken.harness], { cwd: broken.checkout, env: broken.env }).status, 2, 'non-0600 .worker is refused');
+  assert.deepEqual(await readdir(broken.briefDir), []);
+
+  await writeFile(`${badBrief}.worker`, JSON.stringify({ session: 'attach-acme-1', provider: 'claude' }), { mode: 0o600 });
+  assert.equal(runNode([runner, badBrief, '--', broken.harness], { cwd: broken.checkout, env: broken.env }).status, 2, 'missing brief fails cleanly');
+  assert.deepEqual(await readdir(broken.briefDir), [], 'missing brief still unlinks .worker');
+
+  const c = await attached(t);
+  const attached7 = await attach(c.args, c.deps());
+  const cBrief = rexBriefFile(c.w.env, attached7.data.digest);
+  await writeFile(cBrief, BRIEF, { mode: 0o600 });
+  await writeFile(`${cBrief}.worker`, JSON.stringify({ session: 'attach-acme-7', provider: 'claude' }), { mode: 0o600 });
+  await c.cancel();
+  assert.deepEqual(await readdir(c.w.briefDir), [], 'cancel removes any lingering .worker alongside .brief');
+});
