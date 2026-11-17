@@ -1,10 +1,10 @@
 ---
 status: partial
-since: 2026-11-16
+since: 2026-11-17
 goal: G7
 spec: 2
 depends: [149]
-note: "Increments 1 and 2 are deployed. Increment 3 (the owner addresses agents) is built and proven by tests; box 7 waits on the owner's yes to migration 025 and its hosted proof."
+note: "Increments 1–3 are built; migration 025 is applied with its hosted proof. Box 7 waits on the live round trip (an owner line on the deployed site reaching a session's plates channel inbox), which the owner's walk proves with box 8."
 evidence: ["evidence/2026-11-15-channel-feed.md", "evidence/2026-11-16-channel-say-hosted.md", "evidence/2026-11-16-channel-owner-lines.md"]
 ---
 
@@ -144,7 +144,7 @@ By hand: the owner's read of the deployed channel (Your part).
 
 ## Next action
 
-⚑ Migration 025 (`lib/web/migrations/025-channel-owner-lines.sql`) on the hosted database, the owner's yes: apply it, run `docs/evidence/2026-11-16-web-channel-owner-lines-hosted-proof.sql`, promote the build that serves it, post one owner line naming a phase from `/channel` and read it with `plates channel inbox`. Then check box 7 and ask for the owner's walk (box 8).
+The owner's walk (box 8): on `/channel` for plates, post a line naming `plates#194`; the phase-194 agent in Rex receives it with `plates channel inbox` and answers; the line shows answered. Then accept or correct. Increment 4 (the Discord mirror) stays optional.
 
 ## Trajectory
 
@@ -154,3 +154,4 @@ By hand: the owner's read of the deployed channel (Your part).
 - **2026-11-16** — Migration 024 was applied (its SHA-256 checked in the editor), its hosted proof passed, and the deploy `b461ee7` serves it. A real `plates say` from the owner's Mac posted and read back. Box 6 is checked.
 - **2026-11-16** — Increment 3 built with no new table: migration 025 adds owner-post and list-marked to `plates_channel_rpc`, and the owner's lines carry an owner digest (never a device key's) in the device column. A line counts as the owner's only when the row mark and the sealed kind agree. A device-key body carrying kind, to or by is refused as `channel_owner_only`.
 - **2026-11-16** — The inbox cursor is local, one file per session under the plates state dir; the workspace stores no read position. Before 025 is applied, the form says the channel cannot take the owner's lines yet, and everything else keeps working.
+- **2026-11-17** — Increment 3 ran as the owner's real task: attached to a Rex tab through the local-host route, its brief arrived as the startup prompt, its steps showed on this channel, and two review corrections were typed into its tab on the owner's behalf. Migration 025 was applied after its timestamp was moved under the lock, and its hosted proof passed.

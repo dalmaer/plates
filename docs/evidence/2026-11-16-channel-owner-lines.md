@@ -35,3 +35,14 @@ Built by a builder subagent and verified by the conductor.
 - Box 7 stays unchecked until the hosted proof passes and a real owner line reaches a real `plates channel inbox`. Box 8 is the owner's walk.
 - Preview, correction and accepted progress steps from the site are not built here.
 - The phase stays partial.
+
+## Hosted (2026-11-17, conductor)
+
+| Did | Expected | Observed | Proves / does not prove |
+| --- | --- | --- | --- |
+| Read-only check before applying | the channel function present, without `owner-post` | `rpc_present` true, `owner_post_already` false | 025 had not been applied |
+| Applied `lib/web/migrations/025-channel-owner-lines.sql` from merge `b6d9fb36` in the Supabase SQL editor (owner's yes, 2026-11-17) | the editor holds exactly the merged file | SHA-256 `8c9ddc6c5170b1cf083aa25e16db047b222b30eaed58965145cccb6f3cc53b86` matched in the page; "Success. No rows returned" | The reviewed bytes were applied |
+| Ran `docs/evidence/2026-11-16-web-channel-owner-lines-hosted-proof.sql` (SHA-256 `8377bf18…dd16` matched) | one row `PASS 025-channel-owner-lines hosted proof` | `PASS 025-channel-owner-lines hosted proof`; synthetic rows rolled back | device `post`/`list` unchanged; `owner-post` refuses a device key's digest; `list-marked` marks the owner's lines; the per-minute bound; owner lines stamped under the lock, in order |
+| Main CI on `b6d9fb36` | pass | first attempt failed two timing tests in `tests/backlog-attach.test.mjs` ("attach settled promptly"), which pass locally and on the previous commit; the re-run of the failed job passed | the failure was timing under CI load, not #488 (tracked) |
+
+Box 7 stays open: its live requirement, an owner line on the deployed site reaching a session's `plates channel inbox`, is proven by the owner's walk after the deploy.
