@@ -1,11 +1,11 @@
 ---
-status: partial
+status: built
 after: 2026-11-01
-since: 2026-10-02
+since: 2026-11-17
 goal: G5
 depends: [12]
-note: "Measures and comparison pre-registered and committed before any adoption (45a52ee). The results page is due no earlier than 2026-11-01 and needs two adopted projects."
-evidence: ["evidence/2026-10-02-does-plates-help.md"]
+note: "Results page 2026-11-17 against the 2 October pre-registration: the comparison does not show that plates makes projects better, does not show harm, and mostly cannot tell (one before/after project; the reference was adopted two days into the window)."
+evidence: ["evidence/2026-10-02-does-plates-help.md", "evidence/2026-11-17-does-plates-help-results.md"]
 issue: 31
 ---
 
@@ -25,7 +25,7 @@ each with machine-checkable outcomes, run with and without plates's skills
 ## Acceptance
 
 - [x] Measures and comparison written down, dated, before the data is read.
-- [ ] The page reports a null or negative result as plainly as a positive one.
+- [x] The page reports a null or negative result as plainly as a positive one: [results](../research/2026-11-17-does-plates-help-results.md).
 
 ## Proof
 
@@ -38,8 +38,9 @@ The research page, its numbers reproducible from the commands it names.
 
 ## Next action
 
-On or after 2026-11-01, with two projects adopted, compute the six measures exactly as `docs/research/2026-10-02-does-plates-help-measures.md` names them, and write the results page.
+None for this phase. A comparison able to tell needs a project adopted later, with weeks of history, while a comparable one stays unadopted; the golden tasks with and without skills wait for the owner's yes on their token cost.
 
 ## Trajectory
 
 - **2026-10-02** — Pre-registered before any project was adopted, so the commit date is the proof. Only ledger has enough history for a before and after; duo and cajones are after-only, and isocan is the unadopted reference.
+- **2026-11-17** — Results: no measure shows plates making projects better, none shows harm, and the comparison mostly cannot tell. The red-streak gain on ledger was matched by isocan, the reference, which was itself adopted two days into the after window. Evidence-backed built phases stayed at zero, drift did not fall, and builders still ran whole checks. [Results](../research/2026-11-17-does-plates-help-results.md).
