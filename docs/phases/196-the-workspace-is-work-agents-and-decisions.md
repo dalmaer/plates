@@ -4,7 +4,7 @@ since: 2026-11-17
 goal: G7
 spec: 2
 depends: [194]
-note: "Increment 2 implements the project backlog and Assign previews in one CLI/web model. Hosted quota delivery (192), hosted attachment (181), deployment and the owner walk remain; chat and navigation cleanup are later increments."
+note: "Increment 2 landed and deployed as ff82b6f7: full gate, CI, exact serving revision, three smoke paths and 120-second error watch passed. The owner project-page walk is pending. Hosted quota delivery (192), hosted attachment (181), chat and navigation remain."
 evidence: ["evidence/2026-11-17-project-backlog.md"]
 ---
 
