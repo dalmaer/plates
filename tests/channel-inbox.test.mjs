@@ -238,3 +238,42 @@ test('a checkpoint shows answered after that session\'s next line', async t => {
   // The inbox returns the phase's checkpoint to its session once, answered or not: it is the owner's word.
   assert.deepEqual((await inbox({ root, env: env('acme-session-1'), key: async () => s.key, fetcher: s.send })).data.items.map(i => i.text), ['@2 is the Acme pump wired?']);
 });
+
+test('an inbox line is returned once under concurrent asks, addressed exactly, to sessions of any allowed length', async t => {
+  const s = await service(t), origin = s.h.config.origin, root = await checkout(t, 'main');
+  const env = session => ({ PLATES_SESSION: session, PLATES_PROVIDER: 'claude', PLATES_SITE: origin, XDG_STATE_HOME: s.state });
+  const ask = (session, over = {}) => inbox({ root, env: env(session), key: async () => s.key, fetcher: s.send, ...over });
+  // Two inbox calls for one session at once: the cursor's lock lets one read and move it; the line reaches exactly one.
+  await s.ownerPost('@acme-session-1 the Acme bench is free');
+  const both = await Promise.all([ask('acme-session-1'), ask('acme-session-1')]);
+  assert.deepEqual(both.map(r => r.data.items.length).sort(), [0, 1]);
+  assert.deepEqual((await ask('acme-session-1')).data.items, []);
+  // The lock: a live holder makes a call wait, then refuse (exit 1) past its bound; an abandoned lock is taken over.
+  await s.ownerPost('@acme-session-1 the Acme fixture is back');
+  const lockFile = join(s.state, 'plates', 'channel-inbox', (await readdir(join(s.state, 'plates', 'channel-inbox'))).find(f => f.endsWith('.json')) + '.lock');
+  await writeFile(lockFile, `${process.pid}:held-by-acme-test`);
+  await assert.rejects(ask('acme-session-1', { lock: { waitMs: 100, pollMs: 10 } }), e => e.exitCode === 1 && /another plates channel inbox for this session is reading/.test(e.message));
+  const { utimes } = await import('node:fs/promises'), old = new Date(Date.now() - 10 * 60_000);
+  await utimes(lockFile, old, old);
+  assert.deepEqual((await ask('acme-session-1')).data.items.map(i => i.text), ['@acme-session-1 the Acme fixture is back'], 'a lock older than any read is abandoned');
+  await writeFile(lockFile, '999999999:a-holder-that-is-gone');
+  assert.deepEqual((await ask('acme-session-1', { lock: { waitMs: 100 } })).data.items, [], 'a lock whose process is gone is abandoned');
+  await assert.rejects(readFile(lockFile), { code: 'ENOENT' }, 'the lock is released after the read');
+
+  // A bare name ending in - or _ names nobody, never a shorter id; the braced form names that exact id.
+  await s.ownerPost('@worker- hold the Acme cores');
+  for (const session of ['worker-', 'worker']) assert.deepEqual((await ask(session)).data.items, [], session);
+  await s.ownerPost('@{worker-} hold the Acme cores');
+  assert.deepEqual((await ask('worker-')).data.items.map(i => [i.text, i.to]), [['@{worker-} hold the Acme cores', [{ session: 'worker-' }]]]);
+  assert.deepEqual((await ask('worker')).data.items, []);
+  assert.deepEqual(addresseesOf('@worker- hold, @worker_ too, @worker. and @{worker-} and @{worker_}. @{bad id} @{} @w:', 'studio'), [{ session: 'worker' }, { session: 'worker-' }, { session: 'worker_' }, { session: 'w' }]);
+  assert.deepEqual(addresseesOf('@2- and @studio#3_ name nobody; @{2} is the session 2', 'studio'), [{ session: '2' }]);
+
+  // A session id longer than 100 characters (up to 128) is addressed and wrapped whole: the envelope never truncates it.
+  const long = `acme-${'s'.repeat(115)}`;
+  assert.equal(long.length, 120);
+  await s.ownerPost(`@${long} take the Acme release`);
+  const [item] = (await ask(long)).data.items;
+  assert.equal(item.envelope.target.id, long);
+  assert.deepEqual(item.to, [{ session: long }]);
+});

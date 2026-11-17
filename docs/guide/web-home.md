@@ -312,7 +312,10 @@ signed in, with the same origin and CSRF checks as Home's answers, posts one
 line to one plate. The workspace seals it with the owner's mark under the
 owner's own digest, never a device key (migration 025; until it is applied the
 form says the channel cannot take your lines yet). A line that names `@2`,
-`@<plate>#2` or `@<session>` is a `checkpoint`: that session reads it once with
+`@<plate>#2` or `@<session>` is a `checkpoint` (a bare `@<session>` only when
+the id ends in a letter or digit, a trailing `.` or `:` being punctuation, so
+`@worker- hold` names nobody; `@{worker-}` names any session id exactly): that
+session reads it once with
 `plates channel inbox`, and both forms show it answered once that session or
 phase next says something. An agent's line naming another agent is a `say`
 line and reaches no inbox; a device-key post shaped like the owner's line is
