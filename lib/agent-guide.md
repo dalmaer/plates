@@ -2137,6 +2137,12 @@ or device key exits 2; the workspace refusing or not answering exits 1, and
 the cursor does not move. `--json` → `{site, project, session, phase, since,
 items: [{at, kind, text, to, envelope}]}`.
 
+For an interactive Rex run opened by attach, `plates sessions push` also
+delivers new owner lines into its recorded tab (increment 3b). Answer with
+`plates say`. Delivery keeps a private per-run cursor and checks cancellation.
+Failed sends are named and retried; uncertain transport outcomes require tab
+inspection before replay. No Rex or indexed journals means no delivery work.
+
 <!-- topic: walk | settle the owner's turn: walk done and walk decide -->
 
 `plates board` is retired (phase 156): it prints `plates home` and exits 2,
