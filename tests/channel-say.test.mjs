@@ -133,6 +133,16 @@ test('over-long, too-frequent, key-shaped or keyless posts are refused naming wh
   const body = over => ({ schema: 1, project: 'studio', text: 'Finished the Acme crates step', session: 'acme-session-4', provider: 'claude', phase: 3, ...over });
   assert.equal((await route(body(), { key: null })).status, 401, 'no key');
   assert.equal((await route(body(), { key: `pdk_${'z'.repeat(43)}` })).status, 401, 'an unknown key');
+  // Removing an owner from ownerIds blocks both channel posts and channel reads on their unrevoked key.
+  const { createWebService } = await import('../lib/web/server.mjs');
+  const twoOwners = { ...s.h.config, ownerIds: [1, 2] }, twoOwnerWeb = createWebService(twoOwners, { fetcher: s.fetcher, now: Date.now });
+  const removedOwnerKey = (await createWaitingStore(twoOwners, s.fetcher).createKey(2, 'Former Acme Mac')).key;
+  assert.equal((await twoOwnerWeb(new Request(`${origin}/api/channel/say`, { method: 'POST', headers: { authorization: `Bearer ${removedOwnerKey}`, 'content-type': 'application/json' }, body: JSON.stringify(body({ session: 'acme-session-removed' })) }))).status, 200);
+  assert.equal((await twoOwnerWeb(new Request(`${origin}/api/channel/says?project=studio`, { headers: { authorization: `Bearer ${removedOwnerKey}` } }))).status, 200);
+  const deniedPost = await route(body({ session: 'acme-session-removed-2' }), { key: removedOwnerKey });
+  assert.deepEqual([deniedPost.status, (await deniedPost.json()).error], [401, 'device_key_required'], 'removed owner cannot post');
+  const deniedRead = await route(null, { method: 'GET', path: '/api/channel/says?project=studio', key: removedOwnerKey });
+  assert.deepEqual([deniedRead.status, (await deniedRead.json()).error], [401, 'device_key_required'], 'removed owner cannot read retained channel lines');
   for (const bad of [body({ text: 'a'.repeat(281) }), body({ text: 'sk-ant-abcdefghijklmnopqrstuvwxyz' }), body({ extra: 1 }), body({ session: '../x' }), body({ phase: -1 }), body({ provider: 'Claude Code' }),
     // Identifiers must be strings: a number, an array or an object is refused, never coerced to text and matched.
     body({ session: 12345 }), body({ session: ['acme-session-4'] }), body({ session: { toString: 'acme' } }), body({ project: ['studio'] }), body({ provider: ['claude'] }), body({ text: ['Finished'] })]) {

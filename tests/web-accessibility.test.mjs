@@ -276,3 +276,19 @@ test('secondary views keep sequential headings, flat adoption lists and hidden e
   assert.equal(operationZone.hidden,false);
   client.stop();
 });
+test('review shortcuts are suspended while the unsaved-edits dialog is open',async()=>{
+  // The reason field holds text, so a link away opens the safety dialog; a key meant for the dialog must not answer the card behind it.
+  const p=reviewPage(),appended=[];let dialog=null;
+  const button={focus(){},disabled:false};
+  p.root.append=el=>{appended.push(el);dialog=el;};
+  const query=p.root.querySelector;p.root.querySelector=s=>s==='dialog'?dialog:query(s);
+  p.document.createElement=()=>({setAttribute(){},innerHTML:'',querySelector:()=>button,addEventListener(){},showModal(){},close(){},remove(){dialog=null;}});
+  const client=startReviewClient(p);await new Promise(r=>setImmediate(r));
+  const link={getAttribute:()=>'/backlog',hasAttribute:()=>false,target:''};
+  p.documentEvents.click({target:{closest:s=>s==='a[href]'?link:null},button:0,preventDefault(){},stopImmediatePropagation(){}});
+  assert.equal(appended.length,1,'the unsaved-edits dialog opened');
+  for(const key of ['1','2','n','N','w','ArrowRight','ArrowLeft'])p.documentEvents.keydown({key,target:{matches:()=>false,closest:()=>null},preventDefault(){}});
+  assert.equal(client.session.holds.length,0,'no answer was chosen behind the dialog');
+  assert.equal(client.session.index,0,'the card did not move behind the dialog');
+  await p.tick();assert.equal(p.sent.length,0);client.stop();
+});

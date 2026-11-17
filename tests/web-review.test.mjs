@@ -134,6 +134,64 @@ test('a held preview is applied through its route, and an uncertain apply is nev
   assert.match(again.current()?.reason ?? '', /source changed since the preview/);
 });
 
+test('backward navigation cannot resubmit an uncertain answer', async () => {
+  const docket = docketItems(reviewSnapshot());
+  const step = docket.find(e => e.kind === 'step'), walk = docket.find(e => e.kind === 'walk'), proposal = docket.find(e => e.kind === 'proposal');
+  let previews = 0;
+  const calls = [], outcome = [];
+  const fetch = async (url, options) => {
+    const body = JSON.parse(options.body); calls.push({ url, body });
+    if (url === '/api/home/answer') {
+      if (body.answer === 'not-now') return Response.json({ state: 'written', until: '2026-11-10' });
+      const n = String(++previews);
+      return Response.json({ schema: 1, state: 'preview', key: body.key, answer: body.answer, preview: { id: n.repeat(64), digest: 'c'.repeat(64), operationUrl: `/projects/studio/operations/${n.repeat(64)}`, consequence: `Preview ${n}.`, canSubmit: true } });
+    }
+    const next = outcome.shift();
+    if (next === 'network') throw new TypeError('offline');
+    return Response.json(next);
+  };
+  const c = clock(), sender = createWebSender({ fetch, csrf: 'acme-csrf' });
+
+  // Direct backward navigation from the end after a lost apply cannot reopen or resubmit it.
+  const first = createReviewSession({ items: [walk], send: sender.send, prepare: sender.prepare, timers: c.timers });
+  outcome.push('network', { schema: 1, id: '2'.repeat(64), state: 'committed', receipt: { url: 'https://github.com/acme/studio/commit/abc123' } });
+  first.choose('choice-verified');
+  await c.tick(); await settledOf(first);
+  const back = first.back();
+  const retried = first.choose('choice-verified');
+  await c.tick(); await settledOf(first);
+  const firstApplies = calls.filter(x => x.url === '/api/projects/studio/decisions/apply');
+  assert.equal(firstApplies.length, 1, 'only the first apply was sent');
+  assert.equal(previews, 1, 'no second preview was requested');
+  assert.equal(back, false, 'backward navigation refuses to reopen an uncertain item');
+  assert.equal(retried.error, 'no_card');
+  assert.deepEqual(first.again.map(x => [x.key, x.retry, x.link]), [[walk.key, false, `/projects/studio/operations/${'1'.repeat(64)}`]], 'the original operation link is retained');
+
+  // Across multiple cards, every navigation path skips an uncertain item while keeping unanswered cards reachable.
+  calls.length = 0; outcome.length = 0; previews = 0;
+  outcome.push('network', { schema: 1, id: '2'.repeat(64), state: 'committed', receipt: { url: 'https://github.com/acme/studio/commit/def456' } });
+  const multi = createReviewSession({ items: [step, walk, proposal], send: sender.send, prepare: sender.prepare, timers: c.timers });
+  assert.equal(multi.forward(), true);
+  assert.equal(multi.current()?.entry.key, walk.key);
+  multi.choose('choice-verified');
+  await c.tick(); await settledOf(multi);
+  assert.equal(multi.current()?.entry.key, proposal.key);
+  assert.equal(multi.back(), true, '← steps over the uncertain card to the earlier skipped card');
+  assert.equal(multi.current()?.entry.key, step.key);
+  assert.ok(!multi.upcoming().some(e => e.key === walk.key), 'upcoming omits the uncertain item');
+  assert.equal(multi.forward(), true, '→ steps over the uncertain card');
+  assert.equal(multi.current()?.entry.key, proposal.key);
+  assert.equal(multi.back(), true);
+  multi.choose('not-now');
+  assert.equal(multi.current()?.entry.key, proposal.key, 'advancing past an earlier card skips the uncertain item');
+  multi.choose('accept');
+  await c.tick(); await settledOf(multi);
+  assert.equal(multi.done(), true);
+  assert.equal(multi.back(), false);
+  assert.deepEqual(calls.filter(x => x.url === '/api/projects/studio/decisions/apply').map(x => x.body.previewId), ['1'.repeat(64), '2'.repeat(64)], 'one apply for the walk, one for the proposal');
+  assert.deepEqual(multi.again.map(x => [x.key, x.retry, x.link]), [[walk.key, false, `/projects/studio/operations/${'1'.repeat(64)}`]]);
+});
+
 test('an answer that needs a why waits for it', async () => {
   // The proposal's card first (the docket puts the step and the claim before it, phase 175).
   const docket = docketItems(reviewSnapshot()), items = [docket.find(e => e.kind === 'proposal'), ...docket.filter(e => e.kind !== 'proposal')], c = clock(), sent = [];
