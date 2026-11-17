@@ -3,7 +3,7 @@ status: planned
 since: 2026-11-17
 goal: G7
 spec: 2
-depends: [194, 181]
+depends: [194, 181, 192]
 note: "The owner asked to radically simplify the hosted workspace (2026-11-17) and approved a clickable mock: a backlog, the agents on it, and the decisions only the owner can make."
 evidence: []
 ---
@@ -72,7 +72,12 @@ renders. Colours come from design tokens, never page literals.
    same cards; then one ordered **Backlog**: each item one line with its state
    (Ready, Agent working, Needs you, Done), its title, who is on it; a Ready
    item has **Assign** (the routes this plate offers: a Rex harness, a session,
-   Codex where configured), which is attach (181) with its preview and claim;
+   Codex where configured), which is attach (181) with its preview and claim.
+   Assign recommends the agent with the most room by the quota snapshot plates
+   already reads (phase 192's room check, phase 106's routing policy) and says
+   why in a few words ("Codex: 54% of its week left; Claude's Fable allowance
+   resets Wednesday"); an unknown or stale snapshot recommends nothing and
+   says so;
    an item opens to its Done when and Next, rendered. No main → production row
    when they match; when they do not, the Deploy card.
 3. **The channel is a chat.** Agents with an avatar and grouped bubbles,
@@ -92,6 +97,7 @@ reachable by URL until increment 4.
 - [ ] Home shows a chip per project; a green one has no text beyond its name; a non-green one names its most urgent reason, and red sorts before yellow before green: `tests/web-simple-home.test.mjs`.
 - [ ] Every Needs-you card answers in place through the docket's answer path, and a waiting deploy is a card whose Deploy runs the checked promote only: `tests/web-simple-home.test.mjs`.
 - [ ] The project page shows one ordered backlog with four states, Assign on ready items through attach, and no main → production row when they match: `tests/web-simple-project.test.mjs`.
+- [ ] Assign recommends the agent with the most room by the quota snapshot and explains it; a stale or unknown snapshot recommends nothing: `tests/web-simple-project.test.mjs`.
 - [ ] The channel renders as a chat with a composer, and the CLI prints the same lines: `tests/channel.test.mjs`.
 - [ ] No empty section is drawn, no raw markdown is shown, and the screens use only item, agent and decision: `tests/web-simple-copy.test.mjs`.
 - [ ] `plates home` and the site render one model for Home and a project: the isomorphism tests.
@@ -130,3 +136,4 @@ Build increment 1, Home.
 ## Trajectory
 
 - **2026-11-17** — The owner approved a clickable mock of the three-thing model and asked for non-green projects to say why on their chip.
+- **2026-11-17** — The owner asked that quota decide which models do the work. Assign reuses the quota snapshot plates already reads for audits (192) and the routing policy (106) rather than a new mechanism.
