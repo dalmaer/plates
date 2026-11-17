@@ -13,7 +13,8 @@
 --   'list-marked' marks the owner's row true and the device's row false; an owner
 --   post whose digest is a device key's, or whose session is not its digest, is
 --   refused; the owner's eleventh line within a minute on one plate is refused as too
---   frequent; an oversized owner record and an unknown operation are refused.
+--   frequent; an oversized owner record and an unknown operation are refused;
+--   owner-post takes its time after the lock, so concurrent owner lines are stored in order.
 -- Leaves behind: nothing. The synthetic Acme rows are written inside a
 --   subtransaction that is rolled back on success; the last check fails if any survived.
 -- Expected result: one row, result = 'PASS 025-channel-owner-lines hosted proof'. Any
@@ -42,6 +43,9 @@ begin
  if to_regprocedure(rpc) is null then raise exception 'missing function %',rpc; end if;
  if not exists(select 1 from pg_proc where oid=to_regprocedure(rpc) and prosecdef and prorettype='jsonb'::regtype and proconfig @> array['search_path=""']) then raise exception '% is not SECURITY DEFINER jsonb with an empty search_path',rpc; end if;
  if (select prosrc from pg_proc where oid=to_regprocedure(rpc)) not like '%owner-post%' then raise exception 'public.plates_channel_rpc has no owner-post operation (025 not applied)'; end if;
+ if (select position('pg_catalog.pg_advisory_xact_lock' in b) < position('stamp := clock_timestamp();' in b) and position('stamp := clock_timestamp();' in b) < position('values(p_scope' in b)
+  from (select substr(prosrc, position('p_operation = ''owner-post'' then' in prosrc)) b from pg_proc where oid=to_regprocedure(rpc)) owner_block) is not true
+  then raise exception 'owner-post takes its time before the lock: concurrent owner lines could be stored out of order'; end if;
  if has_function_privilege('anon',rpc,'EXECUTE') or has_function_privilege('authenticated',rpc,'EXECUTE') then raise exception 'a browser role can execute public.plates_channel_rpc'; end if;
  if not has_function_privilege('service_role',rpc,'EXECUTE') then raise exception 'service_role cannot execute %',rpc; end if;
  if exists(select 1 from plates_home.channel_posts where scope=scope_key) or exists(select 1 from plates_home.device_keys where scope=scope_key) then raise exception 'Acme proof rows already present'; end if;

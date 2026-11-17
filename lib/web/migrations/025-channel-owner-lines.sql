@@ -11,7 +11,8 @@
 --                is refused). No device key check: the RPC is service-role
 --                only, and the service authenticates the site session. The
 --                same 2048-byte record, 14 days and 500 per project; at most 10
---                of the owner's lines per project per minute.
+--                of the owner's lines per project per minute. Its time is taken
+--                after the lock, so concurrent owner lines are stored in order.
 --  'list-marked' 'list' with each row's owner mark: true when its device
 --                column is the owner digest the service passes.
 -- The table is unchanged: ciphertext, opaque digests and timestamps only.
@@ -40,6 +41,8 @@ begin
  if p_operation = 'owner-post' then
   if p_session is null or p_device is null or p_session <> p_device or p_value is null or octet_length(p_value) > 2048 or p_since is not null then raise exception 'invalid channel owner post'; end if;
   perform pg_catalog.pg_advisory_xact_lock(hashtextextended('plates-channel-posts', 24));
+  -- Stamped under the lock, so the owner's lines are stored in the order they were written: an inbox cursor never passes a line still being written.
+  stamp := clock_timestamp();
   -- The owner's digest is never a device key's: a line from a device goes through 'post' and its key.
   if exists (select 1 from plates_home.device_keys where scope = p_scope and device = p_device) then raise exception 'invalid channel owner post'; end if;
   delete from plates_home.channel_posts where posted_at < stamp - interval '14 days';
