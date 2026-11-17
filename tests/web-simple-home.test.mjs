@@ -14,7 +14,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { homeSnapshot, homeSections, GLANCE_TONES, DEPLOY_WHERE } from '../lib/work-items.mjs';
 import { homeView, renderHomeSnapshot, renderGlance } from '../lib/web/views.mjs';
 import { glanceLines, homeText } from '../lib/home.mjs';
-import { createCardAnswers, cardStatus } from '../lib/web/home-client.mjs';
+import { createCardAnswers, cardStatus, leaveGuard } from '../lib/web/home-client.mjs';
 import { createWebSender } from '../lib/web/review-client.mjs';
 import { projectHarness } from './helpers/web-projects.mjs';
 import { createWebService } from '../lib/web/server.mjs';
@@ -86,7 +86,7 @@ test('the chips render as the model says, and the terminal prints the same chips
 
 // ---- Acceptance 2: cards answer in place ----------------------------------------------
 test('Needs you: one card per decision, the recommended answer filled, a one-line why and More; nothing when nothing waits', () => {
-  const data = snapshot(), { cards } = data.home.glance, html = renderHomeSnapshot(data);
+  const data = snapshot(plates(), { can: { form: 'web', decisionWrites: true } }), { cards } = data.home.glance, html = renderHomeSnapshot(data);
   // What agents wait on first, then production behind main, then the rest of the docket.
   // (A review at its round limit is one an agent waits on.)
   assert.deepEqual(cards.map(c => c.key), ['api:step:7', 'anvils:review:12', `api:deploy:${SHA(1)}`, `studio:deploy:${SHA(1)}`, 'api:walk:8', 'studio:walk:3']);
@@ -106,7 +106,7 @@ test('Needs you: one card per decision, the recommended answer filled, a one-lin
   assert.match(page, /<a class="nav-needs" href="#needs-you" data-needs-count hidden>0 need you<\/a>/);
   // The terminal prints the same cards, with the command that answers each.
   const text = glanceLines(data.home.glance, data).join('\n');
-  assert.match(text, /^ {2}Acme API · Does the Acme 8 flow work\?\n {6}A person uses the real surface\.\n {6}Works \(recommended\) \| Needs changes \| Not now\n {6}answer: plates home --answer api:walk:8 <choice-works\?\|choice-needs-changes\?\|not-now>/m);
+  assert.match(text, /^ {2}Acme API · Does the Acme 8 flow work\?\n {6}A person uses the real surface\.\n {6}Works \(recommended\) \| Needs changes \| Not now\n {6}answer: plates home --answer api:walk:8 <choice-works\|choice-needs-changes\|not-now>/m);
 });
 
 test('Deploy runs the checked promote only: the card is its command, in no write route, and only while production is behind main', () => {
@@ -134,7 +134,7 @@ test('Deploy runs the checked promote only: the card is its command, in no write
 test('a card\'s answer is held with Undo, then sent through the docket\'s answer path with the page\'s CSRF token', async () => {
   const sent = [], timers = [], fetch = async (url, options) => {
     const body = JSON.parse(options.body); sent.push([url, body]);
-    if (url === '/api/home/answer' && body.answer === 'choice-works') return Response.json({ schema: 1, state: 'preview', preview: { id: 'p'.repeat(64), canSubmit: true, digest: null, operationUrl: '/projects/api/operations/o1' } });
+    if (url === '/api/home/answer' && body.answer === 'choice-works') return Response.json({ schema: 1, state: 'preview', preview: { id: 'p'.repeat(64), canSubmit: true, digest: null, consequence: 'Records Works on Acme walk 3.', operationUrl: '/projects/api/operations/o1' } });
     if (url === '/api/home/answer') return Response.json({ schema: 1, state: 'written', until: '2026-11-24' });
     if (/^\/api\/projects\/[a-z]+\/decisions\/apply$/.test(url)) return Response.json({ state: 'committed', receipt: { url: 'https://github.com/acme/api/commit/abc' } });
     return new Response('{}', { status: 404 });
@@ -153,11 +153,17 @@ test('a card\'s answer is held with Undo, then sent through the docket\'s answer
   assert.deepEqual([answers.state(card.key).state, answers.state(card.key).until], ['put-off', '2026-11-24']);
   assert.match(cardStatus(answers.state(card.key)), /You answered: <strong>Not now<\/strong>\. It comes back on 2026-11-24\./);
   assert.equal(answers.choose(card.key, notNow).error, 'busy', 'an answered card is not answered twice');
-  // A walk's choice: its preview is asked for at the tap (it writes nothing), and that exact preview is applied when the hold ends.
+  // A walk's choice (PR #497 review): its preview is asked for at the tap and writes nothing; its consequence is shown on
+  // the card, and only then does the hold (with Undo) start; that exact preview is applied when the hold ends.
   const other = data.home.glance.cards.find(c => c.key === 'studio:walk:3');
-  sent.length = 0; answers.choose(other.key, other.answers.find(a => a.id === 'choice-works'));
-  await new Promise(r => setTimeout(r, 0));
+  sent.length = 0; const before = timers.length;
+  const { preparing } = answers.choose(other.key, other.answers.find(a => a.id === 'choice-works'));
+  assert.equal(answers.state(other.key).state, 'preparing'); assert.equal(timers.length, before, 'no hold before the consequence is shown');
+  assert.match(cardStatus(answers.state(other.key)), /Checking what <strong>Works<\/strong> will do…/);
+  assert.ok((await preparing).held);
   assert.deepEqual(sent, [['/api/home/answer', { csrf: 'fake-csrf-acme', key: 'studio:walk:3', answer: 'choice-works' }]], 'the preview, at the tap');
+  assert.match(cardStatus(answers.state(other.key)), /You answered: <strong>Works<\/strong> — Records Works on Acme walk 3\. <button type="button" class="quiet" data-undo>Undo<\/button>/);
+  assert.equal(timers.length, before + 1, 'the hold starts after the consequence is shown');
   await timers.at(-1).f();
   assert.deepEqual(sent[1], ['/api/projects/studio/decisions/apply', { csrf: 'fake-csrf-acme', previewId: 'p'.repeat(64) }]);
   assert.equal(answers.state(other.key).state, 'settled');
@@ -219,4 +225,55 @@ test('every card answers through the existing answer route and its protections, 
   const r = await post({ key, answer: 'not-now', csrf });
   assert.equal(r.status, 200); assert.equal((await r.json()).state, 'written');
   assert.ok(!(await page()).includes(`data-card="${key}"`), 'the answered card is gone');
+});
+
+// PR #497 review: a refused preview comes back on the card and starts no hold.
+test('a refused preview is shown on the card and nothing is held or applied', async () => {
+  const timers = [], answers = createCardAnswers({ send: async () => assert.fail('nothing is sent'), prepare: async () => ({ refusal: 'Submission is disabled until the owner enables decision writes.' }), timers: { setTimeout: f => { timers.push(f); return 1; }, clearTimeout: () => {} } });
+  const r = answers.choose('studio:walk:3', { id: 'choice-works', label: 'Works', needsWhy: 'never', writer: 'walk done' });
+  assert.deepEqual(await r.preparing, { error: 'refused' }); assert.equal(timers.length, 0);
+  assert.match(cardStatus(answers.state('studio:walk:3')), /Not answered: Submission is disabled/);
+});
+
+// PR #497 review: a walk card keeps its way into the guided walks; a guided one leads with it.
+test('a walk card keeps its guided-walk action', () => {
+  const html = renderHomeSnapshot(snapshot()), li = html.match(/<li class="glance-card p-card" data-card="api:walk:8"[\s\S]*?<\/li>(?=<li class="glance-card|<\/ol>)/)[0];
+  assert.match(li, /<a class="button glance-answer" data-walk-link data-focus="walk-api:walk:8" href="\/projects\/api\/walks">Guided walks<\/a>/);
+  const guided = snapshot([base('api', 'Acme API', { walks: [walk('api', 'Acme API', '8', { guided: true })] })], { can: { form: 'web', decisionWrites: true } });
+  const g = renderHomeSnapshot(guided);
+  assert.match(g, /<a class="button glance-answer" data-recommended="true" data-walk-link data-focus="walk-api:walk:8" href="\/projects\/api\/walks">Start the guided walk<\/a>/);
+  assert.doesNotMatch(g, /data-recommended="true" data-answer="choice-works"/, 'its unavailable choice is not the filled one');
+  assert.doesNotMatch(renderHomeSnapshot(snapshot([base('api', 'Acme API', { decisions: [step('api', 'Acme API', '7')] })])), /data-walk-link/, 'only walks');
+});
+
+// PR #497 review: leaving with an answer pending sends it (keepalive) and asks the browser to confirm; nothing pending, nothing asked.
+test('leaving the page never drops a held answer', async () => {
+  const sent = [], timers = [], answers = createCardAnswers({ send: async hold => { sent.push(hold.entry.key); return { state: 'put-off', until: '2026-11-24' }; }, timers: { setTimeout: f => { timers.push(f); return 1; }, clearTimeout: () => {} } });
+  const guard = leaveGuard(answers), event = () => ({ prevented: false, preventDefault() { this.prevented = true; } });
+  const idle = event(); assert.equal(guard(idle), false); assert.equal(idle.prevented, false);
+  answers.choose('api:walk:8', { id: 'not-now', label: 'Not now', needsWhy: 'never', writer: 'not now' });
+  assert.equal(answers.pending(), true);
+  const leaving = event(); assert.equal(guard(leaving), true);
+  assert.equal(leaving.prevented, true); assert.equal(leaving.returnValue, '');
+  await new Promise(r => setTimeout(r, 0));
+  assert.deepEqual(sent, ['api:walk:8'], 'flushed, not dropped'); assert.equal(answers.pending(), false);
+  // The page's sender keeps the request alive as the page unloads.
+  const source = await readFile(new URL('../lib/web/home-client.mjs', import.meta.url), 'utf8');
+  assert.match(source, /fetch\(url, \{ \.\.\.options, keepalive: true \}\)/); assert.match(source, /addEventListener\?\.\('beforeunload', guard\)/);
+});
+
+// PR #497 review: after a refresh, an answered card stays answered while its source is unchanged, and shows fresh once it changed.
+test('settled answers are reconciled against refreshed cards', async () => {
+  const timers = [], answers = createCardAnswers({ send: async () => ({ state: 'settled', link: null }), timers: { setTimeout: f => { timers.push(f); return 1; }, clearTimeout: () => {} } });
+  const nn = { id: 'not-now', label: 'Not now', needsWhy: 'never', writer: 'not now' };
+  for (const key of ['a:walk:1', 'b:walk:2', 'c:walk:3']) { answers.choose(key, nn, { source: `${key}@1` }); await timers.at(-1)(); }
+  answers.choose('d:walk:4', nn, { source: 'd@1' });
+  answers.reconcile(new Map([['a:walk:1', 'a:walk:1@1'], ['b:walk:2', 'b:walk:2@2'], ['d:walk:4', 'd@2']]));
+  assert.equal(answers.state('a:walk:1').state, 'settled', 'unchanged and still drawn: stays answered, its answers hidden');
+  assert.equal(answers.state('b:walk:2'), null, 'its source changed: shown fresh');
+  assert.equal(answers.state('c:walk:3'), null, 'gone from Home: forgotten');
+  assert.equal(answers.state('d:walk:4').state, 'held', 'a held answer is never dropped by a refresh');
+  // The fingerprint is drawn on every card from its question, why and answers.
+  const html = renderHomeSnapshot(snapshot());
+  assert.match(html, /data-card="api:walk:8" data-kind="walk" data-source="Does the Acme 8 flow work\?\u001fA person uses the \*\*real\*\* surface\.\u001fchoice-works\u001fchoice-needs-changes\u001fnot-now"/);
 });
