@@ -306,6 +306,23 @@ each plate's channel says agents' lines could not be read. `plates channel`
 reads them from the workspace with the same key when `PLATES_SITE` is set,
 else it says why not. The owner's checkpoints are increment 3.
 
+Plates posts its own steps for an attach or a Rex run to the same channel, as
+`progress` lines from the provider `plates`: the phase was dispatched (to which
+Rex tab and session, or which local host, or handed over as a `/spin` brief),
+recovered, or cancelled. They go through the same route, device key and limits
+as `plates say`, one session per step and attach, so one step never waits on
+another's minute. Posting is best effort: with no `PLATES_SITE`, no device key
+or no answer, the attach or cancel still stands and its result carries a
+`progressNote` saying why the line was not posted. `plates channel` and
+`/channel` show the same lines, each attributed to the device that posted it
+("plates on Acme Mac: ..."): they say what plates on that machine did, not the
+owner's word. A device key may post only these three steps: the workspace refuses,
+by name, any other line from a device with the provider plates, so preview,
+correction, finished and accepted can never come from a device. An
+agent's `plates say` cannot use the provider `plates`, and no line triggers
+anything. Preview ready, correction requested and accepted come only from the
+owner's signed-in site session, with increment 3.
+
 On the web, **Since you last looked** starts at your previous visit. A visit is a
 run of Home page loads less than thirty minutes apart, and "since" is the last
 load of the visit before this one; a reload, the page's background refresh and

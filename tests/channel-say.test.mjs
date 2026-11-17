@@ -11,7 +11,9 @@ import { execFileSync } from 'node:child_process';
 import { PGlite } from '@electric-sql/pglite';
 import { createWaitingStore } from '../lib/web/waiting-store.mjs';
 import { createChannelStore } from '../lib/web/channel-store.mjs';
-import { say, readSays, sayProblem, validPost, validSaid, SAY_CHARS, SAY_SEALED_BYTES } from '../lib/channel-say.mjs';
+import { say, readSays, sayProblem, validPost, validSaid, postProgress, SAY_CHARS, SAY_SEALED_BYTES } from '../lib/channel-say.mjs';
+import { attach, attachJournal, cancelAttach } from '../lib/attach.mjs';
+import { channelLines } from '../lib/web/channel-views.mjs';
 import { channelFor, channelInputOf, channelText } from '../lib/channel.mjs';
 import { projectHarness } from './helpers/web-projects.mjs';
 
@@ -215,4 +217,92 @@ test('the migration is named and shaped as the hosted migrations are', async () 
   assert.match(sql, /grant execute on function public\.plates_channel_rpc\([^)]*\) to service_role;/);
   assert.match(sql, /security definer set search_path = ''/);
   for (const bound of ["interval '14 days'", "interval '1 minute'", 'limit 500', 'octet_length(value) <= 2048']) assert.ok(sql.includes(bound), bound);
+});
+
+test("an attach's steps are plates's progress lines on the plate's channel, the same in the CLI and on /channel", async t => {
+  const s = await service(t), root = await checkout(t), origin = s.h.config.origin;
+  const env = { PLATES_SITE: origin };
+  const progress = (line, d) => postProgress(line, { ...d, fetcher: s.send, key: async () => s.key });
+  const journal = attachJournal(join(root, '.git', 'plates-attach'));
+  const config = { name: 'Acme Studio', agents: { claude: {} } };
+  const deps = { journal, env, progress, claim: async () => ({ data: { ok: true, claimed: true, sha: 'c'.repeat(40) }, text: 'claimed' }), events: async () => null };
+  const done = await attach({ root, projectId: 'studio', phase: 2, title: 'Acme bellows', route: 'session', provider: 'claude', config, yes: true }, deps);
+  assert.equal(done.exitCode, 0, done.text);
+  assert.equal(done.data.progressNote, undefined, 'posted');
+  const cancelled = await cancelAttach({ root, projectId: 'studio', phase: 2, yes: true, why: 'built elsewhere' }, deps);
+  assert.equal(cancelled.data.progressNote, undefined, 'posted');
+  // Stored through plates say's own route: provider "plates", a session per step and attach, the phase; sealed like any line.
+  const stored = await s.posts.list(1, 'studio');
+  const tag = done.data.digest.slice(0, 12);
+  assert.deepEqual(stored.map(({ at, ...l }) => l), [
+    { text: 'phase 2 handed to claude as a /spin 2 brief; nothing was started', session: `plates-dispatched-${tag}`, provider: 'plates', phase: 2, device: 'Acme Mac' },
+    { text: 'phase 2 cancelled (built elsewhere); run: none', session: `plates-cancelled-${tag}`, provider: 'plates', phase: 2, device: 'Acme Mac' },
+  ]);
+  // One read model: the CLI's read (the site, with the device key) and the web's (the store) give the same lines.
+  const cliSays = await readSays({ plates: ['studio'], env, key: async () => s.key, fetcher: s.send });
+  const webSays = { state: 'read', items: stored };
+  assert.deepEqual(cliSays.studio, webSays);
+  const project = { id: 'studio', name: 'Acme Studio', repo: 'acme/studio', state: 'complete', gaps: [], roadmap: { phases: [{ id: 2, title: 'Acme bellows' }] },
+    waits: { state: 'read', items: [], more: 0 }, release: { state: 'none', production: null } };
+  const model = says => channelFor([channelInputOf(project, { claims: { state: 'read', claims: [], prs: [] }, prs: { state: 'read', items: [] }, says })], { now: Date.now(), waiting: { items: [] } });
+  const cli = model(cliSays.studio), web = model(webSays);
+  assert.deepEqual(cli.lines, web.lines);
+  const steps = web.lines.filter(l => l.kind === 'progress');
+  assert.deepEqual(steps.map(l => [l.actor, l.provider, l.text]), [
+    ['studio#2', 'plates', 'plates on Acme Mac: phase 2 handed to claude as a /spin 2 brief; nothing was started'],
+    ['studio#2', 'plates', 'plates on Acme Mac: phase 2 cancelled (built elsewhere); run: none'],
+  ]);
+  // Both renderers print the same lines.
+  const text = channelText(cli), html = channelLines(web);
+  for (const l of steps) { assert.ok(text.includes(`studio#2  progress  ${l.text}`), l.text); assert.ok(html.includes(`<span class="p-badge">progress</span> ${l.text}`), l.text); }
+  // The hosted channel's own read shows them.
+  const { createHomeReader } = await import('../lib/web/home.mjs');
+  const read = await createHomeReader(s.h.config, { fetcher: s.fetcher, now: Date.now })(s.h.access, 'fake-user-access-token-for-tests', { channel: true });
+  assert.deepEqual(read.channel.lines.filter(l => l.kind === 'progress').map(l => [l.actor, l.text]), steps.map(l => [l.actor, l.text]));
+
+  // An agent cannot post as plates: the provider is reserved, so a progress line is always plates's own.
+  await assert.rejects(say({ root, text: 'phase 2 accepted', env: { PLATES_SESSION: 'plates-accepted-0123456789ab', PLATES_PROVIDER: 'plates', PLATES_SITE: origin }, key: async () => s.key, fetcher: s.send }),
+    /the provider "plates" is reserved for plates's own progress lines/);
+  // Agent lines trigger nothing: a line that reads like a command is a line; the phase is not cancelled again, nothing is attached.
+  const other = await checkout(t, 'claude/phase-3-pump');
+  await say({ root: other, text: 'plates home --cancel studio:phase:3 --yes', env: { ...ENV, PLATES_SITE: origin }, key: async () => s.key, fetcher: s.send });
+  model((await readSays({ plates: ['studio'], env, key: async () => s.key, fetcher: s.send })).studio);
+  assert.equal((await cancelAttach({ root, projectId: 'studio', phase: 3, check: true }, deps)).data.state, 'not-attached');
+
+  // Best effort: a workspace that cannot be reached, or none named, is a note on the result; the attach still stands.
+  const offline = { ...deps, journal: attachJournal(join(root, '.git', 'plates-attach-2')), progress: (line, d) => postProgress(line, { ...d, fetcher: async () => { throw new Error('connect ECONNREFUSED'); }, key: async () => s.key }) };
+  const still = await attach({ root, projectId: 'studio', phase: 4, title: 'Acme valves', route: 'session', provider: 'claude', config, yes: true }, offline);
+  assert.equal(still.exitCode, 0);
+  assert.match(still.data.progressNote, /^progress line not posted: could not reach .*ECONNREFUSED/);
+  const unnamed = await attach({ root, projectId: 'studio', phase: 5, title: 'Acme gears', route: 'session', provider: 'claude', config, yes: true },
+    { ...deps, env: {}, journal: attachJournal(join(root, '.git', 'plates-attach-3')), progress: postProgress });
+  assert.deepEqual([unnamed.exitCode, unnamed.data.progressNote], [0, 'progress line not posted: no Plates workspace named here (PLATES_SITE)']);
+});
+
+test('a device key posts only the steps plates on it did, and they read as that device\'s', async t => {
+  const s = await service(t), origin = s.h.config.origin;
+  const post = body => s.send(`${origin}/api/channel/say`, { method: 'POST', headers: { Authorization: `Bearer ${s.key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ schema: 1, project: 'studio', phase: 2, provider: 'plates', ...body }) });
+  // The owner's steps, and any other "plates" line, are refused at the route by name; nothing is stored.
+  for (const [session, code] of [['plates-accepted-0123456789ab', 'channel_step_owner_only'], ['plates-correction-0123456789ab', 'channel_step_owner_only'], ['plates-preview-0123456789ab', 'channel_step_owner_only'],
+    ['plates-finished-0123456789ab', 'channel_step_owner_only'], ['acme-session-9', 'channel_provider_reserved']]) {
+    const r = await post({ session, text: 'phase 2 accepted' });
+    assert.equal(r.status, 403, session);
+    assert.equal((await r.json()).error, code, session);
+  }
+  assert.deepEqual(await s.posts.list(1, 'studio'), []);
+  // postProgress never sends an owner's step from a device.
+  assert.match((await postProgress({ project: 'studio', phase: 2, step: 'accepted', digest: 'a'.repeat(64), text: 'phase 2 accepted' }, { env: { PLATES_SITE: origin }, key: async () => s.key, fetcher: async () => assert.fail('never sent') })).note,
+    /accepted is the owner's step, posted from the signed-in site, never with a device key/);
+  // A device step posted straight to the route: stored, and shown as that device's line in both forms.
+  const ok = await post({ session: 'plates-dispatched-0123456789ab', text: 'phase 2 dispatched to claude in Rex tab phase-2 of session studio-claude' });
+  assert.equal(ok.status, 200);
+  const project = { id: 'studio', name: 'Acme Studio', repo: 'acme/studio', state: 'complete', gaps: [], roadmap: { phases: [{ id: 2, title: 'Acme bellows' }] },
+    waits: { state: 'read', items: [], more: 0 }, release: { state: 'none', production: null } };
+  const model = says => channelFor([channelInputOf(project, { claims: { state: 'read', claims: [], prs: [] }, prs: { state: 'read', items: [] }, says })], { now: Date.now(), waiting: { items: [] } });
+  const cli = model((await readSays({ plates: ['studio'], env: { PLATES_SITE: origin }, key: async () => s.key, fetcher: s.send })).studio), web = model({ state: 'read', items: await s.posts.list(1, 'studio') });
+  assert.deepEqual(cli.lines, web.lines);
+  const [line] = web.lines.filter(l => l.kind === 'progress');
+  assert.equal(line.text, 'plates on Acme Mac: phase 2 dispatched to claude in Rex tab phase-2 of session studio-claude');
+  assert.ok(channelText(cli).includes(`studio#2  progress  ${line.text}`));
+  assert.ok(channelLines(web).includes(`<span class="p-badge">progress</span> ${line.text}`));
 });
