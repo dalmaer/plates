@@ -276,13 +276,14 @@ async function bothForms({ says = [] } = {}) {
     { number: 22, title: 'Acme bump', url: 'https://github.com/acme/studio/pull/22', createdAt: at(70 * 60_000), isDraft: true, reviewDecision: null, autoMergeRequest: null, author: { login: 'renovate' }, headRefName: 'renovate/bump', state: 'OPEN' },
   ];
   const answer = data => Response.json({ data: { rateLimit: rate, ...data } }, { headers: { 'x-ratelimit-remaining': '4000', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 3600) } });
-  // Agents' own lines (SQL024), sealed as the store seals them; the store honours p_since, as plates_channel_rpc does.
+  // Agents' own lines (SQL024), sealed as the store seals them; the store honours p_since, as plates_channel_rpc does. The
+  // store reads with the owner mark (SQL025's list-marked): none of these is the owner's.
   const said = says.map(l => ({ ...l, at: at(l.ago) }));
   const fetcher = async (url, options) => {
     if (new URL(url).pathname.endsWith('/rpc/plates_channel_rpc')) {
       const body = JSON.parse(options.body), scope = createWaitingStore(h.config).scopeFor(h.access.userId), project = createChannelStore(h.config).projectFor(scope, 'studio');
-      if (body.p_operation !== 'list' || body.p_scope !== scope || body.p_project !== project) return Response.json({ items: [] });
-      return Response.json({ items: said.filter(l => !body.p_since || l.at > body.p_since).map(({ at: postedAt, ago: _, ...l }) => ({ value: seal(l, h.config.encryptionKey, `channel-post-v1:${scope}:${project}`), postedAt })) });
+      if (!['list', 'list-marked'].includes(body.p_operation) || body.p_scope !== scope || body.p_project !== project) return Response.json({ items: [] });
+      return Response.json({ items: said.filter(l => !body.p_since || l.at > body.p_since).map(({ at: postedAt, ago: _, ...l }) => ({ value: seal(l, h.config.encryptionKey, `channel-post-v1:${scope}:${project}`), postedAt, ...(body.p_operation === 'list-marked' ? { owner: false } : {}) })) });
     }
     if (new URL(url).pathname !== '/graphql') return h.fetcher(url, options);
     const { query, variables } = JSON.parse(options.body);
@@ -364,7 +365,10 @@ test('the CLI and the web show one channel', async () => {
     const { renderHomeSnapshot } = await import('../lib/web/views.mjs');
     assert.match(renderHomeSnapshot(plate, { projectId: 'studio' }), /<section class="home-section" id="channel" aria-labelledby="channel-title" data-channel><div class="section-heading"><h2 id="channel-title">Channel<\/h2>/);
     assert.match(page, /<footer class="plates-footer" data-page-footer>[^]*<a href="\/channel">Channel<\/a>/);
-    assert.doesNotMatch(/<main[^]*<\/main>/.exec(page)[0] + section, /<form|<input|<textarea|method=/i, 'read only: nothing to post');
+    // The one form is the owner's line on /channel (increment 3), outside the part the client renders again; the plate's section links to it.
+    assert.deepEqual([.../<main[^]*<\/main>/.exec(page)[0].matchAll(/<form [^>]*>/g)].map(m => m[0]), ['<form method="post" action="/channel/post">']);
+    assert.doesNotMatch(renderChannel(web) + section, /<form|<input|<textarea|method=/i, 'the feed and the section post nothing');
+    assert.match(section, /<a href="\/channel#post">/);
     // One plate, by name; a plate that is not here is refused.
     const one = s.cli(['studio', '--json', '--since', '30m']);
     assert.equal(one.status, 0, one.stderr);

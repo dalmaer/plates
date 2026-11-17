@@ -79,6 +79,9 @@ const PROOFS = [
   { migration: '024-channel-posts.sql', proof: '2026-11-16-web-channel-posts-hosted-proof.sql',
     wrong: 'grant execute on function public.plates_channel_rpc(text,text,text,text,text,text,timestamptz) to authenticated',
     refused: /a browser role can execute public\.plates_channel_rpc/ },
+  { migration: '025-channel-owner-lines.sql', proof: '2026-11-16-web-channel-owner-lines-hosted-proof.sql',
+    wrong: 'grant execute on function public.plates_channel_rpc(text,text,text,text,text,text,timestamptz) to anon',
+    refused: /a browser role can execute public\.plates_channel_rpc/ },
 ];
 
 const RACE = '/* TWO-CONNECTION RACE';
