@@ -206,8 +206,9 @@ test('a single plate home carries its backlog and claims with a source-bound cur
   assert.equal(first.backlog.lanes[0].items[0].holder.provider, 'codex');
   assert.ok(first.backlog.lanes.flatMap(l=>l.items).every(i=>i.projectId==='studio'));
   const html = await (await s.get('/projects/studio')).text();
-  assert.match(html,/data-plate-workspace/);
-  assert.match(html,/data-message-key="studio:phase:1"/);
+  assert.match(html,/class="home-section simple-backlog"/);
+  assert.match(html,/data-item="studio:phase:1"/);
+  assert.equal(first.projectWorkspace.items[0].state,'Agent working');
   assert.equal((await s.get('/api/projects/missing/home')).status,404);
   assert.equal((await s.web(s.h.request('/api/projects/studio/home'))).status,401);
   const prior = first.cursor;

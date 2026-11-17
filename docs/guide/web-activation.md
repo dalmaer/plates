@@ -273,6 +273,10 @@ The plan is data in [web-activation-plan.json](../specs/web-activation-plan.json
    - Needs first: phase 166.
    - Rollback: A failure inside the transaction rolls back by itself. After commit, re-apply 024-channel-posts.sql's create or replace function (its post and list are unchanged here); the form again says the channel cannot take the owner's lines. The channel keeps reading: agents' lines show as before, and the owner's lines already stored, which 024's list cannot mark, are hidden from the channel and from every inbox (never trusted, never a read fault). They stay sealed in plates_home.channel_posts until they expire (14 days) or are deleted by their owner digest; re-applying 025 shows them again.
    - Proof to record: The applied version: file name and SHA-256; docs/evidence/2026-11-16-web-channel-owner-lines-hosted-proof.sql's result (the RPC's grants, owner-post and list-marked run as the service role); one owner line naming a phase posted from the deployed /channel, and that session's plates channel inbox returning it once.
+66. **simple-project-owner-walk** (phase 196, decision, owner attends). After an approved deployment of increment 2, the owner opens the project page, reads an item, inspects Assign on its row and answers an available decision without leaving its card, then says whether the view is simpler. Full site assignment and fresh hosted quota remain unavailable until phases 181 and 192 provide those capabilities; this walk does not activate them or complete phase 196.
+   - Needs first: phases 181, 192, 194.
+   - Rollback: Revert the project presentation increment through the checked delivery path. A recorded decision or attachment keeps its existing receipt and recovery path; reverting the presentation does not reverse its effects.
+   - Proof to record: Record the exact serving revision and owner feedback in docs/evidence/2026-11-17-project-backlog.md. Keep the full decision/deploy/assign acceptance unchecked until its actual operations and the owner observation are proven.
 
 ## Still open
 

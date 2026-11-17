@@ -1,11 +1,11 @@
 ---
-status: planned
+status: partial
 since: 2026-11-17
 goal: G7
 spec: 2
-depends: [194, 181, 192]
-note: "The owner asked to radically simplify the hosted workspace (2026-11-17) and approved a clickable mock: a backlog, the agents on it, and the decisions only the owner can make."
-evidence: []
+depends: [194]
+note: "Increment 2 implements the project backlog and Assign previews in one CLI/web model. Hosted quota delivery (192), hosted attachment (181), deployment and the owner walk remain; chat and navigation cleanup are later increments."
+evidence: ["evidence/2026-11-17-project-backlog.md"]
 ---
 
 # The workspace is work, agents and decisions
@@ -96,11 +96,11 @@ reachable by URL until increment 4.
 
 - [ ] Home shows a chip per project; a green one has no text beyond its name; a non-green one names its most urgent reason, and red sorts before yellow before green: `tests/web-simple-home.test.mjs`.
 - [ ] Every Needs-you card answers in place through the docket's answer path, and a waiting deploy is a card whose Deploy runs the checked promote only: `tests/web-simple-home.test.mjs`.
-- [ ] The project page shows one ordered backlog with four states, Assign on ready items through attach, and no main → production row when they match: `tests/web-simple-project.test.mjs`.
+- [x] The project page shows one ordered backlog with four states, Assign on ready items through attach, and no main → production row when they match: `tests/web-simple-project.test.mjs`.
 - [ ] Assign recommends the agent with the most room by the quota snapshot and explains it; a stale or unknown snapshot recommends nothing: `tests/web-simple-project.test.mjs`.
 - [ ] The channel renders as a chat with a composer, and the CLI prints the same lines: `tests/channel.test.mjs`.
 - [ ] No empty section is drawn, no raw markdown is shown, and the screens use only item, agent and decision: `tests/web-simple-copy.test.mjs`.
-- [ ] `plates home` and the site render one model for Home and a project: the isomorphism tests.
+- [x] `plates home` and the site render one model for Home and a project: the isomorphism tests.
 - [ ] ⚑ By hand: the owner makes a decision, deploys, and assigns an item from the site, each without leaving the card, and says it is simpler.
 
 ## Your part
@@ -125,15 +125,23 @@ Automated: the named tests; `npm run check`. By hand: the owner's walk.
 
 ## Deliberately open
 
+- Assign on the hosted site dispatches only once phase 181's hosted apply is activated; until then the site's Assign shows the exact `plates home --attach` command to run on the owner's Mac (as Deploy shows `plates promote`), and the CLI attaches directly. The quota recommendation reuses phase 192's built room check, so 196 does not wait on 192's remaining walk.
+
+- **2026-11-17, increment 2:** the four states describe actionable work. Dependency-blocked items stay behind their prerequisite; other waiting work is collapsed with its source reason. Unknown assignment reads retain their gap and offer no Assign command. No source work is relabelled Ready.
+- **2026-11-17, increment 2:** the existing provider quota reader is loopback-only. CLI and a locally served site can read it; the hosted site reports unavailable until phase 192 increment 4 supplies hosted quota delivery. Recommendation tests do not establish that hosted delivery.
+
 - Whether goals survive as a backlog filter.
 - How Assign maps to the owner's other tool's flow (the owner will point to it).
 - Drag to reorder the backlog (needs a stored order; later).
 
 ## Next action
 
-Build increment 1, Home.
+After the increment-2 integration gate, deploy its exact tested revision with the owner's approval, then ask for the five-minute project-page walk. Hosted quota delivery remains phase 192 increment 4, and hosted attachment remains phase 181. Continue the channel and navigation increments after the owner's feedback; do not call the whole phase built.
 
 ## Trajectory
 
 - **2026-11-17** — The owner approved a clickable mock of the three-thing model and asked for non-green projects to say why on their chip.
 - **2026-11-17** — The owner asked that quota decide which models do the work. Assign reuses the quota snapshot plates already reads for audits (192) and the routing policy (106) rather than a new mechanism.
+- **2026-11-17** — Increment 1 deployed as 3d805c7. Deploy stays a copyable `plates promote` command: promote runs from the owner's checkout, and a hosted deploy would bypass its checks. Increment 2 is attached to Codex in Rex, chosen by quota (Claude 93% of its week used, Codex 48%).
+
+- **2026-11-17** — Increment 2 found that the existing backlog includes non-actionable waiting work and quota is local-only. Waiting records remain in item/source details, while missing hosted quota stays an explicit gap; neither limitation becomes fabricated readiness. See the increment-2 evidence.

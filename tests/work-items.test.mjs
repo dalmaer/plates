@@ -570,7 +570,7 @@ test('a plate\'s claims are read the way plates next reads them', async () => {
   for (const name of ['claude/phase-54-robot', 'codex/phase-7', 'work/phase-007', 'claims/phase-3', 'main', 'feature/phases-2', 'acme_phase-9x']) assert.equal(phaseOfWorkBranch(name), phaseOfBranch(name), name);
   const phase = (id, more = {}) => ({ id, file: `${id}-acme.md`, title: `Acme ${id}`, status: 'planned', goal: 'G1', depends: [], since: '2026-10-01', spec: 2, next: 'Build.', tests: ['x'], done: 'y', ...more });
   const project = { id: 'anvils', state: 'complete', gaps: [], roadmap: phaseRoadmap([phase(1), phase(2), phase(3, { goal: 'G0' }), phase(4, { depends: [9] }), phase(9, { status: 'built', evidence: ['e'] })], [{ id: 'G0', retired: true }, { id: 'G1' }]) };
-  assert.deepEqual(Object.keys(project.roadmap.phases[0]).toSorted(), ['depends', 'file', 'goal', 'id', 'next', 'since', 'spec', 'status', 'title'], 'only what the backlog reads');
+  assert.deepEqual(Object.keys(project.roadmap.phases[0]).toSorted(), ['depends', 'done', 'file', 'goal', 'id', 'next', 'since', 'spec', 'status', 'title'], 'only what the backlog reads');
   const now = '2026-11-05T12:00:00Z';
   const read = roadmapOf(project, { state: 'read', claims: [{ phase: 1, branch: 'claims/phase-1', provider: 'claude', machine: 'acme-mac', at: '2026-11-04T00:00:00.000Z' }],
     prs: [{ phase: 2, number: 7, url: 'https://github.com/acme/anvils/pull/7', branch: 'codex/phase-2-anvil', author: 'acme', at: '2026-11-03T00:00:00Z' }] }, { now });

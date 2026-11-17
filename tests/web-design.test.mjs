@@ -445,8 +445,9 @@ test('controls are styled once', () => {
 // and its agent-waiting banner, card border and row tag (2026-11-15) 450 more.
 // Phase 196: Home's chip tints are three tokens in each theme (--warn-edge, --danger-tint, --danger-edge), carried by the
 // three sheets that hold the tokens; their bytes are capped here, and the chips' and cards' own rules ship in /assets/home.css.
+// Increment 2 adds bounded on-row Assign and backlog rules beside the retained legacy project view (1,850 bytes).
 const HOME_GLANCE_TOKEN_BYTES = 1120;
-const CSS_BYTES_BEFORE_171 = 81980 + HOME_GLANCE_TOKEN_BYTES, PAGE_SHEETS_SINCE = { '/assets/plate-workspace.css': 9650, '/assets/backlog.css': 3300, '/assets/review-session.css': 450, '/assets/home.css': 3800 };
+const CSS_BYTES_BEFORE_171 = 81980 + HOME_GLANCE_TOKEN_BYTES, PAGE_SHEETS_SINCE = { '/assets/plate-workspace.css': 11500, '/assets/backlog.css': 3300, '/assets/review-session.css': 450, '/assets/home.css': 3800 };
 test('the design layer keeps its budget with a bounded Home loading addition', () => {
   const table = assets.buildAssetTable(assets.defaultSources());
   const css = [...table.entries].filter(([, entry]) => entry.type.startsWith('text/css'));

@@ -2001,6 +2001,16 @@ start was not reviewed: exit 1, saying so).
 
 <!-- topic: home | the hosted home in a terminal: one read model, two renderers -->
 
+`plates home --project <id>` includes `projectWorkspace`, the same project
+backlog model the site renders: Ready, Agent working, Needs you and Done items,
+source details, waiting dependencies and Assign preview commands. Assign uses
+only configured agents and enabled session/local-host routes. Advice reuses the
+local quota room read and ranks eligible agents by their tightest remaining
+window; unknown or stale quota recommends nobody. Hosted quota delivery and
+hosted dispatch remain unavailable. Unread assignment sources disable previews
+and remain a coverage gap. No preview command includes `--yes`.
+
+
 Additional modes (all accept `--json`):
 
 - `--backlog [--lane <lane> | --by-goal] [--since YYYY-MM-DD] [--project <id>]`
