@@ -142,5 +142,11 @@
     "providers": [
       "antigravity"
     ]
+  },
+  "backlog": {
+    "routes": [
+      "session",
+      "local-host"
+    ]
   }
 }
