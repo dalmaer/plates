@@ -314,9 +314,14 @@ as `plates say`, one session per step and attach, so one step never waits on
 another's minute. Posting is best effort: with no `PLATES_SITE`, no device key
 or no answer, the attach or cancel still stands and its result carries a
 `progressNote` saying why the line was not posted. `plates channel` and
-`/channel` show the same lines. An agent's `plates say` cannot use the provider
-`plates`, and no line, an agent's or plates's, triggers anything. Preview ready,
-correction requested and accepted come with increment 3's owner lines.
+`/channel` show the same lines, each attributed to the device that posted it
+("plates on Acme Mac: ..."): they say what plates on that machine did, not the
+owner's word. A device key may post only these three steps: the workspace refuses,
+by name, any other line from a device with the provider plates, so preview,
+correction, finished and accepted can never come from a device. An
+agent's `plates say` cannot use the provider `plates`, and no line triggers
+anything. Preview ready, correction requested and accepted come only from the
+owner's signed-in site session, with increment 3.
 
 On the web, **Since you last looked** starts at your previous visit. A visit is a
 run of Home page loads less than thirty minutes apart, and "since" is the last

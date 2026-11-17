@@ -249,8 +249,8 @@ test("an attach's steps are plates's progress lines on the plate's channel, the 
   assert.deepEqual(cli.lines, web.lines);
   const steps = web.lines.filter(l => l.kind === 'progress');
   assert.deepEqual(steps.map(l => [l.actor, l.provider, l.text]), [
-    ['studio#2', 'plates', 'plates: phase 2 handed to claude as a /spin 2 brief; nothing was started'],
-    ['studio#2', 'plates', 'plates: phase 2 cancelled (built elsewhere); run: none'],
+    ['studio#2', 'plates', 'plates on Acme Mac: phase 2 handed to claude as a /spin 2 brief; nothing was started'],
+    ['studio#2', 'plates', 'plates on Acme Mac: phase 2 cancelled (built elsewhere); run: none'],
   ]);
   // Both renderers print the same lines.
   const text = channelText(cli), html = channelLines(web);
@@ -277,4 +277,32 @@ test("an attach's steps are plates's progress lines on the plate's channel, the 
   const unnamed = await attach({ root, projectId: 'studio', phase: 5, title: 'Acme gears', route: 'session', provider: 'claude', config, yes: true },
     { ...deps, env: {}, journal: attachJournal(join(root, '.git', 'plates-attach-3')), progress: postProgress });
   assert.deepEqual([unnamed.exitCode, unnamed.data.progressNote], [0, 'progress line not posted: no Plates workspace named here (PLATES_SITE)']);
+});
+
+test('a device key posts only the steps plates on it did, and they read as that device\'s', async t => {
+  const s = await service(t), origin = s.h.config.origin;
+  const post = body => s.send(`${origin}/api/channel/say`, { method: 'POST', headers: { Authorization: `Bearer ${s.key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ schema: 1, project: 'studio', phase: 2, provider: 'plates', ...body }) });
+  // The owner's steps, and any other "plates" line, are refused at the route by name; nothing is stored.
+  for (const [session, code] of [['plates-accepted-0123456789ab', 'channel_step_owner_only'], ['plates-correction-0123456789ab', 'channel_step_owner_only'], ['plates-preview-0123456789ab', 'channel_step_owner_only'],
+    ['plates-finished-0123456789ab', 'channel_step_owner_only'], ['acme-session-9', 'channel_provider_reserved']]) {
+    const r = await post({ session, text: 'phase 2 accepted' });
+    assert.equal(r.status, 403, session);
+    assert.equal((await r.json()).error, code, session);
+  }
+  assert.deepEqual(await s.posts.list(1, 'studio'), []);
+  // postProgress never sends an owner's step from a device.
+  assert.match((await postProgress({ project: 'studio', phase: 2, step: 'accepted', digest: 'a'.repeat(64), text: 'phase 2 accepted' }, { env: { PLATES_SITE: origin }, key: async () => s.key, fetcher: async () => assert.fail('never sent') })).note,
+    /accepted is the owner's step, posted from the signed-in site, never with a device key/);
+  // A device step posted straight to the route: stored, and shown as that device's line in both forms.
+  const ok = await post({ session: 'plates-dispatched-0123456789ab', text: 'phase 2 dispatched to claude in Rex tab phase-2 of session studio-claude' });
+  assert.equal(ok.status, 200);
+  const project = { id: 'studio', name: 'Acme Studio', repo: 'acme/studio', state: 'complete', gaps: [], roadmap: { phases: [{ id: 2, title: 'Acme bellows' }] },
+    waits: { state: 'read', items: [], more: 0 }, release: { state: 'none', production: null } };
+  const model = says => channelFor([channelInputOf(project, { claims: { state: 'read', claims: [], prs: [] }, prs: { state: 'read', items: [] }, says })], { now: Date.now(), waiting: { items: [] } });
+  const cli = model((await readSays({ plates: ['studio'], env: { PLATES_SITE: origin }, key: async () => s.key, fetcher: s.send })).studio), web = model({ state: 'read', items: await s.posts.list(1, 'studio') });
+  assert.deepEqual(cli.lines, web.lines);
+  const [line] = web.lines.filter(l => l.kind === 'progress');
+  assert.equal(line.text, 'plates on Acme Mac: phase 2 dispatched to claude in Rex tab phase-2 of session studio-claude');
+  assert.ok(channelText(cli).includes(`studio#2  progress  ${line.text}`));
+  assert.ok(channelLines(web).includes(`<span class="p-badge">progress</span> ${line.text}`));
 });
