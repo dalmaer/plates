@@ -1,10 +1,10 @@
 ---
 status: partial
-since: 2026-11-15
+since: 2026-11-16
 goal: G7
 spec: 2
 depends: [183,192]
-note: "Increment 1 built: harness config, Rex detection, the runner, find-or-create tabs and state from Rex, checked against real Rex 0.1.0-preview.18. The owner's walk remains."
+note: "Increment 1 built and deployed, with two fixes: an interactive agent gets its brief as its startup prompt through a private file (#472), and the owner's cancel holds across restarts (#474, #484). The owner's walk remains: a harness on one local host, watched in Rex."
 evidence: []
 ---
 
@@ -41,7 +41,7 @@ without Rex, or without a harness, every local host behaves exactly as phase 183
   printed within the existing 60 s bound; the harness runs with `hostEnv` only. State comes from
   Rex: a running program is `running`; an exit is `finished` only when it is 0 and, for an audit,
   the findings file exists (a harness can exit 0 having written nothing), otherwise `failed`; a tab
-  Rex no longer knows is `failed`. Plates never stops a run.
+  Rex no longer knows is `failed`. Plates never stops a run, except the owner's cancel (`plates home --cancel`), which closes only the tab that attach opened.
 - **Remote hosts.** Off in this phase: `rex -S <host>` is not used. A later increment may allow a
   host only where its route is verified.
 - **Out of scope.** The night and other GitHub Actions jobs (no Rex there); hosted dispatch to a
@@ -120,3 +120,4 @@ or failed; a Rex release that changes these shows as the fallback, never as a wr
 ## Next action
 
 The owner's walk (Your part): add a harness to one local host and watch one run in Rex.
+- **2026-11-16** — The owner reported the brief never arriving in a Rex tab: the runner piped it on stdin, which an interactive `claude` or `codex` does not read as its first prompt. It now keeps the tab's terminal and passes a one-line startup prompt naming the private brief file (#472). A cancel became the one case where plates closes a tab, and only the one attach opened (#474; races closed in #484 after a deep review).
