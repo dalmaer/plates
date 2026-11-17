@@ -15,6 +15,7 @@ import { createWaitingStore } from '../lib/web/waiting-store.mjs';
 import { createChannelStore } from '../lib/web/channel-store.mjs';
 import { say, readSays } from '../lib/channel-say.mjs';
 import { inbox, addresseesOf, validOwnerPost, ownerLineProblem, addressedTo } from '../lib/channel-owner.mjs';
+import * as channelOwner from '../lib/channel-owner.mjs';
 import { channelFor, channelInputOf, channelText } from '../lib/channel.mjs';
 import { channelLines, channelView } from '../lib/web/channel-views.mjs';
 import { projectHarness } from './helpers/web-projects.mjs';
@@ -38,15 +39,16 @@ async function storeHarness(t, { upTo = '025-channel-owner-lines.sql' } = {}) {
   const fetcher = async (url, options) => {
     const fn = /\/rest\/v1\/rpc\/(plates_waiting_rpc|plates_channel_rpc)$/.exec(url)?.[1];
     assert.ok(fn, url);
-    try { return Response.json(await call(fn, JSON.parse(options.body))); } catch (error) { return Response.json({ message: String(error.message) }, { status: 400 }); }
+    // As PostgREST answers a raised exception: a 400 with the SQLSTATE (P0001 for RAISE) and the message.
+    try { return Response.json(await call(fn, JSON.parse(options.body))); } catch (error) { return Response.json({ code: error.code ?? null, message: String(error.message) }, { status: 400 }); }
   };
   return { db, fetcher, call };
 }
 
 /** The hosted service over that store, a device key for owner 1, and the owner signed in. */
 async function service(t, options) {
-  const store = await storeHarness(t, options), h = projectHarness();
-  const fetcher = async (url, init) => (/\/rest\/v1\/rpc\/plates_(waiting|channel)_rpc$/.test(new URL(url).pathname) ? store.fetcher(url, init) : h.fetcher(url, init));
+  const store = await storeHarness(t, options), h = projectHarness(), storeFetcher = options?.wrapStore ? options.wrapStore(store.fetcher) : store.fetcher;
+  const fetcher = async (url, init) => (/\/rest\/v1\/rpc\/plates_(waiting|channel)_rpc$/.test(new URL(url).pathname) ? storeFetcher(url, init) : h.fetcher(url, init));
   const { createWebService } = await import('../lib/web/server.mjs');
   const web = createWebService(h.config, { fetcher, now: Date.now });
   const { key, device } = await createWaitingStore(h.config, fetcher).createKey(1, 'Acme Mac');
@@ -276,4 +278,69 @@ test('an inbox line is returned once under concurrent asks, addressed exactly, t
   const [item] = (await ask(long)).data.items;
   assert.equal(item.envelope.target.id, long);
   assert.deepEqual(item.to, [{ session: long }]);
+});
+
+test('an owner post the workspace did not clearly refuse is uncertain, never "nothing was posted"', async t => {
+  // Each way the owner's post can fail after it was sent: the response lost after the insert committed, a 5xx, a timeout,
+  // and a 400 that is not 024's refusal of the operation.
+  let mode = null;
+  const s = await service(t, { wrapStore: real => async (url, init) => {
+    const body = JSON.parse(init.body);
+    if (body.p_operation !== 'owner-post' || !mode) return real(url, init);
+    if (mode === 'lost') { await real(url, init); throw new TypeError('fetch failed: socket hang up'); }
+    if (mode === '5xx') return Response.json({ message: 'upstream connect error' }, { status: 502 });
+    if (mode === 'timeout') throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+    return Response.json({ code: '22023', message: 'invalid channel operation' }, { status: 400 });
+  } });
+  for (const [m, text] of [['lost', '@2 committed but the answer was lost'], ['5xx', '@2 a gateway error'], ['timeout', '@2 no answer in time'], ['other400', '@2 a 400 that is not the refusal']]) {
+    mode = m;
+    const r = await s.ownerPost(text);
+    assert.equal(r.status, 503, m);
+    const page = await r.text();
+    assert.match(page, /role="alert" data-channel-notice>Not sure whether your line was posted: the workspace did not answer\. Check the channel before posting it again\./, m);
+    assert.doesNotMatch(page, /Nothing was posted|needs migration 025/, m);
+    assert.ok(page.includes(`value="${text}"`), `${m}: the line is kept in the form`);
+  }
+  mode = null;
+  // The lost answer's line really was stored: saying "nothing was posted" would have invited a duplicate.
+  assert.deepEqual((await s.posts.list(1, 'studio')).filter(l => l.kind === 'owner').map(l => l.text), ['@2 committed but the answer was lost']);
+  // Only 024's own refusal of the operation (a 400, P0001, 'invalid channel operation') says the migration is missing.
+  const before = await service(t, { upTo: '024-channel-posts.sql' });
+  const refused = await before.ownerPost('@2 before 025');
+  assert.equal(refused.status, 503);
+  assert.match(await refused.text(), /needs migration 025\. Nothing was posted\./);
+});
+
+test('an abandoned inbox lock is reclaimed by one caller at a time, and a fresh one is left alone', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'plates-inbox-lock-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const path = join(dir, 'cursor.json'), lock = `${path}.lock`, dead = '999999999:0:abandoned';
+  // Two reclaimers judge the same abandoned lock (both held at the hook until both have judged it). The first reclaims
+  // and enters; only then does the second reclaim: the worst interleaving, where an unguarded unlink would remove the
+  // first's fresh lock and let both in.
+  await writeFile(lock, dead);
+  let arrived = 0, release, entered;
+  const together = new Promise(done => { release = done; }), firstIn = new Promise(done => { entered = done; });
+  const hooks = { beforeReclaim: async () => { const order = ++arrived; if (order === 2) release(); await together; if (order === 2) await firstIn; } };
+  let inside = 0, most = 0;
+  const work = async name => { inside++; most = Math.max(most, inside); entered(); await new Promise(done => setTimeout(done, 30)); inside--; return name; };
+  const done = await Promise.all(['a', 'b'].map(name => channelOwner.withCursorLock(path, () => work(name), { hooks, pollMs: 5, waitMs: 5_000 })));
+  assert.deepEqual(done.sort(), ['a', 'b']);
+  assert.equal(arrived, 2, 'both judged the lock abandoned');
+  assert.equal(most, 1, 'exactly one was inside at a time');
+  await assert.rejects(readFile(lock), { code: 'ENOENT' });
+  await assert.rejects(readFile(`${lock}.reclaim`), { code: 'ENOENT' });
+  // A fresh, live lock replaces the abandoned one between judging and reclaiming: it is left alone, and the caller waits, then refuses.
+  await writeFile(lock, dead);
+  const fresh = `${process.pid}:${Date.now()}:fresh`;
+  let swapped = false;
+  await assert.rejects(channelOwner.withCursorLock(path, () => assert.fail('never entered'), { pollMs: 5, waitMs: 200, hooks: { beforeReclaim: async () => { if (!swapped) { swapped = true; await writeFile(lock, fresh); } } } }),
+    e => e.exitCode === 1 && /another plates channel inbox for this session is reading/.test(e.message));
+  assert.equal(await readFile(lock, 'utf8'), fresh, 'the fresh lock was not removed');
+  // A reclaim lock left behind is removed by its own short, age-only bound.
+  await writeFile(lock, dead);
+  await writeFile(`${lock}.reclaim`, '');
+  const { utimes } = await import('node:fs/promises'), old = new Date(Date.now() - 60_000);
+  await utimes(`${lock}.reclaim`, old, old);
+  assert.equal(await channelOwner.withCursorLock(path, async () => 'entered', { pollMs: 5, waitMs: 2_000 }), 'entered');
 });
