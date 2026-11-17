@@ -64,7 +64,7 @@ test('the page keeps reading while a plate is stale', async () => {
 // Phase 185: the same client serves Recurring, reading its own endpoint, and says every time in the viewer's zone.
 test('Recurring reads its own endpoint, and times are said in the viewer\'s zone', async () => {
   const { renderRecurring } = await import('../lib/web/backlog-views.mjs');
-  const { localTime } = await import('../lib/web/backlog-client.mjs');
+  const { localTime, plainGmt } = await import('../lib/web/backlog-client.mjs');
   const p = page(), asked = [];
   p.root.dataset.view = 'recurring';
   const times = [{ attrs: { datetime: '2026-11-06T07:23:00.000Z' }, dataset: { local: 'time' }, textContent: '07:23 UTC', getAttribute(k) { return this.attrs[k]; } }];
@@ -79,6 +79,10 @@ test('Recurring reads its own endpoint, and times are said in the viewer\'s zone
   assert.equal(p.timers.length, 0, 'every plate read: done');
   assert.equal(localTime('2026-11-09T10:18:00.000Z', 'weekday-time', 'Europe/London'), 'Mon, 10:18 GMT');
   assert.equal(localTime('nope', 'time'), null);
+  // ICU 79 (Homebrew's Node 26.13.1) says a zero offset "GMT+0"; the views say GMT on every build, and keep real offsets.
+  assert.equal(plainGmt('Mon, 10:18 GMT+0'), 'Mon, 10:18 GMT');
+  assert.equal(plainGmt('10:18 GMT+05:30'), '10:18 GMT+05:30');
+  assert.equal(plainGmt('10:18 GMT+01'), '10:18 GMT+01');
 });
 
 // Phase 186: the same client serves Agents, reading /api/agents while a plate loads.
