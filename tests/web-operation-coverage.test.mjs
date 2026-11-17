@@ -336,3 +336,20 @@ test('the reviewed adoption handoff stays source-bound without enabling a capabi
   assert.equal(result.ok, false);
   assert.ok(result.findings.some(item => item.code === 'parser_source_changed' && item.path === 'lib/adopt.mjs'));
 });
+
+test('findings forms retain private local decisions without hosted authority', () => {
+  const row = catalogue(enabled).rows.find(entry => entry.id === 'cli.findings');
+  assert.equal(row.readiness.state, 'unsupported');
+  assert.equal(row.route, null); assert.equal(row.adapter, null);
+  assert.equal(row.effect, 'local');
+  const forms = row.cli[0].forms;
+  assert.deepEqual(forms.map(form => form.subcommand), [null, 'list', 'decide']);
+  assert.deepEqual(forms[1].arguments.map(arg => arg.token), ['--json', '--review', '--observations']);
+  assert.deepEqual(forms[2].arguments.map(arg => arg.token), ['--json', '--review', '--observations', '--from', '--yes']);
+  assert.match(forms[2].constraints, /Preview exits 3 without writing the decision ledger/);
+  assert.match(forms[1].constraints, /may write its local read receipt/);
+  assert.match(forms[2].constraints, /grant no execution, provider spend, review resolution or merge authority/);
+  const sources = reviewedOperationSources();
+  for (const path of ['lib/findings-service.mjs', 'lib/findings.mjs', 'practices/night/files/scripts/plates/finding-score.mjs']) assert.ok(sources.files.some(file => file.path === path));
+  assert.equal(sources.practiceScripts.find(file => file.path.endsWith('/finding-score.mjs')).entrypoint, false);
+});

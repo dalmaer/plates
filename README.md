@@ -450,6 +450,7 @@ Every verb takes `--json`. Exit codes are the same everywhere:
 | `plates doctor` | What the project changed of plates's files, and practice rules broken. Changes nothing without `--fix` |
 | `plates improve` | Measures against bounds, including worktree/draft/file hygiene; `--report` writes the health page and its proposal |
 | `plates persona run [<name>\|--all]` | Measure the goals a project sets itself in `.agents/personas/<name>.md`: each command's one number against its bound, met, missed or broken; writes `docs/reviews/<date>-<persona>.md` and nothing else |
+| `plates findings` | One evidence-preserving triage view for recorded audits, selected PR reviews and explicit observations; shared priority scoring and payoff-aware, bounded exploration decisions. Local decisions do not execute work. See [findings](docs/guide/findings.md). |
 | `plates audit due` | Each lens in `.agents/audits/<name>.md`: due or not, and the first provider whose quota has room (from the owner's quota service on loopback, or `--quota <file>`), or why it waits; unknown or stale is wait; starts no model |
 | `plates audit brief <lens>` | The read-only brief an agent is handed for one lens, pinned to HEAD |
 | `plates audit record <lens> --from <file>` | Check an agent's findings (each cited file and line must exist at the audited commit; nothing shaped like a credential or an absolute path), then write `docs/audits/<date>-<lens>.md` and `.json`; each finding is triage for the next night |

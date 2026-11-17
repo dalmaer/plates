@@ -163,7 +163,7 @@
     },
     "scripts/plates/audit.mjs": {
       "practice": "audits",
-      "sha256": "296904ff9bc4b7fe8ecefc9d95178bcfa16eb3d5f478ede5d69758b5fc3ee71e"
+      "sha256": "783d8db390b3cae635cbfc065fddfc9c8aa41e29e251875ee45bda73e2468981"
     },
     "scripts/plates/autonomy-context.mjs": {
       "practice": "night",
@@ -208,6 +208,10 @@
     "scripts/plates/drain.mjs": {
       "practice": "night",
       "sha256": "7e09f5990b0369b0aea6a9f72be45d3e756a08ef2b15891563ef3316e6ef13d4"
+    },
+    "scripts/plates/finding-score.mjs": {
+      "practice": "night",
+      "sha256": "2a9fe6c054198679d00fbb36a2011772192d1f5a06e7aafd3322a785b4a9f215"
     },
     "scripts/plates/gate.mjs": {
       "practice": "night",

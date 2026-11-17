@@ -1492,3 +1492,65 @@ test('review gates never load the optional quality observer even with a private 
   assert.equal(Object.hasOwn(gated.json(), 'qualityObservation'), false);
   assert.equal(writesIn(await gh.calls()).length, 0);
 });
+
+
+test('review contentRevision binds full bodies and follow-ups beyond displayed excerpts', async t => {
+  const dir = await project(t);
+  const read = async comments => {
+    const gh = await stubGh(t, { threads: [{id:'PRRT_revision',path:'acme.js',line:1,comments}], reviews:[ON_HEAD] });
+    return plates(dir,gh,['acme/app#3','--json']).json();
+  };
+  const first = c(301,'acme-reviewer','Same title\nOriginal detail');
+  const before = await read([first]);
+  const same = await read([first]);
+  const edited = await read([{...first,body:'Same title\nChanged detail'}]);
+  const followUp = await read([first,c(302,'acme-reviewer','More evidence')]);
+  assert.match(before.contentRevision,/^[a-f0-9]{64}$/);
+  assert.equal(before.contentRevision,same.contentRevision);
+  assert.equal(before.comments[0].text,edited.comments[0].text);
+  assert.equal(before.comments[0].answered,followUp.comments[0].answered);
+  assert.notEqual(before.contentRevision,edited.contentRevision);
+  assert.notEqual(before.contentRevision,followUp.contentRevision);
+});
+test('live review priorities survive the real reader into finding scores', async t => {
+  const { normalizeReview, priorityScore } = await import('../lib/findings.mjs');
+  const dir = await project(t);
+  const labels = ['**[P0]** Critical', '**P1** Important', '**<sub>![P2 Badge](https://example.test/badge.svg)</sub>** Normal', 'P3 Minor', 'Unlabelled finding mentions P1 later'];
+  const gh = await stubGh(t, { threads: labels.map((body,i)=>({id:`PRRT_priority_${i}`,path:'acme.js',line:i+1,comments:[c(400+i,'acme-reviewer',body)]})), reviews:[ON_HEAD] });
+  const data=plates(dir,gh,['acme/app#3','--json']).json();
+  assert.deepEqual(data.comments.map(c=>c.severity),['P0','P1','P2','P3',null]);
+  const findings=normalizeReview(data);
+  assert.deepEqual(findings.map(f=>f.severity),['high','high','medium','low',null]);
+  assert.deepEqual(findings.map(f=>priorityScore({...f,effort:'S',confidence:'HIGH',risk:'LOW'}).score),[3,3,2,1,null]);
+});
+
+
+test('image-only review excerpts retain both comments and unknown severity in findings', async t => {
+  const { normalizeReview } = await import('../lib/findings.mjs');
+  const dir = await project(t);
+  const gh = await stubGh(t, { threads: [
+    { id: 'PRRT_image', path: 'acme.js', line: 7, comments: [c(501, 'acme-reviewer', '<img src="https://images.acme.test/screenshot.png">')] },
+    { id: 'PRRT_defect', path: 'acme.js', line: 12, comments: [c(502, 'acme-reviewer', '**P1** The brakes are disconnected.')] },
+  ], reviews: [ON_HEAD] });
+  const result = plates(dir, gh, ['acme/app#3', '--json']);
+  assert.equal(result.code, 1, result.err + result.out);
+  const data = result.json();
+  assert.equal(data.comments[0].text, '');
+  const findings = normalizeReview(data);
+  assert.equal(findings.length, 2);
+  const [image, defect] = findings;
+  assert.equal(image.localId, 'PRRT_image');
+  assert.equal(image.title, 'Review comment PRRT_image (no text excerpt)');
+  assert.equal(image.source.url, data.comments[0].url);
+  assert.ok(image.source.url);
+  assert.deepEqual(image.evidence, [{ path: 'acme.js', line: 7, what: '' }]);
+  assert.equal(image.severity, null);
+  assert.equal(image.priority.score, null);
+  assert.equal(defect.title, 'P1 The brakes are disconnected.');
+  assert.equal(defect.severity, 'high');
+  const whitespace = normalizeReview({ ...data, comments: [{ ...data.comments[0], text: '  \n\t' }] })[0];
+  assert.equal(whitespace.title, image.title);
+  assert.equal(whitespace.id, image.id);
+  assert.equal(whitespace.source.url, image.source.url);
+  assert.equal(writesIn(await gh.calls()).length, 0);
+});

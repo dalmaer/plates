@@ -14,11 +14,11 @@ Verbs (`--json` for data):
 - `plates init [dir] --description "<p>"` — new project
 - `plates names` — preview, apply, recover, verify
 - `plates migrate [root]` — rename; `--yes --digest <sha>` applies
-- `plates adopt [dir]` — adopt a repo; `--dry-run` writes nothing
+- `plates adopt [dir]` — adopt a repo; `--dry-run` previews
 - `plates doctor` — drift; `--fix`
 - `plates update` — PR or `--local`
 - `plates lessons` — lessons, drift home; exit 3
-- `plates learn` — lessons → proposals and decisions
+- `plates learn` — lessons → proposals, decisions
 - `plates improve` — measures and a proposal; `--report`
 - `plates persona run` — own goals
 - `plates audit due|brief|record|run` — audits
@@ -31,8 +31,9 @@ Verbs (`--json` for data):
 - `plates production` — incidents
 - `plates fleet` — practice, health, CI
 - `plates fleet update` — PRs for projects behind
-- `plates loose-ends` — unfinished work
-- `plates sessions` — chats waiting on you
+- `plates loose-ends` — unfinished
+- `plates sessions` — waiting chats
+- `plates findings` — triage
 - `plates issue new --agent` — rubric issue; `--yes` makes it
 - `plates review <repo>#<n>` — comments; `--wait`; `--close`
 - `plates home|board` — what needs you; `board` retired
@@ -61,9 +62,9 @@ Rules:
 - ⚑ steps (creating repos, secrets, Pages, issues elsewhere, scheduled model
   spend) wait for the owner's yes.
 
-Exits: 0 ok; 1 failure; 2 usage; 3 needs owner's yes. JSON errors: `{"error": "..."}` on stdout.
+Exits: 0 ok; 1 failure; 2 usage; 3 needs owner's yes. JSON errors on stdout.
 
-Topics: `autonomy` `names` `json` `goals` `render` `init` `adopt` `doctor` `update` `lessons` `learn` `improve` `persona` `audit` `time` `test` `drain` `night` `loop` `climb` `fleet` `pause` `loose-ends` `issue` `review` `home` `walk` `retro` `canvas` `install` `coming` `reconciliation` `prove` `evidence` `production` `decision` `shape` `workspace` `feedback`.
+Topics: `autonomy` `names` `json` `goals` `render` `init` `adopt` `doctor` `update` `lessons` `learn` `improve` `persona` `audit` `time` `test` `drain` `night` `loop` `climb` `fleet` `pause` `loose-ends` `issue` `review` `home` `walk` `retro` `canvas` `install` `coming` `reconciliation` `prove` `evidence` `production` `decision` `shape` `workspace` `feedback` `findings`.
 
 <!-- topic: json | the output contract every verb keeps -->
 
@@ -3035,3 +3036,29 @@ authority checks are unchanged. Project Home shows declared scope with unavailab
 host controls. No inspected provider supplies the trusted effective-permission/
 consent API needed to suppress host prompts. No live model or reduced-approval
 claim follows from deterministic prompt-delivery tests.
+
+<!-- topic: findings | shared finding priority, payoff and bounded exploration -->
+## One findings loop
+
+`plates findings list --json` reads recorded audits. Add repeatable
+`--review owner/repo#N` for live PR review findings, `--observations file.json`
+for explicit measurement/untangle observations. Read failures remain gaps.
+Source-qualified identities retain evidence; repeated observations are not
+silently merged just because their titles look alike. Scores retain severity /
+effort, discounted by confidence and risk. Unknown factors remain unknown.
+
+`plates findings decide --from decision.json [--review owner/repo#N] --json`
+previews an explicit decision. Add `--yes` to retain it privately outside Git.
+The input is `{findingId, findingDigest, decision}`; copy id/digest from the
+fresh list. Decisions require a rationale and payoff assessment, including
+benefit, cost and ongoing complexity. Exploration is a bounded experiment,
+not an automatic veto when payoff is unknown. This never starts work, enables
+spend, answers GitHub threads or asserts a fix was verified. Source changes
+make old decisions visibly stale; conflicting decisions stay visible. Use
+`supersedes: [decisionId]` to conclude an experiment or resolve a conflict
+without deleting its history.
+
+Audit lenses (including simplify/untangle concerns), PR reviews and numerical
+measurements keep their appropriate producers, not competing decision policies.
+See [the findings guide](../docs/guide/findings.md) for the exact decision shape
+and the remaining producer-integration boundaries.
