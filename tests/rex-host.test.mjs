@@ -960,3 +960,32 @@ test('a cancel recorded after the dispatch was decided and before the host or Re
     assert.equal(JSON.parse(await readFile(join(a.dir, `${r.data.digest}.fate.json`), 'utf8')).fate, 'dispatch');
   }
 });
+
+test('a cancel is recorded while one attach still takes its claim after another of the same digest has finished', async t => {
+  const a = await attached(t);
+  let release; const gate = new Promise(r => { release = r; });
+  let claiming; const reached = new Promise(r => { claiming = r; });
+  // A waits on its claim push. B, the same attach again, is refused its claim and finishes: its marker goes, A's stays.
+  const first = attach(a.args, a.deps({ claim: async () => { claiming(); await gate; return { data: { ok: true, claimed: true, sha: 'c'.repeat(40) }, text: 'claimed' }; } }));
+  await reached;
+  const second = await attach(a.args, a.deps({ claim: async () => ({ data: { ok: false, holder: { provider: 'codex' } }, text: 'held by codex' }) }));
+  assert.equal(second.data.state, 'taken');
+  assert.equal((await attachJournal(a.dir).attempts()).length, 1, 'the attach still claiming keeps its own marker');
+  const cancelled = await a.cancel({ why: 'while claiming' });
+  assert.deepEqual([cancelled.exitCode, cancelled.data.state, cancelled.data.already], [0, 'cancelled', false]);
+  release();
+  const r = await first;
+  assert.deepEqual([r.exitCode, r.data.state], [1, 'cancelled']);
+  assert.deepEqual(runCalls(await a.w.rexCalls()), [], 'nothing is dispatched');
+  assert.deepEqual(await attachJournal(a.dir).attempts(), [], 'and its marker is gone with it');
+  // A killed attach's marker does not count for ever: an hour old, it is no longer something to cancel, and the sweep removes it.
+  const b = await attached(t), journal = attachJournal(b.dir);
+  const marker = await journal.attempt('d'.repeat(64), { phase: 7, route: 'local-host', at: '2026-11-15T12:00:00.000Z' });
+  assert.equal((await journal.attempts()).length, 1);
+  await utimes(marker, new Date(Date.now() - 2 * 3_600_000), new Date(Date.now() - 2 * 3_600_000));
+  assert.deepEqual(await journal.attempts(), []);
+  await assert.rejects(b.cancel(), /nothing to cancel/);
+  assert.equal(existsSync(marker), true, 'a refused cancel recovers nothing');
+  await recoverCancels(journal, { env: b.w.env, root: b.w.checkout });
+  assert.equal(existsSync(marker), false);
+});
