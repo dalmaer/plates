@@ -425,6 +425,71 @@ process.stdin.on('end', () => {
   assert.equal(run(process.execPath, [BIN, 'phase', 'claim', '1', '--release', '--json'], { cwd: x.b, env: workerBEnv }).status, 0);
 });
 
+test('a local-host cancel during a real claim leaves the printed release instruction usable by the launcher', async t => {
+  const x = await localAcme(t), h = await fakeHost(join(dirname(x.a), 'cancel-host'));
+  const env = { ...hostEnvFor(x, h), PLATES_SESSION: 'acme-launcher' };
+  const journalDir = join(dirname(x.a), 'cancel-journal'), journal = attachJournal(journalDir);
+  // Git calls this hook inside claim(), after the local token is kept and before its push.
+  const hook = join(x.a, '.git', 'hooks', 'pre-push');
+  await writeFile(hook, `#!${process.execPath}
+(async () => {
+  const { attachJournal, cancelAttach } = await import(${JSON.stringify(new URL('../lib/attach.mjs', import.meta.url).href)});
+  const result = await cancelAttach({ root: ${JSON.stringify(x.a)}, projectId: 'app', phase: 1, yes: true, why: 'mid-claim' }, { journal: attachJournal(${JSON.stringify(journalDir)}) });
+  if (result.exitCode !== 0) throw new Error(result.text);
+})().catch(error => { console.error(error); process.exitCode = 1; });
+`, { mode: 0o755 });
+  const stopped = await attachCommand({ root: x.a, key: 'app:phase:1', route: 'local-host', provider: 'claude', yes: true }, { journal, env });
+  await rm(hook);
+  assert.deepEqual([stopped.exitCode, stopped.data.state], [1, 'cancelled']);
+  assert.match(stopped.text, /mid-claim.*while it was being claimed/);
+  assert.equal(await h.runs(), 0, 'nothing was dispatched');
+  assert.equal((await journal.list()).length, 0, 'the cancel preceded the intent');
+  const release = /release the claim with plates (phase claim 1 --release)\./.exec(stopped.text);
+  assert.ok(release, stopped.text);
+  const released = run(process.execPath, [BIN, ...release[1].split(' '), '--json'], { cwd: x.a, env });
+  assert.equal(released.status, 0, released.stdout + released.stderr);
+  assert.equal(git(x.a, 'ls-remote', 'origin', 'refs/heads/claims/phase-1'), '', 'the printed command released the claim');
+});
+
+test('a background worker writes progress and completes after the host timeout settles', async t => {
+  const x = await localAcme(t), dir = join(dirname(x.a), 'output-probe');
+  await mkdir(dir);
+  for (const route of ['runHost', 'attach']) {
+    const marker = join(dir, `${route}.done`), pidFile = join(dir, `${route}.pid`);
+    const worker = join(dir, `${route}-worker.sh`), host = join(dir, `${route}-host.sh`);
+    await writeFile(worker, `#!/bin/sh
+set -e
+sleep 1
+echo progress
+echo progress >&2
+echo complete > ${JSON.stringify(marker)}
+`, { mode: 0o755 });
+    await writeFile(host, `#!/bin/sh
+${JSON.stringify(worker)} &
+echo $! > ${JSON.stringify(pidFile)}
+wait
+`, { mode: 0o755 });
+    t.after(async () => {
+      const pid = Number(await readFile(pidFile, 'utf8').catch(() => ''));
+      if (pid) { try { process.kill(pid, 'SIGKILL'); } catch { /* exited */ } }
+    });
+    const start = Date.now();
+    const pending = route === 'runHost'
+      ? runHost([host], { cwd: dir, timeoutMs: 300, stderr: true })
+      : attach({ root: x.a, projectId: 'app', phase: 1, title: 'Build the anvil', route: 'local-host', provider: 'claude', config: LOCAL, yes: true,
+        phaseText: { doneWhen: 'The anvil lands.', acceptance: '- [ ] Lands.', context: {} },
+        host: { file: join(dir, 'local-hosts.json'), start: [host], state: null, harness: null } },
+      { env: x.env('acme-laptop', 'claude'), timeoutMs: 300 });
+    await assert.rejects(pending, /ran past its bound \(300 ms/);
+    assert.ok(Date.now() - start < 2500, `${route} settled promptly`);
+    assert.equal(await readFile(marker, 'utf8').catch(() => null), null, 'the worker has not completed when the timeout settles');
+    // Keep the caller alive to prove its timeout cleanup leaves inherited writers usable.
+    const until = Date.now() + 3000;
+    while (Date.now() < until && !await readFile(marker, 'utf8').catch(() => null)) await new Promise(resolve => setTimeout(resolve, 25));
+    assert.equal(await readFile(marker, 'utf8').catch(() => null), 'complete\n', `${route}: progress writes did not break the worker's pipes`);
+  }
+});
+
 test('host timeouts settle at the deadline without waiting for descendant pipes or stopping launched work, retaining uncertain dispatch', async t => {
   const x = await localAcme(t);
   const dir = join(dirname(x.a), 'timeout-probe');
