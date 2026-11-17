@@ -1,0 +1,132 @@
+---
+status: planned
+since: 2026-11-17
+goal: G7
+spec: 2
+depends: [194, 181]
+note: "The owner asked to radically simplify the hosted workspace (2026-11-17) and approved a clickable mock: a backlog, the agents on it, and the decisions only the owner can make."
+evidence: []
+---
+
+# The workspace is work, agents and decisions
+
+## Done when
+
+The owner opens the Plates site and sees only three things: a **backlog** of
+work in order, the **agents** working on it (and what they are saying), and
+the **decisions** only the owner can make, each answerable where it is shown.
+Everything plates keeps underneath (phases, goals, increments, claims,
+evidence, captures, lessons, runs) stays available behind an item, never as a
+page of its own. Nothing is shown when nothing is wrong, and every card carries
+its own action.
+
+## Why
+
+The owner, 2026-11-17: Decide "always feels hard"; a needs-you item makes them
+"jump out all over"; main → production "feels like a waste" when equal and is
+misaligned; the channel "looks like a list"; markdown shows raw `**`; phases,
+goals and items confuse; Changes, Captures and Plan from project evidence never
+show anything. Plates exposes its plumbing. Attach (181), the channel (194)
+and the docket already exist underneath; this phase changes what the owner
+sees, not the systems.
+
+## Scope
+
+The hosted workspace's Home and project pages, and `plates home`'s matching output. No new storage, routes that write, or migrations: answers go through the docket, Deploy through the checked promote, Assign through attach (181), the channel through 194.
+
+## The model
+
+| The owner sees | Built from |
+| --- | --- |
+| A backlog item: one piece of work, in order | A phase's next increment, or an issue the backlog already reads. Goals are a filter, not a view. |
+| An agent: who is on an item and what it is doing | Claims, attach receipts, Rex state, the channel's Here now |
+| A decision: a question only the owner can answer | The docket, ⚑ steps, reviews at their limit, migrations, walks, deploys waiting |
+
+## Rules every screen keeps
+
+1. **Exceptions only.** A project in step (production = main, nothing
+   waiting) shows a green chip and nothing else.
+2. **Act where you look.** Answer, deploy, assign and cancel happen on the card.
+3. **Empty means hidden.** A section with nothing in it is not drawn.
+4. **One vocabulary.** On screen: item, agent, decision. Never phase,
+   increment, claim, envelope, lane.
+5. **Text renders.** Markdown in any shown text renders; no raw `**`.
+
+CLI–web isomorphism holds: `plates home` prints the same model the site
+renders. Colours come from design tokens, never page literals.
+
+## Integration increments
+
+1. **Home.** One status chip per project: green chips say nothing; a yellow or
+   red chip says why in one line (production behind main, an agent waiting on
+   you, main's checks failing, a review at its limit, a decision past its
+   check date; the most urgent, then "+N"); trouble sorts first. Below it one
+   list, **Needs you**: each decision a card with the question, the
+   recommendation marked, a one-line why, its answer buttons and an
+   expandable "more" for evidence; answering happens on the card (the docket's
+   existing answer path and its protections). A production behind main is a
+   card with **Deploy**, which runs the same checked promote as
+   `plates promote` (only to a commit on the tested ref whose gate passed;
+   rollback kept). The main → production row is removed from Home.
+2. **The project page: backlog and needs you.** The project's decisions as the
+   same cards; then one ordered **Backlog**: each item one line with its state
+   (Ready, Agent working, Needs you, Done), its title, who is on it; a Ready
+   item has **Assign** (the routes this plate offers: a Rex harness, a session,
+   Codex where configured), which is attach (181) with its preview and claim;
+   an item opens to its Done when and Next, rendered. No main → production row
+   when they match; when they do not, the Deploy card.
+3. **The channel is a chat.** Agents with an avatar and grouped bubbles,
+   plates's own steps as small grey lines, the owner's lines on the right, a
+   composer at the bottom (194's owner lines), @-mentions of an item or agent,
+   answered marks.
+4. **Remove what the model replaced.** Changes, Captures and Plan from project
+   evidence are hidden when empty and folded behind an item otherwise; phases
+   and goals pages leave the navigation (reachable from an item); markdown
+   renders everywhere text is shown.
+
+Each increment lands and deploys on its own; the pages it replaces stay
+reachable by URL until increment 4.
+
+## Acceptance
+
+- [ ] Home shows a chip per project; a green one has no text beyond its name; a non-green one names its most urgent reason, and red sorts before yellow before green: `tests/web-simple-home.test.mjs`.
+- [ ] Every Needs-you card answers in place through the docket's answer path, and a waiting deploy is a card whose Deploy runs the checked promote only: `tests/web-simple-home.test.mjs`.
+- [ ] The project page shows one ordered backlog with four states, Assign on ready items through attach, and no main → production row when they match: `tests/web-simple-project.test.mjs`.
+- [ ] The channel renders as a chat with a composer, and the CLI prints the same lines: `tests/channel.test.mjs`.
+- [ ] No empty section is drawn, no raw markdown is shown, and the screens use only item, agent and decision: `tests/web-simple-copy.test.mjs`.
+- [ ] `plates home` and the site render one model for Home and a project: the isomorphism tests.
+- [ ] ⚑ By hand: the owner makes a decision, deploys, and assigns an item from the site, each without leaving the card, and says it is simpler.
+
+## Your part
+
+- **Ask:** Use the new Home and project page after each increment deploys and say what still feels complicated.
+- **Why:** The measure is whether you can decide, deploy and assign without hunting.
+- **Look at:** your Plates site.
+- **Choices:** Simpler | Still too much
+- **Takes:** About 5 minutes per increment.
+- **Then:** Simpler: the next increment. Still too much: the conductor changes it first.
+- **Recommend:** Simpler
+- **Ready when:** increment 1 is deployed.
+
+## Real surfaces
+
+- adopted project: the hosted workspace's Home and project pages, read from the live sources.
+- owner's machine: `plates home` prints the same model.
+
+## Proof
+
+Automated: the named tests; `npm run check`. By hand: the owner's walk.
+
+## Deliberately open
+
+- Whether goals survive as a backlog filter.
+- How Assign maps to the owner's other tool's flow (the owner will point to it).
+- Drag to reorder the backlog (needs a stored order; later).
+
+## Next action
+
+Build increment 1, Home.
+
+## Trajectory
+
+- **2026-11-17** — The owner approved a clickable mock of the three-thing model and asked for non-green projects to say why on their chip.

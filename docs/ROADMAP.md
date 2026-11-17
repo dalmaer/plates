@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**76 of 190 phases built; 75 owe a walk.** Built means implemented and checked; planned is not available.
+**76 of 191 phases built; 75 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards.
 
@@ -347,7 +347,7 @@ Each change is verified in parallel and published one at a time; production move
 
 From mobile and desktop, an authenticated owner operates every authorized Plates project: decisions, guided tests, visual changes, routine history and execution, fleet lessons and updates, scoped credentials and policy-bound model capacity, with source-backed evidence and private data.
 
-8/48 built; 31 owe a walk.
+8/49 built; 31 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -399,6 +399,7 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 | [193. Local agents run in Rex when it is there](phases/193-local-agents-run-in-rex-when-it-is-there.md) | partial | 2026-11-16 | [183](phases/183-a-local-agent-host-can-take-a-phase.md), [192](phases/192-audits-look-at-a-plate-with-a-model-when-quota.md) | Increment 1 built and deployed, with two fixes: an interactive agent gets its brief as its startup prompt through a private file (#472), and the owner's cancel holds across restarts (#474, #484). The owner's walk remains: a harness on one local host, watched in Rex. |
 | [194. Each project has a channel on the Plates site](phases/194-each-project-has-a-channel-on-the-plates-site.md) | partial | 2026-11-17 | [149](phases/149-agents-and-the-owner-talk-in-one-visible-chat.md) | Increments 1–3 are built; migration 025 is applied with its hosted proof. Box 7 waits on the live round trip (an owner line on the deployed site reaching a session's plates channel inbox), which the owner's walk proves with box 8. |
 | [195. One framework for findings and payoff](phases/195-one-framework-for-findings-and-payoff.md) | partial | 2026-11-16 | [192](phases/192-audits-look-at-a-plate-with-a-model-when-quota.md) | Shared observation, priority and payoff decision layer built; automatic producer export and live adoption remain. |
+| [196. The workspace is work, agents and decisions](phases/196-the-workspace-is-work-agents-and-decisions.md) | planned | 2026-11-17 | [194](phases/194-each-project-has-a-channel-on-the-plates-site.md), [181](phases/181-i-can-attach-an-agent-to-a-phase-and-see-it.md) | The owner asked to radically simplify the hosted workspace (2026-11-17) and approved a clickable mock: a backlog, the agents on it, and the decisions only the owner can make. |
 
 - **93 done when:** An explicitly configured external workspace can be inspected and initialized from the installed CLI without writing private data into application or project Git trees.
 - **94 done when:** The owner has an approved deployment recipe and verified private workspace repository, host and selected-repository GitHub App binding, with credentials stored only in the deployment secret store.
@@ -448,6 +449,7 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 - **193 done when:** When Rex answers on the owner's machine and a local host names a harness, `plates audit run` and `plates home --attach` (the `local-host` route) start that harness in a labelled Rex tab for the plate and provider, the owner can watch and step in, and plates reads the run's state from Rex; without Rex, or without a harness, every local host behaves exactly as phase 183 built it.
 - **194 done when:** Each project has one channel on the owner's Plates site (and the same channel in the CLI) where the owner sees, newest last, what every agent on it is doing: who joined and left (claims), what they pushed, opened and merged, CI and deploys, which agent is waiting on the owner, and the short lines agents post themselves; a **Here now** panel lists the agents holding work with their last line and what the owner has not read; the owner can address an agent from the channel and the agent receives it at its next step; and nothing an agent posts can make another agent act.
 - **195 done when:** Untangle, review, audits and measurements feed one evidence-preserving findings contract, use one priority scorer and payoff-aware decision flow, and reuse existing execution and verification instead of adding runners or schedules.
+- **196 done when:** The owner opens the Plates site and sees only three things: a **backlog** of work in order, the **agents** working on it (and what they are saying), and the **decisions** only the owner can make, each answerable where it is shown. Everything plates keeps underneath (phases, goals, increments, claims, evidence, captures, lessons, runs) stays available behind an item, never as a page of its own. Nothing is shown when nothing is wrong, and every card carries its own action.
 
 ## G8 — A project set and its routines share one operating surface
 
