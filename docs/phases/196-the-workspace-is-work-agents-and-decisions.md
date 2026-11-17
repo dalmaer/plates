@@ -3,7 +3,7 @@ status: partial
 since: 2026-11-17
 goal: G7
 spec: 2
-depends: [194, 181, 192]
+depends: [194]
 note: "Increment 1 (Home: chips that say why, needs-you cards answered in place, the Deploy command card) is merged and deployed (3d805c7). Increment 2, the project page backlog with Assign, is next."
 evidence: []
 ---
@@ -124,6 +124,8 @@ reachable by URL until increment 4.
 Automated: the named tests; `npm run check`. By hand: the owner's walk.
 
 ## Deliberately open
+
+- Assign on the hosted site dispatches only once phase 181's hosted apply is activated; until then the site's Assign shows the exact `plates home --attach` command to run on the owner's Mac (as Deploy shows `plates promote`), and the CLI attaches directly. The quota recommendation reuses phase 192's built room check, so 196 does not wait on 192's remaining walk.
 
 - Whether goals survive as a backlog filter.
 - How Assign maps to the owner's other tool's flow (the owner will point to it).
