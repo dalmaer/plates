@@ -755,8 +755,10 @@ const untilRuns = async (w, n = 1) => { for (let i = 0; i < 500 && runCalls(awai
 test('a cancel recorded after the intent and before the run starts leaves the Rex run unstarted', async t => {
   const a = await attached(t);
   let cancelled = null;
-  const r = await attach(a.args, a.deps({ journal: afterIntent(a.dir, async () => { cancelled = await a.cancel(); }) }));
+  const steps = [], progress = async line => { steps.push(line.step); return null; };
+  const r = await attach(a.args, a.deps({ progress, journal: afterIntent(a.dir, async () => { cancelled = await a.cancel({}, { progress }); }) }));
   assert.equal(cancelled.exitCode, 0, cancelled.text);
+  assert.deepEqual(steps, ['cancelled'], 'the channel hears the cancel, and never "dispatched" for a run that did not start');
   assert.deepEqual(runCalls(await a.w.rexCalls()), [], 'no tab is opened for a cancelled attach');
   assert.equal(await a.w.harnessRun(), null, 'the harness never got the brief');
   assert.deepEqual([r.exitCode, r.data.state, r.data.cancelled.stop, r.data.cancelled.done], [1, 'cancelled', 'none', true]);
