@@ -938,3 +938,23 @@ test('a brief directory that cannot be checked against git refuses the run befor
   assert.deepEqual((await w.rexCalls()).map(c => c.args[0]), ['ls'], 'no session is made and no tab opened');
   assert.equal(existsSync(w.briefDir), false);
 });
+
+test('a cancel recorded after the dispatch was decided and before the host or Rex run starts leaves it unstarted', async t => {
+  // The window after the fate is linked "dispatch": the route is on its way to the run (finding Rex, making its session).
+  const { ROUTE_HANDLERS } = await import('../lib/attach.mjs');
+  const real = ROUTE_HANDLERS['local-host'];
+  for (const kind of ['start', 'rex']) {
+    const a = await attached(t);
+    const host = kind === 'start' ? { file: 'hosts.json', start: [a.w.start, 'start'], state: null } : a.args.host;
+    const readHost = async () => ({ ...host }); // no stop command: a host started now could never be stopped
+    let cancelled = null;
+    const handlers = { ...ROUTE_HANDLERS, 'local-host': { ...real, dispatch: async ctx => { cancelled = await a.cancel({}, { readHost }); return real.dispatch(ctx); } } };
+    const r = await attach({ ...a.args, host }, a.deps({ handlers, readHost }));
+    assert.equal(cancelled.data.attaches[0].cancelled.stop, 'unknown', `${kind}: the cancel lost the decision, so it does not say nothing was started`);
+    assert.deepEqual(await a.w.startRuns(), [], `${kind}: the host is not started`);
+    assert.deepEqual(runCalls(await a.w.rexCalls()), [], `${kind}: no tab is opened`);
+    assert.deepEqual([r.exitCode, r.data.state, r.data.receipt.result.state, r.data.cancelled.stop, r.data.cancelled.done], [1, 'cancelled', 'not-started', 'none', true], kind);
+    assert.equal(existsSync(rexBriefFile(a.w.env, r.data.digest)), false, `${kind}: no brief file is left`);
+    assert.equal(JSON.parse(await readFile(join(a.dir, `${r.data.digest}.fate.json`), 'utf8')).fate, 'dispatch');
+  }
+});
