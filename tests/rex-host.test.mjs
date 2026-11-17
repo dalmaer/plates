@@ -12,7 +12,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
-import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, realpath, symlink } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, realpath, symlink, truncate, utimes } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import * as audit from '../practices/audits/files/scripts/plates/audit.mjs';
@@ -45,6 +45,8 @@ const at = flag => args[args.indexOf(flag) + 1];
 if (args[0] === 'ls') { if (mode.ls === 'fail') process.exit(1); if (mode.ls === 'garbage') { console.log('not json'); process.exit(0); } console.log(JSON.stringify(mode.sessions)); process.exit(0); }
 if (args[0] === 'new') { console.log(JSON.stringify({ session_id: 'session:acme-new', initial_windows: [{ window_id: 'window:acme-1', block_ids: ['block:acme-shell'], revision: 1 }] })); process.exit(0); }
 if (args[0] === 'run') {
+  // A run that is slow to start: held until the test makes the file (the call is already logged above).
+  if (mode.runHold) while (!fs.existsSync(mode.runHold)) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);
   const i = args.indexOf('--');
   // The tab: the command with stdout and stderr together, as a terminal shows them,
   // and the tab's own input (what the owner types; a file stands in for the terminal) as its stdin.
@@ -63,6 +65,8 @@ if (args[0] === 'block' && args[1] === 'close') {
   const j = mode.journal; const recorded = !!j && fs.existsSync(j) && fs.readdirSync(j).some(n => n.endsWith('.cancel.json'));
   fs.appendFileSync(path.join(logs, 'closes.jsonl'), JSON.stringify({ args, recorded }) + '\\n');
   if (mode.close === 'gone') { process.stderr.write('Error: block target not found\\n'); process.exit(3); }
+  // Another failure that happens to say "not found": nothing about the block.
+  if (mode.close === 'lost') { process.stderr.write('Error: rex daemon socket not found\\n'); process.exit(1); }
   process.exit(mode.close === 'fail' ? 1 : 0);
 }
 if (args[0] === 'wait') { const w = mode.wait ?? {}; if (w.stdout) process.stdout.write(w.stdout); if (w.stderr) process.stderr.write(w.stderr); process.exit(w.code ?? 0); }
@@ -615,9 +619,11 @@ test('settling a cancel never overwrites a newer receipt, and stops the run it n
   const c = await attached(t);
   const { ROUTE_HANDLERS } = await import('../lib/attach.mjs');
   let release; const gate = new Promise(r => { release = r; });
-  const slow = { ...ROUTE_HANDLERS, 'local-host': { ...ROUTE_HANDLERS['local-host'], dispatch: async ctx => { await gate; return ROUTE_HANDLERS['local-host'].dispatch(ctx); } } };
+  let starting; const reached = new Promise(r => { starting = r; });
+  // The cancel lands while `rex run` is starting: after the dispatch's last look for a cancel, before its receipt.
+  const slow = { ...ROUTE_HANDLERS, 'local-host': { ...ROUTE_HANDLERS['local-host'], dispatch: async ctx => ROUTE_HANDLERS['local-host'].dispatch({ ...ctx, before: async () => { await ctx.before?.(); starting(); await gate; } }) } };
   const pending = attach(c.args, c.deps({ handlers: slow }));
-  for (let i = 0; i < 50 && !(await attachJournal(c.dir).list()).length; i++) await new Promise(r => setTimeout(r, 20));
+  await reached;
   const early = await c.cancel();
   assert.equal(early.data.attaches[0].cancelled.stop, 'unknown', 'no receipt yet');
   release();
@@ -732,4 +738,203 @@ test('a cancel that lands while a changed attach takes its claim is found before
   assert.deepEqual([late.exitCode, late.data.state], [1, 'cancelled']);
   assert.doesNotMatch(late.text, /\/spin 7/);
   assert.ok(await journal.cancelOf(late.data.digest), 'the cancel is recorded under the late attach too, for recovery and --check');
+});
+
+// ---- Cancel and dispatch race one decision; intents and receipts are create-only (phases 181 and 193) ----
+const SESSIONS = [{ session_id: 'session:acme-anvils', label: 'acme-claude' }];
+const check = a => cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 7, check: true }, a.deps());
+/** A journal whose intent write is followed, once, by `land`: the first moment a cancel can see the attach. */
+const afterIntent = (dir, land) => {
+  const base = attachJournal(dir); let done = false;
+  const once = async () => { if (!done) { done = true; await land(); } };
+  return { ...base, write: async (d, v) => { await base.write(d, v); if (!v.receipt) await once(); }, ...(base.intent ? { intent: async (d, v) => { const r = await base.intent(d, v); await once(); return r; } } : {}) };
+};
+/** Until Rex has been asked to run `n` tabs. */
+const untilRuns = async (w, n = 1) => { for (let i = 0; i < 500 && runCalls(await w.rexCalls()).length < n; i++) await new Promise(r => setTimeout(r, 10)); assert.equal(runCalls(await w.rexCalls()).length, n); };
+
+test('a cancel recorded after the intent and before the run starts leaves the Rex run unstarted', async t => {
+  const a = await attached(t);
+  let cancelled = null;
+  const r = await attach(a.args, a.deps({ journal: afterIntent(a.dir, async () => { cancelled = await a.cancel(); }) }));
+  assert.equal(cancelled.exitCode, 0, cancelled.text);
+  assert.deepEqual(runCalls(await a.w.rexCalls()), [], 'no tab is opened for a cancelled attach');
+  assert.equal(await a.w.harnessRun(), null, 'the harness never got the brief');
+  assert.deepEqual([r.exitCode, r.data.state, r.data.cancelled.stop, r.data.cancelled.done], [1, 'cancelled', 'none', true]);
+  assert.match(r.text, /before its run was started\. Nothing was dispatched/);
+  assert.equal(existsSync(rexBriefFile(a.w.env, r.data.digest)), false, 'no brief file is left');
+  assert.equal(JSON.parse(await readFile(join(a.dir, `${r.data.digest}.fate.json`), 'utf8')).fate, 'cancel', 'the cancel won the one decision');
+  assert.equal((await attach(a.args, a.deps())).data.state, 'cancelled');
+  assert.deepEqual(runCalls(await a.w.rexCalls()), []);
+});
+
+test('a cancel recorded after the intent leaves a start-command host unstarted', async t => {
+  const a = await attached(t);
+  const host = { file: 'hosts.json', start: [a.w.start, 'start'], state: null };
+  const readHost = async () => ({ ...host }); // no stop command: a host started after the cancel could never be stopped
+  const r = await attach({ ...a.args, host }, a.deps({ readHost, journal: afterIntent(a.dir, () => a.cancel({}, { readHost })) }));
+  assert.deepEqual(await a.w.startRuns(), [], 'the host is not started after the cancel was recorded');
+  assert.deepEqual([r.exitCode, r.data.state, r.data.cancelled.stop], [1, 'cancelled', 'none']);
+});
+
+test('a recovering attach adopts the receipt written since it read the journal and the cancel stops the run it names', async t => {
+  const a = await attached(t);
+  const base = attachJournal(a.dir);
+  // One attach has journaled its intent and is inside rex run. A second (a retry) reads the entry now; the first then keeps its receipt.
+  const { effect, digest } = attachPreview({ ...a.args, plate: 'Acme' });
+  const intent = { route: 'local-host', at: '2026-11-15T12:00:00.000Z', effect, claim: { ref: effect.claimRef, sha: null, held: 'claimed now' } };
+  const real = { route: 'local-host', at: '2026-11-15T12:00:01.000Z', claim: intent.claim, result: { state: 'dispatched', session: 'rex:session:acme-anvils/block:acme-tab-1' } };
+  await base.write(digest, { intent });
+  let once = false;
+  const stale = { ...base, read: async d => { const v = await base.read(d); if (!once) { once = true; await base.write(d, { intent, receipt: real }); } return v; } };
+  const second = await attach(a.args, a.deps({ journal: stale }));
+  assert.deepEqual((await base.read(digest)).receipt, real, 'the receipt that names the run is not replaced by a recovered one');
+  assert.deepEqual([second.data.state, second.data.receipt], ['attached', real], 'and the recovering attach adopts it');
+  const c = await a.cancel();
+  assert.equal(c.data.attaches[0].cancelled.stop, 'stopped');
+  assert.equal((await a.w.closes()).length, 1, 'the running block is closed');
+});
+
+test('recovery gives a phase cancel to a sibling attach lacking its own record and stops its run', async t => {
+  const a = await attached(t);
+  const s = await attach({ ...a.args, route: 'session', phaseText: undefined, host: undefined }, a.deps());
+  const h = await attach(a.args, a.deps());
+  assert.deepEqual([s.exitCode, h.exitCode], [0, 0]);
+  await writeFile(rexBriefFile(a.w.env, h.data.digest), BRIEF, { mode: 0o600 }); // an interactive run keeps it while it lives
+  // A cancel killed after recording one attach of the phase, before the other.
+  await attachJournal(a.dir).cancel(s.data.digest, { at: '2026-11-16T00:00:00.000Z', by: 'owner' });
+  assert.equal((await check(a)).exitCode, 1);
+  assert.deepEqual(await a.w.closes(), [], 'a check is read only');
+  assert.equal((await attach(a.args, a.deps())).data.state, 'cancelled'); // a restart: recovery runs
+  assert.deepEqual(await attachJournal(a.dir).cancelOf(h.data.digest), { at: '2026-11-16T00:00:00.000Z', by: 'owner' }, 'the same record, under the sibling too');
+  assert.equal((await a.w.closes()).length, 1, 'recovery stopped the identified run of the cancelled phase');
+  assert.equal(existsSync(rexBriefFile(a.w.env, h.data.digest)), false, 'and removed its brief');
+  assert.deepEqual(await localHostExecutions(a.w.checkout, { env: a.w.env, journal: attachJournal(a.dir) }), []);
+});
+
+test('two attaches of one digest that both read an empty journal dispatch once', async t => {
+  const a = await attached(t);
+  const base = attachJournal(a.dir);
+  let release; const gate = new Promise(r => { release = r; });
+  let n = 0;
+  const slow = { ...base, read: async d => { const v = await base.read(d); if (n++ === 0) await gate; return v; } };
+  const second = attach(a.args, a.deps({ journal: slow })); // reads an empty journal, then stalls (as in its claim push)
+  await new Promise(r => setTimeout(r, 50));
+  const first = await attach(a.args, a.deps());
+  release();
+  const r = await second;
+  assert.equal(runCalls(await a.w.rexCalls()).length, 1, 'one tab, not two');
+  assert.deepEqual([first.data.state, r.data.state, r.data.repeated], ['attached', 'attached', true]);
+  assert.deepEqual(r.data.receipt, first.data.receipt, 'the one that lost the intent has the same receipt');
+});
+
+test('two attaches of one phase with different digests run one host', async t => {
+  const a = await attached(t);
+  let release; const gate = new Promise(r => { release = r; });
+  const claim = async () => { await gate; return { data: { ok: true, claimed: false, sha: 'c'.repeat(40) }, text: 'held' }; };
+  // Both pass the check for an earlier host run while neither has journaled; the second waits on its claim.
+  const second = attach({ ...a.args, title: 'Build the anvil, revised' }, a.deps({ claim }));
+  await new Promise(r => setTimeout(r, 50));
+  const first = await attach(a.args, a.deps());
+  release();
+  const r = await second;
+  assert.equal(runCalls(await a.w.rexCalls()).length, 1, 'one tab for the phase');
+  assert.deepEqual([first.data.state, r.exitCode, r.data.state, r.data.earlier.digest], ['attached', 1, 'already-dispatched', first.data.digest]);
+});
+
+test('a torn entry never hides its phase cancel from a changed attach', async t => {
+  const a = await attached(t);
+  const first = await attach(a.args, a.deps());
+  await a.cancel();
+  await truncate(join(a.dir, `${first.data.digest}.json`), 0); // as a power loss leaves an entry that was never synced
+  const before = runCalls(await a.w.rexCalls()).length;
+  const changed = await attach({ ...a.args, title: 'Build the anvil, revised' }, a.deps());
+  assert.equal(runCalls(await a.w.rexCalls()).length, before, 'a cancelled phase is not dispatched');
+  assert.deepEqual([changed.exitCode, changed.data.state], [1, 'cancelled']);
+  assert.equal((await check(a)).exitCode, 1);
+  // The journal lists it from its cancel file: cancelled, with nothing else known.
+  const [listed] = await attachJournal(a.dir).list();
+  assert.deepEqual([listed.digest, listed.torn, listed.cancel.phase, listed.intent], [first.data.digest, true, 7, undefined]);
+  // Without the phase's own record too (a journal from before it had one): still cancelled.
+  await rm(join(a.dir, 'phase-7.cancel.json'));
+  assert.equal((await attach({ ...a.args, title: 'Build the anvil, revised' }, a.deps())).data.state, 'cancelled');
+  assert.equal((await check(a)).exitCode, 1);
+});
+
+test('a cancel while the first attach of a phase takes its claim is recorded and nothing is dispatched', async t => {
+  const a = await attached(t);
+  let cancelled = null;
+  const claim = async () => { cancelled = await a.cancel({ why: 'mid-claim' }); return { data: { ok: true, claimed: true, sha: 'c'.repeat(40) }, text: 'claimed' }; };
+  const r = await attach(a.args, a.deps({ claim }));
+  assert.deepEqual([cancelled.exitCode, cancelled.data.state, cancelled.data.already], [0, 'cancelled', false]);
+  assert.match(cancelled.text, /taking its claim since/);
+  assert.deepEqual([r.exitCode, r.data.state], [1, 'cancelled']);
+  assert.match(r.text, /cancelled at .*mid-claim.*while it was being claimed/);
+  assert.deepEqual(runCalls(await a.w.rexCalls()), []);
+  assert.deepEqual(await attachJournal(a.dir).list(), [], 'nothing was journaled for the attach');
+  assert.deepEqual(await attachJournal(a.dir).attempts(), [], 'and its claiming marker is gone');
+  assert.equal((await check(a)).exitCode, 1, 'a restarted session is told to stop');
+  assert.equal((await attach(a.args, a.deps())).data.state, 'cancelled');
+  // A phase nothing was ever attached to still has nothing to cancel.
+  await assert.rejects(cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 8, yes: true }, a.deps()), /no attach in this checkout's journal: nothing to cancel/);
+});
+
+test('only the block or session not found answer of Rex with exit 3 ends a run', async t => {
+  const a = await attached(t);
+  await attach(a.args, a.deps());
+  // "not found" about something else, or without Rex's exit code: not an end. The stop stays pending.
+  for (const wait of [{ stderr: 'Error: rex config file not found\n', code: 1 }, { stderr: 'Error: block target not found\n', code: 1 }, { stderr: 'Error: socket not found\n', code: 3 }]) {
+    await a.w.setMode({ ls: 'ok', sessions: SESSIONS, wait, journal: a.dir });
+    const r = await a.cancel();
+    assert.deepEqual([r.data.attaches[0].cancelled.stop, r.data.attaches[0].cancelled.done], ['pending', false], JSON.stringify(wait));
+  }
+  await a.w.setMode({ ls: 'ok', sessions: SESSIONS, wait: RUNNING, close: 'lost', journal: a.dir });
+  assert.equal((await a.cancel()).data.attaches[0].cancelled.stop, 'pending', 'a close that failed is not an end either');
+  await a.w.setMode({ ls: 'ok', sessions: SESSIONS, wait: { stderr: 'Error: block target not found\n', code: 3 }, journal: a.dir });
+  assert.deepEqual((({ stop, done }) => [stop, done])((await a.cancel()).data.attaches[0].cancelled), ['ended', true]);
+});
+
+test('a run whose cancel was settled with a recovered receipt is stopped once the dispatch names it', async t => {
+  const a = await attached(t);
+  const hold = join(a.w.logs, 'run-release');
+  await a.w.setMode({ ls: 'ok', sessions: SESSIONS, wait: RUNNING, journal: a.dir, runHold: hold });
+  const first = attach(a.args, a.deps()); // inside rex run
+  await untilRuns(a.w);
+  const second = await attach(a.args, a.deps()); // a retry meanwhile: it recovers, and never dispatches
+  assert.deepEqual([second.data.state, second.data.recovered, second.data.receipt.result.state], ['attached', true, 'uncertain']);
+  const c = await a.cancel();
+  assert.equal(c.data.attaches[0].cancelled.stop, 'unknown', 'the recovered receipt names no run');
+  await writeFile(hold, '');
+  const r = await first;
+  assert.deepEqual([r.data.state, r.data.cancelled.stop], ['cancelled', 'stopped'], 'the dispatch that finished stopped its own run');
+  assert.equal((await a.w.closes()).length, 1);
+  assert.equal(runCalls(await a.w.rexCalls()).length, 1);
+  assert.equal((await attachJournal(a.dir).read(r.data.digest)).receipt.result.session, r.data.receipt.result.session, 'the dispatcher\'s receipt stands over the recovered one');
+  assert.deepEqual(await recoverCancels(attachJournal(a.dir), { env: a.w.env, root: a.w.checkout }), [], 'nothing left to settle');
+});
+
+test('one attach that cannot be settled does not keep recovery from settling the rest', async t => {
+  const a = await attached(t);
+  const one = await attach({ ...a.args, route: 'session', phaseText: undefined, host: undefined }, a.deps());
+  const two = await attach({ ...a.args, phase: 8 }, a.deps());
+  const base = attachJournal(a.dir);
+  for (const d of [one.data.digest, two.data.digest]) await base.cancel(d, { at: '2026-11-16T00:00:00.000Z', by: 'owner' });
+  const broken = [one.data.digest, two.data.digest].sort()[0], other = [one.data.digest, two.data.digest].sort()[1];
+  const journal = { ...base, settled: async (d, v) => { if (d === broken) throw new Error('disk full'); return base.settled(d, v); } };
+  const out = await recoverCancels(journal, { env: a.w.env, root: a.w.checkout });
+  assert.deepEqual(out.map(x => [x.digest, x.error ?? x.cancelled.done]).sort(), [[broken, 'disk full'], [other, true]].sort());
+  // And a killed write's temporary file (a copy of what it was writing) is removed once it is old; a writer's fresh one is left.
+  const old = join(a.dir, `${one.data.digest}.json.123.abcd1234.tmp`), fresh = join(a.dir, `${two.data.digest}.json.123.abcd1234.tmp`);
+  await writeFile(old, BRIEF); await writeFile(fresh, BRIEF);
+  await utimes(old, new Date(Date.now() - 600_000), new Date(Date.now() - 600_000));
+  await recoverCancels(base, { env: a.w.env, root: a.w.checkout });
+  assert.deepEqual([existsSync(old), existsSync(fresh)], [false, true]);
+});
+
+test('a brief directory that cannot be checked against git refuses the run before anything is made in Rex', async t => {
+  const w = await world(t);
+  const host = { file: 'hosts.json', start: null, state: null, harness: [w.harness] };
+  const env = { ...w.env, PATH: w.bin }; // no git here: whether the directory is in a repository cannot be known
+  await assert.rejects(startHost({ host, plate: 'Acme', provider: 'claude', checkout: w.checkout, brief: BRIEF, tab: 'phase-7', env }), /could not be checked.*Nothing was started/);
+  assert.deepEqual((await w.rexCalls()).map(c => c.args[0]), ['ls'], 'no session is made and no tab opened');
+  assert.equal(existsSync(w.briefDir), false);
 });
