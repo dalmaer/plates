@@ -277,3 +277,33 @@ test('settled answers are reconciled against refreshed cards', async () => {
   const html = renderHomeSnapshot(snapshot());
   assert.match(html, /data-card="api:walk:8" data-kind="walk" data-source="Does the Acme 8 flow work\?\u001fA person uses the \*\*real\*\* surface\.\u001fchoice-works\u001fchoice-needs-changes\u001fnot-now"/);
 });
+
+// PR #497 review: a preview that returns for an attempt since undone or replaced is ignored, never applied to the newer one.
+test('a preview completes only the attempt that asked for it', async () => {
+  const timers = [], pending = [], answers = createCardAnswers({ send: async () => ({ state: 'settled' }), prepare: hold => new Promise(r => pending.push({ hold, r })), timers: { setTimeout: f => { timers.push(f); return timers.length; }, clearTimeout: () => {} } });
+  const works = { id: 'choice-works', label: 'Works', needsWhy: 'never', writer: 'walk done' }, changes = { id: 'choice-needs-changes', label: 'Needs changes', needsWhy: 'never', writer: 'walk done' };
+  const first = answers.choose('api:walk:8', works);
+  assert.equal(answers.undo('api:walk:8'), true);
+  const second = answers.choose('api:walk:8', changes);
+  await new Promise(r => setTimeout(r, 0));
+  pending[0].r({ preview: { id: 'old' }, summary: 'Records Works.' });
+  assert.deepEqual(await first.preparing, { error: 'cancelled' });
+  assert.equal(answers.state('api:walk:8').state, 'preparing', 'the stale preview did not start a hold');
+  assert.equal(answers.state('api:walk:8').answer.id, 'choice-needs-changes'); assert.equal(timers.length, 0);
+  pending[1].r({ preview: { id: 'new' }, summary: 'Records Needs changes.' });
+  const held = (await second.preparing).held;
+  assert.equal((await held.prepared).preview.id, 'new', 'the hold applies its own preview');
+  assert.match(cardStatus(answers.state('api:walk:8')), /Needs changes<\/strong> — Records Needs changes\./);
+});
+
+// PR #497 review: an apply whose outcome is unknown survives a refresh, with its check link, and its answers stay hidden.
+test('an uncertain answer is kept across a refresh', async () => {
+  const timers = [], answers = createCardAnswers({ send: async () => ({ state: 'uncertain', reason: 'The write was sent but its outcome is not confirmed.', link: '/projects/api/operations/o1' }), timers: { setTimeout: f => { timers.push(f); return 1; }, clearTimeout: () => {} } });
+  answers.choose('api:walk:8', { id: 'not-now', label: 'Not now', needsWhy: 'never', writer: 'not now' }, { source: 's@1' }); await timers.at(-1)();
+  for (const present of [new Map([['api:walk:8', 's@2']]), new Map()]) {
+    answers.reconcile(present);
+    assert.equal(answers.state('api:walk:8')?.state, 'uncertain', 'neither a changed source nor a missing card forgets it');
+  }
+  assert.match(cardStatus(answers.state('api:walk:8')), /<p data-error>The write was sent but its outcome is not confirmed\. <a href="\/projects\/api\/operations\/o1">Check the operation →<\/a><\/p>/);
+  assert.equal(answers.choose('api:walk:8', { id: 'not-now', label: 'Not now', needsWhy: 'never', writer: 'not now' }).error, 'busy', 'never silently re-enabled');
+});
