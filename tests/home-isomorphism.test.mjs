@@ -35,7 +35,7 @@ const reviewRepository = { open: { pageInfo: { hasNextPage: false }, nodes: [{ k
 const rate = { cost: 1, remaining: 4000, resetAt: new Date(Date.now() + 3600_000).toISOString() };
 
 /** The same sources, twice: the web's fake App API and a git checkout with a fake gh. */
-async function sources({ reviews = true, files = {}, issues = null, waits = null, runs = null, prs = null, config = {}, review = reviewRepository, ready = null, checksRead = !!waits, decisionWrites = false, setup = null, compare = null } = {}) {
+async function sources({ reviews = true, files = {}, issues = null, waits = null, runs = null, prs = null, config = {}, review = reviewRepository, ready = null, checksRead = !!waits, decisionWrites = false, setup = null, compare = null, assignmentQuota = null } = {}) {
   const h = projectHarness();
   Object.assign(h.source.files, files);
   h.source.files['.plates/plates.json'] = JSON.stringify({ name: 'Acme Studio', repo: 'acme/studio', tagline: 'Publish useful things.', practice: '0.8.32', stack: ['node'], phases: { shape: 'files' },
@@ -102,14 +102,14 @@ else if (argv[0] === 'issue' && argv[1] === 'list' && ${JSON.stringify(!!issues)
 else { console.error('fake gh: offline'); process.exit(1); }
 `);
   await chmod(gh, 0o755);
-  const readWeb = createHomeReader(decisionWrites ? { ...h.config, decisionWrites: true } : h.config, { fetcher, now: () => Date.now() }), webAccess = { ...h.access, login: 'acme-owner', pullRequestsRead: reviews, checksRead, ...(runs ? { actionsPermission: 'read' } : {}) };
+  const readWeb = createHomeReader(decisionWrites ? { ...h.config, decisionWrites: true } : h.config, { fetcher, now: () => Date.now(), assignmentQuota: async () => assignmentQuota }), webAccess = { ...h.access, login: 'acme-owner', pullRequestsRead: reviews, checksRead, ...(runs ? { actionsPermission: 'read' } : {}) };
   const web = await readWeb(webAccess, token);
   const cliEnv = (state = 'state') => ({ ...gitEnv, PLATES_GH: gh, PLATES_CACHE: join(dir, 'cache'), PLATES_STATE: join(dir, state), XDG_STATE_HOME: join(dir, state) });
   const run = runNode(process.execPath, [bin, 'home', '--json'], { cwd: root, timeout: 120_000, env: cliEnv() });
   assert.equal(run.status, 0, run.stderr);
   // More plates home runs in the same checkout; `state` keeps their last-looked time apart from the first run's.
   const again = (args, { state = 'state-again', env = {} } = {}) => runNode(process.execPath, [bin, 'home', ...args], { cwd: root, timeout: 120_000, env: { ...cliEnv(state), ...env } });
-  return { web, cli: JSON.parse(run.stdout), dir, root, git, gitEnv, claimRefs, deployRecords, again, access: webAccess, readWeb: options => readWeb(webAccess, token, options), done: () => rm(dir, { recursive: true, force: true }) };
+  return { web, cli: JSON.parse(run.stdout), dir, root, git, gitEnv, claimRefs, deployRecords, again, access: webAccess, readWeb: options => readWeb(webAccess, token, options), readCli: async options => (await import('../lib/home.mjs')).home({root,...options}, {env:{...cliEnv('project-state'),ACME_GH_PRS:'[]'},assignmentQuota:async()=>assignmentQuota}), done: () => rm(dir, { recursive: true, force: true }) };
 }
 
 // What a reader adds about its own read, not the sources: when it read, and the App's numeric repository id.
@@ -171,11 +171,12 @@ test('main vs production is one model', async () => {
     assert.equal(web.projects[0].release.state, 'current');
     assert.deepEqual(row(cli), row(web), 'the same row on Your plates');
     assert.deepEqual(row(web), { state: 'current', main: short, production: short, ahead: 0, at: '2026-11-14', line: `production is main (${short}), deployed 2026-11-14` });
-    // A plate's own lens still draws the row (until phase 196's increment 2); Home does not (phase 196): in step, its chip is green and says nothing.
+    // Phase 196 increment 2 keeps equal releases in the source model, without a redundant row in either project renderer.
     const text = s.again(['--project', 'studio'], { state: 'state-release-text' });
     assert.equal(text.status, 0, text.stderr);
-    assert.ok(text.stdout.split('\n').includes(`    release production is main (${short}), deployed 2026-11-14`), 'the terminal prints the row');
-    assert.match(renderHomeSnapshot(web, { projectId: 'studio' }), /class="plate-release" data-release="current" role="img" aria-label="production is main/, 'the plate draws the row');
+    assert.doesNotMatch(text.stdout, /release production is main/);
+    const project = await s.readWeb({projectId:'studio',backlog:true});
+    assert.doesNotMatch(renderHomeSnapshot(project, {projectId:'studio'}), /plate-release|data-deploy-command/);
     assert.doesNotMatch(renderHomeSnapshot(web), /plate-release/, 'Home has no main → production row');
     assert.ok(!web.home.glance.cards.some(c => c.kind === 'deploy'), 'production at main is no card');
     assert.ok(!web.home.glance.chips[0].reasons.some(r => r.kind === 'deploy'), 'and no reason');
@@ -237,7 +238,8 @@ test('an agent waiting on you is one model, and loud', async () => {
     assert.match(row(s.web).status, /^(broken|agent waiting on you)/);
     const text = s.again(['--project', 'studio'], { state: 'state-waiting' });
     assert.equal(text.status, 0, text.stderr);
-    assert.ok(text.stdout.split('\n').some(l => l.startsWith(`    ⚑ AGENT WAITING ON YOU (${w.count}`) && l.includes(w.items[0].title)), text.stdout);
+    assert.ok(text.stdout.includes(w.items[0].title), text.stdout);
+    assert.ok(text.stdout.indexOf(w.items[0].title) < text.stdout.indexOf('Backlog'), 'the waiting decision precedes work');
     // Home (phase 196): the chip names it, and what agents wait on leads Needs you, in both forms.
     const chip = s.web.home.glance.chips[0], agentReason = chip.reasons.find(r => r.kind === 'agent');
     assert.ok(agentReason && /waiting on you$/.test(agentReason.text), JSON.stringify(chip));
@@ -464,12 +466,12 @@ test('the four home sections are one model', async () => {
     assert.match(text, new RegExp(`^ {2}red {4}Acme Studio: A night item failed \\+${glance.chips[0].more}$`, 'm'), text);
     assert.match(text, new RegExp(`^Since you last looked \\(${sec(s.web, 'since').count}\\) — the last 7 days$`, 'm'));
     assert.match(text, /^What should happen next\? \(2 queued\)$/m);
-    // A plate's lens keeps the four sections, the phase bar the card draws, and the Fix (until phase 196's increment 2).
+    // The project lens now renders decisions and backlog; historical summary counts remain in the JSON model.
     const lens = runNode(process.execPath, [bin, 'home', '--project', 'studio'], { cwd: join(s.dir, 'studio'),
       env: { ...gitEnv, PLATES_GH: join(s.dir, 'gh'), PLATES_CACHE: join(s.dir, 'cache'), PLATES_STATE: join(s.dir, 'lens-state'), XDG_STATE_HOME: join(s.dir, 'lens-state') } }).stdout;
-    assert.match(lens, /^ {4}phases █{8}▒{8}░{4} 2 done · 2 partial · 1 not started$/m, 'the terminal draws the bar the card draws');
-    assert.match(lens, /^ {2}Fix · Acme Studio: The night of/m);
-    assert.match(lens, /^ {2}Acme Studio: broken\b/m);
+    assert.match(lens, /^Backlog$/m);
+    assert.match(lens, /^ {2}Needs you · Acme phase 1$/m);
+    assert.doesNotMatch(lens, /^ {4}phases |^Your plates/m);
     const { renderReviewStart } = await import('../lib/web/review-views.mjs');
     assert.match(renderReviewStart(s.web), new RegExp(`<strong>${sec(s.web, 'needs-you').count} need you · `));
     assert.doesNotMatch(text, /at least|At least|in this source read|Inspection only/);
@@ -516,8 +518,10 @@ test('the CLI and the web show the same changes in flight', async () => {
     const text = runNode(process.execPath, [bin, 'home', '--project', 'studio'], { cwd: join(s.dir, 'studio'), timeout: 120_000,
       env: { ...gitEnv, PLATES_GH: join(s.dir, 'gh'), PLATES_CACHE: join(s.dir, 'cache'), PLATES_STATE: join(s.dir, 'state'), XDG_STATE_HOME: join(s.dir, 'state') } });
     assert.equal(text.status, 0, text.stderr);
-    assert.match(text.stdout, /Changes in flight \(4\)\n  waiting on integration · claude\/phase-7 · 2 h · past its target/);
-    for (const r of rows(s.web)) assert.ok(text.stdout.includes(r[3]), `the terminal prints ${r[0]}'s next action`);
+    assert.match(text.stdout, /^Backlog$/m);
+    assert.doesNotMatch(text.stdout, /^Changes in flight/m, 'the project no longer draws a separate delivery table');
+    const selected=await s.readCli({projectId:'studio'});
+    assert.deepEqual(rows(selected),rows(s.cli), 'the detailed delivery model remains inspectable in project JSON');
     assert.ok(!renderHomeSnapshot(s.web).includes('>Changes in flight</h2>'), 'home itself lists no waits: the plate\'s page does');
   } finally { await s.done(); }
 });
@@ -834,4 +838,31 @@ test('merge says why it is unavailable', async () => {
     assert.ok(unread.web.coverage && unread.web.projects[0].gaps.some(g => g.source === 'reviews' && /no pull request is shown ready to merge/.test(g.reason)), 'the web says why');
     assert.ok(unread.cli.projects[0].gaps.some(g => g.source === 'reviews' && /no pull request is shown ready to merge/.test(g.reason)), 'the terminal says why');
   } finally { await unread.done(); }
+});
+
+
+// Phase 196: actual readers consume the same assignment source and source files.
+test('project workspace and quota recommendation match through both real readers', async () => {
+  const at=Date.now(), assignmentQuota={snapshot:{v:1,generatedAt:at,providers:[
+    {id:'claude',status:'green',fresh:true,windows:[{id:'weekly',kind:'weekly',usedPct:65,pacePct:90}]},
+    {id:'codex',status:'green',fresh:true,windows:[{id:'weekly',kind:'weekly',usedPct:40,pacePct:90}]},
+  ]}};
+  const s=await sources({assignmentQuota,config:{agents:{claude:{},codex:{}},backlog:{routes:['session','local-host']}},
+    files:{'docs/phases/05-ready.md':phaseFile(5).replace('status: planned','status: planned\nspec: 2')}});
+  try {
+    const remote=join(s.dir,'remote.git');
+    execFileSync('git',['init','-q','--bare','-b','main',remote],{env:s.gitEnv});
+    s.git(['remote','add','origin',remote]);s.git(['push','-q','origin','main']);
+    const web=await s.readWeb({projectId:'studio',backlog:true}), cli=await s.readCli({projectId:'studio'});
+    const view=model=>({name:model.name,recommendation:model.recommendation,items:model.items.map(i=>({key:i.key,state:i.state,title:i.title,done:i.done,next:i.next,assign:i.assign})),waiting:model.waiting.map(i=>i.key)});
+    assert.deepEqual(view(cli.projectWorkspace),view(web.projectWorkspace));
+    const ready=web.projectWorkspace.items.find(i=>i.key==='studio:phase:5');
+    assert.equal(ready.state,'Ready');
+    assert.equal(ready.done,'A person can use the outcome.');
+    assert.equal(ready.assign.length,4);
+    assert.equal(web.projectWorkspace.recommendation.provider,'codex');
+    assert.match(renderHomeSnapshot(web,{projectId:'studio'}),/codex: 60% of its week left/);
+    const {homeText}=await import('../lib/home.mjs');
+    assert.match(homeText(cli,{projectId:'studio'}),/codex: 60% of its week left/);
+  } finally {await s.done();}
 });
