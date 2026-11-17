@@ -96,6 +96,13 @@ test('identity comes from the origin, never the text', async t => {
   // Numeric snowflakes are refused: identity is never a lossy number.
   assert.throws(() => createEnvelope({ provider: 'discord', scopeId: 'g', conversationId: CHANNEL, messageId: 1, kind: 'observation',
     origin: { kind: 'human', id: OWNER, authenticated: true } }), EnvelopeError);
+  // An agent target may be a plates session id of up to 128 characters, kept whole; past that, and for every other ID
+  // past 100, the envelope refuses rather than truncates.
+  const to = (id, kind = 'agent') => createEnvelope({ provider: 'discord', scopeId: 'g', conversationId: CHANNEL, messageId: 'm2', kind: 'request',
+    origin: { kind: 'human', id: OWNER, authenticated: true }, target: { kind, id }, command: { name: 'ask' } });
+  assert.equal(to(`a${'b'.repeat(127)}`).target.id, `a${'b'.repeat(127)}`);
+  assert.throws(() => to('a'.repeat(129)), EnvelopeError);
+  assert.throws(() => to('a'.repeat(101), 'coordinator'), EnvelopeError);
 
   assert.deepEqual(coordinator.calls, [], 'nothing reached the agent');
   assert.equal(coordinator.running, true);

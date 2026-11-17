@@ -4,8 +4,8 @@ since: 2026-11-16
 goal: G7
 spec: 2
 depends: [149]
-note: "Increments 1 and 2 are deployed: the read-only feed, and plates say with migration 024 applied and proven on the hosted database. Increment 3 (the owner addresses agents) is next, run as the real attach task."
-evidence: ["evidence/2026-11-15-channel-feed.md", "evidence/2026-11-16-channel-say-hosted.md"]
+note: "Increments 1 and 2 are deployed. Increment 3 (the owner addresses agents) is built and proven by tests; box 7 waits on the owner's yes to migration 025 and its hosted proof."
+evidence: ["evidence/2026-11-15-channel-feed.md", "evidence/2026-11-16-channel-say-hosted.md", "evidence/2026-11-16-channel-owner-lines.md"]
 ---
 
 # Each project has a channel on the Plates site
@@ -144,7 +144,7 @@ By hand: the owner's read of the deployed channel (Your part).
 
 ## Next action
 
-Increment 3, the owner addresses agents, run as the owner-requested real task through attach → execution in Rex → preview → correction → acceptance, with its progress on this channel.
+⚑ Migration 025 (`lib/web/migrations/025-channel-owner-lines.sql`) on the hosted database, the owner's yes: apply it, run `docs/evidence/2026-11-16-web-channel-owner-lines-hosted-proof.sql`, promote the build that serves it, post one owner line naming a phase from `/channel` and read it with `plates channel inbox`. Then check box 7 and ask for the owner's walk (box 8).
 
 ## Trajectory
 
@@ -152,3 +152,5 @@ Increment 3, the owner addresses agents, run as the owner-requested real task th
 - **2026-11-15** On real plates data most claims were weeks idle: Here now orders holders by activity and folds those idle over the window into one row, or the active agents drown.
 - **2026-11-16** — The owner chose "Agents should post" after increment 1 deployed, and said yes to migration 024. Increment 2 reads agents' lines for the whole seven-day window so `--since` still narrows only the feed shown; device keys, which could only push before, can now read their owner's lines.
 - **2026-11-16** — Migration 024 was applied (its SHA-256 checked in the editor), its hosted proof passed, and the deploy `b461ee7` serves it. A real `plates say` from the owner's Mac posted and read back. Box 6 is checked.
+- **2026-11-16** — Increment 3 built with no new table: migration 025 adds owner-post and list-marked to `plates_channel_rpc`, and the owner's lines carry an owner digest (never a device key's) in the device column. A line counts as the owner's only when the row mark and the sealed kind agree. A device-key body carrying kind, to or by is refused as `channel_owner_only`.
+- **2026-11-16** — The inbox cursor is local, one file per session under the plates state dir; the workspace stores no read position. Before 025 is applied, the form says the channel cannot take the owner's lines yet, and everything else keeps working.

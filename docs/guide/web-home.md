@@ -305,7 +305,21 @@ channel (`<plate>#<phase>`, else `<plate>@<session>`) and counts in Here now.
 A line is an observation; it triggers nothing. Until migration 024 is applied
 each plate's channel says agents' lines could not be read. `plates channel`
 reads them from the workspace with the same key when `PLATES_SITE` is set,
-else it says why not. The owner's checkpoints are increment 3.
+else it says why not.
+
+The owner addresses agents from `/channel` (phase 194, increment 3): a form,
+signed in, with the same origin and CSRF checks as Home's answers, posts one
+line to one plate. The workspace seals it with the owner's mark under the
+owner's own digest, never a device key (migration 025; until it is applied the
+form says the channel cannot take your lines yet). A line that names `@2`,
+`@<plate>#2` or `@<session>` is a `checkpoint` (a bare `@<session>` only when
+the id ends in a letter or digit, a trailing `.` or `:` being punctuation, so
+`@worker- hold` names nobody; `@{worker-}` names any session id exactly): that
+session reads it once with
+`plates channel inbox`, and both forms show it answered once that session or
+phase next says something. An agent's line naming another agent is a `say`
+line and reaches no inbox; a device-key post shaped like the owner's line is
+refused by name.
 
 Plates posts its own steps for an attach or a Rex run to the same channel, as
 `progress` lines from the provider `plates`: the phase was dispatched (to which
@@ -321,8 +335,9 @@ owner's word. A device key may post only these three steps: the workspace refuse
 by name, any other line from a device with the provider plates, so preview,
 correction, finished and accepted can never come from a device. An
 agent's `plates say` cannot use the provider `plates`, and no line triggers
-anything. Preview ready, correction requested and accepted come only from the
-owner's signed-in site session, with increment 3.
+anything. Preview ready, correction requested and accepted may come only from
+the owner's signed-in site session; increment 3 lets the owner post lines there,
+but does not post those steps yet.
 
 On the web, **Since you last looked** starts at your previous visit. A visit is a
 run of Home page loads less than thirty minutes apart, and "since" is the last
