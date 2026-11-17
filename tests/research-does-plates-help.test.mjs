@@ -3,7 +3,7 @@
 // cells name a file, and what counts as a status move.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { redStreak, guardPaths, lessonTable, frontMatter } from '../scripts/research/does-plates-help.mjs';
+import { redStreak, guardPaths, lessonTable, frontMatter, readDoctor } from '../scripts/research/does-plates-help.mjs';
 
 const run = (hour, conclusion) => ({ createdAt: `2026-10-01T${String(hour).padStart(2, '0')}:00:00Z`, conclusion });
 
@@ -45,4 +45,36 @@ test('front matter: status, and evidence only when a path is named', () => {
   assert.deepEqual(frontMatter('---\nstatus: built\nevidence:\n  - evidence/a.md\n---\n'), { status: 'built', evidence: true });
   assert.deepEqual(frontMatter('---\nstatus: built\nevidence:      # newest first\n---\n'), { status: 'built', evidence: false });
   assert.equal(frontMatter('# no front matter'), null);
+});
+
+// A child process that exited non-zero, as execFileSync throws it.
+const exited = (status, stdout = '') => () => { throw Object.assign(new Error(`exit ${status}`), { status, stdout }); };
+
+test('doctor read: a report is a reading, with or without findings', () => {
+  const report = JSON.stringify({ drift: [{ state: 'edited' }, { state: 'both' }, { state: 'behind' }], local: { ci: 'own', phases: 'own' } });
+  assert.deepEqual(readDoctor(() => report), { computable: true, exit: 0, edited: 1, both: 1, localVariants: 2, total: 4 });
+  // Doctor exits 1 when it has findings and still prints the whole report.
+  assert.deepEqual(readDoctor(exited(1, report)), { computable: true, exit: 1, edited: 1, both: 1, localVariants: 2, total: 4 });
+  assert.deepEqual(readDoctor(() => JSON.stringify({ drift: [] })), { computable: true, exit: 0, edited: 0, both: 0, localVariants: 0, total: 0 });
+});
+
+test('doctor read: a failed read is unknown, never zero drift', () => {
+  const failed = [
+    ['error JSON, exit 2', exited(2, JSON.stringify({ error: 'malformed config' }))],
+    ['error JSON, exit 0', () => JSON.stringify({ error: 'not in a plates project' })],
+    ['non-zero exit, no output', exited(2)],
+    ['non-zero exit other than findings, with a report', exited(2, JSON.stringify({ drift: [] }))],
+    ['killed by a signal', exited(null, JSON.stringify({ drift: [] }))],
+    ['output that is not JSON', () => 'Error: something broke\n'],
+    ['JSON that is not a report', () => '[]'],
+    ['a report without a drift list', () => JSON.stringify({ local: {} })],
+    ['a malformed local list', () => JSON.stringify({ drift: [], local: ['ci'] })],
+    ['a spawn that could not start', () => { throw new Error('ENOENT'); }],
+  ];
+  for (const [name, run] of failed) {
+    const read = readDoctor(run);
+    assert.equal(read.computable, false, name);
+    assert.equal(read.unknown, true, name);
+    assert.equal(read.total, undefined, name);
+  }
 });

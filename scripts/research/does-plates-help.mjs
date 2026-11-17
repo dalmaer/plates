@@ -183,6 +183,30 @@ export function phases(repo, from, to, dir = 'docs/phases') {
 
 // ---- measure 4: practice drift ----------------------------------------------
 
+/**
+ * One doctor read, from a function that runs it and returns its stdout. A read
+ * that failed is unknown, never zero: a spawn that throws without output, output
+ * that is not JSON, an `error` report, or a report with no `drift` list. Doctor
+ * exits 1 when it has findings and still prints its report, so a non-zero exit
+ * with a well-formed report is a reading; `exit` records it.
+ */
+export function readDoctor(run) {
+  let out, exit = 0;
+  try { out = run(); } catch (error) { out = error?.stdout; exit = error?.status ?? null; }
+  const unknown = why => ({ computable: false, unknown: true, why, exit });
+  if (typeof out !== 'string' || !out.trim()) return unknown('doctor printed nothing');
+  let report;
+  try { report = JSON.parse(out); } catch { return unknown('doctor output is not JSON'); }
+  if (!report || typeof report !== 'object' || Array.isArray(report)) return unknown('doctor output is not a report');
+  if (report.error !== undefined) return unknown('doctor reported an error');
+  if (!Array.isArray(report.drift)) return unknown('doctor report has no drift list');
+  if (report.local !== undefined && (report.local === null || typeof report.local !== 'object' || Array.isArray(report.local))) return unknown('doctor report has a malformed local list');
+  if (exit !== 0 && exit !== 1) return unknown(`doctor exited ${exit}`);
+  const count = state => report.drift.filter(d => d?.state === state).length;
+  const local = Object.keys(report.local ?? {}).length;
+  return { computable: true, exit, edited: count('edited'), both: count('both'), localVariants: local, total: count('edited') + count('both') + local };
+}
+
 /** Doctor's reading of `project` as both stood at `at`, by the CLI plates carried at `at`. */
 export function drift(plates, project, at) {
   const shaAt = repo => git(repo, ['rev-list', '-1', `--before=${at}`, 'HEAD']).trim();
@@ -195,12 +219,7 @@ export function drift(plates, project, at) {
     git(project, ['worktree', 'add', '-q', '--detach', tree, projectSha]);
     if (!existsSync(join(tree, '.plates', 'plates.json')) && !existsSync(join(tree, '.keel', 'keel.json'))) return { computable: false, why: 'not adopted at that time' };
     const bin = ['plates.mjs', 'keel.mjs'].map(n => join(cli, 'bin', n)).find(existsSync);
-    let out;
-    try { out = execFileSync('node', [bin, 'doctor', '--json'], { cwd: tree, encoding: 'utf8', maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'ignore'] }); } catch (error) { out = error.stdout; }
-    const report = JSON.parse(out);
-    const count = state => (report.drift ?? []).filter(d => d.state === state).length;
-    const local = Object.keys(report.local ?? {}).length;
-    return { computable: true, edited: count('edited'), both: count('both'), localVariants: local, total: count('edited') + count('both') + local };
+    return readDoctor(() => execFileSync('node', [bin, 'doctor', '--json'], { cwd: tree, encoding: 'utf8', maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'ignore'] }));
   } finally {
     git(plates, ['worktree', 'remove', '--force', cli], { allowFail: true });
     git(project, ['worktree', 'remove', '--force', tree], { allowFail: true });

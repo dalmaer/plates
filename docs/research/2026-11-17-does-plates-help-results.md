@@ -242,22 +242,33 @@ node $S drift --plates $DATA/plates --project $DATA/ledger --at 2026-10-04T12:00
 # the same for each managed project, for 10-04, 10-11, 10-18, 10-25, 11-01, 11-08 and 11-15
 ```
 
-The value is doctor's `edited` + `both` + the number of local variants. The
+The value is doctor's `edited` + `both` + the number of local variants. A
+doctor read that failed is **unknown, not zero**: no output, output that is not
+a report, a report carrying an `error`, or an exit code other than 0 or 1
+(doctor exits 1 when it has findings and still prints its report). The
 fleet grew from 4 managed projects (plates and the three above) to 17, so the
 sum is given beside the three projects the pre-registration named.
 
-| Sunday | Managed projects | Fleet sum | Of it, `edited` + `both` | ledger | duo | cajones | The three |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-10-04 | 4 | 12 | 0 | 4 | 5 | 3 | **12** |
-| 2026-10-11 | 6 | 14 | 0 | 4 | 4 | 2 | **10** |
-| 2026-10-18 | 6 | 14 | 0 | 4 | 4 | 2 | **10** |
-| 2026-10-25 | 8 | 14 | 0 | 4 | 4 | 2 | **10** |
-| 2026-11-01 | 10 | 14 | 0 | 4 | 4 | 2 | **10** |
-| 2026-11-08 | 11 | 14 | 0 | 4 | 4 | 2 | **10** |
-| 2026-11-15 | 17 | 22 | 8 | 5 | 6 | 4 | **15** |
+| Sunday | Managed projects | Read | Fleet sum | Of it, `edited` + `both` | ledger | duo | cajones | The three |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-04 | 4 | 4 | 12 | 0 | 4 | 5 | 3 | **12** |
+| 2026-10-11 | 6 | 6 | 14 | 0 | 4 | 4 | 2 | **10** |
+| 2026-10-18 | 6 | 6 | 14 | 0 | 4 | 4 | 2 | **10** |
+| 2026-10-25 | 8 | 7 | 14, with one unknown | 0 | 4 | 4 | 2 | **10** |
+| 2026-11-01 | 10 | 10 | 14 | 0 | 4 | 4 | 2 | **10** |
+| 2026-11-08 | 11 | 11 | 14 | 0 | 4 | 4 | 2 | **10** |
+| 2026-11-15 | 17 | 17 | 22 | 8 | 5 | 6 | 4 | **15** |
 
 isocan read 4 from 11 October to 8 November and 7 on 15 November. Plates
-itself and the other twelve managed projects read 0 at every reading.
+itself and the other twelve managed projects read 0 at every reading that
+could be taken.
+
+**One gap.** On 25 October doctor reported an error on one of those twelve
+projects' trees, so that project-week is unknown. The first version of this
+page counted it as 0. That project read 0 on the Sundays before and after. The
+fleet sum for 25 October is 14 across the 7 projects read, and is a floor, not
+a total. No other figure in the table changed: all 61 other project-weeks were
+well-formed reports, and the three named projects were read every week.
 
 **Read as pre-registered:** drift **did not fall**. The three named projects
 went from 12 to 10 in the first week, when duo and cajones each lost one local
@@ -267,7 +278,7 @@ sum went 12, 14, 22. No local variant converged after the first week: ledger
 15 November managed files appear as changed for the first time (8 across four
 projects).
 
-The twelve projects that read 0 all joined on or after 5 October. Whether they
+The twelve projects that read 0 wherever they could be read all joined on or after 5 October. Whether they
 read 0 because plates kept them aligned, or because they began with nothing of
 their own to differ, this measure cannot say.
 
