@@ -36,6 +36,18 @@ test('the shared renderer escapes source HTML and admits only safe Markdown', ()
   assert.equal(inlineMarkdown('\0\u00000\0<script>'), '0&lt;script&gt;');
 });
 
+test('rejected Markdown link targets remain visible as escaped plain text', () => {
+  const escape = value => value.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+  for (const target of ['http://acme.test/docs', '/docs/acme', 'not a URL', 'javascript:alert(1)', 'data:text/html,<img src=x onerror=alert(1)>', 'https://user:pass@acme.test', 'http://acme.test/**literal**/`code`?a=1&b="two"']) {
+    const source = `[**Acme** tools](${target})`;
+    const expected = `<strong>Acme</strong> tools (${escape(target)})`;
+    assert.equal(inlineMarkdown(source), expected, target);
+    assert.equal(inlineMarkdown(source, {links:false}), expected, `action label: ${target}`);
+    assert.equal(markdownView(source), `<p>${expected}</p>`, `block: ${target}`);
+    assert.doesNotMatch(inlineMarkdown(source), /<a\b|<img\b/);
+  }
+});
+
 test('empty project sections and navigation entries disappear; source detail remains reachable', () => {
   assert.equal(renderSimpleProject(model(),project),'');
   const empty=renderSimpleProject(model([item]),project);
