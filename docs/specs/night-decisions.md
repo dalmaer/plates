@@ -101,3 +101,93 @@ decision in the journal.
 Nothing pushes the journal, routes a question, or shows anything in the morning
 yet. The private runtime destination for a hosted runner is selected before
 routing is activated.
+
+## Door assessment before approval (phase 162, 2026-11-18)
+
+The question is **what changes, who can observe it, and can we restore the prior
+state within the existing authority and budget?** A familiar command or a history
+of yeses is not the answer. `lib/night-door-policy.mjs` is a pure advisory boundary;
+it performs no tools, grants, settings changes or journal writes.
+
+- **Two-way:** every effect is understood and bounded, with a reliable recovery
+  path, retained prior state, and affordable recovery. An unpublished tracked edit
+  may qualify; an untracked overwrite without a preserved preimage does not.
+- **One-way:** at least one effect cannot actually be undone. Examples include
+  sending a message, exposing private data, consuming money, and destroying data
+  without recovery. A compensating action is not erasure of the original effect.
+- **Unknown:** the effect inventory, recovery evidence or limits are incomplete.
+  “Probably safe,” a model's confidence and a Git revert command do not fill gaps.
+
+Classify the whole operation, not its first benign step. A local edit followed by
+publication has an external effect. A test script can invoke network operations;
+its name alone cannot establish a two-way door. Treat changing script bytes,
+symlink targets, executable identity and destinations as changed inputs.
+
+Reversibility and authority are separate axes. A two-way door outside scope still
+parks. A one-way door may proceed through existing exact authorization, but this
+assessment never supplies that authorization. Preserve explicit denials, protected
+paths, budgets, required hooks and original receipts. Inspect uncertain execution
+before any new attempt, even if the intended action was reversible.
+
+A decision-ready card should contain: intended effect; door and reasons; scope;
+existing authority reference or missing decision; recovery steps, evidence and cost;
+original operation receipt; next action. Display unknowns. Do not make a generic
+“continue” button stand for approval of a new destination or changed bytes.
+
+### AGY integration boundary (not enabled)
+
+Use the supported PreToolUse contract only after version-specific tests establish
+hook ordering and explicit deny/ask precedence. Preserve SidePulse and other hooks.
+An observation handler must not accidentally force every action to ask. AGY's
+`auto_approve` is distinct from `allow`; no hook output is emitted by this module.
+Reference: [AGY hooks](https://antigravity.google/docs/hooks), inspected 2026-11-18.
+
+Before enabling, test the actual adapter in observation mode, including compounded
+shell operations, changed scripts, missing workspaces, stale evidence, denial,
+hook failure and uncertain dispatch. Do not infer a human grant from PostToolUse
+success or a terminal's permission-wait signal. Hook events describe observations;
+only an authenticated explicit owner decision can establish a reusable grant.
+
+If approval reuse is added, reference existing scoped authority and receipts;
+never create a second authority store. Bind reuse to operation/effects, project,
+paths, destination, policy version, relevant bytes and expiry. Broadening any of
+these requires reevaluation. Keep private sanitized observation records outside
+Git; do not store credentials, raw prompts or raw tool arguments. No global skip
+flag, permission expansion or paid evaluation is part of this increment.
+
+### Examples for the operator
+
+| Intended action | Door | What changes the answer |
+| --- | --- | --- |
+| Edit an unpublished tracked source file | Two-way candidate | Exact preimage retained, no unrelated edits overwritten, bounded restore cost |
+| Run a known isolated test | Two-way candidate | Its scripts and subprocesses have no unbounded external effects; cleanup and cost are bounded |
+| Upload a private file | One-way | Deleting the upload cannot prove nobody read or copied it |
+| Send an email or make a paid request | One-way | A follow-up or refund is compensation, not reversal |
+| Apply a database migration | Unknown until assessed | Actual data transformation, backup/restore proof and downstream compatibility determine recovery |
+| Retry after a lost dispatch response | Inspect original receipt | Door classification cannot establish whether the first attempt already ran |
+| Toggle a feature flag | Depends on effects | Turning it off does not undo messages, charges or data changes produced while it was on |
+
+A two-way door still needs a bounded blast radius. Restoration that takes hours,
+requires someone else's cooperation, or loses intervening work is not a cheap
+local undo. Report those limits rather than rewarding confident wording.
+
+### Run a local assessment
+
+From a source checkout, run `node scripts/assess-door.mjs /absolute/path/input.json --json`.
+Omit `--json` for the decision card. The file is read only; keep real operation
+inputs in private state outside Git. No result is persisted automatically.
+
+Input fields are `intent`, `effectsComplete`, `effects`, `context`, `operation`,
+and `asOf`. Each effect names its kind, description, affected relative paths,
+bounds and recovery. Recovery uses the envelope's `door`, `knownGood`, `steps`,
+`preconditions`, `limits`, `expires`, with explicit evidence references, reliability,
+satisfied preconditions and bounded cost. Missing facts or `{ "unknown": "why" }`
+remain unknown. `asOf` is explicit; the expiry day is conservatively expired.
+
+The context describes authority, scope, budget and hooks separately. Even a
+`trust: "verified"` input is only a caller's declaration to this pure tool: the
+output always says `authorizesExecution: false` and `declared-not-verified`.
+Adapters must resolve real authority from existing trusted controls, not accept
+model-authored context fields as proof. See `tests/night-door-policy.test.mjs` for
+complete synthetic inputs and negative cases. Extra keys, including invented
+approval fields, are refused instead of silently ignored.
