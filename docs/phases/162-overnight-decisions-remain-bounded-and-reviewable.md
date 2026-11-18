@@ -5,7 +5,7 @@ goal: G4
 spec: 2
 depends: [157, 73, 90]
 note: "Increments 1 and 2 built: a validate-only decision envelope, and an append-only journal beside the night plan keyed by the original operation, so a resume inspects and never redispatches. Nothing routes questions or shows them in the morning yet."
-evidence: ["evidence/2026-11-04-night-decisions.md", "evidence/2026-11-18-door-assessment.md"]
+evidence: ["evidence/2026-11-04-night-decisions.md", "evidence/2026-11-18-door-assessment.md", "evidence/2026-11-18-agy-door-observer.md"]
 ---
 
 # Overnight decisions stay within bounds and can be corrected in the morning
@@ -103,6 +103,14 @@ Build and test the pure effect/recovery assessment in `lib/night-door-policy.mjs
 with `tests/night-door-policy.test.mjs`. Keep it advisory and disconnected from
 AGY permission responses. See the door assessment in the existing specification;
 no hook, routing, grant cache or live acceptance is established by this increment.
+
+## AGY observation increment
+
+Source-only lifecycle observation may be installed for an exact selected AGY
+workspace with private external receipts. It delegates native permission policy
+and preserves all other hooks. It does not activate automatic approval, establish
+trusted recovery, or complete question routing. See the adapter section in the
+existing spec and its dated evidence.
 
 ## Next action
 
