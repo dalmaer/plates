@@ -6,6 +6,8 @@ import { once } from 'node:events';
 import { projectHarness, phaseFile } from './helpers/web-projects.mjs';
 import { restoreMigratedPGlite } from './helpers/web-pglite.mjs';
 import { createWebService } from '../lib/web/server.mjs';
+import { createAttachController } from '../lib/web/attach-controller.mjs';
+import { createRunReceipts } from '../lib/web/run-receipts.mjs';
 import { createOperationStore } from '../lib/web/operation-store.mjs';
 import { prepareClaimIntent } from '../lib/web/attach-github.mjs';
 import { unseal, seal, hash } from '../lib/web/common.mjs';
@@ -17,7 +19,7 @@ async function hosted(t) {
   t.after(() => db.close());
   h.source.files['.plates/plates.json'] = JSON.stringify({ name: 'Acme Studio', agents: { codex: {}, claude: {} } });
   h.source.files['docs/phases/01-first.md'] = phaseFile(1).replace('status: planned', 'status: planned\nspec: 2');
-  const state = { calls: [], lose: false, afterClaims: null, afterIdentity: null, private: true, node: 'R_acme', tree: 'c'.repeat(40), quarantine: false };
+  const state = { calls: [], lose: false, afterClaims: null, afterIdentity: null, private: true, node: 'R_acme', tree: 'c'.repeat(40), quarantine: false, provider: null, afterOperation: null };
   const fetcher = async (url, options) => {
     const path = new URL(url).pathname;
     state.calls.push({ path, options });
@@ -27,9 +29,18 @@ async function hosted(t) {
       let row;
       try { row = (await db.query('SELECT public.plates_decision_rpc($1,$2,$3,$4,$5,$6,$7) value', [p.p_operation,p.p_id,p.p_scope,p.p_project,p.p_preview,p.p_fence,p.p_value])).rows[0].value; }
       finally { await db.exec('RESET ROLE'); }
+      await state.afterOperation?.(p.p_operation, row);
       if (state.lose && p.p_operation === 'preview-create') { state.lose = false; throw Error('Acme lost acknowledgement'); }
       return Response.json(row);
     }
+    if (path.endsWith('/plates_run_history')) {
+      const p = JSON.parse(options.body);
+      await db.exec('SET ROLE service_role');
+      try { return Response.json((await db.query('SELECT public.plates_run_history($1,$2,$3,$4) value', [p.p_scope,p.p_project,p.p_after,p.p_limit])).rows[0].value); }
+      finally { await db.exec('RESET ROLE'); }
+    }
+    const provided = await state.provider?.(url, options);
+    if (provided) return provided;
     if (path === '/user/installations') {
       const body = await (await h.fetcher(url, options)).json();
       body.installations[0].permissions.pull_requests = 'read';
@@ -47,7 +58,7 @@ async function hosted(t) {
       const text = JSON.stringify(manifest); body.content = Buffer.from(text).toString('base64'); body.size = Buffer.byteLength(text);
       return Response.json(body);
     }
-    if (path === '/repositories/102') return Response.json({ id: 102, node_id: state.node, full_name: 'acme/studio', private: state.private, default_branch: 'main' });
+    if (path === '/repositories/102') return Response.json({ id: 102, node_id: state.node, full_name: 'acme/studio', owner: { id: 2 }, permissions: { push: true }, private: state.private, default_branch: 'main' });
     if (path === '/graphql') {
       const q = JSON.parse(options.body).query;
       assert.doesNotMatch(q, /\bmutation\b/);
@@ -57,7 +68,7 @@ async function hosted(t) {
       }
       if (q.includes('AttachPreviewIdentity')) {
         state.afterIdentity?.();
-        return Response.json({ data: { node: { id: state.node, databaseId: 102, nameWithOwner: 'acme/studio', isPrivate: state.private,
+        return Response.json({ data: { node: { id: state.node, databaseId: 102, nameWithOwner: 'acme/studio', isPrivate: state.private, owner: { databaseId: 2 },
           defaultBranchRef: { name: 'main', target: { oid: h.source.revision, tree: { oid: state.tree } } } } } });
       }
     }
@@ -131,7 +142,10 @@ test('HTTP prepares, reloads and repeats the exact encrypted preview without a c
   const { row, value } = await s.saved(id);
   assert.ok(!row.value.includes(model.preview.effect.brief.text));
   assert.equal(value.actorId, 1);
-  assert.equal(value.digest, hash(canonical(value.model)));
+  assert.equal(value.schema, 2);
+  assert.equal(value.digest, hash(canonical({ model: value.model, publication: value.publication })));
+  assert.deepEqual(prepared.publication, value.publication);
+  assert.equal(prepared.publication.intent.operationId, id);
   assert.match(value.fence, /^[a-f0-9]{64}$/);
   assert.deepEqual(await (await s.call(apiPath(prepared.previewUrl))).json(), prepared);
   assert.deepEqual(await (await s.prepare(model)).json(), prepared);
@@ -139,6 +153,8 @@ test('HTTP prepares, reloads and repeats the exact encrypted preview without a c
   assert.equal((await s.db.query('SELECT count(*)::int n FROM keel_private.decision_operations')).rows[0].n, 0);
   assert.equal((await s.call(apiPath(prepared.operationUrl))).status, 404);
   const html = await (await s.call(prepared.previewUrl)).text();
+  assert.ok(html.includes(prepared.publication.intent.commit));
+  assert.match(html, /Exact claim publication/);
   assert.ok(html.includes(id)); assert.ok(html.includes(value.digest)); assert.match(html, /Inspect original attach receipt/);
   assert.doesNotMatch(/<main[\s\S]*?<\/main>/.exec(html)[0], /method="post"/);
   for (const path of [prepared.previewUrl, prepared.operationUrl]) assert.equal(describeRoute(path)?.path, path);
@@ -253,10 +269,172 @@ test('HTTP persisted retrieval rejects malformed decrypted records even with a m
   const s = await hosted(t), model = await s.offer(), prepared = await (await s.prepare(model)).json();
   const { row, value } = await s.saved(prepared.previewId);
   for (const mutate of [v => { v.actorId = 2; }, v => { v.model.source.parent = 'd'.repeat(40); }, v => { v.model.preview.effect.brief.text = 'forged'; },
-    v => { v.extra = true; }, v => { v.model.running = true; }, v => { v.model.source.repositoryNodeId = null; }]) {
-    const changed = structuredClone(value); mutate(changed); changed.digest = hash(canonical(changed.model));
+    v => { v.extra = true; }, v => { v.model.running = true; }, v => { v.model.source.repositoryNodeId = null; }, v => { v.publication.ownerId = null; }, v => { v.publication.intent.payload.message = 'forged'; }]) {
+    const changed = structuredClone(value); mutate(changed); changed.digest = hash(canonical({ model: changed.model, publication: changed.publication }));
     await s.db.query('UPDATE keel_private.decision_previews SET value=$1 WHERE id=$2', [seal(changed, s.config.encryptionKey, `decision:${row.scope}:${value.id}`), value.id]);
     assert.equal((await s.call(apiPath(prepared.previewUrl))).status, 503);
   }
   noEffects(s);
+});
+
+
+// Synthetic provider for internal-only submissions. The HTTP apply/recover routes
+// remain absent even when decision writes are enabled. No live provider is used.
+function submission(s, prepared) {
+  s.config.decisionWrites = true;
+  const project = s.h.access.projects[0], access = { ...s.h.access, contentsPermission: 'write', pullRequestsRead: true };
+  const parent = { token: 'fake-user-access-token-for-tests', tokenExpiry: s.h.state.now + 3600000 };
+  const intent = prepared.publication.intent, repo = { id: 'R_acme', databaseId: 102, nameWithOwner: 'acme/studio' };
+  const state = { effects: [], commit: false, ref: null, loseRef: false, access, afterEffect: null };
+  const object = oid => ({ oid, message: intent.payload.message, tree: { oid: intent.tree }, parents: { totalCount: 1, nodes: [{ oid: intent.parent }] },
+    author: intent.payload.author, committer: intent.payload.committer, repository: repo });
+  const ref = () => state.ref ? { prefix: 'refs/heads/', name: 'claims/phase-1', repository: repo, target: object(state.ref) } : null;
+  const grant = token => ({ token, user: { id: 1 }, app: { client_id: s.config.clientId }, scopes: [], expires_at: new Date(parent.tokenExpiry).toISOString(),
+    installation: { account: { id: 2 }, repository_selection: 'selected', permissions: { contents: 'write', metadata: 'read' } } });
+  s.state.provider = async (url, options) => {
+    const path = new URL(url).pathname, body = options.body ? JSON.parse(options.body) : {}, query = body.query ?? '';
+    if (path.endsWith('/token/scoped')) {
+      state.effects.push('mint'); state.afterEffect?.('mint'); return Response.json(grant('fake-acme-child'));
+    }
+    if (path.endsWith('/token')) return Response.json(grant(body.access_token));
+    if (path === '/user') return Response.json({ id: 1 });
+    if (path === '/user/installations') return Response.json({ total_count: 1, installations: [{ id: 21, app_id: 11, account: { id: 2 }, suspended_at: null,
+      repository_selection: 'selected', permissions: { contents: 'write', metadata: 'read', pull_requests: 'read' } }] });
+    if (path.endsWith('/repositories')) return Response.json({ total_count: 1, repositories: [{ id: 102, node_id: 'R_acme', full_name: 'acme/studio', owner: { id: 2 }, permissions: { push: true } }] });
+    if (query.includes('HostedClaimCommitAccess')) return Response.json({ data: { node: { ...repo, owner: { databaseId: 2 }, viewerPermission: 'WRITE', source: { oid: intent.parent, tree: { oid: intent.tree } } } } });
+    if (path.endsWith('/git/commits')) {
+      assert.equal(options.headers.Authorization, 'Bearer fake-acme-child');
+      assert.deepEqual(body, intent.payload, 'the exact reviewed payload');
+      state.effects.push('commit'); state.commit = true;
+      return Response.json({ sha: intent.commit, ...intent.payload, tree: { sha: intent.tree }, parents: [{ sha: intent.parent }] }, { status: 201 });
+    }
+    if (query.includes('mutation HostedClaimCreateRef')) {
+      assert.equal(body.variables.input.repositoryId, intent.repositoryNodeId);
+      assert.equal(body.variables.input.oid, intent.commit);
+      state.effects.push('ref'); state.ref = intent.commit;
+      if (state.loseRef) throw Error('Acme lost ref reply');
+      return Response.json({ data: { createRef: { ref: ref() } } });
+    }
+    if (query.includes('HostedClaimInspect')) return Response.json({ data: { node: { ...repo, source: { oid: intent.parent, tree: { oid: intent.tree }, repository: repo },
+      candidate: state.commit ? object(intent.commit) : null, ref: ref() } } });
+    return null;
+  };
+  const controller = () => createAttachController(s.config, { fetcher: s.fetcher, now: () => s.h.state.now });
+  const reauthorize = async () => state.access;
+  const input = { previewId: prepared.previewId, digest: prepared.digest };
+  return { state, project, access, parent, input, controller, reauthorize,
+    apply: (options = {}) => controller().apply(access, parent, project, { ...input, ...options }, { reauthorize }),
+    recover: () => controller().recover(access, parent.token, project, prepared.operationId, { reauthorize }) };
+}
+
+test('dormant reviewed apply publishes once; reconnect and repeated apply keep the original operation', async t => {
+  const s = await hosted(t), prepared = await (await s.prepare(await s.offer())).json(), h = submission(s, prepared);
+  const first = await h.apply();
+  assert.equal(first.state, 'claim-verified'); assert.equal(first.running, false); assert.equal(first.dispatch, false);
+  assert.deepEqual(first.brief, prepared.preview.effect.brief);
+  assert.equal(first.operationUrl, prepared.operationUrl);
+  assert.deepEqual(h.state.effects, ['mint','commit','ref']);
+  s.h.state.now += 16 * 60000;
+  s.h.source.revision = 'd'.repeat(40);
+  const repeated = await h.apply();
+  assert.equal(repeated.state, 'original-receipt');
+  const recovered = await h.recover();
+  assert.equal(recovered.claimVerified, true); assert.equal(recovered.operationUrl, first.operationUrl);
+  assert.deepEqual(h.state.effects, ['mint','commit','ref']);
+  s.config.decisionWrites = false;
+  assert.equal((await h.recover()).claimVerified, true, 'disabled publication still permits original inspection');
+  assert.deepEqual(h.state.effects, ['mint','commit','ref']);
+});
+
+test('reviewed apply refuses changed review/source/access and legacy previews before reserving effects', async t => {
+  const s = await hosted(t), prepared = await (await s.prepare(await s.offer())).json(), h = submission(s, prepared);
+  await assert.rejects(h.apply({ digest: 'e'.repeat(64) }), { code: 'attach_review_changed' });
+  await assert.rejects(h.apply({ intent: prepared.publication.intent }), { code: 'invalid_attach_apply' });
+  h.state.access = { ...h.access, contentsPermission: 'read' };
+  await assert.rejects(h.apply(), { code: 'access_denied' });
+  h.state.access = { ...h.access, pullRequestsRead: false };
+  await assert.rejects(h.apply(), { code: 'access_denied' });
+  h.state.access = { ...h.access, projects: [] };
+  await assert.rejects(h.apply(), { code: 'access_denied' });
+  h.state.access = h.access;
+  s.h.source.revision = 'd'.repeat(40);
+  await assert.rejects(h.apply(), { code: 'attach_source_changed' });
+  s.h.source.revision = 'b'.repeat(40);
+  s.state.afterClaims = () => { s.h.source.revision = 'd'.repeat(40); };
+  await assert.rejects(h.apply(), { code: 'attach_source_changed' });
+  s.state.afterClaims = null; s.h.source.revision = 'b'.repeat(40);
+  s.config.decisionWrites = false;
+  await assert.rejects(h.apply(), { code: 'submission_disabled' });
+  s.config.decisionWrites = true;
+  s.config.recovery = { epoch: 'acme', startedAt: new Date(s.h.state.now).toISOString(), reconciledAt: new Date(s.h.state.now).toISOString() };
+  await assert.rejects(h.apply(), { code: 'submission_disabled' }, 'no feature restore proof exists yet');
+  delete s.config.recovery;
+  const { row, value } = await s.saved(prepared.previewId);
+  value.schema = 1; delete value.publication; value.digest = hash(canonical(value.model));
+  await s.db.query('UPDATE keel_private.decision_previews SET value=$1 WHERE id=$2', [seal(value, s.config.encryptionKey, `decision:${row.scope}:${value.id}`), value.id]);
+  await assert.rejects(h.apply(), { code: 'attach_preview_requires_refresh' });
+  assert.equal((await h.controller().preview(h.access, h.project, prepared.previewId)).state, 'prepared-preview', 'historical preview remains readable');
+  assert.deepEqual(h.state.effects, []);
+  assert.ok(!operations(s).includes('attach-reserve'));
+});
+
+test('lost publication replies and missing original refs never authorize duplicate effects', async t => {
+  const s = await hosted(t), prepared = await (await s.prepare(await s.offer())).json(), h = submission(s, prepared);
+  h.state.loseRef = true;
+  const first = await h.apply();
+  assert.equal(first.stage, 'ref-uncertain');
+  assert.equal((await h.apply()).state, 'original-receipt');
+  h.state.ref = null;
+  const absent = await h.recover();
+  assert.equal(absent.claimVerified, false); assert.equal(absent.retryAuthorized, false); assert.equal(absent.stage, 'ref-uncertain');
+  h.state.ref = prepared.publication.intent.commit;
+  const recovered = await h.recover();
+  assert.equal(recovered.claimVerified, true);
+  assert.equal(recovered.stage, 'ref-recorded');
+  assert.deepEqual(h.state.effects, ['mint','commit','ref']);
+  const before = operations(s).length;
+  s.config.decisionWrites = false;
+  const receipts = createRunReceipts(s.config, { fetcher: s.fetcher, now: () => s.h.state.now });
+  const page = await receipts.list(h.access, h.parent.token, h.project, {}, { snapshot: null });
+  const history = page.items.find(item => item.routineId === 'web-attach');
+  assert.ok(history, JSON.stringify(page.coverage));
+  assert.equal(history.detailUrl, prepared.operationUrl);
+  assert.equal(history.state, 'unknown'); assert.equal(history.running, false); assert.equal(history.claimVerified, false);
+  assert.equal(history.acceptance, 'not-established'); assert.equal(history.cost.actual, null);
+  assert.ok(operations(s).slice(before).every(op => op === 'attach-read'), 'history never transitions or recovers');
+  assert.ok(!JSON.stringify(history).includes(prepared.preview.effect.brief.text));
+  assert.deepEqual(h.state.effects, ['mint','commit','ref']);
+});
+
+test('revoked authorization at an acknowledged stage stops publication; HTTP apply/recover stay disabled', async t => {
+  const s = await hosted(t), prepared = await (await s.prepare(await s.offer())).json(), h = submission(s, prepared);
+  s.state.afterOperation = op => { if (op === 'attach-mint-begin') h.state.access = { ...h.access, contentsPermission: 'read' }; };
+  const result = await h.apply();
+  assert.equal(result.stage, 'mint-uncertain'); assert.equal(result.claimVerified, false);
+  assert.deepEqual(h.state.effects, []);
+  h.state.access = h.access; s.state.afterOperation = null;
+  assert.equal((await h.recover()).claimVerified, false);
+  assert.deepEqual(h.state.effects, []);
+  // Remove the internal synthetic publisher so HTTP authorization uses its normal fixture.
+  s.state.provider = null;
+  for (const action of ['apply','recover']) {
+    const response = await s.call(api + '/' + action, { body: { csrf: s.signed.session.csrf, ...h.input } });
+    assert.equal(response.status, 404, await response.clone().text());
+  }
+  assert.deepEqual(h.state.effects, []);
+});
+
+
+test('concurrent reviewed applies retain one identity and lost reservation acknowledgement cannot dispatch again', async t => {
+  for (const loseReserve of [false, true]) {
+    const s = await hosted(t), prepared = await (await s.prepare(await s.offer())).json(), h = submission(s, prepared);
+    if (loseReserve) s.state.afterOperation = op => { if (op === 'attach-reserve') throw Error('Acme lost reservation reply'); };
+    const replies = await Promise.all([h.apply(), h.apply()]);
+    assert.ok(replies.every(r => r.operationId === prepared.operationId && r.running === false));
+    assert.deepEqual(h.state.effects, loseReserve ? [] : ['mint','commit','ref']);
+    const repeated = await h.apply();
+    assert.equal(repeated.state, 'original-receipt');
+    assert.deepEqual(h.state.effects, loseReserve ? [] : ['mint','commit','ref']);
+    assert.equal((await s.db.query('SELECT count(*)::int n FROM keel_private.decision_operations')).rows[0].n, 1);
+  }
 });
