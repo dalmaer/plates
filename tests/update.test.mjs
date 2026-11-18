@@ -741,3 +741,10 @@ test('a migration that applies stays pending: fleet update plans it as pending, 
   // Plain fleet never asks, so it has no answer to record from.
   assert.equal(updatePlan(row({ unrecorded: ['0007-phase-guard-reach'] }), '0.9.0'), null);
 });
+
+test('a record-only plan is made only for a project exactly on this CLI\'s practice, never one ahead of it', () => {
+  const row = version => ({ repo: 'acme/notes', role: 'managed', adopted: true, practice: { version, behind: 'current', unrecorded: ['0007-phase-guard-reach'], pending: [], possiblyPending: [] } });
+  assert.deepEqual(updatePlan(row('0.9.0'), '0.9.0')?.record, ['0007-phase-guard-reach'], 'on this practice: recorded');
+  assert.equal(updatePlan(row('0.10.0'), '0.9.0'), null, 'ahead of this CLI: a newer CLI records it, never this one');
+  assert.equal(updatePlan({ ...row('0.9.0'), practice: { ...row('0.9.0').practice, version: null } }, '0.9.0'), null, 'no practice version: nothing to record against');
+});
