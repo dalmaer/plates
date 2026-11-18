@@ -1,6 +1,6 @@
 {
   "verbs": 58,
-  "flags": 246,
+  "flags": 247,
   "counted": "verbs: every key of `verbs` in lib/cli.mjs, including retired stubs (\"goal add\" is one verb). flags: each distinct --flag a verb's usage string names counts once for that verb, so --dry-run on two verbs counts twice; the shared flags --json and --yes count once for the whole CLI, and only when some usage string names them; --help and -h are top-level help aliases, not shared verb flags or additional counted options; each top-level flag in FLAGS (--agent-help, --version) counts once.",
   "surface": {
     "shared": ["--json", "--yes"],
@@ -49,7 +49,7 @@
       "feedback": ["--digest", "--record"],
       "issue": ["--agent", "--rubric", "--title"],
       "review": ["--class", "--close", "--file-agent-issue", "--fixed", "--gate", "--not-valid", "--reviewer", "--rubric", "--title", "--tracked", "--wait"],
-      "home": ["--agents", "--answer", "--assist", "--attach", "--backlog", "--by-goal", "--cancel", "--check", "--evidence", "--fresh", "--lane", "--names-evidence", "--project", "--provider", "--quick", "--recommend", "--recurring", "--review", "--route", "--since", "--until", "--why"],
+      "home": ["--agents", "--answer", "--assist", "--attach", "--backlog", "--by-goal", "--cancel", "--check", "--clear", "--evidence", "--fresh", "--lane", "--names-evidence", "--project", "--provider", "--quick", "--recommend", "--recurring", "--review", "--route", "--since", "--until", "--why"],
       "board": [],
       "channel": ["--fresh", "--since", "--site"],
       "say": ["--site"],

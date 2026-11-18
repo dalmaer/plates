@@ -339,6 +339,21 @@ test('a silent host is never running', async t => {
   assert.deepEqual(answering, [{ phase: 1, state: 'waiting', source: 'local host claude, session acme-session-1' }]);
   assert.deepEqual([card(answering).presence, card(answering).presenceSource], ['waiting', 'local host claude, session acme-session-1']);
   assert.equal((await localHostExecutions(x.a, { env, query: async () => null })).length, 0);
+  // Cancelling a silent local-host attach marks it not-stoppable, and CLI --clear refuses until stop can be confirmed.
+  const cancelledSilent = run(process.execPath, [BIN, 'home', '--cancel', 'app:phase:1', '--yes'], { cwd: x.a, env });
+  assert.equal(cancelledSilent.status, 0, cancelledSilent.stderr);
+  const refusedSilent = run(process.execPath, [BIN, 'home', '--cancel', 'app:phase:1', '--clear', '--why', 'Try again', '--yes'], { cwd: x.a, env });
+  assert.equal(refusedSilent.status, 1);
+  assert.match(refusedSilent.stdout + refusedSilent.stderr, /no stop command/);
+  const stateful = await fakeHost(join(dirname(x.a), 'stateful'), { state: true });
+  const stateEnv = hostEnvFor(x, stateful);
+  await writeFile(join(stateful.log, 'state'), 'running\n');
+  const refusedRunning = run(process.execPath, [BIN, 'home', '--cancel', 'app:phase:1', '--clear', '--why', 'Try again', '--yes'], { cwd: x.a, env: stateEnv });
+  assert.equal(refusedRunning.status, 1);
+  assert.match(refusedRunning.stdout + refusedRunning.stderr, /still running/);
+  await writeFile(join(stateful.log, 'state'), 'finished\n');
+  const clearedFinished = run(process.execPath, [BIN, 'home', '--cancel', 'app:phase:1', '--clear', '--why', 'Confirmed stopped', '--yes'], { cwd: x.a, env: stateEnv });
+  assert.equal(clearedFinished.status, 0, clearedFinished.stderr);
 });
 
 test('local-host attach hands distinct usable claim ownership to the launched worker while scrubbing credentials', async t => {
