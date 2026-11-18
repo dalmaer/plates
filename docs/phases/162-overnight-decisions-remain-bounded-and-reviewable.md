@@ -5,7 +5,7 @@ goal: G4
 spec: 2
 depends: [157, 73, 90]
 note: "Increments 1 and 2 built: a validate-only decision envelope, and an append-only journal beside the night plan keyed by the original operation, so a resume inspects and never redispatches. Nothing routes questions or shows them in the morning yet."
-evidence: ["evidence/2026-11-04-night-decisions.md"]
+evidence: ["evidence/2026-11-04-night-decisions.md", "evidence/2026-11-18-door-assessment.md"]
 ---
 
 # Overnight decisions stay within bounds and can be corrected in the morning
@@ -97,6 +97,13 @@ activation; unavailable approved storage blocks execution. Phase 150's outstandi
 month of use remains its own proof, not a prerequisite manufactured for the pure
 contract slice or acceptance supplied by this phase.
 
+## Door-policy increment
+
+Build and test the pure effect/recovery assessment in `lib/night-door-policy.mjs`
+with `tests/night-door-policy.test.mjs`. Keep it advisory and disconnected from
+AGY permission responses. See the door assessment in the existing specification;
+no hook, routing, grant cache or live acceptance is established by this increment.
+
 ## Next action
 
 Increment 3: opt-in routing of ordinary optional questions. It must choose the hosted night's private destination for the journal, and the modules likely move into the night practice (a practice change, so a reviewed claude/ PR).
@@ -105,3 +112,5 @@ Increment 3: opt-in routing of ordinary optional questions. It must choose the h
 - **2026-11-04** — An unknown is an object (`{ "unknown": "<why>" }`), not null, so null keeps meaning "none"; and an envelope names its authority by reference only, rejecting any approval, consent or override key at any depth. tests/night-decisions.test.mjs.
 - **2026-11-04** — Escape: increment 1's `readEnvelope` mangled a group marked unknown as a whole, so a valid parked envelope read back broken; caught writing the journal, fixed in 99363f4e with a VERIFIED proof.
 - **2026-11-04** — The journal lives beside the working plan in the night's ignored directory, because the plan branch is force-pushed each reshaping and a branch of a public repository would publish raw journals. docs/specs/night-decisions.md.
+
+- **2026-11-18** — Door assessment is source-only advice over explicit effects and recovery evidence. Reversibility does not establish authority; one-way actions retain their existing exact approval path. AGY integration stays inactive until trusted input and hook ordering are verified.

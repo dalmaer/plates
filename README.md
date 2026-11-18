@@ -386,6 +386,7 @@ then gives the commands and every flag by the reason you'd pass it.
 | [Plan with phases and goals](docs/guide/plan-with-phases-and-goals.md) | you are lining up the work and saying what done means |
 | [Spin a phase](docs/guide/spin-a-phase.md) | build a specified phase, keep independent session ownership, and recover a local claim |
 | [The night shift](docs/guide/the-night-shift.md) | you want to know each morning whether the practice is holding |
+| [One-way and two-way decisions](docs/specs/night-decisions.md#door-assessment-before-approval-phase-162-2026-11-18) | assess effects and recovery before deciding whether an action needs attention; advisory source tool, not permission |
 | [Validation evidence audit](docs/development/validation-audit.md) | you want read-only findings from retained validation evidence without running suites |
 | [Validation planning and admission](docs/development/validation-preflight.md) | you want source-only capability checks, conservative focused suggestions and opt-in shared host admission |
 | [Shadow evidence validation](docs/development/validation-evidence.md) | you want bounded exact-input coverage checks without authorizing gate reuse |
