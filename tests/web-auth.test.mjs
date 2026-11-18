@@ -519,3 +519,102 @@ test('the sign-in page says what happened and comes back', async () => {
   assert.match(errorView(503, 'upstream_unavailable'), /Reference: upstream_unavailable/);
   assert.doesNotMatch(errorView(401, 'sign_in_required'), /Reference/);
 });
+
+test('exhausted GitHub API quota fails closed with the viewer reset time instead of a generic 503', async () => {
+  const { runInNewContext } = await import('node:vm');
+  const { createPwa } = await import('../lib/web/pwa.mjs');
+  const h = harness();
+  h.state.now = Date.parse('2026-11-17T22:00:00.000Z');
+  const reset = Math.floor(Date.parse('2026-11-17T22:43:00.000Z') / 1000);
+  let mode = 'quota-known';
+  const service = createWebService(h.config, {
+    now: () => h.state.now,
+    fetcher: async (url, options) => {
+      const parsed = new URL(url);
+      if (parsed.hostname === 'api.github.com') {
+        if (mode === 'exhausted-headers') {
+          return Response.json({ message: 'API rate limit exceeded for user ID 1.' }, {
+            status: 403,
+            headers: { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': String(reset) },
+          });
+        }
+        if (mode === 'exhausted-session-fallback') {
+          return Response.json({ message: 'API rate limit exceeded for user ID 1.' }, { status: 403 });
+        }
+        if (mode === 'exhausted-after-access' && parsed.pathname === '/repositories/102') {
+          return Response.json({ message: 'API rate limit exceeded for user ID 1.' }, { status: 403 });
+        }
+        if (mode === 'permission-403') {
+          return Response.json({ message: 'Acme upstream failure' }, {
+            status: 403,
+            headers: { 'x-ratelimit-remaining': '4500', 'x-ratelimit-reset': String(reset) },
+          });
+        }
+        const ok = await h.fetcher(url, options);
+        const headers = new Headers(ok.headers);
+        headers.set('x-ratelimit-remaining', '3');
+        headers.set('x-ratelimit-reset', String(reset));
+        return new Response(ok.body, { status: ok.status, headers });
+      }
+      return h.fetcher(url, options);
+    },
+  });
+  const attempt = await (async () => {
+    const page = await service(h.request('/signin'));
+    const cookie = h.cookieHeader(page), csrf = cookie.split('=')[1];
+    const started = await service(h.request('/api/auth/start', { cookie, body: { csrf, returnTo: '/' } }));
+    const target = new URL(started.headers.get('location'));
+    h.state.challenges.add(target.searchParams.get('code_challenge'));
+    const done = await service(h.request(`/api/auth/callback?code=fake-code&state=${target.searchParams.get('state')}`, { cookie: h.cookieHeader(started) }));
+    return { cookie: h.cookieHeader(done) };
+  })();
+
+  // Primary rate-limit 403 with viewer time zone header: plain explanation, 3:43 PM in America/Denver (UTC-7), fails closed (503, no empty workspace).
+  mode = 'exhausted-headers';
+  const zoned = await service(h.request('/', { cookie: attempt.cookie, headers: { 'x-vercel-ip-timezone': 'America/Denver' } }));
+  assert.equal(zoned.status, 503);
+  const zonedHtml = await zoned.text();
+  assert.match(zonedHtml, /GitHub's API limit for your account is used up; it resets at <time datetime="2026-11-17T22:43:00\.000Z" data-local-reset>3:43 PM<\/time>\./);
+  assert.doesNotMatch(zonedHtml, /A required connection is unavailable|No plates are currently available|data-home-root|data-navigation|Acme workspace/);
+  assert.match(zonedHtml, /Reference: github_rate_limited/);
+
+  // Without a trusted server time zone header, server HTML stays honest in UTC and the browser script rewrites it in the viewer's time zone.
+  const unzoned = await service(h.request('/', { cookie: attempt.cookie, headers: { 'x-vercel-ip-timezone': 'Not/AZone' } }));
+  assert.equal(unzoned.status, 503);
+  const unzonedHtml = await unzoned.text();
+  assert.match(unzonedHtml, /<time datetime="2026-11-17T22:43:00\.000Z" data-local-reset>10:43 PM UTC<\/time>\./);
+  const themeEntry = createPwa().assets.entries.get('/assets/theme.mjs');
+  const timeEl = {
+    textContent: '10:43 PM UTC',
+    getAttribute: name => name === 'data-local-reset' ? '' : name === 'datetime' ? '2026-11-17T22:43:00.000Z' : null,
+  };
+  const listeners = {};
+  const FixedDateTimeFormat = function (locale, opts) { return new Intl.DateTimeFormat(locale, { ...opts, timeZone: 'America/Denver' }); };
+  runInNewContext(themeEntry.body, {
+    window: { localStorage: { getItem: () => null } },
+    document: { documentElement: { setAttribute() {}, getAttribute: () => null }, addEventListener: (type, fn) => { listeners[type] = fn; }, querySelectorAll: selector => selector === 'time[data-local-reset]' ? [timeEl] : [] },
+    Intl: { DateTimeFormat: FixedDateTimeFormat },
+  });
+  listeners.DOMContentLoaded();
+  assert.equal(timeEl.textContent, '3:43 PM');
+
+  // Session quota fallback when a rate-limit 403 omits x-ratelimit-reset, and when a route read after access fails.
+  for (const [nextMode, path] of [['exhausted-session-fallback', '/'], ['exhausted-after-access', '/projects/studio/decisions?kind=shaping&path=docs%2Fshaping%2Fnext.json&question=scope']]) {
+    mode = nextMode;
+    const response = await service(h.request(path, { cookie: attempt.cookie, headers: { 'x-vercel-ip-timezone': 'America/Denver' } }));
+    assert.equal(response.status, 503, nextMode);
+    assert.match(await response.text(), /GitHub's API limit for your account is used up; it resets at <time datetime="2026-11-17T22:43:00\.000Z" data-local-reset>3:43 PM<\/time>\./, nextMode);
+  }
+
+  // Non-rate-limit 403 keeps the generic 503 and never blames quota.
+  mode = 'permission-403';
+  const generic = await service(h.request('/', { cookie: attempt.cookie, headers: { 'x-vercel-ip-timezone': 'America/Denver' } }));
+  assert.equal(generic.status, 503);
+  const genericHtml = await generic.text();
+  assert.match(genericHtml, /A required connection is unavailable\./);
+  assert.doesNotMatch(genericHtml, /API limit for your account is used up/);
+
+  // Session was not revoked by rate limiting: once quota recovers, the session still works.
+  mode = 'quota-known';
+  assert.equal((await service(h.request('/api/session', { cookie: attempt.cookie }))).status, 200);
+});
