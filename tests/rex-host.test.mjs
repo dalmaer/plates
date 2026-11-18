@@ -1102,3 +1102,55 @@ fs.writeFileSync(${JSON.stringify(join(w.logs, 'tui-check.json'))}, JSON.stringi
   await c.cancel();
   assert.deepEqual(await readdir(c.w.briefDir), [], 'cancel removes any lingering .worker alongside .brief');
 });
+
+test('clearing a phase cancel refuses unsettled stops, preserves cancelled worker restart checks and allows only a new attach', async t => {
+  const a = await attached(t);
+  const first = await attach(a.args, a.deps({ now: 1700000000000 }));
+  assert.equal(first.exitCode, 0, first.text);
+  const oldEntry = await attachJournal(a.dir).read(first.data.digest);
+  const oldWorkerSession = oldEntry.intent.claim.session;
+  assert.match(oldWorkerSession, /^attach-[0-9a-f]{32}$/);
+
+  // Cancel while Rex fails to close: stop is pending, so --clear refuses instead of dropping the unfinished stop.
+  await a.w.setMode({ ls: 'ok', sessions: SESSIONS, wait: RUNNING, close: 'lost', journal: a.dir });
+  const pendingCancel = await a.cancel({ why: 'wrong approach' }, { now: 1700000010000 });
+  assert.equal(pendingCancel.data.attaches[0].cancelled.done, false);
+  await assert.rejects(
+    cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'try again', yes: true }, a.deps({ now: 1700000020000 })),
+    /stop has not finished/
+  );
+  assert.equal(existsSync(join(a.dir, 'phase-7.cancel.json')), true, 'phase cancel stays while stop is pending');
+  assert.equal(existsSync(join(a.dir, `${first.data.digest}.cancel.json`)), true, 'digest cancel stays while stop is pending');
+
+  // Preview without --yes writes nothing even after Rex recovers.
+  await a.w.setMode({ ls: 'ok', sessions: SESSIONS, wait: RUNNING, journal: a.dir });
+  const preview = await cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'host fixed' }, a.deps({ now: 1700000030000 }));
+  assert.equal(preview.exitCode, 3);
+  assert.equal(existsSync(join(a.dir, 'phase-7.cancel.json')), true);
+
+  // Applying --clear settles the pending Rex close first, records who/when/why create-only, and removes .cancel.json files.
+  const cleared = await cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'host fixed', by: 'owner', yes: true }, a.deps({ now: 1700000040000 }));
+  assert.equal(cleared.exitCode, 0, cleared.text);
+  assert.deepEqual([cleared.data.state, cleared.data.already, cleared.data.clear.by, cleared.data.clear.why, cleared.data.clear.at],
+    ['cleared', false, 'owner', 'host fixed', new Date(1700000040000).toISOString()]);
+  const files = await readdir(a.dir);
+  assert.equal(files.some(n => n.endsWith('.cancel.json')), false, 'no active cancel files remain');
+  assert.equal(files.some(n => /^phase-7\.clear\.[0-9a-f]{64}\.json$/.test(n)), true, 'create-only clear record is kept');
+  assert.equal((await a.w.closes()).length, 3, 'two failed closes kept the cancel until the third close succeeded during clear');
+
+  // Restart guarantee: the cancelled worker session STILL gets exit 1 on --check, while a fresh check gets exit 0.
+  const oldRestartCheck = await cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 7, check: true }, a.deps({ env: { ...a.w.env, PLATES_SESSION: oldWorkerSession } }));
+  assert.equal(oldRestartCheck.exitCode, 1, 'a restarted worker from the cancelled run stays stopped');
+  assert.match(oldRestartCheck.text, /this session's attach was cancelled.*Stop: do not continue/);
+  const freshCheck = await cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 7, check: true }, a.deps());
+  assert.equal(freshCheck.exitCode, 0);
+
+  // Clearing allows a brand-new attach (same digest or revised brief), and the old worker session stays stopped even after the new attach starts.
+  const second = await attach({ ...a.args, title: 'Build the anvil, revised' }, a.deps({ now: 1700000050000 }));
+  assert.equal(second.exitCode, 0, second.text);
+  assert.equal(runCalls(await a.w.rexCalls()).length, 2, 'a new attach opens a fresh Rex run');
+  const newEntry = await attachJournal(a.dir).read(second.data.digest);
+  assert.notEqual(newEntry.intent.claim.session, oldWorkerSession);
+  assert.equal((await cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 7, check: true }, a.deps({ env: { ...a.w.env, PLATES_SESSION: oldWorkerSession } }))).exitCode, 1);
+  assert.equal((await cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 7, check: true }, a.deps({ env: { ...a.w.env, PLATES_SESSION: newEntry.intent.claim.session } }))).exitCode, 0);
+});

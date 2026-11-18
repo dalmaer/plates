@@ -2018,6 +2018,9 @@ Additional modes (all accept `--json`):
   `--agents [--project <id>]` reads agent activity.
 - `--attach <key> --route <route> [--provider <provider>] [--yes]` previews an
   agent attachment, then claims and dispatches only with approval.
+- `--cancel <key> [--check | --clear --why "<line>" [--yes] | --why "<line>"
+  --yes]` previews or records a phase attach cancellation, checks it on restart,
+  or previews and records a deliberate cancel clear so a new attach can run.
 - `--assist <key> --recommend <choice> --why "<line>" --evidence <link>...
   [--provider <provider>] [--yes]` previews a recommendation and retains it with
   approval; it is an agent draft, never an owner answer.

@@ -251,7 +251,14 @@ still taking its claim, leaves it unstarted: the two race one create-only decisi
 after the cancel stops what it just started. Cancelling twice gives the same record. The claim is kept: release it
 with `plates phase claim <n> --release`. A local host's brief ends by telling a
 restarted agent to run `plates home --cancel <key> --check` first. That check is
-read only and exits 1 when the phase is cancelled, and the agent then stops.
+read only and exits 1 when the phase is cancelled, and the agent then stops. To
+allow a fresh attach later without deleting journal files by hand, preview a
+deliberate clear with `plates home --cancel <plate>:phase:<n> --clear --why "<line>"`
+(exit 3) and apply it with `plates home --cancel <plate>:phase:<n> --clear --why "<line>" --yes`:
+Plates checks that every cancelled run's stop has settled, records who cleared
+it, when and why, archives and removes the phase and per-digest cancel records
+create-only, and keeps any cancelled worker session stopped on restart while
+allowing a new attach.
 
 `plates home --backlog --since YYYY-MM-DD` (phase 184) reads back what
 happened to each item since that date: the counts per action, each route's
