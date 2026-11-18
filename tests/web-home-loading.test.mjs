@@ -66,3 +66,21 @@ test('source status follows real requests and batches while reviewed content rem
     const count=requests.length; await client.poll(); assert.equal(requests.length,count,'access loss is terminal');
   } finally {client.stop();}
 });
+
+test('project refresh preserves the composer node, draft and signed-in CSRF', async () => {
+  const callbacks = {}, draft = { value: 'unsent Acme message' }, composer = { draft }, options = [];
+  let current = composer;
+  const root = { dataset: { endpoint: '/api/projects/studio/home', projectId: 'studio', cursor: 'a'.repeat(64), initialLoading: 'false' },
+    querySelector: selector => selector === '[data-channel-post]' ? current : null, querySelectorAll: () => [], contains: () => false,
+    addEventListener(){}, removeEventListener(){},
+    set innerHTML(_value) { current = { replaceWith(node) { current = node; } }; } };
+  const apply = { addEventListener(type, fn) { callbacks[type] = fn; }, removeEventListener(){} };
+  const document = { hidden: false, addEventListener(){}, removeEventListener(){}, querySelector: selector => ({ '[data-home-root]': root, '[data-apply-updates]': apply, 'form[action="/api/auth/logout"] input[name="csrf"]': {value:'acme-csrf'} })[selector] ?? null };
+  const window = { location: {origin:'https://acme.test'}, setTimeout(){return 1;}, clearTimeout(){}, scrollTo(){} };
+  const client = startHomeClient({ document, window, fetch: async () => ({ status: 200, json: async () => ({...snapshot(),cursor:'b'.repeat(64)}) }), renderHomeSnapshot: (_model, opts) => { options.push(opts); return 'updated'; } });
+  try {
+    await client.poll(); callbacks.click();
+    assert.equal(current, composer); assert.equal(current.draft.value, 'unsent Acme message');
+    assert.deepEqual(options, [{projectId:'studio',channelAccess:{csrf:'acme-csrf'}}]);
+  } finally { client.stop(); }
+});

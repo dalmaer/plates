@@ -188,7 +188,7 @@ test('before migration 025 the form says the channel cannot take the owner\'s li
   assert.equal(refused.status, 503);
   const page = await refused.text();
   assert.match(page, /role="alert" data-channel-notice>The channel cannot take your lines yet: the workspace database needs migration 025\. Nothing was posted\./);
-  assert.match(page, /<input name="text" required maxlength="280" value="@2 use the Acme staging data"/, 'the line is kept in the form');
+  assert.match(page, /<input aria-label="[^"]+" name="text" required maxlength="280" data-focus="channel-message" value="@2 use the Acme staging data"/, 'the line is kept in the form');
   const env = { PLATES_SESSION: 'acme-session-1', PLATES_PROVIDER: 'claude', PLATES_SITE: origin, XDG_STATE_HOME: s.state };
   await say({ root, text: 'Starting the Acme bellows step', env, key: async () => s.key, fetcher: s.send });
   assert.deepEqual((await s.posts.list(1, 'studio')).map(l => l.text), ['Starting the Acme bellows step']);
@@ -253,7 +253,7 @@ test('a checkpoint shows answered after that session\'s next line', async t => {
   assert.deepEqual(said(web), said(cli));
   // Both renderers print each checkpoint's words, answered state and all.
   const text = channelText(cli), html = channelLines(web), page = channelView({ ...s.h.access, csrf: 'c'.repeat(43) }, web);
-  for (const l of checkpoints) { assert.ok(text.includes(`studio  checkpoint  ${l.text}`), l.text); assert.ok(html.includes(`<span class="p-badge">checkpoint</span> ${l.text.replace(/'/g, '&#39;')}`), l.text); }
+  for (const l of checkpoints) { assert.ok(text.includes(`studio  checkpoint  ${l.text}`), l.text); assert.ok(html.includes(`<div class="chat-bubble" data-channel-text>${l.text.replace(/'/g, '&#39;')}`), l.text); }
   assert.match(page, /<form method="post" action="\/channel\/post"><input type="hidden" name="csrf" value="c{43}">/);
   // The inbox returns the phase's checkpoint to its session once, answered or not: it is the owner's word.
   assert.deepEqual((await inbox({ root, env: env('acme-session-1'), key: async () => s.key, fetcher: s.send })).data.items.map(i => i.text), ['@2 is the Acme pump wired?']);
@@ -361,4 +361,15 @@ test('an abandoned inbox lock is reclaimed by one caller at a time, and a fresh 
   const { utimes } = await import('node:fs/promises'), old = new Date(Date.now() - 60_000);
   await utimes(`${lock}.reclaim`, old, old);
   assert.equal(await channelOwner.withCursorLock(path, async () => 'entered', { pollMs: 5, waitMs: 2_000 }), 'entered');
+});
+
+// The read-only composer destination is validated; no POST authority comes from its URL.
+test('channel destination links accept one accessible project and reject all other queries', async t => {
+  const s = await service(t);
+  for (const [query, status] of [['?project=studio', 200], ['?project=elsewhere', 400], ['?project=studio&project=studio', 400], ['?project=studio&extra=1', 400]]) {
+    const response = await s.web(s.h.request(`/channel${query}`, { cookie: s.signed.cookie }));
+    assert.equal(response.status, status, query);
+    if (status === 200) assert.match(await response.text(), /name="project" value="studio"/);
+  }
+  assert.equal((await s.web(s.h.request('/api/channel?project=studio', { cookie: s.signed.cookie }))).status, 400);
 });

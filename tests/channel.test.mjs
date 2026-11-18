@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { run as runNode } from './helpers/run.mjs';
 import { projectHarness } from './helpers/web-projects.mjs';
 import { channelFor, channelInputOf, channelText, foldRoutine, KINDS, WINDOW_DAYS, FOLD, lineTime } from '../lib/channel.mjs';
-import { channelView, channelSection, renderChannel } from '../lib/web/channel-views.mjs';
+import { channelView, channelSection, renderChannel, channelLines, ownerForm } from '../lib/web/channel-views.mjs';
 import { startBacklogClient } from '../lib/web/backlog-client.mjs';
 import { claimMessage } from '../lib/claim.mjs';
 import { createWaitingStore } from '../lib/web/waiting-store.mjs';
@@ -97,7 +97,7 @@ test('an unread source is a gap, never quiet', () => {
     ref: 'claude --resume acme-3', source: 'waiting', phase: null, pr: null, timeUnknown: true }], 'kept inside even a narrowed window');
   assert.deepEqual([undated.hereNow, undated.hereIdle, undated.plates[0].count], [[], null, 1], 'a waiting session is a line, not an agent holding work');
   assert.doesNotMatch(channelText(undated), /none in the window/);
-  assert.match(channelSection(undated), /<span class="p-badge">waiting<\/span> 🏠 \[studio\] Remote Control is waiting on you \(since unknown\)/);
+  assert.match(channelSection(undated), /data-channel-text>🏠 \[studio\] Remote Control is waiting on you \(since unknown\)/);
   // A plate that could not be read, a source no reader returned, a practice that is off: each says so.
   const none = channelFor([channelInputOf({ id: 'anvils', name: 'Acme Anvils', repo: 'acme/anvils', state: 'unavailable', gaps: [{ source: 'project', reason: 'The App cannot read acme/anvils.' }] })], { now: NOW, waiting: null });
   assert.deepEqual(none.lines.map(l => l.text), ['sessions waiting on you unread', 'Acme Anvils was not read: The App cannot read acme/anvils.']);
@@ -348,7 +348,7 @@ test('the CLI and the web show one channel', async () => {
     const page = channelView(s.access, web), section = channelSection(web), text = s.cli([]).stdout;
     const esc = v => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     for (const l of web.lines) {
-      for (const html of [page, section]) assert.ok(html.includes(`<time datetime="${l.at}">${lineTime(l.at)}</time> <strong>${esc(l.actor ?? 'all plates')}</strong> <span class="p-badge">${l.kind}</span> ${esc(l.text)}`), l.text);
+      for (const html of [page, section]) assert.ok(html.includes(`<time datetime="${l.at}">${lineTime(l.at)}</time>`) && html.includes(`data-channel-text>${esc(l.text)}</div>`), l.text);
     }
     // Gap lines are dated when read, and the two CLI runs can straddle a minute: match those without their time.
     const rows = text.split('\n');
@@ -356,19 +356,19 @@ test('the CLI and the web show one channel', async () => {
       const tail = `  ${l.actor ?? 'all plates'}  ${l.kind}  ${l.text}`;
       assert.ok(l.kind === 'gap' || l.timeUnknown ? rows.some(r => r.endsWith(tail)) : rows.includes(`  ${lineTime(l.at)}${tail}`), l.text);
     }
-    for (const h of web.hereNow) assert.ok(page.includes(`<strong>${h.actor}</strong> ${esc(h.words)}`) && section.includes(`<strong>${h.actor}</strong> ${esc(h.words)}`), h.actor);
+    for (const h of web.hereNow) assert.ok(page.includes(`title="${h.actor} · ${esc(h.words)}"`) && section.includes(`title="${h.actor} · ${esc(h.words)}"`), h.actor);
     for (const h of cli.hereNow) assert.ok(text.split('\n').includes(`  ${h.actor}  ${h.words}`), h.actor);
     assert.match(page, /<a class="plate-chip p-card" href="\/channel" aria-current="page"><strong>All<\/strong><span>7 lines<\/span><\/a>/);
     assert.match(page, /data-channel-plate="studio" href="\/projects\/studio#channel"><strong>Acme Studio<\/strong><span>6 lines<\/span>/);
     // The plate's page carries its Channel section, from the same read; every page's footer links the channel.
     const plate = await s.web({ projectId: 'studio', backlog: true });
     const { renderHomeSnapshot } = await import('../lib/web/views.mjs');
-    assert.match(renderHomeSnapshot(plate, { projectId: 'studio' }), /<section class="home-section" id="channel" aria-labelledby="channel-title" data-channel><div class="section-heading"><h2 id="channel-title">Channel<\/h2>/);
+    assert.match(renderHomeSnapshot(plate, { projectId: 'studio' }), /<section class="home-section chat-box" id="channel" aria-labelledby="channel-title" data-channel><div class="chat-header"><h2 id="channel-title">Channel<\/h2>/);
     assert.match(page, /<footer class="plates-footer" data-page-footer>[^]*<a href="\/channel">Channel<\/a>/);
     // The one form is the owner's line on /channel (increment 3), outside the part the client renders again; the plate's section links to it.
     assert.deepEqual([.../<main[^]*<\/main>/.exec(page)[0].matchAll(/<form [^>]*>/g)].map(m => m[0]), ['<form method="post" action="/channel/post">']);
     assert.doesNotMatch(renderChannel(web) + section, /<form|<input|<textarea|method=/i, 'the feed and the section post nothing');
-    assert.match(section, /<a href="\/channel#post">/);
+    assert.match(channelSection(web, s.access), /name="back" value="plate"/);
     // One plate, by name; a plate that is not here is refused.
     const one = s.cli(['studio', '--json', '--since', '30m']);
     assert.equal(one.status, 0, one.stderr);
@@ -421,4 +421,63 @@ test('the channel page reads again while a plate is loading or stale', async () 
   assert.deepEqual([asked, root.dataset.loading, status.textContent, timers.length], [['/api/channel', '/api/channel'], 'false', 'Every plate is read.', 0]);
   assert.equal(list.innerHTML, renderChannel(read));
   await client.done;
+});
+
+// Phase 196: the same timeline is presented as chat, without inventing delivery state.
+test('chat groups only consecutive messages from the same agent and keeps system lines and owner marks', () => {
+  const base = { at: '2026-11-17T12:00:00Z', plate: 'studio', actor: 'studio#2', kind: 'say', session: 'acme-one', ref: null };
+  const lines = [
+    { ...base, text: 'Acme first' }, { ...base, text: 'Acme second' },
+    { ...base, kind: 'joined', text: 'Acme joined' }, { ...base, text: 'Acme third' },
+    { ...base, session: 'acme-two', text: 'Another agent on the same item' },
+    { ...base, kind: 'progress', text: 'plates progress' },
+    { ...base, kind: 'owner', text: 'you: hello', to: [] },
+    { ...base, kind: 'checkpoint', text: 'you: @2 check', answered: true, to: [{ plate: 'studio', phase: 2 }] },
+    { ...base, plate: 'anvils', kind: 'owner', text: 'you: another project', to: [] },
+  ];
+  const model = { lines }, before = structuredClone(model), html = channelLines(model);
+  assert.deepEqual(model, before);
+  assert.equal((html.match(/chat-grouped/g) ?? []).length, 2);
+  assert.equal((html.match(/class="chat-line chat-system"/g) ?? []).length, 2);
+  assert.equal((html.match(/class="chat-line chat-owner/g) ?? []).length, 3);
+  assert.equal((html.match(/data-channel-mark>sent/g) ?? []).length, 2);
+  assert.equal((html.match(/data-channel-mark>answered/g) ?? []).length, 1);
+  assert.deepEqual([...html.matchAll(/data-channel-text>(.*?)<\/div>/g)].map(m => m[1]), lines.map(l => l.text));
+  for (const line of lines) assert.ok(channelText({ ...model, window: {}, plates: [], hereNow: [], notRead: [] }).includes(line.text));
+  const malicious = channelLines({ lines: [{ ...base, actor: '"><script>', text: '<img src=x onerror=alert(1)>', ref: 'javascript:alert(1)' }] });
+  assert.doesNotMatch(malicious, /<script|<img|href="javascript:/);
+});
+
+test('project chat fixes its composer destination and keeps the existing CSRF and return route', async () => {
+  const channel = { ...model(), plates: [{ projectId: 'studio', name: 'Acme Studio', state: 'read' }] };
+  const access = { csrf: 'acme-csrf', workspace: { name: 'Acme' } };
+  const html = channelSection(channel, access);
+  assert.ok(html.indexOf('data-channel-lines') < html.indexOf('data-channel-post'));
+  assert.match(html, /action="\/channel\/post"/);
+  assert.match(html, /name="csrf" value="acme-csrf"/);
+  assert.match(html, /name="project" value="studio"/);
+  assert.match(html, /name="back" value="plate"/);
+  assert.match(html, /Message #studio — @studio#&lt;phase&gt; to address an agent/);
+  assert.doesNotMatch(html, /<select|Address an agent/);
+  const all = { ...channel, plates: [...channel.plates, { projectId: 'anvils', name: 'Acme Anvils' }] };
+  assert.match(ownerForm(access, all, { project: 'anvils', text: 'unsent <draft>' }), /name="project" value="anvils"/);
+  assert.match(ownerForm(access, all, { project: 'anvils', text: 'unsent <draft>' }), /value="unsent &lt;draft&gt;"/);
+  const { channelStyles } = await import('../lib/web/channel-styles.mjs');
+  assert.match(channelStyles, /\.chat-box\{[^}]*overflow:auto/);
+  assert.match(channelStyles, /\.chat-composer\{position:sticky;bottom:/);
+  assert.doesNotMatch(channelStyles, /#[a-f\d]{3,8}\b|(?:rgb|oklch)\(/i);
+});
+
+
+test('every owner bubble names its destination, including grouped messages across plates', () => {
+  const base = {at:'2026-11-17T12:00:00Z',kind:'owner',actor:'you',text:'Acme message',plate:'studio'};
+  const lines = [base, {...base,kind:'checkpoint'}, {...base,plate:'anvils'}, {...base,plate:'<Acme>'}];
+  const html = channelLines({lines});
+  const bubbles = [...html.matchAll(/<li class="chat-line chat-owner[^>]*>([\s\S]*?)<\/li>/g)].map(match => match[1]);
+  assert.equal(bubbles.length, lines.length);
+  for (const [index, destination] of ['studio','studio','anvils','&lt;Acme&gt;'].entries()) {
+    assert.ok(bubbles[index].includes(`<span data-channel-destination>#${destination}</span>`), destination);
+  }
+  assert.match(html, /chat-owner chat-grouped/);
+  assert.doesNotMatch(html, /<Acme>/);
 });
