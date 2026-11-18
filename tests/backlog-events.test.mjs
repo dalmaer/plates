@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PGlite } from '@electric-sql/pglite';
-import { backlogEvent, storedEvent, createBacklogEventStore, recordBacklogEvent, readBacklogEvents, eventsReadout, eventsText, withEvents, notNowReason, BACKLOG_ACTIONS, EVENTS_DIR } from '../lib/backlog-events.mjs';
+import { backlogEvent, storedEvent, createBacklogEventStore, recordBacklogEvent, readBacklogEvents, eventsReadout, eventsText, readoutLines, withEvents, notNowReason, BACKLOG_ACTIONS, EVENTS_DIR } from '../lib/backlog-events.mjs';
 import { createBacklogEventStore as hostedStore } from '../lib/web/backlog-events-store.mjs';
 import { createHomeAnswers } from '../lib/web/home-answers.mjs';
 import { homeAnswer } from '../lib/home-answer.mjs';
@@ -198,4 +198,47 @@ test('what happened since, read back', async t => {
   // No events: the backlog exactly as it was (tests/work-items.test.mjs "events never reorder" holds the order with them).
   const plain = { lanes: [{ lane: 'yours', items: [{ key: 'app:phase:2' }, { key: KEY }] }] };
   assert.deepEqual(withEvents(plain, []), plain);
+});
+
+test('attach cancellations are excluded from attachment counts and counted separately', async t => {
+  const attached = backlogEvent({ actor: 'agent:claude', key: KEY, action: 'attach', route: 'session', lane: 'agent-ready', outcome: 'attached', receipt: `attach:${'a'.repeat(64)}` }, { now: Date.parse('2026-11-06T09:00:00Z') });
+  const cancelledSame = backlogEvent({ actor: 'owner', key: KEY, action: 'attach', route: 'session', lane: 'agent-ready', outcome: 'cancelled' }, { now: Date.parse('2026-11-06T09:05:00Z') });
+  const cancelledOther = backlogEvent({ actor: 'owner', key: 'app:phase:2', action: 'attach', route: 'local-host', lane: 'agent-ready', outcome: 'cancelled' }, { now: Date.parse('2026-11-06T09:10:00Z') });
+  const backlog = { lanes: [{ lane: 'done', items: [{ key: KEY }, { key: 'app:phase:2' }] }] };
+
+  const r = eventsReadout([attached, cancelledSame, cancelledOther], { since: '2026-11-01T00:00:00.000Z', backlog });
+  assert.equal(r.count, 3);
+  assert.equal(r.actions.attach, 1, 'cancellation events do not inflate attach count');
+  assert.equal(r.cancelled, 2, 'cancellations are counted separately');
+  assert.deepEqual(Object.keys(r.actions), [...BACKLOG_ACTIONS]);
+  assert.deepEqual(r.routes, [{ route: 'session', attached: 1, landed: 1 }], 'a route with only a cancellation is not counted as attached or landed');
+  assert.equal(readoutLines(r).summary, 'attach 1 · cancelled 2');
+  assert.match(eventsText(r), /attach 1 · cancelled 2/);
+  assert.doesNotMatch(eventsText(r), /route local-host:/);
+
+  // A window whose only event is a cancellation reports cancelled 1, never attach 1 or nothing recorded.
+  const onlyCancel = eventsReadout([cancelledOther], { since: '2026-11-01T00:00:00.000Z', backlog });
+  assert.equal(onlyCancel.count, 1);
+  assert.equal(onlyCancel.actions.attach, 0);
+  assert.equal(onlyCancel.cancelled, 1);
+  assert.deepEqual(onlyCancel.routes, []);
+  assert.equal(readoutLines(onlyCancel).summary, 'cancelled 1');
+
+  // CLI readout over stored events matches.
+  const root = await acme(t);
+  const store = await createBacklogEventStore({ root });
+  await store.append({ actor: 'agent:claude', key: KEY, action: 'attach', route: 'session', lane: 'agent-ready', outcome: 'attached' }, { now: Date.parse('2026-11-06T09:00:00Z') });
+  await store.append({ actor: 'owner', key: 'app:phase:2', action: 'attach', route: 'local-host', lane: 'agent-ready', outcome: 'cancelled' }, { now: Date.parse('2026-11-06T09:05:00Z') });
+  const env = { ...process.env, PLATES_GH: '/nonexistent', XDG_STATE_HOME: join(root, '.git', 'state') };
+  const cli = run(process.execPath, [BIN, 'home', '--backlog', '--since', '2026-11-01', '--json'], { cwd: root, env });
+  assert.equal(cli.status, 0, cli.stderr);
+  const data = JSON.parse(cli.stdout);
+  assert.equal(data.events.count, 2);
+  assert.equal(data.events.actions.attach, 1);
+  assert.equal(data.events.cancelled, 1);
+  assert.deepEqual(data.events.routes, [{ route: 'session', attached: 1, landed: 0 }]);
+  const text = run(process.execPath, [BIN, 'home', '--backlog', '--since', '2026-11-01'], { cwd: root, env });
+  assert.equal(text.status, 0, text.stderr);
+  assert.match(text.stdout, /What happened since 2026-11-01 \(2 events\)/);
+  assert.match(text.stdout, /attach 1 · cancelled 1/);
 });
