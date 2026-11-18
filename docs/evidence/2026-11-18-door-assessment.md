@@ -1,5 +1,5 @@
 ---
-attempt: {"accepted":false,"verified":false,"rework":1,"lessonStatus":{"status":"known","lesson":59}}
+attempt: {"accepted":false,"verified":false,"rework":1,"lessonStatus":{"status":"known","lesson":"Plates lesson 59: fix the shared boundary before another checkpoint"}}
 ---
 
 # Phase 162: assess one-way and two-way effects
@@ -36,6 +36,15 @@ sanitized-error cases before the integrated checkpoint. No new lesson is claimed
 - Integrated checkpoint: `npm run check` through the existing integration lane,
   with `npm run typecheck`. The integration receipt/commit owns those results;
   this evidence does not claim they passed before running.
+
+## First integration attempt
+
+The first integrated checkpoint failed: 5,212 passed, one failed, 12 skipped.
+`tests/lesson-status.test.mjs` correctly rejected this evidence record because
+its known-lesson field was a number rather than a named lesson. The record was
+corrected; the failure remains recorded here. No code test failed in that run.
+Integration receipt: `plates-integrations` commit
+`6aa137e99b121e05e346e5aed2cc8ecff042ea92`; no candidate landed.
 
 ## Remaining acceptance
 
