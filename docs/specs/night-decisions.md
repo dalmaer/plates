@@ -191,3 +191,49 @@ Adapters must resolve real authority from existing trusted controls, not accept
 model-authored context fields as proof. See `tests/night-door-policy.test.mjs` for
 complete synthetic inputs and negative cases. Extra keys, including invented
 approval fields, are refused instead of silently ignored.
+
+
+### Applied observation adapter (2026-11-18)
+
+`scripts/agy-door-hook.mjs` is a source-only AGY lifecycle adapter. Configure
+`--event PreToolUse` or `--event PostToolUse`, an exact canonical `--root`, and
+an absolute private external `--state` directory; `--json` is accepted. It reads
+bounded JSON from stdin. A valid pre-tool event returns `{"decision":"allow"}`,
+which delegates to AGY's next hook and native policy; it does not auto-approve.
+Post-tool output is `{}`. Malformed or oversized input refuses observation,
+with a sanitized diagnostic, while native permissions still govern execution.
+Observation storage failure likewise does not replace native authority.
+
+The first deployment is observation only. It preserves all other hooks, explicit
+rules, sandbox settings and existing grants. It never emits `auto_approve`,
+`permissionOverrides` or replacement arguments. This is not the completed
+permission-routing increment and does not establish reduced prompt counts.
+
+Only events naming the selected canonical workspace enter the private record.
+Receipts contain bounded tool labels, input and identity digests, classification,
+coverage and observed lifecycle state. They contain no command, file content,
+user prompt, raw error, transcript or inferred approval. Repeated identical events
+reuse their receipt; changed input has a distinct identity. A pre-event without
+a corresponding post-event remains incomplete, not failed, denied or granted.
+
+Public tool examples and installed CLI schemas differ: observed AGY 1.5.10 emits
+`read_file`, `edit_file`, `write_file` and `run_command`. Unknown schemas and
+arbitrary shell retain unknown effect coverage. A file-edit event alone supplies
+no retained preimage, recovery assurance or current approval. Do not label it
+two-way simply because Git exists. Future active routing must independently
+establish those facts and prove native explicit ask/deny precedence.
+
+Installation copies the exact tested dependency closure outside the checkout,
+adds a separately named hook entry to the existing configuration, and retains the
+prior bytes and installation identity. Restore only that unchanged entry if it
+must be removed; preserve other agents' later configuration edits. An uncertain
+installation is inspected before retrying. No process is restarted or agent
+prompt sent merely to exercise the hook. Observe a later already-authorized tool
+event to establish real invocation; direct synthetic replay proves protocol only.
+
+Receipt storage is bounded to 1,024 events and 2 MiB. Full storage, write
+contention or a retained writer lock produces an observation gap and leaves native
+policy in control. Do not remove a lock while a hook may still be writing. Inspect
+the original state after the writer has exited; archive retained observations
+and select a fresh private state directory for a later bounded observation window.
+No automatic retention deletion or lock stealing is performed.

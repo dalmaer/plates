@@ -848,3 +848,10 @@ repository produces an unavailable row, not an implied access grant.
 These observations extend the existing reports. They do not accept phases,
 merge work, remove claims or launch agents. See the
 [distributed verification contract](../specs/plate-verification.md).
+
+
+The source-only [AGY observation adapter](../specs/night-decisions.md#applied-observation-adapter-2026-11-18)
+records scoped pre/post tool metadata to private external storage and delegates
+to native permissions. It does not activate the night's question routing, capture
+human grants, or auto-approve work. Use its explicit root/state arguments; never
+place observation receipts in the checkout.
