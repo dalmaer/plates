@@ -165,7 +165,7 @@ test('an agent\'s say line naming another agent reaches no inbox, and a device-k
   assert.equal((await s.ownerPost('@2 hello', { project: 'forge' })).status, 404, 'a plate this owner cannot open');
   const elsewhere = await s.ownerPost('@forge#2 hello');
   assert.equal(elsewhere.status, 400);
-  assert.match(await elsewhere.text(), /role="alert" data-channel-notice>A line addresses phases on its own plate only/);
+  assert.match(await elsewhere.text(), /role="alert" data-channel-notice>A line addresses items on its own plate only/);
   assert.equal((await s.ownerPost('ghp_abcdefghijklmnopqrstuvwxyz0123456789 is the key')).status, 400, 'key-shaped');
   assert.equal((await s.posts.list(1, 'studio')).length, 1, 'no refused line was stored');
   // A sealed say value cannot pass as the owner's, nor an owner value as a say: both marks or neither.

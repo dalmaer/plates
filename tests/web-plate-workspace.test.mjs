@@ -55,7 +55,7 @@ test('a home card shows its phases as one bar: done, partial, not started', asyn
   const model=snapshot();
   model.home.sections=[{id:'plates',items:[{projectId:'studio',status:'all clear',phases}]}];
   const html=renderPlateCards(model);
-  assert.match(html,/class="plate-phase-bar" role="img" aria-label="Phases: 6 done · 3 partial · 1 not started"/);
+  assert.match(html,/class="plate-phase-bar" role="img" aria-label="Items: 6 done · 3 partial · 1 not started"/);
   assert.match(html,/<svg class="phase-bar-track" viewBox="0 0 10 1"[^>]*><rect data-phase="done" x="0" width="6" height="1"\/><rect data-phase="partial" x="6" width="3" height="1"\/><rect data-phase="not-started" x="9" width="1" height="1"\/><\/svg>/);
   assert.doesNotMatch(html,/style="/,'no inline style: the hosted policy (style-src \'self\') would drop it and every segment would be equal');
   model.home.sections=[{id:'plates',items:[{projectId:'studio',status:'all clear',phases:phaseBar({ built: 200, partial: 0, notStarted: 1 })}]}];
