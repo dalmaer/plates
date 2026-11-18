@@ -467,3 +467,17 @@ test('project chat fixes its composer destination and keeps the existing CSRF an
   assert.match(channelStyles, /\.chat-composer\{position:sticky;bottom:/);
   assert.doesNotMatch(channelStyles, /#[a-f\d]{3,8}\b|(?:rgb|oklch)\(/i);
 });
+
+
+test('every owner bubble names its destination, including grouped messages across plates', () => {
+  const base = {at:'2026-11-17T12:00:00Z',kind:'owner',actor:'you',text:'Acme message',plate:'studio'};
+  const lines = [base, {...base,kind:'checkpoint'}, {...base,plate:'anvils'}, {...base,plate:'<Acme>'}];
+  const html = channelLines({lines});
+  const bubbles = [...html.matchAll(/<li class="chat-line chat-owner[^>]*>([\s\S]*?)<\/li>/g)].map(match => match[1]);
+  assert.equal(bubbles.length, lines.length);
+  for (const [index, destination] of ['studio','studio','anvils','&lt;Acme&gt;'].entries()) {
+    assert.ok(bubbles[index].includes(`<span data-channel-destination>#${destination}</span>`), destination);
+  }
+  assert.match(html, /chat-owner chat-grouped/);
+  assert.doesNotMatch(html, /<Acme>/);
+});
