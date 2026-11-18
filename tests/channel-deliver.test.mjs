@@ -2,11 +2,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, writeFile, readdir, rm, realpath, stat, symlink } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, readdir, rm, realpath, stat, symlink, utimes } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { attach, attachJournal } from '../lib/attach.mjs';
-import { deliverOwnerLines, registerDeliveryJournal, REPLY_INSTRUCTION } from '../lib/channel-deliver.mjs';
+import { deliverOwnerLines, registerDeliveryJournal } from '../lib/channel-deliver.mjs';
+import { withCursorLock } from '../lib/channel-owner.mjs';
 import { push } from '../lib/sessions.mjs';
 
 const START = '2026-11-17T10:00:00.000Z', AT = '2026-11-17T10:01:00.000Z';
@@ -86,7 +87,7 @@ test('push delivers only authenticated owner lines addressed to the receipt phas
     assert.ok(!('GH_TOKEN' in call.env) && !('PLATES_DEVICE_KEY' in call.env) && !('PLATES_SESSION' in call.env));
     assert.doesNotMatch(JSON.stringify(call), /ACME PRIVATE|acme-fake/);
   }
-  assert.deepEqual(new Set(calls.filter(c => c.args[0] === 'send').map(c => c.args[5])), new Set([one, two].map(l => l.text + '\n\n' + REPLY_INSTRUCTION)));
+  assert.deepEqual(new Set(calls.filter(c => c.args[0] === 'send').map(c => c.args[6])), new Set([one, two].map(l => l.text + "\n\nReply with PLATES_SITE='https://acme.test' plates say; this came from the owner via the plates channel.")));
   assert.ok(calls.filter(c => c.args[0] === 'send-key').every(c => c.args[5] === 'Enter'));
   const [cursor] = await w.cursors();
   assert.equal((await stat(cursor.path)).mode & 0o777, 0o600);
@@ -95,6 +96,99 @@ test('push delivers only authenticated owner lines addressed to the receipt phas
   w.items.push(owner('@7 One more Acme check'));
   assert.equal((await w.deliver())[0].delivered, 1);
   assert.equal((await w.input()).length, 6);
+});
+
+test('option-shaped owner text is literal Rex payload after the separator', async t => {
+  const w = await world(t);
+  w.items.push(owner('-b evil'));
+  assert.equal((await w.deliver())[0].delivered, 1);
+  const [sent] = await w.input();
+  assert.deepEqual(sent.args.slice(0, 6), ['send', '-s', 'session:acme', '-b', 'block:acme-run', '--']);
+  assert.match(sent.args[6], /^-b evil\n\nReply with /);
+});
+
+test('the reply instruction uses the push origin despite a different ambient workspace', async t => {
+  const w = await world(t); w.items.push(owner());
+  const site = 'https://acme-explicit.test:8443';
+  await push({ site, env: { ...w.env, PLATES_SITE: 'https://acme-other.test' },
+    fetcher: w.options.fetcher, key: w.options.key, machine: 'Acme Mac' });
+  const [sent] = await w.input();
+  assert.ok(sent.args.at(-1).includes("Reply with PLATES_SITE='https://acme-explicit.test:8443' plates say;"));
+  assert.doesNotMatch(sent.args.at(-1), /acme-other/);
+  assert.ok(w.requests.every(r => new URL(r.url).origin === site));
+});
+
+test('stale empty and partial lock initialization recovers without expiring a live complete lock', async t => {
+  const w = await world(t), path = join(w.base, 'acme-cursor.json'), old = new Date(Date.now() - 600_000);
+  for (const partial of ['', 'partial', `${process.pid}:`]) {
+    await writeFile(path + '.lock', partial);
+    await utimes(path + '.lock', old, old);
+    assert.equal(await withCursorLock(path, async () => 'recovered', { staleMs: Infinity, waitMs: 500, pollMs: 5 }), 'recovered', JSON.stringify(partial));
+  }
+  await writeFile(path + '.lock', `${process.pid}:1:alive`);
+  await utimes(path + '.lock', old, old);
+  await assert.rejects(withCursorLock(path, async () => assert.fail('live holder was reclaimed'),
+    { staleMs: Infinity, waitMs: 100, pollMs: 5 }), /another plates channel inbox/);
+});
+
+test('a killed initializer or partial cursor temporary file cannot replay a delivered line', async t => {
+  const w = await world(t); w.items.push(owner());
+  await w.deliver();
+  const [cursor] = await w.cursors(), old = new Date(Date.now() - 600_000);
+  await writeFile(cursor.path + '.lock', '');
+  await utimes(cursor.path + '.lock', old, old);
+  await writeFile(cursor.path + '.999999999.partial.tmp', '{"schema":1,');
+  await writeFile(cursor.path + '.lock.999999999-partial.tmp', '999');
+  w.items.push(owner('@7 A second anvil', { at: '2026-11-17T10:02:00.000Z' }));
+  assert.equal((await w.deliver())[0].delivered, 1);
+  assert.deepEqual((await w.input()).map(c => c.args[0]), ['send', 'send-key', 'send', 'send-key']);
+  // Recovery of the lock preserves typed and uncertain transport stages.
+  w.items.push(owner('@7 A third anvil', { at: '2026-11-17T10:03:00.000Z' }));
+  await w.mode({ fail: 'send-key' });
+  await w.deliver();
+  await writeFile(cursor.path + '.lock', '999999999:1:dead');
+  assert.equal((await w.deliver())[0].delivered, 1);
+  assert.deepEqual((await w.input()).map(c => c.args[0]), ['send', 'send-key', 'send', 'send-key', 'send', 'send-key', 'send-key']);
+  const uncertain = (await w.cursors())[0].value;
+  uncertain.pending = { id: 'f'.repeat(64), stage: 'sending' };
+  await writeFile(cursor.path, JSON.stringify(uncertain));
+  await writeFile(cursor.path + '.lock', '999999999:1:dead');
+  assert.match(JSON.stringify(await w.deliver()), /outcome uncertain/);
+  assert.equal((await w.input()).length, 7);
+});
+
+test('quiet pushes share one incremental project read and never reprobe ended or current runs', async t => {
+  const w = await world(t);
+  const other = structuredClone(w.entry);
+  other.intent.effect.phase = 8;
+  other.intent.claim.session = 'acme-second';
+  other.receipt.result.session = 'rex:session:acme/block:acme-second';
+  await w.journal.write('b'.repeat(64), other);
+  w.items.push(owner(), owner('@8 Second run', { to: [{ plate: 'acme', phase: 8 }] }));
+  assert.equal((await w.deliver()).reduce((n, r) => n + r.delivered, 0), 2);
+  assert.equal(w.requests.length, 1, 'one project read for two runs');
+  const calls = (await w.calls()).length;
+  await w.deliver();
+  assert.equal(w.requests.length, 2, 'a quiet push makes only one shared project read');
+  assert.equal(new URL(w.requests[1].url).searchParams.get('since'), '2026-11-17T10:00:59.999Z');
+  assert.equal((await w.calls()).length, calls, 'caught-up cursors need no Rex calls');
+  await w.mode({ presence: 'exited' });
+  w.items.push(owner('@7 Finish', { at: '2026-11-17T10:02:00.000Z' }));
+  await w.deliver(); // the first run's ended receipt is now durable
+  const afterEnd = (await w.calls()).length;
+  await w.deliver();
+  assert.equal((await w.calls()).length, afterEnd, 'the ended block is never queried again');
+  assert.equal((await w.input()).length, 4, 'no replay or new input on an ended block');
+});
+
+test('when every recorded Rex block has ended subsequent pushes do no channel or Rex reads', async t => {
+  const w = await world(t);
+  await w.mode({ presence: 'gone' });
+  await w.deliver();
+  const calls = (await w.calls()).length;
+  await w.deliver();
+  assert.equal((await w.calls()).length, calls);
+  assert.equal(w.requests.length, 0);
 });
 
 test('a failed send is named by push and retried; a failed Enter retries only Enter', async t => {

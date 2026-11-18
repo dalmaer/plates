@@ -323,8 +323,10 @@ refused by name.
 
 For interactive Rex runs opened by attach, the existing `plates sessions push`
 job also types the owner's addressed lines into the recorded tab, followed by
-“Reply with plates say; this came from the owner via the plates channel.” and
-Enter (phase 194, increment 3b). No additional job or hosted storage is needed.
+“Reply with PLATES_SITE='<origin>' plates say; this came from the owner via the
+plates channel.” and Enter (phase 194, increment 3b). The origin is the push job's
+workspace, even if the agent has another workspace in its environment. Owner text
+follows Rex's `--` separator, so leading dashes remain text. No additional job or hosted storage is needed.
 Agent and plates progress lines never trigger delivery. Cancelled, ended,
 headless and unreceipted runs receive nothing; unknown presence is reported.
 
@@ -343,9 +345,19 @@ journal, attach digest and receipt. They contain times, line digests and a pendi
 stage, never owner text, briefs or credentials. They start at the attach's time,
 so historical phase instructions cannot reach a new run. The manual
 `plates channel inbox` cursor remains separate. A lock serializes each run.
+Lock tokens are published atomically; abandoned legacy empty or partial locks
+recover after two minutes, while a complete live holder is never expired.
+Interrupted cursor writes leave temporary files that are not read as cursors;
+recovery preserves the completed position and any pending transport stage.
 The completed cursor advances only after text and Enter both succeed. A failed
 text send retries on the next push; a failed Enter retries only Enter.
 Cancellation is checked before both effects.
+
+Each push shares one incremental channel read per project. A run's read position
+includes unaddressed owner lines and overlaps the last millisecond so equal-time
+lines are retained. Caught-up runs need no Rex calls. Once Rex confirms a receipt's
+block has ended or disappeared, its private cursor records that terminal state;
+later pushes skip it, and a project with only ended runs needs no channel read.
 
 Rex has no idempotency receipt for input. A timeout, killed push or failed cursor
 write at an external-effect boundary therefore leaves an uncertain pending stage,
