@@ -14,7 +14,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { homeSnapshot, homeSections, GLANCE_TONES, DEPLOY_WHERE } from '../lib/work-items.mjs';
 import { homeView, renderHomeSnapshot, renderGlance } from '../lib/web/views.mjs';
 import { glanceLines, homeText } from '../lib/home.mjs';
-import { createCardAnswers, cardStatus, leaveGuard } from '../lib/web/home-client.mjs';
+import { createCardAnswers, cardStatus, leaveGuard, startHomeClient } from '../lib/web/home-client.mjs';
 import { createWebSender } from '../lib/web/review-client.mjs';
 import { projectHarness } from './helpers/web-projects.mjs';
 import { createWebService } from '../lib/web/server.mjs';
@@ -145,7 +145,7 @@ test('a card\'s answer is held with Undo, then sent through the docket\'s answer
   const notNow = card.answers.find(a => a.id === 'not-now'), works = card.answers.find(a => a.id === 'choice-works');
   // A tap holds it: nothing is sent, the card says what you answered with Undo; Undo sends nothing.
   assert.ok(answers.choose(card.key, notNow).held);
-  assert.match(cardStatus(answers.state(card.key)), /^<p>You answered: <strong>Not now<\/strong> <button type="button" class="quiet" data-undo>Undo<\/button><\/p>$/);
+  assert.match(cardStatus(answers.state(card.key)), /^<p><strong>Not now<\/strong> · ready to record · <button type="button" class="quiet" data-undo>Undo<\/button><\/p>$/);
   assert.equal(answers.undo(card.key), true); assert.equal(answers.state(card.key), null); assert.deepEqual(sent, []);
   // Held again, the hold ends: one POST to /api/home/answer with the key, the answer and the CSRF token.
   answers.choose(card.key, notNow); await timers.at(-1).f();
@@ -162,7 +162,7 @@ test('a card\'s answer is held with Undo, then sent through the docket\'s answer
   assert.match(cardStatus(answers.state(other.key)), /Checking what <strong>Works<\/strong> will do…/);
   assert.ok((await preparing).held);
   assert.deepEqual(sent, [['/api/home/answer', { csrf: 'fake-csrf-acme', key: 'studio:walk:3', answer: 'choice-works' }]], 'the preview, at the tap');
-  assert.match(cardStatus(answers.state(other.key)), /You answered: <strong>Works<\/strong> — Records Works on Acme walk 3\. <button type="button" class="quiet" data-undo>Undo<\/button>/);
+  assert.match(cardStatus(answers.state(other.key)), /<strong>Works<\/strong> · ready to record · Records Works on Acme walk 3\. · <button type="button" class="quiet" data-undo>Undo<\/button>/);
   assert.equal(timers.length, before + 1, 'the hold starts after the consequence is shown');
   await timers.at(-1).f();
   assert.deepEqual(sent[1], ['/api/projects/studio/decisions/apply', { csrf: 'fake-csrf-acme', previewId: 'p'.repeat(64) }]);
@@ -293,7 +293,7 @@ test('a preview completes only the attempt that asked for it', async () => {
   pending[1].r({ preview: { id: 'new' }, summary: 'Records Needs changes.' });
   const held = (await second.preparing).held;
   assert.equal((await held.prepared).preview.id, 'new', 'the hold applies its own preview');
-  assert.match(cardStatus(answers.state('api:walk:8')), /Needs changes<\/strong> — Records Needs changes\./);
+  assert.match(cardStatus(answers.state('api:walk:8')), /Needs changes<\/strong> · ready to record · Records Needs changes\./);
 });
 
 // PR #497 review: an apply whose outcome is unknown survives a refresh, with its check link, and its answers stay hidden.
@@ -306,4 +306,208 @@ test('an uncertain answer is kept across a refresh', async () => {
   }
   assert.match(cardStatus(answers.state('api:walk:8')), /<p data-error>The write was sent but its outcome is not confirmed\. <a href="\/projects\/api\/operations\/o1">Check the operation →<\/a><\/p>/);
   assert.equal(answers.choose('api:walk:8', { id: 'not-now', label: 'Not now', needsWhy: 'never', writer: 'not now' }).error, 'busy', 'never silently re-enabled');
+});
+
+// Exercise the actual delegated Home click handler and refresh loop together.
+// The DOM adapter models only the selectors Home uses; requests and timers remain explicit.
+function answerPage({ applyState = 'committed', projectId = null, withAsk = false } = {}) {
+  const events = new Map(), timers = new Map(), reads = [], writes = [], rendered = [];
+  let timerId = 0, cards = [], visibleChip = 'yellow';
+  const element = (extra = {}) => ({ dataset: {}, hidden: false, addEventListener() {}, removeEventListener() {}, closest() { return null; }, focus() {}, ...extra });
+  const makeCard = () => {
+    const note = element({ value: '' }), status = element({ innerHTML: '' }), body = element(), actions = element();
+    const card = element({ dataset: { card: 'api:step:7', source: 'step@1' }, note, status, body, actions,
+      querySelector: selector => ({ '[data-card-note]': note, '[data-card-status]': status, '.glance-card-body': body, '[data-card-actions]': actions })[selector] ?? null,
+      replaceWith(other) { cards[cards.indexOf(card)] = other; } });
+    return card;
+  };
+  const list = { append(card) { cards.push(card); } };
+  let section = { querySelector: selector => selector === '.glance-cards' ? list : null }, forms = [];
+  const makeForm = () => {
+    const field = element({ value: '', selectionStart: 0, selectionEnd: 0, selectionDirection: 'none',
+      focus() { document.activeElement = field; }, setSelectionRange(start, end, direction) { this.selectionStart = start; this.selectionEnd = end; this.selectionDirection = direction; } });
+    const form = { field, plate: 'api', destination: 'tonight', preview: 'Acme preview', contains: node => node === field,
+      replaceWith(other) { forms[forms.indexOf(form)] = other; } };
+    return form;
+  };
+  const root = element({ dataset: { endpoint: projectId ? `/api/projects/${projectId}/home` : '/api/home', ...(projectId ? { projectId } : {}), cursor: 'c'.repeat(64) },
+    querySelector: selector => selector === '.glance-needs' ? section : null,
+    querySelectorAll: selector => selector === '[data-card]' ? cards : selector === '[data-ask-form]' ? forms : [],
+    contains: node => cards.includes(node) || forms.some(form => form.contains(node)),
+    prepend(node) { section = node; }, append(form) { forms.push(form); },
+    addEventListener(type, fn) { if (!events.has(type)) events.set(type, new Set()); events.get(type).add(fn); },
+    removeEventListener(type, fn) { events.get(type)?.delete(fn); },
+  });
+  Object.defineProperty(root, 'innerHTML', { set(value) { rendered.push(value); cards = value === 'answered' ? [] : [makeCard()]; visibleChip = value === 'answered' ? 'green' : 'yellow'; if (projectId && value === 'answered') section = null; forms = withAsk ? [makeForm()] : []; document.activeElement = null; } });
+  cards = [makeCard()]; forms = withAsk ? [makeForm()] : [];
+  const message = element(), apply = element(), count = element();
+  const elements = { '[data-home-root]': root, '[data-refresh-status]': message, '[data-apply-updates]': apply, '[data-needs-count]': count,
+    'form[action="/api/auth/logout"] input[name="csrf"]': { value: 'acme-csrf' } };
+  const document = { hidden: false, createElement(tag) {
+    const children = [];
+    return { tag, children, setAttribute(name, value) { this[name] = value; }, append(node) { if (tag === 'ol') cards.push(node); else children.push(node); },
+      querySelector: selector => selector === '.glance-cards' ? children.find(child => child.className === 'glance-cards') ?? null : null };
+  }, querySelector: selector => elements[selector] ?? null, addEventListener() {}, removeEventListener() {} };
+  const window = { location: { origin: 'https://acme.test' }, scrollTo() {}, setTimeout(fn, ms) { timers.set(++timerId, { fn, ms }); return timerId; }, clearTimeout(id) { timers.delete(id); } };
+  const fetch = async (url, options) => {
+    if (options.method === 'GET') return new Promise((resolve, reject) => {
+      options.signal.addEventListener('abort', () => reject(new Error('Aborted')), { once: true });
+      reads.push({ url, options, resolve });
+    });
+    const body = JSON.parse(options.body); writes.push({ url, body, options });
+    if (url === '/api/home/answer' && body.answer === 'not-now') return Response.json({ state: 'written', until: '2026-11-24' });
+    if (url === '/api/home/answer') return Response.json({ state: 'preview', preview: { id: 'p'.repeat(64), canSubmit: true, consequence: 'Records Done with your note.', operationUrl: '/projects/api/operations/o1' } });
+    return Response.json({ state: applyState });
+  };
+  const client = startHomeClient({ document, window, fetch, renderHomeSnapshot: data => data.home.glance.cards.length ? 'waiting' : 'answered' });
+  const click = async (card, action = 'done') => {
+    const target = { dataset: { answer: action, label: action === 'not-now' ? 'Not now' : 'Done', needsWhy: action === 'not-now' ? 'never' : 'always', writer: action === 'not-now' ? 'not now' : 'loose-ends mark' },
+      closest: selector => selector === 'button' ? target : selector === '[data-card]' ? card : null,
+      matches: selector => selector === (action === 'undo' ? '[data-undo]' : '[data-answer]') };
+    await Promise.all([...events.get('click')].map(fn => fn({ target })));
+    await new Promise(resolve => setImmediate(resolve));
+  };
+  const respond = async (read, { answered = false, status = 200 } = {}) => {
+    const data = snapshot([base('api', 'Acme API', answered ? {} : { decisions: [step('api', 'Acme API', '7')] })], { can: { form: 'web', decisionWrites: true } });
+    data.cursor = (answered ? 'd' : 'e').repeat(64);
+    read.resolve({ status, json: async () => data }); await new Promise(resolve => setImmediate(resolve));
+  };
+  return { client, document, forms: () => forms, section: () => section, cards: () => cards, chip: () => visibleChip, timers, reads, writes, rendered, click, respond, message, apply, count };
+}
+
+test('one-step Home answer sends the inline note, collapses to a line, and refreshes cards and chips after apply', async () => {
+  const html = renderHomeSnapshot(snapshot(plates(), { can: { form: 'web', decisionWrites: true } }));
+  assert.match(html, /Add a note[\s\S]*data-card-note[\s\S]*maxlength="300"/);
+  assert.match(html, /data-recommended="true" data-answer="choice-works"/);
+  const h = answerPage(), card = h.cards()[0];
+  try {
+    card.note.value = 'The list is shared with Acme family.';
+    await h.click(card);
+    assert.deepEqual(h.writes[0].body, { csrf: 'acme-csrf', key: 'api:step:7', answer: 'done', why: card.note.value });
+    assert.equal(h.writes[0].options.keepalive, true);
+    assert.equal(card.body.hidden, true); assert.equal(card.actions.hidden, true); assert.equal(card.hidden, false);
+    assert.match(card.status.innerHTML, /Done<\/strong> · recording in api · Records Done with your note\. · <button[^>]*data-undo/);
+    assert.equal(h.writes.length, 1, 'only the preview until the Undo hold ends');
+    const hold = [...h.timers.values()].find(t => t.ms === 5000);
+    const sent = hold.fn(); await new Promise(resolve => setImmediate(resolve));
+    assert.equal(h.writes[1].url, '/api/projects/api/decisions/apply');
+    assert.deepEqual(h.writes[1].body, { csrf: 'acme-csrf', previewId: 'p'.repeat(64) });
+    assert.equal(card.hidden, true, 'a confirmed answer leaves the list');
+    assert.equal(new URL(h.reads[0].url).pathname, '/api/projects/api/home');
+    await h.respond(h.reads[0], { answered: true });
+    assert.equal(new URL(h.reads[1].url).pathname, '/api/home');
+    assert.equal(new URL(h.reads[0].url).search, '?fresh=1');
+    assert.equal(h.reads[0].options.cache, 'no-store');
+    await h.respond(h.reads[1], { answered: true }); await sent;
+    assert.equal(h.cards().length, 0); assert.equal(h.chip(), 'green');
+    assert.equal(h.count.hidden, true); assert.equal(h.apply.hidden, true, 'no Show changes click');
+  } finally { h.client.stop(); }
+});
+
+test('Home Undo restores the card and note, refreshes sources, and rejects a pre-answer response', async () => {
+  const h = answerPage(), card = h.cards()[0];
+  try {
+    const oldRead = h.client.poll();
+    card.note.value = 'An Acme note'; await h.click(card); await h.click(card, 'undo');
+    assert.equal(card.body.hidden, false); assert.equal(card.actions.hidden, false);
+    assert.equal(h.reads.length, 2, 'Undo requests its own fresh read');
+    assert.equal(h.reads[0].options.signal.aborted, true);
+    assert.equal(new URL(h.reads[1].url).search, '?fresh=1');
+    await h.respond(h.reads[0], { answered: true }); await oldRead;
+    assert.deepEqual(h.rendered, [], 'the earlier response cannot replace the undone card');
+    await h.respond(h.reads[1]); await h.respond(h.reads[2]);
+    assert.equal(h.chip(), 'yellow'); assert.equal(h.cards()[0].note.value, 'An Acme note');
+    assert.equal(h.writes.length, 1, 'Undo never applies the preview');
+    assert.ok(![...h.timers.values()].some(t => t.ms === 5000));
+  } finally { h.client.stop(); }
+});
+
+test('a failed post-answer refresh remains stale and the next poll still requests fresh data', async () => {
+  const h = answerPage(), card = h.cards()[0];
+  try {
+    card.note.value = 'An Acme note'; await h.click(card); await h.click(card, 'undo');
+    await h.respond(h.reads[0], { status: 503 });
+    assert.match(h.message.textContent, /may be stale/);
+    const retry = [...h.timers.values()].find(t => t.ms === 120000).fn();
+    assert.equal(new URL(h.reads[1].url).search, '?fresh=1');
+    await h.respond(h.reads[1]); await h.respond(h.reads[2]); await retry;
+    assert.equal(h.apply.hidden, true); assert.equal(h.chip(), 'yellow');
+  } finally { h.client.stop(); }
+});
+
+test('an uncertain Home operation remains visible when the refreshed source no longer lists its card', async () => {
+  const h = answerPage({ applyState: 'uncertain' }), card = h.cards()[0];
+  try {
+    card.note.value = 'An Acme note'; await h.click(card);
+    const sent = [...h.timers.values()].find(t => t.ms === 5000).fn();
+    await new Promise(resolve => setImmediate(resolve));
+    await h.respond(h.reads[0], { answered: true }); await h.respond(h.reads[1], { answered: true }); await sent;
+    assert.deepEqual(h.cards(), [card], 'the original uncertain operation stays on Home');
+    assert.equal(card.hidden, false); assert.equal(card.actions.hidden, true);
+    assert.match(card.status.innerHTML, /Check the operation/);
+    assert.match(card.status.innerHTML, /\/projects\/api\/operations\/o1/);
+    await h.click(card);
+    assert.equal(h.writes.length, 2, 'refresh cannot enable another answer to an uncertain operation');
+  } finally { h.client.stop(); }
+});
+
+// PR #500 PRRT_kwDOU5nJK864tAXr: terminal entries must not keep forced reads running.
+for (const action of ['done', 'not-now']) test(`terminal ${action} answers stop forcing refreshes while source lag remains visible`, async () => {
+  const h = answerPage(), card = h.cards()[0];
+  try {
+    card.note.value = 'An Acme note'; await h.click(card, action);
+    const sent = [...h.timers.values()].find(t => t.ms === 5000).fn();
+    await new Promise(resolve => setImmediate(resolve));
+    await h.respond(h.reads[0]); await h.respond(h.reads[1]); await sent;
+    assert.equal(h.cards()[0].hidden, true);
+    assert.match(h.message.textContent, /sources to catch up.*may be stale/);
+    const next = [...h.timers.values()].find(t => t.ms === 60000).fn();
+    assert.equal(new URL(h.reads[2].url).pathname, '/api/home', 'no repeated targeted source read for a terminal answer');
+    assert.equal(new URL(h.reads[2].url).searchParams.has('fresh'), false);
+    assert.equal(h.reads[2].options.headers['If-None-Match'], '"' + 'e'.repeat(64) + '"');
+    await h.respond(h.reads[2], { status: 304 }); await next;
+    assert.match(h.message.textContent, /may be stale/, 'unchanged cached sources never become current');
+    const caughtUp = h.client.poll();
+    await h.respond(h.reads[3], { answered: true }); await caughtUp;
+    assert.equal(h.cards().length, 0); assert.equal(h.chip(), 'green');
+  } finally { h.client.stop(); }
+});
+
+// PR #500 PRRT_kwDOU5nJK864tCo5: a project's renderer omits empty Needs you.
+test('an uncertain project answer restores its missing Needs you section', async () => {
+  const h = answerPage({ applyState: 'uncertain', projectId: 'api' }), card = h.cards()[0];
+  try {
+    card.note.value = 'An Acme note'; await h.click(card);
+    const sent = [...h.timers.values()].find(t => t.ms === 5000).fn();
+    await new Promise(resolve => setImmediate(resolve));
+    await h.respond(h.reads[0], { answered: true }); await sent;
+    assert.equal(h.section()?.id, 'needs-you');
+    assert.equal(h.section()['aria-labelledby'], 'needs-you-title');
+    assert.deepEqual(h.cards(), [card]);
+    assert.equal(card.hidden, false); assert.equal(card.actions.hidden, true);
+    assert.match(card.status.innerHTML, /Check the operation/);
+    assert.match(card.status.innerHTML, /\/projects\/api\/operations\/o1/);
+    await h.click(card); assert.equal(h.writes.length, 2, 'no duplicate answer');
+  } finally { h.client.stop(); }
+});
+
+// PR #500 PRRT_kwDOU5nJK864tCo-: automatic refresh must retain the owner's live form.
+for (const outcome of ['apply', 'undo']) test(`automatic ${outcome} refresh preserves the ask form, typing and focus`, async () => {
+  const h = answerPage({ withAsk: true }), card = h.cards()[0], form = h.forms()[0], field = form.field;
+  try {
+    card.note.value = 'An Acme answer'; await h.click(card);
+    let sent;
+    if (outcome === 'undo') await h.click(card, 'undo');
+    else { sent = [...h.timers.values()].find(t => t.ms === 5000).fn(); await new Promise(resolve => setImmediate(resolve)); }
+    // Type while the answer refresh is in flight; capture at render time, not when the request began.
+    field.value = 'An unfinished Acme ask'; form.plate = 'studio'; form.destination = 'backlog';
+    field.focus(); field.setSelectionRange(3, 10, 'backward');
+    await h.respond(h.reads[0], { answered: outcome === 'apply' });
+    await h.respond(h.reads[1], { answered: outcome === 'apply' }); await sent;
+    assert.equal(h.forms()[0], form, 'retain the live form and its pending preview');
+    assert.equal(h.forms()[0].field.value, 'An unfinished Acme ask');
+    assert.equal(form.plate, 'studio'); assert.equal(form.destination, 'backlog'); assert.equal(form.preview, 'Acme preview');
+    assert.equal(h.document.activeElement, field);
+    assert.deepEqual([field.selectionStart, field.selectionEnd, field.selectionDirection], [3, 10, 'backward']);
+  } finally { h.client.stop(); }
 });

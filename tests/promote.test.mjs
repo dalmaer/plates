@@ -121,7 +121,7 @@ const configOf = (site, delivery = {}) => ({ name: 'Acme', repo, practices: ['ni
  * at C, so D is on main but not tested; F is a commit off main. Production
  * (the tag prod) is at A. The gates: A, C and D passed, B failed, F never ran.
  */
-async function acme(t, { delivery } = {}) {
+async function acme(t, { delivery, changeEvidence = () => {} } = {}) {
   const dir = await scratch(t, 'plates-promote-');
   const origin = join(dir, 'origin.git'), root = join(dir, 'acme');
   const git = (cwd, ...args) => execFileSync('git', args, { cwd, env: ENV, encoding: 'utf8' }).trim();
@@ -140,7 +140,9 @@ async function acme(t, { delivery } = {}) {
   git(root, 'checkout', '-q', '-b', 'acme-side', A.sha);
   const F = await commit('forge');
   git(root, 'checkout', '-q', 'main');
-  const stub = await ghStub(t, actions([A, { ...B, conclusion: 'failure' }, C, D]));
+  const evidence = actions([A, { ...B, conclusion: 'failure' }, C, D]);
+  changeEvidence(evidence, C);
+  const stub = await ghStub(t, evidence);
   const scripts = join(root, 'scripts', 'plates');
   await cp(NIGHT, scripts, { recursive: true });
   await cp(DELIVERY, scripts, { recursive: true });
@@ -165,6 +167,49 @@ const script = async (a, args) => {
 };
 
 // ---- the guard, the preview and --yes ---------------------------------------------------------
+
+test('promote uses only the successful latest gate attempt and refuses ambiguous rerun artifacts', async t => {
+  for (const scenario of ['failed then passed', 'passed then failed', 'duplicate latest', 'unknown time', 'only older', 'wrong attempt', 'failed latest ledger']) {
+    await t.test(scenario, async t => {
+      const a = await acme(t, { changeEvidence: (fixture, c) => {
+        const run = fixture.routes[`repos/${repo}/actions/workflows/7/runs?head_sha=${c.sha}`].workflow_runs[0];
+        run.run_attempt = 2;
+        if (scenario === 'passed then failed') run.conclusion = 'failure';
+        const jobs = fixture.routes[`repos/${repo}/actions/runs/102/attempts/1/jobs`];
+        fixture.routes[`repos/${repo}/actions/runs/102/attempts/2/jobs`] = { jobs: jobs.jobs.map(j => ({ ...j, id: j.id + 1, run_attempt: scenario === 'wrong attempt' ? 1 : 2, conclusion: run.conclusion })), total_count: 1 };
+        const route = fixture.routes[`repos/${repo}/actions/runs/102/artifacts`];
+        const latest = { ...route.artifacts[0], created_at: ago(2 * 24 * 60 + 1) };
+        const old = { ...latest, id: latest.id + 1, created_at: ago(2 * 24 * 60 + 10) };
+        // A failed older archive cannot poison a passing rerun; an older passing
+        // archive cannot rescue the latest failed run or latest failed ledger.
+        const oldBytes = zip(records({ ...c, status: scenario === 'failed then passed' ? 1 : 0 }).map((r, j) => ({ name: `old-${j}.json`, body: JSON.stringify(r) })));
+        old.size_in_bytes = oldBytes.length;
+        old.digest = `sha256:${createHash('sha256').update(oldBytes).digest('hex')}`;
+        fixture.zips[old.id] = oldBytes.toString('base64');
+        route.artifacts = [latest, old]; // deliberately newest first
+        if (scenario === 'duplicate latest') route.artifacts.push({ ...latest, id: latest.id + 2 });
+        if (scenario === 'unknown time') delete old.created_at;
+        if (scenario === 'only older') route.artifacts = [old];
+        if (scenario === 'failed latest ledger') {
+          const bytes = zip(records({ ...c, status: 1 }).map((r, j) => ({ name: `failed-${j}.json`, body: JSON.stringify(r) })));
+          latest.size_in_bytes = bytes.length;
+          latest.digest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+          fixture.zips[latest.id] = bytes.toString('base64');
+        }
+        route.total_count = route.artifacts.length;
+      } });
+      a.prod.serve(a.C);
+      if (scenario === 'failed then passed') {
+        const result = await a.promote({ yes: true });
+        assert.equal(result.exitCode, 0);
+        assert.equal(result.gate.attempt, 2);
+        assert.equal(a.refs().prod, a.C);
+        assert.ok((await a.stub.asked()).includes(`repos/${repo}/actions/artifacts/10200/zip`));
+        assert.ok(!(await a.stub.asked()).includes(`repos/${repo}/actions/artifacts/10201/zip`), 'no older artifact is downloaded');
+      } else await refused(a, { yes: true }, /gate has not passed/);
+    });
+  }
+});
 
 test('plates promote refuses a commit not on the tested ref or without a passing gate, and moves the ref for one that is, only with --yes', async t => {
   const a = await acme(t);

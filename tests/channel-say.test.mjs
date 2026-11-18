@@ -262,9 +262,10 @@ test("an attach's steps are plates's progress lines on the plate's channel, the 
     ['studio#2', 'plates', 'plates on Acme Mac: phase 2 handed to claude as a /spin 2 brief; nothing was started'],
     ['studio#2', 'plates', 'plates on Acme Mac: phase 2 cancelled (built elsewhere); run: none'],
   ]);
-  // Both renderers print the same lines.
+  // Both renderers print the same progress text; web uses a centred system bubble.
   const text = channelText(cli), html = channelLines(web);
-  for (const l of steps) { assert.ok(text.includes(`studio#2  progress  ${l.text}`), l.text); assert.ok(html.includes(`<span class="p-badge">progress</span> ${l.text}`), l.text); }
+  assert.equal((html.match(/class="chat-line chat-system"[^>]*data-kind="progress"/g) ?? []).length, steps.length);
+  for (const l of steps) { assert.ok(text.includes(`studio#2  progress  ${l.text}`), l.text); assert.ok(html.includes(`data-channel-text>${l.text}</div>`), l.text); }
   // The hosted channel's own read shows them.
   const { createHomeReader } = await import('../lib/web/home.mjs');
   const read = await createHomeReader(s.h.config, { fetcher: s.fetcher, now: Date.now })(s.h.access, 'fake-user-access-token-for-tests', { channel: true });
@@ -314,5 +315,5 @@ test('a device key posts only the steps plates on it did, and they read as that 
   const [line] = web.lines.filter(l => l.kind === 'progress');
   assert.equal(line.text, 'plates on Acme Mac: phase 2 dispatched to claude in Rex tab phase-2 of session studio-claude');
   assert.ok(channelText(cli).includes(`studio#2  progress  ${line.text}`));
-  assert.ok(channelLines(web).includes(`<span class="p-badge">progress</span> ${line.text}`));
+  assert.ok(channelLines(web).includes(`data-channel-text>${line.text}</div>`));
 });

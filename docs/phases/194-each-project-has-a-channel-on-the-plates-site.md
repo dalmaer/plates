@@ -93,6 +93,16 @@ reused; Discord becomes an optional one-way mirror (increment 4).
    authority, through phase 149's envelope (`origin.kind: human`,
    authenticated by the site session); every agent line is an observation and
    triggers nothing.
+3b. **Delivered into the agent's tab** (the owner asked for two-way, 2026-11-17).
+   An agent idle at its prompt never asks its inbox, so the owner's line waits.
+   The push job each Mac already runs every 2 minutes (`plates sessions push`)
+   also reads the owner's new lines addressed to a run attached on that Mac
+   (the attach journal names its Rex tab) and types each into that tab with
+   `rex send`, followed by an instruction to answer with `plates say`. Only the
+   owner's authenticated lines are delivered; each exactly once, by the inbox
+   cursor; only to a Rex tab plates opened for that phase; never an agent's
+   line. A delivery that fails is retried on the next run and named, never
+   dropped or doubled. Proof: `tests/channel-deliver.test.mjs`.
 4. **Mirror out** (optional, ⚑ a bot token): lines that need the owner (waiting,
    CI red on the default branch, an unanswered checkpoint) post one way to the
    phase 149 Discord channel. The site stays the record; a dead webhook loses
@@ -157,3 +167,4 @@ The owner's walk (box 8): on `/channel` for plates, post a line naming `plates#1
 - **2026-11-16** — Increment 3 built with no new table: migration 025 adds owner-post and list-marked to `plates_channel_rpc`, and the owner's lines carry an owner digest (never a device key's) in the device column. A line counts as the owner's only when the row mark and the sealed kind agree. A device-key body carrying kind, to or by is refused as `channel_owner_only`.
 - **2026-11-16** — The inbox cursor is local, one file per session under the plates state dir; the workspace stores no read position. Before 025 is applied, the form says the channel cannot take the owner's lines yet, and everything else keeps working.
 - **2026-11-17** — Increment 3 ran as the owner's real task: attached to a Rex tab through the local-host route, its brief arrived as the startup prompt, its steps showed on this channel, and two review corrections were typed into its tab on the owner's behalf. Migration 025 was applied after its timestamp was moved under the lock, and its hosted proof passed.
+- **2026-11-17** — The owner asked for two-way talk between plates and agents. Delivery reuses Rex, the attach receipts, the push job and 024/025's storage instead of a new channel.
