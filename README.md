@@ -196,9 +196,10 @@ Fleet-wide views and each project use the same records and controls.
 **Available today:** the CLI and `plates home`, external workspace
 manifest validation/initialization, private GitHub sign-in and a source-backed Home
 board with previewed, explicitly approved answers. Home shows source-backed
-decisions, ready walks, recent phase additions
-and project summaries, with project lenses, search, source links and explicit
-coverage gaps. The first source read fills a loading view; later updates wait
+decision cards and project status chips. Each project has an ordered backlog
+with Ready, Agent working, Needs you and Done items, rendered source details,
+and Assign previews on Ready rows. Quota advice uses the existing local room
+read; hosted quota and hosted dispatch remain unavailable. Source gaps stay visible. The first source read fills a loading view; later updates wait
 behind **Show changes** so the card you are reading stays stable. See
 [Using Home](docs/guide/web-home.md) for refresh behavior and limits.
 The [visual tour](docs/guide/web-tour.md) collects desktop/mobile captures and

@@ -1,15 +1,22 @@
 # Use the private Home board
 
-Home brings the current project plan into the signed-in workspace, in four
-sections (phase 166): **Needs you**, one ranked list where each row has one
-verb (Fix, then Decide, then Try it, oldest first) and names its answers, with
-Answer opening the review session; **Since you last looked**, what happened, by
-plate; **What should happen next?**, the ask box and what is queued, with each
-source the hosted home cannot read yet as one quiet line naming its command; and **Your
-plates**, one status each, with source problems in one line beneath. The
-caveats are one footer line. Open a plate for the same sections through its
-lens, plus what waits on time or agents. Search and the Fix / Decide / Try it
-filter narrow Needs you; source problems stay listed under Your plates.
+Home shows a chip per project and decisions you can answer on their cards.
+Open a project for its decisions and one ordered **Backlog**, with **Ready**,
+**Agent working**, **Needs you** and **Done** items. Open an item for its
+rendered outcome, next action and source details. Work waiting on a dependency
+stays behind that item; other waiting work is folded into source details.
+A project whose production matches main has no release row. When production
+is behind, its decision card supplies the checked `plates promote` command.
+
+**Assign** stays on a Ready item's row. It shows a preview command for each
+configured agent and enabled session or local-host route; preview first and
+approve through the existing attach command. Hosted dispatch is not activated.
+The recommendation uses the existing quota room policy, then chooses the
+eligible agent with the most remaining capacity in its tightest window.
+Stale, missing or unknown readings recommend nobody. The quota service is
+currently local: a hosted instance without it says unavailable; hosted quota
+delivery remains phase 192 work. Unread agent assignments also disable previews
+and keep their source gap visible.
 
 “Inspect source” opens the exact GitHub revision behind an item. Home answers
 preview and apply not-now, walk decisions/completion, loose-end marks and PR
@@ -71,18 +78,15 @@ show the same items, sections and counts.
 `plates home` and exits 2, so a script that called `plates board --json` moves
 to `plates home --json`.
 
-`plates home` shows home's four sections, in order (phase 166): **Needs you**,
-one ranked list where each row has one verb (Fix, then Decide, then Try it,
-oldest first); **Since you last looked**, what happened per plate since your
-last `plates home` (the time of that run is kept in the plates state directory,
-`$XDG_STATE_HOME/plates/last-looked.json`, else `~/.local/state/plates/`; no
-project content); **What should happen next?**, what is already queued
-(tonight's plan and open agent issues); and **Your plates**, one status each,
-with source problems collapsed into one line. A count says "known" only when a
-source could not be read, and the other caveats are one footer line. What waits
-on time or on agents is under `plates home --project <id>`. `--json` carries
-the four as `home`, and `/api/home` carries the same `home`, which the hosted
-page renders.
+`plates home` starts with Projects and Needs you, the same chips and cards as
+Home, then recent activity and queued work. `plates home --project <id>`
+prints the project's decision cards and ordered backlog, including the same
+Assign preview commands and quota explanation. `--json` includes
+`projectWorkspace` for that selected project. The underlying `home` sections
+remain in JSON for source inspection; they are not separate project panels.
+The last-looked time is kept in the plates state directory
+(`$XDG_STATE_HOME/plates/last-looked.json`, default `~/.local/state/plates/`),
+never in project content. Unread sources remain explicit gaps.
 
 `plates home --backlog` (phase 178) shows every plate's work in lanes, from the
 same read: **In flight**, **Yours**, **Agent-ready**, **Waiting** and

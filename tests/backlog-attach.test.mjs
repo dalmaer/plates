@@ -3,6 +3,7 @@
 // this disk; no network, no agent process, no paid workflow: every dispatch
 // here is the session route's brief, or a recording stand-in.
 import { test } from 'node:test';
+import { setImmediate as nextTurn } from 'node:timers/promises';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
@@ -451,92 +452,115 @@ test('a local-host cancel during a real claim leaves the printed release instruc
   assert.equal(git(x.a, 'ls-remote', 'origin', 'refs/heads/claims/phase-1'), '', 'the printed command released the claim');
 });
 
-test('a background worker writes progress and completes after the host timeout settles', async t => {
-  const x = await localAcme(t), dir = join(dirname(x.a), 'output-probe');
-  await mkdir(dir);
-  for (const route of ['runHost', 'attach']) {
-    const marker = join(dir, `${route}.done`), pidFile = join(dir, `${route}.pid`);
-    const worker = join(dir, `${route}-worker.sh`), host = join(dir, `${route}-host.sh`);
-    await writeFile(worker, `#!/bin/sh
+// Only the host's deadline is virtual. Git, journal IO and the real child pipes
+// still run normally; readiness/completion waits are watchdogs, not timing proof.
+const HOST_TIMEOUT_MS = 300;
+const realSetTimeout = setTimeout;
+async function waitForHostFile(file) {
+  const until = performance.now() + 10_000;
+  while (performance.now() < until) {
+    const text = await readFile(file, 'utf8').catch(() => null);
+    if (text) return text;
+    await new Promise(resolve => realSetTimeout(resolve, 25));
+  }
+  assert.fail(`host fixture did not write ${file}`);
+}
+
+async function timeoutProbe(t, dir, name) {
+  await mkdir(dir, { recursive: true });
+  const marker = join(dir, `${name}.done`), release = join(dir, `${name}.release`);
+  const ready = join(dir, `${name}.pid`), runs = join(dir, `${name}.runs`);
+  const worker = join(dir, `${name}-worker.sh`), host = join(dir, `${name}-host.sh`);
+  await writeFile(worker, `#!/bin/sh
 set -e
-sleep 1
+while [ ! -f ${JSON.stringify(release)} ]; do
+  [ -d ${JSON.stringify(dir)} ] || exit 0
+  sleep 0.025
+done
 echo progress
 echo progress >&2
 echo complete > ${JSON.stringify(marker)}
 `, { mode: 0o755 });
-    await writeFile(host, `#!/bin/sh
+  await writeFile(host, `#!/bin/sh
+echo 1 >> ${JSON.stringify(runs)}
 ${JSON.stringify(worker)} &
-echo $! > ${JSON.stringify(pidFile)}
+echo $! > ${JSON.stringify(ready)}
 wait
 `, { mode: 0o755 });
-    t.after(async () => {
-      const pid = Number(await readFile(pidFile, 'utf8').catch(() => ''));
-      if (pid) { try { process.kill(pid, 'SIGKILL'); } catch { /* exited */ } }
-    });
-    const start = Date.now();
-    const pending = route === 'runHost'
-      ? runHost([host], { cwd: dir, timeoutMs: 300, stderr: true })
+  let pid;
+  t.after(() => { if (pid) { try { process.kill(pid, 'SIGKILL'); } catch { /* exited */ } } });
+  return { host, marker, runs,
+    ready: async () => { pid = Number(await waitForHostFile(ready)); return pid; },
+    complete: async () => {
+      await writeFile(release, 'go\n');
+      assert.equal(await waitForHostFile(marker), 'complete\n', 'progress writes did not break the worker pipes');
+    },
+  };
+}
+
+async function atHostDeadline(t, probe, start) {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  try {
+    let settled = false;
+    // Observe rejections immediately, including unexpected setup failures.
+    const pending = start().then(value => ({ value }), error => ({ error }))
+      .then(result => { settled = true; return result; });
+    const pid = await probe.ready();
+    t.mock.timers.tick(HOST_TIMEOUT_MS - 1);
+    await nextTurn();
+    assert.equal(settled, false, 'the host remains pending before its deadline');
+    t.mock.timers.tick(1);
+    await nextTurn();
+    assert.equal(settled, true, 'the host settles at its deadline while descendant pipes remain open');
+    assert.equal(await readFile(probe.marker, 'utf8').catch(() => null), null, 'the worker has not completed');
+    assert.doesNotThrow(() => process.kill(pid, 0), 'timeout cleanup leaves launched work alive');
+    return await pending;
+  } finally { t.mock.timers.reset(); }
+}
+
+function assertHostTimeout(result) {
+  assert.match(result.error?.message ?? '', new RegExp(`ran past its bound \\(${HOST_TIMEOUT_MS} ms`));
+}
+
+test('a background worker writes progress and completes after the host timeout settles', async t => {
+  const x = await localAcme(t), dir = join(dirname(x.a), 'output-probe');
+  for (const route of ['runHost', 'attach']) {
+    const probe = await timeoutProbe(t, dir, route);
+    const result = await atHostDeadline(t, probe, () => route === 'runHost'
+      ? runHost([probe.host], { cwd: dir, timeoutMs: HOST_TIMEOUT_MS, stderr: true })
       : attach({ root: x.a, projectId: 'app', phase: 1, title: 'Build the anvil', route: 'local-host', provider: 'claude', config: LOCAL, yes: true,
         phaseText: { doneWhen: 'The anvil lands.', acceptance: '- [ ] Lands.', context: {} },
-        host: { file: join(dir, 'local-hosts.json'), start: [host], state: null, harness: null } },
-      { env: x.env('acme-laptop', 'claude'), timeoutMs: 300 });
-    await assert.rejects(pending, /ran past its bound \(300 ms/);
-    assert.ok(Date.now() - start < 2500, `${route} settled promptly`);
-    assert.equal(await readFile(marker, 'utf8').catch(() => null), null, 'the worker has not completed when the timeout settles');
-    // Keep the caller alive to prove its timeout cleanup leaves inherited writers usable.
-    const until = Date.now() + 3000;
-    while (Date.now() < until && !await readFile(marker, 'utf8').catch(() => null)) await new Promise(resolve => setTimeout(resolve, 25));
-    assert.equal(await readFile(marker, 'utf8').catch(() => null), 'complete\n', `${route}: progress writes did not break the worker's pipes`);
+        host: { file: join(dir, 'local-hosts.json'), start: [probe.host], state: null, harness: null } },
+      { env: x.env('acme-laptop', 'claude'), timeoutMs: HOST_TIMEOUT_MS }));
+    assertHostTimeout(result);
+    // Release only after settlement: scheduling cannot let the worker finish early.
+    await probe.complete();
   }
 });
 
 test('host timeouts settle at the deadline without waiting for descendant pipes or stopping launched work, retaining uncertain dispatch', async t => {
-  const x = await localAcme(t);
-  const dir = join(dirname(x.a), 'timeout-probe');
-  await mkdir(dir, { recursive: true });
-  const pidsFile = join(dir, 'descendants.txt'), runsFile = join(dir, 'runs.txt'), slowHost = join(dir, 'slow-host.sh');
-  await writeFile(slowHost, `#!/bin/sh
-echo 1 >> ${JSON.stringify(runsFile)}
-sleep 4 &
-echo $! >> ${JSON.stringify(pidsFile)}
-sleep 6
-`, { mode: 0o755 });
-  t.after(async () => {
-    const raw = await readFile(pidsFile, 'utf8').catch(() => '');
-    for (const line of raw.split('\n').filter(Boolean)) { try { process.kill(Number(line), 'SIGKILL'); } catch { /* exited */ } }
-  });
+  const x = await localAcme(t), dir = join(dirname(x.a), 'timeout-probe');
+  const direct = await timeoutProbe(t, dir, 'direct');
+  assertHostTimeout(await atHostDeadline(t, direct, () => runHost([direct.host], { cwd: dir, timeoutMs: HOST_TIMEOUT_MS, stderr: true })));
+  await direct.complete();
 
-  // Direct runHost + hostState with a descendant holding stdout and stderr open for 4000 ms settles promptly at the 300 ms deadline.
-  const t0 = Date.now();
-  await assert.rejects(runHost([slowHost], { cwd: dir, timeoutMs: 300, stderr: true }), /ran past its bound \(300 ms/);
-  const elapsedRun = Date.now() - t0;
-  assert.ok(elapsedRun < 2000, `runHost settled in ${elapsedRun} ms without waiting for the 4000 ms descendant pipe`);
-  const firstDescendant = Number((await readFile(pidsFile, 'utf8')).trim().split('\n')[0]);
-  let alive = false;
-  try { process.kill(firstDescendant, 0); alive = true; } catch { alive = false; }
-  assert.equal(alive, true, 'wrapper cleanup does not kill work the host already launched');
+  const state = await timeoutProbe(t, dir, 'state');
+  assert.deepEqual(await atHostDeadline(t, state, () => hostState({ state: [state.host], session: 'acme-s1', env: { ...process.env, HOME: dir }, timeoutMs: HOST_TIMEOUT_MS })), { value: null });
+  await state.complete();
 
-  const t1 = Date.now();
-  assert.equal(await hostState({ state: [slowHost], session: 'acme-s1', env: { ...process.env, HOME: dir }, timeoutMs: 300 }), null);
-  assert.ok(Date.now() - t1 < 2000, 'state inspection settles at the deadline despite inherited pipes');
-
-  // Attach with local-host: timeout retains an uncertain dispatch in the #484 journal (intent + fate: dispatch, no receipt) and never reruns.
-  const attachRuns = join(dir, 'attach-runs.txt'), attachHost = join(dir, 'attach-host.sh');
-  await writeFile(attachHost, `#!/bin/sh
-echo 1 >> ${JSON.stringify(attachRuns)}
-sleep 4 &
-echo $! >> ${JSON.stringify(pidsFile)}
-sleep 6
-`, { mode: 0o755 });
+  // Attach retains an uncertain dispatch in the #484 journal (intent + fate:
+  // dispatch, no receipt) and never reruns. Claim/journal latency is outside the
+  // host deadline, so it must not consume a wall-clock "promptness" allowance.
+  const probe = await timeoutProbe(t, dir, 'attach');
+  const attachRuns = probe.runs;
   const env = { ...x.env('acme-laptop', 'claude'), HOME: dir };
   const jDir = join(dir, 'journal'), journal = attachJournal(jDir);
-  const hostCfg = { file: join(dir, 'local-hosts.json'), start: [attachHost], state: null, harness: null };
+  const hostCfg = { file: join(dir, 'local-hosts.json'), start: [probe.host], state: null, harness: null };
   const args = { root: x.a, projectId: 'app', phase: 1, title: 'Build the anvil', route: 'local-host', provider: 'claude', config: LOCAL, yes: true, phaseText: { doneWhen: 'The anvil lands.', acceptance: '- [ ] Lands.', context: {} }, host: hostCfg };
   const { digest } = attachPreview({ ...args, plate: 'Acme' });
 
-  const t2 = Date.now();
-  await assert.rejects(attach(args, { journal, env, timeoutMs: 300 }), /ran past its bound \(300 ms/);
-  assert.ok(Date.now() - t2 < 2500, 'attach settles promptly when the host command times out');
+  assertHostTimeout(await atHostDeadline(t, probe, () => attach(args, { journal, env, timeoutMs: HOST_TIMEOUT_MS })));
+  await probe.complete();
   assert.equal((await readFile(attachRuns, 'utf8')).trim().split('\n').length, 1);
   const afterTimeout = await journal.read(digest);
   assert.ok(afterTimeout?.intent && !afterTimeout?.receipt, 'intent stays journaled with no receipt');

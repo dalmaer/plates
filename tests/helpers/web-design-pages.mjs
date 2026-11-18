@@ -1,3 +1,4 @@
+import {simpleProject} from '../../lib/web/simple-project-model.mjs';
 // The representative workspace pages, rendered from fixed Acme inputs. The
 // markup golden (tests/web-design.test.mjs, phase 167) and the look capture
 // (scripts/look.mjs, phase 172) read this one list, so a page type added for
@@ -40,7 +41,7 @@ export function backlogHistory() {
 }
 /** The backlog's model from Acme phases: one claimed, one owing a walk, two free (one not yet spec: 2), one waiting, one built this week; and a plate not read. */
 export function backlog() {
-  const now = '2026-10-21T16:00:00.000Z', phase = (id, status, more = {}) => ({ id, file: `${id}-acme.md`, title: `Acme phase ${id}: publish from every screen`, status, goal: 'G1', depends: [], since: '2026-10-01', spec: 2, next: 'Build it.', ...more });
+  const now = '2026-10-21T16:00:00.000Z', phase = (id, status, more = {}) => ({ id, file: `${id}-acme.md`, title: `Acme phase ${id}: publish from every screen`, status, goal: 'G1', depends: [], since: '2026-10-01', spec: 2, done: 'Publish **Acme work** from every screen.', next: 'Build it.', ...more });
   const phases = [phase(1, 'partial'), phase(2, 'partial', { owes: 'walk' }), phase(3, 'planned', { depends: [2] }), phase(4, 'planned', { spec: 1 }), phase(5, 'planned', { depends: [9] }), phase(9, 'planned', { goal: 'G2' }), phase(8, 'built', { since: '2026-10-20' })];
   const walk = { id: 'studio:phase:2:walk', projectId: 'studio', projectName: 'Acme Studio', kind: 'walk', itemKind: 'walk', ref: '2', phase: '2', since: '2026-10-11', ready: true, title: 'Publish from a phone', details: { ask: 'Does publishing from your phone work end to end?', takes: 'About five minutes', choices: ['Works', 'Needs changes'], recommend: 'Works' }, sets: [] };
   const studio = { id: 'studio', repoId: 100, repo: 'acme/studio', name: 'Acme Studio', revision: 'b'.repeat(40), readAt: now, state: 'complete', gaps: [], changes: [], decisions: [], walks: [walk], reviews: [], waiting: [], roadmap: phaseRoadmap(phases, [{ id: 'G1', title: 'Publishing works everywhere' }, { id: 'G2', title: 'Owners walk less' }]) };
@@ -77,6 +78,7 @@ const decision = () => ({ schema: 1, project, source: { path: 'docs/reviews/2026
 export async function designPages() {
   const h = changesHarness(), model = await h.changes.detail(h.access, token, h.project, 'acme-search');
   const home = snapshot(), plate = {...snapshot(),backlog:backlog()}, review = reviewSnapshot(), reviewEmpty = { ...reviewSnapshot(), docket: [], home: { sections: [{ id: 'needs-you', known: false, items: [] }] } };
+  plate.projectWorkspace = simpleProject(plate, 'studio', {config:{agents:{claude:{},codex:{}},backlog:{routes:['session','local-host']}}});
   return {
     home: { html: homeView(access, home), api: { '/api/home': home } },
     project: { html: projectView(project, access, plate), api: { '/api/projects/studio/home': plate } },

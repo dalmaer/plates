@@ -42,7 +42,7 @@ test('the activation plan is complete and ordered', async t => {
     assert.deepEqual(check(plan), []);
     // Every G7 phase that owes a walk or names a hosted gap is in the plan.
     const owing = phasesNeedingSteps(phases, 'G7', 151);
-    assert.deepEqual(owing, [94, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 152, 153, 154, 156, 163, 164, 165, 166, 168, 169, 172, 173, 174, 175, 176, 178, 180, 181, 183, 186]);
+    assert.deepEqual(owing, [94, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 152, 153, 154, 156, 163, 164, 165, 166, 168, 169, 172, 173, 174, 175, 176, 178, 180, 181, 183, 186, 194, 196]);
     for (const id of owing) assert.ok(plan.steps.some(s => s.phase === id), `phase ${id}`);
     // Every migration not yet applied in the hosted database has its step.
     assert.deepEqual(plan.applied.map(a => a.migration), [
