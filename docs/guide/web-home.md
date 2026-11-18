@@ -325,6 +325,51 @@ phase next says something. An agent's line naming another agent is a `say`
 line and reaches no inbox; a device-key post shaped like the owner's line is
 refused by name.
 
+For interactive Rex runs opened by attach, the existing `plates sessions push`
+job also types the owner's addressed lines into the recorded tab, followed by
+“Reply with PLATES_SITE='<origin>' plates say; this came from the owner via the
+plates channel.” and Enter (phase 194, increment 3b). The origin is the push job's
+workspace, even if the agent has another workspace in its environment. Owner text
+follows Rex's `--` separator, so leading dashes remain text. No additional job or hosted storage is needed.
+Agent and plates progress lines never trigger delivery. Cancelled, ended,
+headless and unreceipted runs receive nothing; unknown presence is reported.
+
+Attach registers its checkout's journal before dispatch in
+`$XDG_STATE_HOME/plates/channel-delivery/journals/` (default
+`~/.local/state/plates/channel-delivery/journals/`). Each mode-600 file contains
+only the absolute checkout and journal paths. This lets the installed CLI find
+runs without scanning checkouts or relying on its working directory. Registration
+refuses repository locations, including symlinks into them. Repeating an existing
+attach registers an older journal without starting another run; unregistered
+older journals are not searched for. Removing an index entry disables that
+checkout's delivery. A missing journal or Rex adds no output.
+
+Mode-600 delivery cursors live beside the index under `runs/`, keyed by workspace,
+journal, attach digest and receipt. They contain times, line digests and a pending
+stage, never owner text, briefs or credentials. They start at the attach's time,
+so historical phase instructions cannot reach a new run. The manual
+`plates channel inbox` cursor remains separate. A lock serializes each run.
+Lock tokens are published atomically; abandoned legacy empty or partial locks
+recover after two minutes, while a complete live holder is never expired.
+Interrupted cursor writes leave temporary files that are not read as cursors;
+recovery preserves the completed position and any pending transport stage.
+The completed cursor advances only after text and Enter both succeed. A failed
+text send retries on the next push; a failed Enter retries only Enter.
+Cancellation is checked before both effects.
+
+Each push shares one incremental channel read per project. A run's read position
+includes unaddressed owner lines and overlaps the last millisecond so equal-time
+lines are retained. Caught-up runs need no Rex calls. Once Rex confirms a receipt's
+block has ended or disappeared, its private cursor records that terminal state;
+later pushes skip it, and a project with only ended runs needs no channel read.
+
+Rex has no idempotency receipt for input. A timeout, killed push or failed cursor
+write at an external-effect boundary therefore leaves an uncertain pending stage,
+reported by every push, and never blindly replays it. Inspect the exact tab and
+private cursor to reconcile that outcome before retrying; automatic exactly-once
+recovery from a lost transport acknowledgement is not established. This is
+distinct from a Rex command returning failure, which is retried automatically.
+
 Plates posts its own steps for an attach or a Rex run to the same channel, as
 `progress` lines from the provider `plates`: the phase was dispatched (to which
 Rex tab and session, or which local host, or handed over as a `/spin` brief),
