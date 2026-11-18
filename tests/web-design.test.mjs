@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
+import { channelStyles } from '../lib/web/channel-styles.mjs';
 import { homeLoadingStyles } from '../lib/web/home-loading.mjs';
 import { homeView } from '../lib/web/views.mjs';
 import { recoveryView } from '../lib/web/recovery-view.mjs';
@@ -456,7 +457,9 @@ test('the design layer keeps its budget with a bounded Home loading addition', (
   // historical layer budget and cap this addition separately (2026-11-06).
   const loadingBytes = Buffer.byteLength(homeLoadingStyles);
   assert.ok(loadingBytes <= 700, 'Home loading adds at most 700 bytes per shell stylesheet');
-  assert.ok(total - 2 * loadingBytes < CSS_BYTES_BEFORE_171, `CSS excluding the bounded loading addition is ${total - 2 * loadingBytes} bytes, under ${CSS_BYTES_BEFORE_171}`);
+  const chatBytes = Buffer.byteLength(channelStyles);
+  assert.ok(chatBytes <= 2900, 'Chat adds at most 2900 bytes per shell stylesheet');
+  assert.ok(total - 2 * (loadingBytes + chatBytes) < CSS_BYTES_BEFORE_171, `CSS excluding the bounded loading addition is ${total - 2 * (loadingBytes + chatBytes)} bytes, under ${CSS_BYTES_BEFORE_171}`);
   for (const [path, cap] of Object.entries(PAGE_SHEETS_SINCE)) {
     const size = Buffer.byteLength(table.entries.get(path)?.body ?? '');
     assert.ok(size > 0 && size <= cap, `${path} is ${size} bytes, within its ${cap}`);

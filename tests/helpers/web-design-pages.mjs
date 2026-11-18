@@ -1,3 +1,4 @@
+import {channelView} from '../../lib/web/channel-views.mjs';
 import {simpleProject} from '../../lib/web/simple-project-model.mjs';
 // The representative workspace pages, rendered from fixed Acme inputs. The
 // markup golden (tests/web-design.test.mjs, phase 167) and the look capture
@@ -78,10 +79,20 @@ const decision = () => ({ schema: 1, project, source: { path: 'docs/reviews/2026
 export async function designPages() {
   const h = changesHarness(), model = await h.changes.detail(h.access, token, h.project, 'acme-search');
   const home = snapshot(), plate = {...snapshot(),backlog:backlog()}, review = reviewSnapshot(), reviewEmpty = { ...reviewSnapshot(), docket: [], home: { sections: [{ id: 'needs-you', known: false, items: [] }] } };
+  plate.channel = { plates: [{ projectId: 'studio', name: 'Acme Studio', state: 'read', count: 4 }],
+    window: { from: '2026-10-21T09:00:00Z' }, unreadFrom: '2026-10-20T16:00:00Z', notRead: [],
+    hereNow: [{ actor: 'studio#178', words: 'Acme publishing · codex · checking the preview' }],
+    lines: [
+      { at: '2026-10-21T09:00:00Z', plate: 'studio', actor: 'studio#178', kind: 'joined', text: 'codex joined Acme publishing' },
+      { at: '2026-10-21T09:01:00Z', plate: 'studio', actor: 'studio#178', session: 'acme-agent', kind: 'say', text: 'codex: The Acme preview is ready.' },
+      { at: '2026-10-21T09:02:00Z', plate: 'studio', actor: 'studio#178', session: 'acme-agent', kind: 'say', text: 'codex: Checking the phone layout.' },
+      { at: '2026-10-21T09:03:00Z', plate: 'studio', actor: 'studio', kind: 'owner', text: 'you: Thank you.' },
+    ] };
   plate.projectWorkspace = simpleProject(plate, 'studio', {config:{agents:{claude:{},codex:{}},backlog:{routes:['session','local-host']}}});
   return {
     home: { html: homeView(access, home), api: { '/api/home': home } },
     project: { html: projectView(project, access, plate), api: { '/api/projects/studio/home': plate } },
+    channel: { html: channelView(access, plate.channel), api: { '/api/channel': plate.channel } },
     signin: { html: signinView('fake-csrf-acme', '/projects/studio'), api: {} },
     decision: { html: decisionView(decision(), access), api: {} },
     changes: { html: changeIndexView({ ...model, items: [model.change] }, access), api: {} },
