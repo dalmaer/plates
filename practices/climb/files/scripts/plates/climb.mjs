@@ -2086,8 +2086,12 @@ export async function agentRan({ outcome, file, minutes, started, agent, now = D
   }
   const { result, evidence } = claudeEvidence(read);
   const verdict = agentVerdict({ outcome, result, elapsedSec, minutes, evidence });
-  return { state: verdict.ok ? 'executed' : 'blocked', evidence, denials: denialEvidence(result), outcome: outcome ?? null, result: agentResult(result), elapsedSec: Number.isFinite(elapsedSec) ? Math.round(elapsedSec) : null, ...verdict };
+  // The agent's own last words, kept in the receipt (not the report line): a night with no measured attempt says why.
+  const said = typeof result?.result === 'string' && result.result.trim() ? result.result.trim().slice(0, SAID_MAX) : null;
+  return { state: verdict.ok ? 'executed' : 'blocked', evidence, denials: denialEvidence(result), outcome: outcome ?? null, result: agentResult(result), said, elapsedSec: Number.isFinite(elapsedSec) ? Math.round(elapsedSec) : null, ...verdict };
 }
+/** How much of the agent's final message the receipt keeps. */
+const SAID_MAX = 2000;
 
 /**
  * Whether the agent of a climb or tend pass could start, and who runs it

@@ -255,3 +255,18 @@ test('execution evidence read failures after partial progress are sanitized and 
   await assert.rejects(agentRan({ outcome: 'success', file, minutes: 45 }), { message: 'climb: execution evidence could not be read' });
   assert.equal(closed, true);
 });
+
+test("the receipt keeps the agent's own last words, bounded, so a night with no attempt says why", async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'acme-said-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const file = join(dir, 'execution.json');
+  await writeFile(file, JSON.stringify([{ type: 'result', is_error: false, subtype: 'success', num_turns: 9, duration_ms: 27000, result: '  The measured file is already near its floor; no change was worth an attempt.  ' }]));
+  const r = await agentRan({ outcome: 'success', file, minutes: 45 });
+  assert.equal(r.ok, true);
+  assert.equal(r.said, 'The measured file is already near its floor; no change was worth an attempt.');
+  assert.ok(!r.line.includes('floor'), 'the report line stays the verdict, not the agent text');
+  await writeFile(file, JSON.stringify([{ type: 'result', is_error: false, subtype: 'success', num_turns: 2, duration_ms: 1000, result: 'x'.repeat(5000) }]));
+  assert.equal((await agentRan({ outcome: 'success', file, minutes: 45 })).said.length, 2000);
+  await writeFile(file, JSON.stringify([{ type: 'result', is_error: false, subtype: 'success', num_turns: 2, duration_ms: 1000 }]));
+  assert.equal((await agentRan({ outcome: 'success', file, minutes: 45 })).said, null);
+});

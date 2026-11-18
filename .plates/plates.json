@@ -49,7 +49,7 @@
       "minutes": 45
     },
     "schedule": "nightly",
-    "testCommand": "node --import ./tests/helpers/hermetic.mjs --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/plates/test-ledger.mjs --test-reporter-destination=stdout tests/improve.test.mjs"
+    "testCommand": "node --import ./tests/helpers/hermetic.mjs --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/plates/test-ledger.mjs --test-reporter-destination=stdout tests/claim.test.mjs"
   },
   "tests": {
     "stalls": [
