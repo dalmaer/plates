@@ -310,7 +310,7 @@ test('an uncertain answer is kept across a refresh', async () => {
 
 // Exercise the actual delegated Home click handler and refresh loop together.
 // The DOM adapter models only the selectors Home uses; requests and timers remain explicit.
-function answerPage({ applyState = 'committed' } = {}) {
+function answerPage({ applyState = 'committed', projectId = null, withAsk = false } = {}) {
   const events = new Map(), timers = new Map(), reads = [], writes = [], rendered = [];
   let timerId = 0, cards = [], visibleChip = 'yellow';
   const element = (extra = {}) => ({ dataset: {}, hidden: false, addEventListener() {}, removeEventListener() {}, closest() { return null; }, focus() {}, ...extra });
@@ -321,29 +321,47 @@ function answerPage({ applyState = 'committed' } = {}) {
       replaceWith(other) { cards[cards.indexOf(card)] = other; } });
     return card;
   };
-  const list = { append(card) { cards.push(card); } }, section = { querySelector: selector => selector === '.glance-cards' ? list : null };
-  const root = element({ dataset: { endpoint: '/api/home', cursor: 'c'.repeat(64) },
+  const list = { append(card) { cards.push(card); } };
+  let section = { querySelector: selector => selector === '.glance-cards' ? list : null }, forms = [];
+  const makeForm = () => {
+    const field = element({ value: '', selectionStart: 0, selectionEnd: 0, selectionDirection: 'none',
+      focus() { document.activeElement = field; }, setSelectionRange(start, end, direction) { this.selectionStart = start; this.selectionEnd = end; this.selectionDirection = direction; } });
+    const form = { field, plate: 'api', destination: 'tonight', preview: 'Acme preview', contains: node => node === field,
+      replaceWith(other) { forms[forms.indexOf(form)] = other; } };
+    return form;
+  };
+  const root = element({ dataset: { endpoint: projectId ? `/api/projects/${projectId}/home` : '/api/home', ...(projectId ? { projectId } : {}), cursor: 'c'.repeat(64) },
     querySelector: selector => selector === '.glance-needs' ? section : null,
-    querySelectorAll: selector => selector === '[data-card]' ? cards : [], contains: card => cards.includes(card),
+    querySelectorAll: selector => selector === '[data-card]' ? cards : selector === '[data-ask-form]' ? forms : [],
+    contains: node => cards.includes(node) || forms.some(form => form.contains(node)),
+    prepend(node) { section = node; }, append(form) { forms.push(form); },
     addEventListener(type, fn) { if (!events.has(type)) events.set(type, new Set()); events.get(type).add(fn); },
     removeEventListener(type, fn) { events.get(type)?.delete(fn); },
   });
-  Object.defineProperty(root, 'innerHTML', { set(value) { rendered.push(value); cards = value === 'answered' ? [] : [makeCard()]; visibleChip = value === 'answered' ? 'green' : 'yellow'; } });
-  cards = [makeCard()];
+  Object.defineProperty(root, 'innerHTML', { set(value) { rendered.push(value); cards = value === 'answered' ? [] : [makeCard()]; visibleChip = value === 'answered' ? 'green' : 'yellow'; if (projectId && value === 'answered') section = null; forms = withAsk ? [makeForm()] : []; document.activeElement = null; } });
+  cards = [makeCard()]; forms = withAsk ? [makeForm()] : [];
   const message = element(), apply = element(), count = element();
   const elements = { '[data-home-root]': root, '[data-refresh-status]': message, '[data-apply-updates]': apply, '[data-needs-count]': count,
     'form[action="/api/auth/logout"] input[name="csrf"]': { value: 'acme-csrf' } };
-  const document = { hidden: false, querySelector: selector => elements[selector] ?? null, addEventListener() {}, removeEventListener() {} };
+  const document = { hidden: false, createElement(tag) {
+    const children = [];
+    return { tag, children, setAttribute(name, value) { this[name] = value; }, append(node) { if (tag === 'ol') cards.push(node); else children.push(node); },
+      querySelector: selector => selector === '.glance-cards' ? children.find(child => child.className === 'glance-cards') ?? null : null };
+  }, querySelector: selector => elements[selector] ?? null, addEventListener() {}, removeEventListener() {} };
   const window = { location: { origin: 'https://acme.test' }, scrollTo() {}, setTimeout(fn, ms) { timers.set(++timerId, { fn, ms }); return timerId; }, clearTimeout(id) { timers.delete(id); } };
   const fetch = async (url, options) => {
-    if (options.method === 'GET') return new Promise(resolve => reads.push({ url, options, resolve }));
+    if (options.method === 'GET') return new Promise((resolve, reject) => {
+      options.signal.addEventListener('abort', () => reject(new Error('Aborted')), { once: true });
+      reads.push({ url, options, resolve });
+    });
     const body = JSON.parse(options.body); writes.push({ url, body, options });
+    if (url === '/api/home/answer' && body.answer === 'not-now') return Response.json({ state: 'written', until: '2026-11-24' });
     if (url === '/api/home/answer') return Response.json({ state: 'preview', preview: { id: 'p'.repeat(64), canSubmit: true, consequence: 'Records Done with your note.', operationUrl: '/projects/api/operations/o1' } });
     return Response.json({ state: applyState });
   };
   const client = startHomeClient({ document, window, fetch, renderHomeSnapshot: data => data.home.glance.cards.length ? 'waiting' : 'answered' });
   const click = async (card, action = 'done') => {
-    const target = { dataset: { answer: action, label: 'Done', needsWhy: 'always', writer: 'loose-ends mark' },
+    const target = { dataset: { answer: action, label: action === 'not-now' ? 'Not now' : 'Done', needsWhy: action === 'not-now' ? 'never' : 'always', writer: action === 'not-now' ? 'not now' : 'loose-ends mark' },
       closest: selector => selector === 'button' ? target : selector === '[data-card]' ? card : null,
       matches: selector => selector === (action === 'undo' ? '[data-undo]' : '[data-answer]') };
     await Promise.all([...events.get('click')].map(fn => fn({ target })));
@@ -354,7 +372,7 @@ function answerPage({ applyState = 'committed' } = {}) {
     data.cursor = (answered ? 'd' : 'e').repeat(64);
     read.resolve({ status, json: async () => data }); await new Promise(resolve => setImmediate(resolve));
   };
-  return { client, cards: () => cards, chip: () => visibleChip, timers, reads, writes, rendered, click, respond, message, apply, count };
+  return { client, document, forms: () => forms, section: () => section, cards: () => cards, chip: () => visibleChip, timers, reads, writes, rendered, click, respond, message, apply, count };
 }
 
 test('one-step Home answer sends the inline note, collapses to a line, and refreshes cards and chips after apply', async () => {
@@ -433,18 +451,63 @@ test('an uncertain Home operation remains visible when the refreshed source no l
   } finally { h.client.stop(); }
 });
 
-test('confirmed answers stay hidden while sources lag, and Home never calls that cached view current', async () => {
+// PR #500 PRRT_kwDOU5nJK864tAXr: terminal entries must not keep forced reads running.
+for (const action of ['done', 'not-now']) test(`terminal ${action} answers stop forcing refreshes while source lag remains visible`, async () => {
   const h = answerPage(), card = h.cards()[0];
   try {
-    card.note.value = 'An Acme note'; await h.click(card);
+    card.note.value = 'An Acme note'; await h.click(card, action);
     const sent = [...h.timers.values()].find(t => t.ms === 5000).fn();
     await new Promise(resolve => setImmediate(resolve));
     await h.respond(h.reads[0]); await h.respond(h.reads[1]); await sent;
     assert.equal(h.cards()[0].hidden, true);
     assert.match(h.message.textContent, /sources to catch up.*may be stale/);
     const next = [...h.timers.values()].find(t => t.ms === 60000).fn();
-    assert.equal(new URL(h.reads[2].url).pathname, '/api/projects/api/home');
-    await h.respond(h.reads[2], { answered: true }); await h.respond(h.reads[3], { answered: true }); await next;
+    assert.equal(new URL(h.reads[2].url).pathname, '/api/home', 'no repeated targeted source read for a terminal answer');
+    assert.equal(new URL(h.reads[2].url).searchParams.has('fresh'), false);
+    assert.equal(h.reads[2].options.headers['If-None-Match'], '"' + 'e'.repeat(64) + '"');
+    await h.respond(h.reads[2], { status: 304 }); await next;
+    assert.match(h.message.textContent, /may be stale/, 'unchanged cached sources never become current');
+    const caughtUp = h.client.poll();
+    await h.respond(h.reads[3], { answered: true }); await caughtUp;
     assert.equal(h.cards().length, 0); assert.equal(h.chip(), 'green');
+  } finally { h.client.stop(); }
+});
+
+// PR #500 PRRT_kwDOU5nJK864tCo5: a project's renderer omits empty Needs you.
+test('an uncertain project answer restores its missing Needs you section', async () => {
+  const h = answerPage({ applyState: 'uncertain', projectId: 'api' }), card = h.cards()[0];
+  try {
+    card.note.value = 'An Acme note'; await h.click(card);
+    const sent = [...h.timers.values()].find(t => t.ms === 5000).fn();
+    await new Promise(resolve => setImmediate(resolve));
+    await h.respond(h.reads[0], { answered: true }); await sent;
+    assert.equal(h.section()?.id, 'needs-you');
+    assert.equal(h.section()['aria-labelledby'], 'needs-you-title');
+    assert.deepEqual(h.cards(), [card]);
+    assert.equal(card.hidden, false); assert.equal(card.actions.hidden, true);
+    assert.match(card.status.innerHTML, /Check the operation/);
+    assert.match(card.status.innerHTML, /\/projects\/api\/operations\/o1/);
+    await h.click(card); assert.equal(h.writes.length, 2, 'no duplicate answer');
+  } finally { h.client.stop(); }
+});
+
+// PR #500 PRRT_kwDOU5nJK864tCo-: automatic refresh must retain the owner's live form.
+for (const outcome of ['apply', 'undo']) test(`automatic ${outcome} refresh preserves the ask form, typing and focus`, async () => {
+  const h = answerPage({ withAsk: true }), card = h.cards()[0], form = h.forms()[0], field = form.field;
+  try {
+    card.note.value = 'An Acme answer'; await h.click(card);
+    let sent;
+    if (outcome === 'undo') await h.click(card, 'undo');
+    else { sent = [...h.timers.values()].find(t => t.ms === 5000).fn(); await new Promise(resolve => setImmediate(resolve)); }
+    // Type while the answer refresh is in flight; capture at render time, not when the request began.
+    field.value = 'An unfinished Acme ask'; form.plate = 'studio'; form.destination = 'backlog';
+    field.focus(); field.setSelectionRange(3, 10, 'backward');
+    await h.respond(h.reads[0], { answered: outcome === 'apply' });
+    await h.respond(h.reads[1], { answered: outcome === 'apply' }); await sent;
+    assert.equal(h.forms()[0], form, 'retain the live form and its pending preview');
+    assert.equal(h.forms()[0].field.value, 'An unfinished Acme ask');
+    assert.equal(form.plate, 'studio'); assert.equal(form.destination, 'backlog'); assert.equal(form.preview, 'Acme preview');
+    assert.equal(h.document.activeElement, field);
+    assert.deepEqual([field.selectionStart, field.selectionEnd, field.selectionDirection], [3, 10, 'backward']);
   } finally { h.client.stop(); }
 });
