@@ -2144,7 +2144,14 @@ export function issueOf(night, { minutes = 0 } = {}) {
   return { title, body };
 }
 
-export const rotationState = night => ({ last: { job: night.job, date: night.date, kept: night.kept, ...(night.target ? { target: night.target } : {}) }, ...(night.targetHistory ? { targetHistory: night.targetHistory } : {}) });
+export const rotationState = night => ({
+  last: { job: night.job, date: night.date, kept: night.kept,
+    ...(night.target ? { target: night.target } : {}),
+    // Preserve why nothing was kept: blocked admission is not a dry target.
+    ...(night.admission ? { admission: { state: night.admission.state } } : {}),
+  },
+  ...(night.targetHistory ? { targetHistory: night.targetHistory } : {}),
+});
 
 export async function report({ root, config, input, body, state = false, issue, base, env = {} }) {
   on(config);

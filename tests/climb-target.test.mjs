@@ -186,3 +186,25 @@ test('the plan selects against its lower budget and records a skip when none can
   assert.equal(p.plan.skipped[0].id, item.id);
   assert.equal(p.plan.skipped[0].note, 'no test file fits the budget');
 });
+
+
+test('a blocked baseline night does not cool the target down after rotation serialization', async t => {
+  const f = await fixture(t);
+  const p = await f.pick();
+  p.targetHistory = [{ file: 'fast.test.mjs', date: before(1), kept: 1 }];
+  let clock = 0, executions = 0;
+  const measured = await f.m.measure({ root: f.root, config: f.config, job: 'test-time', baseline: true, selection: p,
+    now: () => clock, execute: () => { executions++; clock += 60000; return { status: 0 }; } });
+  assert.equal(measured.admission.state, 'blocked');
+  assert.equal(executions, 1, 'the first probe blocks admission before a model can run');
+  const reported = await f.m.report({ root: f.root, config: f.config, state: true });
+  assert.equal(reported.state, 'blocked');
+  assert.equal(reported.kept, 0);
+  assert.equal((await f.pick()).target.file, p.target.file, 'blocked is not a dry night');
+  const state = JSON.parse(await readFile(join(f.root, '.plates/climb.json'), 'utf8'));
+  assert.equal(state.last.admission.state, 'blocked');
+  assert.deepEqual(state.targetHistory, p.targetHistory, 'prior completed outcomes survive');
+  // The publish step uses this same serializer with its explicit kept count.
+  const night = JSON.parse(await readFile(join(f.root, '.plates/climb/night.json'), 'utf8'));
+  assert.deepEqual(f.m.rotationState({ ...night, kept: reported.kept }), state);
+});
