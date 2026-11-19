@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import fileOperations from 'node:fs/promises';
 import { syncBuiltinESMExports } from 'node:module';
-import { agentRan } from '../scripts/plates/climb.mjs';
+import { agentRan, saidText } from '../scripts/plates/climb.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, readdir, rm, readFile, writeFile, cp, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -254,4 +254,29 @@ test('execution evidence read failures after partial progress are sanitized and 
   t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
   await assert.rejects(agentRan({ outcome: 'success', file, minutes: 45 }), { message: 'climb: execution evidence could not be read' });
   assert.equal(closed, true);
+});
+
+test("the receipt keeps the agent's own last words, bounded, so a night with no attempt says why", async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'acme-said-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const file = join(dir, 'execution.json');
+  await writeFile(file, JSON.stringify([{ type: 'result', is_error: false, subtype: 'success', num_turns: 9, duration_ms: 27000, result: '  The measured file is already near its floor; no change was worth an attempt.  ' }]));
+  const r = await agentRan({ outcome: 'success', file, minutes: 45 });
+  assert.equal(r.ok, true);
+  assert.equal(r.said, 'The measured file is already near its floor; no change was worth an attempt.');
+  assert.ok(!r.line.includes('floor'), 'the report line stays the verdict, not the agent text');
+  await writeFile(file, JSON.stringify([{ type: 'result', is_error: false, subtype: 'success', num_turns: 2, duration_ms: 1000, result: 'x'.repeat(5000) }]));
+  assert.equal((await agentRan({ outcome: 'success', file, minutes: 45 })).said.length, 2000);
+  await writeFile(file, JSON.stringify([{ type: 'result', is_error: false, subtype: 'success', num_turns: 2, duration_ms: 1000 }]));
+  assert.equal((await agentRan({ outcome: 'success', file, minutes: 45 })).said, null);
+});
+
+test('the agent\'s words are kept only from a successful run, and redacted', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'acme-said-safe-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const file = join(dir, 'execution.json');
+  await writeFile(file, JSON.stringify([{ type: 'result', is_error: true, subtype: 'error_during_execution', num_turns: 3, duration_ms: 2000, result: 'provider said: invalid key sk-acme0123456789abcdef' }]));
+  assert.equal((await agentRan({ outcome: 'failure', file, minutes: 45 })).said, null, 'an error result keeps no text');
+  assert.equal(saidText('token ghp_Acme0123456789 in /Users/acme/code/x and /home/acme/y'), 'token [redacted] in ~/code/x and ~/y');
+  assert.equal(saidText('a\n\n  b'), 'a b');
 });
