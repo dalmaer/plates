@@ -290,6 +290,7 @@ test('0001 converts acme-groove: milestones become goals, plates\'s roadmap repl
   assert.ok(cfg.local.ci, 'ci stays the project\'s own');
   assert.equal(cfg.practice, TARGET);
   assert.deepEqual(cfg.migrations, ['0001-milestone-to-goal', '0004-test-ledger', '0005-test-ledger-reach', '0006-lived-in-kept'], 'the migrations are recorded as taken');
+  assert.deepEqual(cfg.migrationsSkipped, ['0002-projects-run-on-their-own', '0003-phases-gain-goals', '0007-phase-guard-reach'], 'the ones asked that did not apply are recorded apart');
   assert.equal(JSON.parse(await readFile(join(dir, 'package.json'), 'utf8')).scripts.roadmap, 'node scripts/roadmap.mjs', 'the roadmap scripts still run, now plates\'s');
 
   // After it, adopt's survey finds phases on, and the project's own gate passes.
@@ -693,4 +694,57 @@ for(const name of ['plates','keel'])test(`update resumes the existing ${name} br
  const result=await run({dir});assert.equal(result.exitCode,3,result.text);assert.equal(result.data.resumed,true);
  assert.equal(result.data.branch,branch);assert.equal(git(dir,'rev-parse',branch),before);
  assert.equal(git(dir,'branch','--list',name==='keel'?BRANCH(TARGET):`keel/update-v${TARGET}`),'');
+});
+
+test('plates update records a migration it asked that did not apply, and the fleet then lists nothing unrecorded', async t => {
+  const current = practiceVersion();
+  const dir = join(await scratch(t), 'acme');
+  await init({ dir, name: 'Acme Notes', description: 'Acme keeps its notes as plain files.', kind: 'node' }, { version: { cli: current, commit: null, practice: current }, env: ENV });
+  // A project from before init recorded its asked migrations: one is unrecorded, and it does not apply.
+  const path = join(dir, '.plates/plates.json'), cfg = await json(path);
+  const all = (await loadMigrations()).filter(m => !m.to || compareVersions(m.to, current) <= 0);
+  const missing = '0007-phase-guard-reach';
+  assert.ok(cfg.migrationsSkipped.includes(missing), 'init records the migrations that do not apply to what it wrote as skipped');
+  await writeFile(path, `${JSON.stringify({ ...cfg, migrationsSkipped: cfg.migrationsSkipped.filter(id => id !== missing), check: 'echo "# tests 1"' }, null, 2)}\n`);
+  git(dir, 'commit', '-qam', 'acme: an older record');
+  const { migrationWork } = await import('../lib/fleet.mjs');
+  const { untaken, taken } = await import('../lib/migrations.mjs');
+  const { skippedOf } = await import('../lib/migrations.mjs');
+  const fleetLine = async () => { const c = await json(path); return migrationWork({ unrecorded: untaken(all, taken(c)).map(m => m.id), skipped: skippedOf(c) }); };
+  assert.equal(await fleetLine(), `1 unrecorded (${missing}); plates fleet update checks them`, 'the plain fleet lists it before');
+
+  const r = await run({ dir, local: true }, deps({ version: current }));
+  assert.equal(r.exitCode ?? 0, 0, r.text);
+  assert.equal(r.data.changed, true, 'a record-only change, not "nothing to change"');
+  assert.deepEqual(r.data.migrations, [], 'nothing applied');
+  assert.deepEqual(r.data.skipped, [missing]);
+  assert.match(r.text, new RegExp(`Asked, did not apply \\(recorded as skipped; asked again next update\\): ${missing}`));
+  const after = await json(path);
+  assert.ok(after.migrationsSkipped.includes(missing), 'recorded as skipped');
+  assert.ok(!(after.migrations ?? []).includes(missing), 'never recorded as applied, so the next update asks it again');
+  assert.equal(await fleetLine(), '', 'the plain fleet lists nothing unrecorded after');
+});
+
+test('a migration that applies stays pending: fleet update plans it as pending, and only an all-skipped project gets a record-only update', () => {
+  const row = practice => ({ repo: 'acme/notes', role: 'managed', adopted: true, practice: { version: '0.9.0', behind: 'current', ...practice } });
+  const pending = updatePlan(row({ unrecorded: ['0001-milestone-to-goal', '0007-phase-guard-reach'], pending: ['0001-milestone-to-goal'], possiblyPending: [] }), '0.9.0');
+  assert.deepEqual(pending.pending, ['0001-milestone-to-goal']);
+  assert.equal(pending.record, undefined, 'a pending migration is never folded into a record-only update');
+  assert.match(pending.title, /pending migrations$/);
+  const unaskable = updatePlan(row({ unrecorded: ['0002-projects-run-on-their-own'], pending: [], possiblyPending: [{ id: '0002-projects-run-on-their-own', why: 'HTTP 502' }] }), '0.9.0');
+  assert.equal(unaskable.record, undefined, 'one that could not be asked is possibly pending, not recorded');
+  const asked = updatePlan(row({ unrecorded: ['0007-phase-guard-reach'], pending: [], possiblyPending: [] }), '0.9.0');
+  assert.deepEqual(asked?.record, ['0007-phase-guard-reach']);
+  assert.match(asked.title, /record asked migrations$/);
+  // Already recorded as skipped: asked again, nothing applies, nothing to record.
+  assert.equal(updatePlan(row({ unrecorded: ['0007-phase-guard-reach'], skipped: ['0007-phase-guard-reach'], pending: [], possiblyPending: [] }), '0.9.0'), null);
+  // Plain fleet never asks, so it has no answer to record from.
+  assert.equal(updatePlan(row({ unrecorded: ['0007-phase-guard-reach'] }), '0.9.0'), null);
+});
+
+test('a record-only plan is made only for a project exactly on this CLI\'s practice, never one ahead of it', () => {
+  const row = version => ({ repo: 'acme/notes', role: 'managed', adopted: true, practice: { version, behind: 'current', unrecorded: ['0007-phase-guard-reach'], pending: [], possiblyPending: [] } });
+  assert.deepEqual(updatePlan(row('0.9.0'), '0.9.0')?.record, ['0007-phase-guard-reach'], 'on this practice: recorded');
+  assert.equal(updatePlan(row('0.10.0'), '0.9.0'), null, 'ahead of this CLI: a newer CLI records it, never this one');
+  assert.equal(updatePlan({ ...row('0.9.0'), practice: { ...row('0.9.0').practice, version: null } }, '0.9.0'), null, 'no practice version: nothing to record against');
 });

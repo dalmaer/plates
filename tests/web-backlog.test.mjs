@@ -51,9 +51,9 @@ test('/backlog lists every plate\'s work in lanes, behind Home\'s auth', async (
   assert.doesNotMatch(html, /data-sidebar-soon/, 'nothing still to come (phase 186)');
   assert.match(html, /<a href="\/agents">Agents <span class="p-badge">1<\/span><\/a><a href="\/agents#pending">Pending review<\/a>/, 'Agents counts what is at work; Pending review has no count without the Pull requests read');
   assert.match(html, /<a href="\/recurring">Recurring<\/a>/, 'Recurring is live (phase 185)');
-  for (const l of model.lanes) assert.match(html, new RegExp(`id="lane-${l.lane}">${l.title} <span class="meta">${l.items.length}</span>`));
+  for (const l of model.lanes.filter(l => l.items.length)) assert.match(html, new RegExp(`id="lane-${l.lane}">${l.title} <span class="meta">${l.items.length}</span>`));
   for (const item of model.lanes.flatMap(l => l.items)) assert.ok(html.includes(`data-backlog-item="${item.key}"`), item.key);
-  assert.match(html, /claim 6d left/); assert.match(html, /<span class="p-badge">codex · claimed<\/span>/);
+  assert.match(html, /assignment 6d left/); assert.match(html, /<span class="p-badge">codex · claimed<\/span>/);
   if (keys['agent-ready'].length) assert.ok(html.includes(`/attach?key=${encodeURIComponent(keys['agent-ready'][0])}&amp;route=session">Preview attach</a>`), 'the phase opens a read-only preview');
   assert.match(html, /\/assets\/backlog\.[0-9a-f]{12}\.css/);
   assert.equal((await s.web(s.h.request('/assets/backlog.css'))).status, 200);
@@ -145,7 +145,7 @@ test('a stale plate keeps its items, is never "not read", and its claims are rea
   assert.match(html, /<li>Acme Studio: stale, read 11 min ago · \d+ yours · \d+ agent-ready · 1 in flight \(at least\)<\/li>/);
   assert.match(html, /Acme Studio: stale, read 11 min ago, so its counts are at least these/);
   assert.match(html, /data-backlog-root data-view="backlog" data-endpoint="\/api\/backlog" data-loading="true"/, 'the page reads again until the plate is fresh');
-  assert.match(html, /claim 6d left/, 'the claim read now still puts phase 1 in flight');
+  assert.match(html, /assignment 6d left/, 'the claim read now still puts phase 1 in flight');
   // Its model: stale, partial coverage, counts kept.
   const { createHomeReader } = await import('../lib/web/home.mjs');
   const signedAccess = { ...s.h.access, login: 'acme-owner' };
@@ -163,11 +163,11 @@ test('/backlog/goals arranges the backlog by goal, one card per phase', async ()
   await s.get('/api/backlog');
   const html = await (await s.get('/backlog/goals')).text();
   assert.match(html, /data-backlog-root data-view="goals" data-endpoint="\/api\/backlog"/);
-  assert.match(html, /<a href="\/backlog">List<\/a> · <a href="\/backlog\/goals" aria-current="true">By goal<\/a>/);
+  assert.doesNotMatch(html, /<a href="\/backlog\/goals"/);
   assert.match(html, /data-goal="studio:goal:G1"[^>]*><h2 id="goal-studio:goal:G1">Acme Studio · G1 — A dependable studio <span class="meta">/);
   assert.match(html, /data-member="studio:phase:2:box [^"]+">walk \(box \d+\)/, 'the walk is nested under its phase');
   const list = await (await s.get('/backlog')).text();
-  assert.match(list, /<a href="\/backlog" aria-current="true">List<\/a> · <a href="\/backlog\/goals">By goal<\/a>/);
+  assert.doesNotMatch(list, /<a href="\/backlog\/goals"/);
   assert.equal((await s.get('/backlog/goals?x=1')).status, 400);
   assert.equal((await s.web(s.h.request('/assets/backlog-grouping.mjs'))).status, 200);
 });

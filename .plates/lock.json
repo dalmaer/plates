@@ -79,7 +79,7 @@
     },
     ".github/workflows/plates-cross-review.yml": {
       "practice": "cross-review",
-      "sha256": "7a78fa736fc35b986895b0b7be11545bf81fd4ed3e510d8d6f50ff1e3f9e6adb"
+      "sha256": "7cede121d354620f2b943fae229db9480d5a365388a6315c903f2d947aaa5633"
     },
     ".github/workflows/plates-impact.yml": {
       "practice": "reconciliation",
@@ -161,6 +161,14 @@
       "practice": "renovate",
       "sha256": "785a3e97e782c3da06cda7bcca2519eb8701e14cdf6ae9031d1b3e721147bcfc"
     },
+    "scripts/plates/agy-review-contract.mjs": {
+      "practice": "cross-review",
+      "sha256": "b8c271e5a401357c0ef64b8d4d4a4a4c776f6af753da2828c20b072f2224076e"
+    },
+    "scripts/plates/agy-review.mjs": {
+      "practice": "cross-review",
+      "sha256": "7664b10edff6c825e5ead22d96661dac0cc0a2674106f308a95aed64079e8afc"
+    },
     "scripts/plates/audit.mjs": {
       "practice": "audits",
       "sha256": "783d8db390b3cae635cbfc065fddfc9c8aa41e29e251875ee45bda73e2468981"
@@ -191,7 +199,7 @@
     },
     "scripts/plates/cross-review.mjs": {
       "practice": "cross-review",
-      "sha256": "ea98a1d77be81d84329c1995879c1104392d0c7af5908d4fb953f85997249658"
+      "sha256": "eed8be65e6963e691ede9c94d7bc5fe66ed9b6a9112d340a96f833ac945187bd"
     },
     "scripts/plates/decision-context.mjs": {
       "practice": "reconciliation",
@@ -235,7 +243,7 @@
     },
     "scripts/plates/lib.mjs": {
       "practice": "night",
-      "sha256": "632eb3a074228c6da091646b930de989f4aeb5c6d7f17d0cd66e6de997225dd1"
+      "sha256": "f27bbc0f52d6ca28014e2cf035d738de73abe2ed4499e993bc79e5514b355f3a"
     },
     "scripts/plates/milestones.mjs": {
       "practice": "night",

@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**76 of 191 phases built; 76 owe a walk.** Built means implemented and checked; planned is not available.
+**76 of 192 phases built; 76 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards.
 
@@ -93,7 +93,7 @@ From an empty directory, plates init produces a repo whose check passes, whose r
 
 Existing projects come under plates without losing what is theirs, and a practice change reaches every one of them as a reviewed pull request.
 
-16/32 built; 11 owe a walk.
+16/33 built; 11 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -129,6 +129,7 @@ Existing projects come under plates without losing what is theirs, and a practic
 | [130. Plates stops reading keel's names](phases/130-plates-stops-reading-keel-s-names.md) | planned | 2026-10-23 | [129](phases/129-plates-then-the-fleet-move-tonight.md) | Specified 2026-10-23 (docs/specs/name-transition.md). Retirement: once plates names shows nothing live under a keel name across the fleet, the fallback reads go in one release, and the name table forbids every keel name except the compatibility entry points. · [#246](https://github.com/dalmaer/plates/issues/246) |
 | [131. Compatible updates have a short installation path](phases/131-compatible-updates-have-a-short-installation-path.md) | partial, walk owed | 2026-10-25 | [111](phases/111-focused-feedback-starts-with-capability-and-resource-checks.md), [116](phases/116-each-plate-verifies-itself-and-the-fleet-checks-coverage.md), [128](phases/128-what-the-owner-holds-moves-with-the-owner-s-yes.md) | Implementation merged in PR 276; full gate, typecheck and exact-head review passed. Only a real compatible installation walk remains. |
 | [161. Proven rollout practice reaches the set of plates](phases/161-proven-rollout-practice-reaches-the-set-of-plates.md) | planned | 2026-11-02 | [160](phases/160-one-real-rollout-proves-exposure-and-recovery.md) | Planned from the philosophy; implementation and operational proof are not claimed. |
+| [197. AGY can finish a bounded review when primary providers are unavailable](phases/197-agy-can-finish-a-bounded-review-when-primary.md) | partial | 2026-11-18 | [45](phases/45-agents-are-providers-claude-and-codex-behind-plates-s-rules.md), [46](phases/46-cross-review-runs-its-agent-in-a-read-only-job.md) | Owner requested an automated AGY fallback after Claude/Codex unavailability. Initial source merged; first API test stopped before generation on catalog diagnostics. Narrow correction underway; model entitlement and hosted acceptance remain unverified. |
 
 - **4 done when:** `plates adopt` on duo and on cajones produces a pull request a person merges, after which each project's own check passes and its `.plates/plates.json` names the practice version.
 - **5 done when:** `plates doctor` reports every managed file and block whose bytes differ from what plates wrote, and for each offers eject, restore, or send-as-lesson — never reverting on its own.
@@ -162,6 +163,7 @@ Existing projects come under plates without losing what is theirs, and a practic
 - **130 done when:** `plates names` shows no active legacy dependency anywhere in the fleet; retained aliases have verified replacements and are listed separately for explicit retirement approval. In one release, each eligible live-state `dual` row becomes `retired`: its live fallback read is removed, its forwarder dropped, and its old variable deleted with the owner's yes. The name scan in `tests/names.test.mjs` then fails on any keel token outside explicitly listed compatibility entry points and historical metadata readers.
 - **131 done when:** An authorized compatible update reaches a verified installation through one source-bound prepare/review/install/recover path, without waiting for optimization or broad nightly acceptance, while unsafe changes, stale authority and incomplete installation evidence still refuse completion.
 - **161 done when:** A reviewed reusable practice helps representative projects integrate small increments and expose them deliberately, with observed speed and stability and honest coverage gaps.
+- **197 done when:** An opted-in cross-review can use an explicitly available Neon, Carbon or Hydrogen model through AGY after primary-provider unavailability, retaining the original deadline, failed attempts, actual reviewer identity and unchanged publication guards.
 
 ## G3 — Lessons come home
 
@@ -289,7 +291,7 @@ Plates can show, with numbers across the fleet, whether projects it manages ship
 | [118. Evaluate one historical artifact behind an independent boundary](phases/118-evaluation-isolation.md) | built | 2026-10-23 | [117](phases/117-evaluation-records.md) | Offline isolated execution, historical compatibility verdicts and adversarial boundary proved; no paid agent efficacy claim. |
 | [119. Compare paired harness trials and resume interrupted comparisons](phases/119-evaluation-comparison.md) | partial | 2026-10-23 | [118](phases/118-evaluation-isolation.md) | Offline comparison and one-slot live orchestration have synthetic proof; curated inputs, exact spend approval and real paired screening remain. |
 | [120. Freeze six historically grounded development cases](phases/120-evaluation-corpus.md) | built | 2026-10-24 | [119](phases/119-evaluation-comparison.md) | Six historical development cases merged with offline proof; held-out coverage and measured agent benefit remain unverified. |
-| [134. Agent quality is measured by stage and project](phases/134-agent-quality-is-measured-by-stage-and-project.md) | partial | 2026-10-30 | [117](phases/117-evaluation-records.md) | Passive foundation retained in PR #323 and refreshed against current main; merge and current-candidate integration remain pending. Local execution, human calibration, installation and scheduling remain separate. |
+| [134. Agent quality is measured by stage and project](phases/134-agent-quality-is-measured-by-stage-and-project.md) | partial | 2026-10-30 | [117](phases/117-evaluation-records.md) | Passive foundation merged in PR #323; current source proof and private observations verified on 18 November. Human adjudication and mature follow-up remain incomplete; one live observer receipt pair is verified; execution and scheduling remain deferred. |
 | [158. Integration delays and work in progress are visible](phases/158-integration-delays-are-visible.md) | built | 2026-11-04 | [157](phases/157-philosophy-guides-small-safe-increments.md) | Each plate with the delivery practice shows its changes in flight, where each waits and what to do, in both homes; a dated baseline on plates (docs/research/2026-11-04-integration-delays-baseline.md) says the wait is gate time, not queueing. |
 | [188. Delivery improvements start with a current baseline](phases/188-delivery-improvements-start-with-a-current-baseline.md) | partial | 2026-11-13 | [158](phases/158-integration-delays-are-visible.md) | Read-only timing/coverage instrument implemented; dated refresh exposes stale integrator coverage. Constraint selection and matched operational proof remain open. |
 | [191. Flow experiments prove they help](phases/191-flow-experiments-prove-they-help.md) | planned | 2026-11-13 | [188](phases/188-delivery-improvements-start-with-a-current-baseline.md) | Toyota-inspired flow improvement; no operational speedup or rollout is claimed. |

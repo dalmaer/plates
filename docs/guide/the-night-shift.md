@@ -316,6 +316,9 @@ schema, deterministic measurement, opted-in builder lanes, budgets, `willNotTouc
 build limit, `readyBy`, or review/merge authority. No new runtime mode or approval
 hook behavior is installed by this guidance.
 
+The [door assessment](../specs/night-decisions.md#door-assessment-before-approval-phase-162-2026-11-18) distinguishes two-way, one-way and unknown effects. Its source module is
+advisory only; it does not install an AGY approval hook or remember permissions.
+
 An unattended builder should resolve reversible choices within granted scope,
 park actions dependent on missing permission and continue independent work. The
 planned journal links alternatives, confidence, expected versus measured
@@ -845,3 +848,10 @@ repository produces an unavailable row, not an implied access grant.
 These observations extend the existing reports. They do not accept phases,
 merge work, remove claims or launch agents. See the
 [distributed verification contract](../specs/plate-verification.md).
+
+
+The source-only [AGY observation adapter](../specs/night-decisions.md#applied-observation-adapter-2026-11-18)
+records scoped pre/post tool metadata to private external storage and delegates
+to native permissions. It does not activate the night's question routing, capture
+human grants, or auto-approve work. Use its explicit root/state arguments; never
+place observation receipts in the checkout.

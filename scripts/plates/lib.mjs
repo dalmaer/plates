@@ -2784,6 +2784,37 @@ export function startFailure({ agent, outcome, result = null, text = '', message
   return kind && kind !== 'model' ? of(kind) : null;
 }
 
+/** AGY requires positive pre-work failure evidence; legacy unread fallback is not proof. */
+export function reviewStartFailure(args) {
+  if (args.outcome !== 'failure' || !Number.isFinite(args.elapsedSec) || args.elapsedSec < 0) return null;
+  if (typeof args.raw !== 'string' || Buffer.byteLength(args.raw) > EVIDENCE_BYTES) return null;
+  let events;
+  try { const v = JSON.parse(args.raw); events = Array.isArray(v) ? v : [v]; }
+  catch { try { events = String(args.raw).trim().split('\n').map(l => JSON.parse(l)); } catch { return null; } }
+  if (!events.length || events.at(-1)?.type !== 'result' || events.filter(e => e?.type === 'result').length !== 1
+    || events.some(e => e?.type !== 'result' && !(e?.type === 'system' && e.subtype === 'init'))) return null;
+  // Codex action exposes only a final message, not a trustworthy pre-work receipt.
+  if (args.agent !== 'claude' || !args.result || args.result.is_error !== true || !Number.isInteger(args.result.num_turns) || args.result.num_turns < 0 || args.result.num_turns > 1) return null;
+  // Admission reads all bounded evidence, including init and nested diagnostics.
+  // errorText is display-only: its character/error-count limits can hide a denial.
+  const pending = [...events];
+  while (pending.length) {
+    const value = pending.pop();
+    if (typeof value === 'string') {
+      if (/permission[\s_-]*den(?:ied|ial)|\bdenied\b|\bdeny\b|sandbox|approval|not[\s_-]+allowed/i.test(value)) return null;
+    } else if (value && typeof value === 'object') {
+      for (const [key, item] of Object.entries(value)) {
+        // Only explicit empty/zero/false denial fields are harmless. Unknown
+        // structured forms fail closed rather than being coerced to no denial.
+        if (/denial|denied/i.test(key) && item !== false && item !== 0 && !(Array.isArray(item) && item.length === 0)) return null;
+        pending.push(item);
+      }
+    }
+  }
+  const failure = startFailure(args);
+  return failure && failure.kind !== 'unread' ? failure : null;
+}
+
 /** The fewest whole minutes worth handing to a fallback: less than this left and the job stays red with its provider. */
 export const FALLBACK_MIN_MINUTES = 2;
 

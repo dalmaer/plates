@@ -25,7 +25,7 @@ test('the page reads until no plate is loading, then stops', async () => {
   const fetch = async (url, options) => { asked.push([url, options.headers.accept]); const a = answers.shift(); return { status: a.status, json: async () => a.body }; };
   const client = startBacklogClient({ document: p.document, window: p.window, fetch, renderBacklog, renderSidebar });
   assert.equal(await p.run(), 0, 'the first read starts at once');
-  assert.match(p.list.innerHTML, /data-backlog-lane="yours"/); assert.match(p.side.outerHTML, /<li>Acme 1: loading<\/li>/);
+  assert.doesNotMatch(p.list.innerHTML, /data-backlog-lane="yours"/); assert.match(p.list.innerHTML, /Acme 1: loading/); assert.match(p.side.outerHTML, /<li>Acme 1: loading<\/li>/);
   assert.equal(p.timers[0].ms, BACKLOG_DELAYS[0], 'a plate still loading: read again soon');
   await p.run();
   assert.equal(p.timers[0].ms, nextDelay(1), 'a failed read backs off');

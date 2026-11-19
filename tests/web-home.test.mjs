@@ -55,7 +55,7 @@ test('Home shows the projects\' chips and Needs you\'s cards, then what happened
 test('an unread plate is never green, its problems are listed, and unread never means no work', () => {
   const unread={...plate(),state:'unavailable',gaps:[{source:'project',reason:'Read unavailable'}],decisions:[],walks:[],waiting:[],changes:[],daily:null,planning:{source:'unknown',built:null,total:null,livedIn:null}};
   const html=renderHomeSnapshot(snapshot([unread]));
-  assert.match(html,/Nothing known needs you\./); assert.doesNotMatch(html,/Nothing needs you\./);
+  assert.doesNotMatch(html,/id="needs-you"/); assert.doesNotMatch(html,/Nothing needs you\./);
   assert.match(html,/data-tone="yellow" data-chip="studio"[\s\S]*?<span class="glance-reason">Not read: its sources<\/span>/);
   const problems=html.match(/<details class="source-problems"[\s\S]*?<\/details>/)[0];
   assert.match(problems,/1 source problem: Acme Studio/); assert.match(problems,/<strong>Acme Studio<\/strong> · project: Read unavailable/);

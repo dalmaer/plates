@@ -272,10 +272,10 @@ test('Home starts the session from one panel at its top, or says nothing needs y
   const access = { workspace: { id: 'acme', name: 'Acme' }, userId: 1, projects: [{ id: 'studio', repo: 'acme/studio', name: 'Acme Studio' }], sourceRevision: 'a'.repeat(40), csrf: 'x' };
   const html = homeView(access, reviewSnapshot());
   // Phase 175: how many, about how long (the sum of the model's estimates: 5 + 1 + 2 + 10), and the quick ones beside everything.
-  assert.match(html, /<p class="review-start p-card"><strong>4 need you · about 18 min<\/strong><span><a class="button" href="\/review"[^>]*>Everything<\/a> <a class="button quiet" href="\/review\?quick=1">Quick ones \(2\)<\/a> <a class="button quiet" href="\/review\/yours" data-review-yours>Your lane, in backlog order<\/a><\/span><\/p>/);
+  assert.match(html, /<p class="review-start p-card"><strong>4 need you · about 18 min<\/strong><span><a class="button" href="\/review"[^>]*>Everything<\/a> <a class="button quiet" href="\/review\?quick=1">Quick ones \(2\)<\/a> <a class="button quiet" href="\/review\/yours" data-review-yours>Your decisions, in backlog order<\/a><\/span><\/p>/);
   // Only one kind waiting (all quick, or none quick): one Start review.
   const quickOnly = reviewSnapshot(); quickOnly.docket = quickOnly.docket.filter(e => e.quick);
-  assert.match(renderReviewStart(quickOnly), /<strong>2 need you · about 3 min<\/strong><span><a class="button" href="\/review"[^>]*>Start review<\/a> <a class="button quiet" href="\/review\/yours" data-review-yours>Your lane, in backlog order<\/a><\/span><\/p>/);
+  assert.match(renderReviewStart(quickOnly), /<strong>2 need you · about 3 min<\/strong><span><a class="button" href="\/review"[^>]*>Start review<\/a> <a class="button quiet" href="\/review\/yours" data-review-yours>Your decisions, in backlog order<\/a><\/span><\/p>/);
   assert.doesNotMatch(renderReviewStart(reviewSnapshot(), { projectId: 'studio' }), /review\/yours/, 'a plate\'s own page starts its own session');
   assert.ok(html.indexOf('review-start') < html.indexOf('home-toolbar'), 'before the toolbar: the first thing under the heading');
   assert.match(renderReviewStart(reviewSnapshot(), { projectId: 'studio' }), /href="\/projects\/studio\/review"/);

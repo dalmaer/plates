@@ -1,0 +1,125 @@
+# Contributor-only, explicitly dispatched credential/model smoke. No activation.
+name: plates-agy-verify
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: plates-agy-verify
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    steps:
+      - name: Refuse reruns and retain original deadline
+        env:
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          if [ "$RUN_ATTEMPT" != 1 ]; then
+            echo '::error::A rerun cannot repeat paid verification. Review the original run first.'
+            exit 1
+          fi
+          echo "AGY_VERIFY_DEADLINE=$(( $(date +%s) + 900 ))" >> "$GITHUB_ENV"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: Install checksum-pinned CLI within 180 seconds
+        timeout-minutes: 3
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          install_deadline=$(( $(date +%s) + 180 ))
+          if [ "$install_deadline" -gt "$AGY_VERIFY_DEADLINE" ]; then install_deadline="$AGY_VERIFY_DEADLINE"; fi
+          left=$(( install_deadline - $(date +%s) ))
+          if [ "$left" -le 0 ]; then exit 1; fi
+          dir="$RUNNER_TEMP/plates-agy-verify-bin"
+          mkdir "$dir"
+          curl --fail --silent --location --max-time "$left" 'https://storage.googleapis.com/antigravity-public/antigravity-cli/1.5.12-5281398513336320/linux-x64/cli_linux_x64.tar.gz' --output "$dir/archive.tar.gz"
+          echo '26de25fccb3fbf0b093e090ce14a14ac1df1ec3e90ef4ea6106887d3a81b0cc9edb0dadea7b9101d07f9606eba159062a6fb7b78e91b73f7520684a24db73428  '"$dir/archive.tar.gz" | sha512sum --check --status
+          left=$(( install_deadline - $(date +%s) ))
+          if [ "$left" -le 0 ]; then exit 1; fi
+          timeout "$left" tar -xOzf "$dir/archive.tar.gz" antigravity > "$dir/antigravity"
+          chmod 700 "$dir/antigravity"
+      - name: Verify each exact model once
+        id: smoke
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { mkdir, writeFile, readFile, lstat } from 'node:fs/promises';
+          import { join } from 'node:path';
+          import { runAgyReview } from './scripts/plates/agy-review.mjs';
+          // No raw child output is logged or uploaded. Catalog format and access
+          // remain unverified until this exact credentialed attempt observes them.
+          if (process.env.RUN_ATTEMPT !== '1') throw new Error('Rerun refused.');
+          const deadlineMs = Number(process.env.AGY_VERIFY_DEADLINE) * 1000;
+          if (!Number.isSafeInteger(deadlineMs) || deadlineMs <= 0) throw new Error('Missing original deadline.');
+          const root = join(process.env.RUNNER_TEMP, 'plates-agy-verify-private');
+          const metadata = join(process.env.RUNNER_TEMP, 'plates-agy-verify-metadata.json');
+          await mkdir(root, { mode: 0o700 });
+          const prompt = join(root, 'prompt.md'), diff = join(root, 'acme.diff');
+          await writeFile(prompt, 'Review this tiny synthetic Acme patch only. Return structured findings; no tools or external verification.');
+          await writeFile(diff, 'diff --git a/acme.mjs b/acme.mjs\n--- a/acme.mjs\n+++ b/acme.mjs\n@@ -1 +1 @@\n-export const acme = 1;\n+export const acme = 2;\n');
+          const models = ['gemini-4-neon-high', 'gemini-4-carbon-high', 'gemini-4-hydrogen-high'];
+          const reasons = new Set([
+            'original-deadline-exhausted', 'credential-unavailable', 'configured-models-unavailable',
+            'unsupported-model', 'process-not-successful', 'denial-or-missing-coverage', 'invalid-diff',
+            'missing-or-oversized-stream', 'invalid-stream-framing', 'missing-init', 'unsafe-or-mismatched-init',
+            'invalid-init', 'schema-mismatch', 'missing-terminal-result', 'conversation-mismatch',
+            'unexpected-or-duplicate-event', 'tool-subagent-or-invalid-step', 'invalid-step-order',
+            'invalid-duration', 'invalid-response-step', 'unfinished-step', 'invalid-success-envelope',
+            'invalid-review', 'invalid-finding', 'response-mismatch', 'finding-outside-diff', 'malformed-evidence',
+          ]);
+          const rows = models.map(model => ({ model, state: 'not-attempted', catalog: 'unknown', catalogOutcome: 'unknown', catalogDiagnostic: 'unknown', generationIntentRecorded: false, reason: 'not-reached', usage: null, cost: null }));
+          const retain = () => writeFile(metadata, JSON.stringify({ schema: 1, deadlineMs, models: rows }, null, 2) + '\n', { mode: 0o600 });
+          await retain();
+          for (const row of rows) {
+            const started = Math.floor(Date.now() / 1000);
+            const end = Math.min(deadlineMs, started * 1000 + 180000);
+            const minutes = (end - started * 1000) / 60000;
+            if (end - Date.now() < 120000) {
+              row.reason = 'original-deadline-exhausted';
+              await retain();
+              continue;
+            }
+            const out = join(root, row.model + '.json');
+            let result;
+            try {
+              result = await runAgyReview({ models: [row.model], prompt, diff, out, minutes, started,
+                binary: join(process.env.RUNNER_TEMP, 'plates-agy-verify-bin', 'antigravity') });
+            } catch { result = null; }
+            // Rebuild the artifact from fixed enums and numeric fields, never
+            // spread a result/receipt containing review prose or provider errors.
+            row.state = result?.ok === true ? 'completed' : 'unsuccessful';
+            row.reason = result?.ok === true ? 'validated-review' : reasons.has(result?.reason) ? result.reason : 'review-unavailable';
+            try {
+              const c = JSON.parse(await readFile(out + '.attempts/catalog.json', 'utf8'));
+              if (['success', 'failure', 'timeout', 'unknown'].includes(c.state)) row.catalogOutcome = c.state;
+              if (['none', 'catalog-progress', 'unrecognized'].includes(c.diagnosticClass)) row.catalogDiagnostic = c.diagnosticClass;
+              const diagnosticAccepted = c.diagnosticPresent === false || (c.diagnosticPresent === true && c.diagnosticClass === 'catalog-progress');
+              if (c.state === 'success' && diagnosticAccepted && Array.isArray(c.available)) row.catalog = c.available.includes(row.model) ? 'listed' : 'not-listed';
+            } catch { /* Unknown catalog remains unknown. */ }
+            try { row.generationIntentRecorded = (await lstat(out + '.attempts/generation-intent.json')).isFile(); } catch { /* No retained dispatch intent. */ }
+            if (result?.usage && typeof result.usage === 'object') {
+              row.usage = Object.fromEntries(['input_tokens', 'output_tokens', 'thinking_tokens', 'cache_read_tokens', 'total_tokens'].map(k => [k, Number.isSafeInteger(result.usage[k]) && result.usage[k] >= 0 ? result.usage[k] : null]));
+            }
+            await retain();
+          }
+          if (rows.some(row => row.state !== 'completed')) process.exitCode = 1;
+          NODE
+      - name: Retain sanitized verification metadata
+        if: always() && steps.smoke.outcome != 'skipped'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: plates-agy-verify-metadata-${{ github.run_id }}
+          path: ${{ runner.temp }}/plates-agy-verify-metadata.json
+          if-no-files-found: ignore
+          retention-days: 7

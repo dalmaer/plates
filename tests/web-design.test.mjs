@@ -177,7 +177,7 @@ test('tokens meet contrast over the wash in both themes', () => {
   }
   // Phase 167 held two light pairs short over the wash until it was drawn.
   // The wash is drawn now (body::before), and nothing is held.
-  assert.match(served(), /body::before\{[^}]*var\(--wash-1\)[^}]*var\(--wash-2\)[^}]*var\(--wash-3\)/, 'the wash is drawn behind every page');
+  assert.doesNotMatch(served(), /body::before/, 'every page shares the plain paper background');
   assert.deepEqual(failures, []);
 });
 
@@ -306,8 +306,6 @@ test('glass falls back to solid surfaces', () => {
   assert.equal(forced.ink, 'CanvasText'); assert.equal(forced.surface, 'Canvas');
   for (const shadow of ['glass-shadow', 'glass-highlight']) assert.equal(forced[shadow], 'transparent', `forced colours: --${shadow} drops the shadows`);
   // The wash goes flat with reduced transparency and away with forced colours.
-  assert.ok(all.some(rule => rule.context === '@media(prefers-reduced-transparency:reduce)' && rule.selector === 'body::before' && /background-image:none/.test(rule.body)), 'reduced transparency: a flat wash');
-  assert.ok(all.some(rule => rule.context === '@media(forced-colors:active)' && rule.selector === 'body::before' && /display:none/.test(rule.body)), 'forced colours: no wash');
   // Glass reaches the shell only through tokens.
   for (const selector of ['header', '.panel']) assert.ok(all.some(rule => rule.context === '' && rule.selector === selector && /background:var\(--surface\)/.test(rule.body) && /backdrop-filter:var\(--glass-filter\)/.test(rule.body)), `${selector} is glass`);
 });

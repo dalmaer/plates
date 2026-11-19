@@ -667,10 +667,12 @@ test('fleet update --yes, against the gh stub: one PR per project behind, pushed
   assert.match(r.text, re(`acme/waiting: ${UPDATE_BRANCH} is already open`));
 });
 
-test('fleet update: a current project whose unrecorded migrations do not apply is not planned, and --yes clones nothing', async t => {
+test('fleet update: a current project whose migrations init recorded as skipped is not planned, and --yes clones nothing', async t => {
   const live = practiceVersion();
   const quiet = await remoteProject(t, 'quiet', live);
-  assert.ok(!JSON.parse(quiet.config).migrations?.length, 'init records no migration');
+  const recorded = JSON.parse(quiet.config);
+  assert.ok(!recorded.migrations?.length, 'init applies no migration');
+  assert.equal(recorded.migrationsSkipped?.length, 7, 'init records each migration that does not apply as skipped');
   const st = { repos: { 'acme/quiet': { default_branch: 'main', files: { '.plates/plates.json': quiet.config } } }, commits: {}, prepared: { 'acme/quiet': quiet.prepared } };
   const dir = await home(t, [{ repo: 'acme/quiet', kind: 'node', role: 'managed' }]);
   const gh = await stubGh(t, st);
@@ -711,7 +713,7 @@ test('fleet update plans only real work: applies() is asked over the default bra
         'docs/milestones.json': JSON.stringify([{ id: 'M1', title: 'Start', outcome: 'Acme starts.' }]),
         'docs/phases/1-start.md': '---\nstatus: planned\nmilestone: M1\n---\n# Start\n',
       } },
-      // Records nothing, and nothing applies: not planned.
+      // Records nothing, and nothing applies: one record-only update, so the plain fleet stops listing them.
       'acme/still': { default_branch: 'main', files: { '.plates/plates.json': config('acme/still'), 'README.md': '# still' } },
       // .plates/lock.json cannot be read (not a 404): 0002 cannot be asked, so it is possibly pending, with why.
       'acme/broken': { default_branch: 'main', files: { '.plates/plates.json': config('acme/broken') }, failPaths: { '.plates/lock.json': 'HTTP 502: Server Error (https://api.github.com/repos/acme/broken/contents/.plates/lock.json?ref=main)' } },
@@ -722,14 +724,15 @@ test('fleet update plans only real work: applies() is asked over the default bra
   const gh = await stubGh(t, st);
   const r = await fleetUpdate({ dir }, updateDeps(gh, live));
   assert.equal(r.exitCode, 3, r.text);
-  assert.deepEqual(r.data.plans.map(p => [p.repo, p.behind, p.pending, p.possiblyPending.map(x => x.id)]), [
-    ['acme/goals', false, ['0001-milestone-to-goal'], []],
-    ['acme/broken', false, [], ['0002-projects-run-on-their-own']],
+  assert.deepEqual(r.data.plans.map(p => [p.repo, p.behind, p.pending, p.possiblyPending.map(x => x.id), p.record ?? null]), [
+    ['acme/goals', false, ['0001-milestone-to-goal'], [], null],
+    ['acme/still', false, [], [], ['0001-milestone-to-goal', '0002-projects-run-on-their-own', '0003-phases-gain-goals', '0004-test-ledger', '0005-test-ledger-reach', '0006-lived-in-kept', '0007-phase-guard-reach']],
+    ['acme/broken', false, [], ['0002-projects-run-on-their-own'], null],
   ]);
-  assert.match(r.data.plans[1].possiblyPending[0].why, /\.plates\/lock\.json: HTTP 502/);
+  assert.match(r.data.plans[2].possiblyPending[0].why, /\.plates\/lock\.json: HTTP 502/);
   assert.match(r.text, /acme\/goals: "plates update: practice [^"]+, pending migrations" from plates\/update-v[^ ]+ \(pending: 0001-milestone-to-goal\)/);
   assert.match(r.text, /acme\/broken: .*\(possibly pending: 0002-projects-run-on-their-own \(\.plates\/lock\.json: HTTP 502/);
-  assert.match(r.text, /Not planned:\n {2}acme\/still: current; nothing applies \(asked 0001-milestone-to-goal, 0002-projects-run-on-their-own, 0003-phases-gain-goals, 0004-test-ledger, 0005-test-ledger-reach, 0006-lived-in-kept, 0007-phase-guard-reach\)/);
+  assert.match(r.text, /acme\/still: "plates update: practice [^"]+, record asked migrations" from plates\/update-v[^ ]+ \(records 7 asked, none applies: 0001-milestone-to-goal, /);
   const reads = (await gh.calls()).filter(c => String(c[1]).includes('?ref=main'));
   assert.ok(reads.some(c => c[1] === 'repos/acme/goals/contents/docs/phases/1-start.md?ref=main'), 'the phase file is read at the default branch');
   assert.equal(new Set(reads.map(c => c[1])).size, reads.length, 'each path is asked once per run (cached)');

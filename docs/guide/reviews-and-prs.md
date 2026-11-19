@@ -194,6 +194,70 @@ reviewer's secret set is a notice and green.
 does. A review that runs out its budget keeps the comments it wrote and
 says so in its summary.
 
+### AGY fallback (opt-in)
+
+AGY is off by default. To allow it as a cross-review fallback, add this to an
+existing `.plates/plates.json` configuration and run `plates render`:
+
+```json
+"crossReview": {
+  "for": ["codex/", "claude/"],
+  "budget": { "minutes": 15 },
+  "agyFallback": {
+    "models": ["gemini-4-neon-high", "gemini-4-carbon-high", "gemini-4-hydrogen-high"]
+  }
+}
+```
+
+`models` is a nonempty allowlist of these exact **AGY CLI IDs**, with no duplicates
+or aliases. These are not raw Gemini API model IDs. Keep the existing `agents`
+configuration: AGY is a cross-review fallback, not a primary provider or a
+Climb/Tend builder. The same fallback applies when `crossReview.after` is `push`.
+Omit `agyFallback` to retain the existing behavior; removing it stops future AGY
+admission without erasing prior attempts.
+
+**Credential and readiness (⚑).** Provision a dedicated repository secret
+`GEMINI_API_KEY` only with owner approval for API spend. The workflow passes it
+only to the isolated model runner, never to the publisher; it does not copy a
+subscription login or reuse the owner's home directory. As of **2026-11-18**,
+Google documents API availability for the Neon, Carbon and Hydrogen families.
+That does not verify these CLI IDs' API mappings, the runner's expected model
+catalog format, or this key's access. A catalog entry is metadata, not
+authenticated entitlement. See the [API and archive research](../research/2026-11-18-agy-review-api.md)
+for the official sources and independently checked distribution pin. A dedicated
+credential, exact model access and a bounded hosted acceptance run remain
+unverified; the configuration example does not activate Plates itself.
+
+**Manual API check (Plates source only).** The contributor-only
+`plates-agy-verify.yml` workflow is manually dispatched, never scheduled or
+installed into consumers. It uses a tiny synthetic patch, at most one request
+per configured model, a per-model bound and a 15-minute job ceiling. A rerun of
+the same Actions run is refused; inspect its original retained metadata after
+uncertainty. It uploads only allowlisted status/usage metadata, never credentials,
+raw model output or the private temporary home. API success checks the observed
+credential/model route; it does not enable recurring review or establish a
+published real-PR review. Dispatch requires owner-authorized API spend.
+
+**Admission and allowance.** AGY can run when no configured primary credential
+is present, or after the primary and any existing one-provider fallback have
+positively established failure before work. Permission denials, substantive
+output, timeout, missing evidence and uncertain execution never authorize AGY.
+In particular, Codex's action exposes no trustworthy pre-work receipt, so missing
+Codex output blocks this route. Installation, catalog lookup and generation use
+the original review deadline, not a new allowance; admission needs at least two
+minutes left. After a generation dispatch there is no retry with another model.
+API charges remain separate from the time limit; unknown cost is not zero.
+
+**Review scope and publication.** AGY receives only a frozen trusted prompt,
+subject metadata and the complete saved diff, in a blank working directory and
+home with no agent tools. It cannot inspect surrounding files or run checks.
+The review names AGY and the exact model and discloses this limited scope.
+Only a completed, validated result proceeds to the existing separate publisher,
+which checks findings against the diff and posts a `COMMENT`, never an approval
+or merge. An incomplete or timed-out AGY result is not published. Sanitized,
+create-only attempt receipts are retained in the `plates-agy-attempts` artifact;
+failed or uncertain attempts remain evidence, not permission to redispatch.
+
 **A project that ships to main.** It opens no PRs, so turn on review after
 the push instead:
 

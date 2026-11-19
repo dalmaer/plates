@@ -50,8 +50,11 @@
       "budget": {
         "minutes": 45
       },
-      "status": "planned",
-      "result": null
+      "status": "failed",
+      "result": {
+        "note": "no-candidate: climb test-time 2026-11-18: kept nothing; no measured attempts recorded; inspect the retained execution receipt and measurement scope before retrying; no optimization was evaluated; 3 min",
+        "link": "https://github.com/dalmaer/plates/actions/runs/44284867522"
+      }
     },
     {
       "id": "persona-performance--published-package",
