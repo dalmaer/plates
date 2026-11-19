@@ -61,8 +61,8 @@ own. Phase 152's web app and Web Push stay; this phase does not replace them.
 ## Acceptance
 
 - [x] The app renders the simple view's states from a fixture, in the shared model's order and vocabulary: `app/app.test.contract` (`npm run exact:check`), `tests/app-fixture.test.mjs`.
-- [ ] An app session is issued only through the site's sign-in, is scoped as decided, and is listed and revocable on the Devices page: tests named with increment 2.
-- [ ] The app answers a decision only through preview-then-apply, and an irreversible answer requires Face ID: tests named with increment 3.
+- [ ] An app session is issued only through the site's sign-in, is scoped as decided, and is listed and revocable on the Devices page: `tests/web-app-session.test.mjs: "an app session comes only from the site sign-in, scoped and revocable"`.
+- [ ] The app answers a decision only through preview-then-apply, and an irreversible answer requires Face ID: `tests/app-fixture.test.mjs: "the app answers only through preview-then-apply"`.
 - [ ] ⚑ By hand: the owner installs the app, signs in, and answers one real decision from it.
 
 ## Your part
