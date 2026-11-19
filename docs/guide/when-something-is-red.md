@@ -38,6 +38,9 @@ owner).
   (`plates doctor --fix <path> eject --yes`), take plates's
   (`plates doctor --fix <path> restore --yes`), or send yours home as a lesson
   (`plates lessons`) and keep it until plates decides. Then update again.
+  If the edit is only a licence header your project must carry, set
+  `"licenseHeader"` in `.plates/plates.json` (one string per line) and
+  restore: plates then writes the header itself, so it never drifts again.
 - **Exit 2, "update plates first"**: the project is on a newer practice than
   your plates. Pull plates's checkout (or let `plates update` do it by not passing
   `--no-self-update`).

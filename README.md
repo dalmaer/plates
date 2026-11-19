@@ -131,6 +131,16 @@ If you change a managed file, plates treats it as **signal, not an error**.
 offers three moves: keep yours (eject), take plates's (restore), or send yours
 home as a lesson.
 
+A licence header your project must carry is not an edit: name it once in
+`.plates/plates.json` as `"licenseHeader": ["Copyright 2026 Acme", "", …]`
+and plates writes it, commented for the language, at the top of every file it
+manages or seeds that has line comments (YAML, shell, JavaScript and the like;
+JSON and Markdown are left as they are). To put it on only some files, write
+`{"lines": [...], "paths": [".github/workflows/plates-*.yml"]}`. A header
+added by hand is drift;
+after setting `licenseHeader`, `plates doctor --fix <path> restore` takes
+plates's file and keeps the header.
+
 An edit that plates has since made too, such as Renovate bumping an action in
 your copy of a plates workflow before plates ships the same bump, is not
 treated as yours: the next update simply takes plates's file.
