@@ -1969,6 +1969,25 @@ findings; the workflow checks them against the diff and posts one `COMMENT`
 review, findings inline, opened by a `<!-- plates:cross-review -->` marker. No
 secret: green with a notice; an agent that failed to start: red, the error
 line only. Its comments are answered like any reviewer's.
+**AGY fallback** (phase 197, off by default): add `crossReview.agyFallback`
+as `{"models":["gemini-4-neon-high","gemini-4-carbon-high","gemini-4-hydrogen-high"]}`
+and render. This nonempty, unique allowlist uses AGY CLI IDs, not raw API IDs;
+keep `agents` unchanged. Dedicated repo secret `GEMINI_API_KEY` needs owner-approved
+API spend; no subscription login is copied. Published family API support does
+not prove exact CLI-ID mapping, catalog format or key access. Catalog metadata
+is not authenticated entitlement; hosted acceptance remains unverified.
+Eligible only with absent primary credentials or positive pre-work failures for
+every prior attempt: no denial, substantive output, timeout or uncertain evidence.
+Missing Codex output cannot establish that failure. The runner reviews only the
+frozen prompt, metadata and diff, with no tools, sharing the original deadline
+(including installation/catalog lookup), and never retries after dispatch.
+Only a completed attributed result reaches the existing separate publisher and
+finding checks; the review names AGY, its model and limited scope. The key never
+reaches the publisher. Sanitized immutable attempt receipts are retained; unknown
+cost stays unknown. Remove the opt-in to stop future admission. See
+[the guide](docs/guide/reviews-and-prs.md#agy-fallback-opt-in) and
+[API/archive evidence](docs/research/2026-11-18-agy-review-api.md).
+
 **After the push** (phase 60): `"crossReview": {"after": "push", "budget":
 {"minutes": 15, "pushes": 8}}` (`for` optional then; `pushes` 1–48 reviews a
 UTC day, default 8, only with `after`). `plates render` then adds `push:

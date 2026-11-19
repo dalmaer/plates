@@ -193,8 +193,8 @@ test('off: with no crossReview key the workflow ends at its first step; with no 
   assert.match(steps[2], /if: steps\.on\.outputs\.on == 'true'/);
   assert.match(steps[3], /if: steps\.configured\.outputs\.enabled == 'true'/);
   // The fallback reviewer's steps wait on "Could the reviewer start?", which itself waits on the review.
-  for (const s of steps.slice(4)) assert.match(s, /\n {8}if: (?:steps\.which\.outputs\.review == 'true'(?: && steps\.which\.outputs\.agent == '(?:claude|codex)')?|steps\.start\.outputs\.fallback == '(?:claude|codex)')\n/, `step without the guard: ${s.split('\n')[0]}`);
-  assert.match(steps[names.indexOf('Could the reviewer start?')], /\n {8}if: steps\.which\.outputs\.review == 'true'\n/);
+  for (const s of steps.slice(4)) assert.match(s, /\n {8}if: (?:steps\.which\.outputs\.review == 'true'(?: && (?:steps\.which\.outputs\.agent (?:== '(?:claude|codex)'|!= 'agy')|steps\.on\.outputs\.agy_models != ''))?|steps\.start\.outputs\.fallback == '(?:claude|codex)'|(?:always\(\) && )?steps\.agy_gate\.outputs\.agent == 'agy')\n/, `step without the guard: ${s.split('\n')[0]}`);
+  assert.match(steps[names.indexOf('Could the reviewer start?')], /\n {8}if: steps\.which\.outputs\.review == 'true' && steps\.which\.outputs\.agent != 'agy'\n/);
   assert.ok(names.indexOf('Review') < names.indexOf('Could the reviewer start?') && names.indexOf('Could the reviewer start?') < names.lastIndexOf('Review') && names.lastIndexOf('Review') < names.indexOf('Did the agent run?'), 'the fallback runs after the first reviewer, before the judge');
   // The config and the brief come from the default branch, before the PR's head is checked out.
   assert.ok(names.indexOf('Brief') < names.indexOf('Check out the pull request'));
@@ -1671,4 +1671,105 @@ await import('./cross-review-current.mjs');
   const [call] = await gh.calls();
   assert.deepEqual(call.args.slice(0, 4), ['api', '--method', 'POST', 'repos/acme/anvils/pulls/7/reviews']);
   assert.match(call.input.body, /Nothing found in the lid\./);
+});
+
+test('AGY opt-in: exact models and secret, missing-primary PR/push selection, unchanged legacy selection', async t => {
+  const m = await load(t);
+  const models = [...m.AGY_MODELS];
+  const config = { agents: { claude: {}, codex: {} }, crossReview: { ...ON, after: 'push', agyFallback: { models } } };
+  assert.deepEqual(m.crossReviewProblems(config), []);
+  for (const agyFallback of [null, {}, { models: [] }, { models: ['Neon'] }, { models: [models[0], models[0]] }, { models, permissionMode: 'bypass' }])
+    assert.ok(m.crossReviewProblems({ ...config, crossReview: { ...config.crossReview, agyFallback } }).length);
+  const args = { config, event: { name: 'pull_request', action: 'opened' }, pr: prJson(), has: { claude: false, codex: false, agy: true } };
+  assert.equal(m.shouldReview(args).agent, 'agy');
+  assert.equal(m.shouldReview(args).fallback, null);
+  assert.equal(m.shouldReview({ ...args, has: { ...args.has, agy: false } }).review, false);
+  assert.equal(m.shouldReview({ ...args, has: { ...args.has, claude: true } }).agent, 'claude');
+  assert.equal(m.shouldReview({ ...args, config: { ...config, crossReview: ON } }).review, false);
+  for (const pr of [prJson({ isDraft: true }), prJson({ isCrossRepository: true })]) assert.equal(m.shouldReview({ ...args, pr }).review, false);
+  const push = m.shouldReviewPush({ config, event: 'push', head: SHA, history: { last: 'b'.repeat(40), today: 0 }, has: args.has,
+    git: { isCommit: () => true, isAncestor: () => true, commits: () => [{ sha: SHA, name: 'Acme', email: 'acme@example.test', message: 'Acme lid', coAuthors: [] }] } });
+  assert.equal(push.review, true); assert.equal(push.agent, 'agy'); assert.equal(push.fallback, null);
+  const dir = await acme(t, { crossReview: config.crossReview });
+  const enabled = await step(t, dir, 'Configured?', { AGENTS: 'claude,codex', OAUTH: '', API_KEY: '', OPENAI: '', AGY_MODELS: models.join(','), HAS_AGY: 'true' });
+  assert.equal(enabled.outputs.enabled, 'true');
+  assert.equal((await step(t, dir, 'Configured?', { AGENTS: 'claude,codex', OAUTH: '', API_KEY: '', OPENAI: '', AGY_MODELS: '', HAS_AGY: 'true' })).outputs.enabled, 'false');
+  const brief = await m.brief({ root: dir, config, pr: prJson(), repo: 'acme/anvils', agent: 'agy' });
+  assert.match(brief, /no tools/); assert.doesNotMatch(brief, /gh pr|Read .*first|Grep|checkout/);
+  const contract = await import('../scripts/plates/agy-review-contract.mjs');
+  assert.deepEqual(models, contract.AGY_REVIEW_MODELS, 'the byte-bound publisher and runner agree on exact slugs');
+  const gh = await stubGh(t, prJson(), { diff: DIFF }), temp = join(dir, 'runner'); await mkdir(temp);
+  await writeFile(join(temp, 'pr.json'), JSON.stringify(prJson()));
+  for (const f of ['agy-review.mjs', 'agy-review-contract.mjs']) await cp(join(PRACTICE, 'scripts/plates', f), join(dir, 'scripts/plates', f));
+  const frozen = await step(t, dir, 'Brief', { RUNNER_TEMP: temp, AGENT: 'agy', AGY_MODELS: models.join(','), FALLBACK: '', MODE: 'pr', PR: '7', REPO: 'acme/anvils', PATH: `${gh.path}:${process.env.PATH}` });
+  assert.equal(frozen.status, 0, frozen.out);
+  assert.match(await readFile(join(temp, 'prompt-agy.md'), 'utf8'), /no tools/);
+  assert.equal(await readFile(join(temp, 'pr.diff'), 'utf8'), DIFF);
+
+});
+
+test('AGY admission: classify both primary attempts, never permission denial, timeout, missing evidence or substantive work', async t => {
+  const dir = await acme(t); const temp = join(dir, 'runner');
+  await mkdir(join(temp, 'plates/scripts/plates'), { recursive: true });
+  for (const f of ['cross-review.mjs', 'lib.mjs', 'names.mjs']) await cp(join(dir, 'scripts/plates', f), join(temp, 'plates/scripts/plates', f));
+  const file = join(temp, 'claude.json'), started = String(Math.floor(Date.now() / 1000) - 5);
+  const failure = { type: 'result', is_error: true, num_turns: 1, result: 'Credit balance is too low', permission_denials: [] };
+  const env = { RUNNER_TEMP: temp, HAS_AGY: 'true', AGENT: 'claude', FALLBACK: '', OUTCOME: 'failure', EXECUTION: file, MINUTES: '15', STARTED: started };
+  const gate = extra => step(t, dir, 'Can AGY review within the original allowance?', { ...env, ...extra });
+  await writeFile(file, JSON.stringify([failure]));
+  assert.equal((await gate()).outputs.agent, 'agy');
+  assert.equal((await gate({ HAS_AGY: 'false' })).outputs.agent, undefined);
+  assert.equal((await gate({ STARTED: String(Number(started) - 900) })).outputs.agent, undefined);
+  assert.equal((await gate({ OUTCOME: 'cancelled' })).outputs.agent, undefined);
+  for (const result of [{ ...failure, permission_denials: [{ tool: 'Bash' }] }, { ...failure, num_turns: 2 }, { ...failure, result: 'Permission denied: credit unavailable' }]) {
+    await writeFile(file, JSON.stringify([result])); assert.equal((await gate()).outputs.agent, undefined);
+  }
+  const denialCases = [
+    ['denial after the diagnostic character limit', [{ ...failure, result: `${failure.result}. ${'Acme context. '.repeat(30)}Permission denied.` }]],
+    ['denial after eight errors', [{ ...failure, errors: [...Array(8).fill('Acme context'), 'Approval required.'] }]],
+    ['structured denial count', [{ ...failure, permission_denials_count: 1 }]],
+    ['nested structured denial', [{ ...failure, diagnostics: { permission_denials: [{ tool: 'Read' }] } }]],
+    ['structured denial boolean', [{ ...failure, diagnostics: { permissionDenied: true } }]],
+    ['init denial', [{ type: 'system', subtype: 'init', permission_denials: [{ tool: 'Read' }] }, failure]],
+    ['init diagnostic denial', [{ type: 'system', subtype: 'init', diagnostic: 'Sandbox approval required.' }, failure]],
+    ['escaped denial text', [{ ...failure, errors: ['Permission denied.'] }]],
+  ];
+  for (const [label, events] of denialCases) {
+    const raw = JSON.stringify(events);
+    await writeFile(file, label === 'escaped denial text' ? raw.replace('denied', '\\u0064enied') : raw);
+    const denied = await gate();
+    assert.equal(denied.status, 0, denied.out);
+    assert.equal(denied.outputs.agent, undefined, label);
+  }
+  await writeFile(file, execution(failure));
+  assert.equal((await gate()).outputs.agent, undefined, 'assistant output is substantive or unknown, even beside a credit error');
+  await writeFile(file, JSON.stringify([failure]));
+  assert.equal((await gate({ FALLBACK: 'codex', FALLBACK_OUTCOME: 'failure', FALLBACK_MINUTES: '14', FALLBACK_STARTED: started })).outputs.agent, undefined, 'unread Codex fallback never authorizes another call');
+  assert.equal((await gate({ AGENT: 'codex', FALLBACK: 'claude', FALLBACK_OUTCOME: 'failure', FALLBACK_EXECUTION: file, FALLBACK_MINUTES: '14', FALLBACK_STARTED: started })).outputs.agent, undefined, 'a known last failure cannot erase an unknown first attempt');
+  await rm(file);
+  assert.equal((await gate()).outputs.agent, undefined);
+  assert.equal((await gate({ AGENT: 'agy' })).outputs.agent, 'agy', 'missing primary credentials require no fabricated attempt');
+});
+
+test('AGY publication: attributed completed envelope only, unchanged finding validator and separate publisher', async t => {
+  const m = await load(t), dir = await acme(t), temp = join(dir, 'runner'); await mkdir(temp);
+  const envelope = { ok: true, state: 'completed', reason: 'validated-review', model: m.AGY_MODELS[0], message: 'Acme lid review.\n\n```json\n[{"path":"src/lid.js","line":12,"severity":"P2","body":"Acme hinge fails."},{"path":"outside.js","line":1,"severity":"P1","body":"Must be dropped."}]\n```', cost: null, usage: null };
+  const result = join(temp, 'agy-result.json'); await writeFile(result, JSON.stringify(envelope));
+  const args = { agent: 'agy', message: JSON.stringify(envelope), pr: prJson(), minutes: 15, diff: DIFF };
+  const review = m.summaryReview(args);
+  assert.match(review.body, /by AGY \(gemini-4-neon-high; frozen prompt and diff only, no tools\)/);
+  assert.doesNotMatch(review.body, /by Codex/); assert.equal(review.event, 'COMMENT'); assert.equal(review.comments.length, 1); assert.match(review.body, /Dropped/);
+  for (const over of [{ ok: false }, { state: 'timeout' }, { model: 'Neon' }, { reason: 'unverified' }, { message: '' }]) assert.throws(() => m.summaryReview({ ...args, message: JSON.stringify({ ...envelope, ...over }) }), /AGY result/);
+  assert.throws(() => m.summaryReview({ ...args, message: 'ordinary prose' }), /invalid AGY result/);
+  assert.equal((await m.agentRan({ agent: 'agy', file: result, outcome: 'success', minutes: 15 })).ok, true);
+  assert.equal((await m.agentRan({ agent: 'agy', file: result, outcome: 'failure', minutes: 15 })).ok, false);
+  const gh = await stubGh(t, prJson());
+  await writeFile(join(temp, 'pr.json'), JSON.stringify(prJson())); await writeFile(join(temp, 'pr.diff'), DIFF);
+  const posted = await post(t, dir, { RUNNER_TEMP: temp, AGENT: 'agy', MINUTES: '15', PATH: `${gh.path}:${process.env.PATH}`, REPO: 'acme/anvils', PR: '7' });
+  assert.equal(posted.status, 0, posted.out);
+  const workflow = await readFile(WORKFLOW, 'utf8'), [reviewJob, publisher] = workflow.split('\n  publish:\n');
+  assert.doesNotMatch(publisher, /GEMINI_API_KEY|agy-review\.mjs|Install pinned AGY/);
+  assert.equal((reviewJob.match(/GEMINI_API_KEY: \$\{\{ secrets.GEMINI_API_KEY \}\}/g) ?? []).length, 1);
+  assert.match(reviewJob, /sha512sum --check --status/); assert.doesNotMatch(reviewJob, /curl[^\n]*\|\s*(?:ba)?sh/);
+  assert.match(reviewJob, /--minutes "\$MINUTES" --started "\$STARTED" --out "\$RUNNER_TEMP\/agy-result.json"/);
 });

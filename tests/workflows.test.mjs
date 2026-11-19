@@ -39,6 +39,7 @@ export const PREFIX = {
   'plates-tend.yml': 'plates-tend/',
   'claude.yml': 'claude/',
   'plates-cross-review.yml': null,
+  'plates-agy-verify.yml': null,
   'check.yml': null,
   'typecheck.yml': null,
   'web-update.yml': null,
@@ -49,6 +50,7 @@ export const PREFIX = {
 // Contributor-only workflows are deliberately not installed by a practice.
 // Register each by name so adding another cannot silently escape the guards.
 const LOCAL_WORKFLOWS = Object.freeze({
+  'plates-agy-verify.yml': { declared: ['GEMINI_API_KEY'] },
   'typecheck.yml': { declared: [] },
   'web-update.yml': { declared: [] },
 });
@@ -2378,7 +2380,7 @@ test('plates-cross-review.yml runs only for a same-repo PR opened or made ready,
   assert.ok(which > 0);
   assert.match(steps[which], /node "\$review_scripts\/cross-review\.mjs" which --pr "\$RUNNER_TEMP\/pr\.json" --event "\$EVENT"/);
   // The fallback reviewer's steps wait on "Could the reviewer start?", which waits on the review.
-  for (const s of steps.slice(which + 1)) assert.match(s, /\n {8}if: (?:steps\.which\.outputs\.review == 'true'(?: && steps\.which\.outputs\.agent == '(?:claude|codex)')?|steps\.start\.outputs\.fallback == '(?:claude|codex)')\n/, s.split('\n')[0]);
+  for (const s of steps.slice(which + 1)) assert.match(s, /\n {8}if: (?:steps\.which\.outputs\.review == 'true'(?: && (?:steps\.which\.outputs\.agent (?:== '(?:claude|codex)'|!= 'agy')|steps\.on\.outputs\.agy_models != ''))?|steps\.start\.outputs\.fallback == '(?:claude|codex)'|(?:always\(\) && )?steps\.agy_gate\.outputs\.agent == 'agy')\n/, s.split('\n')[0]);
   assert.deepEqual(crossReviewProblems(t), []);
   // The evaluator itself: each guard in the if: is load-bearing.
   for (const [why, from, to, ctx] of [
@@ -2493,7 +2495,7 @@ test('plates-cross-review.yml: the agent reads and comments inline, nothing else
   const t = w.template;
   assert.equal(w.practice, 'cross-review');
   assert.equal(w.optional, true);
-  assert.deepEqual(w.declared.sort(), ['ANTHROPIC_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN', 'OPENAI_API_KEY']);
+  assert.deepEqual(w.declared.sort(), ['ANTHROPIC_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN', 'GEMINI_API_KEY', 'OPENAI_API_KEY']);
   assert.deepEqual(crossReviewProblems(t), []);
   assert.deepEqual(problems('plates-cross-review.yml', t, w.declared), []);
   const tools = /--allowedTools "([^"]*)"/.exec(t)[1];
@@ -2569,13 +2571,23 @@ test('plates-cross-review.yml: the agent reads and comments inline, nothing else
  */
 export function crossReviewSandboxProblems(text) {
   const out = [];
-  const isAgent = j => /\n\s+uses: (?:anthropics\/claude-code-action|openai\/codex-action)@/.test(j.text);
+  const isAgent = j => /\n\s+uses: (?:anthropics\/claude-code-action|openai\/codex-action)@|node [^\n]*\/agy-review\.mjs"/.test(j.text);
   const permsOf = j => /\n {4}permissions:\n((?: {6}.*\n)+)/.exec(j.text)?.[1] ?? null;
   const stepsIn = j => j.text.split(/\n(?= {6}- )/);
   const jobs = jobsOf(text);
   const top = /^permissions:(.*)\n((?: {2}.*\n)*)/m.exec(text);
   if (!top) out.push('the workflow declares no permissions: every job would get the repo default, which may write');
   else if (/write/.test(top[1] + top[2])) out.push(`the workflow's permissions grant a write to every job: ${(top[1] + top[2]).trim()}`);
+  for (const job of jobs) {
+    for (const st of stepsIn(job)) {
+      if (/: \$\{\{ secrets\.GEMINI_API_KEY \}\}/.test(st) && !/\n {8}id: review_agy\n/.test(st)) out.push('AGY credential outside its model step');
+      if (/\n {8}id: review_agy\n/.test(st)) {
+        if (!st.includes("if: steps.agy_gate.outputs.agent == 'agy'")) out.push('AGY runs without admission');
+        if (/GH_TOKEN|GITHUB_TOKEN/.test(st)) out.push('AGY model step holds a GitHub token');
+        if (!st.includes('node "$RUNNER_TEMP/plates/scripts/plates/agy-review.mjs"') || !st.includes('--minutes "$MINUTES" --started "$STARTED"')) out.push('AGY lacks its trusted runner or original allowance');
+      }
+    }
+  }
   const agents = jobs.filter(isAgent);
   if (agents.length !== 1) return [...out, `${agents.length} jobs run an agent; one, the review job, holds both providers' steps`];
   const agent = agents[0];
@@ -2603,7 +2615,7 @@ export function crossReviewSandboxProblems(text) {
   const ran = stepsIn(agent).find(st => /^ {6}- name: Did the agent run\?\n/.test(st)) ?? '';
   if (!/\n {8}id: ran\n/.test(ran) || !/\n {10}fi\n {10}echo "ran=true" >> "\$GITHUB_OUTPUT"(?:\n|$)/.test(ran)) out.push('"Did the agent run?" does not say ran=true after its check passes');
   if (!/\n {6}ran: \$\{\{ steps\.ran\.outputs\.ran \}\}\n/.test(agent.text)) out.push(`the ${agent.id} job does not hand on whether its agent ran (outputs.ran)`);
-  const upload = stepsIn(agent).findIndex(st => /uses: actions\/upload-artifact@/.test(st));
+  const upload = stepsIn(agent).findIndex(st => /uses: actions\/upload-artifact@/.test(st) && /name: plates-cross-review\n/.test(st));
   if (upload < 0) out.push('the agent\'s job leaves no artifact: the publish job would have nothing to post');
   else if (upload < stepsIn(agent).indexOf(ran)) out.push('the artifact is kept before "Did the agent run?"');
   const writers = jobs.filter(j => /:\s*write/.test(permsOf(j) ?? '') || /\n {4}permissions:\s*write-all/.test(j.text));
@@ -2734,6 +2746,8 @@ test('phase 46: cross-review\'s agent, Claude or Codex, runs in a job whose toke
     ['the post in the review job', t.replace(/(\n {6}- name: Hand the review on\n)/, `\n${postStep.replace(/^\n/, '')}$1`)],
     ['Claude in the publish job', t.replace(publish, `${publish.replace(/\n$/, '')}\n${claudeStep}\n`)],
     ['Codex in the publish job', t.replace(publish, `${publish.replace(/\n$/, '')}\n${codexStep}\n`)],
+    ['AGY in the publish job', t.replace(publish, `${publish}\n      - run: node "$RUNNER_TEMP/plates/scripts/plates/agy-review.mjs"\n`)],
+    ['AGY credential in the publisher', t.replace(publish, `${publish}\n      - env:\n          GEMINI_API_KEY: \${{ secrets.GEMINI_API_KEY }}\n        run: true\n`)],
     ['the publish job checks out the PR', t.replace(publish, publish.replace(trustedRef, 'ref: ${{ github.event.pull_request.head.sha }}'))],
     ['the publish job checks out the run\'s commit', t.replace(publish, publish.replace(`          ${trustedRef}\n`, ''))],
     // Phase 60, plates#65: after a push the default branch is the pushed code, and the review job ran it.
@@ -2813,7 +2827,7 @@ export function budgetedAgentSteps(text) {
       let k = j + 1;
       for (; k < lines.length && !(lines[k].trim() && /^(\s*)/.exec(lines[k])[1].length <= indent); k++) if (next === null && /^\s*name:/.test(lines[k])) next = nameOf(lines[k]);
       // Another provider's step of this pass, or the fallback's (its start check, its git dir, its brief): look past it.
-      const fallback = next === 'Could the agent start?' || next === 'Could the reviewer start?' || / \(fallback\)$/.test(next ?? '');
+      const fallback = next === 'Could the agent start?' || next === 'Could the reviewer start?' || next === 'Can AGY review within the original allowance?' || next === 'Install pinned AGY' || / \(fallback\)$/.test(next ?? '');
       if ((next !== agent && !fallback) || agent === null) break;
       next = null; j = k;
     }
