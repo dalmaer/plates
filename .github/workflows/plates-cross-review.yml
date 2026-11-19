@@ -539,6 +539,7 @@ jobs:
         id: agy_gate
         if: steps.which.outputs.review == 'true' && steps.on.outputs.agy_models != ''
         env:
+          RUN_ATTEMPT: ${{ github.run_attempt }}
           HAS_AGY: ${{ secrets.GEMINI_API_KEY != '' }}
           AGENT: ${{ steps.which.outputs.agent }}
           FALLBACK: ${{ steps.start.outputs.fallback }}
@@ -551,6 +552,13 @@ jobs:
           FALLBACK_MINUTES: ${{ steps.start.outputs.minutes }}
           FALLBACK_STARTED: ${{ steps.start.outputs.started }}
         run: |
+          # A rerun has fresh temp storage: local create-only receipts cannot prove
+          # that an earlier attempt never dispatched. Never redispatch AGY here.
+          if [ "${RUN_ATTEMPT:-}" != 1 ]; then
+            echo "blocked=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::AGY blocked: reruns or unknown run attempts cannot repeat model work. Inspect the original attempt."
+            exit 0
+          fi
           if [ "$HAS_AGY" != true ]; then exit 0; fi
           helper="$RUNNER_TEMP/plates/scripts/plates/cross-review.mjs"
           if [ "$AGENT" != agy ]; then

@@ -1714,7 +1714,7 @@ test('AGY admission: classify both primary attempts, never permission denial, ti
   for (const f of ['cross-review.mjs', 'lib.mjs', 'names.mjs']) await cp(join(dir, 'scripts/plates', f), join(temp, 'plates/scripts/plates', f));
   const file = join(temp, 'claude.json'), started = String(Math.floor(Date.now() / 1000) - 5);
   const failure = { type: 'result', is_error: true, num_turns: 1, result: 'Credit balance is too low', permission_denials: [] };
-  const env = { RUNNER_TEMP: temp, HAS_AGY: 'true', AGENT: 'claude', FALLBACK: '', OUTCOME: 'failure', EXECUTION: file, MINUTES: '15', STARTED: started };
+  const env = { RUN_ATTEMPT: '1', RUNNER_TEMP: temp, HAS_AGY: 'true', AGENT: 'claude', FALLBACK: '', OUTCOME: 'failure', EXECUTION: file, MINUTES: '15', STARTED: started };
   const gate = extra => step(t, dir, 'Can AGY review within the original allowance?', { ...env, ...extra });
   await writeFile(file, JSON.stringify([failure]));
   assert.equal((await gate()).outputs.agent, 'agy');

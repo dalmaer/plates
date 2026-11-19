@@ -2697,6 +2697,49 @@ export function crossReviewSandboxProblems(text) {
   return out;
 }
 
+test('AGY admission refuses workflow reruns before direct or fallback admission, even with fresh temp storage', async t => {
+  const template = (await shipped()).find(w => w.name === 'plates-cross-review.yml').template;
+  const step = stepsOf(template).find(st => /\n {8}id: agy_gate\n/.test(st));
+  assert.equal(stepMap(step, 'env').RUN_ATTEMPT, '${{ github.run_attempt }}');
+  const script = runBlocks(template).find(b => b.step === 'Can AGY review within the original allowance?').script;
+  // Match the shell after runBlocks removes YAML indentation.
+  const withoutGuard = script.replace(/if \[ "\$\{RUN_ATTEMPT:-\}" != 1 \]; then\n[\s\S]*?\bfi\n/, '');
+  assert.notEqual(withoutGuard, script, 'negative control removes the admission guard');
+  const runGate = async (body, agent, attempt) => {
+    const dir = await mkdtemp(join(tmpdir(), 'acme-agy-rerun-'));
+    t.after(() => rm(dir, { recursive: true, force: true }));
+    const output = join(dir, 'output'); await writeFile(output, '');
+    const helpers = join(dir, 'plates/scripts/plates'); await mkdir(helpers, { recursive: true });
+    // Synthetic deterministic start receipt, not a model or a credential.
+    await writeFile(join(helpers, 'cross-review.mjs'), 'console.log(JSON.stringify({fallback:"agy"}));\n');
+    const r = run('bash', ['-e', '-c', body], { cwd: dir, env: { ...process.env, RUN_ATTEMPT: attempt,
+      RUNNER_TEMP: dir, GITHUB_OUTPUT: output, HAS_AGY: 'true', AGENT: agent, FALLBACK: '', OUTCOME: 'failure',
+      MINUTES: '15', STARTED: String(Math.floor(Date.now() / 1000)), EXECUTION: '' } });
+    return { status: r.status, text: r.stdout, output: await readFile(output, 'utf8'), dir };
+  };
+  const assertBlocked = result => {
+    assert.equal(result.status, 0, 'preserve existing primary-provider result handling');
+    assert.match(result.output, /^blocked=true$/m);
+    assert.doesNotMatch(result.output, /^agent=agy$|^ran=true$/m);
+    assert.match(result.text, /AGY blocked/);
+  };
+  for (const agent of ['agy', 'claude', 'codex']) {
+    for (const attempt of ['2', '3', '', 'unknown', '01']) {
+      const result = await runGate(script, agent, attempt);
+      assertBlocked(result);
+      await assert.rejects(readFile(join(result.dir, 'agy-primary-start.json')), { code: 'ENOENT' }, 'guard precedes all startup classification');
+    }
+    const first = await runGate(script, agent, '1');
+    assert.equal(first.status, 0); assert.match(first.output, /^agent=agy$/m);
+    const unguarded = await runGate(withoutGuard, agent, '2');
+    assert.throws(() => assertBlocked(unguarded), 'removing the guard makes the refusal assertion red');
+    assert.match(unguarded.output, /^agent=agy$/m, 'fresh temp storage alone allows duplicate admission without the guard');
+  }
+  const smoke = await readFile(join(PLATES, '.github/workflows/plates-agy-verify.yml'), 'utf8');
+  assert.match(smoke, /RUN_ATTEMPT: \$\{\{ github\.run_attempt \}\}/);
+  assert.match(smoke, /if \[ "\$RUN_ATTEMPT" != 1 \]/);
+});
+
 test('phase 46: cross-review\'s agent, Claude or Codex, runs in a job whose token only reads; the job that posts runs no agent and nothing of the PR\'s', async () => {
   const t = (await shipped()).find(w => w.name === 'plates-cross-review.yml').template;
   assert.deepEqual(crossReviewSandboxProblems(t), []);
