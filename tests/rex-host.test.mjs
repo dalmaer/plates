@@ -12,7 +12,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
-import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, realpath, symlink, truncate, utimes } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, realpath, symlink, truncate, utimes, link } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import * as audit from '../practices/audits/files/scripts/plates/audit.mjs';
@@ -1341,4 +1341,160 @@ test('overlapping clears never delete a fresh attach made after the first clear 
   );
   assert.equal(existsSync(join(race.dir, 'phase-7.cancel.json')), true, 'C2 phase cancel remains intact');
   assert.equal(existsSync(join(race.dir, `${digest}.cancel.json`)), true, 'C2 digest cancel remains intact');
+});
+
+
+test('stale cancellation recovery cannot stop or modify a fresh generation of the same digest', async t => {
+  const a = await attached(t), journal = attachJournal(a.dir);
+  const initial = await attach(a.args, a.deps());
+  await a.cancel();
+  const [old] = await journal.list();
+  // Force recovery to enter settling, then pause its refresh before a different caller clears.
+  await journal.settled(old.digest, { ...old.cancelled, done: false, stop: 'pending' });
+  let reached, release;
+  const paused = new Promise(r => { reached = r; }), resume = new Promise(r => { release = r; });
+  let delayed = false;
+  const recovering = recoverCancels({ ...journal, read: async digest => {
+    if (!delayed) { delayed = true; reached(); await resume; }
+    return journal.read(digest);
+  } }, { env: a.w.env, root: a.w.checkout });
+  await paused;
+  try {
+    await cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'new generation', yes: true }, a.deps());
+    const fresh = await attach(a.args, a.deps());
+    assert.equal(fresh.data.digest, initial.data.digest);
+    const before = await journal.read(old.digest), closes = (await a.w.closes()).length;
+    const brief = rexBriefFile(a.w.env, old.digest);
+    await writeFile(brief, 'fresh generation brief');
+    release();
+    await recovering;
+    assert.equal((await a.w.closes()).length, closes, 'old recovery must not stop the new worker');
+    assert.deepEqual(await journal.read(old.digest), before);
+    assert.equal(await readFile(brief, 'utf8'), 'fresh generation brief');
+    assert.equal(await journal.cancelledOf(old.digest), null, 'no old effects written beside the fresh intent');
+    assert.equal(await journal.cancelOf(old.digest), null);
+    // A propagator holding the old phase record must not cancel the new intent either.
+    const staleList = { ...journal, list: async () => [{ ...old, cancel: undefined }], phaseCancels: async () => [{ phase: 7, cancel: old.cancel }] };
+    await recoverCancels(staleList, { env: a.w.env, root: a.w.checkout });
+    assert.equal(await journal.cancelOf(old.digest), null, 'stale propagation stays with the cancelled generation');
+  } finally { release(); await recovering; }
+});
+
+test('interrupted clear resumes verified archives before requiring an active entry', async t => {
+  for (const corrupt of [false, true]) {
+    const a = await attached(t), journal = attachJournal(a.dir);
+    const result = await attach(a.args, a.deps());
+    await a.cancel();
+    const args = { root: a.w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'original reason', by: 'owner', yes: true };
+    const first = await cancelAttach(args, a.deps());
+    const record = first.data.clear, prefix = `cleared-${record.id.slice(0, 32)}-`;
+    // Persist exactly the crash boundary: entries/effects/receipts archived, cancels still active, no done marker.
+    for (const [name, active] of [[`${result.data.digest}-cancel`, `${result.data.digest}.cancel.json`], ['phase-7-cancel', 'phase-7.cancel.json']]) {
+      const archived = join(a.dir, `${prefix}${name}.archived.json`);
+      await link(archived, join(a.dir, active));
+      await rm(archived);
+    }
+    await rm(join(a.dir, `phase-7.clear.${record.id}.done.json`));
+    const exited = runNode(['-e', 'console.log(process.pid)'], { env: a.w.env });
+    assert.equal(exited.status, 0);
+    await writeFile(join(a.dir, `phase-7.clear.${record.id}.lock.json`), JSON.stringify({ pid: Number(exited.stdout.trim()), at: record.at }));
+    await recoverCancels(journal, { env: a.w.env, root: a.w.checkout });
+    assert.equal(await journal.cancelledOf(result.data.digest), null, 'ordinary recovery cannot rewrite a partially cleared generation');
+    if (corrupt) {
+      const path = join(a.dir, `${prefix}${result.data.digest}-entry.archived.json`);
+      const saved = JSON.parse(await readFile(path, 'utf8'));
+      saved.intent.claim.session = 'acme-different-generation';
+      await writeFile(path, JSON.stringify(saved));
+      await assert.rejects(cancelAttach(args, a.deps()), /retained run evidence/);
+      assert.ok(await journal.phaseCancelOf(7), 'changed archive cannot authorize a clear');
+    } else {
+      const recovered = await cancelAttach({ ...args, why: 'retry reason must not replace original' }, a.deps());
+      assert.equal(recovered.data.state, 'cleared');
+      assert.deepEqual(recovered.data.clear, record, 'original clear identity and words survive');
+      assert.equal(await journal.phaseCancelOf(7), null);
+      assert.equal(await journal.cancelOf(result.data.digest), null);
+      assert.equal((await attach(a.args, a.deps())).exitCode, 0);
+    }
+  }
+});
+
+test('terminal local host state confirms a failed stop while live or unknown state keeps cancellation', async t => {
+  for (const terminal of ['finished', 'failed']) {
+    const w = await world(t, { rex: false }), journal = attachJournal(join(w.base, 'journal'));
+    const stateFile = join(w.base, 'state.txt');
+    const stop = join(w.base, 'stop.cjs'), state = join(w.base, 'state.cjs');
+    await writeFile(stop, `#!${process.execPath}\nprocess.exit(1);\n`, { mode: 0o755 });
+    await writeFile(state, `#!${process.execPath}\nprocess.stdout.write(require('node:fs').readFileSync(${JSON.stringify(stateFile)}, 'utf8'));\n`, { mode: 0o755 });
+    const host = { file: 'hosts.json', start: [w.start, 'start'], stop: [stop], state: [state] };
+    const deps = { journal, env: w.env, readHost: async () => host, events: async () => null, progress: async () => null,
+      claim: async () => ({ data: { ok: true, claimed: true, sha: 'c'.repeat(40) }, text: 'claimed' }) };
+    await attach({ root: w.checkout, projectId: 'acme', phase: 7, title: 'Acme anvil', route: 'local-host', provider: 'claude',
+      config: { name: 'Acme', agents: { claude: {} }, backlog: { routes: ['local-host'] } },
+      phaseText: { doneWhen: 'Anvil lands', acceptance: 'Lands', context: {} }, host, yes: true }, deps);
+    const args = { root: w.checkout, projectId: 'acme', phase: 7, yes: true };
+    await cancelAttach(args, deps);
+    for (const live of ['running', 'waiting', 'starting', 'unrecognized']) {
+      await writeFile(stateFile, live);
+      await assert.rejects(cancelAttach({ ...args, clear: true, why: 'not finished' }, deps), /cannot clear/);
+      assert.ok(await journal.phaseCancelOf(7));
+    }
+    await writeFile(stateFile, terminal);
+    assert.equal((await cancelAttach({ ...args, clear: true, why: 'terminal confirmed' }, deps)).data.state, 'cleared');
+    assert.equal(await journal.phaseCancelOf(7), null);
+  }
+});
+
+
+test('clear waits for in-flight cancellation effects and never expires a live writer gate', async t => {
+  const a = await attached(t), journal = attachJournal(a.dir);
+  await attach(a.args, a.deps());
+  await a.cancel();
+  const [entry] = await journal.list();
+  await journal.settled(entry.digest, { ...entry.cancelled, stop: 'pending', done: false });
+  let reached, release;
+  const paused = new Promise(r => { reached = r; }), resume = new Promise(r => { release = r; });
+  const recovery = recoverCancels({ ...journal, settled: async (...args) => {
+    reached(); await resume; return journal.settled(...args);
+  } }, { env: a.w.env, root: a.w.checkout });
+  await paused;
+  let clearing;
+  try {
+    const lock = (await readdir(a.dir)).find(n => n.endsWith('.lock.json'));
+    assert.ok(lock);
+    await utimes(join(a.dir, lock), new Date(0), new Date(0));
+    await journal.sweep();
+    assert.ok(existsSync(join(a.dir, lock)), 'age does not establish that an effect writer died');
+    let done = false;
+    clearing = cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'wait for effects', yes: true }, a.deps()).then(result => { done = true; return result; });
+    assert.equal((await check(a)).data.state, 'cancelled');
+    assert.equal(done, false, 'clear must not reopen the digest before cancellation effects finish');
+  } finally { release(); await recovery; }
+  assert.equal((await clearing).data.state, 'cleared');
+});
+
+
+test('delayed clear confirmation recognizes the original clear without probing a fresh attach', async t => {
+  const a = await attached(t), journal = attachJournal(a.dir);
+  await attach(a.args, a.deps());
+  await a.cancel();
+  let reached, release, reads = 0;
+  const paused = new Promise(r => { reached = r; }), resume = new Promise(r => { release = r; });
+  const args = { root: a.w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'overlap', yes: true };
+  const delayed = cancelAttach(args, a.deps({ journal: { ...journal, phaseCancelOf: async phase => {
+    const record = await journal.phaseCancelOf(phase);
+    if (++reads === 2) { reached(); await resume; }
+    return record;
+  } } }));
+  await paused;
+  try {
+    const first = await cancelAttach(args, a.deps());
+    const fresh = await attach(a.args, a.deps());
+    const before = await journal.read(fresh.data.digest), calls = (await a.w.rexCalls()).length;
+    release();
+    const second = await delayed;
+    assert.deepEqual(second.data.clear, first.data.clear);
+    assert.equal(second.data.already, true);
+    assert.equal((await a.w.rexCalls()).length, calls, 'the new run is neither probed nor stopped');
+    assert.deepEqual(await journal.read(fresh.data.digest), before);
+  } finally { release(); await delayed; }
 });
