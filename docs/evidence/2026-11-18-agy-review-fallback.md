@@ -109,3 +109,27 @@ checks cover incomplete final bytes and the shared raw-byte output cap.
 The runner's source audit binding and managed receipt are refreshed for the
 changed bytes. Unrelated managed receipts are preserved. These correction proofs
 are local tests, not API entitlement or hosted publication evidence.
+
+## First hosted API verification: pre-generation blocker
+
+PR 514 merged as `4d6539f6a984f49f2a01cc352303f3974525cec6` after the
+corrected source gate passed (5,259 source tests, 12 skipped; 45 installed tests),
+305 focused tests, typecheck and a no-findings exact-head Codex review.
+The [original API run](https://github.com/dalmaer/plates/actions/runs/44458635027)
+used that revision, attempt 1. Its pinned installation passed; all three exact
+model checks ended `configured-models-unavailable`, with unknown catalogs and
+no generation intent. Usage and cost remain unknown. This is not verified model
+entitlement or a successful review, and the run was not retried.
+
+A separate local diagnostic used an isolated temporary HOME, the installed
+AGY 1.5.10 `models` command, and a deliberately invalid synthetic credential.
+It returned exit 0 with catalog rows and stderr exactly
+`Fetching available models...\n`. No generation was requested. This local
+observation explains a concrete adapter defect; it is not proof of the pinned
+Linux 1.5.12 output or this project's API access.
+
+The narrow correction accepts that exact progress line only for a successful
+catalog command. Empty stderr remains valid; altered, additional or denial
+diagnostics and nonzero exits remain unavailable. Generation diagnostics are
+unchanged. Catalog receipts preserve diagnostic presence and a fixed category;
+the smoke artifact reports category and outcome without raw output.

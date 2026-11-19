@@ -78,7 +78,7 @@ jobs:
             'invalid-duration', 'invalid-response-step', 'unfinished-step', 'invalid-success-envelope',
             'invalid-review', 'invalid-finding', 'response-mismatch', 'finding-outside-diff', 'malformed-evidence',
           ]);
-          const rows = models.map(model => ({ model, state: 'not-attempted', catalog: 'unknown', generationIntentRecorded: false, reason: 'not-reached', usage: null, cost: null }));
+          const rows = models.map(model => ({ model, state: 'not-attempted', catalog: 'unknown', catalogOutcome: 'unknown', catalogDiagnostic: 'unknown', generationIntentRecorded: false, reason: 'not-reached', usage: null, cost: null }));
           const retain = () => writeFile(metadata, JSON.stringify({ schema: 1, deadlineMs, models: rows }, null, 2) + '\n', { mode: 0o600 });
           await retain();
           for (const row of rows) {
@@ -102,7 +102,10 @@ jobs:
             row.reason = result?.ok === true ? 'validated-review' : reasons.has(result?.reason) ? result.reason : 'review-unavailable';
             try {
               const c = JSON.parse(await readFile(out + '.attempts/catalog.json', 'utf8'));
-              if (c.state === 'success' && c.diagnosticPresent === false && Array.isArray(c.available)) row.catalog = c.available.includes(row.model) ? 'listed' : 'not-listed';
+              if (['success', 'failure', 'timeout', 'unknown'].includes(c.state)) row.catalogOutcome = c.state;
+              if (['none', 'catalog-progress', 'unrecognized'].includes(c.diagnosticClass)) row.catalogDiagnostic = c.diagnosticClass;
+              const diagnosticAccepted = c.diagnosticPresent === false || (c.diagnosticPresent === true && c.diagnosticClass === 'catalog-progress');
+              if (c.state === 'success' && diagnosticAccepted && Array.isArray(c.available)) row.catalog = c.available.includes(row.model) ? 'listed' : 'not-listed';
             } catch { /* Unknown catalog remains unknown. */ }
             try { row.generationIntentRecorded = (await lstat(out + '.attempts/generation-intent.json')).isFile(); } catch { /* No retained dispatch intent. */ }
             if (result?.usage && typeof result.usage === 'object') {

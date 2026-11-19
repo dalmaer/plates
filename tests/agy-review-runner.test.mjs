@@ -232,3 +232,47 @@ test('captureAgy retains the shared raw-byte cap across stdout and stderr', asyn
   assert.ok(Buffer.byteLength(result.stdout) + Buffer.byteLength(result.stderr) <= 2 * 1024 * 1024);
   assert.ok(result.stdout.length > 0 && result.stderr.length > 0);
 });
+
+test('exact catalog progress permits selection and retains truthful diagnostic metadata', async t => {
+  for (const stderr of ['Fetching available models...\n', '']) {
+    const f = await fixture(t), execute = f.deps.execute;
+    f.deps.execute = async (...args) => { const r = await execute(...args); return args[1][0] === 'models' ? { ...r, stderr } : r; };
+    assert.equal((await runAgyReview(f.options, f.deps)).ok, true);
+    assert.equal(f.calls.length, 2);
+    const receipt = JSON.parse(await readFile(join(f.receipts, 'catalog.json'), 'utf8'));
+    assert.equal(receipt.diagnosticPresent, stderr !== '');
+    assert.equal(receipt.diagnosticClass, stderr === '' ? 'none' : 'catalog-progress');
+    assert.deepEqual(receipt.available, AGY_REVIEW_MODELS);
+  }
+});
+
+test('catalog progress exception rejects siblings additions denials and failed commands', async t => {
+  for (const [stderr, outcome] of [
+    ['Fetching available models...', 'success'], ['Fetching available models...\r\n', 'success'],
+    [' Fetching available models...\n', 'success'], ['Fetching available models...\n\n', 'success'],
+    ['Acme unknown progress\n', 'success'], ['permission denied\n', 'success'],
+    ['Fetching available models...\npermission denied\n', 'success'],
+    ['Fetching available models...\nAcme additional diagnostic\n', 'success'],
+    ['Fetching available models...\n', 'failure'],
+  ]) {
+    const f = await fixture(t);
+    f.deps.execute = async (...args) => { f.calls.push(args); return { ...catalog, stderr, outcome }; };
+    assert.equal((await runAgyReview(f.options, f.deps)).ok, false);
+    assert.equal(f.calls.length, 1);
+    const receipt = JSON.parse(await readFile(join(f.receipts, 'catalog.json'), 'utf8'));
+    assert.equal(receipt.diagnosticPresent, true);
+    assert.equal(receipt.diagnosticClass, stderr === 'Fetching available models...\n' ? 'catalog-progress' : 'unrecognized');
+    assert.deepEqual(receipt.available, []);
+    await assert.rejects(stat(join(f.receipts, 'generation-intent.json')), { code: 'ENOENT' });
+  }
+});
+
+test('known catalog progress on generation stderr remains blocked', async t => {
+  const f = await fixture(t), execute = f.deps.execute;
+  f.deps.execute = async (...args) => { const r = await execute(...args); return { ...r, stderr: 'Fetching available models...\n' }; };
+  const result = await runAgyReview(f.options, f.deps);
+  assert.equal(f.calls.length, 2);
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, 'denial-or-missing-coverage');
+  assert.equal(JSON.parse(await readFile(join(f.receipts, 'generation-result.json'), 'utf8')).diagnosticPresent, true);
+});

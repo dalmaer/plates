@@ -93,9 +93,13 @@ export async function runAgyReview(options, { execute = captureAgy, now = Date.n
   const catalogRemaining = remaining();
   if (catalogRemaining < 120000) return finish(fixed('original-deadline-exhausted'));
   const catalog = await invoke(['models'], Math.min(30000, catalogRemaining));
-  const available = new Set(catalog.outcome === 'success' && !catalog.stderr ? catalog.stdout.split(/\r?\n/).map(l => l.trim().split(/\s+/)[0]) : []);
-  await save('catalog.json', { state: catalog.outcome, available: models.filter(m => available.has(m)), diagnosticPresent: Boolean(catalog.stderr), cost: null });
-  const choice = selectAgyReviewModel({ availability: models.map(model => ({ model, state: available.has(model) ? 'available' : catalog.outcome === 'success' && !catalog.stderr ? 'unavailable' : 'unknown' })), attemptedModels: [], deadlineMs, nowMs: now() });
+  // Exact observed models-command progress only; never normalize or discard
+  // additional diagnostics, and never apply this exception to generation.
+  const diagnosticClass = catalog.stderr === '' ? 'none' : catalog.stderr === 'Fetching available models...\n' ? 'catalog-progress' : 'unrecognized';
+  const catalogAccepted = catalog.outcome === 'success' && diagnosticClass !== 'unrecognized';
+  const available = new Set(catalogAccepted ? catalog.stdout.split(/\r?\n/).map(l => l.trim().split(/\s+/)[0]) : []);
+  await save('catalog.json', { state: catalog.outcome, available: models.filter(m => available.has(m)), diagnosticPresent: Boolean(catalog.stderr), diagnosticClass, cost: null });
+  const choice = selectAgyReviewModel({ availability: models.map(model => ({ model, state: available.has(model) ? 'available' : catalogAccepted ? 'unavailable' : 'unknown' })), attemptedModels: [], deadlineMs, nowMs: now() });
   if (!choice.model) {
     const result = fixed('configured-models-unavailable');
     return finish(result);
