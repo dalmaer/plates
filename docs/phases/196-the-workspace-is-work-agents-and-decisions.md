@@ -1,11 +1,11 @@
 ---
 status: partial
-since: 2026-11-17
+since: 2026-11-19
 goal: G7
 spec: 2
 depends: [194]
-note: "Increment 2 landed and deployed as ff82b6f7: full gate, CI, exact serving revision, three smoke paths and 120-second error watch passed. The owner project-page walk is pending. Hosted quota delivery (192), hosted attachment (181), chat and navigation remain."
-evidence: ["evidence/2026-11-17-project-backlog.md"]
+note: "All four increments are deployed (production a2a6675b) and the owner called it simpler (2026-11-19). Two boxes remain: Assign recommending the agent with the most room by the quota snapshot (phase 192 hosted quota delivery). and assigning from the site so an agent starts (phase 181 hosted dispatch). Deploy stays a copyable promote command by decision."
+evidence: ["evidence/2026-11-17-project-backlog.md", "evidence/2026-11-19-simple-workspace.md"]
 ---
 
 # The workspace is work, agents and decisions
@@ -94,14 +94,15 @@ reachable by URL until increment 4.
 
 ## Acceptance
 
-- [ ] Home shows a chip per project; a green one has no text beyond its name; a non-green one names its most urgent reason, and red sorts before yellow before green: `tests/web-simple-home.test.mjs`.
-- [ ] Every Needs-you card answers in place through the docket's answer path, and a waiting deploy is a card whose Deploy runs the checked promote only: `tests/web-simple-home.test.mjs`.
+- [x] Home shows a chip per project; a green one has no text beyond its name; a non-green one names its most urgent reason, and red sorts before yellow before green: `tests/web-simple-home.test.mjs`.
+- [x] Every Needs-you card answers in place through the docket's answer path, and a waiting deploy is a card that shows the exact checked `plates promote` command with Copy (the site never deploys, by decision): `tests/web-simple-home.test.mjs`.
 - [x] The project page shows one ordered backlog with four states, Assign on ready items through attach, and no main → production row when they match: `tests/web-simple-project.test.mjs`.
 - [ ] Assign recommends the agent with the most room by the quota snapshot and explains it; a stale or unknown snapshot recommends nothing: `tests/web-simple-project.test.mjs`.
-- [ ] The channel renders as a chat with a composer, and the CLI prints the same lines: `tests/channel.test.mjs`.
-- [ ] No empty section is drawn, no raw markdown is shown, and the screens use only item, agent and decision: `tests/web-simple-copy.test.mjs`.
+- [x] The channel renders as a chat with a composer, and the CLI prints the same lines: `tests/channel.test.mjs`.
+- [x] No empty section is drawn, no raw markdown is shown, and the screens use only item, agent and decision: `tests/web-simple-copy.test.mjs`.
 - [x] `plates home` and the site render one model for Home and a project: the isomorphism tests.
-- [ ] ⚑ By hand: the owner makes a decision, deploys, and assigns an item from the site, each without leaving the card, and says it is simpler.
+- [x] ⚑ By hand: the owner makes a decision from the site without leaving the card, sees the Deploy command and the Assign preview on their cards, and says it is simpler.
+- [ ] ⚑ By hand: the owner assigns an item from the site and an agent starts, without leaving the card (waits on phase 181's hosted dispatch).
 
 ## Your part
 
@@ -136,7 +137,7 @@ Automated: the named tests; `npm run check`. By hand: the owner's walk.
 
 ## Next action
 
-After the increment-2 integration gate, deploy its exact tested revision with the owner's approval, then ask for the five-minute project-page walk. Hosted quota delivery remains phase 192 increment 4, and hosted attachment remains phase 181. Continue the channel and navigation increments after the owner's feedback; do not call the whole phase built.
+Build box 4 when phase 192's hosted quota delivery lands: Assign recommends the agent with the most room by the quota snapshot and says why. Hosted Assign dispatch is phase 181's activation.
 
 ## Trajectory
 
@@ -145,3 +146,4 @@ After the increment-2 integration gate, deploy its exact tested revision with th
 - **2026-11-17** — Increment 1 deployed as 3d805c7. Deploy stays a copyable `plates promote` command: promote runs from the owner's checkout, and a hosted deploy would bypass its checks. Increment 2 is attached to Codex in Rex, chosen by quota (Claude 93% of its week used, Codex 48%).
 
 - **2026-11-17** — Increment 2 found that the existing backlog includes non-actionable waiting work and quota is local-only. Waiting records remain in item/source details, while missing hosted quota stays an explicit gap; neither limitation becomes fabricated readiness. See the increment-2 evidence.
+- **2026-11-19** — The owner, after using it: "phase 196: simpler". Home, the project page, the chat and the site-wide cleanup are all deployed; the quota recommendation on Assign is the one box left.
