@@ -71,3 +71,41 @@ The smoke builder retained an initial test-helper invocation failure, corrected
 the test harness, then observed 7/7 smoke tests passing. Its earlier combined
 run observed 76 workflow tests passing. The full gate below checks the integrated
 source; no model calls were used by these synthetic tests.
+
+## First committed checkpoint and PR review
+
+Commit `aa9ffa88e1df2982cd099ccb1339d80b2653c222` retained the first full gate:
+5,255 source tests passed, 12 skipped; 45 installed tests passed; typecheck passed.
+The ledger reported no flaky or slower tests. These results apply to that commit,
+not automatically to later corrections.
+
+[PR 514](https://github.com/dalmaer/plates/pull/514) received two valid round-one
+findings from the separate Codex GitHub reviewer: Actions reruns could lose the
+local attempt receipt/deadline and dispatch AGY again, and independently decoded
+stdout chunks could corrupt multibyte characters. Correct the shared workflow
+admission boundary and both output streams; retain negative controls and rerun
+the integrated checkpoint before pushing the corrected candidate.
+
+The ordinary Actions review job failed before a judged result and skipped
+publication: its Claude fallback reported exhausted quota. That failure is not
+an acceptance result. The separate GitHub Codex review is actual review evidence;
+local synthetic tests and pending API verification remain separate.
+
+## Round-one correction proof
+
+`plates prove tests/workflows.test.mjs --name "AGY admission refuses workflow reruns"
+--fix practices/cross-review/files/.github/workflows/plates-cross-review.yml
+--base aa9ffa88 --trailer --json` returned VERIFIED. The test retains first-attempt
+admission and rejects later/unknown attempts for direct, Claude and Codex paths;
+removing the guard makes the refusal assertion fail. The manual smoke sibling
+already refuses reruns.
+
+`plates prove tests/agy-review-runner.test.mjs --name "preserves split UTF-8"
+--fix scripts/plates/agy-review.mjs --base aa9ffa88 --trailer --json` returned
+VERIFIED. A real child emits one acknowledged byte at a time on each pipe; the
+old reader corrupts multibyte text, while streaming decoders preserve it. Additional
+checks cover incomplete final bytes and the shared raw-byte output cap.
+
+The runner's source audit binding and managed receipt are refreshed for the
+changed bytes. Unrelated managed receipts are preserved. These correction proofs
+are local tests, not API entitlement or hosted publication evidence.

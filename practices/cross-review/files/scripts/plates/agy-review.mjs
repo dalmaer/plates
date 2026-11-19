@@ -1,5 +1,6 @@
 // AGY CLI adapter for the existing cross-review job; never a general executor.
 import { spawn } from 'node:child_process';
+import { StringDecoder } from 'node:string_decoder';
 import { mkdir, mkdtemp, readFile, writeFile, lstat, realpath } from 'node:fs/promises';
 import { join, dirname, resolve, isAbsolute } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -16,6 +17,7 @@ export function captureAgy(binary, args, options) {
   return new Promise(resolveResult => {
     let stdout = '', stderr = '', bytes = 0, stopped = null, child;
     let timer, hardKill;
+    const stdoutDecoder = new StringDecoder('utf8'), stderrDecoder = new StringDecoder('utf8');
     const stop = reason => {
       if (stopped) return;
       stopped = reason;
@@ -25,13 +27,16 @@ export function captureAgy(binary, args, options) {
     try { child = spawn(binary, args, { cwd: options.cwd, env: options.env, detached: true, stdio: ['pipe', 'pipe', 'pipe'] }); }
     catch { return resolveResult({ outcome: 'failure', stdout: '', stderr: 'spawn-unavailable' }); }
     timer = setTimeout(() => stop('timeout'), options.timeoutMs);
-    child.stdout.on('data', data => { bytes += data.length; if (bytes > INPUT_LIMIT) stop('output-limit'); else stdout += data.toString('utf8'); });
-    child.stderr.on('data', data => { bytes += data.length; if (bytes > INPUT_LIMIT) stop('output-limit'); else stderr += data.toString('utf8'); });
+    child.stdout.on('data', data => { bytes += data.length; if (bytes > INPUT_LIMIT) stop('output-limit'); else stdout += stdoutDecoder.write(data); });
+    child.stderr.on('data', data => { bytes += data.length; if (bytes > INPUT_LIMIT) stop('output-limit'); else stderr += stderrDecoder.write(data); });
     child.on('error', () => { stopped = stopped ?? 'spawn-unavailable'; });
     child.stdin.on('error', () => {});
     child.stdin.end(options.input ?? '');
     child.on('close', code => {
       clearTimeout(timer); clearTimeout(hardKill);
+      // Flush each pipe independently, including incomplete final UTF-8 bytes.
+      // Only chunks admitted under the shared raw-byte cap entered the decoders.
+      stdout += stdoutDecoder.end(); stderr += stderrDecoder.end();
       resolveResult({ outcome: stopped === 'timeout' ? 'timeout' : !stopped && code === 0 ? 'success' : 'failure', stdout, stderr, stopped });
     });
   });

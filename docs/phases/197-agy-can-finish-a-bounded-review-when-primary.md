@@ -73,6 +73,10 @@ interface, not proof of the hosted route.
 
 ## Next action
 
-Finish the source checkpoint and reviewed integration, then provision the dedicated
-credential and run a separately bounded exact-head hosted acceptance walk. Keep
+Finish the reviewed source corrections, then run the owner-approved manual API
+verification with the provisioned credential. Keep
 API model access, publication and activation unverified until observed.
+
+## Trajectory
+
+- **2026-11-18** — External review found that local create-only receipts do not prevent dispatch on a fresh Actions rerun. Refuse later run attempts at the workflow boundary, matching the manual smoke route; a future resumable route needs original-attempt reconciliation. PR 514, round one.

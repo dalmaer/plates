@@ -3,7 +3,11 @@ import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, readFile, rm, realpath, readdir, stat, mkdir, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runAgyReview } from '../scripts/plates/agy-review.mjs';
+import childProcess from 'node:child_process';
+import { syncBuiltinESMExports } from 'node:module';
+import { writeFileSync } from 'node:fs';
+import { cleanEnv } from './helpers/run.mjs';
+import { runAgyReview, captureAgy } from '../scripts/plates/agy-review.mjs';
 import { AGY_REVIEW_MODELS, selectAgyReviewModel } from '../scripts/plates/agy-review-contract.mjs';
 
 const patch = 'diff --git a/acme.mjs b/acme.mjs\n--- a/acme.mjs\n+++ b/acme.mjs\n@@ -1 +1 @@\n-old\n+new\n';
@@ -161,4 +165,70 @@ test('input and output symlinks are refused without invoking a provider', async 
 
 test('managed and root runners remain byte-identical', async () => {
   assert.equal(await readFile(new URL('../scripts/plates/agy-review.mjs', import.meta.url), 'utf8'), await readFile(new URL('../practices/cross-review/files/scripts/plates/agy-review.mjs', import.meta.url), 'utf8'));
+});
+
+
+test('captureAgy preserves split UTF-8 and emoji independently on both real child pipes', async t => {
+  const f = await fixture(t);
+  const stdoutText = 'Acme café 漢字 🛠️🚀';
+  const stderrText = 'Acme naïve 日本 🌍';
+  const script = join(f.root, 'split-utf8.mjs');
+  await writeFile(script, `
+    import { readFileSync } from 'node:fs';
+    import { setTimeout } from 'node:timers/promises';
+    const texts = JSON.parse(process.argv[2]);
+    for (const name of ['stdout', 'stderr']) {
+      const bytes = Buffer.from(texts[name]);
+      for (let i = 0; i < bytes.length; i++) {
+        process[name].write(bytes.subarray(i, i + 1));
+        // Parent acknowledges an actual data event before the next byte, so
+        // OS scheduling cannot coalesce the multibyte characters in this test.
+        while (true) {
+          let count = 0;
+          try { count = Number(readFileSync(process.argv[3] + '/' + name + '.ack', 'utf8')); } catch {}
+          if (count >= i + 1) break;
+          await setTimeout(1);
+        }
+      }
+    }
+  `);
+  const realSpawn = childProcess.spawn;
+  const chunks = { stdout: [], stderr: [] };
+  t.mock.method(childProcess, 'spawn', (...args) => {
+    const child = realSpawn(...args); // Real process and OS pipes, no synthetic data events.
+    for (const name of ['stdout', 'stderr']) child[name].on('data', data => {
+      chunks[name].push(data.length);
+      writeFileSync(join(f.root, name + '.ack'), String(chunks[name].length));
+    });
+    return child;
+  });
+  syncBuiltinESMExports();
+  let result;
+  try {
+    result = await captureAgy(process.execPath, [script, JSON.stringify({ stdout: stdoutText, stderr: stderrText }), f.root],
+      { cwd: f.root, env: cleanEnv({ PATH: '/usr/bin:/bin' }), timeoutMs: 10000 });
+  } finally {
+    t.mock.restoreAll(); syncBuiltinESMExports();
+  }
+  assert.equal(result.outcome, 'success');
+  for (const name of ['stdout', 'stderr']) assert.ok(chunks[name].length > 10 && chunks[name].every(n => n === 1), name);
+  assert.deepEqual({ stdout: result.stdout, stderr: result.stderr }, { stdout: stdoutText, stderr: stderrText });
+});
+
+
+test('captureAgy flushes incomplete final bytes on each pipe at close', async t => {
+  const f = await fixture(t);
+  const result = await captureAgy(process.execPath, ['-e', "process.stdout.write(Buffer.from([0xe2, 0x82])); process.stderr.write(Buffer.from([0xf0, 0x9f, 0x9a]));"],
+    { cwd: f.root, env: cleanEnv({ PATH: '/usr/bin:/bin' }), timeoutMs: 10000 });
+  assert.equal(result.outcome, 'success');
+  assert.equal(result.stdout, '\ufffd'); assert.equal(result.stderr, '\ufffd');
+});
+
+test('captureAgy retains the shared raw-byte cap across stdout and stderr', async t => {
+  const f = await fixture(t);
+  const result = await captureAgy(process.execPath, ['-e', "process.stdout.write(Buffer.alloc(1024 * 1024, 65), () => process.stderr.write(Buffer.alloc(1024 * 1024 + 65536, 66)));"],
+    { cwd: f.root, env: cleanEnv({ PATH: '/usr/bin:/bin' }), timeoutMs: 10000 });
+  assert.equal(result.outcome, 'failure'); assert.equal(result.stopped, 'output-limit');
+  assert.ok(Buffer.byteLength(result.stdout) + Buffer.byteLength(result.stderr) <= 2 * 1024 * 1024);
+  assert.ok(result.stdout.length > 0 && result.stderr.length > 0);
 });
