@@ -1,0 +1,322 @@
+// Plates on the phone: the simple view (docs/phases/196). Three things and
+// nothing else: work (a project's Backlog), agents (who is on an item, and the
+// channel as a chat) and decisions (Needs you). One read model, three
+// renderers: `plates home`, the hosted site and this app draw the same values
+// (lib/work-items.mjs homeGlance, lib/web/simple-project-model.mjs,
+// lib/channel.mjs). app.ts answers them, cut to the shapes below.
+//
+// The rules every screen keeps:
+//   1. Exceptions only: a green project is its name and nothing else.
+//   2. Act where you look: a decision's answers are on its card.
+//   3. Empty means hidden: no cards, no "Needs you"; no items, no "Backlog".
+//   4. One vocabulary: item, agent, decision.
+//   5. Text renders: shown text is Markdown (`markup="markdown"`).
+//
+// This increment reads a bundled sample (fixture/acme.json) and sends
+// nothing: choosing an answer shows what was chosen and says it was not sent.
+// DESIGN.md says how live data and a safe answer arrive next.
+
+use Badge, EmptyState from "exact:content"
+
+routes nav
+  tab home "/"
+    project "/project/:id"
+      item "/project/:id/item/:ref"
+  tab channel "/channel"
+
+// A project's chip: `reason` is "" when the tone is green.
+shape Chip
+  projectId: string
+  name: string
+  tone: string
+  reason: string
+  more: number
+
+// One answer on a card. `unavailable` is why it cannot be given here, or "".
+shape Choice
+  id: string
+  label: string
+  recommended: bool
+  unavailable: string
+
+shape Fact
+  label: string
+  text: string
+
+// A decision. `command` is a waiting deploy's `plates promote …`, or "".
+shape Card
+  key: string
+  projectId: string
+  projectName: string
+  question: string
+  why: string
+  answers: Choice[]
+  more: Fact[]
+  command: string
+
+shape Home
+  chips: Chip[]
+  cards: Card[]
+
+shape Route
+  provider: string
+  command: string
+  recommended: bool
+
+// A backlog item. `state` is Ready, Agent working, Needs you or Done.
+shape Item
+  ref: string
+  state: string
+  title: string
+  agent: string
+  done: string
+  next: string
+  canAssign: bool
+  assign: Route[]
+  assignWhy: string
+
+shape Project
+  projectId: string
+  name: string
+  items: Item[]
+  gaps: string[]
+
+// A channel line, as lib/channel.mjs gives it. `session` is "" when it names none.
+shape Line
+  id: string
+  at: string
+  plate: string
+  kind: string
+  actor: string
+  session: string
+  text: string
+  answered: bool
+
+// ---- Home.
+
+fn toneSymbol(tone: string): string = tone == "red" ? "symbol:alert-fill" : tone == "yellow" ? "symbol:alert" : "symbol:checkmark"
+fn toneColor(tone: string): string = tone == "red" ? "danger" : tone == "yellow" ? "warn" : "ok"
+// The most urgent reason, then "+N" (lib/work-items.mjs homeGlance).
+fn chipReason(c: Chip): string = c.more > 0 ? `${c.reason} +${c.more}` : c.reason
+
+// ---- Needs you.
+
+fn recommendedOf(c: Card): string = match first(c.answers.filter(a => a.recommended)) { case some(a) => a.label, case none => "" }
+fn chosenOf(c: Card, picked: string): string = match first(c.answers.filter(a => picked == `${c.key}=${a.id}`)) { case some(a) => a.label, case none => "" }
+fn cardsFor(cards: Card[], name: string, id: string): Card[] = name == "home" ? cards : cards.filter(c => c.projectId == id)
+
+// ---- A project's backlog.
+
+fn projectOf(ps: Project[], id: string): Project[] = ps.filter(p => p.projectId == id)
+fn nameOf(ps: Project[], id: string): string = match first(projectOf(ps, id)) { case some(p) => p.name, case none => id }
+fn itemsOf(ps: Project[], id: string): Item[] = match first(projectOf(ps, id)) { case some(p) => p.items, case none => [] }
+fn gapsOf(ps: Project[], id: string): string[] = match first(projectOf(ps, id)) { case some(p) => p.gaps, case none => [] }
+fn itemOf(ps: Project[], id: string, ref: string): Item[] = itemsOf(ps, id).filter(i => i.ref == ref)
+fn titleOf(ps: Project[], id: string, ref: string): string = match first(itemOf(ps, id, ref)) { case some(i) => i.title, case none => "" }
+fn stateTint(state: string): option<string> = state == "Needs you" ? some("-exact-system-orange") : state == "Agent working" ? some("AccentColor") : state == "Done" ? some("-exact-system-green") : none
+
+// ---- The channel as a chat (lib/web/channel-views.mjs): the owner's lines on
+// the right, an agent's own lines as bubbles grouped under its name, and
+// everything plates observed as a small grey line.
+
+fn isOwner(l: Line): bool = l.kind == "owner" or l.kind == "checkpoint"
+fn isSystem(l: Line): bool = not isOwner(l) and l.kind != "say"
+fn identity(l: Line): string = `${l.plate}:${isOwner(l) ? "owner" : l.session != "" ? l.session : l.actor}`
+fn grouped(lines: Line[], i: number): bool = i > 0 and match lines.at(i - 1) { case some(p) => not isSystem(p) and identity(p) == match lines.at(i) { case some(l) => identity(l), case none => "" }, case none => false }
+// UTC, to the minute, as both other renderers print it.
+fn timeOf(at: string): string = `${at.slice(0, 16).replaceAll("T", " ")} UTC`
+fn initial(actor: string): string = actor.slice(0, 1).toUpperCase()
+
+component App
+  resource home = loadHome() as shape Home else empty()
+  resource projects = loadProjects() as shape Project[] else empty()
+  resource channel = loadChannel() as shape Line[] else empty()
+  // The answer chosen, as `<card key>=<answer id>`; "" for none. Not kept: nothing is sent yet.
+  state picked = ""
+  // The cards whose "More" is open.
+  state opened = []
+
+  action pick(name: string)
+    nav = select(nav, name)
+  action follow(url: string)
+    nav = go(nav, url)
+  action choose(key: string, id: string)
+    picked = `${key}=${id}`
+  action unchoose
+    picked = ""
+  action more(key: string)
+    opened = opened.includes(key) ? opened.filter(k => k != key) : opened.concat([key])
+
+  view
+    main navigationKey=`${top(nav).id}` navigate=follow testId="app" width="100%" height="100%"
+      display="flex" flex-direction="column"
+      column flex=1 min-height=0 position="relative"
+        for t in nav.tabs key=t.name
+          column role="tabpanel" id=`panel-${t.name}` position="absolute" inset=0
+            for e in t.stack key=e.id
+              column navigationKey=`${e.id}` navigationScroll=`content-${e.id}` position="absolute" inset=0
+                display="flex" flex-direction="column"
+                header display="flex" flex-wrap="wrap" align-items="center" gap=8 padding="8px 16px"
+                  text (e.name == "home" ? "Plates" : e.name == "channel" ? "Channel" : e.name == "project" ? nameOf(projects, e.params.id) : titleOf(projects, e.params.id, e.params.ref))
+                    role="heading" aria-level=(e.name == "home" or e.name == "channel" ? 1 : 2) flex=1 testId=`title-${e.name}`
+
+                if e.name == "home" or e.name == "project"
+                  if e.name == "project" and current(projects) and current(home) and itemsOf(projects, e.params.id).length == 0 and gapsOf(projects, e.params.id).length == 0 and cardsFor(home.cards, e.name, e.params.id).length == 0
+                    EmptyState(symbol="symbol:checkmark", title="In step", message="Nothing waits on you here, and no work is queued.")
+                  else
+                    list id=`content-${e.id}` appearance="auto" listStyle="inset-grouped" flex=1 min-height=0
+                      if e.name == "home" and home.chips.length > 0
+                        section testId="chips"
+                          for c, i in home.chips key=c.projectId
+                            link href=path("project", c.projectId) testId=`chip-${i}`
+                              image toneSymbol(c.tone) color=toneColor(c.tone) aria-hidden=true
+                              column flex=1 min-width=0 gap=2 padding-top=4 padding-bottom=4
+                                text c.name testId=`chip-${i}-name`
+                                if c.tone != "green"
+                                  text chipReason(c) font="-exact-subheadline" color="-exact-secondary-label" testId=`chip-${i}-reason`
+                              image "symbol:forward-chevron"
+
+                      // A covered route stays mounted under the one on top, so a card's testId names its route.
+                      if cardsFor(home.cards, e.name, e.params.id).length > 0
+                        section testId=`${e.name}-needs-you`
+                          header
+                            text "Needs you" testId=`${e.name}-needs-you-title`
+                          // A card is one row: the question, a one-line why, its answers, then "More".
+                          for c, i in cardsFor(home.cards, e.name, e.params.id) key=c.key
+                            column gap=8 padding-top=10 padding-bottom=10 testId=`${e.name}-card-${i}`
+                              column gap=4
+                                if e.name == "home"
+                                  text c.projectName font="-exact-footnote" color="-exact-secondary-label" testId=`${e.name}-card-${i}-project`
+                                text c.question font="-exact-headline" testId=`${e.name}-card-${i}-question`
+                                if c.why != ""
+                                  text c.why markup="markdown" font="-exact-subheadline" color="-exact-secondary-label" testId=`${e.name}-card-${i}-why`
+                              if c.command != ""
+                                column gap=4
+                                  text "Deploy from your Mac" font="-exact-footnote" color="-exact-secondary-label"
+                                  text c.command font-family="ui-monospace" user-select="text" overflow-wrap="anywhere" testId=`${e.name}-card-${i}-command`
+                              if c.answers.length > 0
+                                row gap=8 flex-wrap="wrap"
+                                  for a in c.answers key=a.id
+                                    button press=choose(c.key, a.id) disabled=(a.unavailable != "") buttonStyle=(a.recommended ? "filled" : "bordered")
+                                      testId=`${e.name}-card-${i}-answer-${a.id}`
+                                      text a.label
+                                if recommendedOf(c) != ""
+                                  text `Recommended: ${recommendedOf(c)}` font="-exact-footnote" color="-exact-secondary-label" testId=`${e.name}-card-${i}-recommended`
+                                for a in c.answers.filter(a => a.unavailable != "") key=a.id
+                                  text `${a.label}: ${a.unavailable}` font="-exact-footnote" color="-exact-secondary-label" testId=`${e.name}-card-${i}-unavailable-${a.id}`
+                              if chosenOf(c, picked) != ""
+                                column gap=4 align-items="flex-start"
+                                  text `You chose ${chosenOf(c, picked)}. Nothing was sent: this build shows sample data.` font="-exact-subheadline" testId=`${e.name}-card-${i}-chosen`
+                                  button press=unchoose testId=`${e.name}-card-${i}-undo`
+                                    text "Undo"
+                              if c.more.length > 0
+                                row
+                                  button press=more(c.key) aria-expanded=opened.includes(c.key) testId=`${e.name}-card-${i}-more`
+                                    text (opened.includes(c.key) ? "Less" : "More")
+                                if opened.includes(c.key)
+                                  for f, j in c.more key=f.label
+                                    column gap=2
+                                      text f.label font="-exact-footnote" color="-exact-secondary-label"
+                                      text f.text markup="markdown" font="-exact-subheadline" testId=`${e.name}-card-${i}-more-${j}`
+
+                      if e.name == "project" and itemsOf(projects, e.params.id).length > 0
+                        section testId="backlog"
+                          header
+                            text "Backlog" testId="backlog-title"
+                          for it, i in itemsOf(projects, e.params.id) key=it.ref
+                            link href=path("item", e.params.id, it.ref) testId=`item-${i}`
+                              column flex=1 min-width=0 gap=4 padding-top=4 padding-bottom=4
+                                text it.title testId=`item-${i}-title`
+                                row gap=8 align-items="center" flex-wrap="wrap"
+                                  row testId=`item-${i}-state`
+                                    Badge(label=it.state, tint=stateTint(it.state))
+                                  if it.agent != ""
+                                    text it.agent font="-exact-footnote" color="-exact-secondary-label" testId=`item-${i}-agent`
+                              image "symbol:forward-chevron"
+                      // What could not be read is said, never left as a quiet page.
+                      if e.name == "project" and gapsOf(projects, e.params.id).length > 0
+                        section testId="gaps"
+                          header
+                            text "Not read"
+                          for g, i in gapsOf(projects, e.params.id) key=g
+                            row padding-top=6 padding-bottom=6
+                              text g flex=1 min-width=0 color="-exact-secondary-label" testId=`gap-${i}`
+
+                else if e.name == "item"
+                  list id=`content-${e.id}` appearance="auto" listStyle="inset-grouped" flex=1 min-height=0
+                    for it in itemOf(projects, e.params.id, e.params.ref) key=it.ref
+                      section
+                        row
+                          text "State" flex=1
+                          row testId="item-state"
+                            Badge(label=it.state, tint=stateTint(it.state))
+                        if it.agent != ""
+                          row
+                            text "Agent" flex=1
+                            text it.agent color="-exact-secondary-label" testId="item-agent"
+                      if it.done != ""
+                        section
+                          header
+                            text "Done when"
+                          row padding-top=10 padding-bottom=10
+                            text it.done markup="markdown" flex=1 min-width=0 testId="item-done"
+                      if it.next != ""
+                        section
+                          header
+                            text "Next"
+                          row padding-top=10 padding-bottom=10
+                            text it.next markup="markdown" flex=1 min-width=0 testId="item-next"
+                      if it.canAssign
+                        section
+                          header
+                            text "Assign"
+                          row padding-top=10 padding-bottom=10
+                            text it.assignWhy flex=1 min-width=0 testId="item-assign-why"
+                          for r in it.assign key=r.provider
+                            column gap=2 padding-top=6 padding-bottom=6
+                              text (r.recommended ? `${r.provider} · recommended` : r.provider) font="-exact-footnote" color="-exact-secondary-label" testId=`item-assign-${r.provider}`
+                              text r.command font-family="ui-monospace" user-select="text" overflow-wrap="anywhere"
+                          footer
+                            text "Runs on your Mac. Preview first; approval is required before attaching."
+
+                else
+                  if current(channel) and channel.length == 0
+                    EmptyState(symbol="symbol:messages", title="No lines yet", message="What agents say and what plates sees shows here.")
+                  else
+                    list id=`content-${e.id}` appearance="none" virtualized=true scroll-start="end" flex=1 min-height=0 testId="transcript"
+                      for l, i in channel key=l.id
+                        column padding="3px 12px"
+                          if isSystem(l)
+                            text l.text align-self="center" text-align="center" max-width="85%" padding="2px 10px"
+                              font="-exact-footnote" color="-exact-secondary-label" testId=`line-${i}-system`
+                          else if isOwner(l)
+                            column align-items="flex-end" gap=2
+                              text l.text markup="markdown" padding="8px 12px" border-radius=18 max-width="75%" overflow-wrap="break-word"
+                                background-color="AccentColor" color="AccentColorText" testId=`line-${i}-owner`
+                              text `${timeOf(l.at)} · #${l.plate} · ${l.answered ? "answered" : "sent"}` font="-exact-caption2" color="-exact-secondary-label" testId=`line-${i}-mark`
+                          else
+                            row gap=8 align-items="flex-start"
+                              if grouped(channel, i)
+                                view width="1.75rem" flex-shrink=0
+                              else
+                                row width="1.75rem" height="1.75rem" flex-shrink=0 border-radius="0.875rem" align-items="center" justify-content="center" margin-top=18
+                                  background-color="-exact-secondary-fill" aria-hidden=true
+                                  text initial(l.actor) font="-exact-footnote"
+                              column flex=1 min-width=0 gap=2 align-items="flex-start"
+                                if not grouped(channel, i)
+                                  text l.actor font="-exact-footnote" color="-exact-secondary-label" padding-left=12 testId=`line-${i}-who`
+                                text l.text markup="markdown" padding="8px 12px" border-radius=18 max-width="85%" overflow-wrap="break-word"
+                                  background-color="-exact-fill" color="-exact-label" testId=`line-${i}-agent`
+
+      row role="tablist" testId="tabs"
+        button role="tab" aria-controls="panel-home" aria-selected=(nav.tab == "home") press=pick("home")
+          testId="tab-home" flex=1
+          image "symbol:home"
+          text "Home"
+          if home.cards.length > 0
+            row background-color="-exact-system-red" border-radius=12
+              text `${home.cards.length}` font-variant-numeric="tabular-nums" testId="needs-you-count"
+        button role="tab" aria-controls="panel-channel" aria-selected=(nav.tab == "channel") press=pick("channel")
+          testId="tab-channel" flex=1
+          image "symbol:messages"
+          text "Channel"

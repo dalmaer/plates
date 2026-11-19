@@ -1,0 +1,35 @@
+{
+  "$schema": "../../exact/scripts/app.schema.json",
+  "name": "Plates",
+  "short_name": "Plates",
+  "id": "com.dalmaer.plates",
+  "start_url": "/",
+  "display": "standalone",
+  "icons": [
+    {
+      "src": "assets/icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png"
+    }
+  ],
+  "app": {
+    "id": "com.dalmaer.plates",
+    "name": "Plates"
+  },
+  "host": {
+    "web": {},
+    "ios": {
+      "minimumOS": "17.0",
+      "deviceFamily": [
+        "iphone",
+        "ipad"
+      ]
+    }
+  },
+  "deploy": {
+    "store": {
+      "web": "0",
+      "ios": "0"
+    }
+  }
+}
