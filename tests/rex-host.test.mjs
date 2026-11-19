@@ -1498,3 +1498,37 @@ test('delayed clear confirmation recognizes the original clear without probing a
     assert.deepEqual(await journal.read(fresh.data.digest), before);
   } finally { release(); await delayed; }
 });
+
+
+test('late cleared dispatch reads its archived outcome and preserves replacement startup files', async t => {
+  const a = await attached(t), journal = attachJournal(a.dir);
+  let reached, release;
+  const paused = new Promise(r => { reached = r; }), resume = new Promise(r => { release = r; });
+  const dispatcher = attach(a.args, a.deps({ journal: { ...journal, receipt: async (...args) => {
+    const kept = await journal.receipt(...args);
+    reached(); await resume; return kept;
+  } } }));
+  await paused;
+  try {
+    await a.cancel();
+    const [old] = await journal.list();
+    await cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'replace stopped run', yes: true }, a.deps());
+    const fresh = await attach(a.args, a.deps());
+    assert.equal(fresh.data.digest, old.digest);
+    const before = await journal.read(old.digest), calls = (await a.w.rexCalls()).length;
+    const brief = rexBriefFile(a.w.env, old.digest);
+    await writeFile(brief, 'Acme replacement brief');
+    await writeFile(`${brief}.worker`, 'Acme replacement worker');
+    release();
+    const late = await dispatcher;
+    assert.equal(late.data.state, 'cancelled');
+    assert.ok(existsSync(brief), 'replacement generation brief survives the old dispatcher');
+    assert.ok(existsSync(`${brief}.worker`), 'replacement generation worker file survives the old dispatcher');
+    assert.equal(await readFile(brief, 'utf8'), 'Acme replacement brief');
+    assert.equal(await readFile(`${brief}.worker`, 'utf8'), 'Acme replacement worker');
+    assert.deepEqual(late.data.cancelled, old.cancelled, 'the original archived outcome is retained');
+    assert.equal((await a.w.rexCalls()).length, calls, 'a cleared dispatcher never probes or stops a reused host session');
+    assert.deepEqual(await journal.read(old.digest), before);
+    assert.equal(await journal.cancelledOf(old.digest), null);
+  } finally { release(); await dispatcher; }
+});
