@@ -17,6 +17,7 @@ import { glanceLines, homeText } from '../lib/home.mjs';
 import { createCardAnswers, cardStatus, leaveGuard, startHomeClient } from '../lib/web/home-client.mjs';
 import { createWebSender } from '../lib/web/review-client.mjs';
 import { projectHarness } from './helpers/web-projects.mjs';
+import { shellLayers } from '../lib/web/assets.mjs';
 import { createWebService } from '../lib/web/server.mjs';
 
 const TODAY = '2026-11-17', SHA = n => String(n).repeat(40).slice(0, 40);
@@ -107,6 +108,17 @@ test('Needs you: one card per decision, the recommended answer filled, a one-lin
   // The terminal prints the same cards, with the command that answers each.
   const text = glanceLines(data.home.glance, data).join('\n');
   assert.match(text, /^ {2}Acme API · Does the Acme 8 flow work\?\n {6}A person uses the real surface\.\n {6}Works \(recommended\) \| Needs changes \| Not now\n {6}answer: plates home --answer api:walk:8 <choice-works\|choice-needs-changes\|not-now>/m);
+});
+
+test('screen-reader words on chips and answers stay off screen: plates.css styles .sr-only everywhere, not only in one toolbar', () => {
+  // On 2026-11-19 every Home chip showed its sr-only line ("Needs attention, and 2 more: …"), the
+  // recommended answer read "Go (recommended)" and the sr-only h1 showed, because .sr-only was
+  // styled only inside .message-toolbar.
+  const page = homeView(access, snapshot(plates(), { can: { form: 'web', decisionWrites: true } }));
+  assert.match(page, /class="sr-only"/, 'Home uses sr-only text');
+  assert.match(page, /<link rel="stylesheet" href="\/assets\/plates\.css">/, 'Home loads plates.css');
+  const css = shellLayers().map(([, layer]) => layer).join('');
+  assert.match(css, /(?:^|[}\s])\.sr-only\{position:absolute;width:1px;height:1px;[^}]*clip:rect\(0,0,0,0\)/, 'an unscoped .sr-only rule hides it');
 });
 
 test('Deploy runs the checked promote only: the card is its command, in no write route, and only while production is behind main', () => {
