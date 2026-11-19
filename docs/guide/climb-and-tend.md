@@ -293,10 +293,30 @@ separately; a long baseline is not evidence of long agent execution. Admission i
 an estimate, not a performance guarantee. No measured attempts means no candidate
 was evaluated, not that evaluated candidates failed to improve.
 
-For Plates itself, `climb.testCommand` targets `tests/improve.test.mjs`: the
-health/report path was the slowest aggregate file in the retained October 31
-suite. A local isolated observation on November 1 passed all eighteen tests in
-74.665 seconds. That is a different environment, not a measured CI speedup.
 The full `npm run check`, base/candidate test-preservation guard, two comparison
 rounds and improvement margin are unchanged. The focused benchmark narrows what
 can claim an improvement; it does not narrow correctness validation.
+
+### Rotate the timed test file
+
+Opt in with `climb.testTarget: "slowest-fit"` and `climb.testTemplate`, a shell
+command containing `{file}`. Keep `climb.testCommand` as the fixed fallback;
+removing `testTarget` and `testTemplate` restores it without changing the gate.
+Plates itself opts in. The newest usable ledger observation for each file is
+used, preferring single-file or serial observations; concurrent-only estimates
+are explicitly identified. CI ledgers are gathered before selection.
+
+`pick` chooses the slowest file that fits both the separate baseline allowance
+and twelve comparison executions plus the existing half-allowance reserve.
+The nightly plan can reduce those allowances. Files with open climb PRs wait;
+a file whose last completed climb kept nothing rests for the next seven UTC
+nights. Older PRs without target metadata conservatively hold all test targets.
+The retained nightly artifact carries per-file outcomes across nights.
+
+The pick JSON names `target: {file, expectedMs, why, skipped}`. Pass the saved
+receipt to `measure test-time --baseline --pick <pick.json>`; subsequent measures
+and comparisons use the pinned night record. The report names the file and its
+PR includes target metadata for the next pick. No fitting candidate produces
+`no climb tonight: no test file fits the budget`, with the skips retained in
+pick JSON. Estimates select a candidate; actual baseline admission still decides
+whether a model can start.

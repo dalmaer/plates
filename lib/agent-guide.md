@@ -1492,7 +1492,9 @@ schedule: an agent climbs one number under `.agents/climb/PROTOCOL.md`, and
 
 - `config` — `.plates/plates.json` `"climb"`: `jobs` (`test-time`, `hygiene`,
   `build-time`, `perf`, `lessons`, `loop`), `budget.minutes` (5–180), `schedule` (`nightly`|`weekly`),
-  `margin` (0.01–0.5), `attempts`, `testCommand` (default `npm test`);
+  `margin` (0.01–0.5), `attempts`, `testCommand` (default `npm test`); opt-in `testTarget: "slowest-fit"`
+  uses `testTemplate` containing `{file}` and preserves the fixed command for rollback;
+  pass pick JSON to `measure --baseline --pick <pick.json>` to pin the file;
   `build`, `buildOutput`, `buildBudgetMs` for `build-time`; `perf`:
   `{ command, better: lower|higher, unit?, check? }` (the command prints one
   number on its last line). `loop` needs the loop practice. No `climb`, no climb night.
@@ -1500,14 +1502,14 @@ schedule: an agent climbs one number under `.agents/climb/PROTOCOL.md`, and
   measure (`flaky_tests` → `hygiene` first; `slow_tests` → `test-time`;
   `build_time` → `build-time`; `perf` → `perf`; `lessons_without_guard`, or
   rows since the last distill → `lessons`; untriaged Loop findings → `loop`),
-  else rotation (`.plates/climb.json`; never hygiene, lessons or loop); a job with an open `plates-climb/<job>/` PR waits, one with three
+  else rotation (`.plates/climb.json`; never hygiene, lessons or loop); a job with an open `plates-climb/<job>/` PR waits (slowest-fit waits per file), one with three
   closed unmerged is skipped (retiring). gh is `PLATES_GH` or `gh`.
   `--plan f` (tonight's plan, from `plates-night-plan`): valid and dated d, only
   its first open `climb:<job>` build item whose job may run, or nothing
   (`plan.skipped` says why for each other); its `budget.minutes` lowers
   `minutes`, never raises it. Refused or another night's: as without.
   `sandbox --plan f` also refuses any path its `willNotTouch` covers.
-- `measure <job> [--runs k] [--baseline] [--minutes n]` — median and spread;
+- `measure <job> [--runs k] [--baseline] [--minutes n] [--pick f]` — median and spread;
   `--baseline` opens `.plates/climb/night.json` and checks timed comparison
   feasibility after the first probe. `--minutes` lowers the configured allowance
   to the picked plan budget. Wall time, not benchmark output, estimates twelve

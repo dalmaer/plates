@@ -358,3 +358,27 @@ plan item as `no-improvement` without a PR. No candidate and missing execution
 remain distinct failures. These receipts are advisory: existing sandbox,
 changed-file, test-ledger, mandatory gate and publish checks still decide what
 can proceed.
+
+### Rotate the timed test file
+
+Opt in with `climb.testTarget: "slowest-fit"` and `climb.testTemplate`, a shell
+command containing `{file}`. Keep `climb.testCommand` as the fixed fallback;
+removing `testTarget` and `testTemplate` restores it without changing the gate.
+Plates itself opts in. The newest usable ledger observation for each file is
+used, preferring single-file or serial observations; concurrent-only estimates
+are explicitly identified. CI ledgers are gathered before selection.
+
+`pick` chooses the slowest file that fits both the separate baseline allowance
+and twelve comparison executions plus the existing half-allowance reserve.
+The nightly plan can reduce those allowances. Files with open climb PRs wait;
+a file whose last completed climb kept nothing rests for the next seven UTC
+nights. Older PRs without target metadata conservatively hold all test targets.
+The retained nightly artifact carries per-file outcomes across nights.
+
+The pick JSON names `target: {file, expectedMs, why, skipped}`. Pass the saved
+receipt to `measure test-time --baseline --pick <pick.json>`; subsequent measures
+and comparisons use the pinned night record. The report names the file and its
+PR includes target metadata for the next pick. No fitting candidate produces
+`no climb tonight: no test file fits the budget`, with the skips retained in
+pick JSON. Estimates select a candidate; actual baseline admission still decides
+whether a model can start.

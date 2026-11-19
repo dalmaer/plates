@@ -1291,13 +1291,14 @@ export const CLIMB_NIGHT = '.plates/climb/night.json';
 export function climbLine(config, night) {
   if (config?.climb === undefined || night === undefined || night === null) return null;
   if (typeof night !== 'object' || !Array.isArray(night.tried) || typeof night.job !== 'string' || typeof night.date !== 'string') return `Climb: the newest record (${CLIMB_NIGHT}) is unreadable; see the last plates-climb run.`;
-  if (night.admission?.state === 'blocked') return `Climb: ${night.date} ${night.job}: blocked before model launch; ${night.admission.reason}; ${night.admission.nextAction}`;
+  const target = typeof night.target?.file === 'string' ? ` (${night.target.file.replace(/[\r\n|]/g, " ")})` : '';
+  if (night.admission?.state === 'blocked') return `Climb: ${night.date} ${night.job}${target}: blocked before model launch; ${night.admission.reason}; ${night.admission.nextAction}`;
   const kept = night.tried.filter(a => a?.verdict === 'keep').length;
-  if (kept) return `Climb: ${night.date} ${night.job}: kept ${kept}, ${Number.isInteger(night.pr) ? `PR #${night.pr}` : `no PR opened${night.gate ? '' : ' (the guard did not pass)'}`}.`;
+  if (kept) return `Climb: ${night.date} ${night.job}${target}: kept ${kept}, ${Number.isInteger(night.pr) ? `PR #${night.pr}` : `no PR opened${night.gate ? '' : ' (the guard did not pass)'}`}.`;
   const none = night.job === 'hygiene' ? 'none proven steady' : `none beat the noise${Number.isFinite(night.margin) ? ` (margin ${Math.round(night.margin * 100)}%)` : ''}`;
   const why = night.tried.length ? `${night.tried.length} tried, ${none}` : 'no measured attempts recorded';
   const unsettled = night.settlements?.length ? '; incomplete: unmeasured work recorded at settlement' : '';
-  return `Climb: ${night.date} ${night.job}: kept nothing (${why}${unsettled}).`;
+  return `Climb: ${night.date} ${night.job}${target}: kept nothing (${why}${unsettled}).`;
 }
 
 /** A climb job's PR branch prefix. */
