@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "date": "2026-11-18",
+  "date": "2026-11-19",
   "shapedBy": "default",
   "readyBy": null,
   "willNotTouch": [],
@@ -9,7 +9,7 @@
   "items": [
     {
       "id": "measures",
-      "title": "Measure the practice: 41 measures; outside or broken on 2026-11-17: long_files, phases_without_issue, phases_stuck, proofs_hold, escapes, lessons_without_guard, inbox_waiting, issues_unnamed, failures_untaught",
+      "title": "Measure the practice: 41 measures; outside or broken on 2026-11-18: long_files, phases_without_issue, phases_stuck, proofs_hold, escapes, lessons_without_guard, inbox_waiting, issues_unnamed, failures_untaught",
       "kind": "measure",
       "source": "default",
       "number": null,
@@ -17,13 +17,13 @@
       "budget": null,
       "status": "done",
       "result": {
-        "note": "14 ok, 9 outside, 18 n/a, 0 broken",
-        "link": "docs/health/2026-11-18.md"
+        "note": "13 ok, 9 outside, 19 n/a, 0 broken",
+        "link": "docs/health/2026-11-19.md"
       }
     },
     {
       "id": "health-phases-without-issue",
-      "title": "Proposal from 2026-11-17: Open issues on dalmaer/plates for phases 50, 88, 94, 98, 99, 100, 101, 102, 103, 104 and 57 more and set `issue:` in each one's front matter.",
+      "title": "Proposal from 2026-11-18: Open issues on dalmaer/plates for phases 50, 88, 94, 98, 99, 100, 101, 102, 103, 104 and 59 more and set `issue:` in each one's front matter.",
       "kind": "review",
       "source": "health:phases_without_issue",
       "number": {
@@ -50,15 +50,12 @@
       "budget": {
         "minutes": 45
       },
-      "status": "failed",
-      "result": {
-        "note": "no-candidate: climb test-time 2026-11-18: kept nothing; no measured attempts recorded; inspect the retained execution receipt and measurement scope before retrying; no optimization was evaluated; 3 min",
-        "link": "https://github.com/dalmaer/plates/actions/runs/44284867522"
-      }
+      "status": "planned",
+      "result": null
     },
     {
       "id": "persona-performance--published-package",
-      "title": "published package: back to at most 1000kB (measured 2678kB)",
+      "title": "published package: back to at most 1000kB (measured 2703kB)",
       "kind": "triage",
       "source": "persona:performance",
       "number": {
