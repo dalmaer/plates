@@ -214,7 +214,7 @@ export function climbProblems(config) {
   if (c === undefined) return [];
   if (!c || typeof c !== 'object' || Array.isArray(c)) return ['"climb" must be an object: { jobs, budget: { minutes }, schedule, margin, attempts }'];
   const out = [];
-  const known = ['jobs', 'budget', 'schedule', 'margin', 'attempts', 'testCommand', 'build', 'buildOutput', 'buildBudgetMs', 'perf', 'agent'];
+  const known = ['jobs', 'budget', 'schedule', 'margin', 'attempts', 'testCommand', 'testTarget', 'testTemplate', 'build', 'buildOutput', 'buildBudgetMs', 'perf', 'agent'];
   for (const k of Object.keys(c)) if (!known.includes(k)) out.push(`"climb" has an unknown key ${k} (${known.join(', ')})`);
   if (!Array.isArray(c.jobs) || !c.jobs.length) out.push(`"climb".jobs must list one job or more (${Object.keys(JOBS).join(', ')})`);
   else {
@@ -230,6 +230,9 @@ export function climbProblems(config) {
   if (c.margin !== undefined && !between(c.margin, LIMITS.margin)) out.push(`"climb".margin must be a fraction from ${LIMITS.margin[0]} to ${LIMITS.margin[1]} (got ${JSON.stringify(c.margin)}; 0.05 is 5%)`);
   if (c.attempts !== undefined && !(Number.isInteger(c.attempts) && between(c.attempts, LIMITS.attempts))) out.push(`"climb".attempts must be a whole number from ${LIMITS.attempts[0]} to ${LIMITS.attempts[1]}`);
   if (c.testCommand !== undefined && (typeof c.testCommand !== 'string' || !c.testCommand.trim())) out.push('"climb".testCommand must be a non-empty shell command');
+  if (c.testTarget !== undefined && c.testTarget !== 'slowest-fit') out.push('"climb".testTarget must be slowest-fit');
+  if (c.testTemplate !== undefined && (typeof c.testTemplate !== 'string' || !c.testTemplate.includes('{file}'))) out.push('"climb".testTemplate must contain {file}');
+  if (c.testTarget === 'slowest-fit' && (typeof c.testTemplate !== 'string' || !c.testTemplate.includes('{file}'))) out.push('slowest-fit requires climb.testTemplate containing {file}');
   if (c.build !== undefined && (typeof c.build !== 'string' || !c.build.trim())) out.push('"climb".build must be a non-empty shell command');
   if (c.buildOutput !== undefined && !safeRelative(c.buildOutput)) out.push('"climb".buildOutput must be a path inside the repo (a file or directory the build writes), not absolute and never ..');
   if (c.buildBudgetMs !== undefined && !(Number.isInteger(c.buildBudgetMs) && c.buildBudgetMs > 0)) out.push('"climb".buildBudgetMs must be a whole number of milliseconds above 0');
@@ -267,6 +270,7 @@ export function climbConfigOf(config) {
     margin: c.margin ?? DEFAULTS.margin,
     attempts: c.attempts ?? DEFAULTS.attempts,
     testCommand: JOBS['test-time'].command(config),
+    ...(c.testTarget ? { testTarget: c.testTarget, testTemplate: c.testTemplate } : {}),
     ...(c.build !== undefined ? { build: c.build } : {}),
     ...(c.buildOutput !== undefined ? { buildOutput: normalize(c.buildOutput).replace(/[\\/]+$/, '') } : {}),
     ...(c.buildBudgetMs !== undefined ? { buildBudgetMs: c.buildBudgetMs } : {}),
@@ -417,7 +421,6 @@ function ghPrs(root, env, state, fields) {
   if (!Array.isArray(data)) throw new ClimbError(`gh pr list --state ${state} did not print a JSON array`);
   return data;
 }
-const openHeads = (root, env) => ghPrs(root, env, 'open', 'headRefName').map(p => p?.headRefName).filter(h => typeof h === 'string');
 
 /**
  * The rotation's last job: the newer of .plates/climb.json (it rides on a
@@ -490,7 +493,93 @@ export function choosePlanned({ items, jobs, unavailable = [], waiting = new Set
   return { job: it.job, item: it, by: 'plan', why: `tonight's plan names it: ${it.id}, ${it.title}`, skipped };
 }
 
-export async function pick({ root, config, env = process.env, date = today(), force = false, lastNight, plan: planFile }) {
+/** The same independent baseline and agent allowances used by live admission. */
+export function admissionLimits(minutes) {
+  const allowanceMs = minutes * 60_000;
+  const cleanupHeadroomMs = Math.min(30_000, allowanceMs * 0.1);
+  return { allowanceMs, reserveMs: allowanceMs / 2, cleanupHeadroomMs,
+    baselineLimitMs: allowanceMs - cleanupHeadroomMs,
+    comparisonExecutions: DEFAULTS.rounds * DEFAULTS.compareRuns * 2 };
+}
+
+export const TARGET_COOLDOWN_NIGHTS = 7;
+// A ledger is data, never shell syntax. Templates receive one quoted repo path.
+const targetFile = file => typeof file === 'string' && /^[a-zA-Z0-9_][a-zA-Z0-9_./-]*$/.test(file) && !file.split('/').some(p => !p || p === '.' || p === '..');
+const targetCommand = (config, target) => {
+  if (!targetFile(target?.file)) throw new ClimbError('slowest-fit needs a valid pinned target from pick');
+  return config.climb.testTemplate.replaceAll('{file}', `'${target.file}'`);
+};
+const targetConfig = (config, target) => ({ ...config, climb: { ...config.climb, testCommand: targetCommand(config, target) } });
+const prTarget = pr => {
+  try { const file = JSON.parse(pr.body?.match(/<!-- plates-climb-target: (.+?) -->/)?.[1] ?? 'null')?.file; return targetFile(file) ? file : null; }
+  catch { return null; }
+};
+
+/** Carry latest per-file outcomes through the nightly artifact, including dry nights. */
+export async function targetHistory(root, lastNight) {
+  const sources = [await readJson(join(root, STATE)), lastNight ? await readJson(lastNight).catch(() => null) : null];
+  const history = new Map();
+  const add = entry => {
+    if (!targetFile(entry?.file) || !/^\d{4}-\d{2}-\d{2}$/.test(entry.date ?? '') || !Number.isInteger(entry.kept) || entry.kept < 0) return;
+    if (!history.has(entry.file) || entry.date >= history.get(entry.file).date) history.set(entry.file, entry);
+  };
+  for (const source of sources) {
+    for (const entry of Array.isArray(source?.targetHistory) ? source.targetHistory : []) add(entry);
+    const n = source?.last ?? source;
+    // An interrupted or blocked baseline is not evidence that a file ran dry.
+    if (n?.target && n.admission?.state !== 'blocked' && (Number.isInteger(n.kept) || typeof n.line === 'string' && n.line.includes('kept nothing'))) {
+      add({ file: n.target.file, date: n.date, kept: n.kept ?? 0 });
+    }
+  }
+  return [...history.values()].sort((a, b) => a.file.localeCompare(b.file));
+}
+
+/** Latest usable duration per file, preferring isolated/serial observations. */
+export async function chooseTestTarget({ root, minutes, date, history = [], prs = [], runs }) {
+  runs ??= (await readRuns(root)).runs;
+  const candidates = new Map(), skipped = [];
+  const realRoot = await realpath(root);
+  for (const run of [...runs].sort((a, b) => String(a.date).localeCompare(String(b.date)))) {
+    if (run.filtered || run.completed === false) continue;
+    const files = new Map();
+    for (const t of run.tests ?? []) {
+      if (!targetFile(t?.file)) continue;
+      const row = files.get(t.file) ?? { ms: 0, valid: true };
+      row.valid &&= t.outcome === 'pass' && Number.isFinite(t.ms) && t.ms >= 0;
+      row.ms += t.ms;
+      files.set(t.file, row);
+    }
+    const flags = Array.isArray(run.flags) ? run.flags : [];
+    const serial = run.suite?.executionSettings?.concurrency === '1' || flags.includes('--test-concurrency=1') || flags.some((v, i) => v === '--test-concurrency' && flags[i + 1] === '1');
+    const preferred = files.size === 1 || serial;
+    for (const [file, row] of files) {
+      if (!row.valid) continue;
+      const expectedMs = files.size === 1 && Number.isFinite(run.wallMs) && run.wallMs > 0 ? Math.max(row.ms, run.wallMs) : row.ms;
+      if (!Number.isFinite(expectedMs) || !(expectedMs > 0)) continue;
+      if (candidates.get(file)?.preferred && !preferred) continue;
+      candidates.set(file, { file, expectedMs, preferred, source: files.size === 1 ? 'single-file ledger' : serial ? 'serial ledger' : 'concurrent ledger fallback; contention may inflate the estimate' });
+    }
+  }
+  const limits = admissionLimits(minutes);
+  const open = new Set(prs.filter(p => branchSuffix(p.headRefName, 'git ref:keel-climb/')?.startsWith('test-time/')).map(prTarget));
+  let selected = null;
+  for (const row of [...candidates.values()].sort((a, b) => b.expectedMs - a.expectedMs || a.file.localeCompare(b.file))) {
+    const { file, expectedMs } = row;
+    const last = history.find(h => h.file === file);
+    const nights = last ? (Date.parse(date) - Date.parse(last.date)) / 86_400_000 : Infinity;
+    let why;
+    if (!(await lstat(join(root, file)).catch(() => null))?.isFile() || !(await realpath(join(root, file)).catch(() => '')).startsWith(`${realRoot}${sep}`)) why = 'test file is missing or is not a regular file inside the repo';
+    else if (open.has(file) || open.has(null)) why = 'an open climb PR covers this file (or has no target metadata)';
+    else if (last?.kept === 0 && nights >= 0 && nights <= TARGET_COOLDOWN_NIGHTS) why = `kept nothing on ${last.date}; cooling down for ${TARGET_COOLDOWN_NIGHTS} nights`;
+    else if (expectedMs * DEFAULTS.runs > limits.baselineLimitMs) why = `${DEFAULTS.runs} baseline runs exceed the separate baseline allowance`;
+    else if (expectedMs * limits.comparisonExecutions + limits.reserveMs > limits.allowanceMs) why = `${limits.comparisonExecutions} comparison executions plus editing/guard reserve exceed the ${minutes}-minute budget`;
+    if (why) skipped.push({ file, why });
+    else if (!selected) selected = { file, expectedMs, why: `slowest file fitting the separate baseline and comparison allowances; ${row.source}` };
+  }
+  return selected ? { ...selected, skipped } : { file: null, expectedMs: null, why: 'no test file fits the budget', skipped };
+}
+
+export async function pick({ root, config, env = process.env, date = today(), force = false, lastNight, plan: planFile, readPrs = ghPrs }) {
   const c = climbConfigOf(config);
   if (!c) return { job: null, date, reason: 'climb is off: .plates/plates.json has no "climb"' };
   const planned = planFile ? await planFor(planFile, date) : null;
@@ -504,9 +593,12 @@ export async function pick({ root, config, env = process.env, date = today(), fo
   const unavailable = problem ? [{ job: 'loop', reason: problem }] : [];
   const jobs = c.jobs.filter(job => job !== 'loop' || !problem);
   if (!jobs.length) return { job: null, date, reason: problem, unavailable, ...planOut(skipAll(`climb did not run it: ${problem}`)) };
-  const waiting = waitingJobs(openHeads(root, env));
+  const dynamic = c.testTarget === 'slowest-fit';
+  const prs = await readPrs(root, env, 'open', dynamic ? 'headRefName,body' : 'headRefName');
+  const waiting = waitingJobs(prs.map(p => p.headRefName));
+  if (dynamic) waiting.delete('test-time');
   // Three closed unmerged in a row (newest three of every state: a merge or an open one breaks it): the job proposes its own retirement (the health page says so) and waits for the owner.
-  const retired = climbRetiring(ghPrs(root, env, 'all', 'headRefName,number,createdAt,mergedAt,state'), c.jobs);
+  const retired = climbRetiring(await readPrs(root, env, 'all', 'headRefName,number,createdAt,mergedAt,state'), c.jobs);
   const retiring = new Set(retired.map(r => r.job));
   const health = await newestHealth(root, config);
   const lastRun = await lastJob(root, lastNight);
@@ -530,7 +622,22 @@ export async function pick({ root, config, env = process.env, date = today(), fo
   // minutes: the pass's budget; a plan item's may lower it, never raise it (budget shows both).
   const out = { ...chosen, date, health: health?.file ?? null, last: lastRun, waiting: [...waiting].filter(j => c.jobs.includes(j)), retiring: retired, minutes, budget: { config: c.minutes, plan: extra.planItem?.minutes ?? null }, margin: c.margin, attempts: c.attempts, ...extra };
   if (unavailable.length) out.unavailable = unavailable;
-  if (chosen.job) Object.assign(out, { branch: `${PREFIX}${chosen.job}/${date}`, command: JOBS[chosen.job].command(config), number: JOBS[chosen.job].number });
+  if (dynamic) {
+    out.targetHistory = await targetHistory(root, lastNight);
+    if (chosen.job === 'test-time') {
+      out.target = await chooseTestTarget({ root, minutes, date, history: out.targetHistory, prs });
+      if (!out.target.file) {
+        out.job = null; out.reason = out.target.why;
+        if (out.plan?.used && out.plan.item) {
+          out.plan.skipped.push({ id: out.plan.item, note: out.reason, admitted: out.plan.admitted });
+          out.plan.item = null;
+        }
+        return out;
+      }
+      out.why += `; ${out.target.file}: ${out.target.why}`;
+    }
+  }
+  if (chosen.job) Object.assign(out, { branch: `${PREFIX}${chosen.job}/${date}`, command: out.target ? targetCommand(config, out.target) : JOBS[chosen.job].command(config), number: JOBS[chosen.job].number });
   return out;
 }
 
@@ -628,12 +735,7 @@ export function measureIn(cwd, { config, job, runs, env = process.env, admission
   const times = [], wallTimes = [];
   const bounded = admissionMinutes !== undefined;
   if (bounded && (!Number.isFinite(admissionMinutes) || admissionMinutes <= 0)) throw new ClimbError('baseline needs a finite positive minute allowance');
-  const allowanceMs = bounded ? admissionMinutes * 60_000 : null;
-  const reserveMs = bounded ? allowanceMs / 2 : null;
-  // Leave finalization headroom inside the same Actions allowance, never add minutes.
-  const cleanupHeadroomMs = bounded ? Math.min(30_000, allowanceMs * 0.1) : null;
-  const baselineLimitMs = bounded ? allowanceMs - cleanupHeadroomMs : null;
-  const comparisonExecutions = DEFAULTS.rounds * DEFAULTS.compareRuns * 2;
+  const { allowanceMs, reserveMs, cleanupHeadroomMs, baselineLimitMs, comparisonExecutions } = admissionLimits(bounded ? admissionMinutes : 0);
   let admission = bounded ? { minutes: admissionMinutes, reserveMs, reservePolicy: 'half-allowance-heuristic', cleanupHeadroomMs, baselineLimitMs, comparisonExecutions, probeWallMs: null, estimatedComparisonMs: null, termination: 'shell SIGKILL on deadline; descendant cleanup unverified' } : undefined;
   const block = reason => {
     admission = { ...admission, state: 'blocked', reason,
@@ -779,14 +881,26 @@ export async function finalizeBaseline({ root, job, outcome, env = process.env }
   return { state: night.admission.state, line: night.line, admission: night.admission };
 }
 
-export async function measure({ root, config, env, job, runs = DEFAULTS.runs, baseline = false, minutes, now, execute }) {
+export async function measure({ root, config, env, job, runs = DEFAULTS.runs, baseline = false, minutes, now, execute, selection }) {
   const c = on(config);
   if (baseline && minutes !== undefined && (!Number.isFinite(minutes) || minutes <= 0)) throw new ClimbError('baseline needs a finite positive minute allowance');
   if (!Object.hasOwn(JOBS, job)) throw new ClimbError(`unknown job ${JSON.stringify(job)} (known: ${Object.keys(JOBS).join(', ')})`);
   const kind = JOBS[job].kind;
   const started = new Date().toISOString();
-  const pickedMinutes = minutes === undefined ? c.minutes : Math.min(minutes, c.minutes);
+  let pickedMinutes = minutes === undefined ? c.minutes : Math.min(minutes, c.minutes);
+  if (baseline && selection) {
+    if (!Number.isFinite(selection.minutes) || selection.minutes <= 0) throw new ClimbError('pick receipt needs a finite positive minute allowance');
+    pickedMinutes = Math.min(pickedMinutes, selection.minutes);
+  }
+  let pinned = selection;
+  if (c.testTarget === 'slowest-fit' && job === 'test-time') {
+    pinned ??= baseline ? null : await readNight(root);
+    if (!pinned || pinned.job !== job || baseline && pinned.date !== today()) throw new ClimbError('slowest-fit baseline needs today’s --pick receipt; later measurements need its night record');
+    config = targetConfig(config, pinned.target);
+  }
   const initial = baseline ? {
+    ...(pinned?.target ? { target: pinned.target } : {}),
+    ...(pinned?.targetHistory ? { targetHistory: pinned.targetHistory } : {}),
     job, kind, workflowAttempt: baselineAttempt(env ?? process.env), date: today(), started, base: sha(root, 'HEAD'), command: JOBS[job].command(config),
     margin: c.margin, attempts: c.attempts, rounds: DEFAULTS.rounds,
     baseline: { median: null, spread: null, times: [], started, ended: null },
@@ -808,7 +922,7 @@ export async function measure({ root, config, env, job, runs = DEFAULTS.runs, ba
       ...(m.flaky ? { flaky: m.flaky } : {}),
     });
   }
-  return m;
+  return { ...m, ...(pinned?.target ? { target: pinned.target } : {}) };
 }
 
 /** A proposals job's number: lessons, the table's rows since the last distill pass; loop, the untriaged findings. */
@@ -1062,7 +1176,7 @@ function resetTo(root, night, target) {
   git(root, ['reset', '--quiet', '--hard', target]);
 }
 
-export async function compare({ root, config, env, base, candidate = 'HEAD', rounds, runs, decide = false, final = false, what }) {
+export async function compare({ root, config, env, base, candidate = 'HEAD', rounds, runs, decide = false, final = false, what, selection }) {
   const c = on(config);
   const night = await readNight(root);
   if ((decide || final) && !night) throw new ClimbError(`no night is open (${NIGHT}): run measure <job> --baseline first`);
@@ -1074,12 +1188,14 @@ export async function compare({ root, config, env, base, candidate = 'HEAD', rou
     if (JOBS[job]?.kind === 'proposals') throw new ClimbError(`${job} writes proposals and changes no code: nothing to compare; guard judges what it wrote`);
     throw new ClimbError(`${job} is judged by prove-steady, not by timing: node scripts/plates/climb.mjs prove-steady --test "<file>: <name>" --decide`);
   }
+  if (selection && (selection.job !== job || selection.date !== night?.date || JSON.stringify(selection.target) !== JSON.stringify(night?.target))) throw new ClimbError('night target differs from the original pick receipt');
   if (final) {
     const trusted = recordBase(root, base, night.base, NIGHT);
     if (trusted.problem) throw new ClimbError(trusted.problem);
     base = trusted.base; candidate = 'HEAD';
   }
   base ??= 'HEAD~1';
+  if (job === 'test-time' && c.testTarget === 'slowest-fit') config = targetConfig(config, night?.target);
   const res = await compareRefs({ root, config, env, base, candidate, rounds, runs, margin: c.margin, job });
   const subject = what ?? git(root, ['log', '-1', '--format=%s', res.candidate]);
   const out = { job, what: subject, ...res };
@@ -1847,13 +1963,13 @@ export function reportOf(night, { files = [], pkg = null, now = new Date(), prop
   const kept = night.tried.filter(a => a.verdict === 'keep');
   const reverted = night.tried.filter(a => a.verdict !== 'keep');
   const minutes = Math.max(0, Math.round((now - new Date(night.started)) / 60_000));
-  if (night.admission?.state === 'blocked') return { kept: 0, tried: 0, minutes, line: night.line, input: null };
+  if (night.admission?.state === 'blocked') return { kept: 0, tried: 0, minutes, line: `${night.line}${night.target ? `; target ${night.target.file}` : ''}`, input: null };
   const pctMargin = `${Math.round(night.margin * 100)}%`;
   if (!kept.length) {
     const none = night.job === 'hygiene' ? 'none proven steady' : `none beat the noise (margin ${pctMargin})`;
     const tried = night.tried.length ? `${night.tried.length} tried, ${none}` : 'no measured attempts recorded; inspect the retained execution receipt and measurement scope before retrying; no optimization was evaluated';
     const unsettled = night.settlements?.length ? '; incomplete: unmeasured work recorded at settlement' : '';
-    return { kept: 0, tried: night.tried.length, minutes, line: `climb ${night.job} ${night.date}: kept nothing; ${tried}${unsettled}; ${minutes} min`, input: null };
+    return { kept: 0, tried: night.tried.length, minutes, line: `climb ${night.job} ${night.date}${night.target ? ` (${night.target.file})` : ''}: kept nothing; ${tried}${unsettled}; ${minutes} min`, input: null };
   }
   if (night.job === 'hygiene') return hygieneReport(night, { kept, reverted, minutes, files, pkg });
   const before = night.final ? mean(night.final.rounds.map(r => r.base)) : night.baseline.median;
@@ -2028,6 +2144,8 @@ export function issueOf(night, { minutes = 0 } = {}) {
   return { title, body };
 }
 
+export const rotationState = night => ({ last: { job: night.job, date: night.date, kept: night.kept, ...(night.target ? { target: night.target } : {}) }, ...(night.targetHistory ? { targetHistory: night.targetHistory } : {}) });
+
 export async function report({ root, config, input, body, state = false, issue, base, env = {} }) {
   on(config);
   const night = await readNight(root, input ? resolve(input) : undefined);
@@ -2047,15 +2165,20 @@ export async function report({ root, config, input, body, state = false, issue, 
   let text = null;
   if (r.input) {
     text = prBody(r.input);
+    if (night.target) text += `\n<!-- plates-climb-target: ${JSON.stringify({ file: night.target.file })} -->\n`;
     if (body) await writeFile(resolve(body), text);
   }
-  if (state) await writeFile(join(root, STATE), `${JSON.stringify({ last: { job: night.job, date: night.date, kept: r.kept } }, null, 2)}\n`);
+  if (night.target && night.admission?.state !== 'blocked') {
+    night.targetHistory = [...(night.targetHistory ?? []).filter(h => h.file !== night.target.file), { file: night.target.file, date: night.date, kept: r.kept }];
+  }
+  night.kept = r.kept;
+  if (state) await writeFile(join(root, STATE), `${JSON.stringify(rotationState(night), null, 2)}\n`);
   const filed = issue ? issueOf(night, { minutes: r.minutes }) : null;
   if (filed) await writeFile(resolve(issue), filed.body);
   const timing = durations({ started: env.PLATES_CLIMB_STARTED ?? Date.parse(night.started) / 1000, baselineStarted: env.PLATES_CLIMB_BASELINE_STARTED ?? Date.parse(night.baseline?.started) / 1000, baselineEnded: env.PLATES_CLIMB_BASELINE_ENDED ?? Date.parse(night.baseline?.ended) / 1000, agentSeconds: env.PLATES_CLIMB_AGENT_SECONDS, judgeStarted: env.PLATES_CLIMB_JUDGE_STARTED });
   night.line = r.line;
   await writeNight(root, night);
-  return { state: completion(r, night), durations: timing, job: night.job, date: night.date, kept: r.kept, tried: r.tried, minutes: r.minutes, line: r.line, body: text && body ? resolve(body) : null, text, issue: filed ? { title: filed.title, path: resolve(issue) } : null };
+  return { state: completion(r, night), durations: timing, job: night.job, date: night.date, ...(night.target ? { target: night.target } : {}), kept: r.kept, tried: r.tried, minutes: r.minutes, line: r.line, body: text && body ? resolve(body) : null, text, issue: filed ? { title: filed.title, path: resolve(issue) } : null };
 }
 
 // ---- did the agent run? ------------------------------------------------------------
@@ -2144,7 +2267,7 @@ const hasOf = env => {
 // ---- the command line ------------------------------------------------------------
 
 const USAGE = 'usage: node scripts/plates/climb.mjs config|pick|measure <job>|compare|prove-steady|harmless|revert|settle|guard|sandbox|held|report|agent-ran|agent-start --pass climb|tend|tree-print|distill [propose]|loop-pull|tend-pick|tend-input|tend-note|tend-page|tend-report [--json]';
-const FLAGS = { '--date': 'date', '--runs': 'runs', '--rounds': 'rounds', '--base': 'base', '--head': 'head', '--candidate': 'candidate', '--what': 'what', '--why': 'why', '--input': 'input', '--body': 'body', '--test': 'test', '--path': 'path', '--job': 'job', '--issue': 'issue', '--outcome': 'outcome', '--file': 'file', '--minutes': 'minutes', '--started': 'started', '--agent': 'agent', '--pass': 'pass', '--finding': 'finding', '--propose': 'propose', '--tried': 'tried', '--last-night': 'lastNight', '--since': 'since', '--plan': 'plan',
+const FLAGS = { '--pick': 'pick', '--date': 'date', '--runs': 'runs', '--rounds': 'rounds', '--base': 'base', '--head': 'head', '--candidate': 'candidate', '--what': 'what', '--why': 'why', '--input': 'input', '--body': 'body', '--test': 'test', '--path': 'path', '--job': 'job', '--issue': 'issue', '--outcome': 'outcome', '--file': 'file', '--minutes': 'minutes', '--started': 'started', '--agent': 'agent', '--pass': 'pass', '--finding': 'finding', '--propose': 'propose', '--tried': 'tried', '--last-night': 'lastNight', '--since': 'since', '--plan': 'plan',
   // distill propose (lessons)
   '--kind': 'kind', '--name': 'name', '--rule': 'rule', '--guard': 'guard', '--rows': 'rows', '--row': 'row', '--shape': 'shape', '--cost': 'cost', '--check': 'check', '--family': 'family', '--note': 'note', '--read': 'read' };
 const SWITCHES = { '--force': 'force', '--baseline': 'baseline', '--decide': 'decide', '--final': 'final', '--state': 'state', '--record': 'record' };
@@ -2180,6 +2303,10 @@ export async function cli(args, { root = rootOf(import.meta), env = process.env 
   switch (o.verb) {
     case 'config': {
       const c = climbConfigOf(config);
+      if (c?.testTarget === 'slowest-fit') {
+        const p = await pick(ctx);
+        Object.assign(c, { target: p.target ?? null, selectedCommand: p.command ?? null });
+      }
       const t = tendConfigOf(config);
       const tend = t ? `; tend: ${t.schedule}, ${t.minutes} min` : '';
       return { data: { ...(c ? { on: true, ...c } : { on: false }), ...(t ? { tend: t } : {}) }, text: `${c ? `climb: ${c.jobs.join(', ')}, ${c.schedule}, ${c.minutes} min, margin ${Math.round(c.margin * 100)}%, ${c.attempts} attempts` : 'climb is off: .plates/plates.json has no "climb"'}${tend}` };
@@ -2226,7 +2353,7 @@ export async function cli(args, { root = rootOf(import.meta), env = process.env 
     case 'measure': {
       const job = o.positional[0];
       if (!job) throw new ClimbError(`measure needs a job; ${USAGE}`);
-      const m = await measure({ ...ctx, job, runs: o.runs, baseline: o.baseline, minutes: o.minutes });
+      const m = await measure({ ...ctx, job, runs: o.runs, baseline: o.baseline, minutes: o.minutes, selection: o.pick ? await readJson(resolve(o.pick)) : undefined });
       const said = JOBS[job].kind === 'proposals' ? `${m.command}: ${m.median} (${JOBS[job].number})` : `\`${m.command}\` median ${fmtFor(job, config)(m.median)}, spread ${fmtFor(job, config)(m.spread)} over ${m.runs} runs`;
       return { data: m, text: m.line ?? `${job}: ${said}${o.baseline ? `; the night's record is ${NIGHT}` : ''}`, exitCode: m.state === 'blocked' ? 1 : 0 };
     }
@@ -2245,7 +2372,7 @@ export async function cli(args, { root = rootOf(import.meta), env = process.env 
       return { data: r, text: r.pulled ? `Loop pulled${r.commit ? ` (${r.commit.slice(0, 7)})` : ', nothing new'}; ${left}` : r.elsewhere ? `No pull tonight: ${r.why} (the two never both pull); the night proposes for the findings already here (${left})` : `::notice::Loop unreachable (${r.why}): no pull tonight; the night proposes for the findings already here (${left})` };
     }
     case 'compare': {
-      const r = await compare({ ...ctx, base: o.base, candidate: o.candidate, rounds: o.rounds, runs: o.runs, decide: o.decide, final: o.final, what: o.what });
+      const r = await compare({ ...ctx, base: o.base, candidate: o.candidate, rounds: o.rounds, runs: o.runs, decide: o.decide, final: o.final, what: o.what, selection: o.pick ? await readJson(resolve(o.pick)) : undefined });
       const fmt = fmtFor(r.job, config);
       const rows = r.rounds.map(x => `  round ${x.round}: base ${fmt(x.base)}  candidate ${fmt(x.candidate)}  ${fmtPct(x.change)}`);
       const head = r.same ? 'same commit: nothing to compare' : `${r.verdict.toUpperCase()}: ${r.what}: ${r.why}`;

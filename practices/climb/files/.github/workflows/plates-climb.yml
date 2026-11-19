@@ -99,6 +99,7 @@ jobs:
       # Tonight's plan (phase 76): whether pick ran one, and whether it has an item to tick.
       plan_used: ${{ steps.pick.outputs.plan_used }}
       plan_ticks: ${{ steps.pick.outputs.plan_ticks }}
+      target_used: ${{ steps.pick.outputs.target_used }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -241,6 +242,22 @@ jobs:
           '
 
 
+      # Hygiene's number is the test ledger's flaky count: CI's plates-test-runs
+      # artifacts on the default branch, read-only, by name, into
+      # .plates/test-runs, as the night gathers them. None found is a warning;
+      # the baseline then says it cannot tell (exit 2), never a zero.
+      - name: Gather the test ledger
+        if: steps.configured.outputs.enabled == 'true'
+        env:
+          REPO: ${{ github.repository }}
+          BASE: ${{ github.event.repository.default_branch }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! node --input-type=module -e 'import {readFileSync} from "node:fs"; const c=JSON.parse(readFileSync(".plates/plates.json","utf8")).climb; process.exit(c?.testTarget === "slowest-fit" || c?.jobs?.includes("hygiene") ? 0 : 1)'; then exit 0; fi
+          if ! node scripts/plates/test-history.mjs --repo "$REPO" --branch "$BASE" --json; then
+            echo "::warning::The test ledger could not be recovered; baseline coverage remains unavailable."
+          fi
+
       # The climb config, validated (a bad one is red, naming the key), and
       # tonight's job: with tonight's plan (valid and dated today, UTC), the
       # plan's first climb item whose job may run, or none at all; without
@@ -268,7 +285,7 @@ jobs:
             const p = JSON.parse(fs.readFileSync(pick, "utf8"));
             const used = p.plan?.used === true;
             const ticks = used && Boolean(p.plan.item || p.plan.skipped.length);
-            const lines = [`minutes=${p.minutes ?? c.minutes}`, `job=${p.job ?? ""}`, `branch=${p.branch ?? ""}`, `day=${p.date}`, `plan_used=${used}`, `plan_ticks=${ticks}`];
+            const lines = [`minutes=${p.minutes ?? c.minutes}`, `job=${p.job ?? ""}`, `branch=${p.branch ?? ""}`, `day=${p.date}`, `plan_used=${used}`, `plan_ticks=${ticks}`, `target_used=${Boolean(p.target)}`];
             fs.appendFileSync(out, `${lines.join("\n")}\n`);
             if (p.plan) console.log(used ? `the plan for tonight (${p.plan.date}, shaped by ${p.plan.shapedBy}): ${p.plan.item ? `climb runs ${p.plan.item}` : "no climb item runs"}` : `no plan tonight: ${p.plan.why}`);
             console.log(p.job ? `tonight: ${p.job} (${p.why}), ${p.minutes} min` : `no climb tonight: ${p.reason}`);
@@ -278,6 +295,15 @@ jobs:
             cp "$RUNNER_TEMP/night-plan/branch.json" "$RUNNER_TEMP/plan-handoff/night-plan.json"
             cp "$RUNNER_TEMP/pick.json" "$RUNNER_TEMP/plan-handoff/pick.json"
           fi
+
+      - name: Keep the target selection
+        if: steps.configured.outputs.enabled == 'true' && steps.pick.outputs.target_used == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: plates-climb-selection
+          path: ${{ runner.temp }}/pick.json
+          if-no-files-found: error
+          retention-days: 30
 
       # Tonight's plan and the pick, kept before any agent runs (as the
       # robot's admission is): the judge and the publisher refuse the plan's
@@ -291,21 +317,6 @@ jobs:
           path: ${{ runner.temp }}/plan-handoff/
           if-no-files-found: error
           retention-days: 7
-
-      # Hygiene's number is the test ledger's flaky count: CI's plates-test-runs
-      # artifacts on the default branch, read-only, by name, into
-      # .plates/test-runs, as the night gathers them. None found is a warning;
-      # the baseline then says it cannot tell (exit 2), never a zero.
-      - name: Gather the test ledger
-        if: steps.pick.outputs.job == 'hygiene'
-        env:
-          REPO: ${{ github.repository }}
-          BASE: ${{ github.event.repository.default_branch }}
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if ! node scripts/plates/test-history.mjs --repo "$REPO" --branch "$BASE" --json; then
-            echo "::warning::The test ledger could not be recovered; baseline coverage remains unavailable."
-          fi
 
       # The baseline opens the night's record (.plates/climb/night.json), on the
       # night's own branch, before the agent changes anything.
@@ -332,7 +343,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -q -c "$BRANCH"
           echo "started=$(date +%s)" >> "$GITHUB_OUTPUT"
-          node scripts/plates/climb.mjs measure "$JOB" --baseline --minutes "$MINUTES" --json > "$RUNNER_TEMP/baseline-output.json"
+          set --
+          if [ -f "$RUNNER_TEMP/pick.json" ]; then set -- --pick "$RUNNER_TEMP/pick.json"; fi
+          node scripts/plates/climb.mjs measure "$JOB" --baseline --minutes "$MINUTES" --json "$@" > "$RUNNER_TEMP/baseline-output.json"
 
       - name: Finalize baseline admission
         id: admission
@@ -789,6 +802,11 @@ jobs:
         with:
           name: plates-climb-plan
           path: ${{ runner.temp }}/plan
+      - if: needs.agent.outputs.target_used == 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: plates-climb-selection
+          path: ${{ runner.temp }}/selection
       # Drop anything no compare kept (climb.mjs settle: git only), then name
       # the commit to judge, and the checkout's state, before any of the
       # agent's code runs (#68): this step's outputs are fixed when it ends,
@@ -842,7 +860,9 @@ jobs:
           HELD: ${{ steps.take.outputs.held }}
         run: |
           node scripts/plates/climb.mjs guard --base "$GITHUB_SHA"
-          node scripts/plates/climb.mjs compare --final --base "$GITHUB_SHA"
+          set --
+          if [ -f "$RUNNER_TEMP/selection/pick.json" ]; then set -- --pick "$RUNNER_TEMP/selection/pick.json"; fi
+          node scripts/plates/climb.mjs compare --final --base "$GITHUB_SHA" "$@"
           node scripts/plates/climb.mjs report --body "$RUNNER_TEMP/body.md" --issue "$RUNNER_TEMP/issue.md" --base "$GITHUB_SHA" --json > "$RUNNER_TEMP/report.json"
           node scripts/plates/climb.mjs held --since "$HELD" --head "$VALIDATED" --what "the agent's code the judge ran (the guard, compare --final, report)"
           node -e '
@@ -947,6 +967,7 @@ jobs:
         id: open
         if: needs.judge.result == 'success'
         env:
+          TARGET_USED: ${{ needs.agent.outputs.target_used }}
           PLAN_USED: ${{ needs.agent.outputs.plan_used }}
           KEPT: ${{ needs.judge.outputs.kept }}
           LINE: ${{ needs.judge.outputs.line }}
@@ -984,6 +1005,9 @@ jobs:
           # record (the plates-climb artifact), which the next night's pick reads.
           case "$KEPT" in *[!0-9]*) echo "::error::The judge's count ($KEPT) is not a number; nothing is pushed."; exit 1 ;; esac
           state=$(node -e 'console.log(JSON.stringify({ last: { job: process.argv[1], date: process.argv[2], kept: Number(process.argv[3]) } }, null, 2))' "$JOB" "$DAY" "$KEPT")
+          if [ "$TARGET_USED" = true ]; then
+            state=$(node --input-type=module -e 'import {readFileSync} from "node:fs"; import {rotationState} from "./scripts/plates/climb.mjs"; const n=JSON.parse(readFileSync(process.argv[1],"utf8")); console.log(JSON.stringify(rotationState({...n, kept:Number(process.argv[2])}),null,2))' "$RUNNER_TEMP/night/record/night.json" "$KEPT")
+          fi
           blob=$(printf '%s\n' "$state" | git hash-object -w --stdin)
           # A plan whose willNotTouch covers .plates/climb.json holds for plates's
           # own commit too (plates#147): no rotation commit, and the night is

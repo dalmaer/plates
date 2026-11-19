@@ -2,7 +2,10 @@
 
 **The number:** the wall time of the project's test command
 (`.plates/plates.json` `"climb"` `"testCommand"`, default `npm test`), median of
-k runs. Lower is better. `climb.mjs measure test-time` prints it.
+k runs. With `climb.testTarget: "slowest-fit"`, `climb.testTemplate` expands
+`{file}` to tonight’s pinned target from `pick`; the fixed `testCommand` remains
+the fallback when the mode is removed. Baseline, preliminary measurements and
+comparisons all use that same file. Lower is better. `climb.mjs measure test-time` prints it.
 
 The workflow already measured the baseline; do not repeat it. Work within the
 configured measurement command's scope. For a preliminary check after editing,
