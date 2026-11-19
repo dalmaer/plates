@@ -43,7 +43,7 @@ test('a #! line stays first, and blocks take no header', () => {
 
 test('a malformed licenseHeader is refused, naming the setting', () => {
   assert.equal(licenseHeaderLines({}), null);
-  for (const bad of ['Acme', [], [''], [42], ['Acme\nInjected'], ['a'.repeat(201)], Array(41).fill('Acme')]) {
+  for (const bad of ['Acme', [], [''], [42], null, ['Acme\nInjected'], ['a'.repeat(201)], Array(41).fill('Acme')]) {
     assert.throws(() => licenseHeaderLines({ licenseHeader: bad }), /"licenseHeader"/, JSON.stringify(bad).slice(0, 40));
   }
 });
@@ -65,4 +65,25 @@ test('render records the header in the lock, drift reads past it, and restore ke
     assert.equal(await readFile(join(dir, NIGHT), 'utf8'), written);
     assert.equal((await readConfig(dir)).licenseHeader.length, HEADER.length);
   } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('the object form limits the header to the paths it names', () => {
+  const scoped = { ...ACME, licenseHeader: { lines: HEADER, paths: ['.github/workflows/plates-*.yml'] } };
+  let headed = 0;
+  for (const f of targets(ACME, practices)) {
+    if (f.kind === 'block' || f.link !== undefined) continue;
+    const off = fill(f.template, ACME, f.path), yes = fill(f.template, scoped, f.path);
+    if (/^\.github\/workflows\/plates-[^/]*\.yml$/.test(f.path)) { assert.equal(yes, YAML_HEADER + off, f.path); headed++; }
+    else assert.equal(yes, off, `${f.path}: outside the named paths, so no header`);
+  }
+  assert.ok(headed > 0);
+  // ** crosses segments; * does not.
+  const deep = { licenseHeader: { lines: ['Acme'], paths: ['scripts/**/*.mjs'] } };
+  assert.equal(shapeLicenseHeader('x\n', deep, 'scripts/plates/a/b.mjs'), '// Acme\n\nx\n');
+  assert.equal(shapeLicenseHeader('x\n', { licenseHeader: { lines: ['Acme'], paths: ['scripts/*.mjs'] } }, 'scripts/plates/b.mjs'), 'x\n');
+  // A dot in a pattern is a dot, not any character.
+  assert.equal(shapeLicenseHeader('x\n', { licenseHeader: { lines: ['Acme'], paths: ['a.yml'] } }, 'abyml.yml'), 'x\n');
+  for (const bad of [{ lines: ['Acme'], paths: [] }, { lines: ['Acme'], paths: ['../x.yml'] }, { lines: ['Acme'], paths: ['/x.yml'] }, { lines: ['Acme'], extra: 1 }, { paths: ['x.yml'] }]) {
+    assert.throws(() => licenseHeaderLines({ licenseHeader: bad }), /"licenseHeader"/, JSON.stringify(bad));
+  }
 });

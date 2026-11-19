@@ -135,7 +135,9 @@ A licence header your project must carry is not an edit: name it once in
 `.plates/plates.json` as `"licenseHeader": ["Copyright 2026 Acme", "", …]`
 and plates writes it, commented for the language, at the top of every file it
 manages or seeds that has line comments (YAML, shell, JavaScript and the like;
-JSON and Markdown are left as they are). A header added by hand is drift;
+JSON and Markdown are left as they are). To put it on only some files, write
+`{"lines": [...], "paths": [".github/workflows/plates-*.yml"]}`. A header
+added by hand is drift;
 after setting `licenseHeader`, `plates doctor --fix <path> restore` takes
 plates's file and keeps the header.
 

@@ -451,8 +451,11 @@ A project that must open each file with a licence header sets
 plain lines of at most 200 characters) in `.plates/plates.json`. Render writes
 it, commented for the language and followed by one blank line, at the top of
 each managed or seeded file with line comments (after a `#!` line); JSON,
-Markdown, blocks and links are unchanged. The lock records the header, so a
-hand-added header is drift: set `licenseHeader`, then `--fix <path> restore`.
+Markdown, blocks and links are unchanged. A copyright holder's notice is not
+true of files someone else wrote, so the object form limits it:
+`{"lines": [...], "paths": [".github/workflows/plates-*.yml"]}` (`*` within a
+segment, `**` across). The lock records the header, so a hand-added header is
+drift: set `licenseHeader`, then `--fix <path> restore`.
 
 - `.plates/lock.json` records the sha256 of what render wrote for each managed
   file, block (`path#block`, hashed by its inside) and link. Render writes it;
