@@ -5,6 +5,30 @@ practice version: what changes in your repo, and anything you need to do.
 Newest first. `plates release` writes them; `plates update` puts the entries
 between your version and the new one into its pull request.
 
+## v0.9.0 — practice 0.9.0 (2026-11-19)
+
+Three weeks of work since 0.8.38. Here is what changes in your repo, and what to do.
+
+**Node:** Plates is now built and tested on Node 26 (`.nvmrc` and the Actions Node pin); `engines` still accepts Node 24.22.1 and later. Renovate no longer raises the engines floor: that takes a person's decision.
+
+**`plates board` is gone; use `plates home`.** Home shows each project as one status chip (green says nothing; yellow or red says why), then **Needs you**: each decision on a card with its recommended answer, answered in place. A project page shows one ordered backlog with Ready, Agent working, Needs you and Done, and Assign on ready items. The hosted site and `plates home` render the same model. Deploy stays a command you copy (`plates promote <sha>`); the site never deploys.
+
+**Agents and Plates talk both ways.** `@plates#<phase>` lines you post reach an attached agent through its Rex tab. The channel reads as a chat, and agents post progress there. Cancelling an attachment holds across restarts.
+
+**The night and the climb:**
+- The climb can measure the slowest test file that fits the night's budget instead of one fixed file (`climb.testTarget: "slowest-fit"`, with a `{file}` template in `climb.testCommand`). A file that kept nothing cools down for seven nights, and a night whose baseline was blocked does not count as dry. Without `testTarget` nothing changes. Climb receipts keep the agent's redacted last words.
+- The night reuses CI's gate instead of rerunning it, reads its ledger once, and is faster on large histories.
+- A provider that cannot start hands cross-review, climb and tend to another; Antigravity can finish a bounded review when the primary providers are unavailable.
+- Audits: a model audits a plate one lens at a time when quota has room, including audit-only providers.
+
+**Delivery:** `plates promote` deploys a Vercel target, checks the exact serving revision, smoke paths and errors, and rolls back on failure. It accepts a gate re-run that passed and refuses when the newest attempt failed.
+
+**Safety and hygiene:** every GitHub Action Plates ships is pinned to a reviewed commit. Write tokens stay away from installs and gates in the night and the loop. `@claude` works without write credentials on disk. The public tree carries no personal paths.
+
+**What to do:** update the Plates CLI and run `plates update`, then review the draft update PR before merging. If you used `plates board`, use `plates home`. To try the moving climb target, add `"testTarget": "slowest-fit"` and a `{file}` template under `climb` in `.plates/plates.json`; remove `testTarget` to go back.
+
+Released without the review gate (90 practice commits unchecked): Owner approved on 2026-11-19: 90 practice commits exceed the gate's 40-read cap. The conductor gated all 49 merged PRs among them with plates review --gate (all pass after answering 12 stale threads: 8 fixed earlier, 4 tracked in #524 and #525). 22 commits from 2026-10-29 to 2026-11-06 reached main through plates integrate without a PR, so no review exists for them; they have been on main and in CI since.
+
 ## v0.8.38 — practice 0.8.38 (2026-10-28)
 
 Review rounds now have a progress checkpoint. At the configured base (three by default), Plates examines finding locations, counts and severity. Qualifying progress gets one extension to twice the base; repetition stops with reasons, and the extension cannot repeat.
