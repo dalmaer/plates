@@ -43,7 +43,7 @@ test('negative controls catch extra triggers permissions reruns retries and broa
     workflow.replace('path: ${{ runner.temp }}/plates-agy-verify-metadata.json', 'path: ${{ runner.temp }}/*')]) assert.ok(guards(changed).length > 0);
 });
 
-async function fixture(t, { deadline = 1900, attempt = '1', tick = 0, failAt = -1, failureReason = null } = {}) {
+async function fixture(t, { deadline = 1900, attempt = '1', tick = 0, failAt = -1, failureReason = null, catalog = {} } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'acme-agy-smoke-'));
   t.after(() => rm(root, { recursive: true, force: true }));
   let now = 1000000;
@@ -52,7 +52,7 @@ async function fixture(t, { deadline = 1900, attempt = '1', tick = 0, failAt = -
   const runner = async options => {
     calls.push(options);
     const dir = options.out + '.attempts'; await mkdir(dir);
-    await writeFile(join(dir, 'catalog.json'), JSON.stringify({ state: 'success', available: models, diagnosticPresent: false, raw: 'Acme-secret' }));
+    await writeFile(join(dir, 'catalog.json'), JSON.stringify({ state: 'success', available: models, diagnosticPresent: false, diagnosticClass: 'none', raw: 'Acme-secret', ...catalog }));
     await writeFile(join(dir, 'generation-intent.json'), '{}');
     now += tick;
     if (calls.length - 1 === failAt) throw Error('Acme-secret raw provider error');
@@ -69,7 +69,7 @@ test('embedded smoke invokes each exact model once and emits only sanitized meta
   const meta = await f.metadata();
   assert.deepEqual(Object.keys(meta).sort(), ['deadlineMs', 'models', 'schema']);
   for (const row of meta.models) {
-    assert.deepEqual(Object.keys(row).sort(), ['catalog', 'cost', 'generationIntentRecorded', 'model', 'reason', 'state', 'usage']);
+    assert.deepEqual(Object.keys(row).sort(), ['catalog', 'catalogDiagnostic', 'catalogOutcome', 'cost', 'generationIntentRecorded', 'model', 'reason', 'state', 'usage']);
     assert.equal(row.cost, null); assert.equal(row.state, 'completed'); assert.equal(row.catalog, 'listed');
     assert.deepEqual(row.usage, { input_tokens: 12, output_tokens: 2, thinking_tokens: null, cache_read_tokens: null, total_tokens: 14 });
   }
@@ -110,5 +110,22 @@ test('fixed contract reasons survive while provider text is excluded', async t =
     const f = await fixture(t, { failureReason: reason }); await f.run();
     assert.equal(f.process.exitCode, 1);
     assert.ok((await f.metadata()).models.every(r => r.reason === (reason.startsWith('Acme') ? 'review-unavailable' : reason)));
+  }
+});
+
+
+test('catalog progress remains listed while unknown diagnostics or failed catalogs stay unknown', async t => {
+  for (const [catalog, listed, outcome, diagnostic] of [
+    [{ diagnosticPresent: true, diagnosticClass: 'catalog-progress' }, true, 'success', 'catalog-progress'],
+    [{ diagnosticPresent: true, diagnosticClass: 'unrecognized' }, false, 'success', 'unrecognized'],
+    [{ diagnosticPresent: true, diagnosticClass: 'Acme-secret' }, false, 'success', 'unknown'],
+    [{ state: 'failure', diagnosticPresent: true, diagnosticClass: 'catalog-progress' }, false, 'failure', 'catalog-progress'],
+  ]) {
+    const f = await fixture(t, { catalog }); await f.run();
+    for (const row of (await f.metadata()).models) {
+      assert.equal(row.catalog, listed ? 'listed' : 'unknown');
+      assert.equal(row.catalogOutcome, outcome); assert.equal(row.catalogDiagnostic, diagnostic);
+    }
+    assert.doesNotMatch(JSON.stringify(await f.metadata()), /Acme-secret/);
   }
 });
