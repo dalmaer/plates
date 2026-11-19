@@ -7,7 +7,8 @@ attempt: {"accepted":true,"verified":true,"rework":2,"lessonStatus":{"status":"n
 - Date: 2026-11-19
 - Phase: 196
 - Revision: main after #497 (Home), the project page integration, #500 (one-step answers), #501 (chat) and #502 (one look, vocabulary, markdown)
-- Claim being checked: Acceptance boxes 1, 2, 5, 6 and the owner's walk (box 8).
+- Deployed: production serves a2a6675b (each increment was promoted from `green` after its merge; #502's deploy was the last of the four).
+- Claim being checked: Acceptance boxes 1, 2, 5, 6 and the owner's walk as narrowed (decide in place, see Deploy and Assign on their cards, "simpler").
 
 Built by builders (Claude for Home, Codex for the project page, chat and cleanup), verified by the conductor. Rework: Home's answer flow went back twice for review findings (preview before hold, attempt-bound previews, uncertain answers across refresh), and #502 needed its base retargeted from the merged chat branch to main.
 
@@ -31,4 +32,4 @@ Built by builders (Claude for Home, Codex for the project page, chat and cleanup
 ## Gaps and decision
 
 - Box 4 (Assign recommends the agent with the most room by the quota snapshot) is not built: hosted quota delivery is phase 192's next increment. The phase stays partial for it.
-- Hosted Assign dispatch is phase 181's activation; Deploy stays a copyable command by decision.
+- Hosted Assign dispatch is phase 181's activation; the box for assigning from the site so an agent starts stays open for it. Deploy stays a copyable command by decision, and box 2 now says so.

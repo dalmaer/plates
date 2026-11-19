@@ -4,7 +4,7 @@ since: 2026-11-19
 goal: G7
 spec: 2
 depends: [194]
-note: "All four increments are deployed and the owner called it simpler (2026-11-19). One box remains: Assign recommending the agent with the most room by the quota snapshot (phase 192 hosted quota delivery). Deploy stays a copyable promote command by decision; hosted Assign dispatch waits on phase 181."
+note: "All four increments are deployed (production a2a6675b) and the owner called it simpler (2026-11-19). Two boxes remain: Assign recommending the agent with the most room by the quota snapshot (phase 192 hosted quota delivery). and assigning from the site so an agent starts (phase 181 hosted dispatch). Deploy stays a copyable promote command by decision."
 evidence: ["evidence/2026-11-17-project-backlog.md", "evidence/2026-11-19-simple-workspace.md"]
 ---
 
@@ -95,13 +95,14 @@ reachable by URL until increment 4.
 ## Acceptance
 
 - [x] Home shows a chip per project; a green one has no text beyond its name; a non-green one names its most urgent reason, and red sorts before yellow before green: `tests/web-simple-home.test.mjs`.
-- [x] Every Needs-you card answers in place through the docket's answer path, and a waiting deploy is a card whose Deploy runs the checked promote only: `tests/web-simple-home.test.mjs`.
+- [x] Every Needs-you card answers in place through the docket's answer path, and a waiting deploy is a card that shows the exact checked `plates promote` command with Copy (the site never deploys, by decision): `tests/web-simple-home.test.mjs`.
 - [x] The project page shows one ordered backlog with four states, Assign on ready items through attach, and no main → production row when they match: `tests/web-simple-project.test.mjs`.
 - [ ] Assign recommends the agent with the most room by the quota snapshot and explains it; a stale or unknown snapshot recommends nothing: `tests/web-simple-project.test.mjs`.
 - [x] The channel renders as a chat with a composer, and the CLI prints the same lines: `tests/channel.test.mjs`.
 - [x] No empty section is drawn, no raw markdown is shown, and the screens use only item, agent and decision: `tests/web-simple-copy.test.mjs`.
 - [x] `plates home` and the site render one model for Home and a project: the isomorphism tests.
-- [x] ⚑ By hand: the owner makes a decision, deploys, and assigns an item from the site, each without leaving the card, and says it is simpler.
+- [x] ⚑ By hand: the owner makes a decision from the site without leaving the card, sees the Deploy command and the Assign preview on their cards, and says it is simpler.
+- [ ] ⚑ By hand: the owner assigns an item from the site and an agent starts, without leaving the card (waits on phase 181's hosted dispatch).
 
 ## Your part
 
