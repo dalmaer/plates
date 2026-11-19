@@ -102,7 +102,7 @@ test('Needs you: one card per decision, the recommended answer filled, a one-lin
   assert.match(homeView(access, data), new RegExp(`data-needs-count>${cards.length} need you</a>`));
   // Nothing waiting: the empty sentence, no list, the header count hidden.
   const calm = snapshot([base('docs', 'Acme Docs', { release: current() })]), page = homeView(access, calm);
-  assert.match(page, /<p class="glance-empty">Nothing needs you\.<\/p>/); assert.doesNotMatch(page, /glance-cards|glance-card /);
+  assert.doesNotMatch(page, /id="needs-you"|glance-empty/); assert.doesNotMatch(page, /glance-cards|glance-card /);
   assert.match(page, /<a class="nav-needs" href="#needs-you" data-needs-count hidden>0 need you<\/a>/);
   // The terminal prints the same cards, with the command that answers each.
   const text = glanceLines(data.home.glance, data).join('\n');

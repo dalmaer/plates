@@ -48,11 +48,40 @@ async function storeHarness(t, { upTo = '025-channel-owner-lines.sql' } = {}) {
 /** The hosted service over that store, a device key for owner 1, and the owner signed in. */
 async function service(t, options) {
   const store = await storeHarness(t, options), h = projectHarness(), storeFetcher = options?.wrapStore ? options.wrapStore(store.fetcher) : store.fetcher;
-  const fetcher = async (url, init) => (/\/rest\/v1\/rpc\/plates_(waiting|channel)_rpc$/.test(new URL(url).pathname) ? storeFetcher(url, init) : h.fetcher(url, init));
+  if (options?.secondProject) h.config = { ...h.config, projectRepoIds: { ...h.config.projectRepoIds, anvils: 103 } };
+  const fetcher = async (url, init) => {
+    const path = new URL(url).pathname;
+    if (/\/rest\/v1\/rpc\/plates_(waiting|channel)_rpc$/.test(path)) return storeFetcher(url, init);
+    const response = await h.fetcher(url, init);
+    if (!options?.secondProject) return response;
+    if (path === '/user/installations/21/repositories') {
+      const data = await response.json();
+      return Response.json({ ...data, total_count: data.total_count + 1, repositories: [...data.repositories, {id:103,full_name:'acme/anvils'}] });
+    }
+    if (path === '/repos/acme/plates-private/contents/workspace.json') {
+      const data = await response.json(), manifest = JSON.parse(Buffer.from(data.content, 'base64').toString());
+      manifest.projects.push({id:'anvils',repo:'acme/anvils'});
+      const content = JSON.stringify(manifest);
+      return Response.json({ ...data, size: Buffer.byteLength(content), content: Buffer.from(content).toString('base64') });
+    }
+    return response;
+  };
   const { createWebService } = await import('../lib/web/server.mjs');
   const web = createWebService(h.config, { fetcher, now: Date.now });
   const { key, device } = await createWaitingStore(h.config, fetcher).createKey(1, 'Acme Mac');
-  const signed = await h.login();
+  let signed;
+  if (options?.secondProject) {
+    // Sign in through this service so the session binds the two-project configuration.
+    const page = await web(h.request('/signin')), cookie = h.cookieHeader(page);
+    const started = await web(h.request('/api/auth/start', {cookie,body:{csrf:cookie.split('=')[1],returnTo:'/channel'}}));
+    const target = new URL(started.headers.get('location'));
+    h.state.challenges.add(target.searchParams.get('code_challenge'));
+    const completed = await web(h.request(`/api/auth/callback?code=fake-code&state=${target.searchParams.get('state')}`, {cookie:h.cookieHeader(started)}));
+    assert.equal(completed.status, 303);
+    const sessionCookie = h.cookieHeader(completed), session = await web(h.request('/api/session', {cookie:sessionCookie}));
+    assert.equal(session.status, 200);
+    signed = {cookie:sessionCookie,session:await session.json()};
+  } else signed = await h.login();
   const send = (url, init) => web(new Request(url, init));
   // The owner's form, as the page posts it.
   const ownerPost = (text, { project = 'studio', csrf = signed.session.csrf, origin = h.config.origin, cookie = signed.cookie, back = 'channel' } = {}) =>
@@ -88,7 +117,7 @@ test('the owner\'s line naming a phase reaches that session\'s plates channel in
   // The owner posts from the site: a checkpoint for phase 2, one for another session, and a line to nobody in particular.
   for (const text of ['@2 use the Acme staging data, not production', 'Morning, all: the Acme demo is Friday', '@acme-session-9 hold the Acme cores until 14:00']) {
     const posted = await s.ownerPost(text);
-    assert.deepEqual([posted.status, posted.headers.get('location')], [303, '/channel'], text);
+    assert.deepEqual([posted.status, posted.headers.get('location')], [303, '/channel?project=studio#post'], text);
   }
   const first = await ask();
   assert.deepEqual(first.data.items.map(({ at, envelope, ...i }) => i), [{ kind: 'checkpoint', text: '@2 use the Acme staging data, not production', to: [{ plate: 'studio', phase: 2 }] }]);
@@ -165,7 +194,7 @@ test('an agent\'s say line naming another agent reaches no inbox, and a device-k
   assert.equal((await s.ownerPost('@2 hello', { project: 'forge' })).status, 404, 'a plate this owner cannot open');
   const elsewhere = await s.ownerPost('@forge#2 hello');
   assert.equal(elsewhere.status, 400);
-  assert.match(await elsewhere.text(), /role="alert" data-channel-notice>A line addresses phases on its own plate only/);
+  assert.match(await elsewhere.text(), /role="alert" data-channel-notice>A line addresses items on its own plate only/);
   assert.equal((await s.ownerPost('ghp_abcdefghijklmnopqrstuvwxyz0123456789 is the key')).status, 400, 'key-shaped');
   assert.equal((await s.posts.list(1, 'studio')).length, 1, 'no refused line was stored');
   // A sealed say value cannot pass as the owner's, nor an owner value as a say: both marks or neither.
@@ -372,4 +401,27 @@ test('channel destination links accept one accessible project and reject all oth
     if (status === 200) assert.match(await response.text(), /name="project" value="studio"/);
   }
   assert.equal((await s.web(s.h.request('/api/channel?project=studio', { cookie: s.signed.cookie }))).status, 400);
+});
+
+
+test('a successful channel post retains its non-first destination after redirect', async t => {
+  const s = await service(t, {secondProject:true});
+  const read = path => s.web(s.h.request(path, {cookie:s.signed.cookie}));
+  const before = await read('/channel?project=anvils');
+  assert.equal(before.status, 200);
+  assert.match(await before.text(), /name="project" value="anvils"/);
+  const posted = await s.ownerPost('Acme anvils message', {project:'anvils'});
+  assert.equal(posted.status, 303);
+  assert.equal(posted.headers.get('location'), '/channel?project=anvils#post');
+  const after = await read(posted.headers.get('location'));
+  assert.equal(after.status, 200);
+  const html = await after.text();
+  assert.match(html, /href="\/channel\?project=anvils#post" aria-current="true">#anvils<\/a>/);
+  assert.match(html, /name="project" value="anvils"/);
+  assert.match(html, /placeholder="Message #anvils /);
+  assert.doesNotMatch(html, /name="project" value="studio"/);
+  assert.deepEqual((await s.posts.list(1, 'anvils')).map(line => line.text), ['Acme anvils message']);
+  assert.deepEqual(await s.posts.list(1, 'studio'), []);
+  const projectPost = await s.ownerPost('Acme project page message', {project:'anvils',back:'plate'});
+  assert.deepEqual([projectPost.status,projectPost.headers.get('location')], [303,'/projects/anvils#channel']);
 });

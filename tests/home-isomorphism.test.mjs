@@ -560,9 +560,9 @@ test('backlog matches in both forms', async () => {
     assert.deepEqual(cli.claims, [{ projectId: 'studio', read: true }]);
     // The web page renders those items: every lane's header and count, one row per item, and Start off with its reason.
     const html = backlogView(s.access, api);
-    for (const l of api.lanes) assert.match(html, new RegExp(`id="lane-${l.lane}">${l.title} <span class="meta">${l.items.length}</span>`));
+    for (const l of api.lanes.filter(l => l.items.length)) assert.match(html, new RegExp(`id="lane-${l.lane}">${l.title} <span class="meta">${l.items.length}</span>`));
     for (const item of api.lanes.flatMap(l => l.items)) assert.ok(html.includes(`data-backlog-item="${item.key}"`), item.key);
-    assert.match(html, /claim 6d left|claim 7d left/);
+    assert.match(html, /assignment 6d left|assignment 7d left/);
     assert.match(html, /<span class="p-badge">claude · claimed<\/span>/);
     if (lanes['agent-ready'].length) assert.ok(html.includes(`title="${START_UNAVAILABLE.replace("'", "&#39;")}: plates home --attach `));
     // The terminal renders the same items, one line each, under its lane's header and count.
@@ -753,7 +753,7 @@ test('by goal matches in both forms', async () => {
     // The page arranges the same, and the terminal says it.
     const { backlogView } = await import('../lib/web/backlog-views.mjs');
     const html = backlogView(s.access, { schema: 1, generatedAt: new Date().toISOString(), lane: null, ...web }, { arrangement: 'goals' });
-    assert.match(html, /<a href="\/backlog\/goals" aria-current="true">By goal<\/a>/);
+    assert.doesNotMatch(html, /<a href="\/backlog\/goals"/);
     for (const g of cli.groups) assert.ok(html.includes(`data-goal="${g.key}"`), g.key);
     assert.match(s.again(['--backlog', '--by-goal']).stdout, /^Acme Studio · G1 — A dependable studio {2}\(/m);
     assert.equal(s.again(['--backlog', '--by-goal', '--lane', 'yours']).status, 2, '--by-goal takes no --lane');
