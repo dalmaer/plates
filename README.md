@@ -115,7 +115,7 @@ archived phase files remain unchanged.
 | `reconciliation` *(optional)* | Local and read-only GitHub record checks, PR impact declarations, manual health proposals | Merges mistaken for acceptance; obsolete next work and decisions |
 | `loop` *(optional)* | Stitch Loop findings triaged as files: the ranking is ours, an agent proposes, a person decides | Outside findings taken as verdicts |
 | `climb` *(optional)* | Climb nights: on a schedule, an agent improves one number (the suite's time, first) under a shared protocol; a script makes every measurement and keep-or-revert, and a person merges the one PR | A speed-up nobody measured against noise; a test quietly gone |
-| `cross-review` *(optional)* | An available provider reviews another provider's PRs, falling back to self-review when necessary; inline P1/P2/P3 findings validated against the code, read-only and budgeted, never approves or merges | Review tied to one provider or running in only one direction |
+| `cross-review` *(optional)* | An available provider reviews another provider's PRs, falling back to self-review when necessary; inline P1/P2/P3 findings validated against the code; opt-in [AGY fallback](docs/guide/reviews-and-prs.md#agy-fallback-opt-in) reviews only the frozen diff when eligible; read-only and budgeted, never approves or merges | Review tied to one provider or running in only one direction |
 
 **Who owns which file.** Every file plates writes is one of three kinds:
 
@@ -386,6 +386,7 @@ then gives the commands and every flag by the reason you'd pass it.
 | [Plan with phases and goals](docs/guide/plan-with-phases-and-goals.md) | you are lining up the work and saying what done means |
 | [Spin a phase](docs/guide/spin-a-phase.md) | build a specified phase, keep independent session ownership, and recover a local claim |
 | [The night shift](docs/guide/the-night-shift.md) | you want to know each morning whether the practice is holding |
+| [One-way and two-way decisions](docs/specs/night-decisions.md#door-assessment-before-approval-phase-162-2026-11-18) | assess effects and recovery before deciding whether an action needs attention; advisory source tool and scoped AGY event observation; neither grants permission |
 | [Validation evidence audit](docs/development/validation-audit.md) | you want read-only findings from retained validation evidence without running suites |
 | [Validation planning and admission](docs/development/validation-preflight.md) | you want source-only capability checks, conservative focused suggestions and opt-in shared host admission |
 | [Shadow evidence validation](docs/development/validation-evidence.md) | you want bounded exact-input coverage checks without authorizing gate reuse |

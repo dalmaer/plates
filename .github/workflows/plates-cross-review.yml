@@ -121,8 +121,8 @@ jobs:
     outputs:
       ran: ${{ steps.ran.outputs.ran }}
       # The reviewer that ran: the which step's, or its fallback's when it could not start.
-      agent: ${{ steps.start.outputs.agent || steps.which.outputs.agent }}
-      fallback_note: ${{ steps.start.outputs.note }}
+      agent: ${{ steps.agy_gate.outputs.agent || steps.start.outputs.agent || steps.which.outputs.agent }}
+      fallback_note: ${{ steps.agy_gate.outputs.note || steps.start.outputs.note }}
       author: ${{ steps.which.outputs.author }}
       reason: ${{ steps.which.outputs.reason }}
       minutes: ${{ steps.which.outputs.minutes }}
@@ -166,6 +166,7 @@ jobs:
             const c = JSON.parse(process.argv[1]);
             if (!c.on) console.log("cross-review is off: the trusted checkout config has no \"crossReview\", so this run does nothing.");
             const agents = (c.agents ?? ["claude"]).join(",");
+            if (c.agyFallback) fs.appendFileSync(process.env.GITHUB_OUTPUT, `agy_models=${c.agyFallback.models.join(",")}\n`);
             fs.appendFileSync(process.env.GITHUB_OUTPUT, `on=${c.on}\n${c.on ? `agents=${agents}\n` : ""}`);
           ' "$config"
       - name: Configured?
@@ -175,6 +176,8 @@ jobs:
         # (never its author's) is the next step's, and so is its secret.
         env:
           AGENTS: ${{ steps.on.outputs.agents }}
+          AGY_MODELS: ${{ steps.on.outputs.agy_models }}
+          HAS_AGY: ${{ secrets.GEMINI_API_KEY != '' }}
           OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI: ${{ secrets.OPENAI_API_KEY }}
@@ -183,7 +186,11 @@ jobs:
           AGENTS="${AGENTS:-claude}"
           case ",$AGENTS," in *,claude,*) if [ -n "$OAUTH" ] || [ -n "$API_KEY" ]; then enabled=true; fi ;; esac
           case ",$AGENTS," in *,codex,*) if [ -n "$OPENAI" ]; then enabled=true; fi ;; esac
+          if [ -n "${AGY_MODELS:-}" ] && [ "${HAS_AGY:-false}" = true ]; then enabled=true; fi
           if [ "$enabled" = false ]; then
+            if [ -n "${AGY_MODELS:-}" ]; then
+              echo "::notice::AGY fallback is configured but unavailable: add a dedicated GEMINI_API_KEY and verify access to the configured models."
+            fi
             case "$AGENTS" in
               claude) echo "::notice::Skipped: add the CLAUDE_CODE_OAUTH_TOKEN (or ANTHROPIC_API_KEY) secret for a cross-review to run." ;;
               codex) echo "::notice::Skipped: add the OPENAI_API_KEY secret for a cross-review by Codex to run." ;;
@@ -216,6 +223,7 @@ jobs:
           COMMENTER_TYPE: ${{ github.event.comment.user.type }}
           HAS_CLAUDE: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' || secrets.ANTHROPIC_API_KEY != '' }}
           HAS_CODEX: ${{ secrets.OPENAI_API_KEY != '' }}
+          HAS_AGY: ${{ secrets.GEMINI_API_KEY != '' }}
         run: |
           # Only the already-trusted checkout supplies scripts and their relative imports.
           # Keep the old layout usable while the rename PR is reviewed against main.
@@ -267,6 +275,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           AGENT: ${{ steps.which.outputs.agent }}
           FALLBACK: ${{ steps.which.outputs.fallback }}
+          AGY_MODELS: ${{ steps.on.outputs.agy_models }}
           MODE: ${{ steps.which.outputs.mode }}
           BASE: ${{ steps.which.outputs.base }}
           SHA: ${{ steps.which.outputs.sha }}
@@ -354,6 +363,7 @@ jobs:
           const { join } = require('node:path');
           const root = process.env.RUNNER_TEMP;
           for (const name of ['prompt.md', 'prompt-fallback.md']) {
+            if (process.env.AGENT === 'agy') continue; // Frozen no-tools brief has no file-read instructions.
             const file = join(root, name);
             if (name !== 'prompt.md' && !fs.existsSync(file)) continue;
             const prompt = fs.readFileSync(file, 'utf8');
@@ -362,8 +372,15 @@ jobs:
           }
           PLATES_PR_PROMPT
           fi
+          if [ -n "${AGY_MODELS:-}" ]; then
+            if [ "$MODE" = push ]; then subject=(--push "$RUNNER_TEMP/push.json"); else subject=(--pr "$RUNNER_TEMP/pr.json"); fi
+            node "$review_scripts/cross-review.mjs" brief "${subject[@]}" --agent agy --out "$RUNNER_TEMP/prompt-agy.md"
+          fi
           mkdir -p "$RUNNER_TEMP/plates/scripts/plates"
           cp "$review_scripts/cross-review.mjs" "$review_scripts/lib.mjs" "$RUNNER_TEMP/plates/scripts/plates/"
+          if [ -n "${AGY_MODELS:-}" ]; then
+            cp "$review_scripts/agy-review.mjs" "$review_scripts/agy-review-contract.mjs" "$RUNNER_TEMP/plates/scripts/plates/"
+          fi
           # Historical helpers may have no names dependency; copy it only from the same trusted checkout.
           if [ -f "$review_scripts/names.mjs" ]; then cp "$review_scripts/names.mjs" "$RUNNER_TEMP/plates/scripts/plates/"; fi
           eof="PLATES_EOF_$(date +%s%N)"
@@ -453,7 +470,7 @@ jobs:
       # the default branch; only the publish job writes.
       - name: Could the reviewer start?
         id: start
-        if: steps.which.outputs.review == 'true'
+        if: steps.which.outputs.review == 'true' && steps.which.outputs.agent != 'agy'
         env:
           AGENT: ${{ steps.which.outputs.agent }}
           FALLBACK: ${{ steps.which.outputs.fallback }}
@@ -517,6 +534,80 @@ jobs:
           safety-strategy: drop-sudo
           allow-bot-users: claude[bot]
 
+      # AGY admits only positive pre-work failures, never an unread/uncertain action.
+      - name: Can AGY review within the original allowance?
+        id: agy_gate
+        if: steps.which.outputs.review == 'true' && steps.on.outputs.agy_models != ''
+        env:
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          HAS_AGY: ${{ secrets.GEMINI_API_KEY != '' }}
+          AGENT: ${{ steps.which.outputs.agent }}
+          FALLBACK: ${{ steps.start.outputs.fallback }}
+          OUTCOME: ${{ steps.which.outputs.agent == 'codex' && steps.review_codex.outcome || steps.review.outcome }}
+          EXECUTION: ${{ steps.review.outputs.execution_file }}
+          FALLBACK_OUTCOME: ${{ steps.start.outputs.fallback == 'codex' && steps.review_fallback_codex.outcome || steps.review_fallback.outcome }}
+          FALLBACK_EXECUTION: ${{ steps.review_fallback.outputs.execution_file }}
+          MINUTES: ${{ steps.which.outputs.minutes }}
+          STARTED: ${{ steps.brief.outputs.started }}
+          FALLBACK_MINUTES: ${{ steps.start.outputs.minutes }}
+          FALLBACK_STARTED: ${{ steps.start.outputs.started }}
+        run: |
+          # A rerun has fresh temp storage: local create-only receipts cannot prove
+          # that an earlier attempt never dispatched. Never redispatch AGY here.
+          if [ "${RUN_ATTEMPT:-}" != 1 ]; then
+            echo "blocked=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::AGY blocked: reruns or unknown run attempts cannot repeat model work. Inspect the original attempt."
+            exit 0
+          fi
+          if [ "$HAS_AGY" != true ]; then exit 0; fi
+          helper="$RUNNER_TEMP/plates/scripts/plates/cross-review.mjs"
+          if [ "$AGENT" != agy ]; then
+            if [ "$AGENT" = codex ]; then file="$RUNNER_TEMP/codex-final-message.md"; else file="${EXECUTION:-$RUNNER_TEMP/claude-execution-output.json}"; fi
+            node "$helper" agent-start --agent "$AGENT" --fallback agy --strict-start true --outcome "$OUTCOME" --file "$file" --minutes "$MINUTES" --started "$STARTED" --json > "$RUNNER_TEMP/agy-primary-start.json"
+            if ! node -e 'process.exit(JSON.parse(require("fs").readFileSync(process.argv[1])).fallback === "agy" ? 0 : 1)' "$RUNNER_TEMP/agy-primary-start.json"; then exit 0; fi
+            if [ -n "$FALLBACK" ]; then
+              if [ "$FALLBACK" = codex ]; then file="$RUNNER_TEMP/codex-final-message.md"; else file="${FALLBACK_EXECUTION:-$RUNNER_TEMP/claude-execution-output.json}"; fi
+              node "$helper" agent-start --agent "$FALLBACK" --fallback agy --strict-start true --outcome "$FALLBACK_OUTCOME" --file "$file" --minutes "$FALLBACK_MINUTES" --started "$FALLBACK_STARTED" --json > "$RUNNER_TEMP/agy-fallback-start.json"
+              if ! node -e 'process.exit(JSON.parse(require("fs").readFileSync(process.argv[1])).fallback === "agy" ? 0 : 1)' "$RUNNER_TEMP/agy-fallback-start.json"; then exit 0; fi
+            fi
+          fi
+          left=$(( STARTED + MINUTES * 60 - $(date +%s) ))
+          if [ "$left" -lt 120 ]; then exit 0; fi
+          echo "agent=agy" >> "$GITHUB_OUTPUT"
+          echo "note=Primary reviewers unavailable before work; reviewed by AGY using only the frozen prompt and diff." >> "$GITHUB_OUTPUT"
+          echo "minutes=$(( (left + 59) / 60 ))" >> "$GITHUB_OUTPUT"
+
+      - name: Install pinned AGY
+        if: steps.agy_gate.outputs.agent == 'agy'
+        timeout-minutes: ${{ fromJSON(steps.agy_gate.outputs.minutes) }}
+        env:
+          MINUTES: ${{ steps.which.outputs.minutes }}
+          STARTED: ${{ steps.brief.outputs.started }}
+        run: |
+          left=$(( STARTED + MINUTES * 60 - $(date +%s) ))
+          if [ "$left" -lt 120 ]; then exit 1; fi
+          dir="$RUNNER_TEMP/plates-agy-bin"
+          mkdir "$dir"
+          curl --fail --silent --show-error --location --max-time "$left" 'https://storage.googleapis.com/antigravity-public/antigravity-cli/1.5.12-5281398513336320/linux-x64/cli_linux_x64.tar.gz' --output "$dir/archive.tar.gz"
+          echo '26de25fccb3fbf0b093e090ce14a14ac1df1ec3e90ef4ea6106887d3a81b0cc9edb0dadea7b9101d07f9606eba159062a6fb7b78e91b73f7520684a24db73428  '"$dir/archive.tar.gz" | sha512sum --check --status
+          left=$(( STARTED + MINUTES * 60 - $(date +%s) ))
+          if [ "$left" -lt 120 ]; then exit 1; fi
+          timeout "$left" tar -xOzf "$dir/archive.tar.gz" antigravity > "$dir/antigravity"
+          chmod 700 "$dir/antigravity"
+
+      - name: Review
+        id: review_agy
+        if: steps.agy_gate.outputs.agent == 'agy'
+        continue-on-error: true
+        timeout-minutes: ${{ fromJSON(steps.agy_gate.outputs.minutes) }}
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          AGY_MODELS: ${{ steps.on.outputs.agy_models }}
+          MINUTES: ${{ steps.which.outputs.minutes }}
+          STARTED: ${{ steps.brief.outputs.started }}
+        run: |
+          node "$RUNNER_TEMP/plates/scripts/plates/agy-review.mjs" --models "$AGY_MODELS" --prompt "$RUNNER_TEMP/prompt-agy.md" --diff "$RUNNER_TEMP/pr.diff" --minutes "$MINUTES" --started "$STARTED" --out "$RUNNER_TEMP/agy-result.json" --binary "$RUNNER_TEMP/plates-agy-bin/antigravity" --json
+
       # An agent that failed before its budget ran out (no secret, a bad
       # model: is_error after one turn) is red, printing only the error line,
       # and the publish job does not run (lesson 29). A budget timeout is not red.
@@ -525,18 +616,32 @@ jobs:
         id: ran
         if: steps.which.outputs.review == 'true'
         env:
-          AGENT: ${{ steps.start.outputs.agent || steps.which.outputs.agent }}
-          OUTCOME: ${{ steps.start.outputs.fallback == 'codex' && steps.review_fallback_codex.outcome || steps.start.outputs.fallback == 'claude' && steps.review_fallback.outcome || steps.which.outputs.agent == 'codex' && steps.review_codex.outcome || steps.review.outcome }}
+          AGENT: ${{ steps.agy_gate.outputs.agent || steps.start.outputs.agent || steps.which.outputs.agent }}
+          OUTCOME: ${{ steps.agy_gate.outputs.agent == 'agy' && steps.review_agy.outcome || steps.start.outputs.fallback == 'codex' && steps.review_fallback_codex.outcome || steps.start.outputs.fallback == 'claude' && steps.review_fallback.outcome || steps.which.outputs.agent == 'codex' && steps.review_codex.outcome || steps.review.outcome }}
           EXECUTION: ${{ steps.start.outputs.fallback == 'claude' && steps.review_fallback.outputs.execution_file || steps.review.outputs.execution_file }}
           MINUTES: ${{ steps.start.outputs.fallback != '' && steps.start.outputs.minutes || steps.which.outputs.minutes }}
           STARTED: ${{ steps.start.outputs.fallback != '' && steps.start.outputs.started || steps.brief.outputs.started }}
         run: |
-          if [ "$AGENT" = codex ]; then
+          if [ "$AGENT" = agy ]; then
+            node "$RUNNER_TEMP/plates/scripts/plates/cross-review.mjs" agent-ran --agent agy --outcome "$OUTCOME" --file "$RUNNER_TEMP/agy-result.json" --minutes "$MINUTES" --started "$STARTED"
+          elif [ "$AGENT" = codex ]; then
             node "$RUNNER_TEMP/plates/scripts/plates/cross-review.mjs" agent-ran --agent codex --outcome "$OUTCOME" --file "$RUNNER_TEMP/codex-final-message.md" --minutes "$MINUTES" --started "$STARTED"
           else
             node "$RUNNER_TEMP/plates/scripts/plates/cross-review.mjs" agent-ran --outcome "$OUTCOME" --file "${EXECUTION:-$RUNNER_TEMP/claude-execution-output.json}" --minutes "$MINUTES" --started "$STARTED"
           fi
           echo "ran=true" >> "$GITHUB_OUTPUT"
+
+      - name: Retain AGY attempt receipts
+        if: always() && steps.agy_gate.outputs.agent == 'agy'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: plates-agy-attempts
+          path: |
+            ${{ runner.temp }}/agy-result.json.attempts/
+            ${{ runner.temp }}/agy-primary-start.json
+            ${{ runner.temp }}/agy-fallback-start.json
+          if-no-files-found: warn
+          retention-days: 7
 
       # What the publish job reads, as data: the agent's final message (the
       # action's execution file, or Codex's output file), the PR and its diff
@@ -544,7 +649,7 @@ jobs:
       - name: Hand the review on
         if: steps.which.outputs.review == 'true'
         env:
-          AGENT: ${{ steps.start.outputs.agent || steps.which.outputs.agent }}
+          AGENT: ${{ steps.agy_gate.outputs.agent || steps.start.outputs.agent || steps.which.outputs.agent }}
           EXECUTION: ${{ steps.start.outputs.fallback == 'claude' && steps.review_fallback.outputs.execution_file || steps.review.outputs.execution_file }}
           MODE: ${{ steps.which.outputs.mode }}
         run: |
@@ -556,7 +661,9 @@ jobs:
           else
             cp "$RUNNER_TEMP/pr.json" "$RUNNER_TEMP/pr.diff" "$out/"
           fi
-          if [ "$AGENT" = codex ]; then
+          if [ "$AGENT" = agy ]; then
+            cp "$RUNNER_TEMP/agy-result.json" "$out/agy-result.json"
+          elif [ "$AGENT" = codex ]; then
             if [ -f "$RUNNER_TEMP/codex-final-message.md" ]; then cp "$RUNNER_TEMP/codex-final-message.md" "$out/codex-final-message.md"; fi
           else
             file="${EXECUTION:-$RUNNER_TEMP/claude-execution-output.json}"
@@ -733,6 +840,7 @@ jobs:
           in="$RUNNER_TEMP/review"
           file="$in/claude-execution-output.json"
           if [ "$AGENT" = codex ]; then file="$in/codex-final-message.md"; fi
+          if [ "$AGENT" = agy ]; then file="$in/agy-result.json"; fi
           # A trusted helper from before the fallback has no --fallback-note (it exits 2): the review is still posted, without the note.
           note=()
           if node "$review_scripts/cross-review.mjs" capabilities 2>/dev/null | grep -q '"fallbackNote":true'; then note=(--fallback-note "$FALLBACK_NOTE"); fi
@@ -764,6 +872,7 @@ jobs:
           in="$RUNNER_TEMP/review"
           file="$in/claude-execution-output.json"
           if [ "$AGENT" = codex ]; then file="$in/codex-final-message.md"; fi
+          if [ "$AGENT" = agy ]; then file="$in/agy-result.json"; fi
           # The publisher is the one this workflow was rendered with (its sha256 checked above), so it takes --fallback-note.
           node "$PUBLISHER/cross-review.mjs" push-review --agent "${AGENT:-claude}" --author "$AUTHOR" --reason "$REASON" --fallback-note "$FALLBACK_NOTE" --file "$file" --push "$in/push.json" --diff "$in/pr.diff" --head-diff "$in/head.diff" --minutes "$MINUTES" --repo "$REPO" --out "$RUNNER_TEMP/push-review.json"
           node "$PUBLISHER/cross-review.mjs" push-post --review "$RUNNER_TEMP/push-review.json" --repo "$REPO"
