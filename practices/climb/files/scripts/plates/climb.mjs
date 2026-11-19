@@ -2086,7 +2086,19 @@ export async function agentRan({ outcome, file, minutes, started, agent, now = D
   }
   const { result, evidence } = claudeEvidence(read);
   const verdict = agentVerdict({ outcome, result, elapsedSec, minutes, evidence });
-  return { state: verdict.ok ? 'executed' : 'blocked', evidence, denials: denialEvidence(result), outcome: outcome ?? null, result: agentResult(result), elapsedSec: Number.isFinite(elapsedSec) ? Math.round(elapsedSec) : null, ...verdict };
+  // The agent's own last words, kept in the receipt (not the report line): a night with no measured attempt says why.
+  // Only from a successful run (an error result's text is the provider's raw error), and redacted like the rest of the receipt.
+  const said = verdict.ok && result?.is_error === false && typeof result?.result === 'string' && result.result.trim() ? saidText(result.result) : null;
+  return { state: verdict.ok ? 'executed' : 'blocked', evidence, denials: denialEvidence(result), outcome: outcome ?? null, result: agentResult(result), said, elapsedSec: Number.isFinite(elapsedSec) ? Math.round(elapsedSec) : null, ...verdict };
+}
+/** How much of the agent's final message the receipt keeps. */
+const SAID_MAX = 2000;
+/** The agent's final message for the receipt: token-shaped strings and home-directory paths redacted, whitespace folded, bounded. */
+export function saidText(text) {
+  return String(text)
+    .replace(/(?:gh[pousr]_[A-Za-z0-9_]+|github_pat_[A-Za-z0-9_]+|sk-[A-Za-z0-9_-]{8,}|xox[abprs]-[A-Za-z0-9-]+|AKIA[0-9A-Z]{16}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/g, '[redacted]')
+    .replace(/\/(?:Users|home)\/[^/\s]+/g, '~')
+    .replace(/\s+/g, ' ').trim().slice(0, SAID_MAX);
 }
 
 /**
