@@ -138,6 +138,32 @@ the run ends green with a notice. The review and its inline comments are
 posted by the workflow's publish job (`github-actions[bot]`), whichever
 agent wrote them.
 
+**AGY fallback (phase 197, off by default).** An existing `crossReview` may
+opt in with `"agyFallback": { "models": ["gemini-4-neon-high",
+"gemini-4-carbon-high", "gemini-4-hydrogen-high"] }`. These exact AGY CLI IDs
+form a nonempty, duplicate-free allowlist; they are not raw API model IDs.
+Run `plates render` after configuring it. Keep `agents` unchanged.
+
+A dedicated `GEMINI_API_KEY` repository secret is required (⚑ owner-approved
+API spend). Neither subscription credentials nor the owner's home are reused.
+The API families are publicly documented, but exact CLI-ID mapping, catalog
+format, key entitlement and a hosted acceptance run remain unverified. Catalog
+metadata is not authenticated model access. See the
+[configuration and readiness guide](../../docs/guide/reviews-and-prs.md#agy-fallback-opt-in)
+and [dated API/archive research](../../docs/research/2026-11-18-agy-review-api.md).
+
+AGY runs only with missing primary credentials or positive pre-work failure
+evidence from every preceding attempt. Denial, timeout, substantive execution
+and unknown evidence block it; missing Codex output cannot prove a pre-work
+failure. It gets the original deadline, with installation and catalog time
+included, and never retries generation on another model. It reviews only the
+frozen prompt, subject metadata and diff, without tools or repository exploration.
+A completed result retains the exact model and disclosed scope. The separate
+publisher validates findings as before; AGY receives no publisher credential.
+Sanitized immutable attempt receipts remain available on failure; unknown cost
+stays unknown. Omit `agyFallback` for unchanged behavior, or remove it to stop
+future AGY admission. No live activation is established by this implementation.
+
 **After the push** (plates phase 60). A project that ships to main opens no
 PR, so its agents' code never meets a second provider. With
 `"crossReview": { "after": "push" }` each push to main is reviewed after
@@ -206,8 +232,9 @@ it lands, and nothing waits on it:
 (`--with cross-review`), or unless `.plates/plates.json` already lists it.
 
 **Its files.** `.github/workflows/plates-cross-review.yml`,
-`scripts/plates/cross-review.mjs` and `.agents/cross-review/REVIEW.md`, all
-managed.
+`scripts/plates/cross-review.mjs`, `scripts/plates/agy-review.mjs`,
+`scripts/plates/agy-review-contract.mjs` and `.agents/cross-review/REVIEW.md`,
+all managed.
 
 **Lineage.** Plates phase 42, from the owner's request on 6 October 2026
 ("I want Claude Code to review Codex PRs"); design

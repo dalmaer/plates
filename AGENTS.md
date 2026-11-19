@@ -280,6 +280,15 @@ as a universal denial or a caller-asserted grant. Do not probe denied operations
 or expand permissions. Preserve the existing execution-denial check and inspect
 the sanitized receipt. See [climb and tend](docs/guide/climb-and-tend.md).
 
+## Review fallback
+
+The opt-in `crossReview.agyFallback` uses exact AGY CLI model IDs under the
+original review deadline. Keep unknown startup state and permission denials
+blocked; no second generation follows an uncertain result. The first adapter
+reviews frozen metadata and diff text without tools. Dedicated API credentials,
+model entitlement and hosted verification are separate from source tests; keep
+unverified routes disabled. See [reviews and PRs](docs/guide/reviews-and-prs.md).
+
 ## Robot issues
 
 `plates issue new --agent` previews a rubric-shaped issue before `--yes` creates
