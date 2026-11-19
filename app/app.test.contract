@@ -1,0 +1,163 @@
+// The screens render the sample's states (fixture/acme.json), by the five
+// rules of the simple view (docs/phases/196).
+
+// Rule 1, and "trouble first": red, then yellow, then green; a green chip is its name alone.
+test "Home shows a chip per project, trouble first, and a green one says nothing"
+  clock data
+  expect text "title-home" == "Plates"
+  expect text "chip-0-name" == "acme-billing"
+  expect text "chip-0-reason" == "Main's checks are failing +1"
+  expect text "chip-1-name" == "acme-shop"
+  expect text "chip-1-reason" == "Production 3 behind main +1"
+  expect text "chip-2-name" == "acme-docs"
+  expect tree missing "chip-2-reason"
+  expect text "chip-3-name" == "acme-mobile"
+  expect tree missing "chip-3-reason"
+  expect tree missing "chip-4"
+
+// A card: the question, a one-line why, its answers, the recommended one marked. `expect text` reads a
+// Markdown text's source, so the `**` here is the source of a line drawn bold (rule 5: `markup="markdown"`).
+test "Needs you shows each decision as a card with its answers"
+  clock data
+  expect text "home-needs-you-title" == "Needs you"
+  expect text "needs-you-count" == "3"
+  expect text "home-card-0-project" == "acme-billing"
+  expect text "home-card-0-question" == "Does the new invoice email read right?"
+  expect text "home-card-0-why" == "The agent finished the email and waits for your look **before it reaches customers**."
+  expect text "home-card-0-answer-choice-reads-right" == "Reads right"
+  expect text "home-card-0-answer-choice-needs-changes-say-what" == "Needs changes (say what)"
+  expect text "home-card-0-answer-not-now" == "Not now"
+  expect text "home-card-0-recommended" == "Recommended: Reads right"
+  expect enabled "home-card-0-answer-choice-reads-right"
+  expect tree missing "home-card-3"
+
+// Deploy is the checked promote, run where plates promote runs: the card names the command and offers no answer.
+test "a waiting deploy is a card with its command and no answers"
+  clock data
+  expect text "home-card-1-question" == "Production is 3 commits behind main"
+  expect text "home-card-1-command" == "plates promote 4f2a9c1d"
+  expect tree missing "home-card-1-recommended"
+  expect tree missing "home-card-1-answer-not-now"
+
+// An answer this form cannot give is shown, disabled, with why.
+test "an answer that cannot be given here is disabled and says why"
+  clock data
+  expect disabled "home-card-2-answer-request-changes"
+  expect text "home-card-2-unavailable-request-changes" == "Request changes: Request changes is posted from your terminal; the hosted workspace posts no reviews yet."
+  expect enabled "home-card-2-answer-merge"
+  expect text "home-card-2-recommended" == "Recommended: Merge"
+
+// Rule 2, as far as a sample goes: the answer is chosen on the card, nothing leaves the phone, and it can be undone.
+test "choosing an answer happens on the card and sends nothing"
+  clock data
+  expect tree missing "home-card-0-chosen"
+  tap "home-card-0-answer-choice-reads-right"
+  expect state picked == "acme-billing:phase:7:walk=choice-reads-right"
+  expect text "home-card-0-chosen" == "You chose Reads right. Nothing was sent: this build shows sample data."
+  expect tree missing "home-card-2-chosen"
+  tap "home-card-0-undo"
+  expect state picked == ""
+  expect tree missing "home-card-0-chosen"
+
+test "More opens a card's evidence and closes it again"
+  clock data
+  expect tree missing "home-card-0-more-0"
+  tap "home-card-0-more"
+  expect text "home-card-0-more-0" == "The preview of the invoice email on the billing staging site."
+  expect text "home-card-0-more-2" == "About 2 minutes."
+  expect tree missing "home-card-1-more-0"
+  tap "home-card-0-more"
+  expect tree missing "home-card-0-more-0"
+
+// A project's page: its own decisions, then one ordered Backlog in the four states.
+test "a project shows its decisions and a backlog in four states"
+  clock data
+  tap "chip-1"
+  clock settle
+  expect text "title-project" == "acme-shop"
+  expect text "project-card-0-question" == "Production is 3 commits behind main"
+  expect text "project-card-1-question" == "Merge the checkout rounding fix?"
+  expect tree missing "project-card-2"
+  expect tree missing "project-card-0-project"
+  expect text "backlog-title" == "Backlog"
+  expect text "item-0-title" == "Checkout rounding fix"
+  expect text "item-0-state" == "Needs you"
+  expect tree missing "item-0-agent"
+  expect text "item-1-title" == "Faster product search"
+  expect text "item-1-state" == "Agent working"
+  expect text "item-1-agent" == "codex"
+  expect text "item-2-title" == "Gift cards at checkout"
+  expect text "item-2-state" == "Ready"
+  expect text "item-3-title" == "Order history page"
+  expect text "item-3-state" == "Done"
+  expect tree missing "item-4"
+
+// An item opens to its Done when and Next, rendered; a Ready one says who to assign it to and why.
+test "an item opens to its Done when, Next and Assign"
+  at "/project/acme-shop/item/14"
+  clock data
+  expect text "title-item" == "Gift cards at checkout"
+  expect text "item-state" == "Ready"
+  expect tree missing "item-agent"
+  expect text "item-done" == "A shopper can pay part of an order with a gift card."
+  expect text "item-next" == "Assign it to an agent."
+  expect text "item-assign-why" == "Codex: 54% of its week left; Claude's allowance resets Wednesday"
+  expect text "item-assign-codex" == "codex · recommended"
+  expect text "item-assign-claude" == "claude"
+
+test "an item an agent is on names the agent"
+  at "/project/acme-shop/item/13"
+  clock data
+  expect text "item-state" == "Agent working"
+  expect text "item-agent" == "codex"
+  expect text "item-done" == "Search answers in under 200 ms for the **whole catalogue**."
+  expect tree missing "item-assign-why"
+
+// Rule 3: empty means hidden. A project in step has no Needs you and no Backlog.
+test "a project with nothing waiting draws no empty section"
+  at "/project/acme-docs"
+  clock data
+  expect text "title-project" == "acme-docs"
+  expect tree missing "project-needs-you"
+  expect tree missing "backlog"
+  expect tree missing "gaps"
+
+test "a project with work but no decision has a backlog and no Needs you"
+  at "/project/acme-mobile"
+  clock data
+  expect tree missing "project-needs-you"
+  expect text "item-0-title" == "Offline cart"
+  expect text "item-0-state" == "Done"
+
+// The channel is a chat: what plates saw as small lines, an agent's own lines as
+// bubbles grouped under its name, the owner's lines on their side with a mark.
+test "the channel is a chat of agents, plates and the owner"
+  clock data
+  tap "tab-channel"
+  clock data
+  expect state nav.tab == "channel"
+  expect text "title-channel" == "Channel"
+  expect text "line-0-system" == "codex started on Faster product search"
+  expect text "line-1-who" == "acme-shop#13"
+  expect text "line-1-agent" == "The slow part is the price filter, not the text match. Adding an index for it."
+  expect tree missing "line-2-who"
+  expect text "line-2-agent" == "Index is in. Search went from 900 ms to 140 ms on the sample catalogue."
+  expect text "line-3-owner" == "@13 does it hold with the whole catalogue, not just the sample?"
+  expect text "line-3-mark" == "2026-01-12 10:05 UTC · #acme-shop · answered"
+  expect text "line-4-who" == "acme-shop#13"
+  expect text "line-5-system" == "Pull request 212 is ready: Checkout rounding fix"
+  expect text "line-6-system" == "Main's checks failed: the refund test"
+  expect text "line-7-who" == "acme-billing#8"
+  expect text "line-8-owner" == "Thanks. Tell me when main is green again."
+  expect text "line-8-mark" == "2026-01-12 11:03 UTC · #acme-billing · sent"
+  expect tree missing "line-9-system"
+
+test "each tab keeps its place"
+  clock data
+  tap "chip-0"
+  clock settle
+  expect text "title-project" == "acme-billing"
+  tap "tab-channel"
+  expect state nav.tab == "channel"
+  tap "tab-home"
+  expect text "item-1-title" == "Fix the flaky refund test"

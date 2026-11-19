@@ -50,6 +50,7 @@ own configured gates.
 | `scripts/roadmap.mjs` | Generates and checks the roadmap; shipped by the `phases` practice. |
 | `.agents/skills/spin/` | The conductor. Reached from Claude Code via the `.claude/skills/spin` symlink. |
 | `.plates/plates.json` | This project's plates config. Plates's says `"plates": "self"`. |
+| `app/` | Plates on the iPhone: the simple view as a native app, built with Exact. Not shipped in the package; its own guide is `app/AGENTS.md`, its gate `npm run exact:check` there. `tests/app-fixture.test.mjs` holds its sample to the shared model. |
 
 ## How the work is run
 

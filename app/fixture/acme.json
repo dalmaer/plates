@@ -1,0 +1,132 @@
+{
+  "about": "Synthetic. Acme does not exist; no line here came from a real project. The shapes are the hosted workspace's: home.glance is lib/work-items.mjs homeGlance, each project is lib/web/simple-project-model.mjs simpleProject, channel.lines is lib/channel.mjs channelFor. tests/app-fixture.test.mjs holds them to those modules.",
+  "home": {
+    "glance": {
+      "chips": [
+        { "projectId": "acme-billing", "name": "acme-billing", "tone": "red", "reason": "Main's checks are failing", "more": 1,
+          "reasons": [
+            { "tone": "red", "kind": "ci", "text": "Main's checks are failing" },
+            { "tone": "yellow", "kind": "agent", "text": "An agent is waiting on you" }
+          ] },
+        { "projectId": "acme-shop", "name": "acme-shop", "tone": "yellow", "reason": "Production 3 behind main", "more": 1,
+          "reasons": [
+            { "tone": "yellow", "kind": "deploy", "text": "Production 3 behind main" },
+            { "tone": "yellow", "kind": "decision", "text": "A decision waits on you" }
+          ] },
+        { "projectId": "acme-docs", "name": "acme-docs", "tone": "green", "reason": null, "more": 0, "reasons": [] },
+        { "projectId": "acme-mobile", "name": "acme-mobile", "tone": "green", "reason": null, "more": 0, "reasons": [] }
+      ],
+      "cards": [
+        { "key": "acme-billing:phase:7:walk", "kind": "walk", "label": "Walk", "projectId": "acme-billing", "projectName": "acme-billing",
+          "question": "Does the new invoice email read right?",
+          "why": "The agent finished the email and waits for your look **before it reaches customers**.",
+          "answers": [
+            { "id": "choice-reads-right", "label": "Reads right", "needsWhy": "never", "writer": "walk done", "recommended": true },
+            { "id": "choice-needs-changes-say-what", "label": "Needs changes (say what)", "needsWhy": "always", "writer": "walk done" },
+            { "id": "not-now", "label": "Not now", "needsWhy": "never", "writer": "not now" }
+          ],
+          "recommended": "choice-reads-right",
+          "more": [
+            { "label": "Look at", "text": "The preview of the invoice email on the billing staging site." },
+            { "label": "Then", "text": "Reads right: the agent turns the email on. Needs changes: it rewrites the email first." },
+            { "label": "Takes", "text": "About 2 minutes." }
+          ],
+          "link": null, "agentWaits": true, "minutes": 2 },
+        { "key": "acme-shop:deploy:4f2a9c1d", "kind": "deploy", "label": "Deploy", "projectId": "acme-shop", "projectName": "acme-shop",
+          "question": "Production is 3 commits behind main",
+          "why": "main 4f2a9c1 · production 9b1e0d7",
+          "answers": [], "recommended": null,
+          "more": [
+            { "label": "Where it runs", "text": "Runs on your Mac, in the project's checkout. plates promote deploys only a commit on the tested ref whose checks passed, checks production after, and keeps the rollback. The hosted workspace does not deploy." }
+          ],
+          "link": null,
+          "deploy": { "command": "plates promote 4f2a9c1d", "sha": "4f2a9c1d", "where": "Runs on your Mac, in the project's checkout. plates promote deploys only a commit on the tested ref whose checks passed, checks production after, and keeps the rollback. The hosted workspace does not deploy." },
+          "minutes": null },
+        { "key": "acme-shop:merge:212", "kind": "merge", "label": "Ready to merge", "projectId": "acme-shop", "projectName": "acme-shop",
+          "question": "Merge the checkout rounding fix?",
+          "why": "Its checks pass and every review finding is answered.",
+          "answers": [
+            { "id": "merge", "label": "Merge", "needsWhy": "never", "writer": "pr merge", "recommended": true },
+            { "id": "request-changes", "label": "Request changes", "needsWhy": "always", "writer": "pr comment",
+              "unavailable": { "reason": "Request changes is posted from your terminal; the hosted workspace posts no reviews yet.", "command": "plates home --answer acme-shop:merge:212 request-changes --why \"<line>\"" } },
+            { "id": "not-now", "label": "Not now", "needsWhy": "never", "writer": "not now" }
+          ],
+          "recommended": "merge",
+          "more": [
+            { "label": "Review", "text": "Round 2 of 3 · approved" }
+          ],
+          "link": "https://github.com/acme/shop/pull/212", "minutes": 2 }
+      ]
+    }
+  },
+  "projects": {
+    "acme-billing": {
+      "projectId": "acme-billing", "name": "acme-billing",
+      "recommendation": { "provider": null, "why": "Agent quota is unavailable; no recommendation.", "candidates": [] },
+      "items": [
+        { "key": "acme-billing:phase:7", "kind": "phase", "ref": "7", "title": "Invoice email in plain language", "state": "Needs you", "holder": null,
+          "done": "A customer who gets an invoice can tell what they owe and by when from the email alone.", "next": "Your look at the preview; then the agent turns the email on.",
+          "canAssign": false, "assign": [], "assignUnavailable": null, "blocked": [] },
+        { "key": "acme-billing:phase:8", "kind": "phase", "ref": "8", "title": "Fix the flaky refund test", "state": "Agent working", "holder": { "provider": "claude" },
+          "done": "Main's checks pass ten runs in a row.", "next": "The agent is isolating the test's clock.",
+          "canAssign": false, "assign": [], "assignUnavailable": null, "blocked": [] },
+        { "key": "acme-billing:phase:6", "kind": "phase", "ref": "6", "title": "Receipts as PDF", "state": "Done", "holder": null,
+          "done": "Every paid invoice offers a PDF receipt.", "next": null,
+          "canAssign": false, "assign": [], "assignUnavailable": null, "blocked": [] }
+      ],
+      "waiting": [], "gaps": []
+    },
+    "acme-shop": {
+      "projectId": "acme-shop", "name": "acme-shop",
+      "recommendation": { "provider": "codex", "why": "Codex: 54% of its week left; Claude's allowance resets Wednesday", "candidates": [] },
+      "items": [
+        { "key": "acme-shop:merge:212", "kind": "merge", "ref": "212", "title": "Checkout rounding fix", "state": "Needs you", "holder": null,
+          "done": "A cart of three items totals to the cent.", "next": "Your merge.",
+          "canAssign": false, "assign": [], "assignUnavailable": null, "blocked": [] },
+        { "key": "acme-shop:phase:13", "kind": "phase", "ref": "13", "title": "Faster product search", "state": "Agent working", "holder": { "provider": "codex" },
+          "done": "Search answers in under 200 ms for the **whole catalogue**.", "next": "The agent is adding the index; a pull request follows.",
+          "canAssign": false, "assign": [], "assignUnavailable": null, "blocked": [] },
+        { "key": "acme-shop:phase:14", "kind": "phase", "ref": "14", "title": "Gift cards at checkout", "state": "Ready", "holder": null,
+          "done": "A shopper can pay part of an order with a gift card.", "next": "Assign it to an agent.",
+          "canAssign": true,
+          "assign": [
+            { "route": "session", "provider": "codex", "recommended": true, "command": "plates home --attach acme-shop:phase:14 --route session --provider codex" },
+            { "route": "session", "provider": "claude", "recommended": false, "command": "plates home --attach acme-shop:phase:14 --route session --provider claude" }
+          ],
+          "assignUnavailable": null, "blocked": [] },
+        { "key": "acme-shop:phase:12", "kind": "phase", "ref": "12", "title": "Order history page", "state": "Done", "holder": null,
+          "done": "A signed-in shopper sees every past order.", "next": null,
+          "canAssign": false, "assign": [], "assignUnavailable": null, "blocked": [] }
+      ],
+      "waiting": [], "gaps": []
+    },
+    "acme-docs": {
+      "projectId": "acme-docs", "name": "acme-docs",
+      "recommendation": { "provider": null, "why": "Agent quota is unavailable; no recommendation.", "candidates": [] },
+      "items": [], "waiting": [], "gaps": []
+    },
+    "acme-mobile": {
+      "projectId": "acme-mobile", "name": "acme-mobile",
+      "recommendation": { "provider": null, "why": "Agent quota is unavailable; no recommendation.", "candidates": [] },
+      "items": [
+        { "key": "acme-mobile:phase:3", "kind": "phase", "ref": "3", "title": "Offline cart", "state": "Done", "holder": null,
+          "done": "A cart built offline is kept and sent when the phone is back online.", "next": null,
+          "canAssign": false, "assign": [], "assignUnavailable": null, "blocked": [] }
+      ],
+      "waiting": [], "gaps": []
+    }
+  },
+  "channel": {
+    "lines": [
+      { "at": "2026-01-12T09:02:00.000Z", "plate": "acme-shop", "kind": "joined", "actor": "acme-shop#13", "text": "codex started on Faster product search", "ref": null, "phase": 13, "pr": null },
+      { "at": "2026-01-12T09:40:00.000Z", "plate": "acme-shop", "kind": "say", "actor": "acme-shop#13", "session": "codex-13", "text": "The slow part is the price filter, not the text match. Adding an index for it.", "ref": null, "phase": 13, "pr": null },
+      { "at": "2026-01-12T09:58:00.000Z", "plate": "acme-shop", "kind": "say", "actor": "acme-shop#13", "session": "codex-13", "text": "Index is in. Search went from 900 ms to 140 ms on the sample catalogue.", "ref": null, "phase": 13, "pr": null },
+      { "at": "2026-01-12T10:05:00.000Z", "plate": "acme-shop", "kind": "checkpoint", "actor": "acme-shop", "text": "@13 does it hold with the whole catalogue, not just the sample?", "to": ["acme-shop#13"], "answered": true, "ref": null, "phase": null, "pr": null },
+      { "at": "2026-01-12T10:21:00.000Z", "plate": "acme-shop", "kind": "say", "actor": "acme-shop#13", "session": "codex-13", "text": "Yes: 180 ms on all 40,000 products.", "ref": null, "phase": 13, "pr": null },
+      { "at": "2026-01-12T10:30:00.000Z", "plate": "acme-shop", "kind": "pr", "actor": "acme-shop!212", "text": "Pull request 212 is ready: Checkout rounding fix", "ref": "https://github.com/acme/shop/pull/212", "phase": null, "pr": 212 },
+      { "at": "2026-01-12T10:44:00.000Z", "plate": "acme-billing", "kind": "ci", "actor": "acme-billing", "text": "Main's checks failed: the refund test", "ref": null, "phase": null, "pr": null },
+      { "at": "2026-01-12T10:52:00.000Z", "plate": "acme-billing", "kind": "say", "actor": "acme-billing#8", "session": "claude-8", "text": "The refund test reads the real clock. Pinning it now.", "ref": null, "phase": 8, "pr": null },
+      { "at": "2026-01-12T11:03:00.000Z", "plate": "acme-billing", "kind": "owner", "actor": "acme-billing", "text": "Thanks. Tell me when main is green again.", "answered": false, "ref": null, "phase": null, "pr": null }
+    ]
+  }
+}

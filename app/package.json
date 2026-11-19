@@ -1,0 +1,14 @@
+{
+  "name": "plates-app",
+  "private": true,
+  "description": "Plates on the iPhone: the simple view the hosted workspace shows (work, agents, decisions), built with Exact.",
+  "type": "module",
+  "scripts": {
+    "web": "PATH=\"/opt/homebrew/opt/rustup/bin:$HOME/.cargo/bin:$PATH\" ./exact.mjs web",
+    "ios": "PATH=\"/opt/homebrew/opt/rustup/bin:$HOME/.cargo/bin:$PATH\" ./exact.mjs ios --run",
+    "verify": "PATH=\"/opt/homebrew/opt/rustup/bin:$HOME/.cargo/bin:$PATH\" ./exact.mjs verify",
+    "exact:check": "PATH=\"/opt/homebrew/opt/rustup/bin:$HOME/.cargo/bin:$PATH\" ./exact.mjs contract build app.contract --json --errors-only && PATH=\"/opt/homebrew/opt/rustup/bin:$HOME/.cargo/bin:$PATH\" ./exact.mjs test web",
+    "icon": "tools/icon.sh"
+  },
+  "dependencies": {}
+}
