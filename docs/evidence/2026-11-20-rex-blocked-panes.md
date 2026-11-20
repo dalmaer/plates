@@ -1,5 +1,5 @@
 ---
-attempt: {"accepted":true,"verified":true,"rework":0,"lessonStatus":{"state":"none"}}
+attempt: {"accepted":true,"verified":true,"rework":0,"lessonStatus":{"status":"none"}}
 ---
 
 # Evidence: phase 199 — Rex panes blocked on the owner reach Home (increment 1)
