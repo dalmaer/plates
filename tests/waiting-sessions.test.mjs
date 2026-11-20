@@ -196,7 +196,7 @@ test('the push route takes a device key and nothing else; the CLI pushes this ma
   const largest = { schema: 1, machine: 'Acme Mac', scannedAt: at(29),
     sessions: Array.from({ length: 50 }, (_, i) => ({ id: `s${i}`, plate: 'studio', title: `🏠 [studio] ${wide(108)}`, question: wide(500), since: at(1) })),
     scripts: Array.from({ length: 50 }, (_, i) => ({ name: `20261115-0900-acme-${i}`, why: wide(300), checked: true, since: at(1) })),
-    panes: Array.from({ length: 50 }, (_, i) => ({ block: `block:${String(i).padStart(100, 'a')}`, session: 's'.repeat(64), tab: 't'.repeat(64), app: 'a'.repeat(40), kind: 'permission', since: at(1) })) };
+    panes: Array.from({ length: 50 }, (_, i) => ({ block: `block:${String(i).padStart(100, 'a')}`, sid: `session:${String(i).padStart(100, 'b')}`, session: 's'.repeat(64), tab: 't'.repeat(64), app: 'a'.repeat(40), kind: 'permission', since: at(1) })) };
   assert.ok(validSnapshot(largest), 'the bound case is a valid snapshot');
   assert.ok(Buffer.byteLength(JSON.stringify(largest)) > 65536, 'and larger than the old limit');
   assert.equal((await call(`Bearer ${key}`, JSON.stringify(largest))).status, 200);
@@ -295,7 +295,7 @@ const a = process.argv.slice(2);
 appendFileSync(${JSON.stringify(join(dir, 'calls.log'))}, JSON.stringify(a) + '\\n');
 if (f.fail && a.join(' ').includes(f.fail)) { process.stderr.write('refused'); process.exit(3); }
 if (a[0] === 'ls') console.log(JSON.stringify({ sessions: f.sessions }));
-else if (a[0] === 'block') console.log(JSON.stringify({ blocks: f.blocks[a[3]] ?? [] }));
+else if (a[0] === 'block') console.log(JSON.stringify({ blocks: a[3] in f.blocks ? f.blocks[a[3]] : [] }));
 else if (a[0] === 'api') console.log(JSON.stringify(f.statuses[JSON.parse(a[5]).block_id] ?? { records: [] }));
 `);
   await writeFile(join(dir, 'rex'), `#!/bin/sh\nexec "${process.execPath}" "${join(dir, 'rex.mjs')}" "$@"\n`);
@@ -312,12 +312,12 @@ test('a blocked Rex pane is kept with only its place and kind', async t => {
     statuses: { 'block:b1': record('blocked', { kind: 'permission' }) },
   });
   const panes = await scanRexPanes({ env: rex.env });
-  assert.deepEqual(panes, [{ block: 'block:b1', session: 'anvils-codex', tab: 'phase-7', app: 'codex', kind: 'permission', since: at(5) }]);
+  assert.deepEqual(panes, [{ block: 'block:b1', sid: 'session:a1', session: 'anvils-codex', tab: 'phase-7', app: 'codex', kind: 'permission', since: at(5) }]);
   assert.doesNotMatch(JSON.stringify(panes), /secret/, 'a record\'s title and message are never kept');
   assert.ok((await rex.calls()).every(c => c[0] === 'ls' || (c[0] === 'block' && c[1] === 'ls') || (c[0] === 'api' && JSON.parse(c[5]).method === 'program_status')), 'only reads: no write, send or capture');
   const snap = validSnapshot({ schema: 1, machine: 'Acme Mac', scannedAt: at(9), sessions: [], scripts: [], panes });
   const row = waitingRows([snap], { plates: ['anvils'], now: Date.parse(at(10)) });
-  assert.deepEqual(row.items.map(i => [i.kind, i.plate, i.title, i.why, i.read]), [['pane', 'anvils', 'phase-7 in anvils-codex is waiting on you', 'codex is asking for permission.', 'rex focus -s anvils-codex block:b1']]);
+  assert.deepEqual(row.items.map(i => [i.kind, i.plate, i.title, i.why, i.read]), [['pane', 'anvils', 'phase-7 in anvils-codex is waiting on you', 'codex is asking for permission.', 'rex focus -s session:a1 block:b1']]);
 });
 
 test('only blocked panes on known plates are listed', async t => {
@@ -341,6 +341,12 @@ test('no Rex is not read, never none', async t => {
   assert.equal(await scanRexPanes({ env: { PATH: '/nonexistent' } }), null, 'no rex on PATH');
   const refused = await stubRex(t, { sessions: [{ session_id: 'session:a1', label: 'anvils-codex' }], blocks: { 'session:a1': [term('b1', 'phase-7')] }, statuses: {}, fail: 'program_status' });
   assert.equal(await scanRexPanes({ env: refused.env }), null, 'one refused call is the whole read unread');
+  for (const [name, fixture] of [['sessions', { sessions: null, blocks: {}, statuses: {} }],
+    ['blocks', { sessions: [{ session_id: 'session:a1', label: 'anvils-codex' }], blocks: { 'session:a1': null }, statuses: {} }],
+    ['records', { sessions: [{ session_id: 'session:a1', label: 'anvils-codex' }], blocks: { 'session:a1': [term('b1', 'phase-7')] }, statuses: { 'block:b1': { other: [] } } }]]) {
+    const odd = await stubRex(t, fixture);
+    assert.equal(await scanRexPanes({ env: odd.env }), null, `an answer without ${name} is unread, never none`);
+  }
   const snap = validSnapshot({ schema: 1, machine: 'Acme Mac', scannedAt: at(9), sessions: [], scripts: [] });
   assert.equal('panes' in snap, false);
   assert.match(waitingRows([snap], { plates: ['anvils'], now: Date.parse(at(10)) }).why, /Rex panes not read on Acme Mac/);
@@ -349,10 +355,10 @@ test('no Rex is not read, never none', async t => {
 });
 
 test('a pane field the snapshot does not hold is refused', () => {
-  const pane = { block: 'block:b1', session: 'anvils-codex', tab: 'phase-7', app: 'codex', kind: 'question', since: at(5) };
+  const pane = { block: 'block:b1', sid: 'session:a1', session: 'anvils-codex', tab: 'phase-7', app: 'codex', kind: 'question', since: at(5) };
   const snap = { schema: 1, machine: 'Acme Mac', scannedAt: at(9), sessions: [], scripts: [], panes: [pane] };
   assert.deepEqual(validSnapshot(snap), snap);
-  for (const bad of [{ ...pane, msg: 'x' }, { ...pane, block: 'b1' }, { ...pane, kind: 'mystery' }, { ...pane, session: 'a/b' }, { ...pane, app: 'a b' }, { ...pane, since: 'soon' }])
+  for (const bad of [{ ...pane, msg: 'x' }, { ...pane, block: 'b1' }, { ...pane, kind: 'mystery' }, { ...pane, session: 'a/b' }, { ...pane, app: 'a b' }, { ...pane, since: 'soon' }, { ...pane, session: ['anvils-codex'] }, { ...pane, block: ['block:b1'] }, { ...pane, app: ['codex'] }, { ...pane, sid: 'anvils-codex' }, { ...pane, sid: undefined }])
     assert.equal(validSnapshot({ ...snap, panes: [bad] }), null, JSON.stringify(bad));
   assert.equal(validSnapshot({ ...snap, panes: Array(51).fill(pane) }), null, 'at most 50');
   assert.equal(paneLabel('🏠 [anvils] codex'), 'anvils- codex', 'other characters become hyphens, trimmed at the ends');

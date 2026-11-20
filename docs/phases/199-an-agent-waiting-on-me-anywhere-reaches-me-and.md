@@ -28,7 +28,7 @@ per-pane program status and never types into a pane:
   `error`; a blocked record's `kind` is `permission`, `question` or `auth`). Codex and Claude Code
   report it. The Mac's sessions scan (`plates sessions push`, lib/waiting-scan.mjs) asks this Mac's
   Rex for each block's root record and keeps only blocked ones: the block id, its session's label,
-  its tab label, the reporting app, the kind and when it was reported. A record's free text
+  its tab label, the reporting app, the kind and when it was reported; the session id, not the label, is what `rex focus` is given. A record's free text
   (`title`, `msg`) and the pane's contents are never read. The plate is the session label's plate
   (`<plate>-<provider>`, rexLabel): the longest known plate the label equals or starts with;
   any other session is counted, not listed. Home's "Sessions waiting on you" row lists them in both
@@ -57,7 +57,7 @@ answers before sending (#542), the sent-version check (#543) and sectioned revie
 
 ## Acceptance
 
-- [x] A blocked pane in this Mac's Rex is in the snapshot with only its block id, session label, tab label, app, kind and time, and a record's free text never is: `tests/waiting-sessions.test.mjs: "a blocked Rex pane is kept with only its place and kind"`.
+- [x] A blocked pane in this Mac's Rex is in the snapshot with only its block and session ids, session label, tab label, app, kind and time, and a record's free text never is: `tests/waiting-sessions.test.mjs: "a blocked Rex pane is kept with only its place and kind"`.
 - [x] Panes that are working, idle, done or in error are not kept, and panes in sessions that name no known plate are counted, not listed: `tests/waiting-sessions.test.mjs: "only blocked panes on known plates are listed"`.
 - [x] No Rex, or a Rex that fails, leaves `panes` absent and the row says Rex was not read: `tests/waiting-sessions.test.mjs: "no Rex is not read, never none"`.
 - [x] A pushed snapshot with a pane field it does not hold is refused: `tests/waiting-sessions.test.mjs: "a pane field the snapshot does not hold is refused"`.
