@@ -562,7 +562,7 @@ export async function chooseTestTarget({ root, minutes, date, history = [], prs 
   }
   const limits = admissionLimits(minutes);
   const open = new Set(prs.filter(p => branchSuffix(p.headRefName, 'git ref:keel-climb/')?.startsWith('test-time/')).map(prTarget));
-  let selected = null;
+  let selected = null, overBudget = false;
   for (const row of [...candidates.values()].sort((a, b) => b.expectedMs - a.expectedMs || a.file.localeCompare(b.file))) {
     const { file, expectedMs } = row;
     const last = history.find(h => h.file === file);
@@ -571,12 +571,19 @@ export async function chooseTestTarget({ root, minutes, date, history = [], prs 
     if (!(await lstat(join(root, file)).catch(() => null))?.isFile() || !(await realpath(join(root, file)).catch(() => '')).startsWith(`${realRoot}${sep}`)) why = 'test file is missing or is not a regular file inside the repo';
     else if (open.has(file) || open.has(null)) why = 'an open climb PR covers this file (or has no target metadata)';
     else if (last?.kept === 0 && nights >= 0 && nights <= TARGET_COOLDOWN_NIGHTS) why = `kept nothing on ${last.date}; cooling down for ${TARGET_COOLDOWN_NIGHTS} nights`;
-    else if (expectedMs * DEFAULTS.runs > limits.baselineLimitMs) why = `${DEFAULTS.runs} baseline runs exceed the separate baseline allowance`;
-    else if (expectedMs * limits.comparisonExecutions + limits.reserveMs > limits.allowanceMs) why = `${limits.comparisonExecutions} comparison executions plus editing/guard reserve exceed the ${minutes}-minute budget`;
+    else if (expectedMs * DEFAULTS.runs > limits.baselineLimitMs) {
+      overBudget = true;
+      why = `${DEFAULTS.runs} baseline runs exceed the separate baseline allowance`;
+    } else if (expectedMs * limits.comparisonExecutions + limits.reserveMs > limits.allowanceMs) {
+      overBudget = true;
+      why = `${limits.comparisonExecutions} comparison executions plus editing/guard reserve exceed the ${minutes}-minute budget`;
+    }
     if (why) skipped.push({ file, why });
     else if (!selected) selected = { file, expectedMs, why: `slowest file fitting the separate baseline and comparison allowances; ${row.source}` };
   }
-  return selected ? { ...selected, skipped } : { file: null, expectedMs: null, why: 'no test file fits the budget', skipped };
+  const why = candidates.size === 0 ? 'no usable test timing history'
+    : overBudget ? 'no test file fits the budget' : 'no measured test file is eligible for climb';
+  return selected ? { ...selected, skipped } : { file: null, expectedMs: null, why, skipped };
 }
 
 export async function pick({ root, config, env = process.env, date = today(), force = false, lastNight, plan: planFile, readPrs = ghPrs }) {

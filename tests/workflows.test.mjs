@@ -1100,7 +1100,7 @@ test('the night stages only tonight\'s page and its own data (deletions kept), p
  * branch plates-night-plan; `date` is a stub, so tonight is 2026-10-15 (UTC).
  * Returns { status, out, outputs, plan }.
  */
-async function nightPlanStep(t, night, { branchPlan = null, origin: brokenOrigin = false, emptyBranch = false, failFetch = false } = {}) {
+async function nightPlanStep(t, night, { branchPlan = null, origin: brokenOrigin = false, emptyBranch = false, failFetch = false, restoreTimingMs } = {}) {
   const step = runBlocks(night).find(b => b.step === 'Plan the night');
   assert.ok(step, 'the night has a Plan the night step');
   const base = await mkdtemp(join(tmpdir(), 'plates-wf-plan-'));
@@ -1112,6 +1112,23 @@ async function nightPlanStep(t, night, { branchPlan = null, origin: brokenOrigin
   git(['init', '-q', '-b', 'main']);
   await cp(join(PLATES, 'practices/night/files/scripts/plates'), join(dir, 'scripts/plates'), { recursive: true });
   await writeFile(join(dir, '.plates/plates.json'), `${JSON.stringify({ name: 'Acme' })}\n`);
+  if (restoreTimingMs !== undefined) {
+    for (const file of ['climb.mjs', 'climb-execution.mjs', 'tend.mjs']) {
+      await cp(join(PLATES, 'scripts/plates', file), join(dir, 'scripts/plates', file));
+    }
+    const climb = { jobs: ['test-time'], budget: { minutes: 45 }, testCommand: 'node --test', testTarget: 'slowest-fit', testTemplate: 'node --test {file}' };
+    await writeFile(join(dir, '.plates/plates.json'), JSON.stringify({ name: 'Acme', climb }));
+    await writeFile(join(dir, 'acme.test.mjs'), '');
+    // Emulate the successful bounded restore's output, not a real GitHub read.
+    await writeFile(join(dir, 'scripts/plates/test-history.mjs'), `
+      import { mkdirSync, writeFileSync } from 'node:fs';
+      mkdirSync('.plates/test-runs', { recursive: true });
+      if (${restoreTimingMs !== null}) writeFileSync('.plates/test-runs/fixture.json',
+        JSON.stringify({ date: '2026-10-14T00:00:00Z', completed: true, tests: [
+          { file: 'acme.test.mjs', name: 'Acme passes', outcome: 'pass', ms: ${restoreTimingMs} }
+        ] }));
+    `);
+  }
   git(['add', '-A']);
   git(['commit', '-q', '-m', 'acme']);
   git(['push', '-q', origin, 'HEAD:refs/heads/main']);
@@ -1139,16 +1156,42 @@ async function nightPlanStep(t, night, { branchPlan = null, origin: brokenOrigin
   await writeFile(join(bin, 'gh'), '#!/bin/sh\necho "[]"\n', { mode: 0o755 });
   const out = join(temp, 'out');
   await writeFile(out, '');
-  const r = run('bash', ['-e', '-c', step.script], { cwd: dir, env: { ...process.env, GITHUB_OUTPUT: out, RUNNER_TEMP: temp, PATH: `${bin}:${process.env.PATH}` } });
+  const env = { ...process.env, GITHUB_OUTPUT: out, RUNNER_TEMP: temp, PATH: `${bin}:${process.env.PATH}`, REPO: 'acme/anvils', BASE: 'main' };
+  const order = restoreTimingMs === undefined ? [step] : runBlocks(night).filter(b => ['Gather the test ledger', 'Plan the night'].includes(b.step));
+  if (restoreTimingMs !== undefined) assert.equal(order.length, 2, 'recover exactly once');
+  let r;
+  for (const block of order) {
+    const result = run('bash', ['-e', '-c', block.script], { cwd: dir, env });
+    if (block.step === 'Plan the night') r = result;
+    else assert.equal(result.status, 0, `${block.step}: ${result.stderr}`);
+  }
   const outputs = Object.fromEntries((await readFile(out, 'utf8')).trim().split('\n').filter(Boolean).map(l => l.split('=')));
   const plan = await readFile(join(dir, '.plates/night/plan.json'), 'utf8').then(JSON.parse, () => null);
   return { status: r.status, out: r.stdout + r.stderr, outputs, plan };
 }
 
+test('night planning sees restored timing on a fresh checkout without overriding an owner plan', async t => {
+  const night = await readFile(join(PLATES, 'practices/night/files/.github/workflows/plates-night.yml'), 'utf8');
+  const fitted = await nightPlanStep(t, night, { restoreTimingMs: 12000 });
+  assert.equal(fitted.outputs.code, '0', fitted.out);
+  const item = fitted.plan.items.find(i => i.lane === 'climb:test-time');
+  assert.equal(item?.budget.minutes, 45);
+  assert.match(item.title, /acme\.test\.mjs.*single-file ledger/);
+  const empty = await nightPlanStep(t, night, { restoreTimingMs: null });
+  assert.ok(empty.plan.leftOpen.includes('climb: no usable test timing history'), JSON.stringify(empty.plan));
+  const oversized = await nightPlanStep(t, night, { restoreTimingMs: 86400000 });
+  assert.ok(oversized.plan.leftOpen.includes('climb: no test file fits the budget'), JSON.stringify(oversized.plan));
+  const owner = { schema: 1, date: '2026-10-15', shapedBy: 'owner', readyBy: null, willNotTouch: [], settledToday: [], leftOpen: [],
+    items: [{ id: 'measure', title: 'Measure Acme', kind: 'measure', source: 'owner', number: null, lane: 'night', budget: null, status: 'planned', result: null }] };
+  const retained = await nightPlanStep(t, night, { branchPlan: owner, restoreTimingMs: 12000 });
+  assert.deepEqual(retained.plan, owner);
+});
+
 test('the night plans before anything runs: tonight\'s plan from plates-night-plan, else the default plan, saying which; a plan it cannot make is red at the verdict', async t => {
   const night = await readFile(join(PLATES, 'practices/night/files/.github/workflows/plates-night.yml'), 'utf8');
   const steps = runBlocks(night).map(b => b.step);
   const at = name => steps.indexOf(name);
+  assert.ok(at('Gather the test ledger') > at('Install') && at('Gather the test ledger') < at('Plan the night'), 'the fresh runner restores history before default climb selection');
   assert.ok(at('Plan the night') > at('Install') && at('Plan the night') < at('Gather what came home') && at('Plan the night') < at('Measure'), `the plan is written before any pass runs: ${steps.join(', ')}`);
   const owner = { schema: 1, date: '2026-10-15', shapedBy: 'owner', readyBy: null, willNotTouch: ['lib/anvil.mjs'], settledToday: [], leftOpen: [],
     items: [{ id: 'measure', title: 'Measure Acme', kind: 'measure', source: 'owner', number: null, lane: 'night', budget: null, status: 'planned', result: null }] };
@@ -1290,9 +1333,10 @@ export function ledgerProblems(name, text) {
     if (!/if-no-files-found: ignore/.test(keep.body)) out.push(`${name}: a project without the reporter must not go red over a missing ledger`);
   }
   if (name === 'plates-night.yml') {
-    const gather = step('Gather the test ledger'), measure = text.indexOf('node scripts/plates/improve.mjs --report');
+    const gather = step('Gather the test ledger'), planning = step('Plan the night'), measure = text.indexOf('node scripts/plates/improve.mjs --report');
     if (!gather) out.push('plates-night.yml: no "Gather the test ledger" step');
     else {
+      if (!planning || gather.at >= planning.at) out.push('plates-night.yml: the ledger must be gathered before planning');
       if (gather.at > measure) out.push('plates-night.yml: the ledger is gathered after improve measured');
       if (!gather.body.includes('node scripts/plates/test-history.mjs --repo "$REPO" --branch "$BASE" --json')) out.push('plates-night.yml: bounded recovery does not bind the repository and default branch');
       if (/gh api[^\n]*(-X|--method|-f |-F |--field|--input)/.test(gather.body)) out.push('plates-night.yml: the ledger read writes to GitHub');
@@ -1334,8 +1378,12 @@ test('check.yml keeps each run\'s test ledger as an artifact, red or green; the 
   fails('plates-night.yml', night.replace('.plates/test-runs/recovery/status.json', '.plates/missing.json'), /artifact is not/, 'recovery coverage omitted from the artifact');
   fails('plates-night.yml', night.replace('.plates/test-runs/recovery/status.json', '.plates/test-runs/recovery/status.json\n            .claude/'), /artifact is not/, 'extra private upload path');
   fails('plates-night.yml', night.replace('node scripts/plates/test-history.mjs', 'unzip archive.zip; node scripts/plates/test-history.mjs'), /bypasses bounded/, 'unbounded extraction');
-  const late = night.replace(/(\n      - name: Gather the test ledger\n[\s\S]*?)(\n      # Before the drain)/, '$2').replace('\n      # Porcelain, never', `${/\n      - name: Gather the test ledger\n[\s\S]*?(?=\n      # Before the drain)/.exec(night)[0]}\n      # Porcelain, never`);
-  fails('plates-night.yml', late, /gathered after improve/, 'gathered after the measure');
+  const restore = /\n      - name: Gather the test ledger\n(?: {8,}[^\n]+\n)+/.exec(night)[0];
+  const later = night.replace(restore, '');
+  const afterPlan = later.replace('\n      # On plates itself only', `${restore}\n      # On plates itself only`);
+  fails('plates-night.yml', afterPlan, /before planning/, 'gathered after the plan');
+  const afterMeasure = later.replace('\n      # Porcelain, never', `${restore}\n      # Porcelain, never`);
+  fails('plates-night.yml', afterMeasure, /gathered after improve/, 'gathered after the measure');
 });
 
 /**
