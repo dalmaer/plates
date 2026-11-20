@@ -31,7 +31,7 @@
     },
     ".agents/climb/jobs/test-time.md": {
       "practice": "climb",
-      "sha256": "3eedb2f645d123f9f8b93186c52abfd566a220cb72cfa632aac4f0865e896bd2"
+      "sha256": "821a98fc5d5da3853b6cd169f8692a1ba4b3244b31c4aa985fd753afb1c02a82"
     },
     ".agents/cross-review/REVIEW.md": {
       "practice": "cross-review",
@@ -75,7 +75,7 @@
     },
     ".github/workflows/plates-climb.yml": {
       "practice": "climb",
-      "sha256": "d9a4ca5dea7191d6ffdcfa57f9860ee2b7999151c14a772f29304897662633ed"
+      "sha256": "d6e3ef2f1c492c935b9d7d228fca605ee61d901013841ba11626c3f484194e47"
     },
     ".github/workflows/plates-cross-review.yml": {
       "practice": "cross-review",
@@ -159,7 +159,7 @@
     },
     "renovate.json": {
       "practice": "renovate",
-      "sha256": "785a3e97e782c3da06cda7bcca2519eb8701e14cdf6ae9031d1b3e721147bcfc"
+      "sha256": "8c5849b485d7fd9ec7291c0f306015f299e0f05200a62380403fdc9996bd3926"
     },
     "scripts/plates/agy-review-contract.mjs": {
       "practice": "cross-review",
@@ -195,7 +195,7 @@
     },
     "scripts/plates/climb.mjs": {
       "practice": "climb",
-      "sha256": "08f0ffe2d9aa97056396bc35dbb080154415ef6343481fb982c433dfdca48efc"
+      "sha256": "c3e1176ddbaff2097114103a26e7d375744655c0af9d8d528e80a5e4891129be"
     },
     "scripts/plates/cross-review.mjs": {
       "practice": "cross-review",
@@ -223,15 +223,15 @@
     },
     "scripts/plates/gate.mjs": {
       "practice": "night",
-      "sha256": "1f9de1a31b2d1c08b6a6e7bc58fc546f95403e2b38f5eaf3d0da5719c475c2ee"
+      "sha256": "b5c82e103e7cb984b59952629cbcab6bf27f1253f7a41a664d4d648997b69407"
     },
     "scripts/plates/generated.mjs": {
       "practice": "phases",
-      "sha256": "1074ecd394c6f96118eb2f3e5f816d9f27ad8415232fe866d0bccc59e1fa0a2b"
+      "sha256": "64f41974c3eb2a06d3a1901eec48b1420c26330baa333c18023621a1b33e094a"
     },
     "scripts/plates/hygiene-measures.mjs": {
       "practice": "night",
-      "sha256": "5911b8c23e2661156c1b4f71c17bf3b773969682046bc2bcd5db6822ca045796"
+      "sha256": "5b00b306f21a74ba845cc5c052420f9cc575fc4e3cf2ef3d99d08286a4e77937"
     },
     "scripts/plates/hygiene-proposals.mjs": {
       "practice": "night",
@@ -239,11 +239,11 @@
     },
     "scripts/plates/improve.mjs": {
       "practice": "night",
-      "sha256": "9f247df8ad5b6d29fbbe3016d3b45c461086df256d9ae619873fd0f6f3843c79"
+      "sha256": "fd5ddf2c40c20b3d41664121bf3ef465f3fadfc6acf255a34c9abcfab4f8c632"
     },
     "scripts/plates/lib.mjs": {
       "practice": "night",
-      "sha256": "f27bbc0f52d6ca28014e2cf035d738de73abe2ed4499e993bc79e5514b355f3a"
+      "sha256": "4864ac6ca8820c1b8c5b2413cafc8747568d8730445135e8add33d3679eb9d24"
     },
     "scripts/plates/milestones.mjs": {
       "practice": "night",
@@ -399,7 +399,7 @@
     },
     "tests/plates-generated.test.mjs": {
       "practice": "phases",
-      "sha256": "979bd60f20dd4640409279a6c03bc72a0c7da5ab081998d5fb6b4077a643592d"
+      "sha256": "189ab6d5f80493d8645d95b2bd9465ff6103da5d1f832431e2134cc0f39df05b"
     },
     "tests/plates-workflows.test.mjs": {
       "practice": "ci",

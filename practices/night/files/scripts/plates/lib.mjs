@@ -2016,8 +2016,13 @@ export const WINDOW_THREADS = 20;
 export const WINDOW_TAIL = 4;
 export const WINDOW_CONVO = 20;
 export const WINDOW_BODIES = 10;
-/** At most this many PRs a repo are read alone; past it the read is incomplete. */
-export const SOLO_READS = 6;
+/**
+ * At most this many PRs a repo are read alone; past it the read is incomplete.
+ * Six refused plates' whole review read on 2026-11-19: seven PRs merged in the
+ * window were answered past its last ten reviews (plates#532). Each solo read
+ * is one GraphQL query, so the bound stays small.
+ */
+export const SOLO_READS = 12;
 const NODE = 'databaseId author { __typename login } body createdAt url';
 export const windowFragment = () => `fragment PlatesReviewWindow on PullRequest {
   keelWindow: __typename number title url state mergedAt updatedAt headRefName headRefOid body repository { nameWithOwner } headRepository { nameWithOwner } author { __typename login }
