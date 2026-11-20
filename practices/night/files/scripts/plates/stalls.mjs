@@ -115,11 +115,18 @@ const runnerFree = env => Object.fromEntries(Object.entries(scrubEnvironment(['v
  * Run `files` under `node --test` in a process group of its own; with a
  * `seed`, stall it. Returns { seed, exitCode, signal, timedOut, wall,
  * paused, active, stalls: [{ at, ms, start, end }], tests: [{ file, name,
- * outcome, ms, error? }], stderr }. `at` is the stall's offset from the
- * start; start and end are the epoch ms it was paused and resumed. A file is
- * said relative to `root`.
+ * outcome, ms, error? }], stderr, signals, injection }. `at` is the stall's
+ * offset from the start; start and end are the epoch ms it was paused and
+ * resumed. A file is said relative to `root`. `signals` are the signals that
+ * could not be sent ([{ sig, code, at }], the first SIGNAL_ERRORS), and
+ * `injection` says why stalling stopped (plates#268): { stopped: 'exited'
+ * (the file ended while a stall waited), 'signal' (a SIGSTOP could not be
+ * sent) or null (no seed), firstGap: the first stall's wait in ms }, so a run
+ * with no stall says whether the file was too short or the pause could not be
+ * injected. `kill` is a seam for tests.
  */
-export async function runFiles({ files, cwd = process.cwd(), root = cwd, name, preload = [], env = process.env, seed = null, shape = shapeOf(env), timeoutMs = TIMEOUT_MS }) {
+export const SIGNAL_ERRORS = 20;
+export async function runFiles({ files, cwd = process.cwd(), root = cwd, name, preload = [], env = process.env, seed = null, shape = shapeOf(env), timeoutMs = TIMEOUT_MS, kill = (pid, sig) => process.kill(pid, sig) }) {
   if (process.platform === 'win32') throw new Error('stalls need process groups (SIGSTOP), which Windows does not have');
   const args = [...preload, '--test', `--test-reporter=${REPORTER}`, '--test-reporter-destination=stdout', ...(name ? [`--test-name-pattern=${name}`] : []), ...files];
   const t0 = Date.now();
@@ -134,7 +141,12 @@ export async function runFiles({ files, cwd = process.cwd(), root = cwd, name, p
     child.on('error', e => { done = true; res({ code: null, sig: null, error: e }); });
     child.on('close', (code, sig) => { done = true; res({ code, sig }); });
   });
-  const signal = sig => { try { process.kill(-group, sig); return true; } catch { return false; } };
+  const signals = [];
+  const injection = { stopped: null, firstGap: null };
+  const signal = sig => {
+    try { kill(-group, sig); return true; }
+    catch (e) { if (signals.length < SIGNAL_ERRORS) signals.push({ sig, code: String(e?.code ?? e?.message ?? e).slice(0, 80), at: Date.now() - t0 }); return false; }
+  };
   const resume = () => {
     if (stoppedAt === null) return;
     signal('SIGCONT');
@@ -169,13 +181,15 @@ export async function runFiles({ files, cwd = process.cwd(), root = cwd, name, p
   const watchdog = setInterval(() => { if (!done && running() > timeoutMs) { timedOut = true; signal('SIGKILL'); } }, 50);
   const stalling = seed === null ? Promise.resolve() : (async () => {
     for (const s of stallsOf(seed, shape)) {
+      injection.firstGap ??= s.gap;
       await wait(s.gap);
-      if (done || !signal('SIGSTOP')) return;
+      if (done) { injection.stopped = 'exited'; return; }
+      if (!signal('SIGSTOP')) { injection.stopped = done ? 'exited' : 'signal'; return; }
       stoppedAt = Date.now();
       stalls.push({ at: stoppedAt - t0, ms: s.ms, start: stoppedAt, end: null });
       await wait(s.ms);
       resume();
-      if (done) return;
+      if (done) { injection.stopped = 'exited'; return; }
     }
   })();
   const { code, sig, error } = await closed;
@@ -198,7 +212,18 @@ export async function runFiles({ files, cwd = process.cwd(), root = cwd, name, p
     } catch { /* not ours */ }
   }
   const wall = Date.now() - t0;
-  return { seed, exitCode: code, signal: sig, timedOut, wall, paused, active: wall - paused, stalls, tests, ran, stderr: err.trim().split('\n').slice(-20).join('\n') };
+  return { seed, exitCode: code, signal: sig, timedOut, wall, paused, active: wall - paused, stalls, tests, ran, stderr: err.trim().split('\n').slice(-20).join('\n'), signals, injection };
+}
+
+/**
+ * Why a run had no stall, in a clause (plates#268): a SIGSTOP that could not be sent (unavailable injection), or a
+ * file that ended while its first stall still waited (too short); else the signals that failed, or that none did.
+ */
+export function injectionText(run) {
+  const failed = run.signals ?? [], stop = failed.find(x => x.sig === 'SIGSTOP');
+  if (run.injection?.stopped === 'signal' && stop) return `SIGSTOP could not be sent (${stop.code}) at ${stop.at} ms: the pause was not injected`;
+  if (run.injection?.stopped === 'exited') return `the file ended after ${Math.round(run.active)} ms running, while its first stall still waited (${run.injection.firstGap} ms)`;
+  return failed.length ? `signals not sent: ${failed.slice(0, 3).map(x => `${x.sig} ${x.code} at ${x.at} ms`).join(', ')}` : 'no signal failed';
 }
 
 /** Each test's key: its file, its name, and which of that file's tests of that name it is (names can repeat). */
