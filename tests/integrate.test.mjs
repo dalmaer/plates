@@ -454,6 +454,14 @@ test('a link into a pinned checkout is accepted; the same link into a checkout o
   await writeFile(join(pin, 'packages', 'lib', 'dist', 'index.js'), 'export const anvil = 3;\n');
   await refused();
   await rm(join(pin, 'packages', 'lib', 'dist'), { recursive: true });
+  // A committed symlink in the package that leads out of the pin loads bytes no commit holds: refused.
+  const outsideFile = join(dirname(a), 'acme-outside.js');
+  await writeFile(outsideFile, 'export const anvil = 5;\n');
+  await symlink(outsideFile, join(pin, 'packages', 'lib', 'outside.js'));
+  git(pin, 'add', '-A'); git(pin, '-c', 'user.name=Acme', '-c', 'user.email=acme@example.com', 'commit', '-q', '-m', 'acme outside link'); git(pin, 'checkout', '-q', '--detach');
+  await refused();
+  git(pin, 'rm', '-q', join('packages', 'lib', 'outside.js'));
+  git(pin, '-c', 'user.name=Acme', '-c', 'user.email=acme@example.com', 'commit', '-q', '-m', 'acme no outside link'); git(pin, 'checkout', '-q', '--detach');
   // Ignored output elsewhere in the pinned checkout is not linked: it does not matter.
   await mkdir(join(pin, 'target'), { recursive: true });
   await writeFile(join(pin, 'target', 'build.log'), 'acme build\n');

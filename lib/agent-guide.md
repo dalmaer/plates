@@ -990,7 +990,8 @@ or `@scope/*`) that is a symlink resolving outside `node_modules` (workspaces,
 `file:` dependencies) refuses `plates integrate` before the lock (exit 2): it
 would gate the checkout's own packages. A link into a pinned checkout is
 accepted: one outside this checkout, detached at a commit, with nothing
-changed or added in it and nothing ignored in the linked package, so every
+changed or added in it, nothing ignored in the linked package and no committed
+symlink in it leading out of the pin, so every
 candidate gets the same bytes. Each dependency the linked package declares
 must resolve, as Node finds it, to the same pin, unchanged (the pin's own
 install linking back to its committed source); an undeclared require is not
