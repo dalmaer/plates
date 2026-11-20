@@ -103,7 +103,7 @@
     },
     ".github/workflows/plates-robot.yml": {
       "practice": "climb",
-      "sha256": "dc22b088e2ab4a6be17d011c481693c9846e29f97b7822e21cf0a610c42cb8bc"
+      "sha256": "38afbcee6ca02da285600689003c5a0b9d2506ec0098adcba4d8549bf7552c78"
     },
     ".github/workflows/plates-tend.yml": {
       "practice": "climb",
