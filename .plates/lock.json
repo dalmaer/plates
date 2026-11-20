@@ -207,7 +207,7 @@
     },
     "scripts/plates/delivery.mjs": {
       "practice": "delivery",
-      "sha256": "62c9533dceb6d08e1036d7b7d227cae099a49a5aad082fdc45a266867cd7c116"
+      "sha256": "35539d37bcce29d3f3f84c8afabcb9483893bf3f33618de3cba4b8f3611de944"
     },
     "scripts/plates/distill.mjs": {
       "practice": "climb",
@@ -243,7 +243,7 @@
     },
     "scripts/plates/lib.mjs": {
       "practice": "night",
-      "sha256": "4864ac6ca8820c1b8c5b2413cafc8747568d8730445135e8add33d3679eb9d24"
+      "sha256": "6bff2f9eafdeba4b0955be510b896265aa8aaabe61c55d1040224f84c671d294"
     },
     "scripts/plates/milestones.mjs": {
       "practice": "night",

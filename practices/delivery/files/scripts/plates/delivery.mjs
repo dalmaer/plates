@@ -579,6 +579,9 @@ function stripShellComments(text) {
       continue;
     }
     if (quote === "'") { out += c; if (c === "'") quote = null; continue; }
+    // A command substitution nests its own quotes (plates#524: `echo "$(printf "%s #1" Acme)" && npm publish`), which
+    // this scan does not model: the rest of the script is kept whole, so a command after it is never cut away.
+    if (quote !== "$'" && (c === '`' || (c === '$' && text[i + 1] === '('))) { out += text.slice(i); break; }
     if (c === '\\') {
       dollar = false;
       if (text[i + 1] === '\n') { i++; continue; }
