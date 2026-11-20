@@ -413,10 +413,46 @@ test('an install that links outside node_modules (a workspace) refuses integrate
   const runs = [];
   const r = await integrate({ root: a }, { env: env('m1'), gate: async () => { runs.push(1); return { status: 0 }; } }).catch(e => e);
   assert.equal(r.exitCode, 2, String(r.message ?? r.text));
-  assert.match(r.message, /node_modules links outside itself \(@acme\/lib: workspaces or file: dependencies\)/);
+  assert.match(r.message, /node_modules links outside itself \(@acme\/lib: workspaces, file: dependencies or a checkout that is not pinned\)/);
   assert.deepEqual(runs, []);
   assert.deepEqual(remoteRefs(origin, LOCK), [], 'the lock was never taken');
   assert.deepEqual(remoteRefs(origin, 'ready/'), ['ready/claude/lib'], 'the change stays ready');
+});
+
+// A link into a pinned checkout (outside, detached at a commit, nothing changed in it) is the same for every
+// candidate and none can change it: integrate runs. A branch or a changed file there makes it mutable again.
+test('a link into a pinned checkout is accepted; the same link into a checkout on a branch or with changes is refused', async t => {
+  const { a, origin, env } = await acme(t);
+  const pin = join(dirname(a), 'acme-pins', 'lib');
+  await mkdir(join(pin, 'packages', 'lib'), { recursive: true });
+  await writeFile(join(pin, 'packages', 'lib', 'index.js'), 'export const anvil = 1;\n');
+  execFileSync('git', ['init', '-q', '-b', 'main', pin]);
+  git(pin, 'add', '-A'); git(pin, '-c', 'user.name=Acme', '-c', 'user.email=acme@example.com', 'commit', '-q', '-m', 'acme lib');
+  git(pin, 'checkout', '-q', '--detach');
+  await change(a, 'claude/lib', { 'anvil-two.txt': 'two anvils\n' }, env('m1'));
+  git(a, 'checkout', '-q', 'main');
+  await mkdir(join(a, 'node_modules', '@acme'), { recursive: true });
+  await symlink(join(pin, 'packages', 'lib'), join(a, 'node_modules', '@acme', 'lib'));
+  const refused = async () => {
+    const r = await integrate({ root: a }, { env: env('m1'), gate: async () => ({ status: 0 }) }).catch(e => e);
+    assert.equal(r.exitCode, 2, String(r.message ?? r.text));
+    assert.match(r.message, /node_modules links outside itself \(@acme\/lib: workspaces, file: dependencies or a checkout that is not pinned\)/);
+  };
+  // Changed in place: not pinned.
+  await writeFile(join(pin, 'packages', 'lib', 'index.js'), 'export const anvil = 2;\n');
+  await refused();
+  git(pin, 'checkout', '-q', '--', '.');
+  // On a branch: it moves when the branch does.
+  git(pin, 'checkout', '-q', 'main');
+  await refused();
+  git(pin, 'checkout', '-q', '--detach');
+  assert.deepEqual(remoteRefs(origin, LOCK), [], 'a refusal never took the lock');
+  // Pinned: integrate gates and lands the change.
+  const runs = [];
+  const r = await integrate({ root: a }, { env: env('m1'), gate: async () => { runs.push(1); return { status: 0 }; } });
+  assert.equal(runs.length, 1);
+  assert.deepEqual(r.data.landed.map(l => l.branch), ['claude/lib']);
+  assert.ok(onMain(origin, 'anvil-two.txt'));
 });
 
 // PR #186 review: a --write formatter repairs the tree and exits 0; the unrepaired head must not go out as checked.

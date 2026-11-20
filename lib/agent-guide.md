@@ -988,7 +988,9 @@ lockfiles are the checkout's byte for byte; otherwise it is sent back,
 alone after `npm ci`). No setup is run. An install with a package (top level
 or `@scope/*`) that is a symlink resolving outside `node_modules` (workspaces,
 `file:` dependencies) refuses `plates integrate` before the lock (exit 2): it
-would gate the checkout's own packages. Before each gate run the worktree is
+would gate the checkout's own packages. A link into a pinned checkout is
+accepted: one outside this checkout, detached at a commit, with nothing
+changed or added in it, so every candidate gets the same bytes. Before each gate run the worktree is
 cleaned of untracked and ignored files (`git clean -ffdx`), so one
 candidate's build output never reaches the next; only the validated link is
 put back.
