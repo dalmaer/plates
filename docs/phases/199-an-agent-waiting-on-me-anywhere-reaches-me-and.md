@@ -62,8 +62,8 @@ answers before sending (#542), the sent-version check (#543) and sectioned revie
 - [ ] No Rex, or a Rex that fails, leaves `panes` absent and the row says Rex was not read: `tests/waiting-sessions.test.mjs: "no Rex is not read, never none"`.
 - [ ] A pushed snapshot with a pane field it does not hold is refused: `tests/waiting-sessions.test.mjs: "a pane field the snapshot does not hold is refused"`.
 - [ ] ⚑ by hand: owner. A Codex or Claude tab in Rex stopped on a permission prompt shows on the deployed Home within one push.
-- [ ] `plates ask` puts a typed card on Home in both forms (increment 2).
-- [ ] An answer reaches the asking agent without typing into a pane, and Home shows its delivery state (increment 3).
+- [ ] `plates ask` puts a typed card on Home in both forms (increment 2): `tests/plates-ask.test.mjs: "an ask is a card in both forms"`.
+- [ ] An answer reaches the asking agent without typing into a pane, and Home shows its delivery state (increment 3): `tests/channel-deliver.test.mjs: "an answer is delivered without typing into a pane"`.
 
 ## Your part
 
@@ -78,7 +78,7 @@ answers before sending (#542), the sent-version check (#543) and sectioned revie
 ## Real surfaces
 
 - Owner's machine: `plates sessions waiting --json` on this Mac lists a pane Rex reports blocked.
-- Hosted Home: the deployed site lists it after `plates sessions push`.
+- Owner's machine: after `plates sessions push`, the deployed Home lists the same pane.
 
 ## Proof
 
@@ -97,4 +97,4 @@ By hand: the owner's walk above.
 
 ## Next action
 
-Build increment 1 on `claude/phase-199-agents-blocked-anywhere`.
+Build increment 1 on `claude/phase-199`.

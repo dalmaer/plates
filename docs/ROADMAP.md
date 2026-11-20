@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**76 of 193 phases built; 76 owe a walk.** Built means implemented and checked; planned is not available.
+**76 of 194 phases built; 76 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards.
 
@@ -349,7 +349,7 @@ Each change is verified in parallel and published one at a time; production move
 
 From mobile and desktop, an authenticated owner operates every authorized Plates project: decisions, guided tests, visual changes, routine history and execution, fleet lessons and updates, scoped credentials and policy-bound model capacity, with source-backed evidence and private data.
 
-8/50 built; 32 owe a walk.
+8/51 built; 32 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -403,6 +403,7 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 | [195. One framework for findings and payoff](phases/195-one-framework-for-findings-and-payoff.md) | partial | 2026-11-16 | [192](phases/192-audits-look-at-a-plate-with-a-model-when-quota.md) | Shared observation, priority and payoff decision layer built; automatic producer export and live adoption remain. |
 | [196. The workspace is work, agents and decisions](phases/196-the-workspace-is-work-agents-and-decisions.md) | partial | 2026-11-19 | [194](phases/194-each-project-has-a-channel-on-the-plates-site.md) | All four increments are deployed (production a2a6675b) and the owner called it simpler (2026-11-19). Two boxes remain: Assign recommending the agent with the most room by the quota snapshot (phase 192 hosted quota delivery). and assigning from the site so an agent starts (phase 181 hosted dispatch). Deploy stays a copyable promote command by decision. |
 | [198. Plates on iPhone with Exact](phases/198-plates-on-iphone-with-exact.md) | partial | 2026-11-19 | [196](phases/196-the-workspace-is-work-agents-and-decisions.md) | Increment 1 built: the app/ Exact app renders the simple view (Home chips, Needs-you cards, a project's backlog, the channel as a chat) from a synthetic fixture; nothing is sent or installed. The owner chose site sign-in, answering decisions first, push later and cable install (2026-11-19). |
+| [199. An agent waiting on me anywhere reaches me, and my answer reaches it](phases/199-an-agent-waiting-on-me-anywhere-reaches-me-and.md) | planned | 2026-11-20 | [193](phases/193-local-agents-run-in-rex-when-it-is-there.md), [194](phases/194-each-project-has-a-channel-on-the-plates-site.md) | Drafted by plates phase new. |
 
 - **93 done when:** An explicitly configured external workspace can be inspected and initialized from the installed CLI without writing private data into application or project Git trees.
 - **94 done when:** The owner has an approved deployment recipe and verified private workspace repository, host and selected-repository GitHub App binding, with credentials stored only in the deployment secret store.
@@ -454,6 +455,7 @@ From mobile and desktop, an authenticated owner operates every authorized Plates
 - **195 done when:** Untangle, review, audits and measurements feed one evidence-preserving findings contract, use one priority scorer and payoff-aware decision flow, and reuse existing execution and verification instead of adding runners or schedules.
 - **196 done when:** The owner opens the Plates site and sees only three things: a **backlog** of work in order, the **agents** working on it (and what they are saying), and the **decisions** only the owner can make, each answerable where it is shown. Everything plates keeps underneath (phases, goals, increments, claims, evidence, captures, lessons, runs) stays available behind an item, never as a page of its own. Nothing is shown when nothing is wrong, and every card carries its own action.
 - **198 done when:** The owner opens a native Plates app on their iPhone and sees the same three things as the site (backlog, agents, decisions: phase 196's model and rules), read live from their workspace, and answers a decision from it through the same preview-then-apply path as the web, without the app holding any power the web session does not.
+- **199 done when:** One independently checkable outcome.
 
 ## G8 — A project set and its routines share one operating surface
 
