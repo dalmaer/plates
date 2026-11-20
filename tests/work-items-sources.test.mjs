@@ -13,6 +13,7 @@ import { workItems as board, reviewItems, walkDone, walkDecide } from '../lib/wo
 import vm from 'node:vm';
 import { timeSummary } from '../lib/time.mjs';
 import { formatProposal } from '../lib/learn.mjs';
+import { localSections } from '../lib/home.mjs';
 import { makeTimeProposal, formatTimeProposal, writeHealthReport, parseTimeProposal } from '../practices/night/files/scripts/plates/time-proposals.mjs';
 import { improve } from '../practices/night/files/scripts/plates/improve.mjs';
 import { unansweredPrs, fromWindow } from '../practices/night/files/scripts/plates/lib.mjs';
@@ -916,4 +917,36 @@ test('board recognizes each update namespace as one draft repair',async t=>{
   const data=await board({root},{...deps(root),fleet:async()=>({rows})});
   const items=data.items.filter(i=>i.kind==='update');assert.equal(items.length,1);assert.equal(items[0].waits,'broken');
  }
+});
+
+test('plates#525: plates home shows the lesson inbox, and a decided health page keeps its accepted follow-up', async () => {
+  const root = await acme();
+  try {
+    const local = async () => (await localSections(root, { ...deps(root), waitingSessions: async () => ({ sessions: [] }) }, { plate: 'acme' })).sections;
+    const row = (sections, id) => sections.find(r => r.id === id);
+    let sections = await local();
+    // The lesson waiting in plates's inbox is a row in the terminal, with its decide actions' command named.
+    const lessons = row(sections, 'lessons');
+    assert.equal(lessons.state, 'read');
+    assert.deepEqual(lessons.items.map(i => i.title), ['lesson to decide: Anvils drop twice']);
+    // The newest page's undecided proposal is a decision in the shared model, so it is not listed here again.
+    assert.ok(!row(sections, 'health-history').items.some(i => i.read === 'docs/health/2026-10-07.md'));
+    // A newer page whose time proposal the owner accepted: its follow-up stays, waiting on its issue.
+    const p = makeTimeProposal({measure:'gate_time',identity:{kind:'timing',scope:'.',runner:'node',configHash:'acme-config',flagsHash:'acme-flags',machineClass:'acme-machine',commandHash:'acme-command',target:'gate'},candidate:{title:'Acme gate work',rubric:{version:1,problem:'Acme gate takes too long',reproduction:'npm test',acceptance:'gate inside frozen bound',change:'remove redundant Acme check',prerequisites:[],ownerBlockers:[]},remeasureCommand:'plates improve --json'},baseline:{windowStart:'2026-09-01T00:00:00Z',windowEnd:'2026-09-29T00:00:00Z',value:1000,unit:'ms',runIds:['acme-run'],revisionShas:['a'.repeat(40)]},threshold:{contractVersion:1,rule:'gate_time',parameters:{maxMs:1250}},coverage:{retained:12,eligible:12,omitted:0,dates:['2026-09-01'],sampled:true,gaps:[]},at:'2026-10-08T00:00:00Z'});
+    const proposal = 'docs/health/2026-10-08.md';
+    await writeHealthReport({ root, path: proposal, generated: '# Acme health\n\n## Proposal\n\n' + formatTimeProposal(p) });
+    // Still undecided, the time proposal is its own instance, not the page's decision: it is listed, waiting on the owner.
+    const open = row(await local(), 'health-history').items.find(i => i.instanceId === p.instanceId);
+    assert.equal(open?.waits, 'owner', 'an undecided follow-up on the newest page is listed');
+    let issue;
+    const github = async r => {
+      if (r.method === 'POST') { issue = { number: 42, state: 'open', body: r.body.body, html_url: 'https://github.com/acme/app/issues/42', url: 'https://api.github.com/repos/acme/app/issues/42', labels: [] }; return { status: 201, data: issue }; }
+      return { status: 200, data: r.path.includes('/issues?') ? (issue ? [issue] : []) : issue };
+    };
+    await walkDecide({ root, proposal, instance: p.instanceId, accept: 'Acme owner accepts', github });
+    sections = await local();
+    const kept = row(sections, 'health-history').items.find(i => i.instanceId === p.instanceId);
+    assert.ok(kept, 'the accepted follow-up on the newest page is listed');
+    assert.equal(kept.waits, 'external');
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
