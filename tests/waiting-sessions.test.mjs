@@ -196,7 +196,7 @@ test('the push route takes a device key and nothing else; the CLI pushes this ma
   const largest = { schema: 1, machine: 'Acme Mac', scannedAt: at(29),
     sessions: Array.from({ length: 50 }, (_, i) => ({ id: `s${i}`, plate: 'studio', title: `🏠 [studio] ${wide(108)}`, question: wide(500), since: at(1) })),
     scripts: Array.from({ length: 50 }, (_, i) => ({ name: `20261115-0900-acme-${i}`, why: wide(300), checked: true, since: at(1) })),
-    panes: Array.from({ length: 50 }, (_, i) => ({ block: `block:${String(i).padStart(100, 'a')}`, sid: `session:${String(i).padStart(100, 'b')}`, session: 's'.repeat(64), tab: 't'.repeat(64), app: 'a'.repeat(40), kind: 'permission', since: at(1) })) };
+    panes: Array.from({ length: 50 }, (_, i) => ({ block: `block:${String(i).padStart(100, 'a')}`, sid: `session:${String(i).padStart(100, 'b')}`, session: 's'.repeat(128), tab: 't'.repeat(64), app: 'a'.repeat(40), kind: 'permission', since: at(1) })) };
   assert.ok(validSnapshot(largest), 'the bound case is a valid snapshot');
   assert.ok(Buffer.byteLength(JSON.stringify(largest)) > 65536, 'and larger than the old limit');
   assert.equal((await call(`Bearer ${key}`, JSON.stringify(largest))).status, 200);
@@ -384,4 +384,8 @@ test('a pane card is answered in its pane or put off, never from Home, and match
   assert.deepEqual(answers.map(a => a.id), ['answer', 'not-now']);
   assert.equal(answers[0].unavailable.command, 'rex focus -s session:a1 block:b1', 'its own focus command, never run from Home');
   assert.equal(labelPlate('acme-tools-codex', ['acme--tools']), 'acme--tools', 'rexLabel collapses repeated hyphens; the plate id is kept');
+  const long = 'a'.repeat(64), session = paneLabel(`${long}-codex`, 128);
+  assert.equal(labelPlate(session, [long]), long, 'a 64-character plate survives into its session label');
+  assert.ok(validSnapshot({ schema: 1, machine: 'Acme Mac', scannedAt: at(9), sessions: [], scripts: [], panes: [{ block: 'block:b1', sid: 'session:a1', session, tab: 'phase-7', app: null, kind: null, since: null }] }));
+  assert.ok(paneLabel('x'.repeat(80)).length <= 64, 'a tab label is still clipped to 64');
 });
