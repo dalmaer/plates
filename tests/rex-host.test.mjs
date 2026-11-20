@@ -12,7 +12,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';
-import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, realpath, symlink, truncate, utimes } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, realpath, symlink, truncate, utimes, link } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import * as audit from '../practices/audits/files/scripts/plates/audit.mjs';
@@ -57,6 +57,9 @@ if (args[0] === 'run') {
   catch (e) { out = String(e.stdout ?? ''); status = e.status ?? 1; }
   fs.writeFileSync(path.join(logs, 'tab-output.txt'), out);
   fs.writeFileSync(path.join(logs, 'tab-exit'), String(status));
+  const closedFile = path.join(logs, 'closed-blocks.json');
+  const closedPrev = fs.existsSync(closedFile) ? JSON.parse(fs.readFileSync(closedFile, 'utf8')) : [];
+  fs.writeFileSync(closedFile, JSON.stringify(closedPrev.filter(([s, b]) => !(s === at('-s') && b === 'block:acme-tab-1'))));
   // Rex 0.1.0-preview.18's shape.
   console.log(JSON.stringify({ window_id: 'window:acme-2', block_ids: ['block:acme-tab-1'], revision: 4 })); process.exit(0);
 }
@@ -67,9 +70,20 @@ if (args[0] === 'block' && args[1] === 'close') {
   if (mode.close === 'gone') { process.stderr.write('Error: block target not found\\n'); process.exit(3); }
   // Another failure that happens to say "not found": nothing about the block.
   if (mode.close === 'lost') { process.stderr.write('Error: rex daemon socket not found\\n'); process.exit(1); }
+  if (mode.close !== 'fail' && !mode.keepRunningAfterClose) {
+    const closedFile = path.join(logs, 'closed-blocks.json');
+    const closedPrev = fs.existsSync(closedFile) ? JSON.parse(fs.readFileSync(closedFile, 'utf8')) : [];
+    closedPrev.push([at('-s'), args[args.indexOf('-s') + 2]]);
+    fs.writeFileSync(closedFile, JSON.stringify(closedPrev));
+  }
   process.exit(mode.close === 'fail' ? 1 : 0);
 }
-if (args[0] === 'wait') { const w = mode.wait ?? {}; if (w.stdout) process.stdout.write(w.stdout); if (w.stderr) process.stderr.write(w.stderr); process.exit(w.code ?? 0); }
+if (args[0] === 'wait') {
+  const closedFile = path.join(logs, 'closed-blocks.json');
+  const isClosed = !mode.keepRunningAfterClose && fs.existsSync(closedFile) && JSON.parse(fs.readFileSync(closedFile, 'utf8')).some(([s, b]) => s === at('-s') && b === args[args.indexOf('-s') + 2]);
+  if (isClosed) { process.stderr.write('Error: block target not found\\n'); process.exit(3); }
+  const w = mode.wait ?? {}; if (w.stdout) process.stdout.write(w.stdout); if (w.stderr) process.stderr.write(w.stderr); process.exit(w.code ?? 0);
+}
 process.exit(64);
 `, { mode: 0o755 });
   }
@@ -1101,4 +1115,420 @@ fs.writeFileSync(${JSON.stringify(join(w.logs, 'tui-check.json'))}, JSON.stringi
   await writeFile(`${cBrief}.worker`, JSON.stringify({ session: 'attach-acme-7', provider: 'claude' }), { mode: 0o600 });
   await c.cancel();
   assert.deepEqual(await readdir(c.w.briefDir), [], 'cancel removes any lingering .worker alongside .brief');
+});
+
+test('clearing a phase cancel refuses unsettled stops, preserves cancelled worker restart checks and allows only a new attach', async t => {
+  const a = await attached(t);
+  const first = await attach(a.args, a.deps({ now: 1700000000000 }));
+  assert.equal(first.exitCode, 0, first.text);
+  const oldEntry = await attachJournal(a.dir).read(first.data.digest);
+  const oldWorkerSession = oldEntry.intent.claim.session;
+  assert.match(oldWorkerSession, /^attach-[0-9a-f]{32}$/);
+
+  // Cancel while Rex fails to close: stop is pending, so --clear refuses instead of dropping the unfinished stop.
+  await a.w.setMode({ ls: 'ok', sessions: SESSIONS, wait: RUNNING, close: 'lost', journal: a.dir });
+  const pendingCancel = await a.cancel({ why: 'wrong approach' }, { now: 1700000010000 });
+  assert.equal(pendingCancel.data.attaches[0].cancelled.done, false);
+  await assert.rejects(
+    cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'try again', yes: true }, a.deps({ now: 1700000020000 })),
+    /cannot clear its cancel until every cancelled run's stop is confirmed.*rex block close exited 1/
+  );
+  assert.equal(existsSync(join(a.dir, 'phase-7.cancel.json')), true, 'phase cancel stays while stop is pending');
+  assert.equal(existsSync(join(a.dir, `${first.data.digest}.cancel.json`)), true, 'digest cancel stays while stop is pending');
+
+  // Preview without --yes writes nothing even after Rex recovers.
+  await a.w.setMode({ ls: 'ok', sessions: SESSIONS, wait: RUNNING, journal: a.dir });
+  const preview = await cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'host fixed' }, a.deps({ now: 1700000030000 }));
+  assert.equal(preview.exitCode, 3);
+  assert.equal(existsSync(join(a.dir, 'phase-7.cancel.json')), true);
+
+  // Applying --clear settles the pending Rex close first, confirms the block is gone, records who/when/why create-only, and removes .cancel.json files.
+  const cleared = await cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'host fixed', by: 'owner', yes: true }, a.deps({ now: 1700000040000 }));
+  assert.equal(cleared.exitCode, 0, cleared.text);
+  assert.deepEqual([cleared.data.state, cleared.data.already, cleared.data.clear.by, cleared.data.clear.why, cleared.data.clear.at],
+    ['cleared', false, 'owner', 'host fixed', new Date(1700000040000).toISOString()]);
+  const files = await readdir(a.dir);
+  assert.equal(files.some(n => n.endsWith('.cancel.json')), false, 'no active cancel files remain');
+  assert.equal(files.some(n => /^phase-7\.clear\.[0-9a-f]{64}\.json$/.test(n)), true, 'create-only clear record is kept');
+  assert.equal((await attachJournal(a.dir).phaseClears(7)).length, 1, 'done/lock markers are never listed as clear records');
+  assert.equal((await a.w.closes()).length, 3, 'two failed closes kept the cancel until the third close succeeded during clear');
+
+  // Restart guarantee: the cancelled worker session STILL gets exit 1 on --check, while a fresh check gets exit 0.
+  const oldRestartCheck = await cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 7, check: true }, a.deps({ env: { ...a.w.env, PLATES_SESSION: oldWorkerSession } }));
+  assert.equal(oldRestartCheck.exitCode, 1, 'a restarted worker from the cancelled run stays stopped');
+  assert.match(oldRestartCheck.text, /this session's attach was cancelled.*Stop: do not continue/);
+  const freshCheck = await cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 7, check: true }, a.deps());
+  assert.equal(freshCheck.exitCode, 0);
+
+  // Clearing allows a brand-new attach (same digest or revised brief), and the old worker session stays stopped even after the new attach starts.
+  const second = await attach({ ...a.args, title: 'Build the anvil, revised' }, a.deps({ now: 1700000050000 }));
+  assert.equal(second.exitCode, 0, second.text);
+  assert.equal(runCalls(await a.w.rexCalls()).length, 2, 'a new attach opens a fresh Rex run');
+  const newEntry = await attachJournal(a.dir).read(second.data.digest);
+  assert.notEqual(newEntry.intent.claim.session, oldWorkerSession);
+  assert.equal((await cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 7, check: true }, a.deps({ env: { ...a.w.env, PLATES_SESSION: oldWorkerSession } }))).exitCode, 1);
+  assert.equal((await cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 7, check: true }, a.deps({ env: { ...a.w.env, PLATES_SESSION: newEntry.intent.claim.session } }))).exitCode, 0);
+});
+
+test('clearing a cancel requires a confirmed stop: refuses unknown, unconfirmed, or still-running Rex tabs and host sessions', async t => {
+  const { ROUTE_HANDLERS } = await import('../lib/attach.mjs');
+
+  // 1. Intent without receipt (dispatch killed or still starting -> stop: 'unknown', done: true): refused, naming why.
+  const killed = { ...ROUTE_HANDLERS, 'local-host': { ...ROUTE_HANDLERS['local-host'], dispatch: async () => { throw new Error('killed'); } } };
+  const unknown = await attached(t, { handlers: killed });
+  await assert.rejects(attach(unknown.args, unknown.deps()), /killed/);
+  const cancelledUnknown = await unknown.cancel({ why: 'stalled' });
+  assert.deepEqual([cancelledUnknown.data.attaches[0].cancelled.stop, cancelledUnknown.data.attaches[0].cancelled.done], ['unknown', true]);
+  await assert.rejects(
+    cancelAttach({ root: unknown.w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'retry', yes: true }, unknown.deps()),
+    e => e.exitCode === 1 && /receipt never was|cannot be named/.test(e.message)
+  );
+  assert.equal(existsSync(join(unknown.dir, 'phase-7.cancel.json')), true);
+
+  // 2. Torn journal entry (entry unreadable -> stop: 'unknown'): refused, naming why.
+  const torn = await attached(t);
+  const tornAttach = await attach(torn.args, torn.deps());
+  await torn.cancel({ why: 'bad entry' });
+  await truncate(join(torn.dir, `${tornAttach.data.digest}.json`), 0);
+  await assert.rejects(
+    cancelAttach({ root: torn.w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'retry', yes: true }, torn.deps()),
+    e => e.exitCode === 1 && /journal entry cannot be read/.test(e.message)
+  );
+  assert.equal(existsSync(join(torn.dir, 'phase-7.cancel.json')), true);
+
+  // 3. Recovered uncertain local-host receipt with no session id (stop: 'unknown'): refused, naming why.
+  const uncertain = await attached(t, { handlers: killed });
+  await assert.rejects(attach(uncertain.args, uncertain.deps()), /killed/);
+  const recovered = await attach(uncertain.args, { ...uncertain.deps(), handlers: ROUTE_HANDLERS });
+  assert.equal(recovered.data.receipt.result.state, 'uncertain');
+  await uncertain.cancel({ why: 'uncertain run' });
+  await assert.rejects(
+    cancelAttach({ root: uncertain.w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'retry', yes: true }, uncertain.deps()),
+    e => e.exitCode === 1 && /names no session/.test(e.message)
+  );
+
+  // 4. Rex block still running even after `rex block close` exited 0 (`stop: 'stopped'`), or Rex unreachable when confirming.
+  const stillLive = await attached(t);
+  await attach(stillLive.args, stillLive.deps());
+  await stillLive.w.setMode({ ls: 'ok', sessions: SESSIONS, wait: RUNNING, keepRunningAfterClose: true, journal: stillLive.dir });
+  const closedButRunning = await stillLive.cancel({ why: 'stop it' });
+  assert.equal(closedButRunning.data.attaches[0].cancelled.stop, 'stopped');
+  await assert.rejects(
+    cancelAttach({ root: stillLive.w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'too early', yes: true }, stillLive.deps()),
+    e => e.exitCode === 1 && /Rex block .* is still running/.test(e.message)
+  );
+  assert.equal(existsSync(join(stillLive.dir, 'phase-7.cancel.json')), true);
+
+  // Rex unreachable while confirming an earlier stop: refused, naming why.
+  await stillLive.w.setMode({ ls: 'ok', sessions: SESSIONS, wait: { stderr: 'Error: connection refused\n', code: 1 }, journal: stillLive.dir });
+  await assert.rejects(
+    cancelAttach({ root: stillLive.w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'rex down', yes: true }, stillLive.deps()),
+    e => e.exitCode === 1 && /Rex could not confirm/.test(e.message)
+  );
+  // Once Rex confirms the block exited, --clear succeeds.
+  await stillLive.w.setMode({ ls: 'ok', sessions: SESSIONS, wait: { stdout: '{"exit_code":130}' }, journal: stillLive.dir });
+  assert.equal((await cancelAttach({ root: stillLive.w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'confirmed exited', yes: true }, stillLive.deps())).exitCode, 0);
+
+  // 5. Non-Rex local-host: refuses `not-stoppable` with no state query, refuses while `host.state` reports running (even if `stop` exited 0), and clears once `host.state` reports `finished`.
+  const w = await world(t, { rex: false });
+  const dir = join(w.base, 'host-journal');
+  const stateFile = join(w.base, 'host-state.txt'), stateBin = join(w.base, 'state.cjs'), stopBin = join(w.base, 'stop.cjs');
+  await writeFile(stateBin, `#!${process.execPath}\nconst fs = require('node:fs');\nif (fs.existsSync(${JSON.stringify(stateFile)})) process.stdout.write(fs.readFileSync(${JSON.stringify(stateFile)}, 'utf8'));\n`, { mode: 0o755 });
+  await writeFile(stopBin, `#!${process.execPath}\nprocess.exit(0);\n`, { mode: 0o755 });
+  const config = { name: 'Acme', agents: { claude: {} }, backlog: { routes: ['session', 'local-host'] } };
+  const host = { file: 'hosts.json', start: [w.start, 'start'], state: [stateBin], harness: null };
+  const deps = readHost => ({ journal: attachJournal(dir), env: w.env, claim: async () => ({ data: { ok: true, claimed: true, sha: 'c'.repeat(40) }, text: 'claimed' }), events: async () => null, readHost });
+  await attach({ root: w.checkout, projectId: 'acme', phase: 7, title: 'Build the anvil', route: 'local-host', provider: 'claude', config, phaseText: { doneWhen: 'x', acceptance: 'y', context: {} }, host, yes: true }, deps(async () => host));
+  const notStoppable = await cancelAttach({ root: w.checkout, projectId: 'acme', phase: 7, yes: true }, deps(async () => ({ ...host, state: null })));
+  assert.deepEqual([notStoppable.data.attaches[0].cancelled.stop, notStoppable.data.attaches[0].cancelled.done], ['not-stoppable', true]);
+
+  // Silent host with no stop or state command: refused.
+  await assert.rejects(
+    cancelAttach({ root: w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'silent', yes: true }, deps(async () => ({ ...host, state: null }))),
+    e => e.exitCode === 1 && /no stop command/.test(e.message)
+  );
+  // Host with stop command exiting 0, yet state query still says `running`: refused!
+  await writeFile(stateFile, 'running\n');
+  await assert.rejects(
+    cancelAttach({ root: w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'still running', yes: true }, deps(async () => ({ ...host, stop: [stopBin] }))),
+    e => e.exitCode === 1 && /local host session acme-session-1 is still running/.test(e.message)
+  );
+  // Once host state confirms `finished`, --clear succeeds.
+  await writeFile(stateFile, 'finished\n');
+  const hostCleared = await cancelAttach({ root: w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'host finished', yes: true }, deps(async () => ({ ...host, stop: [stopBin] })));
+  assert.equal(hostCleared.exitCode, 0);
+});
+
+test('overlapping clears never delete a fresh attach made after the first clear or a newer cancel', async t => {
+  // 1. Two concurrent clears on the same cancel: one clears, the other reports already: true, both return the one record.
+  const pair = await attached(t);
+  await attach(pair.args, pair.deps({ now: 1700000100000 }));
+  await pair.cancel({ why: 'first cancel' }, { now: 1700000110000 });
+  const [c1, c2] = await Promise.all([
+    cancelAttach({ root: pair.w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'clear one', by: 'owner', yes: true }, pair.deps({ now: 1700000120000 })),
+    cancelAttach({ root: pair.w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'clear two', by: 'owner', yes: true }, pair.deps({ now: 1700000121000 })),
+  ]);
+  assert.deepEqual([c1.data.already, c2.data.already].sort(), [false, true]);
+  assert.deepEqual(c1.data.clear, c2.data.clear);
+
+  // 2. Clear B reads C1 and reaches clearPhaseCancel, stalls while Clear A completes AND a fresh attach of the EXACT SAME DIGEST runs;
+  //    when Clear B resumes, the fresh attach's entry, receipt, fate and host slot remain completely intact.
+  const race = await attached(t);
+  const base = attachJournal(race.dir);
+  const initial = await attach(race.args, race.deps({ now: 1700000200000 }));
+  const digest = initial.data.digest;
+  await race.cancel({ why: 'cancel before overlap' }, { now: 1700000210000 });
+
+  let reachedClear, releaseClear;
+  const atClear = new Promise(r => { reachedClear = r; });
+  const resumeClear = new Promise(r => { releaseClear = r; });
+  const delayedJournal = {
+    ...base,
+    clearPhaseCancel: async (...callArgs) => {
+      reachedClear();
+      await resumeClear;
+      return base.clearPhaseCancel(...callArgs);
+    },
+  };
+
+  const lateClearPromise = cancelAttach(
+    { root: race.w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'stale overlapping clear', by: 'owner', yes: true },
+    race.deps({ journal: delayedJournal, now: 1700000220000 })
+  );
+  await atClear;
+
+  const firstClear = await cancelAttach(
+    { root: race.w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'first clear wins', by: 'owner', yes: true },
+    race.deps({ now: 1700000225000 })
+  );
+  assert.deepEqual([firstClear.exitCode, firstClear.data.already], [0, false]);
+
+  const freshAttach = await attach(race.args, race.deps({ now: 1700000230000 }));
+  assert.equal(freshAttach.exitCode, 0, freshAttach.text);
+  assert.equal(freshAttach.data.digest, digest, 'same digest exercised');
+  const freshEntryBefore = await base.read(digest);
+  assert.ok(freshEntryBefore?.intent && freshEntryBefore?.receipt);
+
+  releaseClear();
+  const lateClear = await lateClearPromise;
+  assert.deepEqual([lateClear.exitCode, lateClear.data.state, lateClear.data.already], [0, 'cleared', true]);
+
+  // Every file of the fresh attach survived Clear B untouched, and repeating attach does not re-dispatch.
+  assert.equal(existsSync(join(race.dir, `${digest}.json`)), true, 'fresh attach entry survived overlapping clear');
+  assert.equal(existsSync(join(race.dir, `${digest}.receipt.json`)), true, 'fresh attach receipt survived overlapping clear');
+  assert.equal(existsSync(join(race.dir, `${digest}.fate.json`)), true, 'fresh attach fate survived overlapping clear');
+  assert.equal(existsSync(join(race.dir, 'phase-7.local-host.json')), true, 'fresh host slot survived overlapping clear');
+  assert.deepEqual(await base.read(digest), freshEntryBefore);
+  const runsBeforeRepeat = runCalls(await race.w.rexCalls()).length;
+  const repeatFresh = await attach(race.args, race.deps({ now: 1700000235000 }));
+  assert.deepEqual([repeatFresh.exitCode, repeatFresh.data.repeated], [0, true]);
+  assert.equal(runCalls(await race.w.rexCalls()).length, runsBeforeRepeat, 'fresh attach was not deleted so repeat does not dispatch again');
+
+  // Even if Clear A crashed before writing `.done.json`, compare-before-delete still protects the fresh attach.
+  const doneFiles = (await readdir(race.dir)).filter(n => n.endsWith('.done.json'));
+  for (const f of doneFiles) await rm(join(race.dir, f));
+  const recoveredClear = await base.clearPhaseCancel(7, firstClear.data.clear, [digest]);
+  assert.equal(recoveredClear.first, false);
+  assert.deepEqual(await base.read(digest), freshEntryBefore, 'compare-before-delete kept the fresh attach even without .done.json');
+  assert.equal(existsSync(join(race.dir, 'phase-7.local-host.json')), true);
+
+  // 3. If the fresh attach was cancelled again with a new cancel C2, a stale overlapping clear of C1 refuses without touching C2.
+  const secondCancel = await race.cancel({ why: 'second cancel C2' }, { now: 1700000240000 });
+  assert.equal(secondCancel.data.already, false);
+  await assert.rejects(
+    base.clearPhaseCancel(7, firstClear.data.clear, [digest]),
+    e => e.exitCode === 1 && /cancel record changed/.test(e.message)
+  );
+  assert.equal(existsSync(join(race.dir, 'phase-7.cancel.json')), true, 'C2 phase cancel remains intact');
+  assert.equal(existsSync(join(race.dir, `${digest}.cancel.json`)), true, 'C2 digest cancel remains intact');
+});
+
+
+test('stale cancellation recovery cannot stop or modify a fresh generation of the same digest', async t => {
+  const a = await attached(t), journal = attachJournal(a.dir);
+  const initial = await attach(a.args, a.deps());
+  await a.cancel();
+  const [old] = await journal.list();
+  // Force recovery to enter settling, then pause its refresh before a different caller clears.
+  await journal.settled(old.digest, { ...old.cancelled, done: false, stop: 'pending' });
+  let reached, release;
+  const paused = new Promise(r => { reached = r; }), resume = new Promise(r => { release = r; });
+  let delayed = false;
+  const recovering = recoverCancels({ ...journal, read: async digest => {
+    if (!delayed) { delayed = true; reached(); await resume; }
+    return journal.read(digest);
+  } }, { env: a.w.env, root: a.w.checkout });
+  await paused;
+  try {
+    await cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'new generation', yes: true }, a.deps());
+    const fresh = await attach(a.args, a.deps());
+    assert.equal(fresh.data.digest, initial.data.digest);
+    const before = await journal.read(old.digest), closes = (await a.w.closes()).length;
+    const brief = rexBriefFile(a.w.env, old.digest);
+    await writeFile(brief, 'fresh generation brief');
+    release();
+    await recovering;
+    assert.equal((await a.w.closes()).length, closes, 'old recovery must not stop the new worker');
+    assert.deepEqual(await journal.read(old.digest), before);
+    assert.equal(await readFile(brief, 'utf8'), 'fresh generation brief');
+    assert.equal(await journal.cancelledOf(old.digest), null, 'no old effects written beside the fresh intent');
+    assert.equal(await journal.cancelOf(old.digest), null);
+    // A propagator holding the old phase record must not cancel the new intent either.
+    const staleList = { ...journal, list: async () => [{ ...old, cancel: undefined }], phaseCancels: async () => [{ phase: 7, cancel: old.cancel }] };
+    await recoverCancels(staleList, { env: a.w.env, root: a.w.checkout });
+    assert.equal(await journal.cancelOf(old.digest), null, 'stale propagation stays with the cancelled generation');
+  } finally { release(); await recovering; }
+});
+
+test('interrupted clear resumes verified archives before requiring an active entry', async t => {
+  for (const corrupt of [false, true]) {
+    const a = await attached(t), journal = attachJournal(a.dir);
+    const result = await attach(a.args, a.deps());
+    await a.cancel();
+    const args = { root: a.w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'original reason', by: 'owner', yes: true };
+    const first = await cancelAttach(args, a.deps());
+    const record = first.data.clear, prefix = `cleared-${record.id.slice(0, 32)}-`;
+    // Persist exactly the crash boundary: entries/effects/receipts archived, cancels still active, no done marker.
+    for (const [name, active] of [[`${result.data.digest}-cancel`, `${result.data.digest}.cancel.json`], ['phase-7-cancel', 'phase-7.cancel.json']]) {
+      const archived = join(a.dir, `${prefix}${name}.archived.json`);
+      await link(archived, join(a.dir, active));
+      await rm(archived);
+    }
+    await rm(join(a.dir, `phase-7.clear.${record.id}.done.json`));
+    const exited = runNode(['-e', 'console.log(process.pid)'], { env: a.w.env });
+    assert.equal(exited.status, 0);
+    await writeFile(join(a.dir, `phase-7.clear.${record.id}.lock.json`), JSON.stringify({ pid: Number(exited.stdout.trim()), at: record.at }));
+    await recoverCancels(journal, { env: a.w.env, root: a.w.checkout });
+    assert.equal(await journal.cancelledOf(result.data.digest), null, 'ordinary recovery cannot rewrite a partially cleared generation');
+    if (corrupt) {
+      const path = join(a.dir, `${prefix}${result.data.digest}-entry.archived.json`);
+      const saved = JSON.parse(await readFile(path, 'utf8'));
+      saved.intent.claim.session = 'acme-different-generation';
+      await writeFile(path, JSON.stringify(saved));
+      await assert.rejects(cancelAttach(args, a.deps()), /retained run evidence/);
+      assert.ok(await journal.phaseCancelOf(7), 'changed archive cannot authorize a clear');
+    } else {
+      const recovered = await cancelAttach({ ...args, why: 'retry reason must not replace original' }, a.deps());
+      assert.equal(recovered.data.state, 'cleared');
+      assert.deepEqual(recovered.data.clear, record, 'original clear identity and words survive');
+      assert.equal(await journal.phaseCancelOf(7), null);
+      assert.equal(await journal.cancelOf(result.data.digest), null);
+      assert.equal((await attach(a.args, a.deps())).exitCode, 0);
+    }
+  }
+});
+
+test('terminal local host state confirms a failed stop while live or unknown state keeps cancellation', async t => {
+  for (const terminal of ['finished', 'failed']) {
+    const w = await world(t, { rex: false }), journal = attachJournal(join(w.base, 'journal'));
+    const stateFile = join(w.base, 'state.txt');
+    const stop = join(w.base, 'stop.cjs'), state = join(w.base, 'state.cjs');
+    await writeFile(stop, `#!${process.execPath}\nprocess.exit(1);\n`, { mode: 0o755 });
+    await writeFile(state, `#!${process.execPath}\nprocess.stdout.write(require('node:fs').readFileSync(${JSON.stringify(stateFile)}, 'utf8'));\n`, { mode: 0o755 });
+    const host = { file: 'hosts.json', start: [w.start, 'start'], stop: [stop], state: [state] };
+    const deps = { journal, env: w.env, readHost: async () => host, events: async () => null, progress: async () => null,
+      claim: async () => ({ data: { ok: true, claimed: true, sha: 'c'.repeat(40) }, text: 'claimed' }) };
+    await attach({ root: w.checkout, projectId: 'acme', phase: 7, title: 'Acme anvil', route: 'local-host', provider: 'claude',
+      config: { name: 'Acme', agents: { claude: {} }, backlog: { routes: ['local-host'] } },
+      phaseText: { doneWhen: 'Anvil lands', acceptance: 'Lands', context: {} }, host, yes: true }, deps);
+    const args = { root: w.checkout, projectId: 'acme', phase: 7, yes: true };
+    await cancelAttach(args, deps);
+    for (const live of ['running', 'waiting', 'starting', 'unrecognized']) {
+      await writeFile(stateFile, live);
+      await assert.rejects(cancelAttach({ ...args, clear: true, why: 'not finished' }, deps), /cannot clear/);
+      assert.ok(await journal.phaseCancelOf(7));
+    }
+    await writeFile(stateFile, terminal);
+    assert.equal((await cancelAttach({ ...args, clear: true, why: 'terminal confirmed' }, deps)).data.state, 'cleared');
+    assert.equal(await journal.phaseCancelOf(7), null);
+  }
+});
+
+
+test('clear waits for in-flight cancellation effects and never expires a live writer gate', async t => {
+  const a = await attached(t), journal = attachJournal(a.dir);
+  await attach(a.args, a.deps());
+  await a.cancel();
+  const [entry] = await journal.list();
+  await journal.settled(entry.digest, { ...entry.cancelled, stop: 'pending', done: false });
+  let reached, release;
+  const paused = new Promise(r => { reached = r; }), resume = new Promise(r => { release = r; });
+  const recovery = recoverCancels({ ...journal, settled: async (...args) => {
+    reached(); await resume; return journal.settled(...args);
+  } }, { env: a.w.env, root: a.w.checkout });
+  await paused;
+  let clearing;
+  try {
+    const lock = (await readdir(a.dir)).find(n => n.endsWith('.lock.json'));
+    assert.ok(lock);
+    await utimes(join(a.dir, lock), new Date(0), new Date(0));
+    await journal.sweep();
+    assert.ok(existsSync(join(a.dir, lock)), 'age does not establish that an effect writer died');
+    let done = false;
+    clearing = cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'wait for effects', yes: true }, a.deps()).then(result => { done = true; return result; });
+    assert.equal((await check(a)).data.state, 'cancelled');
+    assert.equal(done, false, 'clear must not reopen the digest before cancellation effects finish');
+  } finally { release(); await recovery; }
+  assert.equal((await clearing).data.state, 'cleared');
+});
+
+
+test('delayed clear confirmation recognizes the original clear without probing a fresh attach', async t => {
+  const a = await attached(t), journal = attachJournal(a.dir);
+  await attach(a.args, a.deps());
+  await a.cancel();
+  let reached, release, reads = 0;
+  const paused = new Promise(r => { reached = r; }), resume = new Promise(r => { release = r; });
+  const args = { root: a.w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'overlap', yes: true };
+  const delayed = cancelAttach(args, a.deps({ journal: { ...journal, phaseCancelOf: async phase => {
+    const record = await journal.phaseCancelOf(phase);
+    if (++reads === 2) { reached(); await resume; }
+    return record;
+  } } }));
+  await paused;
+  try {
+    const first = await cancelAttach(args, a.deps());
+    const fresh = await attach(a.args, a.deps());
+    const before = await journal.read(fresh.data.digest), calls = (await a.w.rexCalls()).length;
+    release();
+    const second = await delayed;
+    assert.deepEqual(second.data.clear, first.data.clear);
+    assert.equal(second.data.already, true);
+    assert.equal((await a.w.rexCalls()).length, calls, 'the new run is neither probed nor stopped');
+    assert.deepEqual(await journal.read(fresh.data.digest), before);
+  } finally { release(); await delayed; }
+});
+
+
+test('late cleared dispatch reads its archived outcome and preserves replacement startup files', async t => {
+  const a = await attached(t), journal = attachJournal(a.dir);
+  let reached, release;
+  const paused = new Promise(r => { reached = r; }), resume = new Promise(r => { release = r; });
+  const dispatcher = attach(a.args, a.deps({ journal: { ...journal, receipt: async (...args) => {
+    const kept = await journal.receipt(...args);
+    reached(); await resume; return kept;
+  } } }));
+  await paused;
+  try {
+    await a.cancel();
+    const [old] = await journal.list();
+    await cancelAttach({ root: a.w.checkout, projectId: 'acme', phase: 7, clear: true, why: 'replace stopped run', yes: true }, a.deps());
+    const fresh = await attach(a.args, a.deps());
+    assert.equal(fresh.data.digest, old.digest);
+    const before = await journal.read(old.digest), calls = (await a.w.rexCalls()).length;
+    const brief = rexBriefFile(a.w.env, old.digest);
+    await writeFile(brief, 'Acme replacement brief');
+    await writeFile(`${brief}.worker`, 'Acme replacement worker');
+    release();
+    const late = await dispatcher;
+    assert.equal(late.data.state, 'cancelled');
+    assert.ok(existsSync(brief), 'replacement generation brief survives the old dispatcher');
+    assert.ok(existsSync(`${brief}.worker`), 'replacement generation worker file survives the old dispatcher');
+    assert.equal(await readFile(brief, 'utf8'), 'Acme replacement brief');
+    assert.equal(await readFile(`${brief}.worker`, 'utf8'), 'Acme replacement worker');
+    assert.deepEqual(late.data.cancelled, old.cancelled, 'the original archived outcome is retained');
+    assert.equal((await a.w.rexCalls()).length, calls, 'a cleared dispatcher never probes or stops a reused host session');
+    assert.deepEqual(await journal.read(old.digest), before);
+    assert.equal(await journal.cancelledOf(old.digest), null);
+  } finally { release(); await dispatcher; }
 });

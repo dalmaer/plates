@@ -177,7 +177,9 @@ test('plates home --cancel previews, records the cancel once, and a restarted se
   const env = x.env('acme-laptop', 'claude');
   assert.equal(plates(['--cancel', 'app:phase:1', '--check'], env).code, 0, 'nothing attached is not cancelled');
   assert.match(plates(['--cancel', 'app:phase:1', '--yes'], env).out + plates(['--cancel', 'app:phase:1', '--yes'], env).err, /no attach in this checkout's journal: nothing to cancel/);
-  assert.equal(plates(['--attach', 'app:phase:1', '--route', 'session', '--provider', 'claude', '--yes'], env).code, 0);
+  const initialAttach = plates(['--attach', 'app:phase:1', '--route', 'session', '--provider', 'claude', '--yes'], env);
+  assert.equal(initialAttach.code, 0);
+  const initialToken = /Token: ([0-9a-f]+)/.exec(initialAttach.out)[1];
   const check = () => plates(['--cancel', 'app:phase:1', '--check', '--json'], env);
   assert.deepEqual([check().code, JSON.parse(check().out).state], [0, 'not-cancelled']);
   const preview = plates(['--cancel', 'app:phase:1'], env);
@@ -200,10 +202,27 @@ test('plates home --cancel previews, records the cancel once, and a restarted se
   assert.equal(re.code, 1);
   assert.match(re.out, /This attach was cancelled at .*It is not dispatched again/);
   assert.doesNotMatch(re.out, /\/spin 1/);
-  for (const [args, says] of [[['--cancel', 'app:phase:1', '--check', '--yes'], /--cancel <key> \[--check/], [['--cancel'], /--cancel needs a value/], [['--cancel', 'forge:phase:1', '--check'], /forge's; this checkout is app/], [['--cancel', 'app:phase:1', '--why', 'a\tb', '--yes'], /--why is one line/]]) {
+  for (const [args, says] of [[['--cancel', 'app:phase:1', '--check', '--yes'], /--cancel <key> \[--check/], [['--cancel'], /--cancel needs a value/], [['--cancel', 'forge:phase:1', '--check'], /forge's; this checkout is app/], [['--cancel', 'app:phase:1', '--why', 'a\tb', '--yes'], /--why is one line/], [['--cancel', 'app:phase:1', '--clear', '--yes'], /--cancel <key> \[--check/], [['--cancel', 'app:phase:1', '--clear', '--check', '--why', 'nope'], /--cancel <key> \[--check/]]) {
     const r = plates(args, env);
     assert.equal(r.code, 2, `${args.join(' ')}: ${r.out}${r.err}`); assert.match(r.out + r.err, says);
   }
+  // Previewing a clear without --yes writes nothing; --yes records who, when and why and allows a new attach.
+  const clearPreview = plates(['--cancel', 'app:phase:1', '--clear', '--why', 'Ready for a fresh run', '--json'], env);
+  assert.equal(clearPreview.code, 3, clearPreview.err);
+  assert.deepEqual((({ state, action, by, why }) => [state, action, by, why])(JSON.parse(clearPreview.out)), ['preview', 'clear', 'agent:claude', 'Ready for a fresh run']);
+  assert.equal(check().code, 1, 'clear preview leaves the cancel in force');
+  const cleared = plates(['--cancel', 'app:phase:1', '--clear', '--why', 'Ready for a fresh run', '--yes', '--json'], { ...env, PLATES_PROVIDER: '' });
+  assert.equal(cleared.code, 0, cleared.err);
+  const clearedData = JSON.parse(cleared.out);
+  assert.deepEqual([clearedData.state, clearedData.already, clearedData.clear.by, clearedData.clear.why], ['cleared', false, 'owner', 'Ready for a fresh run']);
+  assert.match(clearedData.clear.at, /^\d{4}-\d{2}-\d{2}T/);
+  assert.deepEqual([check().code, JSON.parse(check().out).state, JSON.parse(check().out).cleared.why], [0, 'not-cancelled', 'Ready for a fresh run']);
+  assert.equal(plates(['--cancel', 'app:phase:1', '--clear', '--why', 'Again', '--yes'], env).code, 1, 'nothing left to clear');
+  const release = run(process.execPath, [BIN, 'phase', 'claim', '1', '--release', '--token', initialToken], { cwd: x.a, env });
+  assert.equal(release.status, 0, release.stderr);
+  const freshAttach = plates(['--attach', 'app:phase:1', '--route', 'session', '--provider', 'claude', '--yes'], env);
+  assert.equal(freshAttach.code, 0, freshAttach.err);
+  assert.match(freshAttach.out, /\/spin 1/);
 });
 
 // ---- phase 183: the local-host route ------------------------------------------------
@@ -320,6 +339,21 @@ test('a silent host is never running', async t => {
   assert.deepEqual(answering, [{ phase: 1, state: 'waiting', source: 'local host claude, session acme-session-1' }]);
   assert.deepEqual([card(answering).presence, card(answering).presenceSource], ['waiting', 'local host claude, session acme-session-1']);
   assert.equal((await localHostExecutions(x.a, { env, query: async () => null })).length, 0);
+  // Cancelling a silent local-host attach marks it not-stoppable, and CLI --clear refuses until stop can be confirmed.
+  const cancelledSilent = run(process.execPath, [BIN, 'home', '--cancel', 'app:phase:1', '--yes'], { cwd: x.a, env });
+  assert.equal(cancelledSilent.status, 0, cancelledSilent.stderr);
+  const refusedSilent = run(process.execPath, [BIN, 'home', '--cancel', 'app:phase:1', '--clear', '--why', 'Try again', '--yes'], { cwd: x.a, env });
+  assert.equal(refusedSilent.status, 1);
+  assert.match(refusedSilent.stdout + refusedSilent.stderr, /no stop command/);
+  const stateful = await fakeHost(join(dirname(x.a), 'stateful'), { state: true });
+  const stateEnv = hostEnvFor(x, stateful);
+  await writeFile(join(stateful.log, 'state'), 'running\n');
+  const refusedRunning = run(process.execPath, [BIN, 'home', '--cancel', 'app:phase:1', '--clear', '--why', 'Try again', '--yes'], { cwd: x.a, env: stateEnv });
+  assert.equal(refusedRunning.status, 1);
+  assert.match(refusedRunning.stdout + refusedRunning.stderr, /still running/);
+  await writeFile(join(stateful.log, 'state'), 'finished\n');
+  const clearedFinished = run(process.execPath, [BIN, 'home', '--cancel', 'app:phase:1', '--clear', '--why', 'Confirmed stopped', '--yes'], { cwd: x.a, env: stateEnv });
+  assert.equal(clearedFinished.status, 0, clearedFinished.stderr);
 });
 
 test('local-host attach hands distinct usable claim ownership to the launched worker while scrubbing credentials', async t => {
