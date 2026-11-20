@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { run } from './helpers/run.mjs';
 import * as ledger from '../practices/night/files/scripts/plates/test-ledger.mjs';
@@ -1726,4 +1726,35 @@ test('phase128 original live invocation forwards exact aliases; a new invocation
  assert.notEqual(forwarded.PLATES_GATE_INVOCATION,id);
  assert.notEqual(forwarded.PLATES_RUN_START,original.PLATES_RUN_START);
  assert.notEqual(forwarded.PLATES_SUITE_PLAN,original.PLATES_SUITE_PLAN);
+});
+
+test('plates#72: the reporter\'s own git status never runs a planted fsmonitor or hook', async t => {
+  const { dir } = await acmeRepo(t);
+  // The plates gate pins core.fsmonitor=false through GIT_CONFIG_* for everything it runs; a CI without that preload is
+  // what this guards, so the pins are set aside for this test.
+  const pinned = Object.keys(process.env).filter(k => /^GIT_CONFIG_(COUNT|KEY_\d+|VALUE_\d+)$/.test(k)), saved = pinned.map(k => [k, process.env[k]]);
+  for (const k of pinned) delete process.env[k];
+  t.after(() => { for (const [k, v] of saved) process.env[k] = v; });
+  const marker = join(dir, 'planted-ran');
+  // A branch plants an fsmonitor in the checkout's git config: plain git status runs it.
+  await writeFile(join(dir, 'monitor.sh'), `#!/bin/sh\ntouch '${marker}'\nexit 1\n`, { mode: 0o755 });
+  execFileSync('git', ['-C', dir, 'config', 'core.fsmonitor', join(dir, 'monitor.sh')]);
+  execFileSync('git', ['-C', dir, 'status', '--porcelain']);
+  assert.ok(existsSync(marker), 'the planted monitor runs under a plain git status');
+  await rm(marker);
+  const at = ledger.where(dir);
+  assert.ok(at.commit, 'the record still reads the commit');
+  assert.equal(existsSync(marker), false, 'the reporter\'s git never runs it');
+  // A planted hook: status refreshes a touched file's index entry, which runs post-index-change.
+  execFileSync('git', ['-C', dir, 'config', '--unset', 'core.fsmonitor']);
+  await mkdir(join(dir, 'acme-hooks'), { recursive: true });
+  await writeFile(join(dir, 'acme-hooks', 'post-index-change'), `#!/bin/sh\ntouch '${marker}'\n`, { mode: 0o755 });
+  execFileSync('git', ['-C', dir, 'config', 'core.hooksPath', join(dir, 'acme-hooks')]);
+  const tracked = execFileSync('git', ['-C', dir, 'ls-files'], { encoding: 'utf8' }).split('\n').filter(Boolean)[0];
+  const touch = async () => { const later = new Date(Date.now() + 60_000); await utimes(join(dir, tracked), later, later); };
+  await touch(); execFileSync('git', ['-C', dir, 'status', '--porcelain']);
+  assert.ok(existsSync(marker), 'the planted hook runs under a plain git status');
+  await rm(marker); await touch();
+  ledger.where(dir);
+  assert.equal(existsSync(marker), false, 'the reporter\'s git never runs the hook');
 });
