@@ -115,7 +115,8 @@ test('review items carry their kind from the model', async () => {
 const NEVER_THE_OWNERS = ['dated', 'ci', 'update', 'robot', 'files', 'branch', 'worktree', 'pr', 'gap'];
 // A kind whose only writer plates cannot run from home, with the reason (phase 173's table names it).
 const ANSWERED_ELSEWHERE = { feedback: 'a resolution needs an authored record file and its digest approval',
-  runme: 'a script an agent left is run on its Mac with runme, which shows it and asks before it runs' };
+  runme: 'a script an agent left is run on its Mac with runme, which shows it and asks before it runs',
+  pane: 'a Rex pane blocked on the owner is answered in that pane; plates never types into one' };
 
 test('every owner item can be answered', () => {
   for (const [kind, def] of Object.entries(KINDS)) {
@@ -137,7 +138,7 @@ test('every owner item can be answered', () => {
       { kind: 'lessons', title: 'lessons', id: 'aa4' }, { kind: 'health', title: 'health', id: 'aa5' }, { kind: 'inbox', title: 'inbox', id: 'aa6' },
     ] }] }).map(it => ({ ...it, plate: 'studio', ref: it.id })),
     { plate: 'studio', kind: 'lesson', ref: 'acme-lesson', waits: 'owner' }, { plate: 'studio', kind: 'claim', ref: 'claims/phase-3', phase: 3, waits: 'owner' },
-    { plate: 'studio', kind: 'check', ref: 'd1', waits: 'owner' }, { plate: 'studio', kind: 'runme', ref: 'acme-mac:20261115-0900-tidy', waits: 'owner' }, { plate: 'studio', kind: 'verify', ref: 'v1', waits: 'owner' }, { plate: 'studio', kind: 'rollback', ref: 'r1', waits: 'owner' }, { plate: 'studio', kind: 'feedback', ref: 'f'.repeat(64), waits: 'owner' },
+    { plate: 'studio', kind: 'check', ref: 'd1', waits: 'owner' }, { plate: 'studio', kind: 'runme', ref: 'acme-mac:20261115-0900-tidy', waits: 'owner' }, { plate: 'studio', kind: 'pane', ref: 'acme-mac:block:b1', machine: 'Acme Mac', read: 'rex focus -s session:a1 block:b1', waits: 'owner' }, { plate: 'studio', kind: 'verify', ref: 'v1', waits: 'owner' }, { plate: 'studio', kind: 'rollback', ref: 'r1', waits: 'owner' }, { plate: 'studio', kind: 'feedback', ref: 'f'.repeat(64), waits: 'owner' },
   ];
   const kinds = new Set(owner.map(i => i.itemKind ?? i.kind));
   for (const kind of Object.keys(KINDS).filter(k => !NEVER_THE_OWNERS.includes(k))) assert.ok(kinds.has(kind), `the fixture has an owner ${kind}`);

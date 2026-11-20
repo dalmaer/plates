@@ -375,3 +375,13 @@ test('plates sessions waiting shows blocked panes, and says when Rex was not rea
   const none = await waiting({ env: { ...env, PATH: '/nonexistent' }, machine: 'Acme Mac', now: Date.parse(at(10)) });
   assert.match(none.text, /Rex panes waiting on you\n  not read/);
 });
+
+test('a pane card is answered in its pane or put off, never from Home, and matches plates as attach labels them', async () => {
+  const { KINDS, answersFor } = await import('../lib/work-items.mjs');
+  assert.equal(KINDS.pane.label, 'Rex pane');
+  const item = { plate: 'anvils', kind: 'pane', ref: 'here:block:b1', machine: 'Acme Mac', read: 'rex focus -s session:a1 block:b1', waits: 'owner' };
+  const answers = answersFor(item, { form: 'web' });
+  assert.deepEqual(answers.map(a => a.id), ['answer', 'not-now']);
+  assert.equal(answers[0].unavailable.command, 'rex focus -s session:a1 block:b1', 'its own focus command, never run from Home');
+  assert.equal(labelPlate('acme-tools-codex', ['acme--tools']), 'acme--tools', 'rexLabel collapses repeated hyphens; the plate id is kept');
+});
