@@ -426,11 +426,14 @@ test('a link into a pinned checkout is accepted; the same link into a checkout o
   const pin = join(dirname(a), 'acme-pins', 'lib');
   await mkdir(join(pin, 'packages', 'lib'), { recursive: true });
   await writeFile(join(pin, 'packages', 'lib', 'index.js'), 'export const anvil = 1;\n');
+  await writeFile(join(pin, '.gitignore'), 'dist/\ntarget/\n');
   execFileSync('git', ['init', '-q', '-b', 'main', pin]);
   git(pin, 'add', '-A'); git(pin, '-c', 'user.name=Acme', '-c', 'user.email=acme@example.com', 'commit', '-q', '-m', 'acme lib');
   git(pin, 'checkout', '-q', '--detach');
   await change(a, 'claude/lib', { 'anvil-two.txt': 'two anvils\n' }, env('m1'));
   git(a, 'checkout', '-q', 'main');
+  // An install is never committed: the next change's `git add -A` must not take the link into its tree.
+  await writeFile(join(a, '.git', 'info', 'exclude'), 'node_modules/\n');
   await mkdir(join(a, 'node_modules', '@acme'), { recursive: true });
   await symlink(join(pin, 'packages', 'lib'), join(a, 'node_modules', '@acme', 'lib'));
   const refused = async () => {
@@ -446,6 +449,14 @@ test('a link into a pinned checkout is accepted; the same link into a checkout o
   git(pin, 'checkout', '-q', 'main');
   await refused();
   git(pin, 'checkout', '-q', '--detach');
+  // Ignored output inside the linked package is gated as its bytes, though no commit holds it.
+  await mkdir(join(pin, 'packages', 'lib', 'dist'), { recursive: true });
+  await writeFile(join(pin, 'packages', 'lib', 'dist', 'index.js'), 'export const anvil = 3;\n');
+  await refused();
+  await rm(join(pin, 'packages', 'lib', 'dist'), { recursive: true });
+  // Ignored output elsewhere in the pinned checkout is not linked: it does not matter.
+  await mkdir(join(pin, 'target'), { recursive: true });
+  await writeFile(join(pin, 'target', 'build.log'), 'acme build\n');
   assert.deepEqual(remoteRefs(origin, LOCK), [], 'a refusal never took the lock');
   // Pinned: integrate gates and lands the change.
   const runs = [];
@@ -453,6 +464,14 @@ test('a link into a pinned checkout is accepted; the same link into a checkout o
   assert.equal(runs.length, 1);
   assert.deepEqual(r.data.landed.map(l => l.branch), ['claude/lib']);
   assert.ok(onMain(origin, 'anvil-two.txt'));
+  // A gate that writes through the link changes the pin: that pass does not count, and nothing lands.
+  await change(a, 'claude/lib-two', { 'anvil-three.txt': 'three anvils\n' }, env('m1'));
+  git(a, 'checkout', '-q', 'main');
+  const writes = await integrate({ root: a }, { env: env('m1'), gate: async cwd => {
+    await writeFile(join(cwd, 'node_modules', '@acme', 'lib', 'index.js'), 'export const anvil = 4;\n'); return { status: 0 }; } });
+  assert.deepEqual(writes.data.landed, []);
+  assert.match(JSON.stringify(writes.data), /a pinned dependency changed during the gate \(@acme\/lib\)/);
+  assert.ok(!onMain(origin, 'anvil-three.txt'));
 });
 
 // PR #186 review: a --write formatter repairs the tree and exits 0; the unrepaired head must not go out as checked.

@@ -990,7 +990,9 @@ or `@scope/*`) that is a symlink resolving outside `node_modules` (workspaces,
 `file:` dependencies) refuses `plates integrate` before the lock (exit 2): it
 would gate the checkout's own packages. A link into a pinned checkout is
 accepted: one outside this checkout, detached at a commit, with nothing
-changed or added in it, so every candidate gets the same bytes. Before each gate run the worktree is
+changed or added in it and nothing ignored in the linked package, so every
+candidate gets the same bytes. Each pin is checked again before and after
+every gate run; a gate that changed one does not pass. Before each gate run the worktree is
 cleaned of untracked and ignored files (`git clean -ffdx`), so one
 candidate's build output never reaches the next; only the validated link is
 put back.
