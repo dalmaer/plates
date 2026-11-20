@@ -337,3 +337,16 @@ test('a pull request answered reply by reply past 100 reviews is read page by pa
   await assert.rejects(reviewReader(query(true))({ repo: 'acme/studio', reviewers: [] }, '2026-11-19'), /more reviews than one page/);
   assert.equal(pages.length, 19, 'MAX_REVIEW_PAGES pages in all, the first among them');
 });
+
+test('a plate whose last reads find the Home read\'s shared deadline passed is not saved with those reads as its gaps', async () => {
+  const h = projectHarness(), project = h.access.projects[0];
+  const store = { reserve: async () => ({ allowed: true }), observe: async () => {}, defer: async () => {} };
+  let calls = 0, abortAt = Infinity;
+  const deadline = new AbortController();
+  // The deadline passes as the plate's last source read starts: its release, after its files.
+  const fetcher = async (url, options) => { if (++calls >= abortAt) deadline.abort(); return h.fetcher(url, options); };
+  const read = signal => createProjectReader({ fetcher, store, userId: 1, token, now: () => h.state.now, budget: { requests: 0 }, signal })(project, null, { reviews: false });
+  await read(AbortSignal.timeout(25000));
+  abortAt = calls; calls = 0;
+  await assert.rejects(read(deadline.signal), { code: 'source_limit' });
+});
