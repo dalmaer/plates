@@ -5,6 +5,18 @@ practice version: what changes in your repo, and anything you need to do.
 Newest first. `plates release` writes them; `plates update` puts the entries
 between your version and the new one into its pull request.
 
+## v0.9.1 — practice 0.9.1 (2026-11-20)
+
+A day of fixes and two additions since 0.9.0.
+
+**`plates integrate` accepts links into a pinned checkout.** A `node_modules` package that links outside the repo used to be refused outright. It is now accepted when its target is an immutable, pinned checkout: a git work tree outside the repo, on a detached commit, with nothing changed, untracked or ignored under the package, no submodules, and symlinks that stay inside the pin. The package's declared dependencies must resolve to the same pin. The gate rereads every pin before and during the run and lands nothing if one moved. Workspaces, `file:` dependencies and links into a working checkout are still refused.
+
+**A licence header for the files Plates writes.** Set `"licenseHeader"` in `.plates/plates.json` (1–40 plain lines, optionally limited to the paths it names) and Plates opens each managed or seeded file that has line comments with it. The header is part of what render writes, so the lock records it and a header is no longer drift that stops `plates update`. Without the setting nothing changes.
+
+**Home reads more reliably.** Home now reads every page of a pull request's reviews, not just the first hundred. A repository with a few pull requests past the review window no longer refuses its whole review read. A plate that a refresh's shared budget or deadline cut short is retried a minute later instead of saved with gaps, and a stale plate says it is refreshing rather than "Not read: its sources".
+
+**What to do:** update the Plates CLI and run `plates update`. To carry a licence header, add `"licenseHeader"` to `.plates/plates.json`, then `plates doctor --fix <path> restore` any managed file you had edited by hand to add one.
+
 ## v0.9.0 — practice 0.9.0 (2026-11-19)
 
 Three weeks of work since 0.8.38. Here is what changes in your repo, and what to do.
