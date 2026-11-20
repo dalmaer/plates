@@ -601,7 +601,7 @@ export function uncommented(line) {
  * uncommented, starting inside `quote` (a quote character, or null); also returns the quote still open at the line's
  * end. `shell`: the line is a run block's shell, where a backslash outside quotes escapes the next character too
  * (#370 review: in `echo \" " # banner" && npm run check` the first quote is literal); YAML keeps it literal.
- * `heredocs`: in the shell, the delimiters of the heredocs the line opens (`cat <<'EOF'`), in order.
+ * `heredocs`: in the shell, the heredocs the line opens (`cat <<'EOF'`), in order: { delim, tabs } (tabs: `<<-`).
  */
 function withoutComment(line, quote, shell = false) {
   const heredocs = [];
@@ -617,7 +617,7 @@ function withoutComment(line, quote, shell = false) {
     else if (shell && c === '<' && line[i + 1] === '<' && line[i + 2] !== '<' && line[i - 1] !== '<') {
       // The delimiter is a word, quoted or not; quoting it only stops expansion, which a comment scan never does.
       const op = /^<<-?[ \t]*(?:'([^']*)'|"((?:[^"\\]|\\.)*)"|((?:\\.|[^\s;&|<>()'"])+))/.exec(line.slice(i));
-      if (op) { heredocs.push((op[1] ?? op[2] ?? op[3]).replace(/\\(.)/g, '$1')); i += op[0].length - 1; }
+      if (op) { heredocs.push({ delim: (op[1] ?? op[2] ?? op[3]).replace(/\\(.)/g, '$1'), tabs: op[0][2] === '-' }); i += op[0].length - 1; }
       wordStart = false;
     }
     else if (c === '"' || c === "'") { quote = c; wordStart = false; }
@@ -687,7 +687,7 @@ function settled(tail, quote) {
 const OPENS_SCALAR = /^\s*(?:-\s+)?(?:[^\s"'#][^:#]*:\s+)?["']/;
 export function uncommentedLines(text) {
   const out = [];
-  let block = null, quote = null, heredocs = [], scalar = null, scalarIndent = 0;
+  let block = null, body = null, quote = null, heredocs = [], scalar = null, scalarIndent = 0;
   const indent = line => line.length - line.trimStart().length;
   for (const line of text.split('\n')) {
     if (scalar === UNKNOWN && line.trim() && indent(line) <= scalarIndent) scalar = null;
@@ -698,11 +698,15 @@ export function uncommentedLines(text) {
       scalar = read.quote;
       continue;
     }
-    if (block !== null && line.trim() && indent(line) <= block) { block = quote = null; heredocs = []; }
+    if (block !== null && line.trim() && indent(line) <= block) { block = body = quote = null; heredocs = []; }
+    // The block's own indentation is YAML's, set by its first line; the shell sees each line without it.
+    if (block !== null && body === null && line.trim()) body = indent(line);
     if (block !== null && quote === UNKNOWN) { out.push(line); continue; }
     if (block !== null && heredocs.length) {
       out.push(uncommented(line));
-      if (line.trim() === heredocs[0]) heredocs.shift();
+      // The shell ends a heredoc only at its delimiter alone on a line (plates#524: ` EOF` is data); `<<-` drops leading tabs.
+      const shell = line.slice(Math.min(body ?? 0, indent(line)));
+      if ((heredocs[0].tabs ? shell.replace(/^\t+/, '') : shell) === heredocs[0].delim) heredocs.shift();
       continue;
     }
     if (block !== null) {

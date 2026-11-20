@@ -188,6 +188,7 @@ jobs:
           path: ${{ runner.temp }}/robot-plan.json
           if-no-files-found: error
           retention-days: 7
+          overwrite: true
       - name: Telemetry
         if: steps.prepare.outputs.ready == 'true'
         run: echo "telemetry off (.plates/plates.json names no telemetry endpoint)"
@@ -318,6 +319,7 @@ jobs:
           path: ${{ runner.temp }}/handoff/
           if-no-files-found: error
           retention-days: 7
+          overwrite: true
   judge:
     needs: agent
     if: needs.agent.outputs.ready == 'true'
@@ -395,6 +397,7 @@ jobs:
           path: ${{ runner.temp }}/robot-judgment.json
           if-no-files-found: error
           retention-days: 7
+          overwrite: true
   publish:
     needs: [agent, judge]
     if: always() && (needs.agent.outputs.issue != '' || needs.agent.outputs.triage == 'true' || needs.agent.outputs.plan_ticks == 'true')
@@ -512,6 +515,7 @@ jobs:
           path: ${{ runner.temp }}/robot-review.json
           if-no-files-found: error
           retention-days: 7
+          overwrite: true
       - name: Telemetry
         if: steps.review.outputs.reviewer != ''
         run: echo "telemetry off (.plates/plates.json names no telemetry endpoint)"
@@ -577,6 +581,7 @@ jobs:
           path: ${{ runner.temp }}/message.txt
           if-no-files-found: error
           retention-days: 7
+          overwrite: true
   review-post:
     needs: [publish, review-agent]
     if: always() && needs.publish.outputs.pr != ''

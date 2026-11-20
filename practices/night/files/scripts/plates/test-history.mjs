@@ -143,19 +143,35 @@ export async function recoverTestHistory({ root, repo, branch, at = new Date(), 
     const gate = await gateWorkflowIn(root, config);
     if (gate?.problem) throw new Error(gate.problem);
     if (gate && gate.name.length > 200) throw new Error('invalid CI workflow configuration');
-    // A file is read by its file name; a name as GitHub shows it (gateWorkflow: "Check") must name exactly one workflow.
-    const workflowOf = async name => {
-      if (/\.ya?ml$/.test(name)) return github(`${base}/actions/workflows/${encodeURIComponent(name)}`);
-      const list = await github(`${base}/actions/workflows?per_page=100`);
-      const named = (Array.isArray(list?.workflows) ? list.workflows : []).filter(w => w?.name === name);
+    // A file is read by its file name; a name as GitHub shows it (gateWorkflow: "Check") must name exactly one workflow,
+    // read across every page of the repository's workflows (plates#94: past 100 of them), to a bound.
+    const byDisplayName = async name => {
+      const named = [];
+      let total = Infinity, read = 0;
+      for (let page = 1; read < total && page <= 10; page++) {
+        const list = await github(`${base}/actions/workflows?per_page=100&page=${page}`);
+        const ws = Array.isArray(list?.workflows) ? list.workflows : [];
+        total = Number.isSafeInteger(list?.total_count) ? list.total_count : read + ws.length;
+        read += ws.length;
+        named.push(...ws.filter(w => w?.name === name));
+        if (ws.length < 100) break;
+      }
+      if (read < total) throw new Error(`the workflows past ${read} were not read, so ${JSON.stringify(name)} cannot be named`);
       if (named.length !== 1) throw new Error(`no single workflow is named ${JSON.stringify(name)}`);
       return named[0];
+    };
+    // A gate's display name may end in .yml ("Acme CI.yml") on a file named otherwise (plates#94): the gate falls back
+    // to the name after the file lookup's 404. A night workflow is only ever its file, whose absence is its own answer.
+    const workflowOf = async (name, { orName = false } = {}) => {
+      if (!/\.ya?ml$/.test(name)) return byDisplayName(name);
+      try { return await github(`${base}/actions/workflows/${encodeURIComponent(name)}`); }
+      catch (e) { if (orName && missing(e)) return byDisplayName(name); throw e; }
     };
     const workflows = new Map();
     if (!gate) gap('workflow-unavailable', 'ci: no workflow in .github/workflows runs the gate, and .plates/plates.json names no gateWorkflow');
     for (const [kind, name] of [...NIGHTS.map(path => ['night', path.split('/').at(-1)]), ...(gate ? [['ci', gate.name]] : [])]) {
       try {
-        const w = await workflowOf(name);
+        const w = await workflowOf(name, { orName: kind === 'ci' });
         if (!id(w.id) || !/^\.github\/workflows\/[A-Za-z0-9_.-]+\.ya?ml$/.test(w.path ?? '') || (kind === 'night' && w.path !== `.github/workflows/${name}`) || workflows.has(w.id)) throw new Error('workflow identity unavailable or ambiguous');
         workflows.set(w.id, { kind, path: w.path });
       } catch (e) { if (!(kind === 'night' && missing(e))) gap('workflow-unavailable', `${kind}: ${e.message}`); }

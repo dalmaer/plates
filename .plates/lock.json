@@ -103,7 +103,7 @@
     },
     ".github/workflows/plates-robot.yml": {
       "practice": "climb",
-      "sha256": "dc22b088e2ab4a6be17d011c481693c9846e29f97b7822e21cf0a610c42cb8bc"
+      "sha256": "38afbcee6ca02da285600689003c5a0b9d2506ec0098adcba4d8549bf7552c78"
     },
     ".github/workflows/plates-tend.yml": {
       "practice": "climb",
@@ -207,7 +207,7 @@
     },
     "scripts/plates/delivery.mjs": {
       "practice": "delivery",
-      "sha256": "62c9533dceb6d08e1036d7b7d227cae099a49a5aad082fdc45a266867cd7c116"
+      "sha256": "35539d37bcce29d3f3f84c8afabcb9483893bf3f33618de3cba4b8f3611de944"
     },
     "scripts/plates/distill.mjs": {
       "practice": "climb",
@@ -243,7 +243,7 @@
     },
     "scripts/plates/lib.mjs": {
       "practice": "night",
-      "sha256": "4864ac6ca8820c1b8c5b2413cafc8747568d8730445135e8add33d3679eb9d24"
+      "sha256": "6bff2f9eafdeba4b0955be510b896265aa8aaabe61c55d1040224f84c671d294"
     },
     "scripts/plates/milestones.mjs": {
       "practice": "night",
@@ -347,7 +347,7 @@
     },
     "scripts/plates/stalls.mjs": {
       "practice": "night",
-      "sha256": "c904dba5ba3ff5b19518353edc2dbeaee5a29ebcf6aceb958b20c5daeb1d15d0"
+      "sha256": "6dc4904a305d33c1459a7485a62ba500fa6a7b47d4ab4d4ed59afbc0667582cf"
     },
     "scripts/plates/tend.mjs": {
       "practice": "climb",
@@ -355,11 +355,11 @@
     },
     "scripts/plates/test-history.mjs": {
       "practice": "night",
-      "sha256": "181649e1c67b7b81ed21b3b5d7b0e163a30585bcfef6f172370846ba81492feb"
+      "sha256": "d45236a9917342bbf3b7b530610b6b5804c400c60d7d09b63e5cf334117debab"
     },
     "scripts/plates/test-ledger.mjs": {
       "practice": "night",
-      "sha256": "a3041ab1f0635a803ce57d9d4b015e0603904ae282a38c3d3cf85327873e1b5c"
+      "sha256": "780053b4ee7d041802ac1b7d800a10c3dd1c60d54b95d9266d2066efea9f7ef6"
     },
     "scripts/plates/time-measures.mjs": {
       "practice": "night",

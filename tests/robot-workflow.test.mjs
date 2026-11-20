@@ -384,3 +384,19 @@ test('robot preparation failure is the agent job output the publisher records',a
  assert.match(r.stdout+r.stderr,/CONFLICT/);
  assert.equal(existsSync(join(root,'.plates/agent-git')),false);
 });
+
+test('plates#80 item 7: every robot artifact upload overwrites, so rerunning a failed job does not stop at the upload',async()=>{
+ const lines=(await readFile(workflow,'utf8')).split('\n');
+ const indent=l=>l.length-l.trimStart().length;
+ const uploads=[];
+ lines.forEach((line,i)=>{
+  if(!line.includes(`uses: ${WORKFLOW_ACTIONS.uploadArtifact}`))return;
+  // The step: from its "- " line to the next line at or above that indentation.
+  let start=i;while(!/^\s*- /.test(lines[start]))start--;
+  const at=indent(lines[start]);let end=i+1;
+  while(end<lines.length&&!(lines[end].trim()&&indent(lines[end])<=at))end++;
+  uploads.push(lines.slice(start,end).join('\n'));
+ });
+ assert.equal(uploads.length,5,'the robot uploads its plan, agent handoff, judgment, review plan and review message');
+ for(const step of uploads)assert.match(step,/\n\s+overwrite: true$/m,`${/name: (robot-[\w-]+)/.exec(step)?.[1]}: overwrite: true`);
+});

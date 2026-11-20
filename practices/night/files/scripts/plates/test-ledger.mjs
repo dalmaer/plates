@@ -1121,7 +1121,7 @@ export function pinned(root, config, { env = process.env, preload, seed: given }
         if (!failed.length && !unjudged && !run.timedOut && run.exitCode === 0 && run.ran > 0) {
           // Zero stalls is not a pass: nothing paused it, so nothing was judged.
           process.exitCode = 1;
-          lines.push(`${STALLS_LABEL}: ${rel} is inconclusive: no stall landed (${s}), seed ${run.seed}. A file that ends before a stall can land guards nothing pinned; unpin it, or give it a test long enough to pause.`);
+          lines.push(`${STALLS_LABEL}: ${rel} is inconclusive: no stall landed (${s}), seed ${run.seed}; ${m.injectionText(run)}. A file that ends before a stall can land guards nothing pinned; unpin it, or give it a test long enough to pause.`);
           continue;
         }
         process.exitCode = 1;

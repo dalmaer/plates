@@ -257,9 +257,38 @@ test('issue #91: history recovers from the project\'s own gate workflow (pages.y
   // The gate named as GitHub shows it (not a file) is found by that name, among the repository's workflows.
   const named = await project(t), g = pages(fixture());
   await writeFile(join(named, '.plates/plates.json'), JSON.stringify({ repo, gateWorkflow: 'Acme pages' }));
-  g.routes['repos/acme/app/actions/workflows?per_page=100'] = { total_count: 3, workflows: [{ id: 10, name: 'plates night', path: '.github/workflows/plates-night.yml' }, { id: 11, name: 'Acme pages', path: '.github/workflows/pages.yml' }, { id: 12, name: 'Acme deploy', path: '.github/workflows/deploy.yml' }] };
+  g.routes['repos/acme/app/actions/workflows?per_page=100&page=1'] = { total_count: 3, workflows: [{ id: 10, name: 'plates night', path: '.github/workflows/plates-night.yml' }, { id: 11, name: 'Acme pages', path: '.github/workflows/pages.yml' }, { id: 12, name: 'Acme deploy', path: '.github/workflows/deploy.yml' }] };
   const byName = await recover(named, g);
   assert.equal(byName.imported, 2, JSON.stringify(byName.gaps));
+  // plates#94: a display name ending in .yml ("Acme CI.yml") on a file named otherwise: the file lookup's 404 falls back to the name.
+  const dotted = await project(t), d = pages(fixture());
+  await writeFile(join(dotted, '.plates/plates.json'), JSON.stringify({ repo, gateWorkflow: 'Acme CI.yml' }));
+  d.routes['repos/acme/app/actions/workflows?per_page=100&page=1'] = { total_count: 2, workflows: [{ id: 10, name: 'plates night', path: '.github/workflows/plates-night.yml' }, { id: 11, name: 'Acme CI.yml', path: '.github/workflows/pages.yml' }] };
+  const fileless = d.github;
+  d.github = async path => { if (path.endsWith('/workflows/Acme%20CI.yml')) { d.calls.push(path); throw Object.assign(new Error('not found'), { status: 404 }); } return fileless(path); };
+  const byDotted = await recover(dotted, d);
+  assert.ok(d.calls.includes('repos/acme/app/actions/workflows/Acme%20CI.yml'), 'the file is tried first');
+  assert.equal(byDotted.imported, 2, JSON.stringify(byDotted.gaps));
+  // plates#94: past 100 workflows, the name is found on a later page, and every page is read.
+  const many = await project(t), m = pages(fixture());
+  await writeFile(join(many, '.plates/plates.json'), JSON.stringify({ repo, gateWorkflow: 'Acme pages' }));
+  const others = Array.from({ length: 100 }, (_, i) => ({ id: 1000 + i, name: `Acme other ${i}`, path: `.github/workflows/other-${i}.yml` }));
+  m.routes['repos/acme/app/actions/workflows?per_page=100&page=1'] = { total_count: 101, workflows: others };
+  m.routes['repos/acme/app/actions/workflows?per_page=100&page=2'] = { total_count: 101, workflows: [{ id: 11, name: 'Acme pages', path: '.github/workflows/pages.yml' }] };
+  const paged = await recover(many, m);
+  assert.equal(paged.imported, 2, JSON.stringify(paged.gaps));
+  // Exactly 100 workflows: one full page is every page, so no second page is asked for.
+  const full = await project(t), u = pages(fixture());
+  await writeFile(join(full, '.plates/plates.json'), JSON.stringify({ repo, gateWorkflow: 'Acme pages' }));
+  u.routes['repos/acme/app/actions/workflows?per_page=100&page=1'] = { total_count: 100, workflows: [...others.slice(0, 99), { id: 11, name: 'Acme pages', path: '.github/workflows/pages.yml' }] };
+  assert.equal((await recover(full, u)).imported, 2);
+  assert.ok(!u.calls.includes('repos/acme/app/actions/workflows?per_page=100&page=2'));
+  // Past the bound (1000 workflows), the name is not guessed from what was read: a gap says so, and page 11 is never asked for.
+  const huge = await project(t), b = pages(fixture());
+  await writeFile(join(huge, '.plates/plates.json'), JSON.stringify({ repo, gateWorkflow: 'Acme pages' }));
+  for (let page = 1; page <= 10; page++) b.routes[`repos/acme/app/actions/workflows?per_page=100&page=${page}`] = { total_count: 1050, workflows: Array.from({ length: 100 }, (_, i) => ({ id: 2000 + page * 100 + i, name: `Acme more ${page}-${i}`, path: `.github/workflows/more-${page}-${i}.yml` })) };
+  const bounded = await recover(huge, b);
+  assert.ok(bounded.gaps.some(g => g.code === 'workflow-unavailable' && /workflows past 1000 were not read/.test(g.detail)), JSON.stringify(bounded.gaps.slice(0, 2)));
   // Nothing runs the gate: said as a gap, never a guess at check.yml.
   const none = await project(t), n = pages(fixture());
   await writeFile(join(none, '.plates/plates.json'), JSON.stringify({ repo }));
@@ -706,4 +735,32 @@ test('history verifies newest samples lazily and retains rejected candidates', a
   assert.ok(result.gaps.some(g => g.code === 'ci-sampled'), 'unverified omissions stay visible');
   assert.equal(result.complete, false);
   assert.equal(reads.length, 8, 'only the selected samples and rejected newest candidate need full identity checks');
+});
+
+// plates#524: the shell ends a heredoc only at its delimiter alone on the line, after the block's YAML indentation
+// (and leading tabs for <<-); a body line ` EOF` is data. Both copies of the script read it the same.
+test('plates#524: an indented heredoc end is data, so the gate after the heredoc is still found', async t => {
+  const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  for (const copy of ['../practices/night/files/scripts/plates/lib.mjs', '../scripts/plates/lib.mjs']) {
+    const { gateWorkflowIn } = await import(new URL(copy, import.meta.url).href);
+    const root = await mkdtemp(join(tmpdir(), 'plates-gate-heredoc-end-'));
+    t.after(() => rm(root, { recursive: true, force: true }));
+    await mkdir(join(root, '.github/workflows'), { recursive: true });
+    const found = async body => { await writeFile(join(root, '.github/workflows/ci.yml'), body); return gateWorkflowIn(root, { check: 'npm run check' }); };
+    const block = (...lines) => `jobs:\n  x:\n    steps:\n      - run: |\n${lines.map(l => `          ${l}\n`).join('')}`;
+    // The gate's quote spans two lines: read as shell after the heredoc it is one quoted span; read as heredoc data,
+    // line by line, its second line's # would cut the check away. So each case shows where the heredoc ended.
+    const gate = ['echo "a', 'b # c" && npm run check'];
+    assert.deepEqual(await found(block('cat <<EOF', ' EOF', '"', 'EOF', ...gate)), { name: 'ci.yml' }, `${copy}: a body line " EOF" does not end the heredoc`);
+    assert.deepEqual(await found(block('cat <<EOF', '\tEOF', '"', 'EOF', ...gate)), { name: 'ci.yml' }, `${copy}: a tab-led EOF ends only a <<- heredoc`);
+    assert.deepEqual(await found(block('cat <<-EOF', '"', '\tEOF', ...gate)), { name: 'ci.yml' }, `${copy}: <<- drops leading tabs before its delimiter`);
+    assert.deepEqual(await found(block('cat <<EOF', '"', 'EOF', ...gate)), { name: 'ci.yml' }, `${copy}: the delimiter at the block's own indentation ends it`);
+    for (const open of ["cat <<'EOF'", 'cat <<"EOF"', 'cat <<-\'EOF\'']) assert.deepEqual(await found(block(open, ' EOF', '"', open.includes('-') ? '\tEOF' : 'EOF', ...gate)), { name: 'ci.yml' }, `${copy}: ${open}, quoted`);
+    assert.deepEqual(await found(block('echo done <<', ...gate)), { name: 'ci.yml' }, `${copy}: a << naming no delimiter opens nothing`);
+    // Each run block has its own YAML indentation: a later step's heredoc ends at its own.
+    const two = 'jobs:\n  x:\n    steps:\n      - run: |\n          echo first\n      - run: |\n' + ['cat <<EOF', '"', 'EOF', ...gate].map(l => `            ${l}\n`).join('');
+    assert.deepEqual(await found(two), { name: 'ci.yml' }, `${copy}: the second block's indentation is its own`);
+  }
 });
