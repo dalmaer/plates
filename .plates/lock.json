@@ -359,7 +359,7 @@
     },
     "scripts/plates/test-ledger.mjs": {
       "practice": "night",
-      "sha256": "9dbdf50cb7fae83b0a4a9e44f491f9a97090c161b8fdc4dfc0e467137c143c4e"
+      "sha256": "a3041ab1f0635a803ce57d9d4b015e0603904ae282a38c3d3cf85327873e1b5c"
     },
     "scripts/plates/time-measures.mjs": {
       "practice": "night",

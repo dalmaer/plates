@@ -17,6 +17,10 @@ import * as ledger from '../practices/night/files/scripts/plates/test-ledger.mjs
 
 const PLATES = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SOURCE = join(PLATES, 'practices', 'night', 'files', 'scripts', 'plates', 'test-ledger.mjs');
+// These tests run the ledger outside any gate; the plates gate running this suite sets its own start for its command, which
+// must not leak into them (plates#97: inside a gate, a run with no --start is judged but not recorded). A test that needs
+// a gate's start sets it.
+for (const name of ['PLATES_RUN_START', 'KEEL_RUN_START']) delete process.env[name];
 const { flaky, slower, hygiene, readRuns, record, testsConfigOf, testsConfigProblems, lastOutcome, aloneCommand, preloads, RUNS, DEFAULTS } = ledger;
 
 async function scratch(t, prefix = 'plates-ledger-') {
@@ -898,6 +902,31 @@ async function assertFreshPerRun(dir, mod) {
   assert.equal(gate.code, 1, 'no --start: the gate\'s own start judges it');
   assert.deepEqual((await readRuns(dir)).runs.map(r => r.dir), ['.', '.', '.', 'web']);
 }
+
+test('plates#97: inside a gate, a report an earlier step wrote is never recorded under this commit', async t => {
+  const { dir } = await acmeRepo(t);
+  const xml = passing(await fixture('bun.xml')), sample = async () => ({ load: [0, 0, 0], cores: 4 });
+  const env = { PLATES_RUN_START: JSON.stringify({ at: new Date(Date.now() - 60_000).toISOString() }) };
+  // An earlier step of the same gate writes the report, after the gate began; then the runner writes nothing.
+  await junitAt(dir, 'junit.xml', xml);
+  // With no --start, the gate's start cannot tell: the run is judged, and not recorded.
+  const loose = await ledger.junitRun({ junit: 'junit.xml', cwd: dir, sample, env });
+  assert.equal(loose.code, 0, loose.lines.join('\n'));
+  assert.match(loose.lines.join('\n'), /junit\.xml is judged but not recorded: inside a gate, a report is fresh only by the runner's own start/);
+  assert.equal((await readRuns(dir)).runs.length, 0, 'nothing recorded under this commit');
+  // With the wrapper's sample, taken just before the runner, the earlier step's report is stale: not counted.
+  const start = { at: new Date(Date.now() + 5000).toISOString() }; // past the ledger's 2 s slack
+  const bound = await ledger.junitRun({ junit: 'junit.xml', cwd: dir, start, sample, env });
+  assert.match(bound.lines.join('\n'), /was last written before this run began/);
+  assert.equal((await readRuns(dir)).runs.length, 0);
+  // The wrapper with a failed sample (--start ""): its rm -f keeps an old report out, so the gate's start judges it, and it is recorded.
+  const empty = await ledger.junitRun({ junit: 'junit.xml', cwd: dir, start: null, sample, env });
+  assert.equal(empty.code, 0, empty.lines.join('\n'));
+  assert.equal((await readRuns(dir)).runs.length, 1);
+  // Outside a gate, a run with no start is recorded as before.
+  await ledger.junitRun({ junit: 'junit.xml', cwd: dir, sample, env: {} });
+  assert.equal((await readRuns(dir)).runs.length, 2);
+});
 
 test('a fresh JUnit report is judged for this run: byte-identical reports are each a run; one written before the run began is stale (plates#93)', async t => {
   const { dir } = await acmeRepo(t);

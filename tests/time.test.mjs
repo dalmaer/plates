@@ -107,7 +107,7 @@ test('nested gate wrappers record only the outer boundary', async t => {
   assert.equal((await readRuns(root)).runs.length, 0, 'gate records never displace a test baseline');
 });
 
-test('wrapped JUnit records local start/end context; omitted start ignores the outer gate sample', async t => {
+test('wrapped JUnit records local start/end context; an omitted start inside the gate is judged, never recorded', async t => {
   const root = await scratch(t);
   const ledger = new URL('../practices/night/files/scripts/plates/test-ledger.mjs', import.meta.url).href;
   await writeFile(join(root, 'test-ledger.mjs'), await readFile(new URL(ledger), 'utf8'));
@@ -132,11 +132,12 @@ node test-ledger.mjs --junit acme.xml --runner vitest --status "$plates_status" 
   assert.ok(runs[0].busy.end.at);
   assert.equal(runs[0].busy.unavailable, null);
   await writeFile(join(root, 'acme.xml'), '<testsuites name="vitest tests"><testsuite name="acme.test.mjs"><testcase name="Acme ships" time="0.02"/></testsuite></testsuites>');
+  // Inside the gate with no --start, nothing ties the report to this runner (plates#97): it is judged, never recorded,
+  // so the outer gate's sample is never taken for its start either.
   const omitted = await timedCommand('node test-ledger.mjs --junit acme.xml --runner vitest', { cwd: root });
   assert.equal(omitted.status, 0, omitted.stderr);
-  const last = (await readRuns(root)).runs.at(-1);
-  assert.equal(last.busy.start, null);
-  assert.match(last.busy.unavailable, /start was not captured/);
+  assert.match(omitted.stdout + omitted.stderr, /acme\.xml is judged but not recorded/);
+  assert.equal((await readRuns(root)).runs.length, 1, 'only the wrapped run is recorded');
 });
 
 
