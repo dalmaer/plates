@@ -202,9 +202,11 @@ test('managed source render preserves record policy while consumers keep their o
   const path = '.github/workflows/check.yml';
   const template = await readFile(resolve('practices/ci/files', path), 'utf8');
   const source = JSON.parse(await readFile(resolve('.plates/plates.json'), 'utf8'));
-  assert.equal(fill(template, source, path), await readFile(resolve(path), 'utf8'));
+  const self = fill(template, source, path);
+  assert.equal(self, await readFile(resolve(path), 'utf8'));
+  assert.match(self, /Check source workflow pins and contracts[\s\S]+Run the configured gate/);
   const consumer = fill(template, { name: 'Acme', repo: 'acme/app', check: 'npm run acme-gate' }, path);
-  assert.doesNotMatch(consumer, /check-records|RECORD_BASE|RECORD_HEAD/);
+  assert.doesNotMatch(consumer, /check-records|RECORD_BASE|RECORD_HEAD|workflow-action-pins|WORKFLOW_BASE|WORKFLOW_HEAD/);
   assert.match(consumer, /npm run acme-gate/);
   assert.match(consumer, /node scripts\/plates\/gate.mjs --ci/);
 });
