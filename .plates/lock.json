@@ -355,7 +355,7 @@
     },
     "scripts/plates/test-history.mjs": {
       "practice": "night",
-      "sha256": "181649e1c67b7b81ed21b3b5d7b0e163a30585bcfef6f172370846ba81492feb"
+      "sha256": "d45236a9917342bbf3b7b530610b6b5804c400c60d7d09b63e5cf334117debab"
     },
     "scripts/plates/test-ledger.mjs": {
       "practice": "night",
