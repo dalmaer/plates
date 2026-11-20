@@ -295,8 +295,9 @@ test('a local-only source is named in both forms, never missing from one', async
     // Local work: read on the owner's machine, named on the web with the reason and the command that reads it.
     assert.deepEqual([row(s.web, 'local').state, row(s.web, 'local').reason, row(s.web, 'local').command], ['unavailable', 'on your machine', 'plates loose-ends']);
     assert.equal(row(s.cli, 'local').state, 'read'); assert.equal(row(s.cli, 'local').command, 'plates loose-ends');
-    // Lessons: neither form reads plates-inbox yet; both say why and name plates learn.
-    for (const form of [s.web, s.cli]) assert.deepEqual([row(form, 'lessons').state, row(form, 'lessons').reason, row(form, 'lessons').command], ['unavailable', 'plates-inbox is not readable by the App yet', 'plates learn']);
+    // Lessons (plates#525): the CLI reads plates's own inbox, so a plate that is not plates says why; the web cannot read it yet.
+    assert.deepEqual([row(s.web, 'lessons').state, row(s.web, 'lessons').reason, row(s.web, 'lessons').command], ['unavailable', 'plates-inbox is not readable by the App yet', 'plates learn']);
+    assert.deepEqual([row(s.cli, 'lessons').state, row(s.cli, 'lessons').reason, row(s.cli, 'lessons').command], ['unavailable', 'the inbox is plates\'s (home only)', 'plates learn']);
     // Every web row the CLI reads names the same command.
     for (const id of ids) assert.equal(row(s.cli, id).command, row(s.web, id).command);
     // A shared source one form cannot read (reviews, without the App's Pull requests read) is a gap in that form, with its reason.
