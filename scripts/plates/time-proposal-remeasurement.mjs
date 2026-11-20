@@ -8,7 +8,8 @@ const atTime=at=>new Date(at??Date.now()).toISOString();
 async function local(root) {
   const config=JSON.parse(await readFile(join(root,'.plates/plates.json'),'utf8'));
   if(!robotRepo(config.repo))throw new Error('local repository identity unavailable');
-  return {config,repo:config.repo.toLowerCase()};
+  // plates#100: the canonical spelling, as GitHub's markers, full_name and URLs carry it; names compare case-insensitively.
+  return {config,repo:config.repo};
 }
 function ancestry(root,base,head) {
   if(!robotSha(base)||!(head==='HEAD'||robotSha(head)))return false;
@@ -16,7 +17,7 @@ function ancestry(root,base,head) {
 }
 export async function timeProposalDelivery(root,proposal,github) {
   const {repo}=await local(root),issue=proposal.lifecycle.issue;
-  if(!issue||issue.repo.toLowerCase()!==repo)throw new Error('proposal issue does not belong to the local repository');
+  if(!issue||issue.repo.toLowerCase()!==repo.toLowerCase())throw new Error('proposal issue does not belong to the local repository');
   const delivery=await readRobotDelivery({repo,issueNumber:issue.number,instanceId:proposal.instanceId,github});
   if(!['open','merged'].includes(delivery.state)||!delivery.pr)throw new Error(delivery.reasons.join('; ')||'verified delivery unavailable');
   return {repo,delivery};
@@ -26,7 +27,7 @@ export function checkedTimeTransition(transition,proposal,repo,delivery,at) {
   const canonical=v=>Array.isArray(v)?v.map(canonical):v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,canonical(v[k])])):v;
   const same=(a,b)=>JSON.stringify(canonical(a))===JSON.stringify(canonical(b));
   const pr=transition?.pr;
-  if(!transition||transition.instanceId!==proposal.instanceId||pr?.repo?.toLowerCase()!==repo||pr.number!==delivery.pr.number||pr.headSha!==delivery.pr.headSha||pr.mergeSha!==(delivery.pr.mergeSha??null))throw new Error('mapping must bind this instance and verified PR head/merge');
+  if(!transition||transition.instanceId!==proposal.instanceId||pr?.repo?.toLowerCase()!==repo.toLowerCase()||pr.number!==delivery.pr.number||pr.headSha!==delivery.pr.headSha||pr.mergeSha!==(delivery.pr.mergeSha??null))throw new Error('mapping must bind this instance and verified PR head/merge');
   if(!same(transition.fromIdentity,proposal.identity)||!transition.toIdentity||!Array.isArray(transition.testMapping)||!transition.testMapping.length||!transition.executionSettings?.before||!transition.executionSettings?.after)throw new Error('mapping requires original/successor identities and execution settings');
   for(const field of ['kind','scope','runner','machineClass']){
     if(transition.toIdentity[field]!==proposal.identity[field])throw new Error(`mapping must preserve ${field} identity`);
