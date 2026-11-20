@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { projectHarness, phaseFile } from './helpers/web-projects.mjs';
 import { createHomeReader } from '../lib/web/home.mjs';
 import { createHomeStore } from '../lib/web/home-store.mjs';
-import { createProjectReader } from '../lib/web/projects.mjs';
+import { createProjectReader, reviewReader } from '../lib/web/projects.mjs';
 import { hash } from '../lib/web/common.mjs';
 const token = 'fake-user-access-token-for-tests';
 const home = h => createHomeReader(h.config, { fetcher: h.fetcher, now: () => h.state.now });
@@ -301,4 +301,39 @@ test('phase failures collapse into one counted line', async () => {
   assert.equal(planning.length, 1);
   assert.match(planning[0].reason, new RegExp(`^${paths.length} of ${paths.length} phase files could not be read or validated: `));
   assert.equal(result.projects[0].gaps.filter(gap => /source could not be read or validated/.test(gap.reason)).length, 0);
+});
+
+test('a plate whose last reads find the shared request budget spent is not saved with those reads as its gaps', async () => {
+  const h = projectHarness(), project = h.access.projects[0];
+  const store = { reserve: async () => ({ allowed: true }), observe: async () => {}, defer: async () => {} };
+  let calls = 0;
+  const fetcher = async (url, options) => { calls++; return h.fetcher(url, options); };
+  const read = budget => createProjectReader({ fetcher, store, userId: 1, token, now: () => h.state.now, budget })(project, null, { reviews: false });
+  // With room, the plate is read, its release among it.
+  const whole = await read({ requests: 0 }), needed = calls;
+  assert.equal(whole.release.state !== undefined, true);
+  // The same read with one request too few: the release read runs out of the shared budget, so the refresh fails
+  // (Home keeps the previous observation and retries this plate first) rather than saving "production not read".
+  calls = 0;
+  await assert.rejects(read({ requests: 200 - needed + 1 }), { code: 'source_limit' });
+});
+
+test('a pull request answered reply by reply past 100 reviews is read page by page, as plates review reads it, not refused', async () => {
+  const review = i => ({ id: `R${i}`, databaseId: i, author: { __typename: 'User', login: 'acme-owner' }, commit: { oid: 'a'.repeat(40) }, body: '', state: 'COMMENTED', submittedAt: '2026-11-18T00:00:00Z', url: `https://github.com/acme/studio/pull/7#r${i}` });
+  const pr = { number: 7, title: 'Acme pull request', url: 'https://github.com/acme/studio/pull/7', state: 'OPEN', mergedAt: null, updatedAt: '2026-11-18T00:00:00Z', headRefName: 'acme', headRefOid: 'a'.repeat(40), body: '',
+    repository: { nameWithOwner: 'acme/studio' }, headRepository: { nameWithOwner: 'acme/studio' }, author: { __typename: 'User', login: 'acme-owner' },
+    reviewThreads: { pageInfo: { hasNextPage: false }, nodes: [] }, comments: { pageInfo: { hasNextPage: false }, nodes: [] } };
+  const pages = [];
+  const query = more => async (q, vars) => {
+    if (q.includes('open: pullRequests')) return { repository: { merged: { pageInfo: { hasNextPage: false }, nodes: [] }, open: { pageInfo: { hasNextPage: false }, nodes: [{ ...pr, keelWindow: 'PullRequest',
+      comments: { pageInfo: { hasPreviousPage: false }, nodes: [] }, reviews: { pageInfo: { hasPreviousPage: true }, nodes: [review(149)] } }] } } };
+    if (vars.after) { pages.push(vars.after); return { repository: { pullRequest: { reviews: { pageInfo: { hasNextPage: more, endCursor: 'acme-2' }, nodes: Array.from({ length: 50 }, (_, i) => review(100 + i)) } } } }; }
+    return { repository: { pullRequest: { ...pr, reviews: { pageInfo: { hasNextPage: true, endCursor: 'acme-1' }, nodes: Array.from({ length: 100 }, (_, i) => review(i)) } } } };
+  };
+  assert.deepEqual(await reviewReader(query(false))({ repo: 'acme/studio', reviewers: [] }, '2026-11-19'), { prs: [], rounds: [], ready: [] });
+  assert.deepEqual(pages, ['acme-1'], 'the second page was read from the first page\'s cursor');
+  // Past the last page read (MAX_REVIEW_PAGES), the read still says there is more and is refused: never a count.
+  pages.length = 0;
+  await assert.rejects(reviewReader(query(true))({ repo: 'acme/studio', reviewers: [] }, '2026-11-19'), /more reviews than one page/);
+  assert.equal(pages.length, 19, 'MAX_REVIEW_PAGES pages in all, the first among them');
 });
