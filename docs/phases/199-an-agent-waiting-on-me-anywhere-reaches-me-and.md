@@ -1,11 +1,11 @@
 ---
-status: planned
+status: partial
 since: 2026-11-20
 goal: G7
 spec: 2
 depends: [193,194]
-note: "Increment 1 (Rex panes blocked on the owner reach Home) is being built."
-evidence: []
+note: "Increment 1 built: blocked Rex panes reach Home in both forms; its walk (a real blocked pane on the deployed Home) and increments 2 and 3 remain."
+evidence: ["evidence/2026-11-20-rex-blocked-panes.md"]
 ---
 
 # An agent waiting on me anywhere reaches me, and my answer reaches it
@@ -57,10 +57,10 @@ answers before sending (#542), the sent-version check (#543) and sectioned revie
 
 ## Acceptance
 
-- [ ] A blocked pane in this Mac's Rex is in the snapshot with only its block id, session label, tab label, app, kind and time, and a record's free text never is: `tests/waiting-sessions.test.mjs: "a blocked Rex pane is kept with only its place and kind"`.
-- [ ] Panes that are working, idle, done or in error are not kept, and panes in sessions that name no known plate are counted, not listed: `tests/waiting-sessions.test.mjs: "only blocked panes on known plates are listed"`.
-- [ ] No Rex, or a Rex that fails, leaves `panes` absent and the row says Rex was not read: `tests/waiting-sessions.test.mjs: "no Rex is not read, never none"`.
-- [ ] A pushed snapshot with a pane field it does not hold is refused: `tests/waiting-sessions.test.mjs: "a pane field the snapshot does not hold is refused"`.
+- [x] A blocked pane in this Mac's Rex is in the snapshot with only its block id, session label, tab label, app, kind and time, and a record's free text never is: `tests/waiting-sessions.test.mjs: "a blocked Rex pane is kept with only its place and kind"`.
+- [x] Panes that are working, idle, done or in error are not kept, and panes in sessions that name no known plate are counted, not listed: `tests/waiting-sessions.test.mjs: "only blocked panes on known plates are listed"`.
+- [x] No Rex, or a Rex that fails, leaves `panes` absent and the row says Rex was not read: `tests/waiting-sessions.test.mjs: "no Rex is not read, never none"`.
+- [x] A pushed snapshot with a pane field it does not hold is refused: `tests/waiting-sessions.test.mjs: "a pane field the snapshot does not hold is refused"`.
 - [ ] ⚑ by hand: owner. A Codex or Claude tab in Rex stopped on a permission prompt shows on the deployed Home within one push.
 - [ ] `plates ask` puts a typed card on Home in both forms (increment 2): `tests/plates-ask.test.mjs: "an ask is a card in both forms"`.
 - [ ] An answer reaches the asking agent without typing into a pane, and Home shows its delivery state (increment 3): `tests/channel-deliver.test.mjs: "an answer is delivered without typing into a pane"`.
@@ -97,4 +97,8 @@ By hand: the owner's walk above.
 
 ## Next action
 
-Build increment 1 on `claude/phase-199`.
+The owner's walk for increment 1 once it is deployed and installed; then increment 2, `plates ask`.
+
+## Trajectory
+
+- **2026-11-20** — Rex already exposes what increment 1 needed: `rex api call block.method program_status` returns each pane's OSC 7501 root record, and Codex reports it today, so no Rex change or socket client was needed; the existing sessions snapshot carried it within its byte bound.
