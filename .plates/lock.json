@@ -347,7 +347,7 @@
     },
     "scripts/plates/stalls.mjs": {
       "practice": "night",
-      "sha256": "c904dba5ba3ff5b19518353edc2dbeaee5a29ebcf6aceb958b20c5daeb1d15d0"
+      "sha256": "6dc4904a305d33c1459a7485a62ba500fa6a7b47d4ab4d4ed59afbc0667582cf"
     },
     "scripts/plates/tend.mjs": {
       "practice": "climb",
@@ -359,7 +359,7 @@
     },
     "scripts/plates/test-ledger.mjs": {
       "practice": "night",
-      "sha256": "9dbdf50cb7fae83b0a4a9e44f491f9a97090c161b8fdc4dfc0e467137c143c4e"
+      "sha256": "1a5fd85d3e9b90b8dd9ed4c7fe7227bf409301c1655a179d1f40862ea429e600"
     },
     "scripts/plates/time-measures.mjs": {
       "practice": "night",

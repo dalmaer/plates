@@ -385,6 +385,9 @@ export async function runFiles(options) {
   const active = calls.length === 1 ? 349 : 100;
   return { seed: options.seed, exitCode: 0, timedOut: false, ran: 1,
     active, paused: stalls.length * 50, wall: active + stalls.length * 50, stalls,
+    // plates#268: the second run's SIGSTOP was refused, which the inconclusive line names.
+    signals: calls.length === 2 ? [{ sig: 'SIGSTOP', code: 'EPERM', at: 12 }] : [],
+    injection: { stopped: calls.length === 2 ? 'signal' : 'exited', firstGap: calls.length === 2 ? 90 : 60000 },
     tests: [{ file: 'tests/crate.test.mjs', name: ${JSON.stringify(MOCKED)}, outcome: 'pass', ms: 1 }] };
 }
 `;
@@ -407,6 +410,7 @@ export async function runFiles(options) {
       assert.match(r.stdout, /^plates stalls: tests\/crate\.test\.mjs passed with 1 stall, /m);
     } else {
       assert.match(r.stdout, /^plates stalls: tests\/crate\.test\.mjs is inconclusive: no stall landed \(0 stalls, /m);
+      assert.match(r.stdout, /seed \d+; SIGSTOP could not be sent \(EPERM\) at 12 ms: the pause was not injected\. A file that ends/, 'plates#268: why no stall landed');
       assert.doesNotMatch(r.stdout, /passed with 0 stalls/);
     }
   }
@@ -470,4 +474,41 @@ test('mutation: a ledger that never starts its pinned files runs none, and says 
   assert.ok(text.includes('    pins?.saw(e);\n'));
   await writeFile(path, text.replace('    pins?.saw(e);\n', ''));
   assert.doesNotMatch(gate(dir).stdout, /plates stalls/, 'the test above, which asks for the line, would fail');
+});
+
+test('plates#268: a run with no stall says whether the SIGSTOP could not be sent or the file was too short', async t => {
+  const { injectionText } = await import('../practices/night/files/scripts/plates/stalls.mjs');
+  const dir = await scratch(t);
+  await writeFile(join(dir, 'anvil.test.mjs'), "import { test } from 'node:test';\ntest('an anvil cools', () => new Promise(r => setTimeout(r, 400)));\n");
+  await writeFile(join(dir, 'quick.test.mjs'), "import { test } from 'node:test';\ntest('an anvil is ordered', () => {});\n");
+  // The SIGSTOP cannot be sent (EPERM, as a sandbox may refuse it): no stall, and the run says so with the signal's code.
+  const refused = (pid, sig) => { if (sig === 'SIGSTOP') throw Object.assign(new Error('operation not permitted'), { code: 'EPERM' }); process.kill(pid, sig); };
+  const soon = { firstMs: [20, 20], gapMs: [60_000, 60_000], stallMs: [50, 50] };
+  const blocked = await runFiles({ files: ['anvil.test.mjs'], cwd: dir, seed: 3, shape: soon, kill: refused });
+  assert.deepEqual([blocked.stalls.length, blocked.injection.stopped, blocked.injection.firstGap], [0, 'signal', 20]);
+  assert.deepEqual(blocked.signals.filter(x => x.sig === 'SIGSTOP').map(x => x.code), ['EPERM']);
+  assert.match(injectionText(blocked), /^SIGSTOP could not be sent \(EPERM\) at \d+ ms: the pause was not injected$/);
+  // The file ends before its first stall's wait: too short, not refused, and no SIGSTOP was ever attempted.
+  const late = { firstMs: [30_000, 30_000], gapMs: [60_000, 60_000], stallMs: [50, 50] };
+  const short = await runFiles({ files: ['quick.test.mjs'], cwd: dir, seed: 3, shape: late });
+  assert.deepEqual([short.stalls.length, short.injection.stopped, short.injection.firstGap], [0, 'exited', 30_000]);
+  assert.ok(!short.signals.some(x => x.sig === 'SIGSTOP'));
+  assert.match(injectionText(short), /^the file ended after \d+ ms running, while its first stall still waited \(30000 ms\)$/);
+  // Signal errors are kept to a bound; a run with none says so, and one with no seed injects nothing and says why not.
+  const plain = await runFiles({ files: ['quick.test.mjs'], cwd: dir });
+  assert.deepEqual(plain.injection, { stopped: null, firstGap: null });
+  assert.equal(injectionText({ signals: [], injection: plain.injection }), 'no signal failed');
+  // Every kill refused, past the time limit: the watchdog tries SIGKILL every 50 ms, and only the first 20 errors are
+  // kept, each error's text cut to 80 characters.
+  await writeFile(join(dir, 'long.test.mjs'), "import { test } from 'node:test';\ntest('an anvil is forged', () => new Promise(r => setTimeout(r, 1800)));\n");
+  const refusedAll = () => { throw new Error('x'.repeat(120)); };
+  const noisy = await runFiles({ files: ['long.test.mjs'], cwd: dir, timeoutMs: 100, kill: refusedAll });
+  assert.equal(noisy.signals.length, 20, 'kept to the bound');
+  assert.deepEqual([noisy.signals[0].sig, noisy.signals[0].code.length], ['SIGKILL', 80]);
+  // A stall that lands, then the file ends: stopped as exited, with the stall kept.
+  const landed = await runFiles({ files: ['anvil.test.mjs'], cwd: dir, seed: 3, shape: { firstMs: [20, 20], gapMs: [60_000, 60_000], stallMs: [30, 30] } });
+  assert.deepEqual([landed.stalls.length, landed.injection.stopped], [1, 'exited']);
+  // The text names the refused SIGSTOP only when that is why stalling stopped.
+  assert.match(injectionText({ active: 7, signals: [{ sig: 'SIGSTOP', code: 'ESRCH', at: 5 }], injection: { stopped: 'exited', firstGap: 10 } }), /^the file ended after 7 ms running/);
+  assert.equal(injectionText({ active: 7, signals: [{ sig: 'SIGCONT', code: 'ESRCH', at: 9 }], injection: { stopped: 'signal', firstGap: 10 } }), 'signals not sent: SIGCONT ESRCH at 9 ms');
 });
