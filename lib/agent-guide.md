@@ -881,6 +881,10 @@ after this run began (`--start '<json>'`, the line `test-ledger.mjs --sample`
 prints just before the runner, passed verbatim; else the gate's
 `PLATES_RUN_START`; 2 s allowed for coarse file times), so a deterministic suite's byte-identical
 report counts each time; one written before is stale, and not counted.
+Inside a gate with no `--start` at all, a report is judged but not recorded
+(plates#97): an earlier step may have written it at that path. The wrapper
+always passes `--start` (empty when its sample failed, when its `rm -f` keeps
+an old report out).
 The exit code: 1 when no tests ran (no file, none in it, or stale; unless
 `allowEmpty`), else `--status`, else 1 when a testcase failed; a file that is
 not JUnit is 1 and never recorded; a bad flag is 2. The runner is part of the

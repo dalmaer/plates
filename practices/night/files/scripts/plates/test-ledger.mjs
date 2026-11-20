@@ -1394,7 +1394,10 @@ const gateStart = env => { const raw=identityEnvironmentValue('variable:KEEL_RUN
  * (runnerOptions) are recorded as the setting's `args`, so a finding's
  * run-alone command repeats them (plates#63).
  */
-export async function junitRun({ junit, runner, status = null, cwd = process.cwd(), sample = busySample, start = null, env = process.env, words = [] } = {}) {
+export async function junitRun({ junit, runner, status = null, cwd = process.cwd(), sample = busySample, start, env = process.env, words = [] } = {}) {
+  // Whether --start was given at all (plates#97): the wrapper always passes it, empty when its sample failed.
+  const startGiven = start !== undefined;
+  start ??= null;
   const root = rootOf(cwd);
   const knownConfig = await projectConfig(root, { redaction: true });
   const config = knownConfig ?? {};
@@ -1445,6 +1448,14 @@ export async function junitRun({ junit, runner, status = null, cwd = process.cwd
     return done(0, 0);
   }
   if (!parsed.tests.length) return done(parsed.ran, parsed.failed); // nothing reported: nothing to remember
+  // plates#97: inside a gate, a report is fresh only by the runner's own start. The wrapper plates adopt proposes always
+  // passes --start (empty when its sample failed; its rm -f before the runner then keeps an old report out). With no
+  // --start at all, a report an earlier step wrote at this path would be recorded under this commit: it is judged, never
+  // remembered.
+  if (!startGiven && sampledAt(gateStart(env)) !== null) {
+    lines.push(`${LABEL}: ${shown} is judged but not recorded: inside a gate, a report is fresh only by the runner's own start. Pass --start, as plates adopt's wrapper does (a sample taken with --sample just before the runner).`);
+    return done(parsed.ran, parsed.failed);
+  }
   try {
     const workflow = process.env.GITHUB_ACTIONS === 'true' && process.env.GITHUB_WORKFLOW ? { workflow: process.env.GITHUB_WORKFLOW } : {};
     const here = relative(root, real(cwd)).split(sep).join('/') || '.';
