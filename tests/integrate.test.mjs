@@ -457,6 +457,19 @@ test('a link into a pinned checkout is accepted; the same link into a checkout o
   // Ignored output elsewhere in the pinned checkout is not linked: it does not matter.
   await mkdir(join(pin, 'target'), { recursive: true });
   await writeFile(join(pin, 'target', 'build.log'), 'acme build\n');
+  // What the package declares is loaded from node_modules above it in the pin: an ignored install there is not
+  // the commit's, so it is refused; the pin's own install linking back to its committed source is.
+  await writeFile(join(pin, 'packages', 'lib', 'package.json'), JSON.stringify({ name: '@acme/lib', peerDependencies: { '@acme/dep': '1.0.0' } }));
+  await mkdir(join(pin, 'packages', 'dep'), { recursive: true });
+  await writeFile(join(pin, 'packages', 'dep', 'index.js'), 'export const dep = 1;\n');
+  await writeFile(join(pin, '.gitignore'), 'dist/\ntarget/\nnode_modules/\n');
+  git(pin, 'add', '-A'); git(pin, '-c', 'user.name=Acme', '-c', 'user.email=acme@example.com', 'commit', '-q', '-m', 'acme dep'); git(pin, 'checkout', '-q', '--detach');
+  await mkdir(join(pin, 'node_modules', '@acme', 'dep'), { recursive: true });
+  await writeFile(join(pin, 'node_modules', '@acme', 'dep', 'index.js'), 'export const dep = 2;\n');
+  const r0 = await integrate({ root: a }, { env: env('m1'), gate: async () => ({ status: 0 }) }).catch(e => e);
+  assert.match(r0.message, /links outside itself \(@acme\/lib > @acme\/dep:/);
+  await rm(join(pin, 'node_modules', '@acme', 'dep'), { recursive: true });
+  await symlink(join('..', '..', 'packages', 'dep'), join(pin, 'node_modules', '@acme', 'dep'));
   assert.deepEqual(remoteRefs(origin, LOCK), [], 'a refusal never took the lock');
   // Pinned: integrate gates and lands the change.
   const runs = [];
@@ -470,7 +483,14 @@ test('a link into a pinned checkout is accepted; the same link into a checkout o
   const writes = await integrate({ root: a }, { env: env('m1'), gate: async cwd => {
     await writeFile(join(cwd, 'node_modules', '@acme', 'lib', 'index.js'), 'export const anvil = 4;\n'); return { status: 0 }; } });
   assert.deepEqual(writes.data.landed, []);
-  assert.match(JSON.stringify(writes.data), /a pinned dependency changed during the gate \(@acme\/lib\)/);
+  assert.match(JSON.stringify(writes.data), /a pinned dependency changed during the gate \(@acme\/lib[,)]/);
+  assert.ok(!onMain(origin, 'anvil-three.txt'));
+  git(pin, 'checkout', '-q', '--', '.');
+  // A gate that points the link elsewhere changes what later candidates load: nothing lands either.
+  const relinks = await integrate({ root: a }, { env: env('m1'), gate: async () => {
+    await rm(join(a, 'node_modules', '@acme', 'lib')); await symlink(join(pin, 'packages', 'dep'), join(a, 'node_modules', '@acme', 'lib')); return { status: 0 }; } });
+  assert.deepEqual(relinks.data.landed, []);
+  assert.match(JSON.stringify(relinks.data), /a pinned dependency changed during the gate \(@acme\/lib/);
   assert.ok(!onMain(origin, 'anvil-three.txt'));
 });
 
