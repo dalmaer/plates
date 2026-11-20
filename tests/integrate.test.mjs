@@ -413,10 +413,103 @@ test('an install that links outside node_modules (a workspace) refuses integrate
   const runs = [];
   const r = await integrate({ root: a }, { env: env('m1'), gate: async () => { runs.push(1); return { status: 0 }; } }).catch(e => e);
   assert.equal(r.exitCode, 2, String(r.message ?? r.text));
-  assert.match(r.message, /node_modules links outside itself \(@acme\/lib: workspaces or file: dependencies\)/);
+  assert.match(r.message, /node_modules links outside itself \(@acme\/lib: workspaces, file: dependencies or a checkout that is not pinned\)/);
   assert.deepEqual(runs, []);
   assert.deepEqual(remoteRefs(origin, LOCK), [], 'the lock was never taken');
   assert.deepEqual(remoteRefs(origin, 'ready/'), ['ready/claude/lib'], 'the change stays ready');
+});
+
+// A link into a pinned checkout (outside, detached at a commit, nothing changed in it) is the same for every
+// candidate and none can change it: integrate runs. A branch or a changed file there makes it mutable again.
+test('a link into a pinned checkout is accepted; the same link into a checkout on a branch or with changes is refused', async t => {
+  const { a, origin, env } = await acme(t);
+  const pin = join(dirname(a), 'acme-pins', 'lib');
+  await mkdir(join(pin, 'packages', 'lib'), { recursive: true });
+  await writeFile(join(pin, 'packages', 'lib', 'index.js'), 'export const anvil = 1;\n');
+  await writeFile(join(pin, '.gitignore'), 'dist/\ntarget/\n');
+  execFileSync('git', ['init', '-q', '-b', 'main', pin]);
+  git(pin, 'add', '-A'); git(pin, '-c', 'user.name=Acme', '-c', 'user.email=acme@example.com', 'commit', '-q', '-m', 'acme lib');
+  git(pin, 'checkout', '-q', '--detach');
+  await change(a, 'claude/lib', { 'anvil-two.txt': 'two anvils\n' }, env('m1'));
+  git(a, 'checkout', '-q', 'main');
+  // An install is never committed: the next change's `git add -A` must not take the link into its tree.
+  await writeFile(join(a, '.git', 'info', 'exclude'), 'node_modules/\n');
+  await mkdir(join(a, 'node_modules', '@acme'), { recursive: true });
+  await symlink(join(pin, 'packages', 'lib'), join(a, 'node_modules', '@acme', 'lib'));
+  const refused = async () => {
+    const r = await integrate({ root: a }, { env: env('m1'), gate: async () => ({ status: 0 }) }).catch(e => e);
+    assert.equal(r.exitCode, 2, String(r.message ?? r.text));
+    assert.match(r.message, /node_modules links outside itself \(@acme\/lib: workspaces, file: dependencies or a checkout that is not pinned\)/);
+  };
+  // Changed in place: not pinned.
+  await writeFile(join(pin, 'packages', 'lib', 'index.js'), 'export const anvil = 2;\n');
+  await refused();
+  git(pin, 'checkout', '-q', '--', '.');
+  // On a branch: it moves when the branch does.
+  git(pin, 'checkout', '-q', 'main');
+  await refused();
+  git(pin, 'checkout', '-q', '--detach');
+  // Ignored output inside the linked package is gated as its bytes, though no commit holds it.
+  await mkdir(join(pin, 'packages', 'lib', 'dist'), { recursive: true });
+  await writeFile(join(pin, 'packages', 'lib', 'dist', 'index.js'), 'export const anvil = 3;\n');
+  await refused();
+  await rm(join(pin, 'packages', 'lib', 'dist'), { recursive: true });
+  // A committed symlink in the package that leads out of the pin loads bytes no commit holds: refused.
+  const outsideFile = join(dirname(a), 'acme-outside.js');
+  await writeFile(outsideFile, 'export const anvil = 5;\n');
+  await symlink(outsideFile, join(pin, 'packages', 'lib', 'outside.js'));
+  git(pin, 'add', '-A'); git(pin, '-c', 'user.name=Acme', '-c', 'user.email=acme@example.com', 'commit', '-q', '-m', 'acme outside link'); git(pin, 'checkout', '-q', '--detach');
+  await refused();
+  git(pin, 'rm', '-q', join('packages', 'lib', 'outside.js'));
+  git(pin, '-c', 'user.name=Acme', '-c', 'user.email=acme@example.com', 'commit', '-q', '-m', 'acme no outside link'); git(pin, 'checkout', '-q', '--detach');
+  // A submodule in the package is its own checkout, unseen by the pin's status: refused.
+  const sub = join(dirname(a), 'acme-vendor');
+  await mkdir(sub, { recursive: true }); await writeFile(join(sub, 'index.js'), 'export const vendor = 1;\n');
+  execFileSync('git', ['init', '-q', '-b', 'main', sub]); git(sub, 'add', '-A'); git(sub, '-c', 'user.name=Acme', '-c', 'user.email=acme@example.com', 'commit', '-q', '-m', 'acme vendor');
+  git(pin, '-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', sub, join('packages', 'lib', 'vendor'));
+  git(pin, '-c', 'user.name=Acme', '-c', 'user.email=acme@example.com', 'commit', '-q', '-m', 'acme vendor submodule'); git(pin, 'checkout', '-q', '--detach');
+  await refused();
+  git(pin, 'rm', '-q', '-f', join('packages', 'lib', 'vendor')); await rm(join(pin, '.gitmodules'), { force: true }); git(pin, 'add', '-A');
+  git(pin, '-c', 'user.name=Acme', '-c', 'user.email=acme@example.com', 'commit', '-q', '-m', 'acme no submodule'); git(pin, 'checkout', '-q', '--detach');
+  await rm(join(pin, '.git', 'modules'), { recursive: true, force: true });
+  // Ignored output elsewhere in the pinned checkout is not linked: it does not matter.
+  await mkdir(join(pin, 'target'), { recursive: true });
+  await writeFile(join(pin, 'target', 'build.log'), 'acme build\n');
+  // What the package declares is loaded from node_modules above it in the pin: an ignored install there is not
+  // the commit's, so it is refused; the pin's own install linking back to its committed source is.
+  await writeFile(join(pin, 'packages', 'lib', 'package.json'), JSON.stringify({ name: '@acme/lib', peerDependencies: { '@acme/dep': '1.0.0' } }));
+  await mkdir(join(pin, 'packages', 'dep'), { recursive: true });
+  await writeFile(join(pin, 'packages', 'dep', 'index.js'), 'export const dep = 1;\n');
+  await writeFile(join(pin, '.gitignore'), 'dist/\ntarget/\nnode_modules/\n');
+  git(pin, 'add', '-A'); git(pin, '-c', 'user.name=Acme', '-c', 'user.email=acme@example.com', 'commit', '-q', '-m', 'acme dep'); git(pin, 'checkout', '-q', '--detach');
+  await mkdir(join(pin, 'node_modules', '@acme', 'dep'), { recursive: true });
+  await writeFile(join(pin, 'node_modules', '@acme', 'dep', 'index.js'), 'export const dep = 2;\n');
+  const r0 = await integrate({ root: a }, { env: env('m1'), gate: async () => ({ status: 0 }) }).catch(e => e);
+  assert.match(r0.message, /links outside itself \(@acme\/lib > @acme\/dep:/);
+  await rm(join(pin, 'node_modules', '@acme', 'dep'), { recursive: true });
+  await symlink(join('..', '..', 'packages', 'dep'), join(pin, 'node_modules', '@acme', 'dep'));
+  assert.deepEqual(remoteRefs(origin, LOCK), [], 'a refusal never took the lock');
+  // Pinned: integrate gates and lands the change.
+  const runs = [];
+  const r = await integrate({ root: a }, { env: env('m1'), gate: async () => { runs.push(1); return { status: 0 }; } });
+  assert.equal(runs.length, 1);
+  assert.deepEqual(r.data.landed.map(l => l.branch), ['claude/lib']);
+  assert.ok(onMain(origin, 'anvil-two.txt'));
+  // A gate that writes through the link changes the pin: that pass does not count, and nothing lands.
+  await change(a, 'claude/lib-two', { 'anvil-three.txt': 'three anvils\n' }, env('m1'));
+  git(a, 'checkout', '-q', 'main');
+  const writes = await integrate({ root: a }, { env: env('m1'), gate: async cwd => {
+    await writeFile(join(cwd, 'node_modules', '@acme', 'lib', 'index.js'), 'export const anvil = 4;\n'); return { status: 0 }; } });
+  assert.deepEqual(writes.data.landed, []);
+  assert.match(JSON.stringify(writes.data), /a pinned dependency changed during the gate \(@acme\/lib[,)]/);
+  assert.ok(!onMain(origin, 'anvil-three.txt'));
+  git(pin, 'checkout', '-q', '--', '.');
+  // A gate that points the link elsewhere changes what later candidates load: nothing lands either.
+  const relinks = await integrate({ root: a }, { env: env('m1'), gate: async () => {
+    await rm(join(a, 'node_modules', '@acme', 'lib')); await symlink(join(pin, 'packages', 'dep'), join(a, 'node_modules', '@acme', 'lib')); return { status: 0 }; } });
+  assert.deepEqual(relinks.data.landed, []);
+  assert.match(JSON.stringify(relinks.data), /a pinned dependency changed during the gate \(@acme\/lib/);
+  assert.ok(!onMain(origin, 'anvil-three.txt'));
 });
 
 // PR #186 review: a --write formatter repairs the tree and exits 0; the unrepaired head must not go out as checked.
