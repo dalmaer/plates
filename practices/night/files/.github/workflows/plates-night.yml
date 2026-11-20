@@ -230,6 +230,16 @@ jobs:
           if-no-files-found: ignore
           retention-days: 90
 
+      # Restore timing before the default plan admits a test-time climb. Reuse
+      # this bounded, identity-verified history for Measure; gaps remain visible.
+      - name: Gather the test ledger
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BASE: ${{ github.event.repository.default_branch }}
+        run: |
+          node scripts/plates/test-history.mjs --repo "$REPO" --branch "$BASE" --json
+
       # Tonight's plan follows read-only production observation and precedes
       # gate/agent work (plates phase 73): the one on
       # the plan branch keel-night-plan when it holds a valid plan dated for
@@ -282,15 +292,6 @@ jobs:
           if node -e "process.exit(JSON.parse(require('fs').readFileSync('.plates/plates.json', 'utf8')).plates === 'self' ? 0 : 1)"; then
             echo "self=true" >> "$GITHUB_OUTPUT"
           fi
-
-      # Recover bounded, identity-verified history; gaps remain visible to measures.
-      - name: Gather the test ledger
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          BASE: ${{ github.event.repository.default_branch }}
-        run: |
-          node scripts/plates/test-history.mjs --repo "$REPO" --branch "$BASE" --json
 
       # The newest climb night's record (the climb practice's plates-climb
       # artifact), read-only, by name, from the default branch only, into

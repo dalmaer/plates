@@ -66,7 +66,7 @@ test('injected open PR reader skips only its target; legacy unknown target holds
   assert.match(p.target.skipped.find(s => s.file === 'slow.test.mjs').why, /open climb PR/);
   p = await f.pick({ readPrs: (_root, _env, state) => state === 'open' ? [{ ...pr, body: '' }] : [] });
   assert.equal(p.job, null);
-  assert.equal(p.reason, 'no test file fits the budget');
+  assert.equal(p.reason, 'no measured test file is eligible for climb');
 });
 
 test('newest single-file and serial ledgers outrank concurrent estimates; filtered data is ignored', async t => {
@@ -93,7 +93,7 @@ test('nothing fits or no ledger gives a named reason; baseline limit has its own
   assert.match(p.target.skipped[0].why, /baseline allowance/);
   const selected = await f.m.chooseTestTarget({ root: f.root, minutes: 10, date, runs: [] });
   assert.equal(selected.file, null);
-  assert.equal(selected.why, 'no test file fits the budget');
+  assert.equal(selected.why, 'no usable test timing history');
 });
 
 test('baseline pins the pick, later measurements and comparison keep it, report and rotation carry target', async t => {

@@ -91,7 +91,7 @@
     },
     ".github/workflows/plates-night.yml": {
       "practice": "night",
-      "sha256": "ab51030dd368594b39e1777212953ba41141c3d112afa5fd62bf7ffc1ee557d6"
+      "sha256": "d1fa6a62c95df38ea82d1d1aa86972bd252e095e07344042d8f25a082ef33db0"
     },
     ".github/workflows/plates-publish.yml": {
       "practice": "delivery",
@@ -195,7 +195,7 @@
     },
     "scripts/plates/climb.mjs": {
       "practice": "climb",
-      "sha256": "c3e1176ddbaff2097114103a26e7d375744655c0af9d8d528e80a5e4891129be"
+      "sha256": "b4313c639c34bb8d64f25ca9bc1650c940205bbe0dcfc32df7ebe07f081154b9"
     },
     "scripts/plates/cross-review.mjs": {
       "practice": "cross-review",
