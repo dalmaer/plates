@@ -364,3 +364,14 @@ test('a pane field the snapshot does not hold is refused', () => {
   assert.equal(paneLabel('🏠 [anvils] codex'), 'anvils- codex', 'other characters become hyphens, trimmed at the ends');
   assert.equal(paneLabel('🏠'), null, 'nothing left is no label');
 });
+
+test('plates sessions waiting shows blocked panes, and says when Rex was not read', async t => {
+  const { waiting } = await import('../lib/sessions.mjs');
+  const rex = await stubRex(t, { sessions: [{ session_id: 'session:a1', label: 'anvils-codex' }], blocks: { 'session:a1': [term('b1', 'phase-7')] },
+    statuses: { 'block:b1': record('blocked', { kind: 'question' }) } });
+  const env = { ...rex.env, PLATES_CLAUDE_DIR: join(rex.env.HOME, 'none'), RUNME_DIR: join(rex.env.HOME, 'no-queue') };
+  const shown = await waiting({ env, machine: 'Acme Mac', now: Date.parse(at(10)) });
+  assert.match(shown.text, /Rex panes waiting on you \(1\)\n  phase-7 in anvils-codex: codex asking you a question \(since [^)]+\)\n    rex focus -s session:a1 block:b1/);
+  const none = await waiting({ env: { ...env, PATH: '/nonexistent' }, machine: 'Acme Mac', now: Date.parse(at(10)) });
+  assert.match(none.text, /Rex panes waiting on you\n  not read/);
+});
