@@ -736,3 +736,31 @@ test('history verifies newest samples lazily and retains rejected candidates', a
   assert.equal(result.complete, false);
   assert.equal(reads.length, 8, 'only the selected samples and rejected newest candidate need full identity checks');
 });
+
+// plates#524: the shell ends a heredoc only at its delimiter alone on the line, after the block's YAML indentation
+// (and leading tabs for <<-); a body line ` EOF` is data. Both copies of the script read it the same.
+test('plates#524: an indented heredoc end is data, so the gate after the heredoc is still found', async t => {
+  const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  for (const copy of ['../practices/night/files/scripts/plates/lib.mjs', '../scripts/plates/lib.mjs']) {
+    const { gateWorkflowIn } = await import(new URL(copy, import.meta.url).href);
+    const root = await mkdtemp(join(tmpdir(), 'plates-gate-heredoc-end-'));
+    t.after(() => rm(root, { recursive: true, force: true }));
+    await mkdir(join(root, '.github/workflows'), { recursive: true });
+    const found = async body => { await writeFile(join(root, '.github/workflows/ci.yml'), body); return gateWorkflowIn(root, { check: 'npm run check' }); };
+    const block = (...lines) => `jobs:\n  x:\n    steps:\n      - run: |\n${lines.map(l => `          ${l}\n`).join('')}`;
+    // The gate's quote spans two lines: read as shell after the heredoc it is one quoted span; read as heredoc data,
+    // line by line, its second line's # would cut the check away. So each case shows where the heredoc ended.
+    const gate = ['echo "a', 'b # c" && npm run check'];
+    assert.deepEqual(await found(block('cat <<EOF', ' EOF', '"', 'EOF', ...gate)), { name: 'ci.yml' }, `${copy}: a body line " EOF" does not end the heredoc`);
+    assert.deepEqual(await found(block('cat <<EOF', '\tEOF', '"', 'EOF', ...gate)), { name: 'ci.yml' }, `${copy}: a tab-led EOF ends only a <<- heredoc`);
+    assert.deepEqual(await found(block('cat <<-EOF', '"', '\tEOF', ...gate)), { name: 'ci.yml' }, `${copy}: <<- drops leading tabs before its delimiter`);
+    assert.deepEqual(await found(block('cat <<EOF', '"', 'EOF', ...gate)), { name: 'ci.yml' }, `${copy}: the delimiter at the block's own indentation ends it`);
+    for (const open of ["cat <<'EOF'", 'cat <<"EOF"', 'cat <<-\'EOF\'']) assert.deepEqual(await found(block(open, ' EOF', '"', open.includes('-') ? '\tEOF' : 'EOF', ...gate)), { name: 'ci.yml' }, `${copy}: ${open}, quoted`);
+    assert.deepEqual(await found(block('echo done <<', ...gate)), { name: 'ci.yml' }, `${copy}: a << naming no delimiter opens nothing`);
+    // Each run block has its own YAML indentation: a later step's heredoc ends at its own.
+    const two = 'jobs:\n  x:\n    steps:\n      - run: |\n          echo first\n      - run: |\n' + ['cat <<EOF', '"', 'EOF', ...gate].map(l => `            ${l}\n`).join('');
+    assert.deepEqual(await found(two), { name: 'ci.yml' }, `${copy}: the second block's indentation is its own`);
+  }
+});

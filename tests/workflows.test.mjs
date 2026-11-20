@@ -4091,3 +4091,21 @@ test('night and loop: publish downloads the artifact its producer uploaded, even
     assert.ok(downloads.length > 0 && downloads.every(l => !l.includes('github.run_attempt')), `${kind}: never its own attempt number`);
   }
 });
+
+// plates#524: a command substitution nests its own quotes; the comment scan keeps the rest of the step whole, so the
+// publish after it is seen (both copies of delivery.mjs read it the same).
+test('plates#524: a publish after a command substitution holding a quoted # is still a publish', async () => {
+  for (const copy of ['../practices/delivery/files/scripts/plates/delivery.mjs', '../scripts/plates/delivery.mjs']) {
+    const { workflowKind, workflowSteps } = await import(new URL(copy, import.meta.url).href);
+    const wf = run => `name: ci\non: push\njobs:\n  x:\n    runs-on: ubuntu-latest\n    steps:\n${run}`;
+    // In a run block (a plain inline value ends at YAML's own " #" comment, as GitHub reads it).
+    const block = line => wf(`      - run: |\n          ${line}\n`);
+    assert.equal(workflowKind('.github/workflows/ci.yml', block('echo "$(printf "%s #1" Acme)" && npm publish')), 'publish', `${copy}: $( )`);
+    assert.equal(workflowKind('.github/workflows/ci.yml', block('echo `printf "%s #1" Acme` && npm publish')), 'publish', `${copy}: backticks`);
+    // Inside single quotes, $( is text: the quoted # is kept and the comment after it is still a comment.
+    assert.deepEqual(workflowSteps(block("echo '$(x) #1' # npm publish")).runs, ["echo '$(x) #1'"], `${copy}: single-quoted $( is text`);
+    // A plain comment is still a comment, after a plain $VAR or a ( too: what follows a # at a word's start is not run.
+    assert.deepEqual(workflowSteps(block('echo $HOME # npm publish')).runs, ['echo $HOME'], `${copy}: a comment after $VAR stays a comment`);
+    assert.deepEqual(workflowSteps(block('(echo ok) # npm publish')).runs, ['(echo ok)'], `${copy}: a comment after a subshell stays a comment`);
+  }
+});
