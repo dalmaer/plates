@@ -462,6 +462,16 @@ test('a link into a pinned checkout is accepted; the same link into a checkout o
   await refused();
   git(pin, 'rm', '-q', join('packages', 'lib', 'outside.js'));
   git(pin, '-c', 'user.name=Acme', '-c', 'user.email=acme@example.com', 'commit', '-q', '-m', 'acme no outside link'); git(pin, 'checkout', '-q', '--detach');
+  // A submodule in the package is its own checkout, unseen by the pin's status: refused.
+  const sub = join(dirname(a), 'acme-vendor');
+  await mkdir(sub, { recursive: true }); await writeFile(join(sub, 'index.js'), 'export const vendor = 1;\n');
+  execFileSync('git', ['init', '-q', '-b', 'main', sub]); git(sub, 'add', '-A'); git(sub, '-c', 'user.name=Acme', '-c', 'user.email=acme@example.com', 'commit', '-q', '-m', 'acme vendor');
+  git(pin, '-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', sub, join('packages', 'lib', 'vendor'));
+  git(pin, '-c', 'user.name=Acme', '-c', 'user.email=acme@example.com', 'commit', '-q', '-m', 'acme vendor submodule'); git(pin, 'checkout', '-q', '--detach');
+  await refused();
+  git(pin, 'rm', '-q', '-f', join('packages', 'lib', 'vendor')); await rm(join(pin, '.gitmodules'), { force: true }); git(pin, 'add', '-A');
+  git(pin, '-c', 'user.name=Acme', '-c', 'user.email=acme@example.com', 'commit', '-q', '-m', 'acme no submodule'); git(pin, 'checkout', '-q', '--detach');
+  await rm(join(pin, '.git', 'modules'), { recursive: true, force: true });
   // Ignored output elsewhere in the pinned checkout is not linked: it does not matter.
   await mkdir(join(pin, 'target'), { recursive: true });
   await writeFile(join(pin, 'target', 'build.log'), 'acme build\n');
