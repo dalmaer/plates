@@ -11,7 +11,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
-import { homeSnapshot, homeSections, GLANCE_TONES, DEPLOY_WHERE } from '../lib/work-items.mjs';
+import { homeSnapshot, homeSections, GLANCE_TONES, DEPLOY_WHERE, AGED_REFRESH } from '../lib/work-items.mjs';
 import { homeView, renderHomeSnapshot, renderGlance } from '../lib/web/views.mjs';
 import { glanceLines, homeText } from '../lib/home.mjs';
 import { createCardAnswers, cardStatus, leaveGuard, startHomeClient } from '../lib/web/home-client.mjs';
@@ -47,6 +47,18 @@ function snapshot(projects = plates(), { sections = homeSections(), can = { form
 }
 
 // ---- Acceptance 1: chips --------------------------------------------------------------
+test('a stale plate keeps its last read: past the cache window it says refreshing, after a failed refresh a fresh read, never its sources', () => {
+  const aged = base('docs', 'Acme Docs', { state: 'stale', release: current(), decisions: [step('docs', 'Acme Docs', '4')], gaps: [{ source: 'refresh', reason: AGED_REFRESH }] });
+  const failed = base('api', 'Acme API', { state: 'stale', release: current(), gaps: [{ source: 'refresh', reason: 'Source read reached its time, size or request bound.' }] });
+  const calm = base('studio', 'Acme Studio', { state: 'stale', release: current(), gaps: [{ source: 'refresh', reason: AGED_REFRESH }] });
+  const by = Object.fromEntries(snapshot([aged, failed, calm]).home.glance.chips.map(c => [c.projectId, c]));
+  // Its last observation still speaks: the ⚑ step it holds is its first reason.
+  assert.deepEqual(by.docs.reasons.map(r => r.text), ['An agent is waiting on you', 'Not read yet: refreshing']);
+  assert.deepEqual(by.api.reasons.map(r => r.text), ['Not read: a fresh read']);
+  assert.deepEqual([by.studio.tone, by.studio.reason], ['yellow', 'Not read yet: refreshing'], 'not read is never green');
+  for (const chip of Object.values(by)) assert.ok(chip.reasons.every(r => r.text !== 'Not read: its sources'));
+});
+
 test('a chip per project: green says nothing, yellow and red say the most urgent reason then +N, trouble first', () => {
   const data = snapshot(plates(), { sections: homeSections(checks), can: { form: 'cli' } }), { chips } = data.home.glance;
   // Within a tone, the projects keep their order.

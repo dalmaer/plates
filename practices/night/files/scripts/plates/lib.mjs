@@ -2045,12 +2045,30 @@ ${reviewFragment(sizes)}`;
  * endCursor): a PR answered thread by thread passes 100 reviews, since each
  * reply is one, and plates review reads every page rather than refuse.
  */
+export const moreReviewsQuery = () => `query($owner: String!, $name: String!, $number: Int!, $after: String!) { ${RATE_LIMIT}
+  repository(owner: $owner, name: $name) { pullRequest(number: $number) { reviews(first: 100, after: $after) { pageInfo { hasNextPage endCursor } nodes { id databaseId author { __typename login } commit { oid } body state submittedAt url } } } } }`;
 export const moreReviewsArgs = (repo, number, after) => {
   const [owner, name] = String(repo).split('/');
-  const query = `query($owner: String!, $name: String!, $number: Int!, $after: String!) { ${RATE_LIMIT}
-  repository(owner: $owner, name: $name) { pullRequest(number: $number) { reviews(first: 100, after: $after) { pageInfo { hasNextPage endCursor } nodes { id databaseId author { __typename login } commit { oid } body state submittedAt url } } } } }`;
-  return ['api', 'graphql', '-f', `query=${query}`, '-f', `owner=${owner}`, '-f', `name=${name}`, '-F', `number=${number}`, '-f', `after=${after}`];
+  return ['api', 'graphql', '-f', `query=${moreReviewsQuery()}`, '-f', `owner=${owner}`, '-f', `name=${name}`, '-F', `number=${number}`, '-f', `after=${after}`];
 };
+/** The most pages of review bodies a read follows (100 each): past it, the read is incomplete and says so. */
+export const MAX_REVIEW_PAGES = 20;
+/**
+ * A PR read whole (prReviewQuery's shape) with every page of review bodies
+ * past the first: `more(after)` reads one page (moreReviewsQuery) and returns
+ * its reviews connection. A PR answered reply by reply passes 100 reviews.
+ * Past MAX_REVIEW_PAGES its pageInfo still says there is more, so the read is
+ * refused rather than counted.
+ */
+export async function withAllReviews(pr, more) {
+  let out = pr;
+  for (let n = 1; out?.reviews?.pageInfo?.hasNextPage && out.reviews.pageInfo.endCursor && n < MAX_REVIEW_PAGES; n++) {
+    const page = await more(out.reviews.pageInfo.endCursor);
+    if (!page || !Array.isArray(page.nodes)) throw new Error(`the read of #${pr.number}'s review bodies came back without a page`);
+    out = { ...out, reviews: { pageInfo: page.pageInfo ?? {}, nodes: [...out.reviews.nodes, ...page.nodes] } };
+  }
+  return out;
+}
 /** gh's arguments for one PR's full read. */
 export const prReviewArgs = (repo, number, sizes) => {
   const [owner, name] = String(repo).split('/');

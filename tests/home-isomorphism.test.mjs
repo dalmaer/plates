@@ -104,7 +104,8 @@ else { console.error('fake gh: offline'); process.exit(1); }
   await chmod(gh, 0o755);
   const readWeb = createHomeReader(decisionWrites ? { ...h.config, decisionWrites: true } : h.config, { fetcher, now: () => Date.now(), assignmentQuota: async () => assignmentQuota }), webAccess = { ...h.access, login: 'acme-owner', pullRequestsRead: reviews, checksRead, ...(runs ? { actionsPermission: 'read' } : {}) };
   const web = await readWeb(webAccess, token);
-  const cliEnv = (state = 'state') => ({ ...gitEnv, PLATES_GH: gh, PLATES_CACHE: join(dir, 'cache'), PLATES_STATE: join(dir, state), XDG_STATE_HOME: join(dir, state) });
+  // RUNME_DIR: this machine's own runme queue is not the fixture's (a script waiting there must not appear in the CLI's read).
+  const cliEnv = (state = 'state') => ({ ...gitEnv, RUNME_DIR: join(dir, 'runme'), PLATES_GH: gh, PLATES_CACHE: join(dir, 'cache'), PLATES_STATE: join(dir, state), XDG_STATE_HOME: join(dir, state) });
   const run = runNode(process.execPath, [bin, 'home', '--json'], { cwd: root, timeout: 120_000, env: cliEnv() });
   assert.equal(run.status, 0, run.stderr);
   // More plates home runs in the same checkout; `state` keeps their last-looked time apart from the first run's.
