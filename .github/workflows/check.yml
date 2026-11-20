@@ -89,6 +89,19 @@ jobs:
       # .plates/plates.json "delivery".docsOnly paths since the last fully tested
       # commit (never reusing a result: this run is the one others reuse).
       # CI-only adopters still run their check without that optional module.
+      - name: Check source workflow pins and contracts
+        env:
+          WORKFLOW_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          WORKFLOW_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          # Skip only after a successful comparison of two committed trees.
+          # A missing base (manual run, first push) runs the preflight.
+          if changed=$(git diff --name-only "$WORKFLOW_BASE" "$WORKFLOW_HEAD" -- .github/workflows ':(glob)practices/**/files/.github/workflows/**' lib/telemetry.mjs lib/practices.mjs lib/record-validation.mjs scripts/render.mjs scripts/workflow-action-pins.mjs ':(glob)tests/*workflow*.test.mjs' tests/agents.test.mjs tests/autonomy-context.test.mjs tests/cross-review.test.mjs tests/telemetry-render.test.mjs); then
+            if [ -z "$changed" ]; then exit 0; fi
+          fi
+          node scripts/workflow-action-pins.mjs --check
+          npm run render:check
+          node --import ./tests/helpers/hermetic.mjs --test --test-concurrency=2 tests/agents.test.mjs tests/autonomy-context.test.mjs tests/cross-review.test.mjs tests/telemetry-render.test.mjs tests/workflow-action-pins.test.mjs
       - name: Run the configured gate
         env:
           GH_TOKEN: ${{ github.token }}

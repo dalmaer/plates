@@ -86,6 +86,14 @@ package coverage and validation planner tests, plus the affected dependency test
 before the full gate. Do not exclude dependencies from the binding or refresh the
 whole inventory merely to make an automated update pass.
 
+For a workflow action bump, verify that each upstream release tag resolves to
+the proposed commit SHA. Update the pin in `WORKFLOW_ACTIONS` in
+`lib/telemetry.mjs`, run `node scripts/workflow-action-pins.mjs --sync-templates`
+and then `npm run render`. Review all changed templates, rendered workflows and
+the generated practice lock. Do not take a Renovate YAML-only update as-is.
+Source CI checks canonical pins and render drift, then runs focused workflow
+contracts when relevant inputs change, before the existing integrated gate.
+
 The focused runner verifies that package binding before probes or test stages,
 then runs `render:check` before the convention suite. A dependency update or a
 rendered workflow pin without its source change therefore fails early. Neither

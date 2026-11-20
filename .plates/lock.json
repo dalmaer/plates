@@ -67,7 +67,7 @@
     },
     ".github/workflows/check.yml": {
       "practice": "ci",
-      "sha256": "d49d14de90c95a4bb0fccf6e2421e473ec0d261aad58caed76b3dab3780d5ec1"
+      "sha256": "d5e7044fcfb94417532f94405288ef3600568545c39e57074e0a292f2ea11424"
     },
     ".github/workflows/claude.yml": {
       "practice": "claude",
@@ -75,11 +75,11 @@
     },
     ".github/workflows/plates-climb.yml": {
       "practice": "climb",
-      "sha256": "d6e3ef2f1c492c935b9d7d228fca605ee61d901013841ba11626c3f484194e47"
+      "sha256": "20a7620dd02d890947dfbe27833d416b7dd999fab112d3ea326bc201882c24f8"
     },
     ".github/workflows/plates-cross-review.yml": {
       "practice": "cross-review",
-      "sha256": "7cede121d354620f2b943fae229db9480d5a365388a6315c903f2d947aaa5633"
+      "sha256": "73a01de10335f7df277410735cdcd173f40d54c0eece5d604b97c0091a68391a"
     },
     ".github/workflows/plates-impact.yml": {
       "practice": "reconciliation",
@@ -103,11 +103,11 @@
     },
     ".github/workflows/plates-robot.yml": {
       "practice": "climb",
-      "sha256": "8d2d98937b0b68ddbe9870293f0d3af0af79fa892c546003c757cceaade026e0"
+      "sha256": "dc22b088e2ab4a6be17d011c481693c9846e29f97b7822e21cf0a610c42cb8bc"
     },
     ".github/workflows/plates-tend.yml": {
       "practice": "climb",
-      "sha256": "3ee73f8671bc87e82df7f7a5cdffac654c1e767c8e939a194fd9df1995bd53df"
+      "sha256": "5d96e51306ef3ffb3efd59be5fcac1a390be66ff3f130e7c527976082665c4f4"
     },
     "AGENTS.md#agents-md": {
       "practice": "agents-md",
