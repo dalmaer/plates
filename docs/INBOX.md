@@ -13,7 +13,7 @@ Their proposals and decisions stay on those issues; only counts are shown here.
 
 | Status | Count |
 | --- | --- |
-| untriaged | 0 |
+| untriaged | 14 |
 | proposed | 0 |
 | decided | 172 |
 
@@ -21,21 +21,21 @@ Their proposals and decisions stay on those issues; only counts are shown here.
 
 | Status | Count |
 | --- | --- |
-| untriaged | 4 |
-| proposed | 0 |
+| untriaged | 0 |
+| proposed | 4 |
 | accepted | 17 |
 | declined | 0 |
 | linked | 0 |
 
 ## Waiting for a decision
 
-Nothing is waiting for a decision.
+| Proposal | Kind | Proposed | Note |
+| --- | --- | --- | --- |
+| [source-personas-d8d03e8](inbox/2026-10-15-source-personas-d8d03e8.md) | source | decline | Decline as superseded by source-personas-ee15e61; d8d03e8's text is byte-identical to the 7bde1a85 pin, so nothing moved |
+| [source-personas-ee15e61](inbox/2026-10-16-source-personas-ee15e61.md) | source | decline | Decline: ee15e613 adds an isocan-only CI canvas pan/zoom recorder to the runner; plates's take() already passes env |
+| [source-conduct-28fbcaf](inbox/2026-10-23-source-conduct-28fbcaf.md) | source | decline | Decline: upstream replaced its conductor with a thin /conduct alias to /spin, the shape plates already ships; isocan now consumes plates |
+| [source-audits-c0accf0](inbox/2026-11-15-source-audits-c0accf0.md) | source | decline | Decline: not a move; the playbook at c0accf0 is byte-identical to the cac56e1 pin, which is five commits newer |
 
 ## Waiting for a proposal
 
-| Proposal | Kind | From |
-| --- | --- | --- |
-| [source-personas-d8d03e8](inbox/2026-10-15-source-personas-d8d03e8.md) | source | dglazkov/isocan@d8d03e8a5257884f8811e1b739d39f8c94c8691e |
-| [source-personas-ee15e61](inbox/2026-10-16-source-personas-ee15e61.md) | source | dglazkov/isocan@ee15e61378eb83e95017347a69fde86ba16605f0 |
-| [source-conduct-28fbcaf](inbox/2026-10-23-source-conduct-28fbcaf.md) | source | dglazkov/isocan@28fbcaf5917db46992f840ae36075e0c6ae1eef9 |
-| [source-audits-c0accf0](inbox/2026-11-15-source-audits-c0accf0.md) | source | shadcn/improve@c0accf0f2b21d68a82982ff14ecca9022df19e64 |
+Nothing is waiting for a proposal.
