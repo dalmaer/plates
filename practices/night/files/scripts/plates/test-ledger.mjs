@@ -770,8 +770,11 @@ export function failureMemory(runs) {
 
 // ---- recording ---------------------------------------------------------------
 
+// The reporter's own git never runs the checkout's hooks or fsmonitor (plates#72): code a branch planted in the shared
+// git config (a worktree's sibling shares it) would otherwise run inside the record's own git status.
+const SAFE_GIT = Object.freeze(['-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false']);
 function gitOut(cwd, args) {
-  const r = spawnSync('git', args, { cwd, encoding: 'utf8', timeout: 10_000, maxBuffer: 16 * 1024 * 1024 });
+  const r = spawnSync('git', [...SAFE_GIT, ...args], { cwd, encoding: 'utf8', timeout: 10_000, maxBuffer: 16 * 1024 * 1024 });
   return r.status === 0 ? r.stdout : null;
 }
 
