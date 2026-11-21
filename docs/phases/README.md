@@ -20,8 +20,8 @@ new phase statuses. Consult the project philosophy named by its working guide.
 | --- | --- |
 | planned | Outcome and proof plan exist; design or implementation is still open. |
 | designed | The slice and its contracts are specified well enough to build. |
-| partial | Some of it exists; the note names the gap. With `owes: walk`, only a walk is left (below). |
-| built | Every acceptance box is checked, with an evidence file; real use is not yet claimed. |
+| partial | Some of it exists; the note names the gap. |
+| built | Every acceptance box is checked but a by-hand walk (below), with an evidence file; real use is not yet claimed. |
 | lived-in | Repeated real use supports the outcome. The evidence says what made you sure. (When the project opts in: `"phases": {"livedIn": true}` in `.plates/plates.json`.) |
 | superseded | Retired or replaced; the note says why and points at the replacement. |
 
@@ -58,21 +58,32 @@ reviewed the head commit. The phase's issue labelled `keel:wait-for-review`
 does the same. Without it nothing waits: review comments are still validated
 and answered, but never block a merge.
 
-Optional: `owes: walk` (the only value) on a **partial** phase whose
-building is done and whose rest is a walk or time: a run on a real surface,
-an owner's read, a week of nights. Its dependents' `depends:` are satisfied,
+**Trying the work by hand is an invitation, never a gate.** A walk is an Acceptance box that says `⚑ by hand: <who>` and runs no command
+but a real-surface `gh …` check, citing no `tests/` path. Walks are optional
+(plates phase 204): `built` needs every other box checked, and an open walk
+box never holds a phase back. New phases do not write walks. Instead each PR
+an agent opens for a phase carries a `## Try it` section: what changed (one
+line), where to try it (a preview URL, the deployed site, or a build), three
+to five steps, and what working and broken look like; the agent tries the
+steps itself first where it can, and says what it saw. Home lists an open walk
+as an optional Try it (Works, Something's off, Skip), never as work waiting
+on the owner. A missing Try it is a note, never a refusal.
+
+A ⚑ step that needs money, a cloud resource, a login or a named person's
+decision is not a walk: it is an ask on the Proof's ⚑ line, with a Your part
+when the owner must answer it, and it waits for the owner as before.
+
+Older records may still carry `owes: walk` (the only value) on a **partial**
+phase whose building is done and whose rest is a walk: the check reads it, and
+nothing suggests it any more. Its dependents' `depends:` are satisfied,
 `npm run next` skips it, the roadmap shows it as *partial, walk owed*, and the
-night's `phases_stuck` does not count it. It stays partial: built still means
-proven, and its Next action names the walk. The check refuses `owes:` on any
+night's `phases_stuck` does not count it. The check refuses `owes:` on any
 other status, and refuses `owes: walk` while an unchecked Acceptance box is
 still buildable. A box is a walk when it is `⚑ by hand: …` or its check is a
 command that runs on a real surface (`` `gh …` ``), and it cites no
-`tests/` path; any other unchecked box counts as buildable.
-
-Optional, beside `owes: walk` only: `waits: owner | time | external`, whose
-walk it is (absent is `owner`: a ⚑ box is the owner's). Nothing but where the
-walk is listed changes (`plates home`; the roadmap shows *partial, walk owed
-(time)*).
+`tests/` path; any other unchecked box counts as buildable. Beside it,
+`waits: owner | time | external` says whose walk it is (absent is `owner`).
+Moving such a phase to `built` is all it needs now.
 
 Optional: `after: YYYY-MM-DD`, the first day the phase is buildable.
 `npm run next` skips it before that day (a dependent waits with it). The
@@ -93,7 +104,7 @@ them in place, dated; and each known limitation that could make the phase's
 output wrong, a suggestion, a count or a verdict, with its effect and when it
 is settled, never only in the design's prose), **Next action** (one concrete step; `npm run next`
 prints it; once the phase is built, `None.`, or what lived-in needs when
-the project counts lived-in; when it owes a walk, the walk).
+the project counts lived-in).
 
 With `spec: 2`, also **Real surfaces** (below).
 
@@ -106,9 +117,10 @@ found.` The night counts these lines (`escapes`), with `fix:` commits and
 lessons of the project's own; an Escape line naming another phase counts
 against that one.
 
-Optional: **Your part**, after Acceptance, for a phase with a ⚑ walk. It
-says what the owner is asked in plain words, for someone who has not read
-the phase (no "lever", "walk" or bare phase numbers):
+Optional: **Your part**, after Acceptance, for a phase whose owner must
+decide something or do a ⚑ step (never for trying the work by hand: that is
+each PR's Try it). It says what the owner is asked in plain words, for
+someone who has not read the phase (no "lever", "walk" or bare phase numbers):
 
 ```
 ## Your part
@@ -164,7 +176,8 @@ reads it as a spec:
   phase to two more rules:
   - Each Acceptance box names its check: a cited test,
     `tests/<file>: "<test name>"`; a command in backticks (a program and its
-    arguments, like `` `npm run check` ``); or `⚑ by hand: <who>`.
+    arguments, like `` `npm run check` ``); or `⚑ by hand: <who>`, which
+    the check still reads, though new phases write no walks (above).
   - A **Real surfaces** section lists where the change runs for real, one
     `- <surface>: <its proof>` line each, from a closed list: published
     package, workflow shell, adopted project, owner's machine, GitHub API,
