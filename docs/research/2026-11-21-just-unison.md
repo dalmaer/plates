@@ -26,9 +26,9 @@ shared workspace, or to measure plates itself. Only a few ideas carry the value:
 | Keep: the ideas | Drop: the machinery |
 | --- | --- |
 | **An outcome, not a task.** Each planned piece says what will be true when it's done ("Done when"). | Spec versions, the roadmap renderer, the phase-file parser's many checks |
-| **Every check is named.** Each acceptance line says what proves it: a test, or a person's walk. | Impact reconciliation, decision records, trajectory sections |
+| **Every check is named.** Each acceptance line says what proves it: a test, or a link someone vouches for. | Impact reconciliation, decision records, trajectory sections |
 | **Proof before done.** A planned item can't close until each check points at its proof. | Evidence files written by hand |
-| **Ask the person only what only a person can do.** Walks, decisions and setup steps go to them as cards with choices. | Plates' own Home, backlog, chat, Recurring and agents pages |
+| **Ask the person only what only a person can do.** Decisions and setup steps go to them as cards with choices. Trying the work by hand is an invitation, never a gate (see "Try it"). | Plates' own Home, backlog, chat, Recurring and agents pages |
 | **Order respects dependencies.** A planned item waits for the items it needs. | Claim branches, attach receipts, the integration lock |
 | **"Not read" is never "nothing".** A source that can't be read is reported, never shown as empty. | Night-shift climbs, budgets, health metrics, "does plates help" |
 | **Small, safe steps.** A plan can split into parts that each land on their own. | Fleet-wide managed files and lesson catalogues (see "Across projects") |
@@ -41,8 +41,9 @@ ordinary item with three optional parts:
 1. **Done when:** one paragraph saying what will be true.
 2. **Checks:** a short list. Each check is a sentence, plus what proves it:
    - `test: <file> › <test name>`, proven by a CI run on the merged commit;
-   - `walk: <person>`, proven by their answer on a card;
-   - `link: <url>`, a manual proof (a dashboard, a release) that someone vouches for.
+   - `link: <url>`, a manual proof (a dashboard, a release, a recording) that someone vouches for.
+
+   There is no walk check. Trying the work by hand is optional: see "Try it" below.
 3. **Needs** (optional): the items it waits on. It stays in its place in the Backlog,
    dimmed, until they are done.
 
@@ -81,16 +82,48 @@ Unison:
 6. **Proof attaches itself where it can.**
    - When a linked PR merges and CI passes, each `test:` check whose test ran and
      passed in that run is ticked, with a link to the run.
-   - Each `walk:` check becomes a card in "For you", with the walk's choices.
-7. **The item closes** when every check has *verified* proof: a test seen passing in
-   the proof report, or a walk answered by its person. Agent-vouched links stay on the
-   item as evidence but never close it. Closing with any check unverified needs a
-   person's explicit "close without proof", and the item shows it.
+7. **The agent writes a "Try it"** when its PR is ready (see below). Nothing waits on it.
+8. **The item closes** when every check has *verified* proof: a test seen passing in
+   the proof report, or a link a person accepted. Agent-vouched links stay on the item
+   as evidence but never close it. Closing with any check unverified needs a person's
+   explicit "close without proof", and the item shows it.
 
 **Proof is bound to what it proved.** Each proof records the version of the Done when
 and of its check that were current when it was attached. Editing either one marks
-that proof stale. The check needs fresh proof, such as a new walk answer or a run after
-the change, before the item can close.
+that proof stale. The check needs fresh proof, such as a run after the change, before the
+item can close.
+
+## Try it: walks become optional
+
+In plates, a walk ("try this on your phone and tell me") was an acceptance box, and the
+phase wasn't built until a person had done it. That made people the bottleneck, and the
+walks piled up as chores. Here, trying the work by hand is something you choose to do:
+
+- **The agent writes it.** When an agent's PR is ready for review (or merged), it adds
+  a short **Try it** to the PR and to the item's thread:
+  - what changed, in one line;
+  - where to try it: a preview URL, the deployed site, or a build to install;
+  - three to five steps;
+  - what you should see, and what would mean it's broken.
+- **It's an invitation.** It shows on the item and as a light, dismissable entry in
+  "For you", grouped so a busy day doesn't turn into a list of chores. It never blocks
+  the item from closing, and it expires quietly when the next change to the same area
+  lands.
+- **You tap one of three answers:** Works, Something's off, or Skip.
+  - **Works** is recorded on the item as a human try, alongside its proof.
+  - **Something's off** opens a follow-up item, linked to the PR, with your note. The
+    original item stays closed if its checks passed; the follow-up carries the fix.
+  - **Skip**, or doing nothing, is fine.
+- **The agent tries it first, where it can.** Before writing a Try it, the agent runs
+  the steps itself where it has the means: a browser against the preview URL, a
+  simulator, a screenshot or a short recording. It attaches what it saw. A person's try
+  is then a second look, not the only look.
+
+What this gives up: a person's check is no longer guaranteed before work counts as done.
+What replaces it is named tests in CI, the agent's own try with screenshots, and a
+person's optional try. A project that really needs a human gate for some work, such as
+a payment flow or an App Store build, can add a `link:` check whose proof is a person's
+recorded Works. That is opt-in per check, not the default.
 
 ## How proof gets checked without plates
 
@@ -105,8 +138,8 @@ Two small pieces do the work plates' tooling did.
    item on its own.
 2. **Unison's own rules.**
    - An item can't close with unverified or stale checks unless a person says so.
-   - Agents can't answer walks.
-   - Walks and decisions live in a section only people can act on.
+   - Agents can't answer decisions, or record a Works on a Try it.
+   - Decisions, setup steps and Try it invitations live in a section only people can act on.
 
 That is deliberately less than plates enforced:
 - no red-without-fix proof (`plates prove`);
