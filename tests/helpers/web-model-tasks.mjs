@@ -7,7 +7,9 @@ import { createWebService } from '../../lib/web/server.mjs';
 import { hash } from '../../lib/web/common.mjs';
 export {token};
 export const routingPolicy=()=>({version:1,enabled:true,taskClass:'planning',adapter:'project-evidence-brief-v1',automaticFallback:false,candidates:[{id:'acme-primary',connectionId:'acme-openai',model:'acme-model-2026-10-21',unknownCapacity:'allow-budgeted'}],requirements:{minimumContext:10000,privacy:'allow-temporary-provider-retention',independentReview:false},limits:{maxInputTokens:10000,maxOutputTokens:1000,attemptMicroUsd:30000,taskMicroUsd:60000,workspaceMicroUsd:120000,projectMicroUsd:120000,connectionMicroUsd:120000,concurrency:2},capacity:{maxAgeSeconds:60,reservePercent:10,cooldownSeconds:60,reentryPercent:20}});
-export const modelEvidence=()=>({model:'acme-model-2026-10-21',contextTokens:32000,maxOutputTokens:4096,inputMicroUsdPerMillion:1000000,outputMicroUsdPerMillion:2000000,evidenceUrl:'https://developers.openai.com/api/docs/models/acme-fixture',observedAt:'2026-10-20T00:00:00.000Z',expiresAt:'2026-11-21T00:00:00.000Z',immutable:true,background:true,text:true,count:true});
+// The fixture's price evidence must outlive every run: a fixed expiry (it was 2026-11-21) turned every model-routing test
+// red the day it passed. Tests that need expired or near-expiry evidence set their own dates.
+export const modelEvidence=()=>({model:'acme-model-2026-10-21',contextTokens:32000,maxOutputTokens:4096,inputMicroUsdPerMillion:1000000,outputMicroUsdPerMillion:2000000,evidenceUrl:'https://developers.openai.com/api/docs/models/acme-fixture',observedAt:'2026-10-20T00:00:00.000Z',expiresAt:'2999-01-01T00:00:00.000Z',immutable:true,background:true,text:true,count:true});
 export const sourceInput=()=>({phase:'1',paths:['docs/phases/1-acme.md','docs/evidence/acme.md'],instructions:'Keep the owner decision to retain exact matches.',taskId:null});
 export async function modelHarness(){
  const h=connectionsHarness();h.state.now=Date.parse('2026-11-01T00:00:00.000Z');await h.seedPolicy();
