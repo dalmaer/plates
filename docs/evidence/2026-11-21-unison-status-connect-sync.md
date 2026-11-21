@@ -25,6 +25,7 @@ Built by a builder subagent; verified by the conductor.
 | `plates unison connect` on `today` (fresh worktree of its main), signed in | creates one workspace for `dalmaer/today`; a second connect finds it | created ws_3cf5749c; second run `created: false` | find-by-repo and create against the real Unison |
 | `plates unison sync` on `today` with #559's code | creates the plate's open phase items | refused: "you have not joined this workspace"; nothing written | a workspace's creator must also join as a participant to write: the follow-up makes connect join |
 | `plates unison connect` then `sync` on `today` with the join follow-up (7093891f) | connect joins; sync creates the open phase items; a second sync does nothing | joined (session under the user config dir); created items 401 and 402; second sync applied 0; phase 1 held as an uncertain create left by the refused run, until its 15 minutes passed | connect, join, sync and idempotence end to end on a real workspace |
+| `plates unison connect` then `plates unison open --item 1 --json` on `today` (mapping branch) | connect writes `unison.workspace` and `unison.url` into `.plates/plates.json`; open resolves phase 1 to its item | `.plates/plates.json` gained `"unison": {"workspace": "ws_3cf5749c", "url": "https://unison.cloud.run/w/ws_3cf5749c"}` (left uncommitted); open printed `https://unison.cloud.run/w/ws_3cf5749c?item=403` | the committed mapping and item links against the real workspace |
 
 ## Gaps and decision
 
