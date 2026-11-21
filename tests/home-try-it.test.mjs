@@ -4,10 +4,10 @@
 // outside the docket, its count and push notifications; a ⚑ step still waits.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { homeSnapshot, answersFor, roadmapItems, homeRoadmap, walkDone, tryItWritePlan, followUpIssueFor, WRITERS } from '../lib/work-items.mjs';
+import { homeSnapshot, answersFor, roadmapItems, homeRoadmap, walkDone, tryItWritePlan, followUpIssueFor, tryItReadiness, WRITERS } from '../lib/work-items.mjs';
 import { homeText } from '../lib/home.mjs';
 import { renderGlance } from '../lib/web/views.mjs';
 import { waitingEvents } from '../lib/web/push-notify.mjs';
@@ -138,26 +138,125 @@ test('a built phase with an open walk lists it as a Try it, and each answer writ
   assert.equal(issue.title, 'Something\'s off: phase 5 — Acme publishes');
   assert.match(issue.body, /> The button is grey\.\n\nPhase: https:\/\/github\.com\/acme\/studio\/blob\/main\/docs\/phases\/05-acme\.md/);
 
-  // plates walk done --tried off in a checkout: the issue first, then the record; a failed issue writes nothing.
+});
+
+// A fake gh, found through PLATES_GH (the KEEL_GH variable) as every gh call here is: it logs each call and plays a script.
+async function fakeGh(dir) {
+  const gh = join(dir, 'gh'), log = join(dir, 'gh.log'), state = join(dir, 'gh.json');
+  await writeFile(state, JSON.stringify({ create: 'ok', issues: [] }));
+  await writeFile(gh, `#!${process.execPath}
+const fs = require('fs'), a = process.argv.slice(2), st = JSON.parse(fs.readFileSync(${JSON.stringify(state)}, 'utf8'));
+fs.appendFileSync(${JSON.stringify(log)}, a.slice(0, 2).join(' ') + '\\n');
+if (a[0] === 'issue' && a[1] === 'create') {
+  const body = a[a.indexOf('--body') + 1], url = 'https://github.com/acme/studio/issues/' + (9 + st.issues.length);
+  if (st.create === 'fail') { console.error('gh: offline'); process.exit(1); }
+  st.issues.push({ url, body }); fs.writeFileSync(${JSON.stringify(state)}, JSON.stringify(st));
+  if (st.create === 'lost') { console.error('gh: connection reset'); process.exit(1); }
+  console.log(url);
+} else if (a[0] === 'issue' && a[1] === 'list') console.log(JSON.stringify(st.issues));
+else { console.error('fake gh: ' + a.join(' ')); process.exit(1); }
+`, { mode: 0o755 });
+  const calls = async () => (await readFile(log, 'utf8').catch(() => '')).split('\n').filter(Boolean);
+  const set = async more => writeFile(state, JSON.stringify({ ...JSON.parse(await readFile(state, 'utf8')), ...more }));
+  return { gh, calls, set };
+}
+async function checkout(files) {
   const root = await mkdtemp(join(tmpdir(), 'plates-try-it-'));
+  await mkdir(join(root, '.plates'));
+  await mkdir(join(root, 'docs/phases'), { recursive: true });
+  await mkdir(join(root, 'docs/evidence'));
+  await writeFile(join(root, '.plates/plates.json'), JSON.stringify({ name: 'Studio', repo: 'acme/studio' }));
+  await writeFile(join(root, 'docs/goals.json'), JSON.stringify([{ id: 'G0', title: 'Start', outcome: 'It starts.' }]));
+  for (const [path, text] of Object.entries(files)) await writeFile(join(root, path), text);
+  return root;
+}
+
+test('a Something\'s off opens one follow-up, found again by its marker, through the configured gh', async () => {
+  const raw = phaseFile({ acceptance: '- [x] Publishes: `tests/a.test.mjs`.\n- [ ] On a phone: ⚑ try: the owner: publishes and sees it land.' });
+  const root = await checkout({ 'docs/phases/05-acme.md': raw, 'docs/evidence/acme.md': '# Evidence\n' });
   try {
-    await mkdir(join(root, '.plates'));
-    await mkdir(join(root, 'docs/phases'), { recursive: true });
-    await mkdir(join(root, 'docs/evidence'));
-    await writeFile(join(root, '.plates/plates.json'), JSON.stringify({ name: 'Studio', repo: 'acme/studio' }));
-    await writeFile(join(root, 'docs/goals.json'), JSON.stringify([{ id: 'G0', title: 'Start', outcome: 'It starts.' }]));
-    await writeFile(join(root, 'docs/phases/05-acme.md'), raw);
-    await writeFile(join(root, 'docs/evidence/acme.md'), ev);
-    const env = { ...process.env, GIT_DIR: join(root, '.no-git') };
-    const preview = await walkDone({ root, phase: '5', tried: 'off', note: 'Grey.', env, today: '2026-11-21', fileIssue: async () => assert.fail('no issue before --yes') });
+    const fake = await fakeGh(root), env = { ...process.env, PLATES_GH: fake.gh, KEEL_GH: fake.gh, PATH: '/nonexistent', GIT_DIR: join(root, '.no-git') };
+    const answer = (more = {}) => walkDone({ root, phase: '5', tried: 'off', note: 'Grey.', env, yes: true, today: '2026-11-21', ...more });
+    const preview = await walkDone({ root, phase: '5', tried: 'off', note: 'Grey.', env, today: '2026-11-21' });
     assert.equal(preview.exitCode, 3, 'opening an issue waits for --yes');
-    await assert.rejects(walkDone({ root, phase: '5', tried: 'off', note: 'Grey.', env, yes: true, today: '2026-11-21', fileIssue: async () => { throw new Error('gh: no network'); } }), /no network/);
+    assert.deepEqual(await fake.calls(), [], 'nothing opened before --yes');
+    // A create that fails cleanly writes nothing; the next answer looks for the issue first, then opens it once.
+    await fake.set({ create: 'fail' });
+    await assert.rejects(answer(), /gh issue create failed/);
     assert.equal(await readFile(join(root, 'docs/phases/05-acme.md'), 'utf8'), raw, 'nothing written');
-    const filed = [];
-    const r = await walkDone({ root, phase: '5', tried: 'off', note: 'Grey.', env, yes: true, today: '2026-11-21', fileIssue: async ({ repo, issue }) => { filed.push([repo, issue.title]); return 'https://github.com/acme/studio/issues/9'; } });
-    assert.deepEqual(filed, [['acme/studio', 'Something\'s off: phase 5 — Acme publishes']]);
+    // A create whose result is lost (it was opened, the answer never came back) is found by its marker, never opened twice.
+    await fake.set({ create: 'lost' });
+    const r = await answer();
     assert.equal(r.data.followUp, 'https://github.com/acme/studio/issues/9');
+    // The failed create is looked for once; the retry looks first, opens, loses the answer, and finds it by its marker.
+    assert.deepEqual(await fake.calls(), ['issue create', 'issue list', 'issue list', 'issue create', 'issue list']);
+    const issues = JSON.parse(await readFile(join(root, 'gh.json'), 'utf8')).issues;
+    assert.equal(issues.length, 1); assert.match(issues[0].body, /<!-- plates:try-it phase:5 box:2 -->/);
     assert.match(await readFile(join(root, 'docs/evidence/acme.md'), 'utf8'), /Tried it: something's off\. Grey\. Follow-up: https:\/\/github\.com\/acme\/studio\/issues\/9\./);
+    assert.deepEqual((await readdir(join(root, '.plates/try-it'))).filter(f => f.endsWith('.json')), [], 'the intent is cleared once recorded');
+    assert.equal(await readFile(join(root, '.plates/try-it/.gitignore'), 'utf8'), '*\n', 'the intent stays out of git');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('a follow-up opened before a failed write is kept, and the retry records it without opening another', async () => {
+  // A goal the roadmap no longer knows makes every write fail after the issue would open: validated first, nothing opens.
+  const raw = phaseFile({ acceptance: '- [x] Publishes: `tests/a.test.mjs`.\n- [ ] ⚑ try: the owner: opens it.' });
+  const root = await checkout({ 'docs/phases/05-acme.md': raw, 'docs/evidence/acme.md': '# Evidence\n' });
+  try {
+    const fake = await fakeGh(root), env = { ...process.env, PLATES_GH: fake.gh, KEEL_GH: fake.gh, GIT_DIR: join(root, '.no-git') };
+    await writeFile(join(root, 'docs/goals.json'), JSON.stringify([{ id: 'G9', title: 'Other', outcome: 'Other.' }]));
+    await assert.rejects(walkDone({ root, phase: '5', tried: 'off', note: 'Grey.', env, yes: true, today: '2026-11-21' }), /roadmap would reject/);
+    assert.deepEqual(await fake.calls(), [], 'the prospective roadmap is checked before any issue');
+    await writeFile(join(root, 'docs/goals.json'), JSON.stringify([{ id: 'G0', title: 'Start', outcome: 'It starts.' }]));
+    // The write fails after the issue opened (the evidence file is unwritable): the URL is kept and named.
+    const { chmod } = await import('node:fs/promises');
+    await chmod(join(root, 'docs/evidence/acme.md'), 0o400);
+    await assert.rejects(walkDone({ root, phase: '5', tried: 'off', note: 'Grey.', env, yes: true, today: '2026-11-21' }), /follow-up is open: https:\/\/github\.com\/acme\/studio\/issues\/9/);
+    await chmod(join(root, 'docs/evidence/acme.md'), 0o600);
+    const r = await walkDone({ root, phase: '5', tried: 'off', note: 'Grey.', env, yes: true, today: '2026-11-21' });
+    assert.equal(r.data.followUp, 'https://github.com/acme/studio/issues/9');
+    assert.equal((await fake.calls()).filter(c => c === 'issue create').length, 1, 'one issue, however many tries');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('a Try it never overwrites an evidence file it did not name', async () => {
+  const raw = phaseFile({ acceptance: '- [x] Publishes: `tests/a.test.mjs`.\n- [ ] ⚑ try: the owner: opens it.' }).replace('evidence: ["evidence/acme.md"]', 'evidence: ["evidence/acme.md"]');
+  const bare = raw.replace('status: built', 'status: partial').replace('evidence: ["evidence/acme.md"]', 'evidence: []');
+  const root = await checkout({ 'docs/phases/05-acme.md': bare, 'docs/evidence/2026-11-21-phase-5-try-it.md': '# Someone else\'s evidence\n' });
+  try {
+    const fake = await fakeGh(root), env = { ...process.env, PLATES_GH: fake.gh, KEEL_GH: fake.gh, GIT_DIR: join(root, '.no-git') };
+    for (const tried of ['works', 'off']) await assert.rejects(walkDone({ root, phase: '5', tried, note: 'Grey.', env, yes: true, today: '2026-11-21' }), /already exists and the phase names no evidence/, tried);
+    assert.equal(await readFile(join(root, 'docs/evidence/2026-11-21-phase-5-try-it.md'), 'utf8'), '# Someone else\'s evidence\n');
+    assert.deepEqual(await fake.calls(), [], 'refused before any follow-up');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('a Try it is offered only when its writer would take it, and one card per open box', async () => {
+  const goals = [{ id: 'G0', title: 'Start', outcome: 'It starts.' }];
+  const files = {
+    '04-acme.md': phaseFile({ status: 'partial', acceptance: '- [ ] Builds: `tests/b.test.mjs`.' }),
+    // Depends on 4, which is not built: its Try it waits, with the reason, and offers no answer.
+    '05-acme.md': phaseFile({ status: 'partial', acceptance: '- [x] A: `tests/a.test.mjs`.\n- [ ] ⚑ try: the owner: opens it.' }).replace('depends: []', 'depends: [4]'),
+    // Two open walks to try: two cards, each its own box.
+    '06-acme.md': phaseFile({ acceptance: '- [x] A: `tests/a.test.mjs`.\n- [ ] ⚑ try: the owner: opens Home.\n- [ ] ⚑ try: the owner: opens the backlog.' }),
+  };
+  const phases = Object.entries(files).map(([f, text]) => parsePhase(f, text));
+  const data = { source: 'files', config: { repo: 'acme/studio' }, goals, phases, coverage: { complete: true, gaps: [] } };
+  const board = await roadmapItems('/nowhere', { read: async () => data, readPhase: async f => files[f], today: '2026-11-21' });
+  const lists = homeRoadmap({ id: 'studio', name: 'Studio', revision: 'abc' }, board, phases, p => p);
+  const model = homeSnapshot([{ id: 'studio', name: 'Studio', repo: 'acme/studio', gaps: [], changes: [], state: 'complete', reviews: [], ...lists }], { sections: [], today: '2026-11-21' });
+  assert.deepEqual(model.tryIt.map(t => [t.key, t.box]), [['studio:walk:6.2', 2], ['studio:walk:6.3', 3]]);
+  assert.deepEqual(model.waiting.filter(w => w.phase === '5').map(w => [w.why, w.answers ?? []]), [['Ready when: phase 4 first', []]]);
+  assert.equal(tryItReadiness(phases[1], { phases, raw: files['05-acme.md'] }).ready, false);
+  // The writer: the same refusal, and a box named when several are open.
+  const root = await checkout(Object.fromEntries(Object.entries(files).map(([f, t]) => [`docs/phases/${f}`, t]).concat([['docs/evidence/acme.md', '# Evidence\n']])));
+  try {
+    const env = { ...process.env, GIT_DIR: join(root, '.no-git') };
+    await assert.rejects(walkDone({ root, phase: '5', tried: 'works', env, today: '2026-11-21' }), /not ready yet \(phase 4 first\)/);
+    await assert.rejects(walkDone({ root, phase: '6', tried: 'works', env, today: '2026-11-21' }), /2 open walks to try: name one with --box 2\|3/);
+    const r = await walkDone({ root, phase: '6', tried: 'works', box: '3', env, today: '2026-11-21' });
+    assert.equal(r.data.box, 3);
+    assert.match(await readFile(join(root, 'docs/phases/06-acme.md'), 'utf8'), /- \[ \] ⚑ try: the owner: opens Home\.\n- \[x\] ⚑ try: the owner: opens the backlog\./);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
