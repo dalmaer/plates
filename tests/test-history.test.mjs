@@ -1,4 +1,3 @@
-import { fill } from '../lib/practices.mjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm, symlink, link, readdir, chmod, cp } from 'node:fs/promises';
@@ -12,10 +11,6 @@ import { readRuns, readStalls } from '../practices/night/files/scripts/plates/te
 import { revision, reusableGate } from '../practices/night/files/scripts/plates/gate.mjs';
 import { run } from './helpers/run.mjs';
 import { runBlocks } from './helpers/workflows.mjs';
-import { improve, MEASURES } from '../practices/night/files/scripts/plates/improve.mjs';
-import { parseTimeProposal, withTimeProposal } from '../practices/night/files/scripts/plates/time-proposals.mjs';
-import { recoverNightVerification } from '../practices/night/files/scripts/plates/verification.mjs';
-import { timeEvidence } from './fixtures/improve/time-evidence.mjs';
 const source = resolve('practices/night/files/scripts/plates/test-history.mjs');
 const workflow = resolve('practices/night/files/.github/workflows/plates-night.yml');
 const at = '2026-10-10T12:00:00Z', repo = 'acme/app', branch = 'main', head = 'a'.repeat(40);
@@ -362,108 +357,13 @@ test('night extracted Gather shell recovers real system ZIP via synthetic gh end
   assert.equal(JSON.parse(await readFile(join(root, '.plates/test-runs/acme.json'))).acme, 'real zip');
 });
 
-async function stagingFixture(t, production = false, workflowText) {
-  const root = await project(t), remote = await project(t), health = 'docs/Acme-health', day = '2026-10-10';
-  const git = (...args) => { const r = run('git', args, { cwd: root }); assert.equal(r.status, 0, r.stdout + r.stderr); return r.stdout.trim(); };
-  assert.equal(run('git', ['init', '--bare', '-q', remote]).status, 0);
-  git('init', '-q', '-b', 'main'); git('remote', 'add', 'origin', remote);
-  await writeFile(join(root, '.plates/plates.json'), JSON.stringify({ health, name: 'Acme', repo: 'acme/app' }));
-  await mkdir(join(root, health), { recursive: true }); await mkdir(join(root, 'scripts/plates'), { recursive: true });
-  await cp(resolve('practices/night/files/scripts/plates'), join(root, 'scripts/plates'), {recursive:true});
-  await writeFile(join(root, 'scripts/plates/pr-body.mjs'), 'console.log("Acme synthetic PR body");\n');
-  const earlier = `${health}/2026-10-08.md`, unrelated = `${health}/2026-10-07.md`, today = `${health}/${day}.md`;
-  await writeFile(join(root, earlier), 'Acme accepted proposal; awaiting remeasurement.\n');
-  await writeFile(join(root, unrelated), 'Acme owner notes.\n');
-  const measures = MEASURES.filter(m => m.id === 'time_creep');
-  const env = { ...process.env, CI: 'true', PLATES_GH: join(root, 'unavailable-acme-gh') };
-  if (production) {
-    await mkdir(join(root, '.plates/test-runs'), { recursive: true });
-    await writeFile(join(root, '.gitignore'), '.plates/test-runs/\n');
-    for (const r of timeEvidence(Date.now()).runs) await writeFile(join(root, '.plates/test-runs', r.id + '.json'), JSON.stringify(r));
-    await improve({ root, report: true, date: '2026-10-08' }, { env, measures });
-    const initial = parseTimeProposal(await readFile(join(root, earlier), 'utf8')).proposal;
-    assert.ok(initial);
-    await withTimeProposal({ root, path: earlier, expectedInstance: initial.instanceId }, ({ proposal, saveLifecycle }) => saveLifecycle({ ...proposal.lifecycle, state: 'accepted', decidedAt: '2026-10-08T12:00:00Z', issue: { repo: 'acme/app', number: 7, url: 'https://github.com/acme/app/issues/7' } }));
-  }
-  git('add', '.'); git('commit', '-qm', 'Acme initial'); const before = git('rev-parse', 'HEAD');
-  git('push', '-q', 'origin', 'main');
-  let produced;
-  if (production) produced = await improve({ root, report: true, date: day }, { env: { ...env, PLATES_NIGHT_RECOVERY: '1' }, measures, remeasure: async () => ({ state: 'unavailable', observedAt: '2026-10-10T12:00:00Z', value: null, coverage: null, delivery: null, reasons: ['Acme awaits observations'] }) });
-  else {
-    await writeFile(join(root, earlier), 'Acme accepted proposal; remeasured inside.\n');
-    await writeFile(join(root, today), 'Acme current report.\n');
-  }
-  await writeFile(join(root, unrelated), 'Acme unrelated owner edit.\n');
-  git('add', '--', unrelated); // Existing index content must not sneak into the night commit.
-  await writeFile(join(root, health, 'human-draft.md'), 'Acme untracked human draft.\n');
-  const temp = await project(t), commands = join(temp, 'commands'); await mkdir(commands);
-  await writeFile(join(commands, 'gh'), '#!/bin/sh\nprintf "3\\n"\n'); await chmod(join(commands, 'gh'), 0o755);
-  // Even malformed staging fixtures start with a real read of the local bare
-  // origin, so a missing lease cannot mask the metadata/path refusal under test.
-  const recovered = produced ? produced.data.nightRecovery : await recoverNightVerification({ root, config: { repo: 'acme/app', health }, date: day, env });
-  const nightRecovery = { branch: recovered.branch, head: recovered.head, attempts: recovered.attempts };
-  assert.deepEqual(nightRecovery, { branch: `plates-night/${day}`, head: '', attempts: 0 });
-  const report = produced?.data ?? { date: day, report: today, changedHistoricalHealthPaths: [earlier], nightRecovery };
-  await writeFile(join(temp, 'improve.json'), JSON.stringify(report)); await writeFile(join(temp, 'pr.json'), '{}');
-  const blocks = runBlocks(workflowText ?? await readFile(workflow, 'utf8'));
-  const prepare = blocks.find(b => b.step === "Prepare the night's pull request").script;
-  const publish = blocks.find(b => b.step === "Open the night's pull request").script;
-  // Staging moved to preparation. Run both actual steps, passing the prepared
-  // commit as Actions' job output; a preparation refusal must stop publication.
-  const execute = () => {
-    const env = { ...process.env, DAY: day, PLAN_DAY: day, BASE: 'main', HEALTH: health, GITHUB_SHA: before, RUNNER_TEMP: temp, GITHUB_OUTPUT: join(temp, 'outputs'), PATH: `${commands}:${process.env.PATH}` };
-    const prepared = run('bash', ['-e', '-o', 'pipefail', '-c', prepare], { cwd: root, env });
-    if (prepared.status !== 0) return prepared;
-    return run('bash', ['-e', '-o', 'pipefail', '-c', publish], { cwd: root, env: { ...env, HEAD: git('rev-parse', 'HEAD') } });
-  };
-  return { root, temp, report, git, before, earlier, unrelated, today, execute };
-}
-test('night historical health staging commits the earlier remeasurement and today only, preserving unrelated staged and untracked files', async t => {
-  const source = await readFile(workflow, 'utf8'), path = '.github/workflows/plates-night.yml';
-  const selfConfig = JSON.parse(await readFile(resolve('.plates/plates.json'), 'utf8'));
-  assert.equal(await readFile(resolve(path), 'utf8'), fill(source, selfConfig, path), 'managed night matches its configured source');
-  for (const reconciliation of [false, true]) await t.test(`reconciliation ${reconciliation}`, async t => {
-    const config = { name: 'Acme', repo: 'acme/app', practices: ['night', 'reconciliation'], ...(reconciliation ? { reconciliation: { githubAccess: { enabled: true, repositories: ['acme/app'] } } } : {}) };
-    const rendered = fill(source, config, path);
-    assert.equal(rendered.includes('  reconciliation:\n'), reconciliation);
-    const f = await stagingFixture(t, true, rendered);
-    assert.deepEqual(f.report.changedHistoricalHealthPaths, [f.earlier]);
-    assert.equal(f.report.report, f.today);
-    const result = f.execute();
-    assert.equal(result.status, 0, result.stdout + result.stderr);
-    assert.deepEqual(f.git('diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD').split('\n').sort(), [f.earlier, f.today].sort());
-    assert.equal(parseTimeProposal(f.git('show', `HEAD:${f.earlier}`)).proposal.lifecycle.remeasurement.state, 'unavailable');
-    assert.equal(f.git('show', `HEAD:${f.unrelated}`), 'Acme owner notes.');
-    assert.equal(f.git('diff', '--cached', '--name-only'), f.unrelated);
-    assert.match(f.git('status', '--porcelain'), /human-draft\.md/);
-    assert.equal(f.git('rev-parse', 'refs/remotes/origin/plates-night/2026-10-10'), f.git('rev-parse', 'HEAD'));
-  });
-});
-test('night historical health staging rejects unvalidated metadata and paths before any staging or commit', async t => {
-  const cases = ['missing', 'object', 'outside', 'absolute', 'traversal', 'glob', 'newline', 'duplicate', 'today', 'directory', 'symlink', 'ignored', 'wrong-date', 'wrong-report', 'too-many', 'missing-file'];
-  for (const kind of cases) await t.test(kind, async t => {
-    const f = await stagingFixture(t);
-    if (kind === 'missing') delete f.report.changedHistoricalHealthPaths;
-    if (kind === 'object') f.report.changedHistoricalHealthPaths = [{ path: f.earlier }];
-    if (kind === 'outside') f.report.changedHistoricalHealthPaths = ['README.md'];
-    if (kind === 'absolute') f.report.changedHistoricalHealthPaths = [join(f.root, f.earlier)];
-    if (kind === 'traversal') f.report.changedHistoricalHealthPaths = ['docs/Acme-health/../2026-10-08.md'];
-    if (kind === 'glob') f.report.changedHistoricalHealthPaths = ['docs/Acme-health/*.md'];
-    if (kind === 'newline') f.report.changedHistoricalHealthPaths = [f.earlier + '\nREADME.md'];
-    if (kind === 'duplicate') f.report.changedHistoricalHealthPaths.push(f.earlier);
-    if (kind === 'today') f.report.changedHistoricalHealthPaths = [f.today];
-    if (kind === 'directory') { await rm(join(f.root, f.earlier)); await mkdir(join(f.root, f.earlier)); }
-    if (kind === 'symlink') { await rm(join(f.root, f.earlier)); await symlink(join(f.root, f.unrelated), join(f.root, f.earlier)); }
-    if (kind === 'ignored') { await writeFile(join(f.root, '.gitignore'), '/docs/Acme-health/2026-10-09.md\n'); await writeFile(join(f.root, 'docs/Acme-health/2026-10-09.md'), 'Acme ignored'); f.report.changedHistoricalHealthPaths = ['docs/Acme-health/2026-10-09.md']; }
-    if (kind === 'wrong-date') f.report.date = '2026-10-09';
-    if (kind === 'wrong-report') f.report.report = f.earlier;
-    if (kind === 'too-many') f.report.changedHistoricalHealthPaths = Array(513).fill(f.earlier);
-    if (kind === 'missing-file') f.report.changedHistoricalHealthPaths = ['docs/Acme-health/2026-10-06.md'];
-    await writeFile(join(f.temp, 'improve.json'), JSON.stringify(f.report));
-    const result = f.execute(); assert.notEqual(result.status, 0, `${kind}: ${result.stdout}${result.stderr}`);
-    assert.doesNotMatch(result.stderr + result.stdout, /missing night recovery lease/, `${kind}: must reach the intended staging validation`);
-    assert.equal(f.git('rev-parse', 'HEAD'), f.before); assert.equal(f.git('diff', '--cached', '--name-only'), f.unrelated);
-  });
+// Phase 207: the night stages and commits nothing (no health page, no PR), so the
+// historical health staging it ran before its pull request is gone; improve's
+// --report still writes changedHistoricalHealthPaths for `plates improve`.
+test('the quiet night stages, commits and publishes nothing', async () => {
+  const blocks = runBlocks(await readFile(workflow, 'utf8'));
+  assert.ok(!blocks.some(b => /Prepare the night's pull request|Open the night's pull request/.test(b.step ?? '')));
+  assert.doesNotMatch(blocks.map(b => b.script).join('\n'), /git (?:add|commit|push|bundle)\b|changedHistoricalHealthPaths/);
 });
 
 // #92: the gate workflow is the one running the check command as a whole word, never a longer command it begins

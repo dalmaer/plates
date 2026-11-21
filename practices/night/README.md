@@ -1,107 +1,90 @@
 # night
 
-**The failure it prevents.** A machine queue that produces daily and drains
-never: five open machine PRs at once on isocan (9 Sep 2026), each waiting on a
-person remembering. A bot that writes to `main`. A merge that trusts a check
-that never ran, because a `GITHUB_TOKEN` PR runs no CI. A nightly that fails
-onto a page nobody opens (plates lesson 3). A commit step that tests
-`git diff --quiet` and so never sees a file created for the first time
-(ledger's audit agent lost every report to it).
+**The failure it prevents.** A nightly that fails onto a page nobody opens
+(plates lesson 3), and its opposite: a nightly pull request the owner merges
+every day and nobody acts on (plates, 21 Nov 2026: 37 nights of health pages,
+merged unread). A gate that passed while running nothing (lessons 14 and 38).
+A flaky test hidden by a rerun until it is a real failure nobody can find.
 
-**The rule.** A project's night runs from its own repo: everything it runs
-is a managed file of this practice; it never fetches plates (design §6,
-"Projects run on their own"). Core reporting needs only the job's GitHub token.
-Configured Vercel production collection optionally uses `VERCEL_API_TOKEN`,
-mapped to `VERCEL_TOKEN` only in the collection step. Off and other-provider
-projects need no Vercel secret; recovery and other provider children strip it.
-The gate, plan and morning receive no provider credential. `plates-night.yml` runs
-every night at 07:23 UTC (and by hand):
+**The rule.** The night speaks up only when something is wrong (phase 207),
+and three things are: CI on main is red, a test is flaky, or the gate ran no
+tests. Then its workflow fails, naming each cause, and GitHub emails the
+owner: a guard fires into a room someone is in. Otherwise it is green and
+quiet. It writes nothing: no branch, no pull request, no inbox proposal, no
+plan. Every other measure, and the health page, is written on demand by
+`plates improve` (`node scripts/plates/improve.mjs --report` in a project).
 
-0. Read-only production observation supplies evidence for tonight's plan. The
-   plan is written before gate or agent work begins (phase 73):
-   `node scripts/plates/night-plan.mjs tonight` reads the plan branch
-   `plates-night-plan` and uses its `.plates/night/plan.json`
-   when it is valid and dated for this run's UTC date; otherwise it writes
-   plates's default plan (the night's measure item, the newest earlier health
-   page's proposal, the climb job `climb.mjs pick` would choose, the robot's
-   next admissible `keel:agent` issue, Loop's untriaged findings, and with
-   the personas practice each persona's missed goals, a build only for the
-   climb job that measures it), and says which and why. No model; the same
-   inputs make the same plan. A build item names its number first (else it
-   is triage) and a lane a pass builds (`climb:<job>` or `robot:#<n>`; never
-   `night`, `loop` or `persona:<name>`, phase 78), and at most five build
-   items run, counted with the robot's open PRs. A plan that cannot be made (an input
-   it cannot read) or a branch that cannot be read is red at the verdict,
-   after the measure has still run. improve ticks the measure item, writes the
-   plan as it ended to `docs/night/<date>.json`, and the page shows it under
-   "Tonight's plan"; each pass that builds ticks its own item on the plan
-   branch (`node scripts/plates/night-plan.mjs record`, phase 76). A night that
-   ran the default plan writes it to `plates-night-plan` from its PR step
-   (`night-plan.mjs publish`, phase 78), so the passes tick it as they tick
-   an owner's: only when the branch holds no plan for tonight or a later
-   night (never the owner's), with a lease; a failed write is red at the
-   verdict. That push and the PR's are the night's only writes.
-1. The test ledger's history is gathered (CI's `plates-test-runs` artifacts,
-   below); then `node scripts/plates/improve.mjs --report` measures the practice and writes
-   `<health>/<date>.md` and `.plates/bounds.json`. `<health>` is `"health"` in
-   `.plates/plates.json` (default `docs/health`), read at run time; a directory
-   whose dated pages the project git-ignores makes the run red, since its page
-   would never be committed (ledger lost its pages that way), and so does one
-   that resolves outside the repo (a symlink) or starts with `:` (git
-   pathspec magic). (On plates itself,
-   `plates learn` gathers first). It runs before the drain, so `machine_prs`
-   counts last night's PR.
-2. If `git status --porcelain` shows a change in the night's data
-   (tonight's dated page in the health directory, never the rest of it;
-   tonight's plan record `docs/night/<date>.json`, never the rest of that
-   directory; `docs/inbox/`, `docs/INBOX.md`, `.plates/bounds.json`, a tracked one that
-   is gone staged as its deletion; nothing else a gate run leaves behind;
-   paths read literally, never as git pathspec magic), it is committed on
-   `plates-night/<date>`, pushed to that branch only, and opened as one PR
-   whose body is `scripts/plates/pr-body.mjs`'s (below), with the page's
-   proposal as its note.
-3. `node scripts/plates/drain.mjs plates-night/ --yes` keeps the queue at one:
-   each older PR is merged when it holds only data (`docs/health/`, the
-   configured health directory's dated pages, the plan records
-   `docs/night/<date>.json`, `docs/inbox/`, `docs/INBOX.md`, `.plates/bounds.json`) and still merges, and
-   closed as superseded otherwise, with a comment saying how to recover it
-   (the branch is kept). The newest merges only with `--gate-passed`, which
-   the workflow passes only when the gate improve ran on this tree passed.
-4. A broken instrument (improve exit 2) or a failing gate fails the run, and
-   GitHub emails. A measure outside its bound (exit 1) is news on the page,
-   not red.
-5. The morning (phase 77): `plates-morning.yml` runs when plates-night,
-   plates-climb or plates-robot finish (the last two only where the climb
-   practice installs them; without climb, plates-night alone), and daily at 17:07 UTC (just after the
-   default `readyBy`; another `readyBy` is caught by the next pass to finish
-   or the next daily run). `node scripts/plates/morning.mjs
-   decide` reads tonight's plan as it finished (its record and the plan
-   branch, each item at its furthest tick); once every build item is terminal,
-   or the plan's `readyBy` (default 17:00 UTC) has passed, and no brief was
-   sent, `morning.mjs send` opens the issue "Good morning, <date>" assigned to
-   `.plates/plates.json` `morning.assignee` and labelled `keel:morning` (closing the
-   previous one; GitHub emails the assignee). On every run once the night is
-   over, sent or not, `morning.mjs finalize` puts the final outcomes in `docs/night/<date>.json` and the page's "Tonight's
-   plan" as one data-only PR, `plates-night/<date>-final`, which the drain
-   merges with the series (a run with nothing new changes nothing, so a
-   later build outcome still arrives). Only the send job may write issues; a failed send
-   is red. The send job also has `actions: read` solely to restore production
-   observations from the newest night artifact. Restoration records its exit
-   code, the brief is attempted, and an always-run verdict fails the job on
-   missing or failed restoration. Neither failure is swallowed. Without an assignee nothing is sent (a notice). On every run, its
-   card job (phase 78) republishes tonight's plan as the canvas's live card
-   `night-plan` (`plates morning --card --yes`) when the canvas is set for
-   nightly publishing and lists `night-plan` live, else a notice and nothing
-   more; it needs exactly the provisioning below and holds only `contents:
-   read` and `actions: read`.
+A project's night runs from its own repo: everything it runs is a managed
+file of this practice; it never fetches plates (design §6, "Projects run on
+their own"). It needs only the job's GitHub token, which reads. Configured
+Vercel production collection optionally uses `VERCEL_API_TOKEN`, mapped to
+`VERCEL_TOKEN` only in the collection step; off and other-provider projects
+need no Vercel secret. The gate and the morning receive no provider
+credential. `plates-night.yml` runs every night at 07:23 UTC (and by hand):
 
-`plates improve` and `plates drain` are these same modules, run from plates. What
-a project's copy cannot read alone it calls `plates-side only`, never a zero:
+1. The project's install (`setup`, else `npm ci`), then read-only production
+   observation, kept as the `plates-production-<attempt>` artifact for the
+   morning's brief. A collection gap is said in its step, never red.
+2. The test ledger's history is gathered: CI's `plates-test-runs` artifacts
+   (`scripts/plates/test-history.mjs`, bounded and identity-verified).
+3. The three questions (`node scripts/plates/night-verdict.mjs ask`), each
+   one of improve's own measures, run alone:
+   - **CI on main is red**: `ci_red_streak` counts a failed run among the
+     gate workflow's newest verdicts on main, or the `gate` measure fails on
+     main's tree (CI's result for the exact clean commit, reused within 24
+     hours, else the local check);
+   - **a test is flaky**: `flaky_tests`, a test that both passed and failed on
+     one clean tree, in the newest window of the ledger's recorded runs;
+   - **the gate ran no tests**: the `gate` measure passed having run none.
+   The gate runs first, so its own run is in the history flaky reads.
+4. The ledger is kept for tomorrow night as the `plates-test-runs` artifact
+   (never committed).
+5. The verdict, the last step (`night-verdict.mjs verdict`): each cause that
+   holds is one `::error::` line and one line in the run's summary, and the
+   run fails (exit 1). With none, one summary line, and green. A measure that
+   is broken (it could not read CI, the ledger or the gate) or never ran is red
+   too, as "The night could not check", naming the measure and why: an unread
+   source is unknown, never fine. One that does not apply (n/a: too few
+   recorded runs, no repo) is said in the summary and stays green. A failed
+   history recovery (`recovery-unavailable` in the ledger's
+   `.plates/test-runs/recovery/status.json`, or no status at all in Actions)
+   makes `flaky_tests` unreadable, never warm-up. The verdict runs even when
+   the questions did not finish: no answers is "The night could not check".
+   The night checks out the default branch, whatever ref started the run.
+
+The morning (phase 77): `plates-morning.yml` runs when plates-night,
+plates-climb or plates-robot finish (the last two only where the climb
+practice installs them; without climb, plates-night alone), and daily at
+17:07 UTC (just after the default `readyBy`). Since phase 207 the night makes
+and records no plan; a plan is the owner's, on the plan branch
+`plates-night-plan` (`plates goodnight`, or Home). `node scripts/plates/morning.mjs
+decide` reads it, each item at its furthest tick; without one it says "no
+plan for the night" and nothing more runs. Once every build item is terminal,
+or the plan's `readyBy` (default 17:00 UTC) has passed, and no brief was sent,
+`morning.mjs send` opens the issue "Good morning, <date>" assigned to
+`.plates/plates.json` `morning.assignee` and labelled `keel:morning` (closing
+the previous one; GitHub emails the assignee). Only the send job may write
+issues; a failed send is red. The send job also has `actions: read` solely to
+restore production observations from the newest night artifact; an always-run
+verdict fails the job on missing or failed restoration. Without an assignee
+nothing is sent (a notice). On every run, its card job (phase 78) republishes
+the plan as the canvas's live card `night-plan` (`plates morning --card
+--yes`) when the canvas is set for nightly publishing and lists `night-plan`
+live, else a notice and nothing more. The morning opens no pull request: the
+plan's final outcomes stay on the plan branch, where Home reads them.
+
+`plates improve` and `plates drain` are modules of this practice, run from
+plates. The night calls neither; the loop practice's queue still drains with
+`drain.mjs`. What a project's copy of improve cannot read alone it calls
+`plates-side only`, never a zero:
 drift there is by `.plates/lock.json` (bytes plates did not write are `edited`;
 `behind` needs plates's templates), lint is the rules its own files show
 (`PROJECT_LINTS` in `scripts/plates/improve.mjs`: phase, goal-without-phase,
 claude-md-pointer, second-copy, symlink-replaced, lessons-table-split,
 health-config, health-ignored, platform-guard), and the inbox is plates's.
+The measures below are improve's, on the health page it writes on demand;
+where they say "the night", read "improve": the night itself runs only the
+three above.
 
 **Proof lost.** `proofs_hold` (bound 0, no ratchet) counts the built or
 lived-in phases whose Acceptance cites a `tests/` path that no longer
@@ -328,24 +311,20 @@ can clone a private repo the gate needs; `health`, above. Without `setupToken`,
 Install receives no GitHub token. Consumer setup may need lifecycle scripts;
 Plates itself sets `setup: "npm ci --ignore-scripts"` for its development tools.
 
-The measurement job has read-only permissions and checks out without persisted
+The night's job has read-only permissions and checks out without persisted
 credentials. API tokens are step-scoped; hosted project commands receive no
-GitHub, Stitch or Vercel token through `gateEnv`. A separate publisher receives
-a commit bundle and explicit report/plan data, checks the named commit and its
-parent, then pushes objects without checking out candidate code. Only that job
-has repository write permissions; it installs no dependencies and runs no gate.
+GitHub, Stitch or Vercel token through `gateEnv`. Nothing in it writes to the
+repository.
 
-**What it needs (⚑).** No secret. The repo setting *Allow GitHub Actions to
-create and approve pull requests*, or `gh pr create` is refused (the run
-pushes the branch and ends green with a notice). Squash merges allowed, for
-the drain.
+**What it needs (⚑).** No secret, and no repository setting: it opens no pull
+request.
 
 **Selected files.** The complete installed file list and runtime imports live in
 [practice.json](practice.json). The following is an overview.
 
-`.github/workflows/plates-night.yml`, `scripts/plates/improve.mjs`,
-`scripts/plates/drain.mjs`, `scripts/plates/lib.mjs`, `scripts/plates/test-ledger.mjs`,
-`scripts/plates/stalls.mjs`, `scripts/plates/pr-body.mjs` (managed), and the `night` block of the selected working guide (so it needs agents-md). They need the
+`.github/workflows/plates-night.yml`, `scripts/plates/night-verdict.mjs`,
+`scripts/plates/improve.mjs`, `scripts/plates/drain.mjs`, `scripts/plates/lib.mjs`,
+`scripts/plates/test-ledger.mjs`, `scripts/plates/stalls.mjs`, `scripts/plates/pr-body.mjs` (managed), and the `night` block of the selected working guide (so it needs agents-md). They need the
 phases practice's `scripts/roadmap.mjs` for the phase measures; with phases
 off or local those measures are n/a.
 
@@ -368,17 +347,11 @@ practice came from, where each keeps a version of its own:
 
 ## Optional project canvas projection
 
-Canvas publication is off unless `.plates/plates.json` has both
-`canvas.enabled: true` and `canvas.cadence: "nightly"`. A manual binding does
-not opt into scheduled publication. The step follows the health-page commit and consumes Measure’s
-original JSON; it never repeats improve, the gate, a model call or a retro.
-`plates canvas night --report <file> --json` saves a local snapshot and render;
-`--yes` requests publication through the approved binding. Raw report detail,
-commands, proposals and errors are not forwarded. Missing source intervals stay
-coverage gaps. Dirty or unknown source revisions refuse publication. Committing the existing
-night data first keeps this check intact; unrelated dirty files are never
-exempted. Canvas failure is reported in Verdict while the existing PR and
-drain steps still finish.
+Since phase 207 the night writes no canvas: the only canvas writer is
+plates-morning's card job, below. `plates canvas night --report <file> --json`
+still projects an improve report by hand. Canvas publication is off unless
+`.plates/plates.json` has both `canvas.enabled: true` and `canvas.cadence:
+"nightly"`. A manual binding does not opt into scheduled publication.
 
 This is an owner-provisioned integration, not a new installer or token scheme.
 Before opting in, the existing project `setup` must make pinned `plates` and
@@ -399,9 +372,10 @@ import project scripts as a substitute for an installed CLI, or create a
 replacement canvas. Existing `plates-night` concurrency serializes nights; sync
 also owns a local writer lock and pending receipt recovery.
 
-The workflow restores `recovery.json` from the latest **canvas-enabled attempt**
-of this repository's default-branch `plates-night.yml` or `plates-morning.yml`
-(whose card job writes the same canvas, phase 78), including failed attempts;
+The card restores `recovery.json` from the latest **canvas-enabled attempt**
+of this repository's default-branch `plates-night.yml` (whose nights wrote the
+canvas until phase 207; a night attempt whose own job list shows no canvas step
+is skipped) or `plates-morning.yml` (whose card job writes it), including failed attempts;
 `scripts/plates/canvas-recovery.mjs` holds the rules for both. A plates-morning
 attempt with no `plates-canvas-card-<attempt>` artifact never reached its card
 job and is skipped; one still running makes the card wait a pass (exit 3)
@@ -446,7 +420,7 @@ never substitutes older state.
 
 Credentials, isocan homes, environment variables, locks, raw reports and
 unreferenced cache files are excluded from recovery. Canvas state is never
-added to the health PR. This artifact contract is implemented and exercised
+committed. This artifact contract is implemented and exercised
 with synthetic local runners; it has not been deployed or proven against live
 GitHub/isocan credentials. Plates's own cadence remains manual until its owner
 provisions and approves scheduled use.

@@ -87,7 +87,12 @@ test('engine adapter retains normalized revisions and sanitizes failures before 
   assert.equal(bad.snapshot.remote, 'incomplete'); assert.ok(!JSON.stringify(bad).includes('Acme-private-token'));
 });
 test('render isolates secret in trusted producer; consumer runs on producer failure; optional unchanged', async () => {
-  for (const night of [false, true]) {
+  // Phase 207: the quiet night runs no record_contradictions measure, so render no longer shapes it.
+  const { fill } = await import('../lib/practices.mjs');
+  const nightTemplate = await readFile(new URL('../practices/night/files/.github/workflows/plates-night.yml', import.meta.url), 'utf8');
+  assert.equal(fill(nightTemplate, config, '.github/workflows/plates-night.yml'), nightTemplate);
+  assert.doesNotMatch(nightTemplate, /reconcil/i);
+  for (const night of [false]) {
     const path = night ? 'night/files/.github/workflows/plates-night.yml' : 'ci/files/.github/workflows/check.yml';
     const template = await readFile(new URL('../practices/' + path, import.meta.url), 'utf8');
     assert.equal(shapeReconciliation(template, {} , night), template);
@@ -105,10 +110,9 @@ test('render isolates secret in trusted producer; consumer runs on producer fail
   }
 });
 test('upload action bare digest is explicitly adapted to REST sha256 representation', async () => {
-  const template = await readFile(new URL('../practices/night/files/.github/workflows/plates-night.yml', import.meta.url), 'utf8');
-  const workflow = shapeReconciliation(template, config, true);
+  const template = await readFile(new URL('../practices/ci/files/.github/workflows/check.yml', import.meta.url), 'utf8');
+  const workflow = shapeReconciliation(template, config);
   assert.match(workflow, /artifact_digest: \$\{\{ steps.archive.outputs.artifact-digest \}\}/);
-  assert.equal((workflow.match(/PLATES_RECONCILE_ARTIFACT_DIGEST: sha256:\$\{\{ needs.reconciliation.outputs.artifact_digest \}\}/g) ?? []).length, 2);
   const actionOutput = '0'.repeat(64);
   assert.equal(`sha256:${actionOutput}`, 'sha256:' + '0'.repeat(64));
 });

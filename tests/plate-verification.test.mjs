@@ -135,10 +135,10 @@ test('two fresh night checkouts retain an unmerged failing attempt and lease pub
   const git=(root,args)=>{const r=run('git',args,{cwd:root});assert.equal(r.status,0,r.stderr);return r.stdout.trim();};
   git(seed,['init','-b','main']);git(seed,['add','.plates']);git(seed,['commit','-m','Acme']);
   const origin=join(seed,'origin.git');git(seed,['init','--bare',origin]);git(seed,['remote','add','origin',origin]);git(seed,['push','origin','main']);
-  const workflow=await readFile(new URL('../practices/night/files/.github/workflows/plates-night.yml',import.meta.url),'utf8');
-  // The publisher pushes the validated bundle object's SHA, not its trusted-source HEAD.
-  const push=workflow.split('\n').find(l=>l.trim().startsWith('git push --force-with-lease='));
-  assert.ok(push);assert.match(workflow,/PLATES_NIGHT_RECOVERY: "1"/);
+  // improve's night recovery (PLATES_NIGHT_RECOVERY) and its leased publication, as the pre-207 night's publisher
+  // pushed: the quiet night no longer publishes, but improve keeps the recovery for a leased report writer.
+  const push='git push --force-with-lease="refs/heads/$BRANCH:$EXPECTED" origin "$head:refs/heads/$BRANCH"';
+  assert.doesNotMatch(await readFile(new URL('../practices/night/files/.github/workflows/plates-night.yml',import.meta.url),'utf8'),/git push|PLATES_NIGHT_RECOVERY/);
   const attempts=[],clones=[];
   for(let i=0;i<2;i++){
     const root=join(seed,`checkout-${i}`);git(seed,['clone','--branch','main',origin,root]);clones.push(root);

@@ -1,9 +1,8 @@
 {
   "name": "night",
-  "summary": "The night shift: a nightly health page as one PR, its queue drained by machinery, all from scripts in the project's own repo; a red night is a failed workflow.",
+  "summary": "The night shift: each night it asks whether CI on main is red, a test is flaky, or the gate ran no tests, and fails its workflow only then; it writes nothing, and the health page is written on demand.",
   "requires": ["base", "agents-md"],
   "secrets": [
-    {"name": "PLATES_RECONCILE_TOKEN", "optional": true, "why": "OPTIONAL: isolated trusted-main reconciliation, Pull requests read-only for the configured exact repository allowlist", "workflow": ".github/workflows/plates-night.yml"},
     { "name": "VERCEL_API_TOKEN", "optional": true, "when": "production-vercel", "why": "OPTIONAL: only configured Vercel production collection uses it, as step-scoped VERCEL_TOKEN; off and other-provider projects need none", "workflow": ".github/workflows/plates-night.yml" }
   ],
   "files": [
@@ -40,6 +39,7 @@
     { "path": "scripts/plates/test-ledger.mjs", "from": "scripts/plates/test-ledger.mjs", "kind": "managed" },
     { "path": "scripts/plates/gate.mjs", "from": "scripts/plates/gate.mjs", "kind": "managed" },
     { "path": "scripts/plates/stalls.mjs", "from": "scripts/plates/stalls.mjs", "kind": "managed" },
+    { "path": "scripts/plates/night-verdict.mjs", "from": "scripts/plates/night-verdict.mjs", "kind": "managed" },
     { "path": "scripts/plates/pr-body.mjs", "from": "scripts/plates/pr-body.mjs", "kind": "managed" },
     {"path": "scripts/plates/production.mjs", "from": "scripts/plates/production.mjs", "kind": "managed"},
     {"path": "scripts/plates/production-store.mjs", "from": "scripts/plates/production-store.mjs", "kind": "managed"},
