@@ -68,8 +68,15 @@ with nothing missed.
 - `external_key` on an item: a string that is unique per workspace and set by the tool
   that created the item. A second create with the same key is refused with 409.
 - `unison backlog add --key <k>`, and lookup with `backlog show --key <k>`.
+- **Keys on existing items.** `unison backlog key <id> <k>` sets the key on an item created
+  before keys existed. It's refused with 409 if another item holds that key, and it never
+  changes the item's id. An integration uses it to backfill keys from its own records
+  before it starts creating by key.
 
-**Done when:** sending the same create twice, with the same key, makes one item.
+**Done when:**
+- sending the same create twice, with the same key, makes one item;
+- an item created without a key, then given one, is found by `backlog show --key` and
+  keeps its id.
 
 ### 1.5 Typed links on items
 - `links: [{kind, url}]`, where kind is `issue`, `pr`, `plan`, `doc`, or any short string.
@@ -208,11 +215,18 @@ verified or a person closes it without proof. The Try it appears and is optional
 - When a PR linked to a planned item merges, Unison reads the check runs on the merge
   commit (it already reads open PRs for its reviews page) and ticks each `test:` check
   whose file **and** name both appear as passing. The tick links to the run.
+- **The report often finishes after the merge.** Unison reconciles again when the merge
+  commit's proof-report run completes, through a `check_run` completed event or by
+  retrying while that run is queued or in progress. It gives up only once the run has
+  finished. Until then the item shows "proof pending", never "unproven".
 - Without the Action, an agent can link a run as evidence. The check then shows as
   vouched for, not verified.
 
-**Done when:** a merged PR whose CI ran `tests/theme.test.ts › dark mode toggles` ticks
-that check automatically, and a run without that test ticks nothing.
+**Done when:**
+- a merged PR whose CI ran `tests/theme.test.ts › dark mode toggles` ticks that check
+  automatically, including when Unison learns of the merge before the report has
+  finished;
+- a run without that test ticks nothing.
 
 ---
 

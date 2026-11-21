@@ -32,8 +32,9 @@ it's repeated on the rest of the fleet.
 ## Step 1 · Unison · Integration plumbing (spec M1)
 
 **Ask the Unison agent:** "Build M1 from the spec. That's find a workspace by repo, a
-workspace integration token, `activity --after`, external keys on items, typed links with
-an icon per kind, and a message reference on replies."
+workspace integration token, `activity --after`, external keys on items (including
+setting a key on an existing item), typed links with an icon per kind, and a message
+reference on replies."
 
 **Done when:** every M1 "Done when" in the spec holds on unison.cloud.run, and
 `unison --version` reports a CLI that has the new commands.
@@ -51,10 +52,14 @@ an icon per kind, and a message reference on replies."
   file;
 - catch up from `activity --after`.
 
-Then retire the private map's duplicate guard, since external keys now prevent
-duplicates. Run it unattended on study, then across the fleet."
+Before the first keyed sync, backfill a key onto every existing item from the private
+map, with `unison backlog key`. Every project already has synced items created without
+keys. Then confirm that the first keyed sync keeps every mapped item's id. Only then retire
+the private map's duplicate guard. Run it unattended on study, then across the fleet."
 
 **Done when:**
+- every item on study that was mapped before has its key, and the first keyed sync left
+  each item's id unchanged and created no new item;
 - a phase change on main reaches its Unison item without anyone running a command;
 - sending the same sync twice still makes one item;
 - revoking the token stops the sync.
@@ -178,7 +183,8 @@ name."
 - Confirm the check ticks itself on merge and the item closes."
 
 **Done when:**
-- one item closed in Unison on CI proof alone, with no evidence file written;
+- one item closed in Unison on CI proof alone, with no evidence file written, even though
+  the proof report finished after the merge;
 - a run without that test ticked nothing.
 
 ## Step 12 · Plates and owner · Turn plates off for study (phase 206)
