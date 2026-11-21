@@ -457,3 +457,15 @@ test('a session file that is a symlink is refused, and nothing is written throug
   assert.equal((await w.calls()).filter(c => c.argv[0] === 'join').length, 0);
   await assert.rejects(stat(join(w.plate, 'leaked-session.json')));
 });
+
+test('a loose phase file with a Unicode name links back, and its item closes when it is built', async t => {
+  const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], items: [], next: 1 }, { config: { local: { phases: 'Acme roadmap' } }, phases: {} });
+  const file = join(w.plate, 'docs/phases/2-café.md');
+  await writeFile(file, '---\nstatus: planned\nnote: "Acme"\n---\n\n# The Acme café\n');
+  cli(w, ['connect']);
+  assert.deepEqual(cli(w, ['sync']).data.applied.map(a => a.op), ['create']);
+  await writeFile(file, '---\nstatus: built\nnote: "Acme"\n---\n\n# The Acme café\n');
+  const r = cli(w, ['sync']);
+  assert.deepEqual([r.data.applied.map(a => [a.op, a.item]), r.data.unlinked], [[['close', 1]], []]);
+  assert.equal((await w.state()).items[0].status, 'done');
+});

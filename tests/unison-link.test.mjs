@@ -292,3 +292,27 @@ test('a heading anchor keeps Unicode letters, and the percent-encoded link match
   const plan = planSync({ items: [item], sources, map: readMap(null), repos: REPOS, repo: 'acme/tools' });
   assert.deepEqual([plan.adopt, plan.actions], [[{ key: 'phase:acme/tools:cafe/2', item: 3 }], []]);
 });
+
+test('a key that changes when a collision comes or goes is reconciled by the item\'s line, never duplicated', () => {
+  const at = file => ({ id: 1, title: 'Phase 5: A', body: `Phase: ${phaseUrl('acme/tools', file)}`, status: 'open' });
+  const one = phaseSources([{ id: 5, file: '5-a.md', title: 'A', status: 'planned' }], 'acme/tools');
+  const two = phaseSources([{ id: 5, file: '5-a.md', title: 'A', status: 'planned' }, { id: 5, file: '5-b.md', title: 'B', status: 'built' }], 'acme/tools');
+  const mapOf = key => readMap({ schema: 1, repo: 'acme/tools', entries: { [key]: { item: 1, closedBySync: false } } });
+  // The collision goes away: 5#5-a → 5.
+  let plan = planSync({ items: [at('5-a.md')], sources: one, map: mapOf('phase:acme/tools:5#5-a'), repos: REPOS, repo: 'acme/tools' });
+  assert.deepEqual([plan.rekey, plan.actions, plan.unlinked], [[{ from: 'phase:acme/tools:5#5-a', to: 'phase:acme/tools:5' }], [], []]);
+  // It comes: 5 → 5#5-a (on a ref other than HEAD too).
+  plan = planSync({ items: [{ ...at('5-a.md'), body: 'Phase: https://github.com/acme/tools/blob/main/docs/phases/5-a.md' }], sources: two, map: mapOf('phase:acme/tools:5'), repos: REPOS, repo: 'acme/tools' });
+  assert.deepEqual([plan.rekey, plan.actions], [[{ from: 'phase:acme/tools:5', to: 'phase:acme/tools:5#5-a' }], []]);
+  // A suffix that changed: the line still names 5-a.md, so the entry follows it.
+  plan = planSync({ items: [at('5-a.md')], sources: two, map: mapOf('phase:acme/tools:5#5-old'), repos: REPOS, repo: 'acme/tools' });
+  assert.deepEqual([plan.rekey, plan.actions], [[{ from: 'phase:acme/tools:5#5-old', to: 'phase:acme/tools:5#5-a' }], []]);
+});
+
+test('every phase file name a reader accepts round-trips through its link line', () => {
+  const names = ['2-café.md', '3-a b.md', '4-x#y.md', '6-naïve-phase.md', '7-plain.md'];
+  const sources = phaseSources(names.map(file => ({ id: Number(file.split('-')[0]), file, title: file, status: 'planned' })), 'acme/tools');
+  for (const x of sources) assert.equal(parseLink(writeBody('', x), REPOS)?.file, x.file, x.file);
+  const plan = planSync({ items: [], sources, map: readMap(null), repos: REPOS, repo: 'acme/tools' });
+  assert.deepEqual([plan.actions.length, plan.suggestions], [names.length, []]);
+});
