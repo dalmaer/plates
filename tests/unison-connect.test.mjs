@@ -166,17 +166,20 @@ test('a .gitignore negation cannot leave the map visible, and npm pack never shi
 test('two overlapping syncs make one item: the second is not run', async t => {
   const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], items: [], next: 1 }, { phases: { '2-acme-counts-anvils.md': { status: 'planned', title: 'Acme counts anvils' } } });
   cli(w, ['connect']);
-  // This process holds the writer lock, as a sync in progress would, so the overlap does not depend on timing.
-  const { withCursorLock } = await import('../lib/channel-owner.mjs');
-  await withCursorLock(join(w.plate, '.plates/unison', 'writer'), async () => {
-    const second = cli(w, ['sync']);
-    assert.equal(second.code, 1);
-    assert.match(second.data.why, /another sync is running/);
-    assert.equal((await w.state()).items.length, 0);
-  }, { waitMs: 2_000, staleMs: 7 * 86_400_000, partialStaleMs: 10_000 });
-  // The lock is released: a sync makes the one item, and the next changes nothing.
-  assert.equal(cli(w, ['sync']).code, 0);
+  // The first sync's add lands and then waits for this test, so the second sync runs while the first really holds the lock.
+  await w.setState({ holdAdd: true });
+  t.after(() => w.setState({ releaseAdd: true }).catch(() => {}));
+  const first = unisonCommand({ args: ['sync'], root: w.plate, config: JSON.parse(await readFile(join(w.plate, '.plates/plates.json'), 'utf8')), env: w.env, readPhases: async () => (await collect(w.plate)).phases });
+  for (let i = 0; i < 400 && !(await w.state()).addEntered; i++) await new Promise(done => setTimeout(done, 50));
+  assert.equal((await w.state()).addEntered, true, 'the first sync reached its add');
+  const second = cli(w, ['sync']);
+  assert.equal(second.code, 1);
+  assert.match(second.data.why, /another sync is running/);
+  await w.setState({ releaseAdd: true });
+  assert.equal((await first).exitCode ?? 0, 0);
   assert.equal((await w.state()).items.length, 1);
+  // The lock is released: a third sync runs and changes nothing.
+  await w.setState({ holdAdd: false });
   assert.deepEqual(cli(w, ['sync']).data.applied, []);
 });
 
