@@ -615,3 +615,26 @@ test('open --item finds the exact phase: by its source key, in the selected work
   const r = cli(w, ['open', '--item', 'anvils/21']);
   assert.deepEqual([r.data.item, r.data.url], [items['Phase anvils/21: Later'], `http://127.0.0.1:4600/w/ws_acme1?item=${items['Phase anvils/21: Later']}`]);
 });
+
+test('open never carries a mapping to another server, and refuses a phase number two items share', async t => {
+  const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], items: [], next: 1 }, { config: { local: { phases: 'Acme roadmap' } }, phases: {} });
+  await writeFile(join(w.plate, 'docs/phases/5-a.md'), '---\nstatus: planned\n---\n\n# Acme A\n');
+  await writeFile(join(w.plate, 'docs/phases/5-b.md'), '---\nstatus: planned\n---\n\n# Acme B\n');
+  cli(w, ['connect']);
+  cli(w, ['sync']);
+  // Both 5s are mapped: open --item 5 names both and opens neither.
+  let r = cli(w, ['open', '--item', '5']);
+  assert.deepEqual([r.code, r.data.item, r.data.items], [1, null, [1, 2]]);
+  // The server changes: the committed url is stale, and the map's id is not used on the new server.
+  r = cli(w, ['open'], { UNISON_SERVER: 'http://127.0.0.1:4700' });
+  assert.deepEqual([r.code, r.data.url], [1, null]);
+  assert.match(r.data.why, /another Unison server/);
+  // Even with no committed mapping, the map's server decides.
+  const file = join(w.plate, '.plates/plates.json');
+  const config = JSON.parse(await readFile(file, 'utf8'));
+  delete config.unison;
+  await writeFile(file, JSON.stringify(config));
+  r = cli(w, ['open'], { UNISON_SERVER: 'http://127.0.0.1:4700' });
+  assert.deepEqual([r.code, r.data.url], [1, null]);
+  assert.equal(cli(w, ['open']).data.url, 'http://127.0.0.1:4600/w/ws_acme1');
+});
