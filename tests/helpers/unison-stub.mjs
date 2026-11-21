@@ -64,7 +64,9 @@ if (a === 'backlog' && ['add', 'edit', 'close', 'reopen'].includes(b)) {
 }
 const item = id => { const it = state.items.find(i => i.id === Number(id) && i.workspace_id === ws); if (!it) { process.stderr.write('unison: no item\\n'); process.exit(1); } return it; };
 if (a === 'backlog' && b === 'add') {
-  if (state.failAdd) { process.stderr.write('unison: refused\\n'); process.exit(1); }
+  if (state.failAdd) { process.stderr.write('unison: invalid title (400)\\n'); process.exit(1); }
+  // serverErrorAdd: the add commits, then the server answers 500.
+  if (state.serverErrorAdd) { state.serverErrorAdd = false; state.items.push({ id: state.next++, title: argv[2], body: opt('--body') ?? '', status: 'open', workspace_id: ws }); save(); process.stderr.write('unison: server error (500)\\n'); process.exit(1); }
   const it = { id: state.next++, title: argv[2], body: opt('--body') ?? '', status: 'open', workspace_id: ws };
   // delayedCommit: the add commits server-side but the caller hears a timeout, and the item shows only after hiddenLists more lists.
   if (state.delayedCommit) { state.delayedCommit = false; (state.later ??= []).push(it); save(); process.stderr.write('unison: request timed out\\n'); process.exit(1); }

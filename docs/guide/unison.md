@@ -57,6 +57,21 @@ Only a link line at the start of a line, naming one of the workspace's repos,
 links an item; any other URL is prose. Copied text that would read as a link
 line is escaped (`\Phase:`), so it cannot name a different link.
 
+## Phases in every shape
+
+Sync reads phases as `plates next` and `plates status` do. The phases practice
+reads `docs/phases/` strictly; a local variant (or a plate without the practice)
+reads it loosely (front matter `status` and the first heading), and a plate
+with no `docs/phases/` has zero phases. The projects shape links each phase to
+`docs/projects/<project>/phases.md#<heading anchor>`, keyed by project and
+number, and it is open while its **Status:** is not CLOSED or RETIRED.
+
+The participant session is refused if its directory is inside a Git checkout
+(through symlinks too). A write Unison refuses for the session removes that
+session, so the next connect joins again. Only a recognized refusal (a 4xx, or
+words such as "not found") clears a pending record; a 500 or anything
+unclassified keeps it.
+
 ## The map
 
 `.plates/unison/map.json` is private (0600, git-ignored through

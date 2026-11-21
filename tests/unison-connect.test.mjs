@@ -1,7 +1,7 @@
 // Plates phase 200: plates unison connect and sync, through the CLI, against a stub `unison`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { run } from './helpers/run.mjs';
@@ -359,6 +359,35 @@ test('writes carry the participant session; without it nothing is written and co
   r = cli(w, ['sync']);
   assert.deepEqual([r.code, r.data.hint], [1, 'plates unison connect']);
   assert.equal((await mapOf(w)).pendingCreates, undefined);
+  // The refused session is removed, so connect joins again rather than reusing it, and the next sync writes.
+  await assert.rejects(stat(file));
+  r = cli(w, ['connect']);
+  assert.deepEqual([r.code, r.data.joined], [0, true]);
+  assert.deepEqual(cli(w, ['sync']).data.applied.map(a => a.op), ['create']);
+});
+
+test('the participant session never lands inside a checkout, even through a symlink', async t => {
+  const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')] });
+  for (const xdg of [join(w.plate, 'config'), join(w.root, 'linked-config')]) {
+    if (xdg.endsWith('linked-config')) { await mkdir(join(w.plate, 'real-config'), { recursive: true }); await symlink(join(w.plate, 'real-config'), xdg); }
+    const r = cli(w, ['connect'], { XDG_CONFIG_HOME: xdg });
+    assert.equal(r.code, 1, xdg);
+    assert.match(r.data.why, /inside the Git checkout/);
+    assert.equal((await w.calls()).filter(c => c.argv[0] === 'join').length, 0);
+  }
+  await assert.rejects(stat(join(w.plate, 'config/plates')));
+  await assert.rejects(stat(join(w.plate, 'real-config/plates')));
+});
+
+test('a 500 after the add keeps its pending create: only a recognized refusal clears it', async t => {
+  const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], items: [], next: 1 }, { phases: { '2-acme-counts-anvils.md': { status: 'planned', title: 'Acme counts anvils' } } });
+  cli(w, ['connect']);
+  await w.setState({ serverErrorAdd: true });
+  assert.equal(cli(w, ['sync']).code, 1);
+  assert.equal((await mapOf(w)).pendingCreates['phase:acme/tools:2'].title, 'Phase 2: Acme counts anvils');
+  // The item it made is adopted by its line on the next sync, never added twice.
+  assert.deepEqual(cli(w, ['sync']).data.adopted, [{ key: 'phase:acme/tools:2', item: 1 }]);
+  assert.equal((await w.state()).items.length, 1);
 });
 
 test('a definite refusal clears the pending create or workspace; only an uncertain failure holds', async t => {
@@ -376,4 +405,43 @@ test('a definite refusal clears the pending create or workspace; only an uncerta
   await assert.rejects(mapOf(v).then(m => { if (!m.pendingWorkspace) throw new Error('none'); }));
   await v.setState({ failCreate: false });
   assert.deepEqual([cli(v, ['connect']).data.created], [true]);
+});
+
+test('phases are read in every shape plates next reads: local variant, projects shape, none', async t => {
+  const make = async (state, config) => { const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], items: [], next: 1, ...state }, { config, phases: {} }); cli(w, ['connect']); return w; };
+  // A local variant: files plates's parser refuses (no goal, no goals.json), read loosely.
+  let w = await make({}, { local: { phases: 'Acme keeps its own roadmap' } });
+  await writeFile(join(w.plate, 'docs/phases/0-acme-emulator.md'), '---\nstatus: built\nsince: 2026-09-30\nnote: "Acme"\n---\n\n# The Acme emulator\n');
+  await writeFile(join(w.plate, 'docs/phases/1-acme-catalog.md'), '---\nstatus: planned\nnote: "Acme"\n---\n\n# The Acme catalog\n');
+  let r = cli(w, ['sync']);
+  assert.equal(r.code, 0, JSON.stringify(r.data));
+  assert.deepEqual((await w.state()).items.map(i => [i.title, i.body.split('\n').at(-1)]), [['Phase 1: The Acme catalog', 'Phase: https://github.com/acme/tools/blob/HEAD/docs/phases/1-acme-catalog.md']]);
+  // A file even the loose reader cannot place: not read, nothing written.
+  await writeFile(join(w.plate, 'docs/phases/2-acme-nothing.md'), '# No front matter\n');
+  r = cli(w, ['status']);
+  assert.deepEqual([r.code, r.data.read, r.data.plan], [1, false, null]);
+
+  // The projects shape: each phase at its heading, keyed by project, open while its Status is not CLOSED.
+  w = await make({}, { phases: { shape: 'projects' } });
+  await rm(join(w.plate, 'docs/phases'), { recursive: true });
+  await mkdir(join(w.plate, 'docs/projects/anvils'), { recursive: true });
+  await writeFile(join(w.plate, 'docs/projects/README.md'), '# Acme projects\n');
+  await writeFile(join(w.plate, 'docs/projects/anvils/phases.md'), '# Anvils\n\n## 1. Counting anvils\n\n**Status: CLOSED.**\n\n## Phase 2 — Ordering anvils\n\n**Status: NOT STARTED.**\n');
+  r = cli(w, ['sync']);
+  assert.equal(r.code, 0, JSON.stringify(r.data));
+  assert.deepEqual(r.data.applied.map(a => a.key), ['phase:acme/tools:anvils/2']);
+  const item = (await w.state()).items[0];
+  assert.deepEqual([item.title, item.body], ['Phase anvils/2: Ordering anvils', 'Phase: https://github.com/acme/tools/blob/HEAD/docs/projects/anvils/phases.md#phase-2--ordering-anvils']);
+  // The heading renamed: still the same item (by its number), and only the link line follows.
+  await writeFile(join(w.plate, 'docs/projects/anvils/phases.md'), '# Anvils\n\n## 1. Counting anvils\n\n**Status: CLOSED.**\n\n## Phase 2 — Ordering anvils by size\n\n**Status: NOT STARTED.**\n');
+  r = cli(w, ['sync']);
+  assert.deepEqual(r.data.applied.map(a => a.op), ['retitle']);
+  assert.equal((await w.state()).items.length, 1);
+  assert.match((await w.state()).items[0].body, /#phase-2--ordering-anvils-by-size$/);
+
+  // No phases practice and no docs/phases: zero phases, read.
+  w = await make({}, { practices: [] });
+  await rm(join(w.plate, 'docs/phases'), { recursive: true });
+  r = cli(w, ['status']);
+  assert.deepEqual([r.code, r.data.read, r.data.open, r.data.plan.counts.create], [0, true, 0, 0]);
 });
