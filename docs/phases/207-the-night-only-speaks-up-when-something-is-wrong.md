@@ -58,7 +58,8 @@ them), and changes to the CI gate itself.
 ## Integration increments
 
 1. **Climb and tend off for plates.** Remove the two config keys; supersede phases 35, 36
-   and 47. Proof: both workflows' "on" step reads off from the config. Recovery: restore
+   and 47. Proof: both workflows' config check reads off, and the agent and publication
+   steps are skipped. Recovery: restore
    the keys.
 2. **The quiet night.** The night practice stops staging and opening its pull request and
    proposals, and fails red on the three causes. Proof: tests on the night's outcome for
@@ -72,7 +73,7 @@ them), and changes to the CI gate itself.
 
 ## Acceptance
 
-- [ ] With no `climb` or `tend` key, both workflows end at their first step, and phases 35, 36 and 47 are superseded with a dated note: `tests/climb-pick.test.mjs: "off: with no climb key the workflow does nothing"`, `tests/climb-tend.test.mjs: "tend off: with no tend key nothing runs"`, and `node scripts/roadmap.mjs --check`.
+- [ ] With no `climb` or `tend` key, each workflow's config check reports off, and no agent, branch or pull request work runs (checkout and the runner-clock step may still run); phases 35, 36 and 47 are superseded with a dated note: `tests/climb-pick.test.mjs: "off: with no climb key the workflow does nothing"`, `tests/climb-tend.test.mjs: "tend off: with no tend key nothing runs"`, and `node scripts/roadmap.mjs --check`.
 - [ ] The night opens no pull request and files no proposal, and fails red with a named cause when main's CI is red, a test is flaky, or the gate ran no tests, and is green otherwise: `tests/night-quiet.test.mjs: "the night fails only on a red main, a flaky test or a gate with no tests"`.
 - [ ] The conduct practice proposes a lesson only from a real failure in the phase: `tests/guides.test.mjs: "a lesson candidate names the failure it came from"`.
 - [ ] The Loop workflow runs weekly: `tests/loop.test.mjs: "the Loop pull is weekly"`.
@@ -96,4 +97,4 @@ By hand: none.
 
 ## Next action
 
-Increment 1: remove the climb and tend keys and supersede phases 35, 36 and 47.
+Increment 2: the quiet night (being built). Increment 1 (climb and tend off) landed with this file; still to observe: the next scheduled `plates-climb` and `plates-tend` runs on plates report off and skip their agent and publication steps (the first box stays open until then).
