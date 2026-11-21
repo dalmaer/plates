@@ -18,7 +18,8 @@ export async function copyPackageSource(source, destination, extra = []) {
       filter: input => {
         const local = relative(source, input);
         return !excluded.some(pattern => local === pattern || local.startsWith(pattern + '/') || matchesGlob(local, pattern))
-          && !/(?:^|\/)\.plates\/test-runs(?:\/|$)/.test(local);
+          // A checkout's private, git-excluded state (test runs, the Unison map, Try it intents) is never a fixture input.
+          && !/(?:^|\/)\.plates\/(?:test-runs|unison|try-it)(?:\/|$)/.test(local);
       },
     });
   }
