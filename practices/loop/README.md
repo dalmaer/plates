@@ -115,7 +115,7 @@ are exported, so a project's own roadmap imports them from
 that writes `docs/LOOP.md` (pull, propose, decide, render), as ledger's own
 script reran its roadmap; it fails the verb when it fails. `render --check`
 never runs it. `"afterRenderWrites"` lists the files that command rewrites
-(ledger's: `["docs/ROADMAP.md"]`): the nightly commits them with the findings
+(ledger's: `["docs/ROADMAP.md"]`): the weekly pull commits them with the findings
 and the drain counts them as this queue's data. Leave one out and the gate
 passes on a tree the PR does not carry — the pull's roadmap stays on the
 runner, and main's is stale until someone reruns it by hand (ledger, 3 Oct
@@ -126,7 +126,7 @@ no glob or whitespace.
 this practice and leaves every other byte; it refuses while the project's
 own `scripts/loop.*` is still there.
 
-**The night.** `plates-loop.yml` runs at 09:43 UTC and does the following:
+**The pull.** `plates-loop.yml` runs weekly, Mondays at 09:43 UTC, and does the following:
 
 1. Installs the official stitch CLI, `npm install -g @google/stitch@0.11.0 --ignore-scripts`
    (the recorded checked release, with lifecycle scripts disabled).
@@ -146,7 +146,7 @@ decides, pushes, mines or proposes. Proposing with a model is a later
 decision, priced on its own. A failing gate or an unreachable Loop is red.
 
 **What it needs (⚑).** One secret, `STITCH_API_KEY`, the Loop key, under the
-name the official CLI reads. Until it is set, each night ends green with a
+name the official CLI reads. Until it is set, each weekly pull ends green with a
 notice.
 
 The workspace is `.stitch.json`'s `"workspace"`, which the official CLI reads
@@ -192,7 +192,7 @@ bytes unchanged.
 `92bec34f7` (Apache-2.0, Copyright Dimitri Glazkov), credited in the script's
 header. `practice.json` carries no `source` yet: a pinned source is watched by
 `plates learn` every night, and whether plates learns from isocan's or ledger's
-loop script that way is still open (phase 14, *Deliberately open*). The nightly's install and enable steps, the env aliases and the
+loop script that way is still open (phase 14, *Deliberately open*). The pull's install and enable steps, the env aliases and the
 skip-with-a-notice are from isocan's `.github/workflows/loop.yml`.
 
 **Ancestors (phase 16, 3 Oct 2026).** What plates decided for the projects this
@@ -213,7 +213,7 @@ practice came from, where each keeps a version of its own:
 
 ### Collection and validation are separate outcomes
 
-The nightly summary reports **Getting insights** separately from **Project
+The pull's summary reports **Getting insights** separately from **Project
 validation**. A successful pull can preserve findings in a PR even when the
 project build fails; it is not acceptance, a merged change, or a verified fix.
 The final validation verdict stays red until the gate passes on that tree.

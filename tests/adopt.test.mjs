@@ -920,7 +920,8 @@ test('adoption and adding practices estimate only newly created workflows from p
     assert.deepEqual(await tree(dir), before, 'read-only preview installs no workflows or schedules');
     for (const flow of result.data.ciCost.workflows) {
       // plates-morning (phase 77) is a daily cron plus workflow_run: priced like every daily workflow, never unknown.
-      assert.equal(flow.monthlyWeightedMinutes, flow.triggers.includes('schedule') ? 60 : 2.14);
+      // Two minutes a run: a daily schedule is 30 runs a month, the weekly Loop pull (phase 207) 30/7.
+      assert.equal(flow.monthlyWeightedMinutes, !flow.triggers.includes('schedule') ? 2.14 : flow.path.endsWith('plates-loop.yml') ? 8.57 : 60);
       assert.equal(flow.source.repo, repo);
       assert.equal(flow.source.window.days, 28);
       assert.equal(flow.coverage.complete, true);

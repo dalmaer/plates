@@ -660,7 +660,7 @@ export function settings(root = ROOT) {
     kind: own.kind ?? `${name}-triage-decisions`,
     contexts: Array.isArray(own.contexts) ? own.contexts : [],
     afterRender: own.afterRender ?? null,
-    // What afterRender writes: the nightly commits these with the findings,
+    // What afterRender writes: the weekly pull commits these with the findings,
     // and the drain counts them as the keel-loop/ queue's data.
     afterRenderWrites: Array.isArray(own.afterRenderWrites) ? own.afterRenderWrites.filter(isPlainPath) : [],
     env: plates.env && typeof plates.env === 'object' && !Array.isArray(plates.env) ? plates.env : {},
