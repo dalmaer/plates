@@ -1,11 +1,11 @@
 ---
-status: planned
+status: partial
 since: 2026-11-21
 goal: G0
 spec: 2
 depends: [44]
-note: "Filed: walks are removed from every plates phase and never hold one back; agents write a Try it for each PR, and Home shows it as optional."
-evidence: []
+note: "Built: walks are written ⚑ try: and never hold a phase back; plates's walk boxes are removed and its decisions, approvals and setup steps kept; PRs carry a Try it; Home shows Try its as optional. Home listing them on the default branch is walked after merge."
+evidence: ["evidence/2026-11-21-try-it-not-a-gate.md"]
 ---
 
 # Trying the work by hand is an invitation, never a gate
@@ -65,10 +65,10 @@ for Unison sections), and removing `plates walk` (it still records answers).
 
 ## Acceptance
 
-- [ ] A phase whose only unchecked boxes are `⚑ by hand` walks passes the roadmap check as built, and one with an unchecked buildable box still does not: `tests/roadmap.test.mjs: "a by-hand walk never holds a phase back from built"`.
-- [ ] No plates phase has a `⚑ by hand` walk box or a walk-only Your part, and every phase that was partial only for walks is built: `node scripts/roadmap.mjs --check`.
-- [ ] Home lists an open walk as an optional Try it in both forms, answerable Works, Something's off or Skip, outside the docket count and push notifications; a ⚑ setup step or decision still waits on the owner: `tests/home-try-it.test.mjs: "a walk is an optional Try it on Home, never waiting on the owner"`.
-- [ ] The conduct and spin skills, AGENTS.md and the agent guide ask for a Try it on each phase PR: `tests/guides.test.mjs: "phase PRs carry a Try it"`.
+- [x] A phase whose only unchecked boxes are `⚑ by hand` walks passes the roadmap check as built, and one with an unchecked buildable box still does not: `tests/roadmap.test.mjs: "a by-hand walk never holds a phase back from built"`.
+- [x] No plates phase has a `⚑ by hand` walk box or a walk-only Your part, and every phase that was partial only for walks is built: `node scripts/roadmap.mjs --check`.
+- [x] Home lists an open walk as an optional Try it in both forms, answerable Works, Something's off or Skip, outside the docket count and push notifications; a ⚑ setup step or decision still waits on the owner: `tests/home-try-it.test.mjs: "a walk is an optional Try it on Home, never waiting on the owner"`.
+- [x] The conduct and spin skills, AGENTS.md and the agent guide ask for a Try it on each phase PR: `tests/guides.test.mjs: "phase PRs carry a Try it"`.
 
 ## Real surfaces
 
@@ -89,4 +89,9 @@ By hand: none required; the owner may try Home on their phone.
 
 ## Next action
 
-Increment 1: the rule in scripts/roadmap.mjs and the README, and plates's walk-only phases moved to built.
+After merge: `plates home --project plates` lists phases 59, 65 and 193 as Try its; then move this phase to built. Moving adopted projects' walk records waits on the owner.
+
+## Trajectory
+
+- **2026-11-21** — Not every `⚑ by hand` box is a walk: a fleet rehearsal found decisions, approvals and setup steps written the same way, so only boxes now written `⚑ try:` are optional, and the check never guesses from prose. 61 kept and unsure boxes stay; the blanket removal was reworked.
+- **2026-11-21** — Home builds an owner's walk card only for a phase marked `owes: walk`, so phases whose remaining owner boxes are decisions keep `owes: walk` until the walk machinery is simplified.
