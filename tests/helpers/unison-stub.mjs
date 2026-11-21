@@ -74,6 +74,13 @@ if (a === 'backlog' && b === 'add') {
   state.items.push(it); save();
   // addDelayMs: the add lands, then the answer is slow (a second sync may start meanwhile).
   if (state.addDelayMs) { const until = Date.now() + state.addDelayMs; while (Date.now() < until) { /* hold */ } }
+  // holdAdd: the add lands, says so (a <state>.entered file), then waits for a <state>.release file before answering
+  // (at most a minute). Separate sentinel files, so neither side reads the state file while the other rewrites it.
+  if (state.holdAdd) {
+    fs.writeFileSync(file + '.entered', '');
+    const nap = new Int32Array(new SharedArrayBuffer(4)), until = Date.now() + 60_000;
+    while (Date.now() < until && !fs.existsSync(file + '.release')) Atomics.wait(nap, 0, 0, 50);
+  }
   out(it);
 }
 if (a === 'backlog' && b === 'edit') { const it = item(argv[2]); if (opt('--title') !== undefined) it.title = opt('--title'); if (opt('--body') !== undefined) it.body = opt('--body'); save(); out(it); }
