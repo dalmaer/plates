@@ -323,3 +323,24 @@ test('a source plates cannot represent is a reported gap, and older unencoded ke
   const map = readMap({ schema: 1, repo: 'acme/tools', entries: { 'phase:acme/tools:cafe/2#phase-2--café': { item: 1, closedBySync: false } } });
   assert.deepEqual(Object.keys(map.entries), ['phase:acme/tools:cafe/2#phase-2--caf%C3%A9']);
 });
+
+test('a removed collision member never takes its survivor\'s key: exact links claim first', () => {
+  const link = file => `Phase: ${phaseUrl('acme/tools', file)}`;
+  const items = [{ id: 1, title: 'Phase 5: A', body: link('5-a.md'), status: 'open' }, { id: 2, title: 'Phase 5: B', body: link('5-b.md'), status: 'open' }];
+  // A was mapped first; then A's file is removed and B is built.
+  const map = readMap({ schema: 1, repo: 'acme/tools', entries: { 'phase:acme/tools:5#5-a': { item: 1, closedBySync: false }, 'phase:acme/tools:5#5-b': { item: 2, closedBySync: false } } });
+  const sources = phaseSources([{ id: 5, file: '5-b.md', title: 'B', status: 'built' }], 'acme/tools');
+  const plan = planSync({ items, sources, map, repos: REPOS, repo: 'acme/tools' });
+  assert.deepEqual(plan.rekey, [{ from: 'phase:acme/tools:5#5-b', to: 'phase:acme/tools:5' }]);
+  assert.deepEqual(plan.actions.map(a => [a.op, a.item]), [['close', 2]]);
+  assert.deepEqual([plan.unlinked, plan.suggestions], [[], [{ kind: 'source-gone', key: 'phase:acme/tools:5#5-a', item: 1 }]]);
+});
+
+test('a pending create is held through a key change: every candidate waits out the window', () => {
+  const at = '2026-11-20T10:00:00.000Z', now = Date.parse('2026-11-20T10:05:00.000Z');
+  const map = readMap({ schema: 1, repo: 'acme/tools', entries: {}, pendingCreates: { 'phase:acme/tools:5': { title: 'Phase 5: A', at } } });
+  const sources = phaseSources([{ id: 5, file: '5-a.md', title: 'A', status: 'planned' }, { id: 5, file: '5-b.md', title: 'B', status: 'planned' }], 'acme/tools');
+  const plan = planSync({ items: [], sources, map, repos: REPOS, repo: 'acme/tools', now });
+  assert.deepEqual(plan.actions, []);
+  assert.deepEqual(plan.waiting, [{ key: 'phase:acme/tools:5', since: at, holds: ['phase:acme/tools:5#5-a', 'phase:acme/tools:5#5-b'] }]);
+});
