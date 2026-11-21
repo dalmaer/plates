@@ -50,8 +50,11 @@
       "budget": {
         "minutes": 45
       },
-      "status": "planned",
-      "result": null
+      "status": "failed",
+      "result": {
+        "note": "no-candidate: climb test-time 2026-11-21 (tests/canvas-package.test.mjs): kept nothing; no measured attempts recorded; inspect the retained execution receipt and measurement scope before retrying; no optimization was evaluated; 2 min",
+        "link": "https://github.com/dalmaer/plates/actions/runs/44894052044"
+      }
     },
     {
       "id": "persona-performance--published-package",
