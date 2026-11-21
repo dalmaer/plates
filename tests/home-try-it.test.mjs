@@ -151,6 +151,7 @@ if (a[0] === 'issue' && a[1] === 'create') {
   const body = a[a.indexOf('--body') + 1], url = 'https://github.com/acme/studio/issues/' + (9 + st.issues.length);
   if (st.create === 'fail') { console.error('gh: offline'); process.exit(1); }
   st.issues.push({ url, body }); fs.writeFileSync(${JSON.stringify(state)}, JSON.stringify(st));
+  if (st.appendTo) { fs.appendFileSync(st.appendTo, st.appendText); st.appendTo = null; fs.writeFileSync(${JSON.stringify(state)}, JSON.stringify(st)); }
   if (st.create === 'lost' || st.create === 'lost-hidden') { console.error('gh: connection reset'); process.exit(1); }
   console.log(url);
 } else if (a[0] === 'issue' && a[1] === 'list') console.log(JSON.stringify(st.create === 'lost-hidden' ? [] : st.issues));
@@ -339,5 +340,25 @@ test('a lost create with nothing found yet holds: two answers within the hold ma
     clock += 14 * 60_000;
     await assert.rejects(answer(), /waiting for the follow-up issue to appear/);
     assert.equal((await fake.calls()).filter(c => c === 'issue create').length, 1, 'one create within the hold');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('an edit made while the follow-up opens is never overwritten, and the retry records the kept issue', async () => {
+  const raw = phaseFile({ acceptance: '- [x] Publishes: `tests/a.test.mjs`.\n- [ ] ⚑ try: the owner: opens it.' });
+  const root = await checkout({ 'docs/phases/05-acme.md': raw, 'docs/evidence/acme.md': '# Evidence\n' });
+  try {
+    const fake = await fakeGh(root), env = { ...process.env, PLATES_GH: fake.gh, KEEL_GH: fake.gh, GIT_DIR: join(root, '.no-git') };
+    // While gh creates the issue, another writer appends to the evidence file.
+    await fake.set({ appendTo: join(root, 'docs/evidence/acme.md'), appendText: 'Another writer\'s line.\n' });
+    const answer = () => walkDone({ root, phase: '5', tried: 'off', note: 'Grey.', env, yes: true, today: '2026-11-21' });
+    await assert.rejects(answer(), /docs\/evidence\/acme\.md changed while the answer was being prepared: nothing written\. The follow-up is open: https:\/\/github\.com\/acme\/studio\/issues\/9/);
+    assert.equal(await readFile(join(root, 'docs/evidence/acme.md'), 'utf8'), '# Evidence\nAnother writer\'s line.\n', 'the appended text survives');
+    assert.equal(await readFile(join(root, 'docs/phases/05-acme.md'), 'utf8'), raw, 'the phase is untouched');
+    // The retry records the kept issue on top of the other writer's line, without opening another.
+    const r = await answer();
+    assert.equal(r.data.followUp, 'https://github.com/acme/studio/issues/9');
+    const evidence = await readFile(join(root, 'docs/evidence/acme.md'), 'utf8');
+    assert.match(evidence, /Another writer's line\.[\s\S]*Tried it: something's off\. Grey\. Follow-up: https:\/\/github\.com\/acme\/studio\/issues\/9\./);
+    assert.equal((await fake.calls()).filter(c => c === 'issue create').length, 1);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
