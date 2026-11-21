@@ -28,4 +28,6 @@ Built by a builder subagent; verified by the conductor.
 
 ## Gaps and decision
 
-Not yet shown: `connect` creating a real workspace and `sync` filling one (to be run on a fleet plate after merge); whether `unison backlog add --json` returns the new item's id (if not, sync stops and the link line prevents a duplicate on the next run); increment 3 (events and Home states) and 4 (typed links). The phase stays partial.
+Shown on real workspaces since the first record: `connect` creating a workspace and finding it again, joining as the account's participant, and `sync` creating the open phase items once each (today: three items; a second sync applies nothing). `backlog add --json` returns the item's id, which sync maps. All sixteen fleet plates are connected (each with a workspace and the owner joined); their phases read in every shape (phases practice, local variant, projects shape, none).
+
+Not yet shown: a phase built closing its item on a real workspace (the owner's walk); syncing plates's own workspace, which waits on closing its 68 open imported items as the owner chose; increment 3 (events and Home states) and 4 (typed links). The phase stays partial.
