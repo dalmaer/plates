@@ -2221,7 +2221,7 @@ never a refusal. Home lists each open `⚑ try:` box as an optional Try it (`try
 `plates home --json`, and the glance's `tryIt`), outside `docket`, its
 count and push notifications; its answers are `works`, `off` (Something's
 off: needs a why, and opens a follow-up GitHub issue with it) and `skip`,
-through `plates walk done <phase> --tried works|off|skip [--note "<line>"]
+through `plates walk done <phase> --tried works|off|skip [--note "<line>"] [--new-follow-up]
 [--box <n>]`: works checks the box, off checks it and records the issue,
 skip checks it and says it was skipped (never taking a box away, so no box renumbers); an answer for a box whose text changed since Home showed it is refused; each appends a row to the phase's evidence, and a
 partial phase left with no open box moves to built. A kept `⚑ by hand` box (a

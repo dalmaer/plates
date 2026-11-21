@@ -362,3 +362,30 @@ test('an edit made while the follow-up opens is never overwritten, and the retry
     assert.equal((await fake.calls()).filter(c => c === 'issue create').length, 1);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test('a kept follow-up is reused only for the same note; --new-follow-up opens another', async () => {
+  const raw = phaseFile({ acceptance: '- [x] Publishes: `tests/a.test.mjs`.\n- [ ] ⚑ try: the owner: opens it.' });
+  const root = await checkout({ 'docs/phases/05-acme.md': raw, 'docs/evidence/acme.md': '# Evidence\n' });
+  try {
+    const fake = await fakeGh(root), env = { ...process.env, PLATES_GH: fake.gh, KEEL_GH: fake.gh, GIT_DIR: join(root, '.no-git') };
+    const answer = (note, more = {}) => walkDone({ root, phase: '5', tried: 'off', note, env, yes: true, today: '2026-11-21', ...more });
+    // The first write is refused (an edit lands while the issue opens): issue 9 is kept.
+    await fake.set({ appendTo: join(root, 'docs/evidence/acme.md'), appendText: 'Another writer\'s line.\n' });
+    await assert.rejects(answer('Grey.'), /follow-up is open: https:\/\/github\.com\/acme\/studio\/issues\/9/);
+    // A different note is never recorded against issue 9.
+    await assert.rejects(answer('The button is missing.'), /a follow-up for a different note is already open: https:\/\/github\.com\/acme\/studio\/issues\/9 — answer with that note, or pass --new-follow-up/);
+    assert.doesNotMatch(await readFile(join(root, 'docs/evidence/acme.md'), 'utf8'), /Tried it/);
+    // The same note records the kept issue, with no new create.
+    assert.equal((await answer('Grey.')).data.followUp, 'https://github.com/acme/studio/issues/9');
+    assert.equal((await fake.calls()).filter(c => c === 'issue create').length, 1);
+    // --new-follow-up opens a fresh issue for a new complaint about another open walk.
+    await writeFile(join(root, 'docs/phases/05-acme.md'), (await readFile(join(root, 'docs/phases/05-acme.md'), 'utf8')).replace('- [x] ⚑ try: the owner: opens it.', '- [x] ⚑ try: the owner: opens it.\n- [ ] ⚑ try: the owner: opens it again.'));
+    const keep = answer('Still grey.', { box: '3' });
+    assert.equal((await keep).data.followUp, 'https://github.com/acme/studio/issues/10', 'another box: its own issue');
+    await writeFile(join(root, 'docs/phases/05-acme.md'), (await readFile(join(root, 'docs/phases/05-acme.md'), 'utf8')).replace('- [x] ⚑ try: the owner: opens it again.', '- [ ] ⚑ try: the owner: opens it again.'));
+    await fake.set({ appendTo: join(root, 'docs/evidence/acme.md'), appendText: 'More.\n' });
+    await assert.rejects(answer('Another thing.', { box: '3' }), /follow-up is open: https:\/\/github\.com\/acme\/studio\/issues\/11/);
+    await assert.rejects(answer('Yet another.', { box: '3' }), /different note is already open: https:\/\/github\.com\/acme\/studio\/issues\/11/);
+    assert.equal((await answer('Yet another.', { box: '3', newFollowUp: true })).data.followUp, 'https://github.com/acme/studio/issues/12', '--new-follow-up: a second create for the new note');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
