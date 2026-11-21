@@ -94,7 +94,7 @@ test('sync applies the plan, keeps the map, and a second sync changes nothing', 
   const three = join(w.plate, 'docs/phases/3-acme-orders-anvils.md');
   await writeFile(three, (await readFile(three, 'utf8')).replace('# Acme orders anvils', '# Acme orders anvils by size'));
   const before = (await w.calls()).length;
-  assert.deepEqual(cli(w, ['status']).data.plan.counts, { create: 0, retitle: 1, close: 1, reopen: 0 });
+  assert.deepEqual(cli(w, ['status']).data.plan.counts, { create: 0, retitle: 1, relink: 0, close: 1, reopen: 0 });
   assert.equal(mutating((await w.calls()).slice(before)).length, 0);
   r = cli(w, ['sync']);
   assert.deepEqual(r.data.applied.map(a => [a.op, a.item]), [['close', 40], ['retitle', 41]]);
@@ -207,9 +207,9 @@ test('an issue item whose repo was renamed stays linked through GitHub, and its 
   cli(w, ['connect'], env);
   const map = join(w.plate, '.plates/unison/map.json');
   await writeFile(map, JSON.stringify({ schema: 1, workspace: 'ws_acme1', repo: 'acme/tools', entries: { 'issue:I_acme5': { item: 1, closedBySync: false } } }), { mode: 0o600 });
-  // Open: not lost, not made again; the retitle brings the line to the current URL.
+  // Open: not lost, not made again; a relink brings the line to the current URL.
   let r = cli(w, ['sync'], env);
-  assert.deepEqual([r.data.unlinked, r.data.applied.map(a => a.op)], [[], ['retitle']]);
+  assert.deepEqual([r.data.unlinked, r.data.applied.map(a => a.op)], [[], ['relink']]);
   assert.equal((await w.state()).items.length, 1);
   assert.equal((await w.state()).items[0].body, 'Issue: https://github.com/acme/tools/issues/5');
   // Put the old line back and close the issue: the item still closes.
@@ -217,4 +217,26 @@ test('an issue item whose repo was renamed stays linked through GitHub, and its 
   await writeFile(ghState, JSON.stringify({ open: [], nodes: [{ id: 'I_acme5', number: 5, title: 'Anvils rust', state: 'CLOSED', repository: { nameWithOwner: 'acme/tools' } }] }));
   r = cli(w, ['sync'], env);
   assert.deepEqual(r.data.applied.map(a => [a.op, a.item]), [['close', 1]]);
+});
+
+test('an item reopened by hand is no longer closed by sync, so a later hand close is a suggestion', async t => {
+  const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], items: [], next: 1 }, { phases: { '2-acme-counts-anvils.md': { status: 'planned', title: 'Acme counts anvils' } } });
+  cli(w, ['connect']);
+  cli(w, ['sync']);
+  const phase = join(w.plate, 'docs/phases/2-acme-counts-anvils.md');
+  const planned = await readFile(phase, 'utf8');
+  await writeFile(phase, planned.replace('status: planned', 'status: built').replace('evidence: []', 'evidence: ["evidence/acme.md"]').replace('- [ ]', '- [x]'));
+  assert.deepEqual(cli(w, ['sync']).data.applied.map(a => a.op), ['close']);
+  // The owner reopens the item by hand, and the phase goes back to planned.
+  await writeFile(phase, planned);
+  await w.setState({ items: (await w.state()).items.map(i => ({ ...i, status: 'open' })) });
+  // Status writes nothing, but plans as if sync had not closed it.
+  assert.equal(cli(w, ['status']).data.plan.counts.reopen, 0);
+  assert.equal((await mapOf(w)).entries['phase:acme/tools:2'].closedBySync, true);
+  assert.deepEqual(cli(w, ['sync']).data.applied, []);
+  assert.equal((await mapOf(w)).entries['phase:acme/tools:2'].closedBySync, false);
+  // Then closes it by hand while the phase is open: a suggestion, not a reopen.
+  await w.setState({ items: (await w.state()).items.map(i => ({ ...i, status: 'done', close_note: 'not now' })) });
+  const r = cli(w, ['sync']);
+  assert.deepEqual([r.data.applied, r.data.suggestions], [[], [{ kind: 'closed-by-hand', key: 'phase:acme/tools:2', item: 1 }]]);
 });

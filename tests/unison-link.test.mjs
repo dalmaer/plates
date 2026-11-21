@@ -149,7 +149,7 @@ test('Unison not read is never an empty backlog', async t => {
   let r = await run(w, 'status');
   assert.equal(r.exitCode ?? 0, 0, r.text);
   assert.equal(r.data.read, true);
-  assert.deepEqual(r.data.plan.counts, { create: 2, retitle: 0, close: 0, reopen: 0 });
+  assert.deepEqual(r.data.plan.counts, { create: 2, retitle: 0, relink: 0, close: 0, reopen: 0 });
   // Fails, not JSON, answers without its array: not read, no plan, exit 1.
   for (const mode of ['fail', 'not-json', 'no-array']) {
     await w.setState({ mode });
@@ -218,4 +218,14 @@ test('a close sync sent but never recorded is settled by the item and its close 
   assert.deepEqual(plan.suggestions, [{ kind: 'closed-by-hand', key: 'phase:acme/tools:3', item: 9 }]);
   const after = plan.settled.reduce((m, x) => mapAfter(m, { op: 'settle', ...x }), map);
   assert.deepEqual(after.entries['phase:acme/tools:2'], { item: 7, closedBySync: true });
+});
+
+test("a renamed phase file updates only its item's link line", () => {
+  const old = { id: 7, title: 'Phase 2: B', body: `The owner's notes.\nPhase: ${P('2-old.md')}\nMore notes.`, status: 'open' };
+  const map = readMap({ schema: 1, repo: 'acme/tools', entries: { 'phase:acme/tools:2': { item: 7, closedBySync: false } } });
+  const sources = phaseSources([{ id: 2, file: '2-renamed.md', title: 'B', status: 'planned' }], 'acme/tools');
+  const plan = planSync({ items: [old], sources, map, repos: REPOS, repo: 'acme/tools' });
+  assert.deepEqual(plan.actions, [{ op: 'relink', key: 'phase:acme/tools:2', item: 7, body: `The owner's notes.\nPhase: ${P('2-renamed.md')}\nMore notes.` }]);
+  // Brought current, nothing more to do.
+  assert.deepEqual(planSync({ items: [{ ...old, body: plan.actions[0].body }], sources, map, repos: REPOS, repo: 'acme/tools' }).actions, []);
 });
