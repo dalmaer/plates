@@ -316,3 +316,10 @@ test('every phase file name a reader accepts round-trips through its link line',
   const plan = planSync({ items: [], sources, map: readMap(null), repos: REPOS, repo: 'acme/tools' });
   assert.deepEqual([plan.actions.length, plan.suggestions], [names.length, []]);
 });
+
+test('a source plates cannot represent is a reported gap, and older unencoded keys still read', () => {
+  const plan = planSync({ items: [], sources: phaseSources([{ project: 'bad/name', id: '1', anchor: 'x', title: 'X', status: 'planned' }], 'acme/tools'), map: readMap(null), repos: REPOS, repo: 'acme/tools' });
+  assert.deepEqual([plan.actions, plan.gaps], [[], [{ kind: 'unsupported-source', what: 'docs/projects/bad/name/phases.md phase 1' }]]);
+  const map = readMap({ schema: 1, repo: 'acme/tools', entries: { 'phase:acme/tools:cafe/2#phase-2--café': { item: 1, closedBySync: false } } });
+  assert.deepEqual(Object.keys(map.entries), ['phase:acme/tools:cafe/2#phase-2--caf%C3%A9']);
+});

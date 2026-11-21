@@ -469,3 +469,30 @@ test('a loose phase file with a Unicode name links back, and its item closes whe
   assert.deepEqual([r.data.applied.map(a => [a.op, a.item]), r.data.unlinked], [[['close', 1]], []]);
   assert.equal((await w.state()).items[0].status, 'done');
 });
+
+test('keys from names with spaces or Unicode are encoded, so the map they make reads back', async t => {
+  // Two loose files sharing a number, one with a space: suffixed keys the map must accept.
+  let w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], items: [], next: 1 }, { config: { local: { phases: 'Acme roadmap' } }, phases: {} });
+  await writeFile(join(w.plate, 'docs/phases/5-a b.md'), '---\nstatus: planned\n---\n\n# Acme A\n');
+  await writeFile(join(w.plate, 'docs/phases/5-c.md'), '---\nstatus: planned\n---\n\n# Acme C\n');
+  cli(w, ['connect']);
+  let r = cli(w, ['sync']);
+  assert.equal(r.code, 0, JSON.stringify(r.data));
+  assert.deepEqual(r.data.applied.map(a => a.key), ['phase:acme/tools:5#5-a%20b', 'phase:acme/tools:5#5-c']);
+  assert.equal(cli(w, ['status']).code, 0);
+  assert.deepEqual([cli(w, ['sync']).code, (await w.state()).items.length], [0, 2]);
+
+  // A projects-shape directory with a space and Unicode: synced, not silently dropped.
+  w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], items: [], next: 1 }, { config: { phases: { shape: 'projects' } }, phases: {} });
+  await rm(join(w.plate, 'docs/phases'), { recursive: true });
+  await mkdir(join(w.plate, 'docs/projects/acme tools é'), { recursive: true });
+  await writeFile(join(w.plate, 'docs/projects/README.md'), '# Acme projects\n');
+  await writeFile(join(w.plate, 'docs/projects/acme tools é/phases.md'), '# Acme tools\n\n## Phase 1 — Counting\n\n**Status: NOT STARTED.**\n');
+  cli(w, ['connect']);
+  r = cli(w, ['status']);
+  assert.deepEqual([r.code, r.data.open, r.data.plan.counts.create], [0, 1, 1]);
+  r = cli(w, ['sync']);
+  assert.deepEqual(r.data.applied.map(a => a.key), ['phase:acme/tools:acme%20tools%20%C3%A9/1']);
+  assert.match((await w.state()).items[0].body, /docs\/projects\/acme%20tools%20%C3%A9\/phases\.md#phase-1--counting$/);
+  assert.deepEqual([cli(w, ['sync']).data.applied, cli(w, ['status']).code], [[], 0]);
+});
