@@ -168,14 +168,16 @@ test('two overlapping syncs make one item: the second is not run', async t => {
   cli(w, ['connect']);
   // The first sync's add lands and then waits for this test, so the second sync runs while the first really holds the lock.
   await w.setState({ holdAdd: true });
-  t.after(() => w.setState({ releaseAdd: true }).catch(() => {}));
+  const sentinel = join(w.root, 'unison-state.json');
+  t.after(() => writeFile(sentinel + '.release', '').catch(() => {}));
   const first = unisonCommand({ args: ['sync'], root: w.plate, config: JSON.parse(await readFile(join(w.plate, '.plates/plates.json'), 'utf8')), env: w.env, readPhases: async () => (await collect(w.plate)).phases });
-  for (let i = 0; i < 400 && !(await w.state()).addEntered; i++) await new Promise(done => setTimeout(done, 50));
-  assert.equal((await w.state()).addEntered, true, 'the first sync reached its add');
+  const entered = async () => stat(sentinel + '.entered').then(() => true, () => false);
+  for (let i = 0; i < 400 && !(await entered()); i++) await new Promise(done => setTimeout(done, 50));
+  assert.equal(await entered(), true, 'the first sync reached its add');
   const second = cli(w, ['sync']);
   assert.equal(second.code, 1);
   assert.match(second.data.why, /another sync is running/);
-  await w.setState({ releaseAdd: true });
+  await writeFile(sentinel + '.release', '');
   assert.equal((await first).exitCode ?? 0, 0);
   assert.equal((await w.state()).items.length, 1);
   // The lock is released: a third sync runs and changes nothing.
