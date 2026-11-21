@@ -1,10 +1,10 @@
 ---
-status: built
+status: partial
 since: 2026-11-21
 goal: G0
 spec: 2
 depends: [44]
-note: "Built: walks are written ⚑ try: and never hold a phase back; plates's walk boxes are removed and decisions, approvals and setup steps kept; PRs carry a Try it; Home shows ready Try its as optional and keeps not-ready ones waiting with their reason."
+note: "Built and merged: walks are ⚑ try: and never hold a phase back; decisions, approvals and setup steps kept; PRs carry a Try it; Home shows ready Try its as optional. Owed: Home at main showing phase 65 as a Try it once its Ready: yes is merged."
 evidence: ["evidence/2026-11-21-try-it-not-a-gate.md"]
 ---
 
@@ -70,7 +70,7 @@ for Unison sections), and removing `plates walk` (it still records answers).
 - [x] Home lists an open walk as an optional Try it in both forms, answerable Works, Something's off or Skip, outside the docket count and push notifications; a ⚑ setup step or decision still waits on the owner: `tests/home-try-it.test.mjs: "a walk is an optional Try it on Home, never waiting on the owner"`.
 - [x] The conduct and spin skills, AGENTS.md and the agent guide ask for a Try it on each phase PR: `tests/guides.test.mjs: "phase PRs carry a Try it"`.
 
-- [x] On the owner's machine, after merge, Home lists a ready Try it (phase 65) with its three answers and leaves it out of the docket, and keeps not-ready ones (59: its Ready when; 193: waits on 192) waiting with their reason: `plates home --project plates --json`.
+- [ ] On the owner's machine, after merge, Home lists a ready Try it (phase 65) with its three answers and leaves it out of the docket, and keeps not-ready ones (59: its Ready when; 193: waits on 192) waiting with their reason: `plates home --project plates --json`.
 
 ## Real surfaces
 
@@ -91,7 +91,7 @@ By hand: none required; the owner may try Home on their phone.
 
 ## Next action
 
-Moving adopted projects' walk records waits on the owner.
+After this merges: run `plates home --project plates --json` at main on the owner's machine; when phase 65 is a Try it outside the docket, check the box and move this phase to built. Moving adopted projects' walk records waits on the owner.
 
 ## Trajectory
 
