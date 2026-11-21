@@ -25,6 +25,13 @@ Built by a builder subagent and verified by the conductor. The work went back tw
 | Phases 59, 65 and 193 (only walks open, no evidence) | walks become `⚑ try:`, the phases stay partial | each has one `⚑ try:` box; roadmap check exit 0 | the new marker on real records |
 | `plates home --project plates --json` on the owner's Mac | the kept owner boxes are in the docket; Try its appear once this is on the default branch | docket 42 (4 of them walks with kept boxes), 0 Try its, because Home reads the default branch | the docket split on real data; the Try its show only after merge |
 
+## After merge (850c55ce)
+
+| Did | Expected | Observed | Proves / does not prove |
+| --- | --- | --- | --- |
+| `plates home --project plates --json` on the owner's Mac, at main | the three `⚑ try:` phases out of the docket, with ready ones shown as Try its | none in the docket; 59 waiting ("Ready when: two projects, one per runner, have a week of records"), 193 blocked ("Waits on 192"), and 65 waiting on "Ready when: this is built", which can't be met now that the walk is optional | readiness and docket exclusion on real records; it showed that 65's Ready when was stale |
+| The same, against a local clone of this follow-up with 65's Your part set to Ready: yes | phase 65 listed as a Try it with three answers, not in the docket | "Try it (1 optional; nothing waits on these)"; phase 65 with Works / Something's off / Skip and `plates home --answer plates:walk:65 …`; the docket's 28 items exclude it | the Try it section end to end on a real phase |
+
 ## Gaps and decision
 
 Not yet shown: Home listing phases 59, 65 and 193 as Try its, which needs this on the default branch (walked right after merge). Fleet projects keep their records until the owner asks to move them.

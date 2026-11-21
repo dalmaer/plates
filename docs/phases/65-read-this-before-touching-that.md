@@ -38,7 +38,7 @@ The design is [Adopting projects that already have a practice](../research/2026-
 - **Choices:** Helped | Noise
 - **Takes:** 10 minutes.
 - **Then:** Helped: the phase is built. Noise: the hook becomes the guide's table only.
-- **Ready when:** this is built.
+- **Ready:** yes
 
 ## Real surfaces
 
