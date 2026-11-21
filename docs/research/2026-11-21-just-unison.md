@@ -82,21 +82,29 @@ Unison:
    - When a linked PR merges and CI passes, each `test:` check whose test ran and
      passed in that run is ticked, with a link to the run.
    - Each `walk:` check becomes a card in "For you", with the walk's choices.
-7. **The item closes** when every check has its proof. Closing it by hand while a
-   check has none needs an explicit "close without proof", and the item shows it.
+7. **The item closes** when every check has *verified* proof: a test seen passing in
+   the proof report, or a walk answered by its person. Agent-vouched links stay on the
+   item as evidence but never close it. Closing with any check unverified needs a
+   person's explicit "close without proof", and the item shows it.
+
+**Proof is bound to what it proved.** Each proof records the version of the Done when
+and of its check that were current when it was attached. Editing either one marks
+that proof stale. The check needs fresh proof, such as a new walk answer or a run after
+the change, before the item can close.
 
 ## How proof gets checked without plates
 
 Two small pieces do the work plates' tooling did.
 
 1. **A proof report from CI.** The mode offers a one-line CI step to add to the repo
-   (a GitHub Action from the template). It publishes the names of the tests that ran
-   and passed as part of the check run's output. Unison reads the run for a merged
-   PR's commit and ticks matching `test:` checks. Without the step, an agent can still
-   tick a check by linking the run, and the item says the check was vouched for, not
-   verified.
+   (a GitHub Action from the template). It publishes each test that ran and passed,
+   as its repository-relative file path plus its test name, in the check run's output.
+   Unison reads the run for a merged PR's commit and ticks a `test:` check only when
+   both the file and the name match. Without the step, an agent can link a run as
+   evidence. The check then shows as vouched for, not verified, and it can't close the
+   item on its own.
 2. **Unison's own rules.**
-   - An item can't close with unproven checks unless someone says so.
+   - An item can't close with unverified or stale checks unless a person says so.
    - Agents can't answer walks.
    - Walks and decisions live in a section only people can act on.
 
