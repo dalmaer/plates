@@ -37,10 +37,14 @@ const item = id => { const it = state.items.find(i => i.id === Number(id) && i.w
 if (a === 'backlog' && b === 'add') {
   if (state.failAdd) { process.stderr.write('unison: refused\\n'); process.exit(1); }
   const it = { id: state.next++, title: argv[2], body: opt('--body') ?? '', status: 'open', workspace_id: ws };
-  state.items.push(it); save(); out(it);
+  state.items.push(it); save();
+  // addDelayMs: the add lands, then the answer is slow (a second sync may start meanwhile).
+  if (state.addDelayMs) { const until = Date.now() + state.addDelayMs; while (Date.now() < until) { /* hold */ } }
+  out(it);
 }
-if (a === 'backlog' && b === 'edit') { const it = item(argv[2]); if (opt('--title') !== undefined) it.title = opt('--title'); save(); out(it); }
-if (a === 'backlog' && b === 'close') { const it = item(argv[2]); it.status = 'done'; it.note = opt('--note'); save(); out(it); }
+if (a === 'backlog' && b === 'edit') { const it = item(argv[2]); if (opt('--title') !== undefined) it.title = opt('--title'); if (opt('--body') !== undefined) it.body = opt('--body'); save(); out(it); }
+// dieOnClose: Unison closes the item, but the caller never hears back (it died, or the line dropped).
+if (a === 'backlog' && b === 'close') { const it = item(argv[2]); it.status = 'done'; it.close_note = opt('--note'); if (state.dieOnClose) { state.dieOnClose = false; save(); process.exit(1); } save(); out(it); }
 if (a === 'backlog' && b === 'reopen') { const it = item(argv[2]); it.status = 'open'; save(); out(it); }
 process.stderr.write('unison: stub does not know ' + argv.join(' ') + '\\n'); process.exit(1);
 `;

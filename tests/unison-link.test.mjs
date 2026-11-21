@@ -75,70 +75,70 @@ const item = (id, source, extra = {}) => ({ id, title: source ? `Phase ${source}
 test('the plan never makes a second item for one source', () => {
   const sources = phaseSources(phases, 'acme/tools');
   // Nothing yet: one item per open phase, none for built or superseded.
-  let plan = planSync({ items: [], sources, map: readMap(null), repos: REPOS });
-  assert.deepEqual(plan.actions.map(a => [a.op, a.key]), [['create', 'phase:2'], ['create', 'phase:3']]);
+  let plan = planSync({ items: [], sources, map: readMap(null), repos: REPOS, repo: 'acme/tools' });
+  assert.deepEqual(plan.actions.map(a => [a.op, a.key]), [['create', 'phase:acme/tools:2'], ['create', 'phase:acme/tools:3']]);
   assert.equal(parseLink(plan.actions[0].body, REPOS).id, 2);
   // A hand-made item with phase 2's line is linked (taken into the map), not duplicated.
-  plan = planSync({ items: [item(7, 2), item(8, null)], sources, map: readMap(null), repos: REPOS });
-  assert.deepEqual(plan.adopt, [{ key: 'phase:2', item: 7 }]);
-  assert.deepEqual(plan.actions.map(a => [a.op, a.key]), [['create', 'phase:3']]);
+  plan = planSync({ items: [item(7, 2), item(8, null)], sources, map: readMap(null), repos: REPOS, repo: 'acme/tools' });
+  assert.deepEqual(plan.adopt, [{ key: 'phase:acme/tools:2', item: 7 }]);
+  assert.deepEqual(plan.actions.map(a => [a.op, a.key]), [['create', 'phase:acme/tools:3']]);
   // A second line for a held source is a suggestion, never an action.
-  const map = readMap({ schema: 1, workspace: 'ws_acme1', repo: 'acme/tools', entries: { 'phase:2': { item: 7, closedBySync: false }, 'phase:3': { item: 9, closedBySync: false } } });
-  plan = planSync({ items: [item(7, 2), item(9, 3), item(10, 2)], sources, map, repos: REPOS });
+  const map = readMap({ schema: 1, workspace: 'ws_acme1', repo: 'acme/tools', entries: { 'phase:acme/tools:2': { item: 7, closedBySync: false }, 'phase:acme/tools:3': { item: 9, closedBySync: false } } });
+  plan = planSync({ items: [item(7, 2), item(9, 3), item(10, 2)], sources, map, repos: REPOS, repo: 'acme/tools' });
   assert.deepEqual(plan.actions, []);
-  assert.deepEqual(plan.suggestions, [{ kind: 'duplicate', key: 'phase:2', item: 10 }]);
+  assert.deepEqual(plan.suggestions, [{ kind: 'duplicate', key: 'phase:acme/tools:2', item: 10 }]);
   // A rename retitles; it never makes another item.
-  plan = planSync({ items: [item(7, 2), item(9, 3, { title: 'Phase 3: Old name' })], sources, map, repos: REPOS });
-  assert.deepEqual(plan.actions, [{ op: 'retitle', key: 'phase:3', item: 9, title: 'Phase 3: C' }]);
+  plan = planSync({ items: [item(7, 2), item(9, 3, { title: 'Phase 3: Old name' })], sources, map, repos: REPOS, repo: 'acme/tools' });
+  assert.deepEqual(plan.actions, [{ op: 'retitle', key: 'phase:acme/tools:3', item: 9, title: 'Phase 3: C' }]);
   // Its line removed by hand: unlinked, left alone, and not made again.
-  plan = planSync({ items: [item(7, 2), { ...item(9, 3), body: 'edited by hand' }], sources, map, repos: REPOS });
+  plan = planSync({ items: [item(7, 2), { ...item(9, 3), body: 'edited by hand' }], sources, map, repos: REPOS, repo: 'acme/tools' });
   assert.deepEqual(plan.actions, []);
-  assert.deepEqual(plan.unlinked, [{ key: 'phase:3', item: 9, why: 'lost-line' }]);
+  assert.deepEqual(plan.unlinked, [{ key: 'phase:acme/tools:3', item: 9, why: 'lost-line' }]);
   assert.equal(plan.stopped, null);
   // Its item deleted: still not made again.
-  plan = planSync({ items: [item(7, 2)], sources, map, repos: REPOS });
+  plan = planSync({ items: [item(7, 2)], sources, map, repos: REPOS, repo: 'acme/tools' });
   assert.deepEqual(plan.actions, []);
-  assert.deepEqual(plan.unlinked, [{ key: 'phase:3', item: 9, why: 'gone' }]);
+  assert.deepEqual(plan.unlinked, [{ key: 'phase:acme/tools:3', item: 9, why: 'gone' }]);
   // The map is not rebuilt from lines while a mapped item lacks its line: the plan stops whole.
-  const partial = readMap({ schema: 1, workspace: 'ws_acme1', repo: 'acme/tools', entries: { 'phase:3': { item: 9, closedBySync: false } } });
-  plan = planSync({ items: [item(7, 2), { ...item(9, 3), body: 'edited by hand' }], sources, map: partial, repos: REPOS });
+  const partial = readMap({ schema: 1, workspace: 'ws_acme1', repo: 'acme/tools', entries: { 'phase:acme/tools:3': { item: 9, closedBySync: false } } });
+  plan = planSync({ items: [item(7, 2), { ...item(9, 3), body: 'edited by hand' }], sources, map: partial, repos: REPOS, repo: 'acme/tools' });
   assert.deepEqual(plan.stopped, { reason: 'lost-lines', items: [9] });
   assert.deepEqual([plan.actions, plan.adopt], [[], []]);
   // Two hand-made lines for one source: the older is linked, the other suggested.
-  plan = planSync({ items: [item(12, 2), item(11, 2)], sources, map: readMap(null), repos: REPOS });
-  assert.deepEqual(plan.adopt, [{ key: 'phase:2', item: 11 }]);
-  assert.deepEqual(plan.suggestions, [{ kind: 'duplicate', key: 'phase:2', item: 12 }]);
+  plan = planSync({ items: [item(12, 2), item(11, 2)], sources, map: readMap(null), repos: REPOS, repo: 'acme/tools' });
+  assert.deepEqual(plan.adopt, [{ key: 'phase:acme/tools:2', item: 11 }]);
+  assert.deepEqual(plan.suggestions, [{ kind: 'duplicate', key: 'phase:acme/tools:2', item: 12 }]);
   // Issues key by node id: the item's line resolves through the issue it names.
   const issues = issueSources([{ node_id: 'I_acme9', number: 9, title: 'Anvils rust', state: 'OPEN', repo: 'acme/tools' }]);
-  plan = planSync({ items: [{ id: 20, title: 'x', body: `Issue: ${issueUrl('Acme/Tools', 9)}`, status: 'open' }], sources: issues, map: readMap(null), repos: REPOS });
+  plan = planSync({ items: [{ id: 20, title: 'x', body: `Issue: ${issueUrl('Acme/Tools', 9)}`, status: 'open' }], sources: issues, map: readMap(null), repos: REPOS, repo: 'acme/tools' });
   assert.deepEqual(plan.adopt, [{ key: 'issue:I_acme9', item: 20 }]);
   assert.deepEqual(plan.actions, [{ op: 'retitle', key: 'issue:I_acme9', item: 20, title: 'Issue #9: Anvils rust' }]);
-  assert.throws(() => readMap({ schema: 1, entries: { 'phase:2': { item: 'seven', closedBySync: false } } }));
+  assert.throws(() => readMap({ schema: 1, entries: { 'phase:acme/tools:2': { item: 'seven', closedBySync: false } } }));
 });
 
 test('plates closes and reopens only what it closed', () => {
   const sources = phaseSources([{ id: 2, file: '2-b.md', title: 'B', status: 'built' }, { id: 3, file: '3-c.md', title: 'C', status: 'planned' }], 'acme/tools');
-  let map = readMap({ schema: 1, workspace: 'ws_acme1', repo: 'acme/tools', entries: { 'phase:2': { item: 7, closedBySync: false }, 'phase:3': { item: 9, closedBySync: false } } });
+  let map = readMap({ schema: 1, workspace: 'ws_acme1', repo: 'acme/tools', entries: { 'phase:acme/tools:2': { item: 7, closedBySync: false }, 'phase:acme/tools:3': { item: 9, closedBySync: false } } });
   // A built phase closes its item, with a note, and the map records that sync closed it.
-  let plan = planSync({ items: [item(7, 2), item(9, 3)], sources, map, repos: REPOS });
-  assert.deepEqual(plan.actions, [{ op: 'close', key: 'phase:2', item: 7, note: 'plates: phase 2 is built' }]);
+  let plan = planSync({ items: [item(7, 2), item(9, 3)], sources, map, repos: REPOS, repo: 'acme/tools' });
+  assert.deepEqual(plan.actions, [{ op: 'close', key: 'phase:acme/tools:2', item: 7, note: 'plates: phase 2 is built' }]);
   map = mapAfter(map, plan.actions[0], 7);
-  assert.equal(map.entries['phase:2'].closedBySync, true);
+  assert.equal(map.entries['phase:acme/tools:2'].closedBySync, true);
   // The phase reopened (partial again): sync reopens the item it closed.
   const reopened = phaseSources([{ id: 2, file: '2-b.md', title: 'B', status: 'partial' }, { id: 3, file: '3-c.md', title: 'C', status: 'planned' }], 'acme/tools');
-  plan = planSync({ items: [item(7, 2, { status: 'done' }), item(9, 3)], sources: reopened, map, repos: REPOS });
-  assert.deepEqual(plan.actions, [{ op: 'reopen', key: 'phase:2', item: 7 }]);
-  assert.equal(mapAfter(map, plan.actions[0], 7).entries['phase:2'].closedBySync, false);
+  plan = planSync({ items: [item(7, 2, { status: 'done' }), item(9, 3)], sources: reopened, map, repos: REPOS, repo: 'acme/tools' });
+  assert.deepEqual(plan.actions, [{ op: 'reopen', key: 'phase:acme/tools:2', item: 7 }]);
+  assert.equal(mapAfter(map, plan.actions[0], 7).entries['phase:acme/tools:2'].closedBySync, false);
   // An item a person or agent closed while its phase is open: a suggestion, never a reopen or a build.
-  plan = planSync({ items: [item(7, 2), item(9, 3, { status: 'done' })], sources: reopened, map, repos: REPOS });
+  plan = planSync({ items: [item(7, 2), item(9, 3, { status: 'done' })], sources: reopened, map, repos: REPOS, repo: 'acme/tools' });
   assert.deepEqual(plan.actions, []);
-  assert.deepEqual(plan.suggestions, [{ kind: 'closed-by-hand', key: 'phase:3', item: 9 }]);
+  assert.deepEqual(plan.suggestions, [{ kind: 'closed-by-hand', key: 'phase:acme/tools:3', item: 9 }]);
   // Closed in Unison and built: nothing to do.
-  plan = planSync({ items: [item(7, 2, { status: 'done' }), item(9, 3)], sources, map, repos: REPOS });
+  plan = planSync({ items: [item(7, 2, { status: 'done' }), item(9, 3)], sources, map, repos: REPOS, repo: 'acme/tools' });
   assert.deepEqual(plan.actions, []);
   // A closed issue closes its item too.
   const closed = issueSources([{ node_id: 'I_acme9', number: 9, title: 'Anvils rust', state: 'CLOSED', repo: 'acme/tools' }]);
-  plan = planSync({ items: [{ id: 20, title: 'Issue #9: Anvils rust', body: `Issue: ${issueUrl('acme/tools', 9)}`, status: 'in_progress' }], sources: closed, map: readMap({ schema: 1, entries: { 'issue:I_acme9': { item: 20, closedBySync: false } } }), repos: REPOS });
+  plan = planSync({ items: [{ id: 20, title: 'Issue #9: Anvils rust', body: `Issue: ${issueUrl('acme/tools', 9)}`, status: 'in_progress' }], sources: closed, map: readMap({ schema: 1, entries: { 'issue:I_acme9': { item: 20, closedBySync: false } } }), repos: REPOS, repo: 'acme/tools' });
   assert.deepEqual(plan.actions, [{ op: 'close', key: 'issue:I_acme9', item: 20, note: 'plates: issue #9 is closed' }]);
 });
 
@@ -181,4 +181,41 @@ test('Unison not read is never an empty backlog', async t => {
   // Status changed nothing remote and wrote no map.
   assert.ok((await w.calls()).every(c => ['list', undefined, '--workspace'].includes(c.argv[1]) && !['add', 'edit', 'close', 'reopen', 'create'].includes(c.argv[1])));
   await assert.rejects(readFile(join(w.plate, '.plates/unison/map.json')));
+});
+
+test("another repo's phase with the same number is never this plate's", () => {
+  const repos = ['acme/tools', 'acme/anvils'];
+  const tools = phaseSources([{ id: 2, file: '2-b.md', title: 'B', status: 'built' }], 'acme/tools');
+  const anvils = { id: 30, title: 'Phase 2: Anvils B', body: `Phase: ${phaseUrl('acme/anvils', '2-b.md')}`, status: 'open' };
+  // Unmapped: acme/anvils' phase 2 item is neither adopted nor closed by acme/tools' built phase 2.
+  let plan = planSync({ items: [anvils], sources: tools, map: readMap(null), repos, repo: 'acme/tools' });
+  assert.deepEqual([plan.adopt, plan.actions], [[], []]);
+  // Mapped to this plate's own item: only that item closes.
+  const own = { id: 31, title: 'Phase 2: B', body: `Phase: ${phaseUrl('acme/tools', '2-b.md')}`, status: 'open' };
+  plan = planSync({ items: [anvils, own], sources: tools, map: readMap(null), repos, repo: 'acme/tools' });
+  assert.deepEqual(plan.adopt, [{ key: 'phase:acme/tools:2', item: 31 }]);
+  assert.deepEqual(plan.actions.map(a => [a.op, a.item]), [['close', 31]]);
+  // An old map's phase:<n> keys are the map's own repo's.
+  assert.deepEqual(Object.keys(readMap({ schema: 1, repo: 'acme/tools', entries: { 'phase:2': { item: 31, closedBySync: false } } }).entries), ['phase:acme/tools:2']);
+});
+
+test('a malformed escape in a link line is prose, not a failed plan', () => {
+  const body = 'Phase: https://github.com/acme/tools/blob/main/docs/phases/2-%ZZ.md';
+  assert.equal(parseLink(body, REPOS), null);
+  const plan = planSync({ items: [{ id: 5, title: 'x', body, status: 'open' }], sources: phaseSources(phases, 'acme/tools'), map: readMap(null), repos: REPOS, repo: 'acme/tools' });
+  assert.deepEqual(plan.actions.map(a => a.key), ['phase:acme/tools:2', 'phase:acme/tools:3']);
+});
+
+test('a close sync sent but never recorded is settled by the item and its close note', () => {
+  const sources = phaseSources([{ id: 2, file: '2-b.md', title: 'B', status: 'built' }, { id: 3, file: '3-c.md', title: 'C', status: 'planned' }], 'acme/tools');
+  const map = readMap({ schema: 1, repo: 'acme/tools', entries: {
+    'phase:acme/tools:2': { item: 7, closedBySync: false, pendingClose: 'plates: phase 2 is built' },
+    'phase:acme/tools:3': { item: 9, closedBySync: false, pendingClose: 'plates: phase 3 is built' } } });
+  // Item 7 is done with sync's note: sync closed it. Item 9 is done with someone else's note: they did.
+  const plan = planSync({ items: [item(7, 2, { status: 'done', close_note: 'plates: phase 2 is built' }), item(9, 3, { status: 'done', close_note: 'shipped by hand' })], sources, map, repos: REPOS, repo: 'acme/tools' });
+  assert.deepEqual(plan.settled, [{ key: 'phase:acme/tools:2', closedBySync: true }, { key: 'phase:acme/tools:3', closedBySync: false }]);
+  assert.deepEqual(plan.actions, []);
+  assert.deepEqual(plan.suggestions, [{ kind: 'closed-by-hand', key: 'phase:acme/tools:3', item: 9 }]);
+  const after = plan.settled.reduce((m, x) => mapAfter(m, { op: 'settle', ...x }), map);
+  assert.deepEqual(after.entries['phase:acme/tools:2'], { item: 7, closedBySync: true });
 });

@@ -53,5 +53,13 @@ item's line was removed by hand (that item is reported as unlinked and left
 alone). Lines are taken into the map only while every item it holds still
 carries its line; otherwise sync stops and names the items that lost theirs.
 
+Phase sources are keyed by repo and number, so another repo's phase 2 in the
+same workspace is never this plate's. A close is written to the map as pending
+before it is sent, and settled on the next run by the item's status and close
+note. `connect` and `sync` hold one writer lock per checkout; a second run while
+one holds it is "not run: another sync is running" (exit 1). The map's directory
+carries a `.npmignore` of `*`, and privacy is checked on the map's real path, so
+neither `npm pack` nor a `.gitignore` negation can expose it.
+
 Unison or GitHub that cannot be read is "Unison not read" (exit 1, `plan: null`),
 never an empty backlog.

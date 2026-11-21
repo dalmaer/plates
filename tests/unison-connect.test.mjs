@@ -5,6 +5,8 @@ import { readFile, stat, writeFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
 import { run } from './helpers/run.mjs';
+import { unisonCommand } from '../lib/unison.mjs';
+import { collect } from '../practices/phases/files/scripts/roadmap.mjs';
 import { world, workspace } from './helpers/unison-stub.mjs';
 import { parseLink, phaseUrl } from '../lib/unison-link.mjs';
 
@@ -77,12 +79,12 @@ test('sync applies the plan, keeps the map, and a second sync changes nothing', 
   cli(w, ['connect']);
   let r = cli(w, ['sync']);
   assert.equal(r.code, 0, JSON.stringify(r.data));
-  assert.deepEqual(r.data.applied.map(a => [a.op, a.key, a.item]), [['create', 'phase:2', 40], ['create', 'phase:3', 41]]);
+  assert.deepEqual(r.data.applied.map(a => [a.op, a.key, a.item]), [['create', 'phase:acme/tools:2', 40], ['create', 'phase:acme/tools:3', 41]]);
   let state = await w.state();
   assert.deepEqual(state.items.map(i => i.title), ['Phase 2: Acme counts anvils', 'Phase 3: Acme orders anvils']);
   // Each item links back to its own phase; the copied Done when cannot name another.
   assert.equal(parseLink(state.items[0].body, ['acme/tools']).url, phaseUrl('acme/tools', '2-acme-counts-anvils.md'));
-  assert.deepEqual((await mapOf(w)).entries, { 'phase:2': { item: 40, closedBySync: false }, 'phase:3': { item: 41, closedBySync: false } });
+  assert.deepEqual((await mapOf(w)).entries, { 'phase:acme/tools:2': { item: 40, closedBySync: false }, 'phase:acme/tools:3': { item: 41, closedBySync: false } });
   r = cli(w, ['sync']);
   assert.deepEqual([r.code, r.data.applied], [0, []]);
 
@@ -97,21 +99,21 @@ test('sync applies the plan, keeps the map, and a second sync changes nothing', 
   r = cli(w, ['sync']);
   assert.deepEqual(r.data.applied.map(a => [a.op, a.item]), [['close', 40], ['retitle', 41]]);
   state = await w.state();
-  assert.deepEqual([state.items[0].status, state.items[0].note, state.items[1].title], ['done', 'plates: phase 2 is built', 'Phase 3: Acme orders anvils by size']);
-  assert.equal((await mapOf(w)).entries['phase:2'].closedBySync, true);
+  assert.deepEqual([state.items[0].status, state.items[0].close_note, state.items[1].title], ['done', 'plates: phase 2 is built', 'Phase 3: Acme orders anvils by size']);
+  assert.equal((await mapOf(w)).entries['phase:acme/tools:2'].closedBySync, true);
   assert.ok(mutating(await w.calls()).every(c => ['create', 'add', 'edit', 'close'].includes(c.argv[1])));
 
   // A person closes phase 3's item while the phase is open: a suggestion, not a reopen.
   await w.setState({ items: state.items.map(i => (i.id === 41 ? { ...i, status: 'done' } : i)) });
   r = cli(w, ['sync']);
-  assert.deepEqual([r.data.applied, r.data.suggestions], [[], [{ kind: 'closed-by-hand', key: 'phase:3', item: 41 }]]);
+  assert.deepEqual([r.data.applied, r.data.suggestions], [[], [{ kind: 'closed-by-hand', key: 'phase:acme/tools:3', item: 41 }]]);
 
   // A failed write stops the sync; what was applied stays in the map.
   await writeFile(join(w.plate, 'docs/phases/4-acme-ships-anvils.md'), (await readFile(three, 'utf8')).replace('# Acme orders anvils by size', '# Acme ships anvils'));
   await w.setState({ failAdd: true });
   r = cli(w, ['sync']);
   assert.equal(r.code, 1);
-  assert.equal(r.data.failed.key, 'phase:4');
+  assert.equal(r.data.failed.key, 'phase:acme/tools:4');
   assert.equal(Object.keys((await mapOf(w)).entries).length, 2);
 });
 
@@ -133,4 +135,86 @@ test('issues, when the plate turns them on, come from GitHub by node id', async 
   await writeFile(gh, '#!/bin/sh\necho "gh: HTTP 502" >&2\nexit 1\n', { mode: 0o755 });
   r = cli(w, ['status'], env);
   assert.deepEqual([r.code, r.data.read, r.data.plan], [1, false, null]);
+});
+
+test('a .gitignore negation cannot leave the map visible, and npm pack never ships it', async t => {
+  // /.plates/unison/* then !map.json: a stand-in probe reads as ignored while the map would not be.
+  let w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')] });
+  await writeFile(join(w.plate, '.gitignore'), '/.plates/unison/*\n!/.plates/unison/map.json\n');
+  await writeFile(join(w.plate, 'package.json'), JSON.stringify({ name: 'acme-tools', version: '1.0.0' }));
+  assert.equal(cli(w, ['connect']).code, 0);
+  assert.doesNotMatch(execFileSync('git', ['status', '--porcelain', '-uall'], { cwd: w.plate, encoding: 'utf8' }), /\.plates\/unison/);
+  const pack = run('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], { cwd: w.plate, env: { ...process.env, npm_config_cache: join(w.root, 'npm-cache') } });
+  assert.equal(pack.status, 0, pack.stderr);
+  const files = JSON.parse(pack.stdout)[0].files.map(f => f.path);
+  assert.ok(files.includes('package.json'));
+  assert.deepEqual(files.filter(f => f.startsWith('.plates/unison')), []);
+  // The package exclusion changed: refused, not trusted.
+  await writeFile(join(w.plate, '.plates/unison/.npmignore'), '!map.json\n', { mode: 0o600 });
+  assert.equal(cli(w, ['connect']).code, 1);
+  // A rule that un-ignores the directory itself: refused, and no map is written.
+  w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')] });
+  await writeFile(join(w.plate, '.gitignore'), '!/.plates/unison/\n!/.plates/unison/map.json\n');
+  const r = cli(w, ['connect']);
+  assert.equal(r.code, 1);
+  assert.match(r.data.error, /not git-ignored/);
+  await assert.rejects(mapOf(w));
+});
+
+test('two overlapping syncs make one item: the second is not run', async t => {
+  const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], items: [], next: 1 }, { phases: { '2-acme-counts-anvils.md': { status: 'planned', title: 'Acme counts anvils' } } });
+  cli(w, ['connect']);
+  await w.setState({ addDelayMs: 1500 });
+  // The first sync runs in this process (it waits on the stub's slow answer while holding the lock); the second is the CLI.
+  const first = unisonCommand({ args: ['sync'], root: w.plate, config: JSON.parse(await readFile(join(w.plate, '.plates/plates.json'), 'utf8')), env: w.env, readPhases: async () => (await collect(w.plate)).phases });
+  // Wait until the first sync's add has landed, then start the second while it still holds the lock.
+  for (let i = 0; i < 100 && !(await w.state()).items.length; i++) await new Promise(done => setTimeout(done, 50));
+  const second = cli(w, ['sync']);
+  assert.equal(second.code, 1);
+  assert.match(second.data.why, /another sync is running/);
+  assert.equal((await first).exitCode ?? 0, 0);
+  assert.equal((await w.state()).items.length, 1);
+  // The lock is released: a third sync runs and changes nothing.
+  await w.setState({ addDelayMs: 0 });
+  assert.deepEqual(cli(w, ['sync']).data.applied, []);
+});
+
+test('a close Unison made before the run died is recorded as sync\'s on the next run', async t => {
+  const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], items: [], next: 1 }, { phases: { '2-acme-counts-anvils.md': { status: 'planned', title: 'Acme counts anvils' } } });
+  cli(w, ['connect']);
+  cli(w, ['sync']);
+  const phase = join(w.plate, 'docs/phases/2-acme-counts-anvils.md');
+  await writeFile(phase, (await readFile(phase, 'utf8')).replace('status: planned', 'status: built').replace('evidence: []', 'evidence: ["evidence/acme.md"]').replace('- [ ]', '- [x]'));
+  await w.setState({ dieOnClose: true });
+  assert.equal(cli(w, ['sync']).code, 1);
+  assert.equal((await w.state()).items[0].status, 'done');
+  assert.equal((await mapOf(w)).entries['phase:acme/tools:2'].pendingClose, 'plates: phase 2 is built');
+  assert.deepEqual(cli(w, ['sync']).data.applied, []);
+  assert.deepEqual((await mapOf(w)).entries['phase:acme/tools:2'], { item: 1, closedBySync: true });
+  // So reopening the phase reopens the item plates closed.
+  await writeFile(phase, (await readFile(phase, 'utf8')).replace('status: built', 'status: partial').replace('- [x]', '- [ ]'));
+  const reopened = cli(w, ['sync']);
+  assert.deepEqual(reopened.data.applied?.map(a => a.op), ['reopen'], JSON.stringify(reopened.data));
+});
+
+test('an issue item whose repo was renamed stays linked through GitHub, and its line is brought current', async t => {
+  const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], next: 2,
+    items: [{ id: 1, title: 'Issue #5: Anvils rust', body: 'Issue: https://github.com/acme/old-tools/issues/5', status: 'open', workspace_id: 'ws_acme1' }] }, { config: { unison: { sources: ['issues'] } } });
+  const gh = join(w.bin, 'gh'), ghState = join(w.root, 'gh-state.json');
+  await writeFile(ghState, JSON.stringify({ open: [{ node_id: 'I_acme5', number: 5, title: 'Anvils rust', state: 'open' }], nodes: [] }));
+  await writeFile(gh, `#!${process.execPath}\nconst s = JSON.parse(require('node:fs').readFileSync(${JSON.stringify(ghState)}, 'utf8'));\nconst a = process.argv.slice(2);\nif (a[1] === 'graphql' && a.some(x => x.includes('resource(url'))) { const url = a.find(x => x.startsWith('url=')).slice(4); console.log(JSON.stringify({ data: { resource: url === 'https://github.com/acme/old-tools/issues/5' ? { id: 'I_acme5' } : null } })); process.exit(0); }\nif (a[1] === 'graphql') { console.log(JSON.stringify({ data: { nodes: s.nodes } })); process.exit(0); }\nif (/^repos\\/acme\\/tools\\/issues\\?state=open/.test(a[1])) { console.log(JSON.stringify(a[1].includes('page=1') ? s.open : [])); process.exit(0); }\nprocess.exit(1);\n`, { mode: 0o755 });
+  const env = { PLATES_GH: gh };
+  cli(w, ['connect'], env);
+  const map = join(w.plate, '.plates/unison/map.json');
+  await writeFile(map, JSON.stringify({ schema: 1, workspace: 'ws_acme1', repo: 'acme/tools', entries: { 'issue:I_acme5': { item: 1, closedBySync: false } } }), { mode: 0o600 });
+  // Open: not lost, not made again; the retitle brings the line to the current URL.
+  let r = cli(w, ['sync'], env);
+  assert.deepEqual([r.data.unlinked, r.data.applied.map(a => a.op)], [[], ['retitle']]);
+  assert.equal((await w.state()).items.length, 1);
+  assert.equal((await w.state()).items[0].body, 'Issue: https://github.com/acme/tools/issues/5');
+  // Put the old line back and close the issue: the item still closes.
+  await w.setState({ items: [{ ...(await w.state()).items[0], body: 'Issue: https://github.com/acme/old-tools/issues/5' }] });
+  await writeFile(ghState, JSON.stringify({ open: [], nodes: [{ id: 'I_acme5', number: 5, title: 'Anvils rust', state: 'CLOSED', repository: { nameWithOwner: 'acme/tools' } }] }));
+  r = cli(w, ['sync'], env);
+  assert.deepEqual(r.data.applied.map(a => [a.op, a.item]), [['close', 1]]);
 });
