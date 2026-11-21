@@ -1,12 +1,10 @@
 ---
-status: partial
-owes: walk
-waits: time
-since: 2026-10-06
+status: superseded
+since: 2026-11-21
 goal: G4
 spec: 2
 depends: [10, 15, 33, 39]
-note: "Built and on for plates (test-time, 45 minutes, nightly): plates-climb.yml, climb.mjs, the protocol brief; the \"Did the agent run?\" step after the first night's silent failure. The dispatched night after the token fix ran green and kept nothing. Waits on a scheduled night's PR (or its Climb line) read by the owner."
+note: "Superseded 2026-11-21 (phase 207): climb and tend are off for plates. In 37 nights the climb kept 3 small changes, all in tests/improve.test.mjs, while about 113 commits went into the climb itself; tend fixed 1 of about 116 findings. The code stays, but nothing new is built on it."
 evidence: ["evidence/2026-10-23-roadmap-followthrough.md", "evidence/2026-10-06-climb.md"]
 issue: 13
 ---
@@ -99,3 +97,4 @@ Read the next scheduled climb night's PR, or its Climb line on the health page i
 - **2026-10-08** — Escape: the compare test failed on keel's CI once (9734581: round 2 −26.4%, inside the 30% margin): its 600 ms base against ~650 ms of node start-up left only a ~2× gap, which runner noise closed. The base now sleeps 1500 ms (~3×). The same shape as 2ab0607's escape: a timing test's margin must dominate the runner's start-up.
 
 - **2026-10-23** — Empty measurement records hid exploration: the 22 October agent committed a candidate, but permission denials left it unmeasured and settlement discarded it. Retain settlement evidence and report incomplete work separately from no candidate; no new budget or wider permissions follows. [Evidence](../evidence/2026-10-23-roadmap-followthrough.md).
+- **2026-11-21** — Superseded 2026-11-21 (phase 207): climb and tend are off for plates. In 37 nights the climb kept 3 small changes, all in tests/improve.test.mjs, while about 113 commits went into the climb itself; tend fixed 1 of about 116 findings. The code stays, but nothing new is built on it.
