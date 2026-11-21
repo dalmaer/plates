@@ -544,8 +544,10 @@ test('the committed unison mapping is validated', async () => {
   assert.equal(at({ workspace: 'ws_acme1', url: 'https://unison.example/w/ws_acme1', sources: ['phases'] })().workspace, 'ws_acme1');
   assert.equal(at({ workspace: 'ws_acme1' })().workspace, 'ws_acme1');
   for (const bad of [{ workspace: 'acme1' }, { workspace: 'ws_acme-1' }, { workspace: 7 }, { workspace: 'ws_acme1', url: 'https://unison.example/w/ws_acme2' },
-    { url: 'https://unison.example/w/ws_acme1' }, { workspace: 'ws_acme1', url: 'https://other.example/w/ws_acme1' }]) assert.throws(at(bad), /unison\.(workspace|url)/, JSON.stringify(bad));
+    { url: 'https://unison.example/w/ws_acme1' }, { workspace: 'ws_acme1', url: 'https://other.example/w/ws_acme2' }, { workspace: 'ws_acme1', url: 'https://other.example/x/ws_acme1' }]) assert.throws(at(bad), /unison\.(workspace|url)/, JSON.stringify(bad));
   assert.throws(() => unisonSettings({ repo: 'acme/tools', unison: { workspace: 'ws_acme1', url: 'http://unison.example/w/ws_acme1' } }, { UNISON_SERVER: 'http://unison.example' }), /https/);
+  // Another server's url is stale, not invalid: connect can repair it.
+  assert.deepEqual((({ stale, workspace, committed }) => ({ stale, workspace, committed }))(at({ workspace: 'ws_acme1', url: 'https://other.example/w/ws_acme1' })()), { stale: true, workspace: null, committed: 'ws_acme1' });
 });
 
 test('a pending create survives a collision appearing, and sync reports sources it could not represent', async t => {
@@ -569,4 +571,47 @@ test('a pending create survives a collision appearing, and sync reports sources 
   const s = cli(w, ['sync']);
   assert.deepEqual([s.code, s.data.partial, s.data.gaps], [1, true, [{ kind: 'unsupported-source', what: 'docs/projects/anvils/phases.md phase 100000' }]]);
   assert.match(run(process.execPath, [BIN, 'unison', 'sync'], { cwd: w.plate, env: w.env }).stdout, /partial: 1 source could not be synced[\s\S]*gap +docs\/projects\/anvils\/phases\.md phase 100000/);
+});
+
+test('the repo decides even with a committed id; a mapping for another server is stale until connect rewrites it', async t => {
+  const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')] });
+  cli(w, ['connect']);
+  const file = join(w.plate, '.plates/plates.json');
+  // A second workspace listing the repo: status refuses, committed id or not.
+  await w.setState({ workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools'), workspace('ws_acme9', 'http://github.com/Acme/Tools')] });
+  let r = cli(w, ['status']);
+  assert.deepEqual([r.code, r.data.ambiguous], [1, ['ws_acme1', 'ws_acme9']]);
+  await w.setState({ workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')] });
+  // A committed url on another server: status is not read; connect rewrites it for this server.
+  const config = JSON.parse(await readFile(file, 'utf8'));
+  await writeFile(file, JSON.stringify({ ...config, unison: { workspace: 'ws_acme1', url: 'https://unison.elsewhere.example/w/ws_acme1' } }));
+  r = cli(w, ['status']);
+  assert.deepEqual([r.code, r.data.read], [1, false]);
+  assert.match(r.data.why, /another Unison server.*run plates unison connect/);
+  r = cli(w, ['connect']);
+  assert.deepEqual([r.code, r.data.committed.changed], [0, true]);
+  assert.equal(JSON.parse(await readFile(file, 'utf8')).unison.url, 'http://127.0.0.1:4600/w/ws_acme1');
+});
+
+test('open --item finds the exact phase: by its source key, in the selected workspace, for any project name', async t => {
+  const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], items: [], next: 30 }, { config: { phases: { shape: 'projects' } }, phases: {} });
+  await rm(join(w.plate, 'docs/phases'), { recursive: true });
+  await mkdir(join(w.plate, 'docs/projects/anvils'), { recursive: true });
+  await mkdir(join(w.plate, 'docs/projects/acme tools é'), { recursive: true });
+  await writeFile(join(w.plate, 'docs/projects/README.md'), '# Acme projects\n');
+  await writeFile(join(w.plate, 'docs/projects/anvils/phases.md'), '# Anvils\n\n## Phase 2.1 — Setup\n\n**Status: NOT STARTED.**\n\n## Phase 21 — Later\n\n**Status: NOT STARTED.**\n');
+  await writeFile(join(w.plate, 'docs/projects/acme tools é/phases.md'), '# Tools\n\n## Phase 1 — Counting\n\n**Status: NOT STARTED.**\n');
+  cli(w, ['connect']);
+  cli(w, ['sync']);
+  const items = Object.fromEntries((await w.state()).items.map(i => [i.title, i.id]));
+  // 2.1 and 21 are different phases; "acme tools é/1" is accepted.
+  assert.equal(cli(w, ['open', '--item', 'anvils/2.1']).data.item, items['Phase anvils/2.1: Setup']);
+  assert.equal(cli(w, ['open', '--item', 'anvils/21']).data.item, items['Phase anvils/21: Later']);
+  assert.equal(cli(w, ['open', '--item', 'acme tools é/1']).data.item, items['Phase acme tools é/1: Counting']);
+  // Without the map's help (it names another workspace), the backlog's link lines still find the exact one.
+  const map = join(w.plate, '.plates/unison/map.json');
+  const m = JSON.parse(await readFile(map, 'utf8'));
+  await writeFile(map, JSON.stringify({ ...m, workspace: 'ws_old', entries: Object.fromEntries(Object.keys(m.entries).map(k => [k, { item: 999, closedBySync: false }])) }), { mode: 0o600 });
+  const r = cli(w, ['open', '--item', 'anvils/21']);
+  assert.deepEqual([r.data.item, r.data.url], [items['Phase anvils/21: Later'], `http://127.0.0.1:4600/w/ws_acme1?item=${items['Phase anvils/21: Later']}`]);
 });
