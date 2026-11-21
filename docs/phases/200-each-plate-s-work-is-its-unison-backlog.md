@@ -1,11 +1,11 @@
 ---
-status: planned
-since: 2026-11-20
+status: partial
+since: 2026-11-21
 goal: G9
 spec: 2
 depends: [178]
-note: "Filed: each plate gets a Unison workspace, made by plates, whose backlog is the plate's phases and, where wanted, its GitHub issues; each item links back."
-evidence: []
+note: "Increments 1 and 2 built: plates unison status, connect and sync. Real connect and sync, increment 3 (events, Home states) and 4 (typed links) remain."
+evidence: ["evidence/2026-11-21-unison-status-connect-sync.md"]
 ---
 
 # Each plate's work is its Unison backlog, and links back
@@ -14,7 +14,7 @@ evidence: []
 
 A plate has a Unison workspace that plates made for it (or that the owner named), and the
 workspace's backlog holds one item for each open phase of the plate, and, when the plate turns on
-issues, one for each open GitHub issue of its repos. Each item links back to its phase or issue;
+issues, one for each open GitHub issue of its repo. Each item links back to its phase or issue;
 a phase built or an issue closed closes its item; a rename or a hand-edited item never makes a
 second item; and a Unison that cannot be read shows on Home as "Unison not read", never as an
 empty backlog.
@@ -39,7 +39,9 @@ Recurring view and agents sidebar in favour of links to the workspace.
   never a silent skip. Plates caches the workspace id in the plate's private state; the repo stays
   the truth.
 - **Sources.** Each plate's config chooses `unison.sources`: `phases` (the default) and, where
-  wanted, `issues`. A phase is open while its status is not built or superseded.
+  wanted, `issues`. Both come from the plate's own repo only: one repo has one workspace, so a
+  link naming another repo listed in the workspace is never this plate's to adopt, close or
+  retitle. A phase is open while its status is not built or superseded.
 - **The link line.** `Phase: <url of the phase file>` or `Issue: https://github.com/<owner>/<repo>/issues/<n>`
   at the start of a line in the item's body; the first such line counts. Plates writes it as the
   body's last line, and escapes any line of copied text that would read as one (`\Issue:`,
@@ -83,12 +85,12 @@ Out of scope: claims (phase 201), chat and asks (phase 202), and removing plates
 
 ## Acceptance
 
-- [ ] Only a link line at a line start links an item, and an issue URL only for a workspace repo; other URLs in the body do not: `tests/unison-link.test.mjs: "only the link line links, and only to the workspace's repos"`.
-- [ ] Copied text holding its own link line is escaped, and the item links only to its own phase or issue: `tests/unison-link.test.mjs: "copied text cannot name the item's link"`.
-- [ ] A sync plan creates one item per unlinked open phase (and issue, when on), retitles, closes and reopens, and never plans a second item for a source the map holds, even when its line was removed; the map is not rebuilt from lines while any mapped item lacks its line: `tests/unison-link.test.mjs: "the plan never makes a second item for one source"`.
-- [ ] Open work reopens its closed item only when sync closed it; an item a person or agent closed is a suggestion instead: `tests/unison-link.test.mjs: "plates closes and reopens only what it closed"`.
-- [ ] A `unison` that is missing, fails or answers without its array leaves the plan unread, never empty: `tests/unison-link.test.mjs: "Unison not read is never an empty backlog"`.
-- [ ] `plates unison connect` finds the workspace that lists the plate's repo, creates one only when none does, refuses two, and when not signed in leaves a sign-in card and creates nothing: `tests/unison-connect.test.mjs: "the repo finds the workspace, or connect makes one"`.
+- [x] Only a link line at a line start links an item, and an issue URL only for a workspace repo; other URLs in the body do not: `tests/unison-link.test.mjs: "only the link line links, and only to the workspace's repos"`.
+- [x] Copied text holding its own link line is escaped, and the item links only to its own phase or issue: `tests/unison-link.test.mjs: "copied text cannot name the item's link"`.
+- [x] A sync plan creates one item per unlinked open phase (and issue, when on), retitles, closes and reopens, and never plans a second item for a source the map holds, even when its line was removed; the map is not rebuilt from lines while any mapped item lacks its line: `tests/unison-link.test.mjs: "the plan never makes a second item for one source"`.
+- [x] Open work reopens its closed item only when sync closed it; an item a person or agent closed is a suggestion instead: `tests/unison-link.test.mjs: "plates closes and reopens only what it closed"`.
+- [x] A `unison` that is missing, fails or answers without its array leaves the plan unread, never empty: `tests/unison-link.test.mjs: "Unison not read is never an empty backlog"`.
+- [x] `plates unison connect` finds the workspace that lists the plate's repo, creates one only when none does, refuses two, and when not signed in leaves a sign-in card and creates nothing: `tests/unison-connect.test.mjs: "the repo finds the workspace, or connect makes one"`.
 - [ ] Home shows "Unison not read", the close suggestion and the sign-in card in both forms (increment 3): `tests/unison-home.test.mjs: "Unison's states are said on Home in both forms"`.
 - [ ] ⚑ by hand: owner. A plate connected by plates shows its open phases in Unison with working links back, and a phase built closes its item.
 
@@ -126,4 +128,9 @@ By hand: the owner's walk above.
 
 ## Next action
 
-Increment 1: `lib/unison-link.mjs` and `plates unison status`, read-only.
+Run `plates unison connect` and `sync` for real on a fleet plate; decide with the owner what happens to the 104 imported items in plates's own workspace before syncing plates; then increment 3.
+
+## Trajectory
+
+- **2026-11-21** — Plates's own workspace already held 104 items imported from its GitHub issues, with Markdown phase links to the old keel URLs that the link line rightly ignores; a first sync there would duplicate them in substance, so adopting or retiring imported items is a decision before syncing an existing workspace.
+- **2026-11-21** — The agent guide's cold start reached its 3,200-character cap with this verb; the next verb needs a trim or a raised cap.
