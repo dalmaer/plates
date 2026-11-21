@@ -151,9 +151,9 @@ if (a[0] === 'issue' && a[1] === 'create') {
   const body = a[a.indexOf('--body') + 1], url = 'https://github.com/acme/studio/issues/' + (9 + st.issues.length);
   if (st.create === 'fail') { console.error('gh: offline'); process.exit(1); }
   st.issues.push({ url, body }); fs.writeFileSync(${JSON.stringify(state)}, JSON.stringify(st));
-  if (st.create === 'lost') { console.error('gh: connection reset'); process.exit(1); }
+  if (st.create === 'lost' || st.create === 'lost-hidden') { console.error('gh: connection reset'); process.exit(1); }
   console.log(url);
-} else if (a[0] === 'issue' && a[1] === 'list') console.log(JSON.stringify(st.issues));
+} else if (a[0] === 'issue' && a[1] === 'list') console.log(JSON.stringify(st.create === 'lost-hidden' ? [] : st.issues));
 else { console.error('fake gh: ' + a.join(' ')); process.exit(1); }
 `, { mode: 0o755 });
   const calls = async () => (await readFile(log, 'utf8').catch(() => '')).split('\n').filter(Boolean);
@@ -180,16 +180,21 @@ test('a Something\'s off opens one follow-up, found again by its marker, through
     const preview = await walkDone({ root, phase: '5', tried: 'off', note: 'Grey.', env, today: '2026-11-21' });
     assert.equal(preview.exitCode, 3, 'opening an issue waits for --yes');
     assert.deepEqual(await fake.calls(), [], 'nothing opened before --yes');
-    // A create that fails cleanly writes nothing; the next answer looks for the issue first, then opens it once.
+    // A create that fails writes nothing; within the hold the next answer only looks again, and says it is waiting.
+    let clock = Date.parse('2026-11-21T09:00:00Z');
+    const later = { now: () => clock };
     await fake.set({ create: 'fail' });
-    await assert.rejects(answer(), /gh issue create failed/);
+    await assert.rejects(answer(later), /gh issue create failed/);
     assert.equal(await readFile(join(root, 'docs/phases/05-acme.md'), 'utf8'), raw, 'nothing written');
-    // A create whose result is lost (it was opened, the answer never came back) is found by its marker, never opened twice.
+    clock += 5 * 60_000;
+    await assert.rejects(answer(later), /waiting for the follow-up issue to appear/);
+    assert.deepEqual(await fake.calls(), ['issue create', 'issue list', 'issue list'], 'one create; the retry only searched');
+    // After the hold a create may run again; this one is lost (opened, answer never came back) and found by its marker.
+    clock += 11 * 60_000;
     await fake.set({ create: 'lost' });
-    const r = await answer();
+    const r = await answer(later);
     assert.equal(r.data.followUp, 'https://github.com/acme/studio/issues/9');
-    // The failed create is looked for once; the retry looks first, opens, loses the answer, and finds it by its marker.
-    assert.deepEqual(await fake.calls(), ['issue create', 'issue list', 'issue list', 'issue create', 'issue list']);
+    assert.deepEqual(await fake.calls(), ['issue create', 'issue list', 'issue list', 'issue list', 'issue create', 'issue list']);
     const issues = JSON.parse(await readFile(join(root, 'gh.json'), 'utf8')).issues;
     assert.equal(issues.length, 1); assert.match(issues[0].body, /<!-- plates:try-it phase:5 box:2 -->/);
     assert.match(await readFile(join(root, 'docs/evidence/acme.md'), 'utf8'), /Tried it: something's off\. Grey\. Follow-up: https:\/\/github\.com\/acme\/studio\/issues\/9\./);
@@ -319,4 +324,20 @@ test('plates home --project shows the plate\'s Try its and how to answer them', 
   const projectWorkspace = simpleProject({ ...cli, backlog: { lanes: [], claims: [] } }, 'studio');
   const text = homeText({ schema: 1, generatedAt: '2026-11-21T09:00:00.000Z', ...cli, projectWorkspace }, { projectId: 'studio' });
   assert.match(text, /Studio · phase 2: Acme 2\n[\s\S]*Works \| Something's off \| Skip\n {6}answer: plates home --answer studio:walk:2 <works\|off\*\|skip>/);
+});
+
+test('a lost create with nothing found yet holds: two answers within the hold make one create', async () => {
+  const raw = phaseFile({ acceptance: '- [x] Publishes: `tests/a.test.mjs`.\n- [ ] ⚑ try: the owner: opens it.' });
+  const root = await checkout({ 'docs/phases/05-acme.md': raw, 'docs/evidence/acme.md': '# Evidence\n' });
+  try {
+    const fake = await fakeGh(root), env = { ...process.env, PLATES_GH: fake.gh, KEEL_GH: fake.gh, GIT_DIR: join(root, '.no-git') };
+    // The create's answer is lost and search does not show the issue yet (search lags): nothing is recorded, and no second create.
+    await fake.set({ create: 'lost-hidden' });
+    let clock = Date.parse('2026-11-21T09:00:00Z');
+    const answer = () => walkDone({ root, phase: '5', tried: 'off', note: 'Grey.', env, yes: true, today: '2026-11-21', now: () => clock });
+    await assert.rejects(answer(), /gh issue create failed/);
+    clock += 14 * 60_000;
+    await assert.rejects(answer(), /waiting for the follow-up issue to appear/);
+    assert.equal((await fake.calls()).filter(c => c === 'issue create').length, 1, 'one create within the hold');
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
