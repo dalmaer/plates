@@ -58,7 +58,9 @@ work, and turns it into at most five candidates for the owner.
 - **What it produces**: candidates, most serious first, each typed. A
   **check** for anything mechanical (mechanical violations get
   deterministic checks); an **AGENTS or skill line** for a judgement call
-  only; a **lesson** for a failure shape.
+  only; a **lesson** for a failure shape, only from a real failure in the
+  phase (a red check, a reverted change, a bug that escaped), never a risk that
+  did not happen.
 - **The owner picks.** Nothing is applied unpicked.
 
 It never runs from the night or a climb: unattended, a retro finds false

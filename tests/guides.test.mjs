@@ -280,4 +280,7 @@ test('a lesson candidate names the failure it came from', async () => {
     assert.match(text, /Run a retro when the phase changed more than docs/, path);
     assert.match(text, /A lesson comes only from a real failure in the phase \(a red check, a reverted change, a bug that escaped\), never from a risk that did not happen\./, path);
   }
+  // The CLI's retro help and the standalone retro guide carry the same rule.
+  assert.match((await read('lib/agent-guide.md')).replace(/\s+/g, ' '), /a \*\*lesson\*\* \(`plates learn`, only from a real failure in the phase\)/);
+  assert.match((await read('docs/guide/loose-ends-and-retro.md')).replace(/\s+/g, ' '), /a \*\*lesson\*\* for a failure shape, only from a real failure in the phase \(a red check, a reverted change, a bug that escaped\), never a risk that did not happen\./);
 });
