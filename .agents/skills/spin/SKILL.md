@@ -306,11 +306,12 @@ focused tests; the whole check stays yours, once, in §3.
   fixture is not the surface. `none` needs nothing here. A surface not yet
   walked keeps the phase short of built; say which in the evidence.
 - Each acceptance box claimed by this increment: its named check exists and
-  asserts the box, the command runs, the ⚑ by hand step is walked or written
-  down as outstanding. Future increments' boxes remain unchecked.
-- The walk, when the phase has one: a real browser, a real device, a real
-  `gh` call. A phase with a walk isn't built until the walk is walked. If a
-  person must walk it, write the steps into the evidence file.
+  asserts the box, and the command runs. Future increments' boxes remain unchecked.
+- **Try it**, not a walk. (why: Walks made the owner the bottleneck: phases waited on a person's time, not on proof.) Trying the work by hand is an
+  invitation, never a gate: an open `⚑ by hand` box never holds a phase back
+  from built, and new phases write none. Instead, try the change yourself where
+  you can (a real browser, a simulator, a screenshot, a real `gh` call) and
+  write what you saw into the Try it (§4).
 - Open each new test and ask two things. Could it fail? Does it exercise the
   thing, or a stand-in for it? A test that asserts what the code returns,
   rather than what the phase requires, proves only that the code agrees with
@@ -364,7 +365,7 @@ proof holds:
 - **Proofs that need the commit** (a clean checkout of the committed tree,
   a fresh clone, CI on the pushed commit) can't be in this record. Leave
   their Acceptance boxes unchecked and the status `partial`, with a note
-  naming the walk. Walk them right after the commit (§4), then add the
+  naming them. Walk them right after the commit (§4), then add the
   result to the evidence, check the boxes and move the status in the next
   commit.
 - **Trajectory** in the phase file (`## Trajectory`, after Next action): only what changes the course. One line
@@ -376,12 +377,13 @@ proof holds:
   dated, saying what settled them.
 - **Next action** for the phase: the next step if it isn't built; once it
   is built, `None.` (or what lived-in needs, when the project counts it:
-  `"phases": {"livedIn": true}` with plates's roadmap). A partial phase whose
-  building is done and whose rest is a walk gets `owes: walk` and a Next
-  action naming the walk. A project that keeps its own phases (`"local"`
-  names `phases`) follows its own roadmap's rules for both: it may not read
-  `owes:` or `livedIn`, so record the walk in the Next action and keep the
-  lived-in step its roadmap asks for.
+  `"phases": {"livedIn": true}` with plates's roadmap). A phase whose only
+  open boxes are `⚑ by hand` walks is built: never mark it `owes: walk`
+  (older records may carry it; moving them to built is all they need). A
+  project that keeps its own phases (`"local"` names `phases`) follows its
+  own roadmap's rules: when that roadmap still refuses built with an open
+  walk, leave the phase partial with the walk in its Next action, and keep
+  the lived-in step its roadmap asks for.
 - **Lessons**: a new row only if a bug turned out to have a shape.
 - **What people and agents are told**: if the change alters what a person or
   an agent would be told — a verb, a flag, a practice, a default — update
@@ -424,6 +426,27 @@ changed inputs invalidate affected proof. Do not wait for a whole phase to land.
   trailer by hand.
 - **Proofs that need the commit** (§3): walk them now, against the committed
   tree, and record them in the next commit.
+
+**Every phase PR carries a Try it.** (why: Trying the work is the owner's to choose, so the PR must make it a minute's job.) Each pull request
+opened for a phase (a phase that waits for review, a `claude/` practice PR,
+a builder's PR) has a `## Try it` section in its body, this shape:
+
+  ```markdown
+  ## Try it
+
+  What changed: <one line>.
+  Where: <a preview URL, the deployed site, or how to build it>.
+  1. <step>
+  2. <step>
+  3. <step>  (three to five steps)
+  Works: <what you see when it works>. Broken: <what you see when it does not>.
+  I tried it: <what you saw, with a screenshot or link>, or why you could not.
+  ```
+
+Try the steps yourself first where you can (a browser, a simulator, a
+screenshot) and say what you saw. The owner may answer it on Home (Works,
+Something's off, Skip) or ignore it; nothing waits on it. A phase PR without
+a Try it is a note to add one, never a reason to refuse or hold the merge.
 
 Land on `main`, no pull request (unless the phase waits for review, below):
 

@@ -59,8 +59,8 @@ does the same. Without it nothing waits: review comments are still validated
 and answered, but never block a merge.
 
 **Trying the work by hand is an invitation, never a gate.** A walk is an Acceptance box that says `⚑ by hand: <who>` and runs no command
-but a real-surface `gh …` check, citing no `tests/` path. Walks are optional
-(plates phase 204): `built` needs every other box checked, and an open walk
+but a real-surface `gh …` check, citing no `tests/` path. Walks are optional:
+`built` needs every other box checked, and an open walk
 box never holds a phase back. New phases do not write walks. Instead each PR
 an agent opens for a phase carries a `## Try it` section: what changed (one
 line), where to try it (a preview URL, the deployed site, or a build), three
