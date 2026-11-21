@@ -13,7 +13,8 @@ import { renderGlance } from '../lib/web/views.mjs';
 import { waitingEvents } from '../lib/web/push-notify.mjs';
 import { parsePhase } from '../scripts/roadmap.mjs';
 
-const walk = (ref, since, more = {}) => ({ id: `studio:phase:${ref}:walk`, projectId: 'studio', kind: 'walk', itemKind: 'walk', ref, phase: ref, since, ready: true, title: `phase ${ref}: Acme ${ref}`, details: null, ...more });
+// A Try it as homeRoadmap gives it: a walk item from an open "⚑ try:" box (tryIt: true).
+const walk = (ref, since, more = {}) => ({ id: `studio:phase:${ref}:walk`, projectId: 'studio', kind: 'walk', itemKind: 'walk', ref, phase: ref, since, ready: true, tryIt: true, title: `phase ${ref}: Acme ${ref}`, details: null, ...more });
 const project = () => ({ id: 'studio', name: 'Studio', repo: 'acme/studio', gaps: [], changes: [], state: 'complete',
   // A ⚑ setup step: the owner's turn, as before.
   decisions: [{ id: 'studio:phase:1:decision', projectId: 'studio', kind: 'decision', itemKind: 'step', ref: '1', phase: '1', title: 'Create the Acme bucket (⚑, $5 a month)' }],
@@ -118,17 +119,18 @@ test('a built phase with an open walk lists it as a Try it, and each answer writ
   assert.doesNotMatch(skip.writes[0][1], /On a phone/);
   assert.equal(parsePhase('05-acme.md', skip.writes[0][1]).status, 'built');
   // A walk that is the phase's only box is checked and marked skipped, since Acceptance needs a box.
-  const lone = tryItWritePlan({ file: '05-acme.md', raw: phaseFile({ status: 'partial', extra: 'owes: walk\n', acceptance: '- [ ] ⚑ by hand: the owner.' }), evidenceText: ev, today: '2026-11-21', tried: 'skip' });
-  assert.match(lone.writes[0][1], /^- \[x\] ⚑ by hand: the owner\. \(Skipped: trying it by hand is optional\.\)$/m);
+  const lone = tryItWritePlan({ file: '05-acme.md', raw: phaseFile({ status: 'partial', extra: 'owes: walk\n', acceptance: '- [ ] ⚑ try: the owner: opens it.' }), evidenceText: ev, today: '2026-11-21', tried: 'skip' });
+  assert.match(lone.writes[0][1], /^- \[x\] ⚑ try: the owner: opens it\. \(Skipped: trying it by hand is optional\.\)$/m);
   assert.equal(parsePhase('05-acme.md', lone.writes[0][1]).status, 'built');
   assert.throws(() => tryItWritePlan({ file: '05-acme.md', raw, evidenceText: ev, today: '2026-11-21', tried: 'off' }), /needs a note/);
   const off = tryItWritePlan({ file: '05-acme.md', raw, evidenceText: ev, today: '2026-11-21', tried: 'off', note: 'The button is grey.', followUp: 'https://github.com/acme/studio/issues/9' });
   assert.match(off.writes[1][1], /Tried it: something's off\. The button is grey\. Follow-up: https:\/\/github\.com\/acme\/studio\/issues\/9\./);
   // A partial phase whose last open box was the walk moves to built, owes dropped.
-  const owed = phaseFile({ status: 'partial', extra: 'owes: walk\n', acceptance: '- [x] Publishes: `tests/a.test.mjs`.\n- [ ] ⚑ by hand: the owner.' });
+  const owed = phaseFile({ status: 'partial', extra: 'owes: walk\n', acceptance: '- [x] Publishes: `tests/a.test.mjs`.\n- [ ] ⚑ try: the owner: opens it.' });
   const moved = tryItWritePlan({ file: '05-acme.md', raw: owed, evidenceText: ev, today: '2026-11-21', tried: 'works' });
   assert.deepEqual([parsePhase('05-acme.md', moved.writes[0][1]).status, /owes:/.test(moved.writes[0][1])], ['built', false]);
-  // A box that is not a by-hand walk is never a Try it.
+  // A box that is not a walk to try is never a Try it: a test, or a kept "⚑ by hand" decision.
+  assert.throws(() => tryItWritePlan({ file: '05-acme.md', raw: phaseFile({ status: 'partial', extra: 'owes: walk\n', acceptance: '- [x] A.\n- [ ] ⚑ by hand: the owner picks.' }), evidenceText: ev, today: '2026-11-21', tried: 'works' }), /no open walk to try/);
   assert.throws(() => tryItWritePlan({ file: '05-acme.md', raw: phaseFile({ status: 'partial', acceptance: '- [ ] Runs: `npm test`.' }), evidenceText: ev, today: '2026-11-21', tried: 'works' }), /no open walk to try/);
 
   // The follow-up issue names the phase and carries the note.
@@ -157,4 +159,27 @@ test('a built phase with an open walk lists it as a Try it, and each answer writ
     assert.equal(r.data.followUp, 'https://github.com/acme/studio/issues/9');
     assert.match(await readFile(join(root, 'docs/evidence/acme.md'), 'utf8'), /Tried it: something's off\. Grey\. Follow-up: https:\/\/github\.com\/acme\/studio\/issues\/9\./);
   } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('a Try it comes only from an open ⚑ try: box; a kept ⚑ by hand box still waits on the owner', async () => {
+  const goals = [{ id: 'G0', title: 'Start', outcome: 'It starts.' }];
+  const files = {
+    // owes: walk with an open decision: the owner's turn, in the docket, with its Your part's choices.
+    '05-acme.md': phaseFile({ status: 'partial', extra: 'owes: walk\n', acceptance: '- [x] Publishes: `tests/a.test.mjs`.\n- [ ] ⚑ by hand: the owner picks the Acme scheduler.' })
+      .replace('## Proof', '## Your part\n\n- **Ask:** Pick the Acme scheduler.\n- **Choices:** Daily | Weekly\n- **Ready:** yes\n\n## Proof'),
+    // Only a walk to try left (owes: walk or not): an optional Try it, never in the docket.
+    '06-acme.md': phaseFile({ status: 'partial', extra: 'owes: walk\n', acceptance: '- [x] Publishes: `tests/a.test.mjs`.\n- [ ] ⚑ try: the owner: publishes from a phone and sees it land.' }),
+    '07-acme.md': phaseFile({ status: 'partial', acceptance: '- [x] Publishes: `tests/a.test.mjs`.\n- [ ] ⚑ try: the owner: opens Home.' }),
+  };
+  const phases = Object.entries(files).map(([f, raw]) => parsePhase(f, raw));
+  const data = { source: 'files', config: { repo: 'acme/studio' }, goals, phases, coverage: { complete: true, gaps: [] } };
+  const board = await roadmapItems('/nowhere', { read: async () => data, readPhase: async f => files[f], today: '2026-11-21' });
+  const lists = homeRoadmap({ id: 'studio', name: 'Studio', revision: 'abc' }, board, phases, p => p);
+  const model = homeSnapshot([{ id: 'studio', name: 'Studio', repo: 'acme/studio', gaps: [], changes: [], state: 'complete', reviews: [], ...lists }], { sections: [], today: '2026-11-21' });
+  assert.deepEqual(model.docket.map(e => [e.key, e.kind]), [['studio:walk:5', 'walk']], 'the decision waits on the owner, in the docket');
+  assert.deepEqual(model.walks.find(w => w.key === 'studio:walk:5').answers.map(a => a.label), ['Daily', 'Weekly', 'Not now'], 'with its choices, as before');
+  assert.deepEqual(model.tryIt.map(t => t.key), ['studio:walk:6', 'studio:walk:7'], 'only the "⚑ try:" boxes are Try its');
+  assert.ok(!model.docket.some(e => ['studio:walk:6', 'studio:walk:7'].includes(e.key)));
+  // Push: the decision notifies; the Try its never do.
+  assert.deepEqual(waitingEvents({ id: 'studio', walks: model.walks.map(w => ({ ...w, projectId: 'studio' })) }).map(e => e.id.split('\n')[0]), ['studio:phase:5:walk']);
 });

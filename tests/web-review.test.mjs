@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
-import { projectHarness, phaseFile } from './helpers/web-projects.mjs';
+import { projectHarness } from './helpers/web-projects.mjs';
 import { createWebService } from '../lib/web/server.mjs';
 import { createReviewSession, createWebSender, HOLD_MS } from '../lib/web/review-client.mjs';
 import { docketItems, renderReviewCard, renderReviewEnd, reviewView } from '../lib/web/review-views.mjs';
@@ -42,8 +42,6 @@ async function notNowDatabase(t) {
 /** The real service, and a browser fetch into it carrying the session cookie and the page's origin. */
 async function hosted(t) {
   const h = projectHarness(), notNow = await notNowDatabase(t);
-  // A second ⚑ step: the harness's walk is an optional Try it (phase 204), so it is no longer the docket's second item.
-  h.source.files['docs/phases/05-lane.md'] = phaseFile(5, { next: '⚑ Approve the Acme lane.' });
   const web = createWebService({ ...h.config }, { now: () => h.state.now, fetcher: (url, options) => new URL(url).pathname === '/rest/v1/rpc/plates_not_now_rpc' ? notNow(url, options) : h.fetcher(url, options) });
   const signed = await h.login();
   const calls = [];
@@ -102,9 +100,7 @@ test('an answer is sent after its undo window, and a failure comes back', async 
 });
 
 test('a held preview is applied through its route, and an uncertain apply is never sent again', async () => {
-  // Phase 204: the walk is a Try it outside the docket; the later proposal is the second previewed answer.
-  const snapshot = reviewSnapshot(), walk = snapshot.decisions[2], proposal = snapshot.decisions[0];
-  assert.ok(!docketItems(snapshot).some(e => e.key === snapshot.walks[0].key), 'a walk is never a review card');
+  const snapshot = reviewSnapshot(), walk = snapshot.walks[0], proposal = snapshot.decisions[0];
   const items = docketItems(snapshot).filter(e => [walk.key, proposal.key].includes(e.key));
   const calls = [], outcome = { apply: [] };
   const fetch = async (url, options) => {
@@ -123,7 +119,7 @@ test('a held preview is applied through its route, and an uncertain apply is nev
   assert.equal(calls.filter(x => x.url.endsWith('/decisions/apply')).length, 0, 'Undo: no apply');
   outcome.apply.push({ schema: 1, id: 'd'.repeat(64), state: 'committed', receipt: { url: 'https://github.com/acme/studio/commit/abc123' } }, 'network');
   session.choose('accept');
-  session.choose('accept');
+  session.choose('choice-verified');
   await c.tick(); await settledOf(session);
   const applies = calls.filter(x => x.url === '/api/projects/studio/decisions/apply');
   assert.deepEqual(applies.map(x => x.body), [{ csrf: 'acme-csrf', previewId: 'b'.repeat(64), publicAcknowledgement: 'c'.repeat(64) }, { csrf: 'acme-csrf', previewId: 'b'.repeat(64), publicAcknowledgement: 'c'.repeat(64) }], 'the exact previews, with their digests');
@@ -140,7 +136,7 @@ test('a held preview is applied through its route, and an uncertain apply is nev
 
 test('backward navigation cannot resubmit an uncertain answer', async () => {
   const docket = docketItems(reviewSnapshot());
-  const step = docket.find(e => e.kind === 'step'), walk = docket.find(e => e.key === 'studio:proposal:docs/health/2026-11-02.md'), proposal = docket.find(e => e.kind === 'proposal');
+  const step = docket.find(e => e.kind === 'step'), walk = docket.find(e => e.kind === 'walk'), proposal = docket.find(e => e.kind === 'proposal');
   let previews = 0;
   const calls = [], outcome = [];
   const fetch = async (url, options) => {
@@ -159,10 +155,10 @@ test('backward navigation cannot resubmit an uncertain answer', async () => {
   // Direct backward navigation from the end after a lost apply cannot reopen or resubmit it.
   const first = createReviewSession({ items: [walk], send: sender.send, prepare: sender.prepare, timers: c.timers });
   outcome.push('network', { schema: 1, id: '2'.repeat(64), state: 'committed', receipt: { url: 'https://github.com/acme/studio/commit/abc123' } });
-  first.choose('accept');
+  first.choose('choice-verified');
   await c.tick(); await settledOf(first);
   const back = first.back();
-  const retried = first.choose('accept');
+  const retried = first.choose('choice-verified');
   await c.tick(); await settledOf(first);
   const firstApplies = calls.filter(x => x.url === '/api/projects/studio/decisions/apply');
   assert.equal(firstApplies.length, 1, 'only the first apply was sent');
@@ -177,7 +173,7 @@ test('backward navigation cannot resubmit an uncertain answer', async () => {
   const multi = createReviewSession({ items: [step, walk, proposal], send: sender.send, prepare: sender.prepare, timers: c.timers });
   assert.equal(multi.forward(), true);
   assert.equal(multi.current()?.entry.key, walk.key);
-  multi.choose('accept');
+  multi.choose('choice-verified');
   await c.tick(); await settledOf(multi);
   assert.equal(multi.current()?.entry.key, proposal.key);
   assert.equal(multi.back(), true, '← steps over the uncertain card to the earlier skipped card');
@@ -228,15 +224,15 @@ test('an answer that needs a why waits for it', async () => {
 
 test('the session ends on what it settled', async () => {
   const items = docketItems(reviewSnapshot()), c = clock();
-  // The docket's order (phase 175): the step and the claim (what an agent waits on), then the proposals. A walk is never in it (phase 204).
-  assert.deepEqual(items.map(e => e.kind), ['step', 'claim', 'proposal', 'proposal']);
+  // The docket's order (phase 175): the step and the claim (what an agent waits on), the proposal, then the walk.
+  assert.deepEqual(items.map(e => e.kind), ['step', 'claim', 'proposal', 'walk']);
   const results = { 0: { state: 'put-off', until: '2026-11-10' }, 1: { state: 'put-off', until: '2026-11-10' }, 2: { state: 'settled', link: 'https://github.com/acme/studio/commit/abc123' }, 3: { state: 'failed', reason: 'The source changed since the preview, so nothing was written.' } };
   let n = 0;
   const session = createReviewSession({ items, send: async () => results[n++], timers: c.timers });
-  session.choose('not-now'); assert.equal(session.choose('release', { why: 'the branch is abandoned' }).error, 'unavailable', 'a claim is released from the checkout'); session.choose('not-now'); session.choose('accept'); session.choose('accept');
+  session.choose('not-now'); assert.equal(session.choose('release', { why: 'the branch is abandoned' }).error, 'unavailable', 'a claim is released from the checkout'); session.choose('not-now'); session.choose('accept'); session.choose('choice-verified');
   await c.tick(); await settledOf(session);
-  // The failed answer comes back once; closing ends the session with it listed, its reason kept.
-  assert.equal(session.current()?.entry.key, items[3].key); session.close();
+  // The failed walk comes back once; closing ends the session with it listed, its reason kept.
+  assert.equal(session.current()?.entry.kind, 'walk'); session.close();
   assert.equal(session.done(), true);
   const html = renderReviewEnd({ settled: session.settled, putOff: session.putOff, again: session.again, home: '/' });
   assert.match(html, /1 settled · 2 put off · 1 needs another look/);
@@ -318,14 +314,14 @@ test('a quick session holds only quick items', async t => {
 
 test('what an answer sets moving is on its card, and the end totals it', async () => {
   const snapshot = reviewSnapshot(), items = docketItems(snapshot);
-  const claim = items.find(e => e.kind === 'claim'), walk = items.find(e => e.key === 'studio:proposal:docs/health/2026-11-02.md'), proposal = items.find(e => e.kind === 'proposal');
+  const claim = items.find(e => e.kind === 'claim'), walk = items.find(e => e.kind === 'walk'), proposal = items.find(e => e.kind === 'proposal');
   assert.match(renderReviewCard(claim), /<p class="review-quiet" data-review-sets>Sets moving: claims\/phase-7 freed<\/p>/);
   assert.doesNotMatch(renderReviewCard(proposal), /Sets moving/, 'nothing the model cannot back');
   const gated = { ...walk, sets: [{ kind: 'phase', phase: '9', title: 'Share to the team' }] };
   assert.match(renderReviewCard(gated), /Sets moving: phase 9 \(Share to the team\)/);
   const c = clock();
   const session = createReviewSession({ items: [gated, proposal], send: async () => ({ state: 'settled', link: 'https://github.com/acme/studio/commit/abc123' }), timers: c.timers });
-  session.choose('accept'); session.choose('accept'); await c.tick(); await settledOf(session);
+  session.choose('choice-verified'); session.choose('accept'); await c.tick(); await settledOf(session);
   const html = renderReviewEnd({ settled: session.settled, putOff: [], again: [], home: '/' });
   assert.match(html, /<h2>Set moving<\/h2><ul><li>1 phase can start: phase 9 \(Share to the team\)<\/li><\/ul>/);
   // The terminal's end says the same.
@@ -367,7 +363,7 @@ test('session time is honest', async () => {
   const { DEFAULT_MINUTES, estimateOf, docketOf } = await import('../lib/work-items.mjs');
   const items = docketItems(reviewSnapshot());
   // From Takes where an item has one, else its kind's DEFAULT_MINUTES: every fixture item is known, so "~".
-  assert.deepEqual(items.map(e => [e.kind, e.minutes, e.estimate]), [['step', DEFAULT_MINUTES.step, 'kind'], ['claim', DEFAULT_MINUTES.claim, 'kind'], ['proposal', DEFAULT_MINUTES.proposal, 'kind'], ['proposal', 10, 'takes']]);
+  assert.deepEqual(items.map(e => [e.kind, e.minutes, e.estimate]), [['step', DEFAULT_MINUTES.step, 'kind'], ['claim', DEFAULT_MINUTES.claim, 'kind'], ['proposal', DEFAULT_MINUTES.proposal, 'kind'], ['walk', 10, 'takes']]);
   assert.equal(sessionLine(sessionTime(items)), `4 left · ~${1 + 5 + 2 + 10} min`);
   // One item whose minutes are unknown (no Takes, a kind with no default): never a guess, and the total says "at least".
   assert.deepEqual(estimateOf({ kind: 'acme-odd' }), { minutes: null, from: 'unknown' });

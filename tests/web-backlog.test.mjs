@@ -40,9 +40,7 @@ test('/backlog lists every plate\'s work in lanes, behind Home\'s auth', async (
   const keys = Object.fromEntries(model.lanes.map(l => [l.lane, l.items.map(i => i.key)]));
   assert.deepEqual(keys['in-flight'], ['studio:phase:1'], 'the claim branch the App lists puts phase 1 in flight');
   assert.equal(model.lanes[0].items[0].holder.provider, 'codex');
-  // Phase 204: a phase owing only a walk owes nothing (its walk is a Try it on Home): no lane lists it; the ⚑ step is Yours.
-  assert.ok(!Object.values(keys).flat().some(k => /^studio:(phase|walk):2$/.test(k)), 'the phase owing a walk is yours');
-  assert.deepEqual(keys.yours, ['studio:step:1']);
+  assert.ok(keys.yours.includes('studio:phase:2'), 'the phase owing a walk is yours');
   assert.deepEqual(model.claims, [{ projectId: 'studio', read: true }]);
   assert.match(s.graphql[0], /refs\(refPrefix: "refs\/heads\/claims\/"/);
   // The page renders from the same read: the sidebar, each lane with its count, a row per item.
@@ -117,8 +115,7 @@ test('a cold cache shows every plate loading, and the backlog fills them in', as
   assert.deepEqual(backlog.plates.map(p => p.state), [...Array(7).fill('read'), 'not read']);
   assert.ok(backlog.plates.slice(0, 7).every(p => Number.isSafeInteger(p.counts.yours)));
   assert.equal(backlog.plates[7].counts, null); assert.ok(backlog.plates[7].reason, 'a broken plate says why');
-  assert.equal(backlog.lanes.find(l => l.lane === 'yours').items.filter(i => i.key.endsWith(':phase:1')).length, 7, 'each plate read lists its ⚑ step, on its phase');
-  assert.ok(!backlog.lanes.some(l => l.items.some(i => i.key.endsWith(':phase:2'))), 'and never its phase owing only a walk (phase 204)');
+  assert.equal(backlog.lanes.find(l => l.lane === 'yours').items.filter(i => i.key.endsWith(':phase:2')).length, 7, 'each plate read lists its phase owing a walk');
 });
 
 test('the hosted page loads like Home: cache first, then the client', async () => {
@@ -138,7 +135,7 @@ test('a stale plate keeps its items, is never "not read", and its claims are rea
   const s = await hosted();
   const fresh = await (await s.get('/api/backlog')).json();
   const items = fresh.lanes.flatMap(l => l.items.map(i => i.key));
-  assert.ok(items.length >= 2);
+  assert.ok(items.length > 2);
   s.h.state.now += 11 * 60_000;
   const before = s.graphql.length;
   const html = await (await s.get('/backlog')).text();
@@ -168,8 +165,7 @@ test('/backlog/goals arranges the backlog by goal, one card per phase', async ()
   assert.match(html, /data-backlog-root data-view="goals" data-endpoint="\/api\/backlog"/);
   assert.doesNotMatch(html, /<a href="\/backlog\/goals"/);
   assert.match(html, /data-goal="studio:goal:G1"[^>]*><h2 id="goal-studio:goal:G1">Acme Studio · G1 — A dependable studio <span class="meta">/);
-  assert.match(html, /data-member="studio:phase:1:phase">step · /, 'the walk is nested under its phase: phase 204 left no walk in the backlog, so the ⚑ step on the claimed phase is the nested member');
-  assert.doesNotMatch(html, /data-member="studio:phase:2:/);
+  assert.match(html, /data-member="studio:phase:2:box [^"]+">walk \(box \d+\)/, 'the walk is nested under its phase');
   const list = await (await s.get('/backlog')).text();
   assert.doesNotMatch(list, /<a href="\/backlog\/goals"/);
   assert.equal((await s.get('/backlog/goals?x=1')).status, 400);

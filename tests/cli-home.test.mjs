@@ -76,17 +76,15 @@ test('plates home --answer settles one item', async () => {
     assert.deepEqual([walk.key, proposal.key, stale.key], ['studio:walk:2', 'studio:proposal:docs/health/2026-11-01.md', 'studio:claim:claims/phase-3']);
     const clean = () => git(root, 'status', '--porcelain');
 
-    // A walk is a Try it (phase 204): the preview writes nothing (exit 3); --yes records Works through walk done --tried.
-    assert.deepEqual(walk.answers.map(a => a.id), ['works', 'off', 'skip']);
-    assert.deepEqual(home.data.tryIt.map(t => t.key), [walk.key], 'listed as an optional Try it');
-    const choice = walk.answers.find(a => a.id === 'works');
+    // A walk: the preview writes nothing (exit 3); --yes records the choice through walk done.
+    const choice = walk.answers.find(a => a.id.startsWith('choice-'));
     const preview = json(['home', '--answer', walk.key, choice.id]);
-    assert.deepEqual([preview.code, preview.data.state, preview.data.writer], [3, 'preview', 'try it'], preview.err);
+    assert.deepEqual([preview.code, preview.data.state, preview.data.writer], [3, 'preview', 'walk done'], preview.err);
     assert.equal(clean(), '', 'a preview writes nothing');
     const walked = json(['home', '--answer', walk.key, choice.id, '--why', 'Tried it on the Acme phone.', '--yes']);
     assert.deepEqual([walked.code, walked.data.state], [0, 'written'], walked.err);
-    assert.equal(walked.data.result.tried, 'works');
-    assert.match(await readFile(join(root, walked.data.result.evidence), 'utf8'), /Tried it: works\. Tried it on the Acme phone\./);
+    assert.equal(walked.data.result.choice, choice.label);
+    assert.match(await readFile(join(root, walked.data.result.evidence), 'utf8'), new RegExp(`Chose: ${choice.label}\\. Tried it on the Acme phone\\.`));
 
     // A proposal: declining needs a why (exit 2, nothing written); with one, walk decide records it.
     const bare = json(['home', '--answer', proposal.key, 'decline', '--yes']);

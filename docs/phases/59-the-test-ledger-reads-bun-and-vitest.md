@@ -31,7 +31,7 @@ The design is [Adopting projects that already have a practice](../research/2026-
 - [x] A JUnit file with no tests is "no tests ran" (exit 1), as a node run is; `allowEmpty` lets it pass. `tests/test-ledger.test.mjs`
 - [x] `flaky_tests` and `slow_tests` read bun and vitest records as they read node's. `tests/improve-ledger.test.mjs`
 - [x] Adopt detects the runner and proposes the reporter flags for the gate. `tests/adopt.test.mjs`
-- [ ] ⚑ by hand: one project on bun and one on vitest record a week of runs, and the owner reads their hygiene block.
+- [ ] ⚑ try: the owner: one project on bun and one on vitest record a week of runs, and the owner reads their hygiene block.
 
 ## Your part
 

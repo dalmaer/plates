@@ -25,9 +25,7 @@ function data() {
 
 test('the project has one ordered backlog with four states, on-row Assign, and rendered source details', () => {
   const value=data(), model=value.projectWorkspace, before=JSON.stringify(value);
-  // Phase 204: the phase owing only a walk owes nothing (its walk is a Try it), so no backlog item needs you here.
-  assert.deepEqual([...new Set(model.items.map(i=>i.state))],['Agent working','Ready','Done']);
-  assert.ok(!model.items.some(i=>i.ref==='2'), 'the phase owing a walk is not a backlog item');
+  assert.deepEqual([...new Set(model.items.map(i=>i.state))],['Agent working','Needs you','Ready','Done']);
   const keys=value.backlog.lanes.flatMap(l=>l.lane==='waiting'?[]:l.items.filter(i=>i.projectId==='studio').map(i=>i.key));
   assert.deepEqual(model.items.map(i=>i.key),keys);
   const html=renderHomeSnapshot(value,{projectId:'studio'}), cli=homeText(value,{projectId:'studio'});
@@ -72,8 +70,7 @@ test('project decisions reuse Home answer cards; equal releases and empty sectio
   const html=renderHomeSnapshot(value,{projectId:'studio'});
   assert.ok(html.includes(`data-card="${card.key}"`));
   assert.match(html,/data-answer=/);
-  assert.match(html,/id="try-it"/, 'the walk is a Try it on the project page too');
-  value.home.glance.cards=[]; value.home.glance.tryIt=[];
+  value.home.glance.cards=[];
   value.backlog={plates:[{projectId:'studio',state:'read',coverage:'complete'}],lanes:[]};
   value.projectWorkspace=simpleProject(value,'studio',{config});
   const empty=renderHomeSnapshot(value,{projectId:'studio'});

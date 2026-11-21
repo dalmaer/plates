@@ -85,7 +85,7 @@ From driving three fix lanes through Rex by hand on 2026-11-15:
 - [x] The brief reaches the harness on stdin and never appears in argv, environment or captured output, and its file is gone after the run starts: `tests/rex-host.test.mjs: "the brief reaches the harness only on stdin"`
 - [x] State maps from Rex, and exit 0 without the expected findings file is failed: `tests/rex-host.test.mjs: "state comes from the rex tab and the run's own artifact"`
 - [x] `plates audit run` and the `local-host` attach route both go through it: `tests/rex-host.test.mjs: "audit run and local-host attach use rex when configured"`
-- [ ] A real harness started this way in Rex, watched and finished: ⚑ by hand: the owner.
+- [ ] A real harness started this way in Rex, watched and finished: ⚑ try: the owner.
 
 ## Your part
 

@@ -46,9 +46,8 @@ test('each item has one home', () => {
   for (const k of all) assert.equal(homes.get(k)?.length, 1, `${k} has one home: ${homes.get(k)}`);
   assert.equal(new Set(cards.map(c => c.key)).size, cards.length, 'one card per key');
   const by = Object.fromEntries(cards.map(c => [c.key, c]));
-  // Phase 204: the phase owing only a walk owes nothing (its walk is a Try it on Home): no card, and the walk is none either.
-  assert.equal(by['anvils:phase:3'], undefined);
-  assert.ok(!cards.some(c => c.keys.includes('anvils:walk:3')));
+  // The phase owing a walk: one card, the walk nested, its box kept.
+  assert.deepEqual(by['anvils:phase:3'].members.map(m => [m.kinds, m.box]), [[['walk'], 2]]);
   // A ⚑ step on a claimed phase joins the phase's card, and the card is Yours: the owner's turn shows first.
   assert.deepEqual([by['anvils:phase:8'].lead.lane, by['anvils:phase:8'].lane, by['anvils:phase:8'].members.map(m => m.kinds)], ['in-flight', 'yours', [['step']]]);
   // A review is a PR's card.
@@ -59,7 +58,7 @@ test('each item has one home', () => {
   assert.deepEqual([...new Set(cards.map(c => c.lane))], ['yours', 'agent-ready'], 'the claimed phase with a step waiting on you is Yours');
   // By goal: a header per goal in each plate's order, then its cards with no goal; counts per lane; collapsed after seven.
   const { groups, notRead } = byGoal(backlog);
-  assert.deepEqual(groups.map(g => [g.key, g.cards.length, g.more]), [['anvils:goal:G1', 2, 0], ['anvils:goal:G2', 1, 0], ['anvils:goal:G3', 9, 2], ['anvils:goal:none', 2, 0], ['forge:goal:G1', 2, 0]]);
+  assert.deepEqual(groups.map(g => [g.key, g.cards.length, g.more]), [['anvils:goal:G1', 2, 0], ['anvils:goal:G2', 2, 0], ['anvils:goal:G3', 9, 2], ['anvils:goal:none', 2, 0], ['forge:goal:G1', 2, 0]]);
   assert.equal(groups[2].shown.length, GOAL_SHOWN);
   assert.deepEqual(groups[0].counts, { yours: 2, 'in-flight': 0, 'agent-ready': 0, waiting: 0, done: 0 });
   assert.deepEqual(notRead, []);

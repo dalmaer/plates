@@ -26,10 +26,6 @@ const base = (id, name, more = {}) => ({ id, repo: `acme/${id}`, name, state: 'c
 const walk = (projectId, projectName, ref, more = {}) => ({ id: `${projectId}:walk:${ref}`, projectId, projectName, kind: 'walk', itemKind: 'walk', ref, phase: ref, ready: true, since: '2026-11-01',
   title: `Acme walk ${ref}`, why: 'A person uses the **real** surface.', link: `https://github.com/acme/${projectId}/blob/main/docs/phases/${ref}.md`,
   details: { ask: `Does the Acme ${ref} flow work?`, why: 'Only a person can see it.', look: 'Open the preview.', takes: 'About 2 minutes', choices: ['Works', 'Needs changes'], recommend: 'Works' }, ...more });
-// Phase 204: a walk is an optional Try it, never a Needs-you card; a health proposal is the decision a card answers in place.
-const proposal = (projectId, projectName, ref) => ({ id: `${projectId}:health:docs/health/${ref}.md`, projectId, projectName, kind: 'decision', itemKind: 'proposal', ref: `docs/health/${ref}.md`, since: '2026-11-01',
-  title: `Acme proposal ${ref}`, why: 'A person uses the **real** surface.', link: `https://github.com/acme/${projectId}/blob/main/docs/health/${ref}.md`, decisionTarget: { kind: 'health', path: `docs/health/${ref}.md` },
-  details: { ask: `Does the Acme ${ref} flow work?`, why: 'Only a person can see it.', look: 'Open the preview.', takes: 'About 2 minutes' } });
 const step = (projectId, projectName, ref) => ({ id: `${projectId}:step:${ref}`, projectId, projectName, kind: 'decision', itemKind: 'step', ref, phase: ref, title: `Acme step ${ref}: grant the deploy key`, why: 'An agent stopped on a ⚑ step.' });
 const behind = (ahead = 2) => ({ state: 'behind', main: SHA(1), production: { sha: SHA(2), at: '2026-11-15T10:00:00.000Z', checkedAt: '2026-11-17T09:00:00.000Z', deployment: 'dpl_acme' }, ahead, why: null });
 const current = () => ({ state: 'current', main: SHA(1), production: { sha: SHA(1), at: '2026-11-15T10:00:00.000Z', checkedAt: '2026-11-17T09:00:00.000Z', deployment: 'dpl_acme' }, ahead: 0, why: null });
@@ -39,8 +35,8 @@ const redMain = { state: 'read', items: [{ state: 'ci', next: 'main is red: Acme
 function plates() {
   return [
     base('docs', 'Acme Docs', { release: current() }),
-    base('api', 'Acme API', { release: behind(2), decisions: [step('api', 'Acme API', '7'), proposal('api', 'Acme API', '8')], walks: [walk('api', 'Acme API', '8')] }),
-    base('studio', 'Acme Studio', { waits: redMain, release: behind(1), decisions: [proposal('studio', 'Acme Studio', '3')], walks: [walk('studio', 'Acme Studio', '3')] }),
+    base('api', 'Acme API', { release: behind(2), decisions: [step('api', 'Acme API', '7')], walks: [walk('api', 'Acme API', '8')] }),
+    base('studio', 'Acme Studio', { waits: redMain, release: behind(1), walks: [walk('studio', 'Acme Studio', '3')] }),
     base('anvils', 'Acme Anvils', { reviews: [{ id: 'anvils:review:12', projectId: 'anvils', projectName: 'Acme Anvils', kind: 'review', itemKind: 'review', ref: '12', title: 'Acme anvils PR #12', why: 'Round 3 of 3.', link: 'https://github.com/acme/anvils/pull/12', review: { number: 12, rounds: 3, limit: 3, verdict: 'stopped: repeating' } }] }),
     base('lab', 'Acme Lab', { state: 'unavailable', gaps: [{ source: 'project', reason: 'The App cannot read acme/lab.' }] }),
   ];
@@ -106,20 +102,14 @@ test('Needs you: one card per decision, the recommended answer filled, a one-lin
   const data = snapshot(plates(), { can: { form: 'web', decisionWrites: true } }), { cards } = data.home.glance, html = renderHomeSnapshot(data);
   // What agents wait on first, then production behind main, then the rest of the docket.
   // (A review at its round limit is one an agent waits on.)
-  assert.deepEqual(cards.map(c => c.key), ['api:step:7', 'anvils:review:12', `api:deploy:${SHA(1)}`, `studio:deploy:${SHA(1)}`, 'api:proposal:docs/health/8.md', 'studio:proposal:docs/health/3.md']);
-  // The walks are optional Try its, after Needs you and never one of its cards; a Try it recommends nothing.
-  assert.deepEqual(data.home.glance.tryIt.map(t => t.key), ['api:walk:8', 'studio:walk:3']);
-  assert.ok(data.home.glance.tryIt.every(t => t.answers.every(a => !a.recommended)));
-  assert.ok(html.indexOf('id="needs-you"') < html.indexOf('id="try-it"'));
-  const merge = { id: 'anvils:merge:13', projectId: 'anvils', projectName: 'Acme Anvils', kind: 'review', itemKind: 'merge', ref: '13', title: 'Acme anvils PR #13 is ready', why: 'Checks passed.', merge: { number: 13, head: 'a'.repeat(40) } };
-  assert.equal(snapshot([base('anvils', 'Acme Anvils', { reviews: [merge] })], { can: { form: 'web', decisionWrites: true, mergeWrites: true } }).home.glance.cards[0].recommended, 'merge', 'a recommended answer is filled');
-  const card = cards.find(c => c.key === 'api:proposal:docs/health/8.md');
-  assert.equal(card.question, 'Does the Acme 8 flow work?'); assert.equal(card.why, 'A person uses the **real** surface.'); assert.equal(card.recommended, null);
-  const li = html.match(/<li class="glance-card p-card" data-card="api:proposal:docs\/health\/8\.md"[\s\S]*?<\/li>(?=<li class="glance-card|<\/ol>)/)[0];
+  assert.deepEqual(cards.map(c => c.key), ['api:step:7', 'anvils:review:12', `api:deploy:${SHA(1)}`, `studio:deploy:${SHA(1)}`, 'api:walk:8', 'studio:walk:3']);
+  const card = cards.find(c => c.key === 'api:walk:8');
+  assert.equal(card.question, 'Does the Acme 8 flow work?'); assert.equal(card.why, 'A person uses the **real** surface.'); assert.equal(card.recommended, 'choice-works');
+  const li = html.match(/<li class="glance-card p-card" data-card="api:walk:8"[\s\S]*?<\/li>(?=<li class="glance-card|<\/ol>)/)[0];
   assert.match(li, /<p class="glance-project">Acme API<\/p><h3 class="glance-question">Does the Acme 8 flow work\?<\/h3><p class="glance-why">A person uses the <strong>real<\/strong> surface\.<\/p>/, 'markdown renders, no raw **');
-  assert.match(li, /<summary data-focus="more-api:proposal:docs\/health\/8\.md">More<\/summary><dl class="detail-list"><div><dt>Item<\/dt><dd>Acme proposal 8<\/dd><\/div><div><dt>Why you<\/dt><dd>Only a person can see it\.<\/dd>/);
-  assert.match(li, /<button type="button" class="glance-answer" data-answer="accept" data-label="Accept"/);
-  assert.match(li, /<button type="button" class="glance-answer" data-answer="decline" data-label="Decline" data-needs-why="decline"/);
+  assert.match(li, /<summary data-focus="more-api:walk:8">More<\/summary><dl class="detail-list"><div><dt>Item<\/dt><dd>Acme walk 8<\/dd><\/div><div><dt>Why you<\/dt><dd>Only a person can see it\.<\/dd>/);
+  assert.match(li, /<button type="button" class="glance-answer" data-recommended="true" data-answer="choice-works" data-label="Works"/);
+  assert.match(li, /<button type="button" class="glance-answer" data-answer="choice-needs-changes" data-label="Needs changes"/);
   assert.match(li, /data-answer="not-now" data-label="Not now" data-needs-why="never" data-writer="not now"/);
   assert.match(li, /<div class="glance-status" data-card-status role="status" aria-live="polite"><\/div>/);
   assert.match(homeView(access, data), new RegExp(`data-needs-count>${cards.length} need you</a>`));
@@ -129,7 +119,7 @@ test('Needs you: one card per decision, the recommended answer filled, a one-lin
   assert.match(page, /<a class="nav-needs" href="#needs-you" data-needs-count hidden>0 need you<\/a>/);
   // The terminal prints the same cards, with the command that answers each.
   const text = glanceLines(data.home.glance, data).join('\n');
-  assert.match(text, /^ {2}Acme API · Does the Acme 8 flow work\?\n {6}A person uses the real surface\.\n {6}Accept \| Decline \| Not now\n {6}answer: plates home --answer api:proposal:docs\/health\/8\.md <accept\|decline\*\|not-now>/m);
+  assert.match(text, /^ {2}Acme API · Does the Acme 8 flow work\?\n {6}A person uses the real surface\.\n {6}Works \(recommended\) \| Needs changes \| Not now\n {6}answer: plates home --answer api:walk:8 <choice-works\|choice-needs-changes\|not-now>/m);
 });
 
 test('screen-reader words on chips and answers stay off screen: plates.css styles .sr-only everywhere, not only in one toolbar', () => {
@@ -168,35 +158,35 @@ test('Deploy runs the checked promote only: the card is its command, in no write
 test('a card\'s answer is held with Undo, then sent through the docket\'s answer path with the page\'s CSRF token', async () => {
   const sent = [], timers = [], fetch = async (url, options) => {
     const body = JSON.parse(options.body); sent.push([url, body]);
-    if (url === '/api/home/answer' && body.answer === 'accept') return Response.json({ schema: 1, state: 'preview', preview: { id: 'p'.repeat(64), canSubmit: true, digest: null, consequence: 'Records Accept on Acme proposal 3.', operationUrl: '/projects/api/operations/o1' } });
+    if (url === '/api/home/answer' && body.answer === 'choice-works') return Response.json({ schema: 1, state: 'preview', preview: { id: 'p'.repeat(64), canSubmit: true, digest: null, consequence: 'Records Works on Acme walk 3.', operationUrl: '/projects/api/operations/o1' } });
     if (url === '/api/home/answer') return Response.json({ schema: 1, state: 'written', until: '2026-11-24' });
     if (/^\/api\/projects\/[a-z]+\/decisions\/apply$/.test(url)) return Response.json({ state: 'committed', receipt: { url: 'https://github.com/acme/api/commit/abc' } });
     return new Response('{}', { status: 404 });
   };
   const sender = createWebSender({ fetch, csrf: 'fake-csrf-acme' }), changes = [];
   const answers = createCardAnswers({ send: sender.send, prepare: sender.prepare, holdMs: 5000, timers: { setTimeout: (f, ms) => { timers.push({ f, ms }); return timers.length; }, clearTimeout: () => {} }, onChange: key => changes.push(key) });
-  const data = snapshot(plates(), { can: { form: 'web', decisionWrites: true } }), card = data.home.glance.cards.find(c => c.key === 'api:proposal:docs/health/8.md');
-  const notNow = card.answers.find(a => a.id === 'not-now'), works = card.answers.find(a => a.id === 'accept');
+  const data = snapshot(plates(), { can: { form: 'web', decisionWrites: true } }), card = data.home.glance.cards.find(c => c.key === 'api:walk:8');
+  const notNow = card.answers.find(a => a.id === 'not-now'), works = card.answers.find(a => a.id === 'choice-works');
   // A tap holds it: nothing is sent, the card says what you answered with Undo; Undo sends nothing.
   assert.ok(answers.choose(card.key, notNow).held);
   assert.match(cardStatus(answers.state(card.key)), /^<p><strong>Not now<\/strong> · ready to record · <button type="button" class="quiet" data-undo>Undo<\/button><\/p>$/);
   assert.equal(answers.undo(card.key), true); assert.equal(answers.state(card.key), null); assert.deepEqual(sent, []);
   // Held again, the hold ends: one POST to /api/home/answer with the key, the answer and the CSRF token.
   answers.choose(card.key, notNow); await timers.at(-1).f();
-  assert.deepEqual(sent, [['/api/home/answer', { csrf: 'fake-csrf-acme', key: 'api:proposal:docs/health/8.md', answer: 'not-now' }]]);
+  assert.deepEqual(sent, [['/api/home/answer', { csrf: 'fake-csrf-acme', key: 'api:walk:8', answer: 'not-now' }]]);
   assert.deepEqual([answers.state(card.key).state, answers.state(card.key).until], ['put-off', '2026-11-24']);
   assert.match(cardStatus(answers.state(card.key)), /You answered: <strong>Not now<\/strong>\. It comes back on 2026-11-24\./);
   assert.equal(answers.choose(card.key, notNow).error, 'busy', 'an answered card is not answered twice');
-  // A previewed answer (PR #497 review; a proposal's Accept): its preview is asked for at the tap and writes nothing; its consequence is shown on
+  // A walk's choice (PR #497 review): its preview is asked for at the tap and writes nothing; its consequence is shown on
   // the card, and only then does the hold (with Undo) start; that exact preview is applied when the hold ends.
-  const other = data.home.glance.cards.find(c => c.key === 'studio:proposal:docs/health/3.md');
+  const other = data.home.glance.cards.find(c => c.key === 'studio:walk:3');
   sent.length = 0; const before = timers.length;
-  const { preparing } = answers.choose(other.key, other.answers.find(a => a.id === 'accept'));
+  const { preparing } = answers.choose(other.key, other.answers.find(a => a.id === 'choice-works'));
   assert.equal(answers.state(other.key).state, 'preparing'); assert.equal(timers.length, before, 'no hold before the consequence is shown');
-  assert.match(cardStatus(answers.state(other.key)), /Checking what <strong>Accept<\/strong> will do…/);
+  assert.match(cardStatus(answers.state(other.key)), /Checking what <strong>Works<\/strong> will do…/);
   assert.ok((await preparing).held);
-  assert.deepEqual(sent, [['/api/home/answer', { csrf: 'fake-csrf-acme', key: 'studio:proposal:docs/health/3.md', answer: 'accept' }]], 'the preview, at the tap');
-  assert.match(cardStatus(answers.state(other.key)), /<strong>Accept<\/strong> · ready to record · Records Accept on Acme proposal 3\. · <button type="button" class="quiet" data-undo>Undo<\/button>/);
+  assert.deepEqual(sent, [['/api/home/answer', { csrf: 'fake-csrf-acme', key: 'studio:walk:3', answer: 'choice-works' }]], 'the preview, at the tap');
+  assert.match(cardStatus(answers.state(other.key)), /<strong>Works<\/strong> · ready to record · Records Works on Acme walk 3\. · <button type="button" class="quiet" data-undo>Undo<\/button>/);
   assert.equal(timers.length, before + 1, 'the hold starts after the consequence is shown');
   await timers.at(-1).f();
   assert.deepEqual(sent[1], ['/api/projects/studio/decisions/apply', { csrf: 'fake-csrf-acme', previewId: 'p'.repeat(64) }]);
@@ -309,8 +299,7 @@ test('settled answers are reconciled against refreshed cards', async () => {
   assert.equal(answers.state('d:walk:4').state, 'held', 'a held answer is never dropped by a refresh');
   // The fingerprint is drawn on every card from its question, why and answers.
   const html = renderHomeSnapshot(snapshot());
-  assert.match(html, /data-card="api:proposal:docs\/health\/8\.md" data-kind="proposal" data-source="Does the Acme 8 flow work\?\u001fA person uses the \*\*real\*\* surface\.\u001faccept\u001fdecline\u001fnot-now"/);
-  assert.match(html, /data-card="api:walk:8" data-kind="walk" data-source="Does the Acme 8 flow work\?\u001fA person uses the \*\*real\*\* surface\.\u001fworks\u001foff\u001fskip"/, 'a Try it card carries its fingerprint too');
+  assert.match(html, /data-card="api:walk:8" data-kind="walk" data-source="Does the Acme 8 flow work\?\u001fA person uses the \*\*real\*\* surface\.\u001fchoice-works\u001fchoice-needs-changes\u001fnot-now"/);
 });
 
 // PR #497 review: a preview that returns for an attempt since undone or replaced is ignored, never applied to the newer one.
@@ -413,7 +402,7 @@ function answerPage({ applyState = 'committed', projectId = null, withAsk = fals
 test('one-step Home answer sends the inline note, collapses to a line, and refreshes cards and chips after apply', async () => {
   const html = renderHomeSnapshot(snapshot(plates(), { can: { form: 'web', decisionWrites: true } }));
   assert.match(html, /Add a note[\s\S]*data-card-note[\s\S]*maxlength="300"/);
-  assert.match(html, /id="try-it"[\s\S]*data-answer="works"/, 'the walks are Try its, after Needs you');
+  assert.match(html, /data-recommended="true" data-answer="choice-works"/);
   const h = answerPage(), card = h.cards()[0];
   try {
     card.note.value = 'The list is shared with Acme family.';

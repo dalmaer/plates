@@ -2106,9 +2106,9 @@ and the rendered `waits` view. A stale integrate lock and a red main are Fix
 rows in Needs you (`<plate>:waits:lock|main`), and every other wait stays
 under `--project`.
 
-Every item in Needs you (phase 173: `decisions`, `reviews`, and section rows
-waiting on the owner; a ready walk is an optional Try it, phase 204, with its
-key and answers in `tryIt`) carries `key` (`plate:kind:id`, defined
+Every item in Needs you (phase 173: `decisions`, ready `walks`, `reviews`, and
+section rows waiting on the owner; a Try it, an open `⚑ try:` box, is optional,
+phase 204, with its key and answers in `tryIt`) carries `key` (`plate:kind:id`, defined
 once by `itemKey`) and `answers: [{id, label, recommended?, needsWhy:
 always|decline|never, writer, unavailable?: {reason, command}}]`; `writer`
 names the existing write path (walk done, walk decide, learn decide,
@@ -2131,8 +2131,8 @@ missing why or an answer not written here: exit 2.
 since, sets}]` (phases 174, 175) is Needs you in the model's order: `group`
 `unblock` first (stale claims, ⚑ steps, reviews at their limit, a session's
 question), then `decide` (proposals, lessons, checks, a review with findings
-unanswered); the oldest `since` first within each. A walk is never in it (phase
-204): it is an optional Try it, in `tryIt`. `minutes`
+unanswered, a walk with choices of a minute or less), then `walk`; the oldest
+`since` first within each. A Try it is never in it (phase 204): it is in `tryIt`. `minutes`
 is the Your part's **Takes** line (`estimate: "takes"`) or the kind's default
 (`"kind"`); `quick` is 2 minutes or less. `sets` is what the answer sets
 moving: `{kind: "phase", phase, title}` (a ⚑ step's own phase, or a phase its
@@ -2217,15 +2217,16 @@ instead: what changed (one line), where to try it (a preview URL, the
 deployed site, or a build), three to five steps, and what working and broken
 look like. Try the steps yourself first where you can (a browser, a
 simulator, a screenshot) and say what you saw. A missing Try it is a note,
-never a refusal. Home lists each open walk as an optional Try it (`tryIt` in
+never a refusal. Home lists each open `⚑ try:` box as an optional Try it (`tryIt` in
 `plates home --json`, and the glance's `tryIt`), outside `docket`, its
 count and push notifications; its answers are `works`, `off` (Something's
 off: needs a why, and opens a follow-up GitHub issue with it) and `skip`,
 through `plates walk done <phase> --tried works|off|skip [--note "<line>"]
 [--box <n>]`: works checks the box, off checks it and records the issue,
 skip takes the box away; each appends a row to the phase's evidence, and a
-partial phase left with no open box moves to built. A ⚑ step that needs
-money, a login or the owner's decision still waits on the owner (a `step`).
+partial phase left with no open box moves to built. A kept `⚑ by hand` box (a
+decision, an approval, a setup) still waits on the owner as before 204: a walk
+card with its Your part's choices, in the docket and in push.
 
 `plates board` is retired (phase 156): it prints `plates home` and exits 2,
 starting no server. `plates home --json` is the read (topic `home`); a walk

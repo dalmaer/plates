@@ -50,15 +50,11 @@ test('an owner answers a home item on the web, and Not now keeps it put off unti
   const signed = await h.login();
   const home = async () => { const r = await web(h.request('/api/home', { cookie: signed.cookie })); assert.equal(r.status, 200); return r.json(); };
   const first = await home();
-  // Phase 204: the walk is an optional Try it (no Not now, never in the docket); the ⚑ step is the owner's turn.
-  const tryIt = first.tryIt.find(t => t.key === 'studio:walk:2');
-  assert.deepEqual(tryIt.answers.map(a => a.id), ['works', 'off', 'skip']);
-  assert.ok(!first.docket.some(e => e.key === 'studio:walk:2'));
-  const walk = first.decisions.find(w => w.key === 'studio:step:1');
-  assert.ok(walk, 'the step is in Needs you');
-  // The web lists the step's writer it cannot run, with why and the terminal command; Not now it writes.
-  const choice = walk.answers.find(a => a.writer === 'agent issue');
-  assert.match(choice.unavailable.reason, /Issues write permission/, 'the App files no issue'); assert.match(choice.unavailable.command, /^plates home --answer studio:step:1 /);
+  const walk = first.walks.find(w => w.key === 'studio:walk:2');
+  assert.ok(walk, 'the walk is in Needs you');
+  // The web lists the walk's writer it cannot run, with why and the terminal command; Not now it writes.
+  const choice = walk.answers.find(a => a.writer === 'walk done');
+  assert.match(choice.unavailable.reason, /decision writes/, 'without decisionWrites the walk writer is off'); assert.match(choice.unavailable.command, /^plates home --answer studio:walk:2 /);
   assert.ok(!walk.answers.find(a => a.id === 'not-now').unavailable);
   assert.equal(first.putOff.count, 0);
 
@@ -68,19 +64,19 @@ test('an owner answers a home item on the web, and Not now keeps it put off unti
   assert.equal((await post({ key: walk.key, answer: 'not-now', csrf: 'x'.repeat(43) })).status, 403);
   assert.equal((await post({ key: walk.key, answer: 'not-now', csrf: signed.session.csrf }, null)).status, 401, 'no session');
   // An answer the web cannot run, one the item does not have, and an item that is not waiting.
-  assert.equal((await post({ key: walk.key, answer: choice.id, why: 'Acme', csrf: signed.session.csrf })).status, 409);
+  assert.equal((await post({ key: walk.key, answer: choice.id, csrf: signed.session.csrf })).status, 409);
   assert.equal((await post({ key: walk.key, answer: 'merge', csrf: signed.session.csrf })).status, 404);
-  assert.equal((await post({ key: 'studio:step:99', answer: 'not-now', csrf: signed.session.csrf })).status, 404);
+  assert.equal((await post({ key: 'studio:walk:99', answer: 'not-now', csrf: signed.session.csrf })).status, 404);
   assert.equal((await post({ key: walk.key, answer: 'not-now', until: day(0), csrf: signed.session.csrf })).status, 400, 'a date of today is refused');
   assert.equal((await database.db.query('SELECT count(*)::int n FROM plates_home.not_now')).rows[0].n, 0, 'nothing was written');
 
-  // Not now, with a date and a reason: written, and Home moves the step to putOff, counted.
+  // Not now, with a date and a reason: written, and Home moves the walk to putOff, counted.
   const until = day(7);
   const put = await post({ key: walk.key, answer: 'not-now', until, why: 'after the Acme trip', csrf: signed.session.csrf });
   assert.equal(put.status, 200);
   assert.deepEqual(await put.json(), { schema: 1, state: 'written', key: walk.key, answer: 'not-now', writer: 'not now', until, reason: 'after the Acme trip' });
   const second = await home();
-  assert.ok(!second.decisions.some(w => w.key === walk.key), 'the step left Needs you');
+  assert.ok(!second.walks.some(w => w.key === walk.key), 'the walk left Needs you');
   assert.deepEqual(second.putOff.items.map(p => [p.key, p.until, p.reason]), [[walk.key, until, 'after the Acme trip']]);
   // The store holds ciphertext and a date: never the item's key or the owner's words.
   const rows = (await database.db.query('SELECT key, value, until::text FROM plates_home.not_now')).rows;
@@ -89,7 +85,7 @@ test('an owner answers a home item on the web, and Not now keeps it put off unti
   // On its date it returns: the store no longer lists a record whose date has come.
   await database.db.exec(`UPDATE plates_home.not_now SET until = (clock_timestamp() at time zone 'UTC')::date`);
   const back = await home();
-  assert.ok(back.decisions.some(w => w.key === walk.key), 'back in Needs you on its date');
+  assert.ok(back.walks.some(w => w.key === walk.key), 'back in Needs you on its date');
   assert.equal(back.putOff.count, 0);
 });
 
@@ -97,10 +93,10 @@ test('before 017 is applied, Home hides nothing and says Not now is unavailable'
   const h = projectHarness(), web = service(t, h);
   const signed = await h.login();
   const model = await (await web(h.request('/api/home', { cookie: signed.cookie }))).json();
-  assert.ok(model.decisions.some(w => w.key === 'studio:step:1'));
+  assert.ok(model.walks.some(w => w.key === 'studio:walk:2'));
   assert.match(model.putOff.unavailable, /could not be read; nothing is hidden/);
   assert.equal(model.coverage.gaps.some(g => g.source === 'not now'), false, 'the owner\'s records are not a project source');
-  const r = await web(json(h, { key: 'studio:step:1', answer: 'not-now', csrf: signed.session.csrf }, signed.cookie));
+  const r = await web(json(h, { key: 'studio:walk:2', answer: 'not-now', csrf: signed.session.csrf }, signed.cookie));
   assert.equal(r.status, 503, 'a Not now answer is refused, bounded');
 });
 
@@ -133,41 +129,41 @@ async function walkCli(t, files = WALK_FILES) {
 }
 const postJson = (h, path, body, cookie) => new Request(`${h.config.origin}${path}`, { method: 'POST', headers: { cookie, 'content-type': 'application/json', origin: h.config.origin }, body: JSON.stringify(body) });
 
-// Phase 204: a walk on Home is a Try it. Works checks its box; Skip takes the box away. Either way the
-// web writes exactly what plates home --answer writes in the CLI, and the phase, its walk its last open box, is built.
-for (const [label, answer] of [['Works', 'works'], ['Skip', 'skip']]) test(`the ${label} walk answered on the web writes what plates home --answer writes in the CLI`, async t => {
-  const files = WALK_FILES;
+for (const [label, choices, then, status] of [
+  ['incomplete', 'Needs changes | Works', 'Record what happened.', 'partial'],
+  ['complete', 'Works | Needs changes', 'Works: the phase is built. Needs changes: fix the Acme result.', 'built'],
+  ['retired', 'Retire it | Keep both', 'Retire it: the conductor drafts the Acme removal. Keep both: recorded.', 'superseded'],
+]) test(`the ${label} walk answered on the web writes what plates home --answer writes in the CLI`, async t => {
+  const files = { ...WALK_FILES, 'docs/phases/02-walk.md': WALK_FILES['docs/phases/02-walk.md']
+    .replace('Works | Needs changes', choices).replace('- **Keeps it open:** Needs changes\n', '').replace('Record what happened.', then) };
   const h = walkWeb(files), web = createWebService(h.config, { fetcher: h.fetcher, now: () => h.state.now }), signed = await h.login();
   const home = await (await web(h.request('/api/home', { cookie: signed.cookie }))).json();
   const walk = home.walks.find(w => w.key === 'studio:walk:2');
-  const choice = walk.answers.find(a => a.id === answer);
-  assert.ok(!choice.unavailable, 'with decisionWrites the web writes a Try it');
-  assert.ok(walk.answers.find(a => a.id === 'off').unavailable, 'Something\'s off opens an issue, which the App cannot');
-  const answered = await web(postJson(h, '/api/home/answer', { key: walk.key, answer: choice.id, csrf: signed.session.csrf }, signed.cookie));
+  const choice = walk.answers.find(a => a.id.startsWith('choice-'));
+  assert.ok(!choice.unavailable, 'with decisionWrites the web writes a walk');
+  const answered = await web(postJson(h, '/api/home/answer', { key: walk.key, answer: choice.id, why: 'Tried it on the Acme phone.', csrf: signed.session.csrf }, signed.cookie));
   assert.equal(answered.status, 200);
   const { state, preview } = await answered.json();
   assert.equal(state, 'preview');
-  assert.deepEqual(preview.files.map(f => f.path).sort(), ['docs/ROADMAP.md', 'docs/phases/02-walk.md', `docs/evidence/${new Date(h.state.now).toISOString().slice(0, 10)}-phase-2-try-it.md`].sort());
+  assert.deepEqual(preview.files.map(f => f.path).sort(), ['docs/ROADMAP.md', 'docs/phases/02-walk.md', `docs/evidence/${new Date(h.state.now).toISOString().slice(0, 10)}-phase-2-walk.md`].sort());
   assert.equal(h.source.writes.filter(Boolean).length, 0, 'a preview writes nothing');
   const applied = await web(postJson(h, '/api/projects/studio/decisions/apply', { previewId: preview.id, publicAcknowledgement: preview.digest, csrf: signed.session.csrf }, signed.cookie));
   assert.equal((await applied.json()).state, 'committed');
   // The CLI, on the same files: the same phase and evidence bytes.
   const cli = await walkCli(t, files);
-  const r = run(process.execPath, [join(PLATES, 'bin', 'plates.mjs'), 'home', '--answer', walk.key, choice.id, '--yes', '--json'], { cwd: cli.root, env: cli.env });
+  const r = run(process.execPath, [join(PLATES, 'bin', 'plates.mjs'), 'home', '--answer', walk.key, choice.id, '--why', 'Tried it on the Acme phone.', '--yes', '--json'], { cwd: cli.root, env: cli.env });
   assert.equal(r.status, 0, r.stdout + r.stderr);
   const { readFile: readText } = await import('node:fs/promises');
   for (const path of preview.files.map(f => f.path).filter(p => p !== 'docs/ROADMAP.md')) assert.equal(h.source.files[path], await readText(join(cli.root, path), 'utf8'), `${path}: the same bytes in both forms`);
-  assert.equal(JSON.parse(r.stdout).result.status, 'built');
-  assert.match(h.source.files['docs/phases/02-walk.md'], /^status: built$/m);
-  assert.doesNotMatch(h.source.files['docs/phases/02-walk.md'], /^owes:/m);
-  // Works checks the walk; Skip takes it away, or (here, the phase's only box) checks it and says it was skipped.
-  assert.match(h.source.files['docs/phases/02-walk.md'], answer === 'works' ? /^- \[x\] ⚑ by hand: test the Acme preview\.$/m : /^- \[x\] ⚑ by hand: test the Acme preview\. \(Skipped: trying it by hand is optional\.\)$/m);
+  assert.equal(JSON.parse(r.stdout).result.status, status);
+  assert.match(h.source.files['docs/phases/02-walk.md'], new RegExp(`^status: ${status}$`, 'm'));
+  assert.match(h.source.files['docs/phases/02-walk.md'], status === 'built' ? /^- \[x\]/m : /^- \[ \]/m, 'only a completing answer checks acceptance');
 });
 
 test('a web walk answer is refused at apply when the box text changed since its preview', async () => {
   const h = walkWeb(), web = createWebService(h.config, { fetcher: h.fetcher, now: () => h.state.now }), signed = await h.login();
   const home = await (await web(h.request('/api/home', { cookie: signed.cookie }))).json();
-  const walk = home.walks.find(w => w.key === 'studio:walk:2'), choice = walk.answers.find(a => a.id === 'works');
+  const walk = home.walks.find(w => w.key === 'studio:walk:2'), choice = walk.answers.find(a => a.id.startsWith('choice-'));
   const { preview } = await (await web(postJson(h, '/api/home/answer', { key: walk.key, answer: choice.id, csrf: signed.session.csrf }, signed.cookie))).json();
   // Someone edits the walk box's text on the default branch.
   h.source.files['docs/phases/02-walk.md'] = h.source.files['docs/phases/02-walk.md'].replace(/^(- \[ \] .*)$/m, '$1 Also on a tablet.');
@@ -196,7 +192,7 @@ test('a 190-phase plate previews and applies a walk answer, reading its phases i
   };
   const web = createWebService(h.config, { fetcher, now: () => h.state.now }), signed = await h.login();
   const home = await (await web(h.request('/api/home', { cookie: signed.cookie }))).json();
-  const walk = home.walks.find(w => w.key === 'studio:walk:2'), choice = walk.answers.find(a => a.id === 'works');
+  const walk = home.walks.find(w => w.key === 'studio:walk:2'), choice = walk.answers.find(a => a.id.startsWith('choice-'));
   // Home's own reader is not under test: the inventory grows after it read the plate (the walk is still waiting).
   for (let n = 3; n <= 190; n++) h.source.files[`docs/phases/${String(n).padStart(3, '0')}-acme-${n}.md`] = phaseFile(n, { status: 'built' });
   counting = true;

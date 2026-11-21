@@ -81,16 +81,13 @@ test('the review card fits a phone', async () => {
   const table = buildAssetTable(defaultSources()), css = path => table.entries.get(path).body;
   const rule = (sheet, selector) => { const m = new RegExp(`(?:^|[}\\n])${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\{([^}]*)\\}`).exec(sheet); return m?.[1] ?? null; };
   const review = css('/assets/review.css'), plates = css('/assets/plates.css');
-  // Phase 204: a walk is never a review card; the proposal with the long ask is the card here.
-  const snap = reviewSnapshot(), docket = docketItems(snap);
-  assert.ok(!docket.some(e => e.kind === 'walk'));
-  const walk = docket.find(e => e.kind === 'proposal' && e.item.details?.ask);
-  assert.ok(walk.item.details.ask.length > 200, 'a long ask');
+  const walk = docketItems(reviewSnapshot()).find(e => e.kind === 'walk');
+  assert.equal(walk.item.details.choices.length, 4); assert.ok(walk.item.details.ask.length > 200, 'a long ask');
   const html = renderReviewCard(walk, { index: 2, total: 4 });
-  // The answers are in the bottom bar, after the card; its answers, then Add why and Not now.
+  // The answers are in the bottom bar, after the card; four choices, then Add why and Not now.
   const bar = html.slice(html.indexOf('data-review-bar'));
   assert.ok(html.indexOf('data-review-bar') > html.indexOf('</article>'), 'the bar follows the card');
-  assert.equal((bar.match(/data-answer="/g) ?? []).length, walk.item.answers.filter(a => a.id !== 'not-now').length, 'every answer is in the bar');
+  assert.equal((bar.match(/data-answer="/g) ?? []).length, 4, 'all four choices are in the bar');
   assert.match(bar, /data-review-add-why/); assert.match(bar, /data-review-not-now/);
   assert.match(rule(review, '.review-bar'), /position:sticky;bottom:0/); assert.match(rule(review, '.review-bar'), /env\(safe-area-inset-bottom\)/);
   assert.match(rule(review, '.review'), /env\(safe-area-inset-top\)/); assert.match(rule(review, '.review'), /min-height:100dvh/);

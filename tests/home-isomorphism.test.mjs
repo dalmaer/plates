@@ -124,7 +124,7 @@ const content = snapshot => ({
 });
 
 // Home at a glance (phase 196), less what a form can run (an answer's `unavailable`).
-const glanceOf = snapshot => ({ ...snapshot.home.glance, cards: snapshot.home.glance.cards.map(formless), tryIt: (snapshot.home.glance.tryIt ?? []).map(formless) });
+const glanceOf = snapshot => ({ ...snapshot.home.glance, cards: snapshot.home.glance.cards.map(formless) });
 // Without an origin the CLI cannot read the deploy records, and its chip says so ('Not read: production'); the web reads them
 // through the App. Where a fixture has no origin, the glance is compared less that one reason ('main vs production' compares it whole).
 const withoutProduction = glance => ({ ...glance, chips: glance.chips.map(c => { const reasons = c.reasons.filter(r => r.text !== 'Not read: production');
@@ -269,8 +269,7 @@ test('answers are one model', async () => {
     for (const form of [s.web, s.cli]) for (const item of needs(form)) {
       assert.match(item.key, /^studio:(walk|proposal|review|step):\S/, `${item.id}: a stable key`);
       assert.ok(item.answers.length > 1, `${item.key}: answers beyond Not now`);
-      // A walk is a Try it (phase 204): Skip settles it, so it alone has no Not now.
-      assert.equal(item.answers.some(a => a.writer === 'not now'), item.itemKind !== 'walk', `${item.key}: Not now`);
+      assert.ok(item.answers.some(a => a.writer === 'not now'), `${item.key}: Not now`);
       for (const a of item.answers) {
         assert.ok(['always', 'decline', 'never'].includes(a.needsWhy), `${item.key} ${a.id}: needsWhy`);
         if (a.unavailable) { assert.ok(a.unavailable.reason); assert.match(a.unavailable.command, /^(plates home --answer \S+ \S+|gh |plates feedback)/); }
@@ -279,9 +278,8 @@ test('answers are one model', async () => {
     // The terminal runs every writer it has; the web lists the ones it cannot run, with the reason and the command.
     const walk = form => needs(form).find(i => i.itemKind === 'walk');
     assert.ok(walk(s.cli).answers.every(a => !a.unavailable), 'the CLI writes a walk');
-    assert.deepEqual(walk(s.web).answers.map(a => a.id), ['works', 'off', 'skip'], 'a walk is a Try it in both forms');
-    assert.ok(walk(s.web).answers.filter(a => a.writer === 'try it').every(a => a.unavailable?.command.startsWith(`plates home --answer ${walk(s.web).key} `)));
-    assert.ok(!needs(s.web).find(i => i.itemKind === 'proposal').answers.find(a => a.writer === 'not now').unavailable, 'Not now has a store on the web');
+    assert.ok(walk(s.web).answers.filter(a => a.writer === 'walk done').every(a => a.unavailable?.command.startsWith(`plates home --answer ${walk(s.web).key} `)));
+    assert.ok(!walk(s.web).answers.find(a => a.writer === 'not now').unavailable, 'Not now has a store on the web');
     const decline = needs(s.cli).find(i => i.itemKind === 'proposal').answers.find(a => a.id === 'decline');
     assert.deepEqual([decline.needsWhy, decline.writer], ['decline', 'walk decide']);
     assert.deepEqual([s.cli.putOff.count, s.web.putOff.count], [0, 0]);
@@ -353,10 +351,8 @@ test('a review session walks one docket in both forms', async () => {
     const web = docketItems(s.web), cli = docketItems(s.cli);
     assert.ok(web.length >= 3 && new Set(web.map(e => e.kind)).size >= 3, 'the fixture docket has several kinds');
     // Every item in Needs you is one card, in the model's order (phase 175: what an agent waits on, quick decisions, walks).
-    const needs = form => [...form.decisions, ...form.reviews].filter(i => i.key).map(i => i.key);
+    const needs = form => [...form.decisions, ...form.walks.filter(w => w.ready !== false), ...form.reviews].filter(i => i.key).map(i => i.key);
     assert.deepEqual(web.map(e => e.key).sort(), needs(s.web).sort(), 'the web session holds every item in Needs you');
-    // Phase 204: a ready walk is an optional Try it, never a card in the session.
-    assert.ok(s.web.walks.some(w => w.ready !== false) && !web.some(e => e.kind === 'walk'), 'the fixture\'s ready walk is not in the docket');
     const rank = { unblock: 0, decide: 1, walk: 2 };
     assert.ok(web.every((e, i) => i === 0 || rank[web[i - 1].group] <= rank[e.group]), 'grouped in the model\'s order');
     // The web reads no section rows; the terminal's local sections follow the shared lists.
@@ -385,12 +381,12 @@ test('the terminal session writes only after a yes, asks for a why, and brings a
   let refusals = 0;
   const answer = async (args) => {
     calls.push(args);
-    if (args.key === 'studio:proposal:docs/health/2026-11-02.md' && args.answerId === 'accept' && args.yes && refusals++ < 2) throw new Error('docs/health/2026-11-02.md is already decided: nothing written');
+    if (args.answerId === 'choice-verified' && args.yes && refusals++ < 2) throw new Error('studio:walk:3 is not open: nothing written');
     if (args.yes) writes.push([args.key, args.answerId, args.why ?? null, args.until ?? null]);
     return args.yes ? { data: { until: args.until ?? '2026-11-10' }, text: `wrote ${args.answerId}`, exitCode: 0 } : { text: `would write ${args.answerId}`, exitCode: 3 };
   };
-  // step: Not now, a date, no; claim: Keep, yes; proposal: decline asks for a why, then yes; the later proposal: refused; again: refused.
-  // The docket's order (phase 175): the step, the claim, the proposal, the later proposal (a walk is a Try it, never here, phase 204).
+  // step: Not now, a date, no; claim: Keep, yes; proposal: decline asks for a why, then yes; walk: refused; the walk again: refused.
+  // The docket's order (phase 175): the step, the claim, the proposal, the walk.
   const lines = ['n', '2026-11-20', 'n', '2', 'y', '2', 'not this quarter', 'y', '1', 'y', '1', 'y'];
   const input = (async function* () { yield* lines; })();
   let out = '';
@@ -398,10 +394,10 @@ test('the terminal session writes only after a yes, asks for a why, and brings a
   assert.deepEqual(writes, [['studio:claim:claims/phase-7', 'not-now', null, null], ['studio:proposal:docs/health/2026-11-01.md', 'decline', 'not this quarter', null]], 'only what was confirmed is written');
   assert.ok(calls.filter(c => !c.yes).length >= 3, 'each answer is previewed first');
   assert.match(out, /why \(a decline says why\)> /); assert.match(out, /Not written; it stays in Needs you/);
-  assert.match(out, /^\[5 of 5\] Acme Studio · Health proposal/m, 'the refused answer comes back at the end');
-  assert.match(out, /Needs another look: docs\/health\/2026-11-02\.md is already decided/);
+  assert.match(out, /^\[5 of 5\] Acme Studio · Walk/m, 'the refused walk comes back at the end');
+  assert.match(out, /Needs another look: studio:walk:3 is not open/);
   assert.deepEqual(r.data.docket, model.docket.map(e => e.key));
-  assert.equal(r.data.settled.length, 1); assert.equal(r.data.putOff.length, 1); assert.equal(r.data.again.length, 1); assert.match(r.data.again[0].reason, /already decided/);
+  assert.equal(r.data.settled.length, 1); assert.equal(r.data.putOff.length, 1); assert.equal(r.data.again.length, 1); assert.match(r.data.again[0].reason, /not open/);
   assert.match(r.text, /1 settled · 1 put off · 1 needs another look/); assert.match(r.text, /^Needs another look$/m);
 });
 
@@ -427,11 +423,8 @@ test('the four home sections are one model', async () => {
     // Needs you: the same ranked rows (fix, decide, try), only what the shared sources hold; answers less what a form can run.
     const shared = form => sec(form, 'needs-you').items.filter(i => !i.section).map(i => ({ ...i, answers: i.answers.map(({ unavailable, ...a }) => a) }));
     const web = shared(s.web);
-    assert.deepEqual(web.map(i => i.verb), ['fix', 'decide', 'decide', 'decide'], 'the fixture has a fix and decisions, in rank');
-    assert.deepEqual(web.map(i => i.kind), ['night', 'step', 'proposal', 'review']);
-    // Phase 204: its walk is an optional Try it, outside Needs you, the same in both forms.
-    assert.deepEqual(s.cli.tryIt.map(t => t.key), ['studio:walk:2']);
-    assert.deepEqual(s.web.tryIt.map(t => t.key), s.cli.tryIt.map(t => t.key));
+    assert.deepEqual(web.map(i => i.verb), ['fix', 'decide', 'decide', 'decide', 'try'], 'the fixture has a fix, decisions and a walk, in rank');
+    assert.deepEqual(web.map(i => i.kind), ['night', 'step', 'proposal', 'review', 'walk']);
     assert.deepEqual(shared(s.cli), web, 'the same rows in both forms');
     assert.equal(sec(s.cli, 'needs-you').count, sec(s.cli, 'needs-you').items.length);
     assert.equal(sec(s.web, 'needs-you').count, web.length);
@@ -539,12 +532,9 @@ test('the CLI and the web show the same changes in flight', async () => {
 // their own snapshot, with each plate's phases from the same read (projectFromSource) and its claims from where each
 // form reads them: the checkout's remote through git and gh, and the App's GraphQL. Here both see one claim branch.
 // What a read adds about itself: when it read (readAt, and the claim's days left to the tenth), and which writers a form runs.
-// Phase 204: the fixture's walks are optional Try its, outside the backlog's lanes; a second ⚑ step (Yours) and a phase
-// waiting on it (Waiting) keep those lanes holding something.
-const LANES = { 'docs/phases/05-lane.md': phaseFile(5, { next: '⚑ Approve the Acme lane.' }), 'docs/phases/06-later.md': phaseFile(6).replace('depends: []', 'depends: [5]') };
 const sourceless = backlog => ({ ...backlog, lanes: backlog.lanes.map(l => ({ ...l, items: l.items.map(({ source: { readAt, ...source }, answers, ageLeft, ...item }) => ({ ...item, source, answers: answers.map(({ unavailable, ...a }) => a) })) })) });
 test('backlog matches in both forms', async () => {
-  const s = await sources({ files: LANES });
+  const s = await sources();
   try {
     // A remote for the checkout, and a claim on phase 1 pushed to it as plates phase claim writes one. The App lists the same branch.
     const remote = join(s.dir, 'remote.git'), at = new Date(Math.floor(Date.now() / 1000) * 1000).toISOString();
@@ -566,10 +556,8 @@ test('backlog matches in both forms', async () => {
     assert.deepEqual(lanes['in-flight'], ['studio:phase:1'], 'the claimed phase is in flight');
     assert.deepEqual(cli.lanes[0].items[0].holder, { by: 'branch', branch: 'claims/phase-1', provider: 'claude', machine: 'acme-mac', at, pr: null });
     assert.ok(Math.abs(cli.lanes[0].items[0].ageLeft - 7) <= 0.1 && Math.abs(api.lanes[0].items[0].ageLeft - 7) <= 0.1, 'a fresh claim has its seven days');
-    assert.ok(lanes.yours.includes('studio:phase:5'), 'the ⚑ step nests under its phase');
-    assert.deepEqual(cli.lanes.find(l => l.lane === 'yours').items.find(i => i.key === 'studio:phase:5').children, ['studio:step:5']);
-    assert.deepEqual(lanes.waiting, ['studio:phase:6'], 'the phase waiting on it waits');
-    for (const id of [2, 3]) assert.ok(!Object.values(lanes).flat().includes(`studio:phase:${id}`), `phase ${id} owes only a walk, an optional Try it: no backlog row (phase 204)`);
+    assert.ok(lanes.yours.includes('studio:phase:2'), 'the walk nests under its phase');
+    assert.deepEqual(lanes.waiting, ['studio:phase:3'], 'the walk that is not ready waits');
     assert.deepEqual(lanes.done, [], 'phase 4 was built before the seven-day window');
     assert.deepEqual(cli.claims, [{ projectId: 'studio', read: true }]);
     // The web page renders those items: every lane's header and count, one row per item, and Start off with its reason.
@@ -585,7 +573,7 @@ test('backlog matches in both forms', async () => {
     for (const l of cli.lanes) assert.match(text.stdout, new RegExp(`^${l.title} ${l.count}$`, 'm'));
     for (const item of cli.lanes.flatMap(l => l.items)) assert.ok(text.stdout.split('\n').some(line => line.includes(item.title)), item.key);
     assert.match(text.stdout, /^ {2}1\. Acme Studio #1 {2}Acme phase 1 · G1 {2}\[claude · claimed\] {2}— claim [67]d left$/m);
-    assert.match(text.stdout, /^ {2}\d\. Acme Studio #5 {2}Acme phase 5 · .*\[\+step\]/m);
+    assert.match(text.stdout, /^ {2}\d\. Try the Acme preview on your phone\. {2}\[\+walk\] {2}— added \d+ days ago\n {7}Acme Studio #2 · Acme phase 2 · G1 · ~5 min\n {7}Works \| Needs changes$/m);
   } finally { await s.done(); }
 });
 
@@ -594,15 +582,15 @@ test('backlog matches in both forms', async () => {
 // so the readout (counts, routes attached and landed, minutes per week) and each card's history are the same, and
 // each form says them with the same lines (readoutLines, history.text). Before 019 the web says so once, never a zero.
 test('history matches in both forms', async () => {
-  const s = await sources({ files: LANES });
+  const s = await sources();
   try {
     const { createBacklogEventStore } = await import('../lib/backlog-events.mjs');
     const { createBacklogEventStore: hostedStore } = await import('../lib/web/backlog-events-store.mjs');
     const { historyOf, readoutLines } = await import('../lib/web/backlog-history.mjs');
     const local = await createBacklogEventStore({ root: s.root }), day = Date.now() - 86_400_000;
-    await local.append({ actor: 'agent:claude', key: 'studio:phase:6', action: 'attach', route: 'session', lane: 'agent-ready', outcome: 'attached' }, { now: day });
-    await local.append({ actor: 'owner', key: 'studio:phase:5', action: 'answer', takes: 5, outcome: 'done' }, { now: day + 60000 });
-    await local.append({ actor: 'owner', key: 'studio:phase:5', action: 'not-now', reason: 'stated', outcome: 'not-now' }, { now: day + 120000 });
+    await local.append({ actor: 'agent:claude', key: 'studio:phase:3', action: 'attach', route: 'session', lane: 'agent-ready', outcome: 'attached' }, { now: day });
+    await local.append({ actor: 'owner', key: 'studio:phase:2', action: 'answer', takes: 5, outcome: 'choice-1' }, { now: day + 60000 });
+    await local.append({ actor: 'owner', key: 'studio:phase:2', action: 'not-now', reason: 'stated', outcome: 'not-now' }, { now: day + 120000 });
     const since = new Date(day - 86_400_000).toISOString().slice(0, 10);
     const run = s.again(['--backlog', '--since', since, '--json'], { env: { ACME_GH_PRS: '[]' } });
     assert.equal(run.status, 0, run.stderr);
@@ -618,7 +606,7 @@ test('history matches in both forms', async () => {
     assert.deepEqual(cli.events.weeks.reduce((n, w) => n + w.unknown, 0), 1, 'the Not now has no estimate: at least');
     const histories = b => Object.fromEntries(b.lanes.flatMap(l => l.items).filter(i => i.history).map(i => [i.key, i.history]));
     assert.deepEqual(histories(api), histories(cli), 'each card\'s history');
-    assert.deepEqual(Object.keys(histories(cli)).toSorted(), ['studio:phase:5', 'studio:phase:6']);
+    assert.deepEqual(Object.keys(histories(cli)).toSorted(), ['studio:phase:2', 'studio:phase:3']);
     assert.deepEqual(api.lanes.map(l => l.items.map(i => i.key)), backlog.lanes.map(l => l.items.map(i => i.key)), 'events never move a card');
     // Each form says the same lines.
     const lines = readoutLines(cli.events), said = [lines.title, lines.summary, ...lines.routes, ...lines.weeks];
@@ -644,22 +632,21 @@ test('a question leads its row in Yours', async () => {
     const run = s.again(['--backlog', '--json']);
     assert.equal(run.status, 0, run.stderr);
     const cli = JSON.parse(run.stdout), web = (await s.readWeb({ backlog: true })).backlog;
-    // Phase 204: a walk is an optional Try it. Its Ask leads its Try it card on Home, the same in both forms, and it
-    // is never a row in Yours: trying it is not a decision the owner owes, so its Recommend marks nothing.
+    const card = form => form.lanes.find(l => l.lane === 'yours').items.find(i => i.key === 'studio:phase:2');
     for (const [name, form] of [['cli', cli], ['web', web]]) {
-      assert.equal(form.lanes.find(l => l.lane === 'yours').items.find(i => i.key === 'studio:phase:2'), undefined, `${name}: no Yours row`);
-      // Items with no Ask keep their title as the headline: the review.
-      assert.equal(form.lanes.find(l => l.lane === 'yours').items.find(i => i.kind === 'review').question, null, `${name}: the review`);
+      assert.deepEqual(card(form).question, { ask: 'Try the Acme preview on your phone.', choices: ['Works', 'Needs changes'], recommend: 'Works' }, `${name}: the question`);
+      assert.equal(card(form).title, 'Acme phase 2', `${name}: the title stays, as context`);
+      assert.deepEqual(card(form).answers.filter(a => a.recommended).map(a => a.label), ['Works'], `${name}: the recommended answer`);
     }
-    for (const form of [s.cli, s.web]) {
-      const card = form.tryIt.find(t => t.key === 'studio:walk:2');
-      assert.equal(card.question, 'Try the Acme preview on your phone.');
-      assert.ok(card.answers.every(a => !a.recommended));
-    }
-    const plain = t => ({ ...t, answers: t.answers.map(({ unavailable, ...a }) => a) });
-    assert.deepEqual(s.web.tryIt.map(plain), s.cli.tryIt.map(plain));
-    // The web: the review keeps its title in the backlog.
+    assert.deepEqual(card(web).question, card(cli).question);
+    // Items with no Ask keep their title as the headline: the review.
+    for (const form of [cli, web]) assert.equal(form.lanes.find(l => l.lane === 'yours').items.find(i => i.kind === 'review').question, null);
+    // The terminal: the question, then the context, then the choices with the recommendation marked.
+    const text = s.again(['--backlog']).stdout;
+    assert.match(text, /^ {2}\d\. Try the Acme preview on your phone\. {2}\[\+walk\] {2}— added \d+ days ago\n {7}Acme Studio #2 · Acme phase 2 · G1 · ~5 min\n {7}Works \(Recommended\) \| Needs changes$/m);
+    // The web: the question as the row's headline, the context under it, the choices linking to where Home answers.
     const html = backlogView(s.access, { schema: 1, generatedAt: new Date().toISOString(), lane: null, ...web });
+    assert.match(html, /<span class="backlog-what backlog-q"[^>]*><strong>Try the Acme preview on your phone\.<\/strong><span class="backlog-ref">Acme Studio #2 · Acme phase 2<\/span><span class="backlog-choices"><a class="p-badge" href="\/review" data-recommended>Works · Recommended<\/a><a class="p-badge" href="\/review">Needs changes<\/a><\/span><\/span>/);
     assert.match(html, /<span class="backlog-ref">Acme Studio PR #7<\/span>acme\/studio#7: 1 review comment unanswered/, 'a review keeps its title');
   } finally { await s.done(); }
 });
@@ -753,7 +740,7 @@ test('agents match in both forms', async () => {
 
 // Phase 179: By goal is the same backlog arranged by the same pure rules, so both forms make the same cards and groups.
 test('by goal matches in both forms', async () => {
-  const s = await sources({ files: { ...LANES, 'docs/goals.json': JSON.stringify([{ id: 'G1', title: 'A dependable studio', outcome: 'People publish confidently.' }]) } });
+  const s = await sources({ files: { 'docs/goals.json': JSON.stringify([{ id: 'G1', title: 'A dependable studio', outcome: 'People publish confidently.' }]) } });
   try {
     const run = s.again(['--backlog', '--by-goal', '--json']);
     assert.equal(run.status, 0, run.stderr);
@@ -763,8 +750,8 @@ test('by goal matches in both forms', async () => {
     assert.equal(cli.arrangement, 'by-goal');
     assert.deepEqual(shape(byGoal(web).groups), shape(cli.groups));
     assert.deepEqual(cli.groups.map(g => [g.key, g.title]), [['studio:goal:G1', 'A dependable studio'], ['studio:goal:none', null]]);
-    const step = cli.groups[0].cards.find(c => c.key === 'studio:phase:5');
-    assert.deepEqual(step.members.map(m => m.kinds), [['step']], 'the ⚑ step nests in its phase\'s one card');
+    const walk = cli.groups[0].cards.find(c => c.key === 'studio:phase:2');
+    assert.deepEqual(walk.members.map(m => m.kinds), [['walk']], 'the walk nests in its phase\'s one card');
     // The page arranges the same, and the terminal says it.
     const { backlogView } = await import('../lib/web/backlog-views.mjs');
     const html = backlogView(s.access, { schema: 1, generatedAt: new Date().toISOString(), lane: null, ...web }, { arrangement: 'goals' });
@@ -789,13 +776,13 @@ test('a plate with no remote holds no claims, in the terminal', async () => {
 });
 
 test('the backlog keeps one lane, and refuses one it does not have', async () => {
-  const s = await sources({ reviews: false, files: LANES });
+  const s = await sources({ reviews: false });
   try {
     const one = s.again(['--backlog', '--lane', 'waiting', '--json']);
     assert.equal(one.status, 0, one.stderr);
     const data = JSON.parse(one.stdout);
     assert.deepEqual([data.lane, data.lanes.map(l => l.lane)], ['waiting', ['waiting']]);
-    assert.deepEqual(data.lanes[0].items.map(i => i.key), ['studio:phase:6']);
+    assert.deepEqual(data.lanes[0].items.map(i => i.key), ['studio:phase:3']);
     assert.ok(Object.values(data.plates[0].counts).reduce((a, b) => a + b) > 1, 'the plate\'s counts stay whole');
     const text = s.again(['--backlog', '--lane', 'waiting']);
     assert.match(text.stdout, /^Waiting 1$/m); assert.doesNotMatch(text.stdout, /^Yours /m);
