@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**126 of 201 phases built; 33 owe a walk.** Built means implemented and checked; planned is not available.
+**127 of 201 phases built; 33 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards.
 
@@ -13,7 +13,7 @@ Goals are outcomes, not dates. Counts are derived; superseded work is retired, n
 
 Every rule plates will ship is already holding on plates: phases own status, the roadmap is checked, lessons are shapes, and the conductor can walk the plan.
 
-23/26 built; 2 owe a walk.
+24/26 built; 2 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -42,7 +42,7 @@ Every rule plates will ship is already holding on plates: phases own status, the
 | [132. Select project risk tolerance without inventing permission](phases/132-risk-tolerance-is-explicit-and-scoped.md) | built | 2026-10-27 | — | Low/Medium/High project intent is explicit in CLI, briefs and Home; host permission control remains unavailable. |
 | [133. A review that makes progress gets one more set of rounds; one that repeats stops](phases/133-a-review-that-makes-progress-gets-one-more-set.md) | built | 2026-10-27 | [71](phases/71-a-review-that-keeps-going-is-brought-to-the.md) | Owner asked on 2026-10-27: at the round limit, judge the rounds; progress gets one more set, repetition stops. |
 | [157. The philosophy guides small safe increments](phases/157-philosophy-guides-small-safe-increments.md) | built | 2026-11-02 | — | Philosophy and context implemented; corrected source passed the full gate and typecheck. Publication and consumer adoption remain separate; future runtime phases are unbuilt. |
-| [204. Trying the work by hand is an invitation, never a gate](phases/204-trying-the-work-by-hand-is-an-invitation-never.md) | partial | 2026-11-21 | [44](phases/44-a-walk-owed-does-not-block-the-next-phase.md) | Built and merged: walks are ⚑ try: and never hold a phase back; decisions, approvals and setup steps kept; PRs carry a Try it; Home shows ready Try its as optional. Owed: Home at main showing phase 65 as a Try it once its Ready: yes is merged. |
+| [204. Trying the work by hand is an invitation, never a gate](phases/204-trying-the-work-by-hand-is-an-invitation-never.md) | built | 2026-11-21 | [44](phases/44-a-walk-owed-does-not-block-the-next-phase.md) | Built: walks are ⚑ try: and never hold a phase back; decisions, approvals and setup steps kept; PRs carry a Try it; Home at main (83f65c47) lists phase 65 as an optional Try it outside the docket, with 59 and 193 waiting on their reasons. |
 
 - **0 done when:** A fresh clone of plates passes `npm run check` on GitHub Actions, and `/conduct plates` can read the next phase and its next action from the repo alone.
 - **1 done when:** Plates's own practice files are rendered from `practices/<name>/`, and re-rendering them onto plates changes no bytes.
