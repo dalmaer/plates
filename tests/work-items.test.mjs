@@ -149,7 +149,8 @@ test('every owner item can be answered', () => {
       const answers = answersFor(item, form);
       assert.ok(answers.length >= 2, `${key}: answers beyond Not now`);
       assert.equal(new Set(answers.map(a => a.id)).size, answers.length, `${key}: answer ids are unique`);
-      assert.equal(answers.filter(a => a.writer === 'not now').length, 1, `${key}: one Not now`);
+      // A Try it's Skip settles it (phase 204): it has no Not now; every other owner item has one.
+      assert.equal(answers.filter(a => a.writer === 'not now').length, (item.itemKind ?? item.kind) === 'walk' ? 0 : 1, `${key}: one Not now`);
       for (const a of answers) {
         assert.ok(Object.hasOwn(WRITERS, a.writer), `${key} ${a.id}: its writer ${a.writer} is a known write path`);
         assert.ok(['always', 'decline', 'never'].includes(a.needsWhy));
@@ -162,10 +163,8 @@ test('every owner item can be answered', () => {
     if (Object.hasOwn(ANSWERED_ELSEWHERE, item.kind)) assert.equal(real.length, 0, 'named as answered elsewhere');
     else assert.ok(real.length, `${key}: an answer the terminal writes`);
   }
-  const walk = answersFor(owner[0]);
-  assert.deepEqual(walk.map(a => [a.id, a.needsWhy]), [['choice-works', 'never'], ['choice-close-but-say-what', 'always'], ['choice-not-yet', 'never'], ['not-now', 'never']]);
-  assert.deepEqual(answersFor(owner[1]).map(a => [a.id, a.writer, a.needsWhy]), [['done', 'walk done', 'always'], ['not-now', 'not now', 'never']], 'a walk without choices: Done, with what you saw, or Not yet');
-  assert.equal(answersFor(owner[1]).at(-1).label, 'Not yet');
+  // Phase 204: a walk is an optional Try it, with or without a Your part's choices: Works, Something's off (with a note) or Skip.
+  for (const walk of [owner[0], owner[1]]) assert.deepEqual(answersFor(walk).map(a => [a.id, a.writer, a.needsWhy]), [['works', 'try it', 'never'], ['off', 'try it', 'always'], ['skip', 'try it', 'never']]);
   // An item no owner waits on has no answers.
   assert.deepEqual(answersFor({ plate: 'studio', kind: 'branch', ref: 'b' }), []);
 });
@@ -258,13 +257,12 @@ test('the docket starts with what blocks agents', async () => {
   const docket = can => homeSnapshot([structuredClone(project)], { sections: structuredClone(sections), can, today: '2026-11-03' }).docket;
   const web = docket({ form: 'web', decisionWrites: true }), cli = docket({ form: 'cli' });
   // What an agent or the night waits on (the claim, the review at its limit, the step: oldest first, the undated review last of them),
-  // then quick decisions (a proposal dated by its page, the minute walk with choices, the newer proposal), then walks that need a device or time (oldest first).
+  // then quick decisions (a proposal dated by its page, the newer proposal). A walk is never in it (phase 204): it is an optional Try it.
   assert.deepEqual(web.map(e => [e.key, e.group]), [
     ['studio:claim:claims/phase-2', 'unblock'], ['studio:step:5', 'unblock'], ['studio:review:7', 'unblock'],
-    ['studio:proposal:docs/health/2026-10-20.md', 'decide'], ['studio:walk:4', 'decide'], ['studio:proposal:docs/health/2026-10-30.md', 'decide'], ['studio:review:8', 'decide'],
-    ['studio:walk:6', 'walk'], ['studio:walk:3', 'walk'],
+    ['studio:proposal:docs/health/2026-10-20.md', 'decide'], ['studio:proposal:docs/health/2026-10-30.md', 'decide'], ['studio:review:8', 'decide'],
   ]);
-  assert.ok(!web.some(e => e.key === 'studio:walk:8'), 'a walk that is not ready is not in the docket');
+  assert.ok(!web.some(e => e.kind === 'walk'), 'no walk, ready or not, is in the docket');
   // Only a PR at its review-round limit blocks: #7 (round 3 of 3) does, #8 (round 1 of 3, findings unanswered) is a decision.
   const group = key => web.find(e => e.key === key)?.group;
   assert.equal(group('studio:review:7'), 'unblock'); assert.equal(group('studio:review:8'), 'decide');
@@ -282,9 +280,7 @@ test('every item says how long it takes', async () => {
   for (const e of snapshot.docket) assert.ok(Number.isSafeInteger(e.minutes) && e.minutes >= 1, `${e.key} has an estimate`);
   const by = Object.fromEntries(snapshot.docket.map(e => [e.key, [e.minutes, e.estimate, e.quick]]));
   // From the Your part's Takes line where there is one; else the kind's default.
-  assert.deepEqual(by['studio:walk:3'], [10, 'takes', false]);
-  assert.deepEqual(by['studio:walk:4'], [1, 'takes', true]);
-  assert.deepEqual(by['studio:walk:6'], [DEFAULT_MINUTES.walk, 'kind', false]);
+  assert.equal(by['studio:walk:3'], undefined, 'a walk is a Try it, not counted (phase 204)');
   assert.deepEqual(by['studio:claim:claims/phase-2'], [DEFAULT_MINUTES.claim, 'kind', true]);
   assert.deepEqual(by['studio:proposal:docs/health/2026-10-20.md'], [DEFAULT_MINUTES.proposal, 'kind', true]);
   assert.ok(snapshot.docket.every(e => e.quick === (e.minutes <= QUICK_MINUTES)));
@@ -296,11 +292,11 @@ test('every item says how long it takes', async () => {
     assert.equal(takesMinutes(text), minutes, String(text));
   // The Start panel's total is their sum, in both forms.
   const total = snapshot.docket.reduce((n, e) => n + e.minutes, 0), quick = snapshot.docket.filter(e => e.quick).length;
-  assert.equal(total, 10 + 1 + 10 + 1 + 5 + 5 + 5 + 2 + 2);
+  assert.equal(total, 1 + 5 + 5 + 5 + 2 + 2);
   const { renderReviewStart } = await import('../lib/web/review-views.mjs');
-  assert.match(renderReviewStart(snapshot), new RegExp(`<strong>9 need you · about ${total} min</strong>`));
+  assert.match(renderReviewStart(snapshot), new RegExp(`<strong>6 need you · about ${total} min</strong>`));
   const { homeText } = await import('../lib/home.mjs');
-  assert.match(homeText({ ...snapshot, generatedAt: '2026-11-03T12:00:00Z' }), new RegExp(`^ {2}9 need you · about ${total} min — plates home --review \\(--quick: the ${quick} quick ones\\)$`, 'm'));
+  assert.match(homeText({ ...snapshot, generatedAt: '2026-11-03T12:00:00Z' }), new RegExp(`^ {2}6 need you · about ${total} min — plates home --review \\(--quick: the ${quick} quick ones\\)$`, 'm'));
 });
 
 test('what an answer sets moving comes from the phase files and the claim', () => {
@@ -314,7 +310,7 @@ test('what an answer sets moving comes from the phase files and the claim', () =
   const docket = homeSnapshot([project], { sections, today: '2026-11-03' }).docket;
   const sets = Object.fromEntries(docket.map(e => [e.key, e.sets]));
   assert.deepEqual(sets['studio:claim:claims/phase-2'], [{ kind: 'claim', branch: 'claims/phase-2', phase: '2' }]);
-  assert.deepEqual(sets['studio:walk:3'], [{ kind: 'phase', phase: '9', title: 'Share to the team' }]);
+  assert.deepEqual(sets['studio:step:5'], [{ kind: 'phase', phase: '5', title: 'The night lane' }]);
   assert.deepEqual(sets['studio:proposal:docs/health/2026-10-20.md'], [], 'otherwise nothing');
 });
 
@@ -360,13 +356,13 @@ test("needs you holds only the owner's turn", () => {
   const four = can => homeSnapshot([structuredClone(plate)], { sections: structuredClone(rows), can, today: '2026-11-03' }).home;
   const home = four({ form: 'cli' }), needs = home.sections.find(s => s.id === 'needs-you');
   assert.deepEqual(home.sections.map(s => s.title), ['Needs you', 'Since you last looked', 'What should happen next?', 'Your plates']);
-  // Fix, then decide, then try; the oldest first within each, undated after.
+  // Fix, then decide; the oldest first within each, undated after. A walk is an optional Try it, never here (phase 204).
   assert.deepEqual(needs.items.map(i => [i.verb, i.kind, i.key]), [
     ['fix', 'night', 'studio:night:2026-11-02'], ['fix', 'review', 'studio:review:7'], ['fix', 'ci', null], ['fix', 'repair', 'studio:repair:source'],
     ['decide', 'claim', 'studio:claim:claims/phase-2'], ['decide', 'proposal', 'studio:proposal:docs/health/2026-10-20.md'], ['decide', 'proposal', 'studio:proposal:docs/health/2026-10-30.md'], ['decide', 'step', 'studio:step:5'], ['decide', 'review', 'studio:review:8'],
-    ['try', 'walk', 'studio:walk:6'], ['try', 'walk', 'studio:walk:3'], ['try', 'walk', 'studio:walk:4'],
   ]);
-  assert.deepEqual([...new Set(needs.items.map(i => i.label))], ['Fix', 'Decide', 'Try it']);
+  assert.deepEqual([...new Set(needs.items.map(i => i.label))], ['Fix', 'Decide']);
+  assert.deepEqual(homeSnapshot([structuredClone(plate)], { sections: structuredClone(rows), today: '2026-11-03' }).tryIt.map(t => t.key), ['studio:walk:6', 'studio:walk:3', 'studio:walk:4']);
   // Nothing waiting on time or agents: not the dated phase, the walk that is not ready, nor the agent's PR. They stay on the plate's page.
   for (const title of ['Not before December', 'Not ready yet', "acme/studio: the agent's PR"]) assert.ok(!needs.items.some(i => i.title === title), title);
   const strip = home.sections.find(s => s.id === 'plates').items[0];
@@ -425,28 +421,23 @@ test("a phase owing a walk is yours, not an agent's", async () => {
   const backlog = backlogOf(snapshot, roadmaps, { now: NOW });
   assert.deepEqual(backlog.lanes.map(l => l.lane), BACKLOG_LANES.map(l => l.id));
   assert.deepEqual(BACKLOG_LANES.map(l => l.id), ['in-flight', 'yours', 'agent-ready', 'waiting', 'done']);
-  const card = backlog.lanes.find(l => l.lane === 'yours').items.find(i => i.key === 'anvils:phase:3');
-  assert.ok(card, 'the phase owing a walk is under Yours');
-  assert.deepEqual(card.children, ['anvils:walk:3'], 'with the walk as its child');
-  assert.equal(card.takes, 1, "its minutes are the walk's Takes");
-  assert.ok(card.answers.length > 0 && card.answers.every(a => typeof a.id === 'string'), "it carries the walk's answers");
-  assert.equal(card.next, 'Rings: built.');
-  // The walk is nested, never a row of its own; the phase is in exactly one lane, and not Agent-ready.
+  // Phase 204: a phase owing only a walk owes the owner nothing (its walk is an optional Try it on Home): it reads as built,
+  // never Yours and never Agent-ready; shown under Done only when it moved within the window. Its walk is no row of its own.
+  for (const id of [3, 9, 15]) assert.equal(laneOf(backlog, `anvils:phase:${id}`), null, `phase ${id}`);
   assert.equal(laneOf(backlog, 'anvils:walk:3'), null);
-  assert.equal(backlog.lanes.flatMap(l => l.items).filter(i => i.key === 'anvils:phase:3').length, 1);
-  // Even if a reader listed it as free, owing a walk wins.
   const r = structuredClone(roadmaps); r[0].free.push(r[0].phases.find(p => p.id === 3));
-  assert.equal(laneOf(backlogOf(snapshot, r, { now: NOW }), 'anvils:phase:3'), 'yours');
+  assert.equal(laneOf(backlogOf(snapshot, r, { now: NOW }), 'anvils:phase:3'), null, 'even if a reader listed it as free');
+  const recent = structuredClone(roadmaps); recent[0].phases.find(p => p.id === 3).since = '2026-11-04';
+  assert.equal(laneOf(backlogOf(snapshot, recent, { now: NOW }), 'anvils:phase:3'), 'done');
   // A free phase whose next action is the owner's is Yours too, with its step as the child.
   assert.deepEqual(backlog.lanes.find(l => l.lane === 'yours').items.find(i => i.key === 'anvils:phase:11').children, ['anvils:step:11']);
   // The rest, lane by lane.
   const lanes = Object.fromEntries(backlog.lanes.map(l => [l.lane, l.items.map(i => i.key)]));
   assert.deepEqual(lanes['in-flight'], ['anvils:phase:8']);
   assert.deepEqual(lanes['agent-ready'], ['anvils:phase:4', 'anvils:phase:12', 'anvils:phase:5']);
-  assert.deepEqual(lanes.waiting.toSorted(), ['anvils:phase:10', 'anvils:phase:6', 'anvils:phase:7', 'anvils:phase:9']);
+  assert.deepEqual(lanes.waiting.toSorted(), ['anvils:phase:10', 'anvils:phase:6', 'anvils:phase:7']);
   assert.deepEqual(lanes.done, ['anvils:phase:1']);
   const all = Object.fromEntries(backlog.lanes.flatMap(l => l.items).map(i => [i.key, i]));
-  assert.deepEqual(all['anvils:phase:9'].why.slice(0, 1), ['Ready when: the anvil is deployed']);
   assert.deepEqual(all['anvils:phase:6'].why.slice(0, 1), ['Waits on 4']);
   assert.deepEqual(all['anvils:phase:10'].why.slice(0, 1), ['Not before 2026-12-01']);
   // Agent-ready needs spec: 2; an older free phase waits for shaping, and is counted (the spec's open question).
@@ -493,15 +484,13 @@ test('backlog order is reproducible from its why-keys', () => {
     const r = structuredClone(roadmaps); r[0].phases.reverse(); r.reverse();
     assert.deepEqual(backlogOf(shuffled, r, { now: NOW, quickFirst }), backlog);
   }
-  // Yours: what an agent waits on first (the review at its limit, then the step's phase), then the oldest; quick first moves the minute walk up.
+  // Yours: what an agent waits on first (the review at its limit, then the step's phase), then the oldest. No walk is Yours (phase 204).
   const yours = q => backlogOf(snapshot, roadmaps, { now: NOW, quickFirst: q }).lanes.find(l => l.lane === 'yours').items.map(i => i.key);
-  assert.deepEqual(yours(false), ['anvils:phase:11', 'anvils:review:7', 'anvils:phase:15', 'anvils:phase:3', 'anvils:proposal:docs/health/2026-10-30.md']);
-  assert.deepEqual(yours(true), ['anvils:phase:11', 'anvils:review:7', 'anvils:phase:3', 'anvils:phase:15', 'anvils:proposal:docs/health/2026-10-30.md']);
+  assert.deepEqual(yours(false), ['anvils:phase:11', 'anvils:review:7', 'anvils:proposal:docs/health/2026-10-30.md']);
+  assert.deepEqual(yours(true), ['anvils:phase:11', 'anvils:review:7', 'anvils:proposal:docs/health/2026-10-30.md']);
   const all = Object.fromEntries(backlogOf(snapshot, roadmaps, { now: NOW }).lanes.flatMap(l => l.items).map(i => [i.key, i.why]));
   assert.deepEqual(all['anvils:phase:11'], ['An agent waits on this', 'G1', '~5 min', 'Waiting 4 days']);
   assert.deepEqual(all['anvils:review:7'], ['An agent waits on this', '~5 min']);
-  assert.deepEqual(all['anvils:phase:15'], ['G2', '~10 min', 'Waiting 31 days']);
-  assert.deepEqual(all['anvils:phase:3'], ['G2', '~1 min', 'Waiting 21 days']);
   // Cards whose why-keys are all equal fall back to `key`, so the tie-break is stable.
   const tie = backlogOf(snapshot, [{ ...roadmaps[0], phases: [...roadmaps[0].phases, { ...roadmaps[0].phases[11], id: 14, file: '14-acme.md' }] }], { now: NOW }).lanes.find(l => l.lane === 'agent-ready').items.map(i => i.key);
   assert.deepEqual(tie, ['anvils:phase:4', 'anvils:phase:12', 'anvils:phase:14', 'anvils:phase:5']);
@@ -537,7 +526,7 @@ test('an unread plate is not an empty lane', () => {
   const plate = id => backlog.plates.find(p => p.projectId === id);
   assert.deepEqual(plate('sprockets'), { projectId: 'sprockets', projectName: 'Acme Sprockets', state: 'not read', reason: 'The App cannot read acme/sprockets.', counts: null });
   assert.equal(plate('anvils').state, 'read');
-  assert.deepEqual(plate('anvils').counts, { 'in-flight': 1, yours: 5, 'agent-ready': 3, waiting: 4, done: 1 });
+  assert.deepEqual(plate('anvils').counts, { 'in-flight': 1, yours: 3, 'agent-ready': 3, waiting: 3, done: 1 });
   assert.ok(!backlog.lanes.some(l => l.items.some(i => i.projectId === 'sprockets')));
   // A plate whose phases could not be read is not read either, even with its other sources read; one with no roadmap at all the same.
   const noPhases = backlogOf(snapshot, [{ projectId: 'anvils', na: 'docs/phases could not be listed' }], { now: NOW });
@@ -588,31 +577,26 @@ test('a plate\'s claims are read the way plates next reads them', async () => {
   assert.equal(roadmapOf({ id: 'anvils', state: 'unavailable', gaps: [{ source: 'project', reason: 'No checkout.' }] }, null, { now }).na, 'No checkout.');
 });
 
-// Phase 178: a Your part's Recommend is carried to the walk's answers and marked in every form that shows them.
+// Phase 178: a Your part's Recommend names one of its choices (questionOf). Phase 204: a walk is an optional Try it,
+// answered Works, Something's off or Skip, so its Your part's choices and Recommend are no longer its answers.
 test('the recommended answer is marked', async () => {
   const { questionOf } = await import('../lib/work-items.mjs');
   const walk = { id: 'anvils:phase:51:walk', projectId: 'anvils', projectName: 'Acme Anvils', kind: 'walk', itemKind: 'walk', ref: '51', phase: '51', ready: true, title: 'Retire the Acme board?',
     details: { ask: 'Retire the Acme board?', why: 'Two lists are one too many.', choices: ['Retire it', 'Keep both'], recommend: 'Retire it', then: null, takes: '1 minute' } };
   for (const can of [{ form: 'cli' }, { form: 'web', decisionWrites: true }]) {
     const answers = answersFor(walk, can);
-    assert.deepEqual(answers.filter(a => a.recommended).map(a => a.label), ['Retire it'], can.form);
-    assert.ok(!answers.find(a => a.label === 'Keep both').recommended);
+    assert.deepEqual(answers.map(a => a.id), ['works', 'off', 'skip'], can.form);
+    assert.ok(answers.every(a => !a.recommended), 'a Try it recommends nothing: trying it is optional');
   }
-  // A recommendation that is not one of the choices marks nothing, and no recommendation marks nothing.
-  assert.ok(answersFor({ ...walk, details: { ...walk.details, recommend: 'Retire' } }).every(a => !a.recommended));
-  assert.ok(answersFor({ ...walk, details: { ...walk.details, recommend: null } }).every(a => !a.recommended));
   assert.deepEqual(questionOf(walk), { ask: 'Retire the Acme board?', choices: ['Retire it', 'Keep both'], recommend: 'Retire it' });
   assert.equal(questionOf({ ...walk, details: { ...walk.details, recommend: 'Retire' } }).recommend, null);
   assert.equal(questionOf({ kind: 'review', title: 'acme/anvils#7' }), null, 'no Ask, no question');
-  // The review session's card says it in words, and Home's card fills it (and says it to a screen reader).
-  const keyed = { ...walk, key: itemKey(walk), answers: answersFor(walk, { form: 'web', decisionWrites: true }) };
-  const { renderReviewCard } = await import('../lib/web/review-views.mjs');
-  const card = renderReviewCard({ key: keyed.key, kind: 'walk', label: 'Walk', minutes: 1, sets: [], item: keyed });
-  assert.match(card, /<button type="button" class="p-lg" data-answer="choice-retire-it" data-recommended aria-keyshortcuts="1">Retire it · Recommended<\/button>/);
-  assert.match(card, /<button type="button" class="p-lg p-quiet" data-answer="choice-keep-both" aria-keyshortcuts="2">Keep both<\/button>/);
+  // Home lists it under Try it, after Needs you, with nothing filled as recommended.
   const { homeView } = await import('../lib/web/views.mjs');
   const snapshot = homeSnapshot([{ id: 'anvils', name: 'Acme Anvils', state: 'complete', gaps: [], changes: [], decisions: [], walks: [structuredClone(walk)], reviews: [], waiting: [] }], { can: { form: 'web', decisionWrites: true }, today: '2026-11-05' });
-  assert.match(homeView({ workspace: { name: 'Acme' }, projects: [], csrf: 'x', sourceRevision: 'a'.repeat(40) }, { ...snapshot, cursor: 'a'.repeat(64), quota: { state: 'unknown' } }), /<button type="button" class="glance-answer" data-recommended="true" data-answer="choice-retire-it"[^>]*>Retire it<span class="sr-only"> \(recommended\)<\/span><\/button><button type="button" class="glance-answer" data-answer="choice-keep-both"[^>]*>Keep both<\/button>/);
+  const html = homeView({ workspace: { name: 'Acme' }, projects: [], csrf: 'x', sourceRevision: 'a'.repeat(40) }, { ...snapshot, cursor: 'a'.repeat(64), quota: { state: 'unknown' } });
+  assert.match(html, /id="try-it"[\s\S]*<h3 class="glance-question">Retire the Acme board\?<\/h3>[\s\S]*data-answer="works"/);
+  assert.doesNotMatch(html, /data-recommended="true" data-answer/);
 });
 
 // Phase 181: presence says claimed unless an execution source says more.

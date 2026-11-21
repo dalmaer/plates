@@ -22,19 +22,23 @@ const headings = html => [...html.matchAll(/<h2 id="[^"]+">([^<]+)<\/h2>/g)].map
 // and the ask fold under them. (Phase 166's four sections stay on a plate's page until phase 196's increment 2.)
 test('Home shows the projects\' chips and Needs you\'s cards, then what happened and the ask, folded', () => {
   const data=freeze(snapshot()), before=JSON.stringify(data), html=homeView(access,data), glance=data.home.glance, sec=id=>data.home.sections.find(s=>s.id===id);
-  assert.deepEqual(headings(html), ['Projects','Needs you','Since you last looked','What should happen next?']);
-  // The chip: the night's failed item is the most urgent reason, then +2 (an agent waiting, a decision).
-  assert.match(html,/<a class="glance-chip" data-tone="red" data-chip="studio" data-focus="chip-studio" href="\/projects\/studio"><span class="glance-dot" aria-hidden="true"><\/span><span class="glance-chip-text"><strong>Acme Studio<\/strong><span class="glance-reason">A night item failed <span class="glance-more">\+2<\/span><\/span>/);
+  // Phase 204: the ready walk is an optional Try it, after Needs you and outside its count.
+  assert.deepEqual(headings(html), ['Projects','Needs you','Try it','Since you last looked','What should happen next?']);
+  assert.deepEqual(glance.tryIt.map(t=>t.key), ['studio:walk:walk-one']);
+  assert.ok(!glance.cards.some(c=>c.kind==='walk'));
+  // The chip: the night's failed item is the most urgent reason, then +1 (an agent waiting); a Try it is no reason.
+  assert.match(html,/<a class="glance-chip" data-tone="red" data-chip="studio" data-focus="chip-studio" href="\/projects\/studio"><span class="glance-dot" aria-hidden="true"><\/span><span class="glance-chip-text"><strong>Acme Studio<\/strong><span class="glance-reason">A night item failed <span class="glance-more">\+1<\/span><\/span>/);
   // Needs you: one card per docket item, in the glance's order, each its question.
-  const cards=[...html.matchAll(/<li class="glance-card p-card" data-card="([^"]+)"[\s\S]*?<h3 class="glance-question">([^<]+)<\/h3>/g)].map(m=>[m[1],m[2]]);
+  const needsHtml=html.slice(html.indexOf('id="needs-you"'), html.indexOf('id="try-it"'));
+  const cards=[...needsHtml.matchAll(/<li class="glance-card p-card" data-card="([^"]+)"[\s\S]*?<h3 class="glance-question">([^<]+)<\/h3>/g)].map(m=>[m[1],m[2]]);
   assert.deepEqual(cards, glance.cards.map(c=>[c.key,c.question]));
   assert.equal(cards.length, data.docket.length, 'every docket item is a card');
   assert.match(html, new RegExp(`id="needs-you-title">Needs you</h2><span class="meta">${glance.count}</span>`));
   // The header says how many need you; no Start panel, search or filter on Home; no main → production row.
   assert.match(html, new RegExp(`<a class="nav-needs" href="#needs-you" data-needs-count>${glance.count} need you</a>`));
   assert.doesNotMatch(html,/review-start|data-home-search|data-home-filter|plate-release|class="plate-summary/);
-  // Answers are on the card: the walk's choices, its Not now, the step's answers marked unavailable with why.
-  assert.match(html,/data-answer="choice-verified" data-label="Verified"/); assert.match(html,/data-answer="not-now" data-label="Not now" data-needs-why="never" data-writer="not now"/);
+  // Answers are on the card: the Try it's Works, the step's Not now, and its answers marked unavailable with why.
+  assert.match(html,/data-answer="works" data-label="Works" data-needs-why="never" data-writer="try it"/); assert.match(html,/data-answer="not-now" data-label="Not now" data-needs-why="never" data-writer="not now"/);
   assert.match(html,/data-answer="done"[^>]*aria-disabled="true" data-unavailable="Submission is disabled until the owner enables decision writes\."/);
   // Nothing waiting on time or agents is on home: it is on the plate's page.
   assert.doesNotMatch(html,/Acme waiting wait-one|Acme walk walk-later/);

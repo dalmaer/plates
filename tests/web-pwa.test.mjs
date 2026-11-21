@@ -441,37 +441,38 @@ test('waiting-on-owner events reach the notifier', async t => {
   await home(owner, '/');
   assert.deepEqual([delivered.length, rpcs.length], [0, 0]);
 
-  // The owner's fresh read: the ready walk and the red night reach the phone, once each.
+  // The owner's fresh read: the red night reaches the phone, once. The ready walk is an optional Try it (phase 204): it never notifies.
   const snapshot = await (await home(owner)).json();
   const project = snapshot.projects.find(item => item.id === 'studio');
   assert.equal(snapshot.walks.filter(walk => walk.ready).length, 1, 'phase 3 is not ready');
-  assert.deepEqual(waitingEvents(project).map(event => event.kind), ['walk', 'night']);
+  assert.deepEqual(waitingEvents(project).map(event => event.kind), ['night']);
+  assert.deepEqual(waitingEvents({ ...project, daily: null }), [], 'a ready walk alone sends nothing');
   // An unready walk, or one from another project, never waits on the owner.
   assert.deepEqual(waitingEvents({ ...project, walks: [{ id: 'acme-later', title: 'Acme later walk', ready: false, projectId: project.id },
     { id: 'acme-elsewhere', title: 'Acme other walk', ready: true, projectId: 'acme-other' }], daily: null }), []);
   const planned = notificationsFor(waitingEvents(project));
   assert.deepEqual(delivered, planned.map(n => ({ title: n.title, body: n.body, url: n.url, tag: n.tag })));
-  assert.deepEqual(delivered.map(payload => payload.url), ['/projects/studio', '/projects/studio/daily?date=2026-10-30']);
+  assert.deepEqual(delivered.map(payload => payload.url), ['/projects/studio/daily?date=2026-10-30']);
   for (const payload of delivered) assert.doesNotMatch(JSON.stringify(payload), PRIVATE);
 
   // The same items at a new source revision send nothing; the ledger holds one row per item.
   p.source.revision = 'd'.repeat(40); const rereads = rpcs.length;
   await home(owner);
   assert.ok(rpcs.length > rereads, 'the new revision was read and its items claimed again');
-  assert.equal(delivered.length, 2);
-  assert.equal((await database.db.query('SELECT count(*)::int n FROM plates_push.ledger')).rows[0].n, 2);
+  assert.equal(delivered.length, 1);
+  assert.equal((await database.db.query('SELECT count(*)::int n FROM plates_push.ledger')).rows[0].n, 1);
 
   // A new red night is a new item. A push service that refuses it, or push storage
   // that is down (migration 015 not applied), never fails Home.
   pushStatus = 500; p.source.files['docs/night/2026-10-31.json'] = night('2026-10-31'); p.source.revision = 'e'.repeat(40);
   await home(owner);
-  assert.equal(delivered.length, 3); assert.equal(delivered[2].url, '/projects/studio/daily?date=2026-10-31');
+  assert.equal(delivered.length, 2); assert.equal(delivered[1].url, '/projects/studio/daily?date=2026-10-31');
   storageDown = true; p.source.files['docs/night/2026-11-01.json'] = night('2026-11-01'); p.source.revision = 'f'.repeat(40);
   const attempts = rpcs.length;
   await home(owner);
   assert.ok(rpcs.length > attempts, 'the new night was tried against push storage');
-  assert.equal(delivered.length, 3);
-  assert.equal((await database.db.query('SELECT count(*)::int n FROM plates_push.ledger')).rows[0].n, 3);
+  assert.equal(delivered.length, 2);
+  assert.equal((await database.db.query('SELECT count(*)::int n FROM plates_push.ledger')).rows[0].n, 2);
 });
 
 function parseHtmlDom(html) {

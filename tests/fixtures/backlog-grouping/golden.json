@@ -65,26 +65,6 @@
    ]
   },
   {
-   "key": "anvils:phase:3",
-   "lane": "yours",
-   "goal": "G2",
-   "lead": "anvils:phase:3",
-   "sources": [
-    "docs/phases/3-acme.md"
-   ],
-   "members": [
-    {
-     "identity": "anvils:phase:3:box 2",
-     "keys": [
-      "anvils:walk:3"
-     ],
-     "sources": [
-      "https://github.com/acme/anvils/blob/main/docs/phases/3-acme.md"
-     ]
-    }
-   ]
-  },
-  {
    "key": "anvils:repo:stray",
    "lane": "yours",
    "goal": null,
@@ -234,14 +214,13 @@
    "key": "anvils:goal:G2",
    "title": "Owners walk less",
    "counts": {
-    "yours": 1,
+    "yours": 0,
     "in-flight": 0,
     "agent-ready": 1,
     "waiting": 0,
     "done": 0
    },
    "shown": [
-    "anvils:phase:3",
     "anvils:phase:9"
    ],
    "more": 0
@@ -309,9 +288,7 @@
   "  yours · Acme Anvils #84  Acme phase 84",
   "      + step + loose end · 2 sources",
   "",
-  "Acme Anvils · G2 — Owners walk less  (1 yours · 1 agent-ready)",
-  "  yours · Acme Anvils #3  Ring the anvil?",
-  "      + walk (box 2)",
+  "Acme Anvils · G2 — Owners walk less  (1 agent-ready)",
   "  agent-ready · Acme Anvils #9  Acme phase 9",
   "",
   "Acme Anvils · G3 — Many small phases  (9 agent-ready)",

@@ -196,9 +196,10 @@ plates goal retire G1 --reason "Nobody exports" --phases supersede --yes
   A goal with no phase renders "No phases yet"; `plates doctor` reports it
   (`goal-without-phase`) until a phase names it.
 - `goal show`'s `next` is the goal's first phase left to build whose dependencies,
-  in any goal, are satisfied: built, lived-in, or partial with `owes: walk`.
-  Like `plates next`, it skips phases owing only a walk and superseded phases.
-  A walk owed stays partial; it is not proof of acceptance.
+  in any goal, are satisfied: built, lived-in, or partial with `owes: walk`
+  (older records; a phase whose only open boxes are by-hand walks is built now,
+  phase 204). Like `plates next`, it skips phases owing only a walk and
+  superseded phases.
 - `goal retire` needs `--reason`, and writes `"retired": "<date>: <reason>"`;
   the goal moves to the roadmap's Retired section, still counted, never next
   focus. Unbuilt phases need `--phases supersede` (status superseded, note
@@ -2105,8 +2106,9 @@ and the rendered `waits` view. A stale integrate lock and a red main are Fix
 rows in Needs you (`<plate>:waits:lock|main`), and every other wait stays
 under `--project`.
 
-Every item in Needs you (phase 173: `decisions`, ready `walks`, `reviews`, and
-section rows waiting on the owner) carries `key` (`plate:kind:id`, defined
+Every item in Needs you (phase 173: `decisions`, `reviews`, and section rows
+waiting on the owner; a ready walk is an optional Try it, phase 204, with its
+key and answers in `tryIt`) carries `key` (`plate:kind:id`, defined
 once by `itemKey`) and `answers: [{id, label, recommended?, needsWhy:
 always|decline|never, writer, unavailable?: {reason, command}}]`; `writer`
 names the existing write path (walk done, walk decide, learn decide,
@@ -2129,7 +2131,8 @@ missing why or an answer not written here: exit 2.
 since, sets}]` (phases 174, 175) is Needs you in the model's order: `group`
 `unblock` first (stale claims, ⚑ steps, reviews at their limit, a session's
 question), then `decide` (proposals, lessons, checks, a review with findings
-unanswered, a walk with choices of a minute or less), then `walk`; the oldest `since` first within each. `minutes`
+unanswered); the oldest `since` first within each. A walk is never in it (phase
+204): it is an optional Try it, in `tryIt`. `minutes`
 is the Your part's **Takes** line (`estimate: "takes"`) or the kind's default
 (`"kind"`); `quick` is 2 minutes or less. `sets` is what the answer sets
 moving: `{kind: "phase", phase, title}` (a ⚑ step's own phase, or a phase its
@@ -2205,6 +2208,23 @@ Failed sends are named and retried; uncertain transport outcomes require tab
 inspection before replay. No Rex or indexed journals means no delivery work.
 
 <!-- topic: walk | settle the owner's turn: walk done and walk decide -->
+
+**Trying the work by hand is an invitation, never a gate (phase 204).** An
+open `⚑ by hand` walk never holds a phase back from built, and new phases
+write none. Every phase PR an agent opens carries a `## Try it` section
+instead: what changed (one line), where to try it (a preview URL, the
+deployed site, or a build), three to five steps, and what working and broken
+look like. Try the steps yourself first where you can (a browser, a
+simulator, a screenshot) and say what you saw. A missing Try it is a note,
+never a refusal. Home lists each open walk as an optional Try it (`tryIt` in
+`plates home --json`, and the glance's `tryIt`), outside `docket`, its
+count and push notifications; its answers are `works`, `off` (Something's
+off: needs a why, and opens a follow-up GitHub issue with it) and `skip`,
+through `plates walk done <phase> --tried works|off|skip [--note "<line>"]
+[--box <n>]`: works checks the box, off checks it and records the issue,
+skip takes the box away; each appends a row to the phase's evidence, and a
+partial phase left with no open box moves to built. A ⚑ step that needs
+money, a login or the owner's decision still waits on the owner (a `step`).
 
 `plates board` is retired (phase 156): it prints `plates home` and exits 2,
 starting no server. `plates home --json` is the read (topic `home`); a walk
