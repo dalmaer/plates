@@ -819,3 +819,14 @@ test('Google canonical status cannot hide a numeric retry or override an authent
     {message:'unreadable response'},
   ]) assert.equal(retryableServiceError(error),false);
 });
+
+// Phase 207: a nightly pull kept finding nothing new (ledger, from 2026-10-22), so the pull runs once a week.
+test('the Loop pull is weekly', async () => {
+  const { cronShape } = await import('../lib/web/recurring-model.mjs');
+  const workflow = await readFile(join(PLATES, 'practices/loop/files/.github/workflows/plates-loop.yml'), 'utf8');
+  const crons = [...workflow.matchAll(/^\s*- cron: "([^"]+)"/gm)].map(m => m[1]);
+  assert.deepEqual(crons, ['43 9 * * 1'], 'one schedule, Mondays at 09:43 UTC');
+  assert.equal(cronShape(crons[0]).cadence, 'weekly');
+  assert.match(workflow, /^# Stitch Loop's insights, pulled weekly/m);
+  assert.doesNotMatch(workflow, /nightly/i, 'the workflow never calls itself nightly');
+});
