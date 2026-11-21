@@ -1,9 +1,9 @@
 // Plates phase 200: plates unison connect and sync, through the CLI, against a stub `unison`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile, stat, writeFile } from 'node:fs/promises';
+import { readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { run } from './helpers/run.mjs';
 import { unisonCommand } from '../lib/unison.mjs';
 import { collect } from '../practices/phases/files/scripts/roadmap.mjs';
@@ -311,4 +311,69 @@ test('a workspace create whose answer was lost is waited for, not made twice', a
   await (await createMapStore({ root: v.plate, env: v.env })).write({ schema: 1, workspace: null, repo: 'acme/tools', entries: {}, pendingWorkspace: { repo: 'acme/tools', name: 'Acme Tools', at: new Date(Date.now() - 16 * 60_000).toISOString() } });
   r = cli(v, ['connect']);
   assert.deepEqual([r.code, r.data.created], [0, true]);
+});
+
+test('connect joins the workspace once as the account, and the session stays outside the checkout', async t => {
+  const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], displayName: 'Wile E. Coyote' });
+  let r = cli(w, ['connect']);
+  assert.deepEqual([r.code, r.data.joined], [0, true], JSON.stringify(r.data));
+  const file = join(w.root, '.config/plates/unison/127.0.0.1_4600/ws_acme1.json');
+  assert.equal(r.data.sessionDir, dirname(file));
+  assert.equal((await stat(file)).mode & 0o777, 0o600);
+  assert.equal((await stat(dirname(file))).mode & 0o777, 0o700);
+  assert.ok(!file.startsWith(w.plate));
+  const joins = (await w.calls()).filter(c => c.argv[0] === 'join');
+  assert.deepEqual(joins.map(c => c.argv.slice(1, 5)), [['http://127.0.0.1:4600/w/ws_acme1', '--account', '--name', 'Wile']]);
+  // No token in what plates prints, and nothing of the session inside the checkout.
+  assert.doesNotMatch(JSON.stringify(r.data), /acmetok_/);
+  assert.doesNotMatch(execFileSync('git', ['status', '--porcelain', '-uall', '--ignored'], { cwd: w.plate, encoding: 'utf8' }), /ws_acme1\.json/);
+  // Again: the session is reused, no second join.
+  r = cli(w, ['connect']);
+  assert.deepEqual([r.code, r.data.joined], [0, false]);
+  assert.equal((await w.calls()).filter(c => c.argv[0] === 'join').length, 1);
+  // Honours XDG_CONFIG_HOME.
+  const v = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')] });
+  cli(v, ['connect'], { XDG_CONFIG_HOME: join(v.root, 'xdg') });
+  assert.equal((await stat(join(v.root, 'xdg/plates/unison/127.0.0.1_4600/ws_acme1.json'))).mode & 0o777, 0o600);
+});
+
+test('writes carry the participant session; without it nothing is written and connect is the hint', async t => {
+  const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], items: [], next: 1 }, { phases: { '2-acme-counts-anvils.md': { status: 'planned', title: 'Acme counts anvils' } } });
+  cli(w, ['connect']);
+  const file = join(w.root, '.config/plates/unison/127.0.0.1_4600/ws_acme1.json');
+  let r = cli(w, ['sync']);
+  assert.deepEqual(r.data.applied.map(a => a.op), ['create']);
+  const add = (await w.calls()).find(c => c.argv[1] === 'add');
+  assert.equal(add.config, file);
+  // Reads and account calls do not pass it.
+  assert.ok((await w.calls()).filter(c => c.argv[0] === 'workspace').every(c => c.config === undefined));
+  // The session gone: refused before any write, nothing pending.
+  await rm(file);
+  await writeFile(join(w.plate, 'docs/phases/3-acme-ships.md'), (await readFile(join(w.plate, 'docs/phases/2-acme-counts-anvils.md'), 'utf8')).replace('# Acme counts anvils', '# Acme ships'));
+  const before = (await w.calls()).length;
+  r = cli(w, ['sync']);
+  assert.deepEqual([r.code, r.data.hint], [1, 'plates unison connect']);
+  assert.equal((await w.calls()).slice(before).filter(c => c.argv[1] === 'add').length, 0);
+  // A session the server no longer knows (not joined): exit 1, the hint, and no pendingCreate holding.
+  await writeFile(file, JSON.stringify({ server: 'http://127.0.0.1:4600', workspace: 'ws_acme1', token: 'acmetok_stale' }), { mode: 0o600 });
+  r = cli(w, ['sync']);
+  assert.deepEqual([r.code, r.data.hint], [1, 'plates unison connect']);
+  assert.equal((await mapOf(w)).pendingCreates, undefined);
+});
+
+test('a definite refusal clears the pending create or workspace; only an uncertain failure holds', async t => {
+  const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], items: [], next: 1 }, { phases: { '2-acme-counts-anvils.md': { status: 'planned', title: 'Acme counts anvils' } } });
+  cli(w, ['connect']);
+  await w.setState({ failAdd: true });
+  assert.equal(cli(w, ['sync']).code, 1);
+  assert.equal((await mapOf(w)).pendingCreates, undefined);
+  // The next sync adds at once, no 15-minute wait.
+  await w.setState({ failAdd: false });
+  assert.deepEqual(cli(w, ['sync']).data.applied.map(a => a.op), ['create']);
+  // A refused workspace create clears pendingWorkspace too.
+  const v = await world(t, { workspaces: [], failCreate: true });
+  assert.equal(cli(v, ['connect']).code, 1);
+  await assert.rejects(mapOf(v).then(m => { if (!m.pendingWorkspace) throw new Error('none'); }));
+  await v.setState({ failCreate: false });
+  assert.deepEqual([cli(v, ['connect']).data.created], [true]);
 });
