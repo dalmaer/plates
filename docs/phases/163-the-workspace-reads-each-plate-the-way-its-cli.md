@@ -1,11 +1,10 @@
 ---
-status: partial
-owes: walk
-since: 2026-11-02
+status: built
+since: 2026-11-21
 goal: G7
 spec: 2
 depends: [151]
-note: "Built and proven by test: phases are read only under the phases practice, phase failures collapse to one line, and unreadable manifest plates are listed with their fix. The owner's look after deploy remains."
+note: "Built and proven by test: phases are read only under the phases practice, phase failures collapse to one line, and unreadable manifest plates are listed with their fix. The owner's look after deploy remains; the walk was removed (phase 204)."
 evidence: ["evidence/2026-11-02-workspace-reads-each-plate.md"]
 ---
 
@@ -36,17 +35,6 @@ One merge. It's compatible: the snapshot gains no new required field; `unavailab
 - [x] A project without the phases practice reports no per-phase gaps, and one planning line that says so: `tests/web-projects.test.mjs: "a plate without the phases practice is not read as phases"`
 - [x] Failing phase files in a phases project collapse to one counted gap: `tests/web-projects.test.mjs: "phase failures collapse into one counted line"`
 - [x] A manifest project the installation cannot read is listed as unavailable with its reason, and gains no access: `tests/web-access.test.mjs: "a plate the App cannot read is named, not dropped"`
-- [ ] ⚑ by hand: the owner opens the hosted home after deploy and sees the six dalmaer plates, with Ledger and duo saying they don't use phases instead of listing errors.
-
-## Your part
-
-- **Ask:** After deploying main, open the workspace and check every plate is listed, with no wall of errors.
-- **Why:** It confirms the hosted reader treats each project the way the CLI does.
-- **Look at:** The home page's plates, and the source line at the top.
-- **Choices:** All listed, readable | Something is missing or wrong (say what)
-- **Takes:** 2 minutes.
-- **Then:** All listed: the phase is built. Otherwise the miss becomes a fix in this phase.
-- **Ready when:** this phase is merged and the owner has deployed main.
 
 ## Real surfaces
 

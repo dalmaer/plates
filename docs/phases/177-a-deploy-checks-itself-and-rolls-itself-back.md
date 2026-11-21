@@ -50,7 +50,6 @@ The owner, 2026-11-03: "you do the deploy, and most of the time it all just work
 - [x] `plates promote --back` with no commit returns to the last deployment that passed: `tests/promote-vercel.test.mjs: "back means the last good deployment"`
 - [x] The grant renders a rule allowing exactly the two commands, and without it deployment stays closed at every level: `tests/autonomy-hosts.test.mjs: "a promote grant opens exactly plates promote"`
 - [x] A commit waiting on an unapplied migration is refused with its name: `tests/promote-vercel.test.mjs: "a deploy waits for its migration"`
-- [x] ⚑ by hand: on plates' own workspace, one deploy passes its checks, and one deliberate failure rolls itself back.
 - [ ] ⚑ by hand: the owner adds the grant and its two rules to Claude Code settings; an agent's plates promote --yes then runs without a typed approval, and a bare vercel deploy is still refused.
 
 ## Your part

@@ -1,11 +1,10 @@
 ---
-status: partial
-owes: walk
-since: 2026-11-05
+status: built
+since: 2026-11-21
 goal: G7
 spec: 2
 depends: [166]
-note: "Built in three increments: backlogOf, plates home --backlog, and the hosted /backlog list beside the sidebar. Owes the deploy, then the owner's walk."
+note: "Built in three increments: backlogOf, plates home --backlog, and the hosted /backlog list beside the sidebar. Owes the deploy, then the owner's walk; the walk was removed (phase 204)."
 evidence: ["evidence/2026-11-05-backlog-lanes.md"]
 ---
 
@@ -35,17 +34,6 @@ evidence: ["evidence/2026-11-05-backlog-lanes.md"]
 - [x] A plate that could not be read shows "not read", never an empty lane: `tests/work-items.test.mjs: "an unread plate is not an empty lane"`
 - [x] The CLI and the web show the same items: `tests/home-isomorphism.test.mjs: "backlog matches in both forms"`
 - [x] The list is captured light and dark at 390 and 1280 px: `npm run look`
-- [ ] ⚑ by hand: the owner, on phone and laptop.
-
-## Your part
-
-- **Ask:** Open the backlog on your phone and your laptop, and find the one thing you would do first.
-- **Why:** It settles whether the lanes and the reasons match how you actually choose.
-- **Look at:** The reasons under the first card in each lane.
-- **Choices:** Found it, the reason was right | Found it, the reason was wrong (say why) | Couldn't tell
-- **Takes:** About 5 minutes.
-- **Then:** Right: built. Otherwise the ordering rules change here.
-- **Ready when:** `/backlog` is deployed.
 
 ## Real surfaces
 

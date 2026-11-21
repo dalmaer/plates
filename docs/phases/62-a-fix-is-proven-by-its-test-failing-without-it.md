@@ -1,11 +1,10 @@
 ---
-status: partial
-owes: walk
-since: 2026-10-09
+status: built
+since: 2026-11-21
 goal: G0
 spec: 2
 depends: []
-note: "Built: plates prove runs the named test in a scratch copy of the repository with the fix's files put back at the base, then in a second scratch copy with the fix, and prints VERIFIED, NOT WORKING or INCONCLUSIVE with the failure's first line; --trailer and --evidence record it; the conduct skill and AGENTS block ask a Proven-by: trailer of every fix: commit; the night's escapes notes the fix: commits without one. Owes the walk: two weeks of plates's own fixes carry it, and the owner reads three."
+note: "Built: plates prove runs the named test in a scratch copy of the repository with the fix's files put back at the base, then in a second scratch copy with the fix, and prints VERIFIED, NOT WORKING or INCONCLUSIVE with the failure's first line; --trailer and --evidence record it; the conduct skill and AGENTS block ask a Proven-by: trailer of every fix: commit; the night's escapes notes the fix: commits without one. Owes the walk: two weeks of plates's own fixes carry it, and the owner reads three; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-09-prove.md"]
 issue: 49
 ---
@@ -33,17 +32,6 @@ The design is [Adopting projects that already have a practice](../research/2026-
 - [x] `--trailer` prints a `Proven-by:` line with the verdict and the failure's first line; `--evidence` appends it to the phase's evidence. `tests/prove.test.mjs`
 - [x] The conduct skill names the rule. `tests/skill.test.mjs`
 - [x] The night notes `fix:` commits since the last release that carry no `Proven-by:`. `tests/improve-measures.test.mjs`
-- [ ] ⚑ by hand: two weeks of plates's own fixes carry it; the owner reads three.
-
-## Your part
-
-- **Ask:** Read three of plates's fix commits from the last two weeks and their `Proven-by:` lines, and say whether they convince you the fix works.
-- **Why:** A test that never failed without its fix proves nothing, and this is how plates shows it did.
-- **Look at:** `git log --grep Proven-by` in plates.
-- **Choices:** Convincing | Not convincing
-- **Takes:** 10 minutes.
-- **Then:** Convincing: the phase is built. Not convincing: what was missing goes into the rule.
-- **Ready when:** two weeks of fixes have been proven.
 
 ## Real surfaces
 

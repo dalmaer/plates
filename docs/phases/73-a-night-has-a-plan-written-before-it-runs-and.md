@@ -1,12 +1,10 @@
 ---
-status: partial
-owes: walk
-waits: owner
-since: 2026-10-14
+status: built
+since: 2026-11-21
 goal: G4
 spec: 2
 depends: [10, 11]
-note: "Built 2026-10-14: the schema-1 plan and its validator, plates night plan and tick, the night reading keel-night-plan or making the default plan, and the record (docs/night/<date>.json, the health page section). Owes the owner reading one real night."
+note: "Built 2026-10-14: the schema-1 plan and its validator, plates night plan and tick, the night reading keel-night-plan or making the default plan, and the record (docs/night/<date>.json, the health page section). Owes the owner reading one real night; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-14-night-plan.md"]
 issue: 131
 ---
@@ -37,17 +35,6 @@ Not in scope: shaping the plan (phase 74), personas (75), handing build items to
 - [x] The night uses tonight's plan from the plan branch when there is one and the default plan when there is none or it is dated for another night, and says which. `tests/night-plan.test.mjs`, `tests/workflows.test.mjs`
 - [x] `plates night tick` changes one item's status with a note and link, and refuses an unknown id or a move back from `done`. `tests/night-plan.test.mjs`
 - [x] The night's PR carries `docs/night/<date>.json`, and the health page shows each item and its outcome. `tests/night-plan.test.mjs`, `tests/improve.test.mjs`
-- [ ] ⚑ by hand: the owner reads one real night's plan on plates's health page and says whether it says what the night did.
-
-## Your part
-
-- **Ask:** Open the next morning's health page on plates and read the section "Tonight's plan".
-- **Why:** It is the first time a night says what it meant to do and what came of it; this shows whether that reads clearly.
-- **Look at:** the newest `plates-night` pull request on plates.
-- **Choices:** It says what the night did | It is unclear
-- **Takes:** 5 minutes.
-- **Then:** Unclear: what was missing goes into the section's wording.
-- **Ready when:** this phase has shipped and one night has run.
 
 ## Real surfaces
 

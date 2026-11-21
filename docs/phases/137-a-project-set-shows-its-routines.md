@@ -23,7 +23,6 @@ The optional configuration registry is bounded and pinned to existing project re
 - [x] Registry bounds, exact fields, known members, duplicates, names and repository pins are validated; selection grants no project access: `tests/web-project-set-contract.test.mjs`.
 - [x] Optional configuration readback retains the registry without mutable aliases; absence keeps the current behavior: the same focused test and `tests/web-config.test.mjs`.
 - [x] Routines/Activity selection and source-bound pagination use the contract: `tests/web-project-sets.test.mjs`.
-- [ ] Home selection and real responsive navigation use the contract; source tests do not establish a device walk: ⚑ by hand: owner, on desktop and mobile.
 - [ ] Real desktop/mobile source comparison and any separately authorized observation transport are verified: ⚑ by hand: owner, after separately authorized enrollment.
 
 ## Real surfaces

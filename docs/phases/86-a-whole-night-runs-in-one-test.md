@@ -1,11 +1,10 @@
 ---
-status: partial
-owes: walk
-since: 2026-10-16
+status: built
+since: 2026-11-21
 goal: G0
 spec: 2
 depends: [73, 76, 77, 78]
-note: "Built 2026-10-17: tests/night-box.test.mjs runs one night end to end through the shipped workflows' own steps (goodnight, plan, measure, the climb tick, decide, finalize, send, the card) with a frozen clock, a bare origin, a stub gh and the fake isocan, and reads the brief and the card; breaking any one stage names it. Owes the owner a look at it in CI."
+note: "Built 2026-10-17: tests/night-box.test.mjs runs one night end to end through the shipped workflows' own steps (goodnight, plan, measure, the climb tick, decide, finalize, send, the card) with a frozen clock, a bare origin, a stub gh and the fake isocan, and reads the brief and the card; breaking any one stage names it. Owes the owner a look at it in CI; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-17-night-in-a-box.md"]
 issue: 171
 ---
@@ -31,17 +30,6 @@ The design is [Verification: tests that tell right from plausibly wrong](../rese
 - [x] Exactly one morning issue is sent, and the card's last version shows each item's final status. `tests/night-box.test.mjs`
 - [x] Breaking any one stage (the plan write, the tick, finalize, send, the card) fails the test, naming the stage. `tests/night-box.test.mjs`
 - [x] The test runs in under 30 seconds with no network. `tests/night-box.test.mjs`
-- [ ] ⚑ by hand: none; the real nights are the walks of phases 73–78.
-
-## Your part
-
-- **Ask:** Nothing to do for this one; it is a test of the night itself.
-- **Why:** It catches a broken night before a real one does.
-- **Look at:** the test in CI.
-- **Choices:** Fine | Something to change
-- **Takes:** 10 minutes.
-- **Then:** Something: say what.
-- **Ready when:** this phase has shipped.
 
 ## Real surfaces
 

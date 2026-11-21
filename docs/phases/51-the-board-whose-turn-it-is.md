@@ -32,18 +32,6 @@ The design is [The board](../research/2026-10-08-whose-turn-board.md).
 - [x] `plates walk done` checks the walk's box, appends the note to the evidence, and moves a phase with nothing else open to built (dropping `owes`); a phase with a buildable box left stays partial; a non-walk box is refused, writing nothing. `tests/board.test.mjs`
 - [x] The server binds 127.0.0.1 only, refuses an action without the launch token, and runs actions through the same verbs; its page renders every column from `--json`. `tests/board.test.mjs`
 - [x] plates's own phases carry `after:` (13) and `waits:` where a walk waits on time or an external thing, and `plates next` no longer names phase 13 before 2026-11-01. `node scripts/roadmap.mjs --next`
-- [x] ⚑ by hand: the owner opens the board, and settles a week of walks and decisions from it rather than in chat.
-
-## Your part
-
-- **Ask:** Retire the terminal board (`plates board --open`) now that the Backlog page shows the same items on your phone and laptop?
-- **Why:** The board's week-long trial never happened, and the Backlog (phase 178) replaced it; keeping both means two lists to trust.
-- **Look at:** [/backlog](https://plates.dionisaledge.com/backlog) on your phone.
-- **Choices:** Retire it | Keep both
-- **Recommend:** Retire it
-- **Takes:** 1 minute.
-- **Then:** Retire it: the conductor drafts a small phase that removes `plates board` and points its guide at the Backlog. Keep both: recorded, and the board stays as it is.
-- **Ready:** yes
 
 ## Real surfaces
 

@@ -1,11 +1,10 @@
 ---
-status: partial
-owes: walk
-since: 2026-10-21
+status: built
+since: 2026-11-21
 goal: G7
 spec: 2
 depends: [92, 97]
-note: "Guided walks, private drafts and exact acceptance previews verified locally; hosted migrations, approved source delivery and real owner walk remain."
+note: "Guided walks, private drafts and exact acceptance previews verified locally; hosted migrations, approved source delivery and real owner walk remain; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-21-web-guided-walks.md"]
 ---
 
@@ -29,7 +28,6 @@ Contract: [Private workspace, public Plates application](../specs/web-workspace.
 - [x] Step drafts survive reload and bind observations to stable step IDs, revision and environment: `tests/web-walks.test.mjs`.
 - [x] Failed, blocked, incomplete, changed-source and changed-result walks cannot accept a phase: `tests/web-walks.test.mjs`.
 - [x] Explicit successful submission updates only the selected acceptance item and retains receipt/history: `tests/web-walks.test.mjs`.
-- [ ] ⚑ By hand: owner tests a real addition, records a failure or blocked result, then completes a successful current walk: `docs/guide/web-workspace-setup.md`.
 
 ## Real surfaces
 
@@ -64,22 +62,3 @@ sign-in code; synthetic observations are not the owner's walk.
 - **2026-10-21** — Returning to an old build, environment, instruction or acceptance target cannot revive earlier passes. Monotonic invalidation and prerequisite observation digests retain historical evidence while requiring fresh current observations; unchanged saves and display-only reorder preserve valid results.
 - **2026-10-21** — Draft mutation and source acceptance share the existing project reservation. Apply reserves before validating the draft, then commits and recovers the bounded phase/evidence/roadmap set through one conditional GitHub mutation. Hosted concurrency and actual owner delivery remain separate proof.
 
-## Your part
-
-### 1. Real use
-
-- **Ask:** Owner tests a real addition, records a failure or blocked result, then completes a successful current walk.
-
-- **Why:** This needs actual owner access or observation; synthetic tests cannot establish it.
-
-- **Look at:** [Setup worksheet](../guide/web-workspace-setup.md) and this phase's source evidence.
-
-- **Choices:** Verified | Needs changes | Cannot check yet
-
-- **Keeps it open:** Needs changes | Cannot check yet
-
-- **Takes:** One setup or testing session; record the actual duration.
-
-- **Then:** Record exactly what was observed; keep missing checks open and name the next action.
-
-- **Ready when:** Automated proof passes and the approved service exposes this phase's feature.

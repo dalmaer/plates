@@ -1,10 +1,10 @@
 ---
-status: partial
-since: 2026-10-17
+status: built
+since: 2026-11-21
 goal: G6
 spec: 2
 depends: [80]
-note: "Partial 2026-10-17: the delivery practice's verify.mjs checks production serves the commit or a descendant and passes its smoke checks, says whether a commit is already live, and records each result on plates-verify, where a failure is the owner's on the board and a line in the next morning brief. The owner's read of a real failure waits."
+note: "Partial 2026-10-17: the delivery practice's verify.mjs checks production serves the commit or a descendant and passes its smoke checks, says whether a commit is already live, and records each result on plates-verify, where a failure is the owner's on the board and a line in the next morning brief. The owner's read of a real failure waits; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-17-verify.md"]
 issue: 164
 ---
@@ -29,17 +29,6 @@ The design is [Delivery: a change reaches production once, checked](../research/
 - [x] `verify.mjs` passes when the endpoint reports the commit or a descendant and every smoke check matches, and fails, naming which, otherwise; it retries within a bound and never reports success it did not see. `tests/verify.test.mjs`
 - [x] `verify.mjs live` says yes for the commit or a descendant and no otherwise. `tests/verify.test.mjs`
 - [x] A failed verify is an owner's item on the board and in the morning brief. `tests/board.test.mjs`, `tests/morning.test.mjs`
-- [ ] ⚑ by hand: the owner reads one real failed verify (or a deliberate one on a preview) in the morning brief.
-
-## Your part
-
-- **Ask:** When a deploy's verify fails (or one made to fail on a preview), read how the morning brief and board say it.
-- **Why:** A broken production should reach you once, clearly, the next morning.
-- **Look at:** the morning brief.
-- **Choices:** Clear | Unclear
-- **Takes:** 10 minutes.
-- **Then:** Unclear: the wording is fixed.
-- **Ready when:** this phase has shipped to ledger or isocan.
 
 ## Real surfaces
 

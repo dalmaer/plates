@@ -61,19 +61,8 @@ answers before sending (#542), the sent-version check (#543) and sectioned revie
 - [x] Panes that are working, idle, done or in error are not kept, and panes in sessions that name no known plate are counted, not listed: `tests/waiting-sessions.test.mjs: "only blocked panes on known plates are listed"`.
 - [x] No Rex, or a Rex that fails, leaves `panes` absent and the row says Rex was not read: `tests/waiting-sessions.test.mjs: "no Rex is not read, never none"`.
 - [x] A pushed snapshot with a pane field it does not hold is refused: `tests/waiting-sessions.test.mjs: "a pane field the snapshot does not hold is refused"`.
-- [ ] ⚑ by hand: owner. A Codex or Claude tab in Rex stopped on a permission prompt shows on the deployed Home within one push.
 - [ ] `plates ask` puts a typed card on Home in both forms (increment 2): `tests/plates-ask.test.mjs: "an ask is a card in both forms"`.
 - [ ] An answer reaches the asking agent without typing into a pane, and Home shows its delivery state (increment 3): `tests/channel-deliver.test.mjs: "an answer is delivered without typing into a pane"`.
-
-## Your part
-
-- **Ask:** Leave one agent tab in Rex waiting on a permission prompt, then open the Plates site on your phone and check it is listed under Sessions waiting on you.
-- **Why:** It proves the Mac's scan reads Rex and the site shows it, which a test cannot.
-- **Look at:** Home on the Plates site, the "Sessions waiting on you" row.
-- **Choices:** It shows | It does not show
-- **Takes:** About 5 minutes.
-- **Then:** It shows: increment 1's walk is done. It does not show: the conductor reads the push log.
-- **Ready when:** increment 1 is merged, deployed and installed on the Mac.
 
 ## Real surfaces
 

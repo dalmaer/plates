@@ -1,12 +1,10 @@
 ---
-status: partial
-owes: walk
-waits: owner
-since: 2026-10-14
+status: built
+since: 2026-11-21
 goal: G4
 spec: 2
 depends: [73, 74, 76, 77]
-note: "Built 2026-10-14: plates-morning's card job republishes night-plan after each pass with plates canvas night's provisioning and one shared canvas journal; a default night writes its plan to keel-night-plan from its PR step; an accepted Loop finding becomes a robot build whose issue plates goodnight --yes makes; no build lane without a builder. Owes the owner one watched night."
+note: "Built 2026-10-14: plates-morning's card job republishes night-plan after each pass with plates canvas night's provisioning and one shared canvas journal; a default night writes its plan to keel-night-plan from its PR step; an accepted Loop finding becomes a robot build whose issue plates goodnight --yes makes; no build lane without a builder. Owes the owner one watched night; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-14-night-plan-live.md"]
 issue: 150
 ---
@@ -32,17 +30,6 @@ The design is [Nightwatch: a night with a plan you can shape](../research/2026-1
 - [x] A night with no owner plan writes its default plan to the plan branch and the passes tick it; a night with an owner plan never replaces it. `tests/night-plan.test.mjs`, `tests/workflows.test.mjs`
 - [x] `goodnight add` for an accepted Loop finding that names a number becomes a robot item, its issue created only on `--yes` with a rubric the robot accepts; one that names no number stays triage, with the reason. `tests/goodnight.test.mjs`, `tests/robot-runtime.test.mjs`
 - [x] The validator refuses a build in lane `loop`, and a persona build without a climb job that measures its number. `tests/night-plan.test.mjs`
-- [ ] ⚑ by hand: the owner watches one night's plan card change on the canvas as climb and the robot finish, and gets the morning email linking to it.
-
-## Your part
-
-- **Ask:** One evening put one Loop finding and one small fix in tonight's plan with `/goodnight`; the next morning, open the email and follow it to the canvas.
-- **Why:** It is the whole nightwatch, end to end, on a real night.
-- **Look at:** the "Good morning" email and the canvas's plan card.
-- **Choices:** The card and email told me what happened | Something was missing or wrong
-- **Takes:** 10 minutes in the evening, 10 the next morning.
-- **Then:** Missing or wrong: what it was goes into the next fix.
-- **Ready when:** this phase has shipped, `morning.assignee` is set, and the canvas is set for nightly publishing.
 
 ## Real surfaces
 

@@ -43,7 +43,7 @@
     },
     ".agents/skills/conduct/SKILL.md": {
       "practice": "conduct",
-      "sha256": "6a6daa0be777ef48f250ea366e7bee0520abdd715bf5a40baba389b7658a872d"
+      "sha256": "fb1ee29543ff102cc1726a40836b99bb7dfd1420ff2f95834f3ddcdee742356b"
     },
     ".agents/skills/plates/SKILL.md": {
       "practice": "agents-md",
@@ -51,7 +51,7 @@
     },
     ".agents/skills/spin/SKILL.md": {
       "practice": "conduct",
-      "sha256": "e1521475a67aeabc8a39a12bc574328bb229ba4f130c34c139b673ad79d1dd4a"
+      "sha256": "6af680c2e27e3d21dbc4da676845e6512e183b17be846d01eedeff69eb31585f"
     },
     ".claude/skills/conduct": {
       "practice": "conduct",
@@ -115,7 +115,7 @@
     },
     "AGENTS.md#conduct": {
       "practice": "conduct",
-      "sha256": "639ee8ac582eaed67c22eb3ad154806605437a873c55c5108835f84d38c16d57"
+      "sha256": "e0c28507af457891005a93c5ace2bbaa3f2210caa31036364d638f784a9ac1b2"
     },
     "AGENTS.md#evidence": {
       "practice": "evidence",
@@ -139,7 +139,7 @@
     },
     "docs/phases/README.md": {
       "practice": "phases",
-      "sha256": "31f6d61f33008a65caa7395b3f2d77cfcb8be4cf91dc5844cfcded04e149c0f3"
+      "sha256": "23cfa429bed58b11d1524fe890d343d309f6bfc5f29f197b243aa314025325b7"
     },
     "docs/plates-lessons.md": {
       "practice": "lessons",
@@ -155,7 +155,7 @@
     },
     "docs/templates/phase.md": {
       "practice": "phases",
-      "sha256": "ba2e6cf3e3e6c9b686cf4d235f0b7bcda27c32378073e126d4aaf35aa9693cdd"
+      "sha256": "04f6e88459d02bbcae9997e44b320b9ae0bad2a71a7af247daa105c25572bd39"
     },
     "renovate.json": {
       "practice": "renovate",
@@ -395,7 +395,7 @@
     },
     "scripts/roadmap.mjs": {
       "practice": "phases",
-      "sha256": "109339414c91ad5dffaed1ca049c516a77ae4f05a788a4a504b86f6515272e67"
+      "sha256": "65f60b73ffb132c306ce1fbddf105015cb3db18fb799b9b1072fe675ede59efb"
     },
     "tests/plates-generated.test.mjs": {
       "practice": "phases",
@@ -407,7 +407,7 @@
     },
     "tests/roadmap.test.mjs": {
       "practice": "phases",
-      "sha256": "dc82f4c05ade321a49a450f5a011885f0277ca22fdbccf7ff3986ed1c4f1529a"
+      "sha256": "1b9dec6e7d472c34355002d27a9be90f8b8c19fddcb1ddf6469b7b90b3141605"
     }
   }
 }

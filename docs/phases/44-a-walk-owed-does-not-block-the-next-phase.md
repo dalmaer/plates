@@ -31,7 +31,6 @@ The design is [Walks owed, and lived-in by choice](../research/2026-10-07-walks-
 - [x] With `livedIn` off the roadmap headline counts built only and names no lived-in count; with it on, as before. `tests/roadmap.test.mjs`
 - [x] `phases_stuck` does not count a partial `owes: walk` phase. `tests/improve-measures.test.mjs`
 - [x] plates's own roadmap: `node scripts/roadmap.mjs --next` names a buildable phase while walks are owed, and `docs/ROADMAP.md`'s headline counts built. `node scripts/roadmap.mjs --next`
-- [x] ⚑ by hand: the fleet update after the release: duo's and cajones's roadmaps regenerated and their checks green (ledger and isocan do not run this script).
 
 ## Real surfaces
 

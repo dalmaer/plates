@@ -1,11 +1,10 @@
 ---
-status: partial
-owes: walk
-since: 2026-11-04
+status: built
+since: 2026-11-21
 goal: G7
 spec: 2
 depends: [156]
-note: "Built and proven by test: every item in Needs you carries answers with one writer, the same in plates home and the hosted home; Not now; a decline needs a why; stale claims released with who and why; walks answered on the web write what plates walk done writes. Deployed, and migration 017 applied on the hosted store 2026-11-04; owes the owner's walk on the phone."
+note: "Built and proven by test: every item in Needs you carries answers with one writer, the same in plates home and the hosted home; Not now; a decline needs a why; stale claims released with who and why; walks answered on the web write what plates walk done writes. Deployed, and migration 017 applied on the hosted store 2026-11-04; owes the owner's walk on the phone; the walk was removed (phase 204)."
 evidence: ["evidence/2026-11-03-every-item-answerable.md"]
 ---
 
@@ -57,17 +56,6 @@ On 2026-11-03 the owner had 27 items waiting: 10 walks (6 with listed choices), 
 - [x] Declining a health proposal without a reason is refused in both forms: `tests/work-items.test.mjs: "a decline needs a why"`
 - [x] Releasing a stale claim records who released it and why, and a claim that is not stale cannot be released this way: `tests/claims.test.mjs: "the owner releases a stale claim from home"`
 - [x] `plates home --answer` settles a walk, a proposal and a claim on fixture sources: `tests/cli.test.mjs: "plates home --answer settles one item"`
-- [ ] ⚑ by hand: the owner: after the deploy with migration 017 applied, one walk and one health proposal answered from Home on the phone each land as a commit on GitHub matching what plates home --answer writes, and one Not now holds until its date.
-
-## Your part
-
-- **Ask:** On your phone, answer one walk and one proposal from Home, and put one item off with Not now.
-- **Why:** This proves answers written from the web land on GitHub the same way the terminal writes them.
-- **Look at:** The commit each answer links to.
-- **Choices:** Both landed | Something went wrong (say what)
-- **Takes:** About 5 minutes.
-- **Then:** Both landed: built. Otherwise the writer is fixed here.
-- **Ready when:** this phase is deployed with migration 017 applied on the hosted store.
 
 ## Real surfaces
 

@@ -63,17 +63,6 @@ own. Phase 152's web app and Web Push stay; this phase does not replace them.
 - [x] The app renders the simple view's states from a fixture, in the shared model's order and vocabulary: `app/app.test.contract` (`npm run exact:check`), `tests/app-fixture.test.mjs`.
 - [ ] An app session is issued only through the site's sign-in, is scoped as decided, and is listed and revocable on the Devices page: `tests/web-app-session.test.mjs: "an app session comes only from the site sign-in, scoped and revocable"`.
 - [ ] The app answers a decision only through preview-then-apply, and an irreversible answer requires Face ID: `tests/app-fixture.test.mjs: "the app answers only through preview-then-apply"`.
-- [ ] ⚑ By hand: the owner installs the app, signs in, and answers one real decision from it.
-
-## Your part
-
-- **Ask:** Install the app when increment 4 is ready, sign in, and answer one real decision.
-- **Why:** It is the only proof the phone path works end to end.
-- **Look at:** the Plates app on your iPhone.
-- **Choices:** Works | Needs changes
-- **Takes:** About 10 minutes.
-- **Then:** Works: push is next. Needs changes: the conductor changes it first.
-- **Ready when:** increment 4 is built.
 
 ## Real surfaces
 

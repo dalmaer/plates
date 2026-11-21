@@ -39,17 +39,6 @@ On the hosted workspace, a step's **Done** and **Hand to an agent** write from t
 - [x] A Done whose step changed since its preview writes nothing: `tests/web-home-answers.test.mjs`
 - [ ] Hand to an agent files the CLI's issue when `issueWrites` is on, and says which permission is missing when it is off: `tests/web-home-answers.test.mjs`
 - [x] No web view renders an answer's command: `tests/web-review.test.mjs`
-- [ ] ⚑ by hand: the owner presses Done on a step from their phone, and it leaves Home.
-
-## Your part
-
-- **Ask:** On your phone, open Review, press Done on a step, type a one-line why, and confirm. Does the step leave Home?
-- **Why:** It is the case that failed: a button that told you to open a terminal.
-- **Look at:** The step's card in Review, then Home after the write.
-- **Choices:** It worked | It wrote but the step is still listed | It asked me to run something
-- **Recommend:** It worked
-- **Takes:** 2 minutes
-- **Ready when:** this phase is deployed.
 
 ## Proof
 

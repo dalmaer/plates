@@ -1,12 +1,10 @@
 ---
-status: partial
-owes: walk
-waits: owner
-since: 2026-10-14
+status: built
+since: 2026-11-21
 goal: G4
 spec: 2
 depends: [73]
-note: "Built 2026-10-14: plates goodnight (the opening, the draft and its shaping verbs, --yes writing the plan and pushing it to keel-night-plan as one parentless commit) and the conduct skill's /goodnight. Owes the owner one real evening and morning."
+note: "Built 2026-10-14: plates goodnight (the opening, the draft and its shaping verbs, --yes writing the plan and pushing it to keel-night-plan as one parentless commit) and the conduct skill's /goodnight. Owes the owner one real evening and morning; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-14-goodnight.md"]
 issue: 132
 ---
@@ -35,17 +33,6 @@ Not in scope: building (76), the canvas card and the morning (77).
 - [x] add, drop, edit, budget and skip change the draft, and a sixth build item, a build item with no number, or an item naming something settled today is refused, naming why. `tests/goodnight.test.mjs`
 - [x] `--yes` writes the plan with `shapedBy: owner` and pushes it to the plan branch of a bare-origin fixture; without `--yes` nothing is written or pushed. `tests/goodnight.test.mjs`
 - [x] The conduct skill's `/goodnight` section says it runs only when asked and writes only on the owner's "that's the plan". `tests/skill.test.mjs`
-- [ ] ⚑ by hand: the owner runs /goodnight on plates one evening and reads the plan the next morning.
-
-## Your part
-
-- **Ask:** One evening, type `/goodnight` in a Claude Code session on plates, say what you want the night to work on, and say "that's the plan".
-- **Why:** It is the first time you steer a night instead of plates choosing; this shows whether the conversation gives you what you need to choose.
-- **Look at:** the plan it shows before you agree.
-- **Choices:** It gave me what I needed | I had to look things up myself
-- **Takes:** 10 minutes in the evening, 5 the next morning.
-- **Then:** Looked things up: what was missing goes into the opening.
-- **Ready when:** this phase and phase 73 have shipped.
 
 ## Real surfaces
 

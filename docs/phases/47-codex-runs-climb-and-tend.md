@@ -1,12 +1,10 @@
 ---
-status: partial
-owes: walk
-waits: external
-since: 2026-10-08
+status: built
+since: 2026-11-21
 goal: G4
 spec: 2
 depends: [45, 46]
-note: "Built (Path A): Codex runs climb and tend with workspace-write and drop-sudo, TMPDIR pinned to /tmp/plates-codex, commits to .plates/agent-git; plates takes only objects from that git dir (no git command reads it) into a fresh repo, then the judge and publish jobs as before. Owes one real Codex night of each pass, read by the owner."
+note: "Built (Path A): Codex runs climb and tend with workspace-write and drop-sudo, TMPDIR pinned to /tmp/plates-codex, commits to .plates/agent-git; plates takes only objects from that git dir (no git command reads it) into a fresh repo, then the judge and publish jobs as before. Owes one real Codex night of each pass, read by the owner; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-08-codex-climb-tend.md"]
 issue: 33
 ---
@@ -32,18 +30,6 @@ The design is [Review hardening](../research/2026-10-07-review-hardening.md), §
 - [x] The spike's result is recorded with its run: a Codex step on GitHub committing (or failing to) to a git dir other than `.git` under workspace-write and drop-sudo. `gh run view <id> -R dalmaer/plates --log`
 - [x] With `"agent": "codex"`, plates-climb.yml and plates-tend.yml run Codex's step with `sandbox: workspace-write` and `safety-strategy: drop-sudo`, and every sandbox rule holds as for Claude; mutation: `danger-full-access` fails the test. `tests/workflows.test.mjs`
 - [x] The chosen path's commit step (A: the git dir; B: the plan commit) produces commits the climb and tend guards judge as they judge Claude's, refusing the same things. `tests/climb.test.mjs`
-- [ ] ⚑ by hand: one Codex climb night and one Codex tend pass on a project, each PR read by the owner.
-
-## Your part
-
-- **Ask:** Read the pull request from one climb night and one tend pass that Codex ran on one of your projects, and say whether each is work you would accept from Claude.
-- **Why:** It shows Codex can do the scheduled improvement and record-tidying work under the same locks as Claude, so a project can choose either agent.
-- **Look at:** The two pull requests (on `keel-climb/…` and `keel-tend/…` branches) and, in each run, the "Take Codex's commits, objects only" step.
-- **Choices:** Both held | Something was wrong | Not run yet
-- **Keeps it open:** Something was wrong | Not run yet
-- **Takes:** 20 minutes, once both have run; each run bills the OpenAI API account per token, up to its minutes budget
-- **Then:** Both held: recorded, and the conductor writes the evidence and marks the work done. Something was wrong: recorded with what you saw in the note; the conductor fixes it and asks again. Not run yet: nothing changes.
-- **Ready when:** you have set `"agent": "codex"` on `climb` and on `tend` in a project's `.plates/plates.json` (plates or ledger), listed `codex` in `"agents"`, set the `OPENAI_API_KEY` secret, and one Codex climb night and one Codex tend pass have run
 
 ## Real surfaces
 

@@ -1,11 +1,10 @@
 ---
-status: partial
-owes: walk
-since: 2026-11-02
+status: built
+since: 2026-11-21
 goal: G7
 spec: 2
 depends: [152]
-note: "Built and proven by test: one asset table, digest URLs served immutable, logical paths still private, pages and modules reference only digest URLs, and the worker precaches them. Live headers verified on the deployed workspace on 2026-11-02; the owner's cached reload remains."
+note: "Built and proven by test: one asset table, digest URLs served immutable, logical paths still private, pages and modules reference only digest URLs, and the worker precaches them. Live headers verified on the deployed workspace on 2026-11-02; the owner's cached reload remains; the walk was removed (phase 204)."
 evidence: ["evidence/2026-11-02-cached-assets.md"]
 ---
 
@@ -36,16 +35,6 @@ One merge. It's compatible: the logical paths keep working, and digest URLs are 
 - [x] Every asset reference in every rendered page, and every dynamic import in served modules, is a digest URL that the server answers with `public, max-age=31536000, immutable` and the right bytes: `tests/web-assets.test.mjs: "every page references immutable digest assets"`
 - [x] A digest URL that is not current answers 404, and a changed asset gets a new URL: `tests/web-assets.test.mjs: "a digest names exactly one asset"`
 - [x] HTML, API and private routes stay `private, no-store`: `tests/web-assets.test.mjs: "nothing private becomes cacheable"`
-- [ ] ⚑ by hand: the conductor, after the owner deploys: a curl -sI of a digest asset on the workspace shows the immutable header, and a second signed-in page load serves its assets from cache (network panel).
-
-## Your part
-
-- **Ask:** Close Plates on your phone and open it again. Does Home appear at once, or after a blank wait?
-- **Why:** The second visit should come from the phone's cache; a blank wait means the files are fetched again. The server side is already checked.
-- **Choices:** Appears at once | Blank wait first
-- **Takes:** 1 minute.
-- **Then:** At once: the phase is built. Blank wait: the conductor checks the worker's cache on the deployed workspace.
-- **Ready:** yes
 
 ## Real surfaces
 

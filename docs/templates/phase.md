@@ -26,11 +26,11 @@ The smallest useful slice, and its boundaries.
 
 ## Acceptance
 
-- [ ] Observable behaviour, including the failure path, and the check that proves it: `tests/<file>: "<test name>"`, a command in backticks, or ⚑ by hand: <who>.
+- [ ] Observable behaviour, including the failure path, and the check that proves it: `tests/<file>: "<test name>"` or a command in backticks. Trying it by hand is not a box: each PR carries a Try it.
 
 ## Your part
 
-<!-- Only for a phase with a ⚑ walk: what the owner is asked, in plain words, for someone who has not read this phase. Delete the section when there is no walk. `**Ready when:** <what must happen first>` in place of `**Ready:** yes` keeps it off the owner's list until then. Add `- **Keeps it open:** <choice> | …` for choices that record an answer but leave the walk open ("Not enough data yet"). Add `- **Recommend:** <choice>` after Choices when you recommend one: exactly one of the Choices, as spelled there (the check refuses any other); keep the reason in Why. Declare completing choices with an exact `Then` clause `<choice>: the phase is built.` (or `<choice>: built.`); other multi-choice answers stay open. With no declaration, a single-choice walk keeps the legacy completion behavior. `Retire it` or `<choice>: the phase is superseded.` records retirement without checking acceptance. A table of the data may follow. -->
+<!-- Only for a phase whose owner must decide something or do a ⚑ step (money, a login, a cloud resource): what the owner is asked, in plain words, for someone who has not read this phase. Delete the section otherwise. Never for trying the work by hand: that is each PR's Try it, optional and never a gate. `**Ready when:** <what must happen first>` in place of `**Ready:** yes` keeps it off the owner's list until then. Add `- **Keeps it open:** <choice> | …` for choices that record an answer but leave the walk open ("Not enough data yet"). Add `- **Recommend:** <choice>` after Choices when you recommend one: exactly one of the Choices, as spelled there (the check refuses any other); keep the reason in Why. Declare completing choices with an exact `Then` clause `<choice>: the phase is built.` (or `<choice>: built.`); other multi-choice answers stay open. With no declaration, a single-choice walk keeps the legacy completion behavior. `Retire it` or `<choice>: the phase is superseded.` records retirement without checking acceptance. A table of the data may follow. -->
 - **Ask:** What the owner does, in one plain sentence, with no plates words.
 - **Why:** What it settles or unblocks, in one sentence.
 - **Look at:** The one thing to read or open first; a [link](url) is fine.
@@ -46,7 +46,7 @@ The smallest useful slice, and its boundaries.
 ## Proof
 
 Automated: exact commands and what each one proves.
-By hand: who does what, and what would change the design.
+By hand: optional; each PR's Try it says where and how to try it. A step only a person can do goes on the ⚑ line.
 ⚑ Anything that creates a resource, spends money or needs a login — with the price.
 
 ## Deliberately open

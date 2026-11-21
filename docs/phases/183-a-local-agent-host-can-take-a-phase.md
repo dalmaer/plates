@@ -1,11 +1,10 @@
 ---
-status: partial
-owes: walk
-since: 2026-11-06
+status: built
+since: 2026-11-21
 goal: G7
 spec: 2
 depends: [181]
-note: "Built: the local-host route runs the owner's privately configured command with the brief, once, and shows the state it reports. Owes the owner's walk with a real host."
+note: "Built: the local-host route runs the owner's privately configured command with the brief, once, and shows the state it reports. Owes the owner's walk with a real host; the walk was removed (phase 204)."
 evidence: ["evidence/2026-11-06-local-host.md"]
 ---
 
@@ -33,19 +32,6 @@ The `local-host` route claims with the host's provider name and hands the spin b
 - [x] The brief carries Done when, Acceptance and current decisions, byte-identical to its preview: `tests/backlog-attach.test.mjs: "local host brief matches its preview"`
 - [x] Without `local-host` in the policy the route is not offered: `tests/backlog-attach.test.mjs: "local host needs the policy"`
 - [x] A host that reports no state shows claimed and active only, never running: `tests/backlog-attach.test.mjs: "a silent host is never running"`
-- [ ] A local agent host attached to one phase builds it, and it lands through ready and integrate: ⚑ by hand: the owner.
-
-## Your part
-
-- **Ask:** Attach your own local agent host to one ready phase, and let it land through `plates ready` and `plates integrate`.
-- **Why:** Only you have a host configured on your machine. It settles whether an agent host beyond Claude Code and Codex can work as a Plates agent.
-- **Look at:** The brief in the preview: it is the exact bytes your host gets on stdin. Then the card's presence while it works.
-- **Choices:** It landed | It started but stalled (say where) | It didn't start (say why)
-- **Recommend:** It landed
-- **Keeps it open:** It didn't start (say why)
-- **Takes:** About 15 minutes to write `~/.config/plates/local-hosts.json` and attach, plus the agent's time.
-- **Then:** It landed: built. Stalled or didn't start: the adapter or the host contract changes here.
-- **Ready when:** the automated boxes are built, the plate's `backlog.routes` lists `local-host`, and `~/.config/plates/local-hosts.json` names your host under the provider it claims with.
 
 ## Real surfaces
 

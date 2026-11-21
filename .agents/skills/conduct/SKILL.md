@@ -10,5 +10,5 @@ Read and follow [the canonical spin skill](../spin/SKILL.md) in full before acti
 Forward every argument unchanged: `/conduct`, `/conduct status`, `/conduct <N>`
 and `/conduct one` have exactly the corresponding `/spin` behavior.
 Use the same selected working guide, claims, proof, review, commit and permission
-rules. This alias adds no authority, extra run, instrumentation or separate state.
+rules, and the same Try it on each phase PR. This alias adds no authority, extra run, instrumentation or separate state.
 If the canonical skill cannot be read, stop and report that missing dependency.

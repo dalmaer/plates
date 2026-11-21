@@ -27,7 +27,6 @@ Contract: [Private workspace, public Plates application](../specs/web-workspace.
 - [x] Denied membership, revoked access and unauthorized project/media/stream requests reveal no private records: `tests/web-access.test.mjs`.
 - [x] Independent function instances atomically consume authorization attempts, revoke sessions and preserve versioned writes; unavailable storage fails closed: `tests/web-store.test.mjs`.
 - [x] Mutation routes enforce origin and CSRF; public static/package output contains no secrets: `tests/web-server.test.mjs`.
-- [x] ⚑ By hand: actual login, logout and denied-project access work on the approved HTTPS origin, with serving Node >=24.21.0 verified: `docs/guide/web-workspace-setup.md`.
 
 ## Real surfaces
 
@@ -64,22 +63,3 @@ choice open; sign-in acceptance does not establish an independent restore path.
 
 - **2026-10-21** — Created from the owner's request for a hosted UI with private workspace data, project-owned records, decisions, guided testing and visible recent additions.
 
-## Your part
-
-### 1. Real use
-
-- **Ask:** Actual login, logout and denied-project access work on the approved HTTPS origin.
-
-- **Why:** This needs actual owner access or observation; synthetic tests cannot establish it.
-
-- **Look at:** [Setup worksheet](../guide/web-workspace-setup.md) and this phase's source evidence.
-
-- **Choices:** Verified | Needs changes | Cannot check yet
-
-- **Keeps it open:** Needs changes | Cannot check yet
-
-- **Takes:** One setup or testing session; record the actual duration.
-
-- **Then:** Record exactly what was observed; keep missing checks open and name the next action.
-
-- **Ready when:** Automated proof passes and the approved service exposes this phase's feature.

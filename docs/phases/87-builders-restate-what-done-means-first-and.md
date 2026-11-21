@@ -1,12 +1,10 @@
 ---
-status: partial
-owes: walk
-waits: owner
-since: 2026-10-16
+status: built
+since: 2026-11-21
 goal: G0
 spec: 2
 depends: []
-note: "Built 2026-10-16: the conduct skill's brief ends with the restatement and fixes the report's sections in order; its verify step reads the restatement first and refuses a report missing an acceptance box or an exit code. Owes the owner one read of a conducted phase's report."
+note: "Built 2026-10-16: the conduct skill's brief ends with the restatement and fixes the report's sections in order; its verify step reads the restatement first and refuses a report missing an acceptance box or an exit code. Owes the owner one read of a conducted phase's report; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-16-builder-shape.md"]
 issue: 172
 ---
@@ -29,17 +27,6 @@ The design is [Verification: tests that tell right from plausibly wrong](../rese
 
 - [x] The conduct skill's brief asks for the restatement and the report shape, and its verify step names the checks. `tests/skill.test.mjs`
 - [x] The rendered skill in every adopted project carries the same text. `tests/practices.test.mjs`
-- [ ] ⚑ by hand: the owner reads one conducted phase's builder report and says whether it read faster.
-
-## Your part
-
-- **Ask:** Read the next builder report a conducted phase produces.
-- **Why:** It shows whether one shape makes reports quicker to check.
-- **Look at:** the conductor's summary of the next phase.
-- **Choices:** Faster to read | No different
-- **Takes:** 10 minutes.
-- **Then:** No different: the shape is revised.
-- **Ready when:** this phase has shipped and one phase has been conducted with it.
 
 ## Real surfaces
 
