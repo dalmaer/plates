@@ -24,10 +24,16 @@ if (state.mode === 'not-json') { process.stdout.write('Plates workspace\\n'); pr
 if (state.mode === 'slow') { setTimeout(() => {}, 60000); return; }
 if (state.signedIn === false) { process.stderr.write('unison: not signed in to ' + process.env.UNISON_SERVER + ': run \\'unison login\\' first\\n'); process.exit(1); }
 const [a, b] = argv;
+if (a === 'workspace' && b === 'list' && state.laterWs?.length) {
+  if ((state.hiddenWsLists ?? 0) > 0) state.hiddenWsLists--; else { state.workspaces.push(...state.laterWs); state.laterWs = []; }
+  save();
+}
 if (a === 'workspace' && b === 'list') out(state.mode === 'no-array' ? { workspaces: state.workspaces } : state.workspaces);
 if (a === 'workspace' && b === 'create') {
-  const id = 'ws_acme' + (state.workspaces.length + 1);
+  const id = 'ws_acme' + (state.workspaces.length + (state.laterWs?.length ?? 0) + 1);
   const ws = { id, name: argv[2], repo_url: opt('--repo'), repos: [{ id: 1, url: opt('--repo'), workspace_id: id }] };
+  // delayedWorkspace: the create commits, the caller hears a timeout, and it lists only after hiddenWsLists more lists.
+  if (state.delayedWorkspace) { state.delayedWorkspace = false; (state.laterWs ??= []).push(ws); save(); process.stderr.write('unison: request timed out\\n'); process.exit(1); }
   state.workspaces.push(ws); save(); out(ws);
 }
 const ws = opt('--workspace');

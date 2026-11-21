@@ -290,3 +290,25 @@ test('the writer lock: eight contenders over a dead holder make exactly one owne
   await store.withLock(async () => { await writeFile(lock, other); });
   assert.equal(await readFile(lock, 'utf8'), other);
 });
+
+test('a workspace create whose answer was lost is waited for, not made twice', async t => {
+  const w = await world(t, { workspaces: [], delayedWorkspace: true, hiddenWsLists: 1 });
+  let r = cli(w, ['connect']);
+  assert.equal(r.code, 1);
+  assert.equal((await mapOf(w)).pendingWorkspace.repo, 'acme/tools');
+  // It has not listed yet: the second connect waits instead of creating another.
+  r = cli(w, ['connect']);
+  assert.deepEqual([r.code, r.data.created, r.data.waiting.repo], [1, false, 'acme/tools']);
+  // It lists: adopted, the pending cleared, one workspace in all.
+  r = cli(w, ['connect']);
+  assert.deepEqual([r.code, r.data.created, r.data.workspace.id], [0, false, 'ws_acme1']);
+  assert.equal((await mapOf(w)).pendingWorkspace, undefined);
+  assert.equal((await w.state()).workspaces.length, 1);
+  assert.deepEqual(mutating(await w.calls()).map(c => c.argv[1]), ['create']);
+  // Past 15 minutes with nothing listing the repo, connect creates again.
+  const v = await world(t, {});
+  const { createMapStore } = await import('../lib/unison.mjs');
+  await (await createMapStore({ root: v.plate, env: v.env })).write({ schema: 1, workspace: null, repo: 'acme/tools', entries: {}, pendingWorkspace: { repo: 'acme/tools', name: 'Acme Tools', at: new Date(Date.now() - 16 * 60_000).toISOString() } });
+  r = cli(v, ['connect']);
+  assert.deepEqual([r.code, r.data.created], [0, true]);
+});
