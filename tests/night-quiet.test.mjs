@@ -47,7 +47,8 @@ async function project(t, check) {
 
 /** The night's two steps as the workflow runs them, in a project; returns the verdict step's result and the summary. */
 function night(root, temp) {
-  const env = { ...cleanEnv(), PLATES_GH: join(temp, 'no-gh'), GH_TOKEN: '', RUNNER_TEMP: temp };
+  // Run as Actions runs it, whatever the host: the verdict reads GITHUB_ACTIONS (a missing history status is unknown there).
+  const env = { ...cleanEnv(), PLATES_GH: join(temp, 'no-gh'), GH_TOKEN: '', RUNNER_TEMP: temp, GITHUB_ACTIONS: 'true' };
   const answers = join(temp, 'night.json'), summary = join(temp, 'summary.md');
   const asked = run(process.execPath, [join(root, 'scripts/plates/night-verdict.mjs'), 'ask', '--out', answers], { cwd: root, env });
   assert.equal(asked.status, 0, asked.stderr);
@@ -176,9 +177,12 @@ test('the night fails only on a red main, a flaky test or a gate with no tests',
   const recovery = gaps => JSON.stringify({ version: 1, complete: !gaps.length, selected: [], gaps });
   cases.push(['history unrecovered', "node -e \"console.log('ℹ tests 3')\"", 1, CAUSES.unchecked, recovery([{ code: 'recovery-unavailable', detail: 'gh api failed' }])]);
   cases.push(['history warming up', "node -e \"console.log('ℹ tests 3')\"", 0, null, recovery([{ code: 'discovery-limit', detail: 'sampled' }])]);
+  cases.push(['no history status in Actions', "node -e \"console.log('ℹ tests 3')\"", 1, CAUSES.unchecked, null]);
   for (const [name, check, code, cause, history] of cases) {
     const { root, git } = await project(t, check);
-    if (history) { await mkdir(join(root, '.plates/test-runs/recovery'), { recursive: true }); await writeFile(join(root, '.plates/test-runs/recovery/status.json'), history); }
+    // Every case but the last has the status the gather step writes (a first night: no gaps), unless it names its own.
+    const status = name === 'no history status in Actions' ? null : history ?? recovery([]);
+    if (status) { await mkdir(join(root, '.plates/test-runs/recovery'), { recursive: true }); await writeFile(join(root, '.plates/test-runs/recovery/status.json'), status); }
     const temp = await mkdtemp(join(tmpdir(), 'plates-night-quiet-run-'));
     t.after(() => rm(temp, { recursive: true, force: true }));
     const { said, summary } = night(root, temp);
