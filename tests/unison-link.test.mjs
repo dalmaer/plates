@@ -25,8 +25,8 @@ test('a repo is one key however its URL is written', () => {
 
 test("only the link line links, and only to the workspace's repos", () => {
   const phase = P('2-acme-counts-anvils.md');
-  assert.deepEqual(parseLink(`Notes\nPhase: ${phase}`, REPOS), { kind: 'phase', repo: 'acme/tools', file: '2-acme-counts-anvils.md', id: 2, url: phase });
-  assert.deepEqual(parseLink('Issue: https://github.com/Acme/Tools/issues/12', REPOS), { kind: 'issue', repo: 'acme/tools', number: 12, url: 'https://github.com/Acme/Tools/issues/12' });
+  assert.deepEqual(parseLink(`Notes\nPhase: ${phase}`, REPOS), { kind: 'phase', repo: 'acme/tools', file: '2-acme-counts-anvils.md', id: 2, url: phase, line: 1 });
+  assert.deepEqual(parseLink('Issue: https://github.com/Acme/Tools/issues/12', REPOS), { kind: 'issue', repo: 'acme/tools', number: 12, url: 'https://github.com/Acme/Tools/issues/12', line: 0 });
   // Not at a line start, in prose, as a Markdown link, or another repo's: prose.
   for (const body of [
     `See ${phase}`,
@@ -228,4 +228,15 @@ test("a renamed phase file updates only its item's link line", () => {
   assert.deepEqual(plan.actions, [{ op: 'relink', key: 'phase:acme/tools:2', item: 7, body: `The owner's notes.\nPhase: ${P('2-renamed.md')}\nMore notes.` }]);
   // Brought current, nothing more to do.
   assert.deepEqual(planSync({ items: [{ ...old, body: plan.actions[0].body }], sources, map, repos: REPOS, repo: 'acme/tools' }).actions, []);
+});
+
+test('a relink replaces exactly the line that links, never another link-shaped line', () => {
+  const other = 'Issue: https://github.com/acme/other/issues/42';
+  const old = { id: 7, title: 'Phase 2: B', body: `Notes.\n${other}\nPhase: ${P('2-old.md')}\nTail.`, status: 'open' };
+  const map = readMap({ schema: 1, repo: 'acme/tools', entries: { 'phase:acme/tools:2': { item: 7, closedBySync: false } } });
+  const sources = phaseSources([{ id: 2, file: '2-renamed.md', title: 'B', status: 'planned' }], 'acme/tools');
+  const plan = planSync({ items: [old], sources, map, repos: ['acme/tools', 'acme/other'], repo: 'acme/tools' });
+  assert.deepEqual(plan.actions, [{ op: 'relink', key: 'phase:acme/tools:2', item: 7, body: `Notes.\n${other}\nPhase: ${P('2-renamed.md')}\nTail.` }]);
+  // The same when the other repo is not one of the workspace's.
+  assert.deepEqual(planSync({ items: [old], sources, map, repos: REPOS, repo: 'acme/tools' }).actions, plan.actions);
 });
