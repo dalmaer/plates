@@ -96,7 +96,7 @@ import { performance } from 'node:perf_hooks';
 import { gateEnv, healthDirOf, cells, isMain, rootOf, main, climbRetiring, passAgentProblems, agentGitArgs, codexVerdict, startFailureKind, startFailure, fallbackAgent, fallbackLine, listedAgents, fallbackMinutes, FALLBACK_MIN_MINUTES } from './lib.mjs';
 import { readRuns, flaky, testsConfigOf, aloneCommand, KEEP } from './test-ledger.mjs';
 import { prBody } from './pr-body.mjs';
-import { tendConfigOf, tendPick, tendInput, openPass, tendNote, tendGuard, tendReport, tendPage, worksheetText, PASS, sandboxProblems, tendCheck, scriptsChanged, treeState, heldProblems, changesOf, pathsOf, SAFE_GIT, OFF_LIMITS, INSTALL_FILES, recordBase } from './tend.mjs';
+import { tendConfigOf, tendPick, tendInput, openPass, tendNote, tendGuard, tendReport, tendPage, worksheetText, PASS, sandboxProblems, tendCheck, scriptsChanged, treeState, heldProblems, changesOf, commitsOn, pathsOf, SAFE_GIT, OFF_LIMITS, INSTALL_FILES, recordBase } from './tend.mjs';
 import { parseLessons, lessonsPathOf } from './lib.mjs';
 import { readAgentEvidence, claudeEvidence, agentResult, agentVerdict as sharedAgentVerdict, lastResult, errorText, errorCause, OVERSIZED_EVIDENCE } from './lib.mjs';
 export { lastResult, errorText, errorCause, ERROR_CHARS } from './lib.mjs';
@@ -1713,7 +1713,25 @@ const OURS = ['decision', 'rank', 'phase', 'project', 'lesson', 'note'];
  */
 export async function proposalsProblems({ root, config, job, base, head }) {
   if (job === 'loop' && loopSourceProblem(config)) return [loopSourceProblem(config)];
+  const out = await rangeProposalsProblems({ root, config, job, base, head, origin: base });
+  // Each commit too (plates#87): a change refused in one commit and undone in a later one is not in base..head, yet any
+  // merge but a squash carries it into main's history. Merges aside (their changes are the default branch's); what the
+  // night added and then edited or removed itself is its own; a path the whole range already refuses is named once.
+  const named = new Set(out.map(p => p.split(' ')[0]));
+  for (const c of commitsOn(root, base, head)) {
+    for (const p of await rangeProposalsProblems({ root, config, job, base: `${c}^`, head: c, origin: base })) {
+      if (named.has(p.split(' ')[0])) continue;
+      named.add(p.split(' ')[0]);
+      out.push(`${p} (in ${c.slice(0, 7)}, undone later; the branch's history would still carry it)`);
+    }
+  }
+  return out;
+}
+
+/** proposalsProblems over one range; `origin` is where the night began, so what it added itself is its own. */
+async function rangeProposalsProblems({ root, config, job, base, head, origin }) {
   const out = [];
+  const existed = path => git(root, ['cat-file', '-e', `${origin}:${path}`], { allowFail: true }).status === 0;
   const changed = changedPaths(root, base, head);
   if (job === 'lessons') {
     const table = lessonsPathOf(config);
@@ -1722,7 +1740,7 @@ export async function proposalsProblems({ root, config, job, base, head }) {
         const rows = rowsChanged(root, table, base, head);
         out.push(`${table} changed${rows.length ? ` (lesson ${rows.join(', ')})` : ''}: a lessons night proposes, and only the owner changes the table (lesson 53)`);
       } else if (!under(c.path, LESSONS_DIR) || !c.path.endsWith('.md')) out.push(`${c.path} is outside ${LESSONS_DIR}/: a lessons night only adds proposals`);
-      else if (c.status !== 'A') out.push(`${c.path} ${c.status === 'D' ? 'deleted' : 'changed'}: a lessons night adds proposals and never edits one (the owner's decision lives in it)`);
+      else if (c.status !== 'A' && existed(c.path)) out.push(`${c.path} ${c.status === 'D' ? 'deleted' : 'changed'}: a lessons night adds proposals and never edits one (the owner's decision lives in it)`);
     }
     return out;
   }
@@ -1733,7 +1751,7 @@ export async function proposalsProblems({ root, config, job, base, head }) {
   for (const c of changed.filter(c => under(c.path, FINDINGS_DIR) && c.path.endsWith('.md') && !c.path.endsWith('/README.md'))) {
     const slug = c.path.slice(FINDINGS_DIR.length + 1).replace(/\.md$/, '');
     const b = before.get(slug), a = after.get(slug);
-    if (!a) { out.push(`${c.path} deleted: a loop night never removes a finding`); continue; }
+    if (!a) { if (existed(c.path)) out.push(`${c.path} deleted: a loop night never removes a finding`); continue; }
     if (DECIDED.includes(a.decision) && b?.decision !== a.decision) out.push(`${c.path} is ${a.decision} tonight: deciding is the owner's (scripts/loop.mjs decide), never a climb night's (lesson 53)`);
     else if (b && DECIDED.includes(b.decision) && OURS.some(k => JSON.stringify(b[k]) !== JSON.stringify(a[k]))) out.push(`${c.path} was ${b.decision} and its ${OURS.filter(k => JSON.stringify(b[k]) !== JSON.stringify(a[k])).join(', ')} changed tonight: a proposal never overrides a decision`);
   }
