@@ -22,7 +22,7 @@ Verbs (`--json` for data):
 - `plates improve` — measures and a proposal; `--report`
 - `plates persona run` — own goals
 - `plates audit due|brief|record|run` — audits
-- `plates time` — gate/test medians
+- `plates time` — test medians
 - `plates test <file> --stalls` — wall-clock tests
 - `plates drain <prefix>` — newest green PR per queue; exit 3
 - `plates night plan|tick` — the plan
@@ -41,7 +41,7 @@ Verbs (`--json` for data):
 - `plates promote [<commit>]` — tested commit to prod; `--back`
 - `plates walk done|decide` — settle walk or proposal
 - `plates canvas` — snapshot, render, sync, live
-- `plates unison` — status, connect, sync
+- `plates unison` — status, connect, sync, open
 - `plates retro` — worksheet, capture, session trials
 - `plates workspace inspect|init` — external state
 - `plates shape check|render|plan` — reviewed drafts
@@ -2721,6 +2721,11 @@ A plate's Unison workspace is the one that lists the plate's GitHub repo
   It then joins the workspace once as the signed-in account (writes need a
   participant); the session is kept outside the checkout, in
   `~/.config/plates/unison/<host>/<workspace>.json` (or `$XDG_CONFIG_HOME`), 0600.
+- `plates unison open [--item <phase>]` prints the workspace URL (or a phase's
+  item, `<server>/w/<ws>?item=<id>`) and opens it unless `--json`.
+- connect writes `"unison": { "workspace", "url" }` into `.plates/plates.json`
+  (left for the owner to commit) and corrects it when the repo says otherwise;
+  status and sync start from it only after checking it lists the repo.
 - `plates unison sync` (after connect) applies the plan with the `unison` CLI
   and keeps the map. It never moves, assigns or starts an item.
 

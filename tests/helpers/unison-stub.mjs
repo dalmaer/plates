@@ -50,6 +50,7 @@ if (a === 'join') {
 }
 const ws = opt('--workspace');
 if (!state.workspaces.some(w => w.id === ws)) { process.stderr.write('unison: workspace not found\\n'); process.exit(1); }
+if (a === 'workspace' && (b === '--workspace' || b === 'show')) out(state.workspaces.find(w => w.id === ws));
 if (a === 'backlog' && (b === undefined || b === '--workspace' || b === '--status') && state.later?.length) {
   if ((state.hiddenLists ?? 0) > 0) state.hiddenLists--; else { state.items.push(...state.later); state.later = []; }
   save();

@@ -42,6 +42,21 @@ dropped connection) holds the 15-minute wait.
 `"unison": { "server": … }`, else https://unison.cloud.run. Plates never prints a
 token.
 
+## The committed workspace, and opening it
+
+`connect` writes the workspace into `.plates/plates.json` as
+`"unison": { "workspace": "ws_…", "url": "<server>/w/ws_…" }`, keeping any other
+`unison` keys, and leaves the change for you to commit ("Commit
+.plates/plates.json"). The repo stays the truth: connect always finds the
+workspace by repo and corrects the committed id when it disagrees. `status` and
+`sync` start from the committed id, but only after checking that workspace lists
+the plate's repo; if it does not, they say "not read" and point at connect.
+
+`plates unison open` opens the workspace (`open` on macOS, `xdg-open` with a
+display); `--item <phase>` opens that phase's item (`<server>/w/<ws>?item=<id>`).
+Under `--json`, or with nothing to open it with, it prints the URL. `status`
+prints the URL too.
+
 ## What a sync does
 
 - One item per open phase, titled `Phase <n>: <title>`, whose body ends with
