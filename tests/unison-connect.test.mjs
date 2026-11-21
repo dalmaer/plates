@@ -240,3 +240,34 @@ test('an item reopened by hand is no longer closed by sync, so a later hand clos
   const r = cli(w, ['sync']);
   assert.deepEqual([r.data.applied, r.data.suggestions], [[], [{ kind: 'closed-by-hand', key: 'phase:acme/tools:2', item: 1 }]]);
 });
+
+test('an existing item for an already-closed issue is adopted and closed from an empty map', async t => {
+  const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], next: 2,
+    items: [{ id: 1, title: 'Issue #5: Anvils rust', body: 'Notes.\n\nIssue: https://github.com/acme/tools/issues/5', status: 'open', workspace_id: 'ws_acme1' }] }, { config: { unison: { sources: ['issues'] } } });
+  const gh = join(w.bin, 'gh');
+  await writeFile(gh, `#!${process.execPath}\nconst a = process.argv.slice(2);\nif (/^repos\\/acme\\/tools\\/issues\\?state=open/.test(a[1])) { console.log('[]'); process.exit(0); }\nif (a[1] === 'repos/acme/tools/issues/5') { console.log(JSON.stringify({ node_id: 'I_acme5', number: 5, title: 'Anvils rust', state: 'closed' })); process.exit(0); }\nconsole.error('gh: HTTP 404: Not Found'); process.exit(1);\n`, { mode: 0o755 });
+  cli(w, ['connect'], { PLATES_GH: gh });
+  const r = cli(w, ['sync'], { PLATES_GH: gh });
+  assert.equal(r.code, 0, JSON.stringify(r.data));
+  assert.deepEqual(r.data.adopted, [{ key: 'issue:I_acme5', item: 1 }]);
+  assert.deepEqual(r.data.applied.map(a => [a.op, a.item]), [['close', 1]]);
+  assert.equal((await w.state()).items.length, 1);
+});
+
+test('an add that timed out but landed is not added again: the next sync waits, then adopts it', async t => {
+  const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], items: [], next: 1 }, { phases: { '2-acme-counts-anvils.md': { status: 'planned', title: 'Acme counts anvils' } } });
+  cli(w, ['connect']);
+  await w.setState({ delayedCommit: true, hiddenLists: 2 });
+  assert.equal(cli(w, ['sync']).code, 1);
+  assert.equal((await mapOf(w)).pendingCreates['phase:acme/tools:2'].title, 'Phase 2: Acme counts anvils');
+  // The item has not shown yet: the second sync waits rather than adding again.
+  const second = cli(w, ['sync']);
+  assert.deepEqual([second.data.applied, second.data.waiting.map(x => x.key)], [[], ['phase:acme/tools:2']]);
+  assert.match(cli(w, ['status'], {}).data.plan.waiting[0].key, /phase:acme\/tools:2/);
+  // It shows: adopted by its line, and the pending clears. One item in all.
+  const third = cli(w, ['sync']);
+  assert.deepEqual(third.data.adopted, [{ key: 'phase:acme/tools:2', item: 1 }]);
+  const map = await mapOf(w);
+  assert.deepEqual([map.entries['phase:acme/tools:2'].item, map.pendingCreates], [1, undefined]);
+  assert.equal((await w.state()).items.length, 1);
+});

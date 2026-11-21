@@ -32,11 +32,17 @@ if (a === 'workspace' && b === 'create') {
 }
 const ws = opt('--workspace');
 if (!state.workspaces.some(w => w.id === ws)) { process.stderr.write('unison: workspace not found\\n'); process.exit(1); }
+if (a === 'backlog' && (b === undefined || b === '--workspace' || b === '--status') && state.later?.length) {
+  if ((state.hiddenLists ?? 0) > 0) state.hiddenLists--; else { state.items.push(...state.later); state.later = []; }
+  save();
+}
 if (a === 'backlog' && b === undefined || (a === 'backlog' && b === '--workspace') || (a === 'backlog' && b === '--status')) out(['no-array', 'backlog-no-array'].includes(state.mode) ? { items: state.items } : state.items.filter(i => i.workspace_id === ws));
 const item = id => { const it = state.items.find(i => i.id === Number(id) && i.workspace_id === ws); if (!it) { process.stderr.write('unison: no item\\n'); process.exit(1); } return it; };
 if (a === 'backlog' && b === 'add') {
   if (state.failAdd) { process.stderr.write('unison: refused\\n'); process.exit(1); }
   const it = { id: state.next++, title: argv[2], body: opt('--body') ?? '', status: 'open', workspace_id: ws };
+  // delayedCommit: the add commits server-side but the caller hears a timeout, and the item shows only after hiddenLists more lists.
+  if (state.delayedCommit) { state.delayedCommit = false; (state.later ??= []).push(it); save(); process.stderr.write('unison: request timed out\\n'); process.exit(1); }
   state.items.push(it); save();
   // addDelayMs: the add lands, then the answer is slow (a second sync may start meanwhile).
   if (state.addDelayMs) { const until = Date.now() + state.addDelayMs; while (Date.now() < until) { /* hold */ } }

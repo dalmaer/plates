@@ -32,7 +32,7 @@ token.
 ## What a sync does
 
 - One item per open phase, titled `Phase <n>: <title>`, whose body ends with
-  `Phase: https://github.com/<owner>/<repo>/blob/main/docs/phases/<file>`.
+  `Phase: https://github.com/<owner>/<repo>/blob/HEAD/docs/phases/<file>` (HEAD is the default branch; a link on any ref matches by repo and file).
   With `"unison": { "sources": ["phases", "issues"] }`, one per open issue too,
   ending `Issue: https://github.com/<owner>/<repo>/issues/<n>`.
 - A renamed phase retitles its item. A built or superseded phase, or a closed

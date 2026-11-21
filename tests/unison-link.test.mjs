@@ -240,3 +240,25 @@ test('a relink replaces exactly the line that links, never another link-shaped l
   // The same when the other repo is not one of the workspace's.
   assert.deepEqual(planSync({ items: [old], sources, map, repos: REPOS, repo: 'acme/tools' }).actions, plan.actions);
 });
+
+test('new phase links name HEAD, and a link on any ref matches by repo and file without a relink', () => {
+  const sources = phaseSources([{ id: 2, file: '2-b.md', title: 'B', status: 'planned' }], 'acme/tools');
+  assert.equal(sources[0].url, 'https://github.com/acme/tools/blob/HEAD/docs/phases/2-b.md');
+  assert.match(planSync({ items: [], sources, map: readMap(null), repos: REPOS, repo: 'acme/tools' }).actions[0].body, /^Phase: https:\/\/github\.com\/acme\/tools\/blob\/HEAD\/docs\/phases\/2-b\.md$/m);
+  for (const ref of ['main', 'master', 'HEAD']) {
+    const body = `Phase: https://github.com/acme/tools/blob/${ref}/docs/phases/2-b.md`;
+    assert.equal(parseLink(body, REPOS).file, '2-b.md', ref);
+    const map = readMap({ schema: 1, repo: 'acme/tools', entries: { 'phase:acme/tools:2': { item: 7, closedBySync: false } } });
+    assert.deepEqual(planSync({ items: [{ id: 7, title: 'Phase 2: B', body, status: 'open' }], sources, map, repos: REPOS, repo: 'acme/tools' }).actions, [], ref);
+    assert.deepEqual(planSync({ items: [{ id: 7, title: 'Phase 2: B', body, status: 'open' }], sources, map: readMap(null), repos: REPOS, repo: 'acme/tools' }).adopt, [{ key: 'phase:acme/tools:2', item: 7 }], ref);
+  }
+});
+
+test('an uncertain create holds the re-add for 15 minutes, then is planned again', () => {
+  const sources = phaseSources([{ id: 2, file: '2-b.md', title: 'B', status: 'planned' }], 'acme/tools');
+  const map = readMap({ schema: 1, repo: 'acme/tools', entries: {}, pendingCreates: { 'phase:acme/tools:2': { title: 'Phase 2: B', at: '2026-11-20T10:00:00.000Z' } } });
+  let plan = planSync({ items: [], sources, map, repos: REPOS, repo: 'acme/tools', now: Date.parse('2026-11-20T10:14:00.000Z') });
+  assert.deepEqual([plan.actions, plan.waiting], [[], [{ key: 'phase:acme/tools:2', since: '2026-11-20T10:00:00.000Z' }]]);
+  plan = planSync({ items: [], sources, map, repos: REPOS, repo: 'acme/tools', now: Date.parse('2026-11-20T10:16:00.000Z') });
+  assert.deepEqual([plan.actions.map(a => a.op), plan.expired], [['create'], ['phase:acme/tools:2']]);
+});
