@@ -4,7 +4,7 @@ since: 2026-11-21
 goal: G0
 spec: 2
 depends: [44]
-note: "Filed: a by-hand walk no longer holds a phase back from built; agents write a Try it for each PR, and Home shows it as optional."
+note: "Filed: walks are removed from every plates phase and never hold one back; agents write a Try it for each PR, and Home shows it as optional."
 evidence: []
 ---
 
@@ -33,11 +33,12 @@ docs/research/2026-11-21-just-unison.md, "Try it").
   suggested; the check stops refusing a built phase over open walk boxes. Other ⚑ steps
   (money, a cloud resource, a login, a named person's decision) are unchanged: they stay
   boxes that must be done, or asks in Proof.
-- **Existing records.** Every phase that is `partial` with `owes: walk` (or whose only
-  open boxes are walks) moves to `built` in this phase, its walk boxes left unchecked
-  and its note saying the walk is now optional. That applies to plates's own phases; the
-  phases practice carries the new rule to adopted projects through the normal update,
-  without rewriting their records.
+- **Existing records.** The owner decided on 2026-11-21 to remove walks from every
+  existing plates phase, not leave them open: each `⚑ by hand` walk box is deleted, and
+  each `## Your part` that asked only for a walk is deleted (a Your part asking for a
+  decision or a ⚑ setup step stays). A phase that was partial only for walks becomes
+  built. Evidence files are history and are not edited. `plates phase new` and the README
+  stop suggesting walks. Adopted projects' records are moved separately, once this lands.
 - **Try it.** The conduct/spin skill, AGENTS.md and the agent guide ask the builder to add
   a `## Try it` section to each phase PR: one line on what changed, where to try it
   (preview URL, deployed site, or a build), three to five steps, and what working and
@@ -65,7 +66,7 @@ for Unison sections), and removing `plates walk` (it still records answers).
 ## Acceptance
 
 - [ ] A phase whose only unchecked boxes are `⚑ by hand` walks passes the roadmap check as built, and one with an unchecked buildable box still does not: `tests/roadmap.test.mjs: "a by-hand walk never holds a phase back from built"`.
-- [ ] Every plates phase that was partial only for a walk is built after this phase, with its walk boxes unchecked: `node scripts/roadmap.mjs --check`.
+- [ ] No plates phase has a `⚑ by hand` walk box or a walk-only Your part, and every phase that was partial only for walks is built: `node scripts/roadmap.mjs --check`.
 - [ ] Home lists an open walk as an optional Try it in both forms, answerable Works, Something's off or Skip, outside the docket count and push notifications; a ⚑ setup step or decision still waits on the owner: `tests/home-try-it.test.mjs: "a walk is an optional Try it on Home, never waiting on the owner"`.
 - [ ] The conduct and spin skills, AGENTS.md and the agent guide ask for a Try it on each phase PR: `tests/guides.test.mjs: "phase PRs carry a Try it"`.
 
