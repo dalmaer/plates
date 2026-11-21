@@ -116,7 +116,7 @@ test('a built phase with an open walk lists it as a Try it, and each answer writ
   assert.match(works.writes[1][1], /Tried it: works\./);
   assert.equal(works.data.status, 'built');
   const skip = tryItWritePlan({ file: '05-acme.md', raw, evidenceText: ev, today: '2026-11-21', tried: 'skip' });
-  assert.doesNotMatch(skip.writes[0][1], /On a phone/);
+  assert.match(skip.writes[0][1], /^- \[x\] On a phone: ⚑ try: the owner: publishes and sees it land\. \(Skipped: trying it by hand is optional\.\)$/m, 'Skip checks the box and says so; it never takes it away');
   assert.equal(parsePhase('05-acme.md', skip.writes[0][1]).status, 'built');
   // A walk that is the phase's only box is checked and marked skipped, since Acceptance needs a box.
   const lone = tryItWritePlan({ file: '05-acme.md', raw: phaseFile({ status: 'partial', extra: 'owes: walk\n', acceptance: '- [ ] ⚑ try: the owner: opens it.' }), evidenceText: ev, today: '2026-11-21', tried: 'skip' });
@@ -281,4 +281,42 @@ test('a Try it comes only from an open ⚑ try: box; a kept ⚑ by hand box stil
   assert.ok(!model.docket.some(e => ['studio:walk:6', 'studio:walk:7'].includes(e.key)));
   // Push: the decision notifies; the Try its never do.
   assert.deepEqual(waitingEvents({ id: 'studio', walks: model.walks.map(w => ({ ...w, projectId: 'studio' })) }).map(e => e.id.split('\n')[0]), ['studio:phase:5:walk']);
+});
+
+test('Skip keeps every box where Home showed it, and an answer for a box that changed is refused', async () => {
+  const three = phaseFile({ acceptance: '- [x] A: `tests/a.test.mjs`.\n- [ ] ⚑ try: the owner: opens Home.\n- [ ] ⚑ try: the owner: opens the backlog.\n- [ ] ⚑ try: the owner: opens Recurring.' });
+  const goals = [{ id: 'G0', title: 'Start', outcome: 'It starts.' }], phases = [parsePhase('06-acme.md', three)];
+  const board = await roadmapItems('/nowhere', { read: async () => ({ source: 'files', config: { repo: 'acme/studio' }, goals, phases, coverage: { complete: true, gaps: [] } }), readPhase: async () => three, today: '2026-11-21' });
+  const lists = homeRoadmap({ id: 'studio', name: 'Studio', revision: 'abc' }, board, phases, p => p);
+  const model = homeSnapshot([{ id: 'studio', name: 'Studio', repo: 'acme/studio', gaps: [], changes: [], state: 'complete', reviews: [], ...lists }], { sections: [], today: '2026-11-21' });
+  const [, second, third] = model.tryIt;
+  assert.deepEqual(model.tryIt.map(t => t.key), ['studio:walk:6.2', 'studio:walk:6.3', 'studio:walk:6.4']);
+  const root = await checkout({ 'docs/phases/06-acme.md': three, 'docs/evidence/acme.md': '# Evidence\n' });
+  try {
+    const env = { ...process.env, GIT_DIR: join(root, '.no-git') };
+    // Skip the middle one: checked and said to be skipped, never taken away; the boxes after it keep their numbers.
+    await walkDone({ root, phase: '6', tried: 'skip', box: String(second.box), boxDigest: second.boxDigest, env, today: '2026-11-21' });
+    const after = await readFile(join(root, 'docs/phases/06-acme.md'), 'utf8');
+    assert.match(after, /- \[ \] ⚑ try: the owner: opens Home\.\n- \[x\] ⚑ try: the owner: opens the backlog\. \(Skipped: trying it by hand is optional\.\)\n- \[ \] ⚑ try: the owner: opens Recurring\./);
+    // The box Home showed as 6.4 is still box 4; once its text changes, an answer carrying the old digest is refused.
+    await writeFile(join(root, 'docs/phases/06-acme.md'), after.replace('opens Recurring.', 'opens Recurring on a phone.'));
+    await assert.rejects(walkDone({ root, phase: '6', tried: 'works', box: String(third.box), boxDigest: third.boxDigest, env, today: '2026-11-21' }), /changed since it was shown/);
+    assert.match(await readFile(join(root, 'docs/phases/06-acme.md'), 'utf8'), /- \[ \] ⚑ try: the owner: opens Recurring on a phone\./, 'nothing written');
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test('a Try it beside a guided walk keeps its plain answers on the web', () => {
+  const item = { projectId: 'studio', itemKind: 'walk', kind: 'walk', ref: '6', tryIt: true, guided: true };
+  const answers = answersFor(item, { form: 'web', decisionWrites: true });
+  assert.deepEqual(answers.filter(a => !a.unavailable).map(a => a.id), ['works', 'skip'], 'the guided route takes no optional observation, so Works and Skip stay');
+  // An ordinary walk with a guided walk still goes there.
+  assert.ok(answersFor({ ...item, tryIt: false, details: { choices: ['Works', 'Needs changes'] } }, { form: 'web', decisionWrites: true }).filter(a => a.writer === 'walk done').every(a => /guided walk/.test(a.unavailable?.reason ?? '')));
+});
+
+test('plates home --project shows the plate\'s Try its and how to answer them', async () => {
+  const { simpleProject } = await import('../lib/web/simple-project-model.mjs');
+  const cli = snapshot({ form: 'cli' });
+  const projectWorkspace = simpleProject({ ...cli, backlog: { lanes: [], claims: [] } }, 'studio');
+  const text = homeText({ schema: 1, generatedAt: '2026-11-21T09:00:00.000Z', ...cli, projectWorkspace }, { projectId: 'studio' });
+  assert.match(text, /Studio · phase 2: Acme 2\n[\s\S]*Works \| Something's off \| Skip\n {6}answer: plates home --answer studio:walk:2 <works\|off\*\|skip>/);
 });

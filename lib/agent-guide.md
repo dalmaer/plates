@@ -2223,7 +2223,7 @@ count and push notifications; its answers are `works`, `off` (Something's
 off: needs a why, and opens a follow-up GitHub issue with it) and `skip`,
 through `plates walk done <phase> --tried works|off|skip [--note "<line>"]
 [--box <n>]`: works checks the box, off checks it and records the issue,
-skip takes the box away; each appends a row to the phase's evidence, and a
+skip checks it and says it was skipped (never taking a box away, so no box renumbers); an answer for a box whose text changed since Home showed it is refused; each appends a row to the phase's evidence, and a
 partial phase left with no open box moves to built. A kept `⚑ by hand` box (a
 decision, an approval, a setup) still waits on the owner as before 204: a walk
 card with its Your part's choices, in the docket and in push.
