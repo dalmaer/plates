@@ -547,3 +547,26 @@ test('the committed unison mapping is validated', async () => {
     { url: 'https://unison.example/w/ws_acme1' }, { workspace: 'ws_acme1', url: 'https://other.example/w/ws_acme1' }]) assert.throws(at(bad), /unison\.(workspace|url)/, JSON.stringify(bad));
   assert.throws(() => unisonSettings({ repo: 'acme/tools', unison: { workspace: 'ws_acme1', url: 'http://unison.example/w/ws_acme1' } }, { UNISON_SERVER: 'http://unison.example' }), /https/);
 });
+
+test('a pending create survives a collision appearing, and sync reports sources it could not represent', async t => {
+  let w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], items: [], next: 1 }, { config: { local: { phases: 'Acme roadmap' } }, phases: {} });
+  await writeFile(join(w.plate, 'docs/phases/5-a.md'), '---\nstatus: planned\n---\n\n# Acme A\n');
+  cli(w, ['connect']);
+  await w.setState({ delayedCommit: true, hiddenLists: 5 });
+  assert.equal(cli(w, ['sync']).code, 1);
+  await writeFile(join(w.plate, 'docs/phases/5-b.md'), '---\nstatus: planned\n---\n\n# Acme B\n');
+  const r = cli(w, ['sync']);
+  assert.deepEqual([r.data.applied, r.data.waiting[0].holds], [[], ['phase:acme/tools:5#5-a', 'phase:acme/tools:5#5-b']]);
+  assert.equal((await w.calls()).filter(c => c.argv[1] === 'add').length, 1);
+
+  // A projects-shape phase numbered beyond what a key holds: sync is partial, says so, and exits 1.
+  w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], items: [], next: 1 }, { config: { phases: { shape: 'projects' } }, phases: {} });
+  await rm(join(w.plate, 'docs/phases'), { recursive: true });
+  await mkdir(join(w.plate, 'docs/projects/anvils'), { recursive: true });
+  await writeFile(join(w.plate, 'docs/projects/README.md'), '# Acme projects\n');
+  await writeFile(join(w.plate, 'docs/projects/anvils/phases.md'), '# Anvils\n\n## Phase 100000 — Too far\n\n**Status: NOT STARTED.**\n');
+  cli(w, ['connect']);
+  const s = cli(w, ['sync']);
+  assert.deepEqual([s.code, s.data.partial, s.data.gaps], [1, true, [{ kind: 'unsupported-source', what: 'docs/projects/anvils/phases.md phase 100000' }]]);
+  assert.match(run(process.execPath, [BIN, 'unison', 'sync'], { cwd: w.plate, env: w.env }).stdout, /partial: 1 source could not be synced[\s\S]*gap +docs\/projects\/anvils\/phases\.md phase 100000/);
+});
