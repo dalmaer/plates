@@ -1743,14 +1743,15 @@ const cronAt = expr => { const m = /^(\d+) (\d+) /.exec(expr); return m ? Number
 export function climbAfterLoopProblems(climb, loop) {
   const c = /^ {4}- cron: "([^"]+)"$/m.exec(climb)?.[1], l = /^ {4}- cron: "([^"]+)"$/m.exec(loop)?.[1];
   if (!c || !l) return ['no cron in plates-climb.yml or plates-loop.yml'];
+  // Climb covers loop's days: every day, or exactly loop's days (loop is weekly since phase 207).
   const days = e => e.split(' ').slice(2).join(' ');
-  if (days(c) !== days(l)) return [`plates-climb.yml runs on "${days(c)}" and plates-loop.yml on "${days(l)}": not the same days`];
+  if (days(c) !== '* * *' && days(c) !== days(l)) return [`plates-climb.yml runs on "${days(c)}" and plates-loop.yml on "${days(l)}": climb misses a day loop runs`];
   const bound = Number(/\n {4}timeout-minutes: (\d+)\n/.exec(loop)?.[1] ?? NaN);
   if (!Number.isFinite(bound)) return ['plates-loop.yml\'s job has no timeout-minutes'];
   return cronAt(c) > cronAt(l) + bound ? [] : [`plates-climb.yml (${c}) does not run after plates-loop.yml's pull (${l}, up to ${bound} min): a loop night would propose on yesterday's findings`];
 }
 
-test('plates-climb.yml runs after plates-loop.yml\'s pull, on the same days, so a loop night proposes on today\'s findings (ledger#94)', async () => {
+test('plates-climb.yml runs after plates-loop.yml\'s pull, on every day loop runs, so a loop night proposes on today\'s findings (ledger#94)', async () => {
   const all = await shipped();
   const climb = all.find(w => w.name === 'plates-climb.yml').template, loop = all.find(w => w.name === 'plates-loop.yml').template;
   assert.deepEqual(climbAfterLoopProblems(climb, loop), []);
@@ -1758,7 +1759,7 @@ test('plates-climb.yml runs after plates-loop.yml\'s pull, on the same days, so 
   for (const [why, text] of [
     ['before the pull, as it was', climb.replace('cron: "17 10 * * *"', 'cron: "41 9 * * *"')],
     ['inside the pull\'s bound', climb.replace('cron: "17 10 * * *"', 'cron: "50 9 * * *"')],
-    ['weekly while loop is daily', climb.replace('cron: "17 10 * * *"', 'cron: "17 10 * * 1"')],
+    ['on a day loop does not run', climb.replace('cron: "17 10 * * *"', 'cron: "17 10 * * 2"')],
   ]) {
     assert.notEqual(text, climb, `${why}: the mutation did not apply`);
     assert.ok(climbAfterLoopProblems(text, loop).length, `${why}: expected a problem`);
