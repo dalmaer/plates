@@ -22,7 +22,7 @@ Verbs (`--json` for data):
 - `plates improve` — measures and a proposal; `--report`
 - `plates persona run` — own goals
 - `plates audit due|brief|record|run` — audits
-- `plates time` — gate/test medians, failures
+- `plates time` — gate/test medians
 - `plates test <file> --stalls` — wall-clock tests
 - `plates drain <prefix>` — newest green PR per queue; exit 3
 - `plates night plan|tick` — the plan
@@ -30,24 +30,25 @@ Verbs (`--json` for data):
 - `plates morning` — brief; `--send`
 - `plates production` — incidents
 - `plates fleet` — practice, health, CI
-- `plates fleet update` — PRs for projects behind
+- `plates fleet update` — PRs for laggards
 - `plates loose-ends` — unfinished
 - `plates sessions` — waiting chats
 - `plates findings` — triage
 - `plates issue new --agent` — rubric issue; `--yes` makes it
 - `plates review <repo>#<n>` — comments; `--wait`; `--close`
-- `plates home|board` — what needs you; `board` retired
+- `plates home|board` — what needs you
 - `plates channel|say` — agents' lines
 - `plates promote [<commit>]` — tested commit to prod; `--back`
 - `plates walk done|decide` — settle walk or proposal
 - `plates canvas` — snapshot, render, sync, live
-- `plates retro` — worksheet; `capture` records; `sessions` trials
-- `plates workspace inspect|init` — external storage
+- `plates unison` — status, connect, sync
+- `plates retro` — worksheet, capture, session trials
+- `plates workspace inspect|init` — external state
 - `plates shape check|render|plan` — reviewed drafts
 - `plates feedback` — capture, list, propose, resolve
 - `plates decision context` — scoped choices
 - `plates evidence rederive <phase>` — preview; `--yes` runs
-- `plates prove <test> --fix <path>...` — red without the fix?
+- `plates prove <test> --fix <path>...` — red without it?
 - `plates release` — review, version, tag
 - `plates help` — verbs
 - `plates --agent-help` — `<topic>` or `all`
@@ -64,7 +65,7 @@ Rules:
 
 Exits: 0 ok; 1 failure; 2 usage; 3 needs owner's yes. JSON errors on stdout.
 
-Topics: `autonomy` `names` `json` `goals` `render` `init` `adopt` `doctor` `update` `lessons` `learn` `improve` `persona` `audit` `time` `test` `drain` `night` `loop` `climb` `fleet` `pause` `loose-ends` `issue` `review` `home` `walk` `retro` `canvas` `install` `coming` `reconciliation` `prove` `evidence` `production` `decision` `shape` `workspace` `feedback` `findings`.
+Topics: `autonomy` `names` `json` `goals` `render` `init` `adopt` `doctor` `update` `lessons` `learn` `improve` `persona` `audit` `time` `test` `drain` `night` `loop` `climb` `fleet` `pause` `loose-ends` `issue` `review` `home` `walk` `retro` `canvas` `unison` `install` `coming` `reconciliation` `prove` `evidence` `production` `decision` `shape` `workspace` `feedback` `findings`.
 
 <!-- topic: json | the output contract every verb keeps -->
 
@@ -2701,6 +2702,33 @@ symlinked input/output paths are refused. Run from the intended project.
 previews a reviewed record; only `--yes` persists it. It delegates validation
 and privacy filtering to the capture module. This does not change the ordinary
 read-only `plates retro` worksheet or select candidates for the owner.
+
+<!-- topic: unison | each plate's work as its Unison backlog, linked back -->
+
+A plate's Unison workspace is the one that lists the plate's GitHub repo
+(`.plates/plates.json` `repo`); URLs are compared normalized (http/https, case,
+`www.`, trailing `.git` or `/`). Two workspaces listing one repo are refused.
+
+- `plates unison` reads only the local map: connected or not, and how many items it holds.
+- `plates unison status` reads the workspace, its backlog and the plate's
+  phases (and open GitHub issues when `unison.sources` lists `issues`), and
+  prints the plan: create, retitle, close, reopen, and suggestions. It changes
+  nothing. Unison or GitHub unread is "Unison not read" (exit 1, `plan: null`),
+  never an empty backlog.
+- `plates unison connect` finds the workspace by repo, or creates one
+  (`unison workspace create <name> --repo https://github.com/<repo>`) when none
+  lists it. Not signed in: exit 3 with `signIn` (`unison login`), nothing created.
+- `plates unison sync` (after connect) applies the plan with the `unison` CLI
+  and keeps the map. It never moves, assigns or starts an item.
+
+Each item's body ends with its link line, `Phase: <phase file URL>` or
+`Issue: <issue URL>`; copied lines that would read as one are escaped (`\Phase:`).
+The map (`.plates/unison/map.json`, private, git-ignored) holds source → item
+and whether sync closed it: a source it holds is never made again, an item
+closed by a person while its work is open is a suggestion, and lines are taken
+into the map only while every mapped item still carries its line.
+`unison` is found on PATH and talks to `UNISON_SERVER`, else the plate's
+`unison.server`, else https://unison.cloud.run.
 
 <!-- topic: install | how plates is installed, and how to tell which plates you have -->
 
