@@ -215,6 +215,8 @@ already has.
 
 ## Migrating a project, then turning plates off
 
+The step-by-step order, with what to ask Unison for and what plates does in between, is [docs/research/2026-11-21-plates-to-unison-runbook.md](2026-11-21-plates-to-unison-runbook.md). What Unison builds is [docs/research/2026-11-21-unison-spec-for-plans-with-proof.md](2026-11-21-unison-spec-for-plans-with-proof.md).
+
 Each project moves in four stages. Plates stays installed until the last one, so every
 stage before it can be undone.
 
