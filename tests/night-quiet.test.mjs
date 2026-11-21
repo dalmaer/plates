@@ -11,7 +11,7 @@ import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { run, cleanEnv } from './helpers/run.mjs';
 import { runBlocks } from './helpers/workflows.mjs';
-import { nightCauses, verdict, ask, NIGHT_MEASURES, CAUSES } from '../practices/night/files/scripts/plates/night-verdict.mjs';
+import { nightCauses, verdict, ask, withHistory, NIGHT_MEASURES, CAUSES } from '../practices/night/files/scripts/plates/night-verdict.mjs';
 
 const PLATES = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPTS = join(PLATES, 'practices/night/files/scripts/plates');
@@ -128,6 +128,28 @@ test('the night fails only on a red main, a flaky test or a gate with no tests',
   assert.ok(steps.indexOf('Gather the test ledger') < steps.indexOf('Ask the three questions'), 'the history is gathered before flaky reads it');
   assert.match(yml, /- name: Keep the test ledger\n        if: always\(\)\n[\s\S]*?name: plates-test-runs\n/, 'the ledger artifact is kept, red or green');
   assert.match(runBlocks(yml).find(b => b.step === 'Verdict').script, /night-verdict\.mjs verdict --in "\$RUNNER_TEMP\/night\.json" --summary "\$GITHUB_STEP_SUMMARY"/);
+  // Review of #577: the questions are about main whatever ref started the run, and the verdict runs even when Ask did not finish.
+  assert.match(yml, /- uses: actions\/checkout@[0-9a-f]{40} # v[\d.]+\n        with:\n          ref: \$\{\{ github\.event\.repository\.default_branch \}\}\n/, 'the night checks out the default branch');
+  assert.equal((yml.match(/uses: actions\/checkout@/g) ?? []).length, 1, 'and no other ref');
+  assert.match(yml, /- name: Verdict\n        if: always\(\)\n        run: /, 'the verdict is never skipped');
+
+  // A failed history recovery is not warm-up: flaky_tests is unreadable, so the night could not check.
+  const warm = flaky({ state: 'n/a', value: null, detail: '2 recorded runs, fewer than the window of 5' });
+  const status = gaps => ({ version: 1, complete: !gaps.length, selected: [], gaps });
+  const unrecovered = withHistory([gate(), warm, red()], status([{ code: 'recovery-unavailable', detail: 'Actions API unavailable' }]));
+  assert.equal(unrecovered.find(r => r.id === 'flaky_tests').state, 'broken');
+  const v = verdict(unrecovered);
+  assert.equal(v.exitCode, 1);
+  assert.ok(v.lines.some(l => l.startsWith(`::error title=${CAUSES.unchecked}::${CAUSES.unchecked}: flaky_tests: the test history could not be recovered`) && l.includes('recovery-unavailable: Actions API unavailable')), JSON.stringify(v.lines));
+  // In Actions the gather step always records a status; none at all is unknown too. Outside Actions, a missing status is a local run.
+  const absent = status([{ code: 'unavailable', detail: 'test history recovery diagnostic absent or unreadable' }]);
+  assert.equal(withHistory([gate(), warm, red()], absent, { actions: true }).find(r => r.id === 'flaky_tests').state, 'broken');
+  assert.equal(verdict(withHistory([gate(), warm, red()], absent)).exitCode, 0);
+  // Warm-up (too few nights yet) and ordinary sampling gaps stay green; a found flaky test stays a finding.
+  for (const gaps of [[], [{ code: 'discovery-limit', detail: 'plates-test-runs: discovered 200 of 340 artifacts' }], [{ code: 'archive-empty', detail: 'artifact contains no ledger records' }]]) {
+    assert.equal(verdict(withHistory([gate(), warm, red()], status(gaps), { actions: true })).exitCode, 0, JSON.stringify(gaps));
+  }
+  assert.deepEqual(verdict(withHistory(NIGHTS.flaky, status([{ code: 'recovery-unavailable', detail: 'x' }]))).causes.map(c => c.cause), ['flaky']);
   // Nor does the morning open the "as it finished" PR any longer.
   const morning = await readFile(MORNING_YML, 'utf8');
   assert.doesNotMatch(morning, /pull-requests: write|contents: write|\bgh pr\b|\bgit push\b|morning\.mjs finalize/);
@@ -143,8 +165,13 @@ test('the night fails only on a red main, a flaky test or a gate with no tests',
     ['main red', "node -e \"console.log('ℹ tests 3'); process.exit(1)\"", 1, CAUSES.main],
     ['the ledger\'s no tests', "node -e \"console.log('plates test ledger: no tests ran. A gate that ran nothing passes anything, so this run fails.'); process.exit(1)\"", 1, CAUSES.empty],
   ];
-  for (const [name, check, code, cause] of cases) {
+  // The gather step's recovery status, as test-history.mjs writes it: a failed recovery is red; warm-up is green.
+  const recovery = gaps => JSON.stringify({ version: 1, complete: !gaps.length, selected: [], gaps });
+  cases.push(['history unrecovered', "node -e \"console.log('ℹ tests 3')\"", 1, CAUSES.unchecked, recovery([{ code: 'recovery-unavailable', detail: 'gh api failed' }])]);
+  cases.push(['history warming up', "node -e \"console.log('ℹ tests 3')\"", 0, null, recovery([{ code: 'discovery-limit', detail: 'sampled' }])]);
+  for (const [name, check, code, cause, history] of cases) {
     const { root, git } = await project(t, check);
+    if (history) { await mkdir(join(root, '.plates/test-runs/recovery'), { recursive: true }); await writeFile(join(root, '.plates/test-runs/recovery/status.json'), history); }
     const temp = await mkdtemp(join(tmpdir(), 'plates-night-quiet-run-'));
     t.after(() => rm(temp, { recursive: true, force: true }));
     const { said, summary } = night(root, temp);
@@ -161,5 +188,18 @@ test('the night fails only on a red main, a flaky test or a gate with no tests',
     assert.equal(git('branch', '--list').trim(), '* main', `${name}: no branch`);
     assert.deepEqual((await readdir(root)).sort(), ['.git', '.gitignore', '.plates', 'scripts'], `${name}: no health page, inbox or plan`);
     assert.deepEqual((await readdir(join(root, '.plates'))).filter(n => n !== 'test-runs').sort(), ['plates.json'], `${name}: no bounds, plan or proposal`);
+  }
+
+  // Ask did not finish (no answers file, or a broken one): the verdict still runs and names it.
+  const { root } = await project(t, "node -e \"console.log('ℹ tests 3')\"");
+  const temp = await mkdtemp(join(tmpdir(), 'plates-night-quiet-noanswers-'));
+  t.after(() => rm(temp, { recursive: true, force: true }));
+  await writeFile(join(temp, 'broken.json'), '{"date":');
+  for (const answers of [join(temp, 'missing.json'), join(temp, 'broken.json')]) {
+    const summary = join(temp, `summary-${answers.endsWith('missing.json') ? 'missing' : 'broken'}.md`);
+    const said = run(process.execPath, [join(root, 'scripts/plates/night-verdict.mjs'), 'verdict', '--in', answers, '--summary', summary], { cwd: root, env: cleanEnv() });
+    assert.equal(said.status, 1, said.stdout + said.stderr);
+    assert.match(said.stdout, new RegExp(`^::error title=${CAUSES.unchecked}::${CAUSES.unchecked}: the night's answers could not be read`, 'm'));
+    assert.match(await readFile(summary, 'utf8'), new RegExp(`\\*\\*${CAUSES.unchecked}\\*\\*: the night's answers could not be read`));
   }
 });

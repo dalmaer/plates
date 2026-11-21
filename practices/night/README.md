@@ -45,7 +45,12 @@ credential. `plates-night.yml` runs every night at 07:23 UTC (and by hand):
    is broken (it could not read CI, the ledger or the gate) or never ran is red
    too, as "The night could not check", naming the measure and why: an unread
    source is unknown, never fine. One that does not apply (n/a: too few
-   recorded runs, no repo) is said in the summary and stays green.
+   recorded runs, no repo) is said in the summary and stays green. A failed
+   history recovery (`recovery-unavailable` in the ledger's
+   `.plates/test-runs/recovery/status.json`, or no status at all in Actions)
+   makes `flaky_tests` unreadable, never warm-up. The verdict runs even when
+   the questions did not finish: no answers is "The night could not check".
+   The night checks out the default branch, whatever ref started the run.
 
 The morning (phase 77): `plates-morning.yml` runs when plates-night,
 plates-climb or plates-robot finish (the last two only where the climb

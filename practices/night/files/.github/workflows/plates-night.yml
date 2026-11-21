@@ -50,9 +50,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      # The whole history: the gate's reuse and the ledger read commits.
+      # The default branch, whatever ref started the run (a dispatch from a
+      # feature branch): the questions are about main. Its whole history: the
+      # gate's reuse and the ledger read commits.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -167,6 +170,8 @@ jobs:
 
       # The last step, and the night's only red: CI on main is red, a test is
       # flaky, the gate ran no tests, or the night could not check one of
-      # them. Each cause is named.
+      # them. Each cause is named. It runs even when Ask did not finish: no
+      # answers is itself "The night could not check", never a skipped step.
       - name: Verdict
+        if: always()
         run: node scripts/plates/night-verdict.mjs verdict --in "$RUNNER_TEMP/night.json" --summary "$GITHUB_STEP_SUMMARY"

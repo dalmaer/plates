@@ -242,7 +242,7 @@ test('the quiet night (phase 207): it reads, asks three questions, keeps its led
   assert.ok(at('- name: Ask the three questions') < at('- name: Keep the test ledger'), 'the gate\'s own run is kept for tomorrow');
   assert.ok(at('- name: Keep the test ledger') < at('- name: Verdict'));
   assert.match(night, /- name: Keep the test ledger\n\s+if: always\(\)\n/, 'the ledger is kept, red or green');
-  assert.match(night, /- name: Verdict\n\s+run: node scripts\/plates\/night-verdict\.mjs verdict /, 'the verdict is its own step, and the last');
+  assert.match(night, /- name: Verdict\n\s+if: always\(\)\n\s+run: node scripts\/plates\/night-verdict\.mjs verdict /, 'the verdict is its own step, the last, and never skipped');
   assert.match(night, /cancel-in-progress: false/);
   assert.doesNotMatch(night, /: write\b|\bgit push\b|\bgh pr\b|drain\.mjs|improve\.mjs --report --json/, 'nothing written, nothing opened, nothing drained');
   assert.deepEqual(productionSecretProblems(night), [], 'only optional production collection receives its declared provider secret');

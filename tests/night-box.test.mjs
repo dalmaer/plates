@@ -299,6 +299,16 @@ async function lastCard(b) {
   return { card, source: last.source };
 }
 
+/**
+ * The status the night's "Gather the test ledger" step records (test-history.mjs), simulated: the box has
+ * no Actions artifacts, so a first night's recovery finds none, with no fatal gap. Without one, a run in
+ * Actions could not check flakiness (night-verdict.mjs withHistory), as the review of #577 asked.
+ */
+async function warmHistory(j) {
+  await mkdir(join(j.dir, '.plates/test-runs/recovery'), { recursive: true });
+  await writeFile(join(j.dir, '.plates/test-runs/recovery/status.json'), JSON.stringify({ version: 1, complete: true, selected: [], gaps: [] }));
+}
+
 /** The whole night, stage by stage; each stage's checks run as it ends. Returns what the owner sees. */
 async function night(t, options) {
   const b = await box(t, options);
@@ -327,6 +337,7 @@ async function night(t, options) {
   await stage('night', async () => {
     const plan = b.onOrigin(PLAN_BRANCH, REMOTE_PLAN), branches = b.branches();
     const j = await b.job('night');
+    await warmHistory(j);
     const asked = await b.step(NIGHT_YML, 'Ask the three questions', j, AT.night);
     assert.equal(asked.status, 0, asked.out);
     const summary = join(j.temp, 'summary.md');
@@ -512,6 +523,7 @@ test("a plan under keel's names: the quiet night leaves it alone, and the mornin
   await writeFile(join(seed.dir,'.keel/night/plan.json'),JSON.stringify(owner));git('add','-f','.keel/night/plan.json');git('commit','-qm','Acme legacy plan');git('push','-q','origin','keel-night-plan');
   const legacyPlan=b.onOrigin('keel-night-plan','.keel/night/plan.json'), branches=b.branches();
   const nightJob=await b.job('Acme-upgraded-night');
+  await warmHistory(nightJob);
   const asked=await b.step(NIGHT_YML,'Ask the three questions',nightJob,AT.night);assert.equal(asked.status,0,asked.out);
   const said=await b.step(NIGHT_YML,'Verdict',nightJob,AT.night,{GITHUB_STEP_SUMMARY:join(nightJob.temp,'summary.md')});assert.equal(said.status,0,said.out);
   assert.deepEqual(b.branches(),branches,'no branch is pushed');assert.deepEqual((await b.ghState()).prs,[]);

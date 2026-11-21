@@ -21,6 +21,18 @@
 // measure that does not apply here (n/a: too few recorded runs, no repo) is
 // said in the summary and stays green.
 //
+// flaky_tests reads the history the night's "Gather the test ledger" step
+// recovers (scripts/plates/test-history.mjs, its status in
+// .plates/test-runs/recovery/status.json). When that recovery failed outright
+// (recovery-unavailable), or in Actions left no status at all, too few records
+// is not warm-up: flaky_tests is unreadable, so the night could not check.
+// Ordinary gaps (sampling bounds, an empty archive) and a short history are
+// not fatal: warm-up stays n/a and green.
+//
+// The night checks out the default branch, whatever ref started it, so "main"
+// is what it measures. A Verdict with no answers file (ask did not finish) is
+// red as "The night could not check", never a skipped step.
+//
 //   node scripts/plates/night-verdict.mjs ask --out <file>
 //   node scripts/plates/night-verdict.mjs verdict --in <file> [--summary <file>]
 //
@@ -32,6 +44,7 @@ import { readFile, writeFile, appendFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { isMain, rootOf } from './lib.mjs';
 import { LABEL } from './test-ledger.mjs';
+import { readTestHistory } from './test-history.mjs';
 
 /** The measures the night runs, in improve's order (the gate first, so its run is in the ledger flaky reads). */
 export const NIGHT_MEASURES = Object.freeze(['gate', 'flaky_tests', 'ci_red_streak']);
@@ -106,6 +119,24 @@ export function verdict(results, { date } = {}) {
   return { causes, gaps, lines, summary: `${summary.join('\n')}\n`, exitCode: causes.length ? 1 : 0 };
 }
 
+/** Gaps in the recovery status that mean the history could not be read at all. */
+export const FATAL_HISTORY = Object.freeze(['recovery-unavailable']);
+
+/**
+ * flaky_tests made unreadable when the history it reads could not be recovered:
+ * a fatal gap, or (in Actions, where the gather step always writes one) no
+ * status at all. A found flaky test stays a finding. Pure.
+ */
+export function withHistory(results, status, { actions = false } = {}) {
+  const gaps = Array.isArray(status?.gaps) ? status.gaps : [];
+  const fatal = gaps.filter(g => FATAL_HISTORY.includes(g?.code));
+  const absent = actions && gaps.some(g => g?.code === 'unavailable');
+  if (!fatal.length && !absent) return results;
+  const why = fatal.length ? fatal.map(g => `${g.code}: ${g.detail}`).join('; ') : 'no test history recovery status (the gather step did not record one)';
+  return results.map(r => r.id === 'flaky_tests' && r.state !== 'outside' && r.state !== 'broken'
+    ? { ...r, state: 'broken', value: null, detail: `the test history could not be recovered, so flakiness is unknown (${why})` } : r);
+}
+
 /** Run the three measures through improve.mjs's own instruments; nothing is written. */
 export async function ask({ root, env = process.env, date, measure, measures } = {}) {
   const improve = (measure && measures) ? null : await import('./improve.mjs');
@@ -116,7 +147,8 @@ export async function ask({ root, env = process.env, date, measure, measures } =
   try { config = JSON.parse(await readFile(join(root, '.plates', 'plates.json'), 'utf8')); }
   catch (e) { throw new VerdictError(`.plates/plates.json could not be read: ${e.message}`); }
   const results = await run({ root, config, env, ...(date ? { date } : {}), measures: chosen });
-  return results.map(({ timeCandidates, ...r }) => r);
+  const status = await readTestHistory(root);
+  return withHistory(results.map(({ timeCandidates, ...r }) => r), status, { actions: env.GITHUB_ACTIONS === 'true' });
 }
 
 export function parseArgs(argv) {
@@ -144,8 +176,13 @@ export async function cli(argv, { root, env = process.env, write = s => process.
     return 0;
   }
   let data;
-  try { data = JSON.parse(await readFile(opts.in, 'utf8')); }
-  catch (e) { throw new VerdictError(`the night's answers could not be read (${e.message}): the ask step did not finish`); }
+  try { data = JSON.parse(await readFile(opts.in, 'utf8')); if (!Array.isArray(data?.results)) throw new Error('no results'); }
+  catch (e) {
+    const detail = `the night's answers could not be read (${String(e?.message ?? e).split('\n')[0]}): the ask step did not finish, so main, flakiness and the gate are unknown`;
+    write(`::error title=${CAUSES.unchecked}::${CAUSES.unchecked}: ${detail}\n`);
+    if (opts.summary) await appendFile(opts.summary, `## The night: one thing is wrong\n\n- **${CAUSES.unchecked}**: ${detail}\n`);
+    return 1;
+  }
   const v = verdict(data.results, { date: data.date });
   for (const line of v.lines) write(`${line}\n`);
   if (opts.summary) await appendFile(opts.summary, v.summary);

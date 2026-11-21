@@ -91,7 +91,7 @@
     },
     ".github/workflows/plates-night.yml": {
       "practice": "night",
-      "sha256": "5090455427198ee5dfdd0f07638457718da3c8ab2b46ee73b3f6ffa35ad86817"
+      "sha256": "1b3b65734cf80593b170a94b5e80f7435e9216d21266cbe104b2bfb40aba2a52"
     },
     ".github/workflows/plates-publish.yml": {
       "practice": "delivery",
@@ -275,7 +275,7 @@
     },
     "scripts/plates/night-verdict.mjs": {
       "practice": "night",
-      "sha256": "8c8b1d437e86b78fd319f8613c8825cd5672e3c3f145f438c4738477de49dda7"
+      "sha256": "b33e2f0f3b4d691aa62a95ec097672720dc1214bb4702abe226f052bf9054808"
     },
     "scripts/plates/persona.mjs": {
       "practice": "personas",
