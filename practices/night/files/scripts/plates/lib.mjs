@@ -1251,10 +1251,21 @@ export function platformCalls(text, path, tools = PLATFORM_TOOLS) {
   return found;
 }
 
-/** The repo's tracked files: git ls-files, or every file (walk) outside a git repository. */
+/** git ls-files failed inside a repository (dubious ownership, permissions, a corrupt index): plates#62. */
+export class TrackedFilesError extends Error {}
+
+/**
+ * The repo's tracked files: git ls-files, or every file (walk) outside a git
+ * repository or with no git at all. Git failing inside a repository throws a
+ * TrackedFilesError with git's own error (plates#62): walking the whole tree
+ * instead would read what the project never tracked.
+ */
 export async function trackedFiles(root) {
-  const listed = await new Promise(done => execFile('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }, (e, out) => done(e ? null : out)));
-  return listed === null ? walk(root) : listed.split('\0').filter(Boolean);
+  const { error, out, err } = await new Promise(done => execFile('git', ['ls-files', '-z'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }, (error, out, err) => done({ error, out, err })));
+  if (!error) return out.split('\0').filter(Boolean);
+  if (error.code === 'ENOENT' || /not a git repository/i.test(String(err ?? ''))) return walk(root);
+  const said = String(err ?? '').split('\n').map(l => l.trim()).filter(Boolean);
+  throw new TrackedFilesError(`git ls-files failed (${(said.find(l => /^fatal:/.test(l)) ?? said[0] ?? error.message).slice(0, 200)})`);
 }
 
 /**
@@ -1266,7 +1277,14 @@ export async function platformLints(root, config) {
   const problems = platformToolProblems(config?.platformTools);
   const lint = problems.map(message => ({ rule: 'platform-guard', path: '.plates/plates.json', message }));
   const tools = platformTools(config);
-  for (const path of (await trackedFiles(root)).filter(isTestFile).sort()) {
+  let tracked;
+  try { tracked = await trackedFiles(root); }
+  catch (e) {
+    if (!(e instanceof TrackedFilesError)) throw e;
+    lint.push({ rule: 'platform-guard', path: '.', message: `${e.message}: no test file was read, so none was checked. Fix git here (its error says how) and run again.` });
+    return lint;
+  }
+  for (const path of tracked.filter(isTestFile).sort()) {
     const text = await read(join(root, path)).catch(() => null);
     if (text === null || text.length > 1_000_000) continue;
     for (const [platform, used] of Object.entries(platformCalls(text, path, tools))) {

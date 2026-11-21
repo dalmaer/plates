@@ -11,7 +11,7 @@ import { mkdtemp, mkdir, readFile, writeFile, readdir, rm, lstat, readlink, real
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { lineDiff, blockBody, lessonsTableShapes, runsTest, globRegex } from '../lib/doctor.mjs';
+import { lineDiff, blockBody, lessonsTableShapes, runsTest, globRegex, contractNotes } from '../lib/doctor.mjs';
 import { lessonsTableSplit, setupEnvProblems, platformCalls, platformLints } from '../practices/night/files/scripts/plates/lib.mjs';
 import { sha256 } from '../lib/lock.mjs';
 import { WORKFLOW_ACTIONS } from '../lib/telemetry.mjs';
@@ -908,4 +908,30 @@ test('#212: doctor skips verify-deploy and ci-alert workflows, holds behavioral 
 
   await writeFile(cfgPath, JSON.stringify({ ...cfg, check: 'make acme-gate', practices: [...cfg.practices, 'delivery'], delivery: { workflows: { 'pr.yml': 'none', 'ship.yml': 'none' } } }, null, 2));
   assert.deepEqual(doctor(dir).data.lint.filter(l => l.rule === 'workflow-concurrency' || l.rule === 'delivery-config'), []);
+});
+
+test('plates#62: when git itself fails in a repository, the platform guard says so and walks nothing', async t => {
+  const dir = await project(t);
+  const git = (...args) => assert.equal(run('git', ['-C', dir, ...args], { env: ENV }).status, 0, `git ${args.join(' ')}`);
+  await mkdir(join(dir, 'tests'), { recursive: true });
+  const bare = "import { test } from 'node:test';\nimport { execFileSync } from 'node:child_process';\ntest('mounts the image', () => { execFileSync('hdiutil', ['attach', 'acme.dmg']); });\n";
+  git('add', '-A'); git('commit', '-q', '--allow-empty', '-m', 'acme: no tests tracked yet');
+  // An untracked test a walk of the tree would find, then git refusing to list (a corrupt index stands in for dubious
+  // ownership or permissions).
+  await writeFile(join(dir, 'tests', 'mount.test.mjs'), bare);
+  await writeFile(join(dir, '.git', 'index'), 'not an index');
+  const config = JSON.parse(await readFile(join(dir, '.plates', 'plates.json'), 'utf8'));
+  const lint = await platformLints(dir, config);
+  assert.equal(lint.length, 1, JSON.stringify(lint));
+  assert.deepEqual([lint[0].rule, lint[0].path], ['platform-guard', '.']);
+  assert.match(lint[0].message, /^git ls-files failed \(fatal: [^)]+\): no test file was read, so none was checked/);
+  // A contract's patterns are not checked against a tree git could not list: one note says why, and no pattern is judged.
+  const cfg = { contracts: [{ paths: ['src/anvils/**'], read: 'docs/anvils.md', why: 'Acme anvils are tuned' }] };
+  const notes = await contractNotes(dir, cfg);
+  assert.deepEqual(notes.filter(n => n.rule === 'contract-unmatched').map(n => n.message.replace(/\(fatal: [^)]+\)/, '(fatal)')), ['git ls-files failed (fatal): tracked files could not be listed, so no contract pattern was checked (information, not a finding)']);
+  assert.ok(notes.some(n => n.rule === 'contract-doc-missing'), 'the document is still checked');
+  // Outside any repository, every file is the project's, as before.
+  await rm(join(dir, '.git'), { recursive: true, force: true });
+  assert.deepEqual((await platformLints(dir, config)).map(l => l.path), ['tests/mount.test.mjs']);
+  assert.match((await contractNotes(dir, cfg)).find(n => n.rule === 'contract-unmatched').message, /^the contract pattern src\/anvils\/\*\* \(read docs\/anvils\.md\) matches no tracked file/);
 });
