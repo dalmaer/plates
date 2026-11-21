@@ -5,7 +5,8 @@ independently safe increments on `main` throughout the phase. Keep the phase
 partial until all its acceptance is proven; merged, deployed/installed, enabled
 and verified are separate facts. Read the project philosophy named by this guide.
 Run a retro when the phase changed more than docs (the owner picks from its
-candidates). Builders test by file. The conductor runs `{{check}}` once per
+candidates). A lesson comes only from a real failure in the phase (a red check,
+a reverted change, a bug that escaped), never from a risk that did not happen. Builders test by file. The conductor runs `{{check}}` once per
 integrated candidate — a green subset hides a red suite, and checking at every level costs more than it catches.
 (why: Plates lessons 4 and 5: a green subset hides failures, while repeated full gates waste work.)
 

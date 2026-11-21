@@ -554,7 +554,10 @@ phase report, most serious first, each typed:
 - **check**: anything mechanical (a lint, a test, a guard in a script).
   Mechanical violations get deterministic checks;
 - **guide/skill line**: a judgment call only;
-- **lesson**: a failure shape, through `plates learn`.
+- **lesson**: a failure shape, through `plates learn`, and only from a real
+  failure in this phase. Name where it happened: the red check, the reverted
+  commit, the bug that escaped. A risk that never happened is not a lesson;
+  with no real failure, there is no lesson candidate.
 
 **The owner picks.** (why: Plates lesson 51: advice is not the person’s decision.) Nothing is applied unpicked: candidates live in the
 report, not the repo, until the owner picks one; a picked check is built as
