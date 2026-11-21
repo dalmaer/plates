@@ -11,15 +11,17 @@ import { render } from '../lib/practices.mjs';
 import { run } from './helpers/run.mjs';
 import { evaluateTimeEvidence } from '../practices/night/files/scripts/plates/time-measures.mjs';
 import { timeEvidence } from './fixtures/improve/time-evidence.mjs';
-const repo='acme/anvils',at='2026-10-10T12:00:00Z',path='docs/health/2026-10-10.md';
+const REPO='acme/anvils',repo=REPO,at='2026-10-10T12:00:00Z',path='docs/health/2026-10-10.md';
 const git=(root,...args)=>execFileSync('git',['-C',root,...args],{encoding:'utf8'}).trim();
-async function fixture(t,on=false){
+async function fixture(t,on=false,repo=REPO){
  const root=await mkdtemp(join(tmpdir(),'acme-time-action-'));t.after(()=>rm(root,{recursive:true,force:true}));await mkdir(join(root,'.plates'));await writeFile(join(root,'.plates/plates.json'),JSON.stringify({repo,robot:{on,budgetMinutes:60}}));
  git(root,'init','-q','-b','main');git(root,'add','.');git(root,'commit','-qm','Acme baseline');const base=git(root,'rev-parse','HEAD');
  const proposal=makeTimeProposal({measure:'critical_file',identity:{kind:'timing',scope:'.',runner:'node',configHash:'acme-config',flagsHash:'acme-flags',machineClass:'acme-machine',commandHash:'acme-command',target:'tests/acme.test.mjs'},candidate:{title:'Split Acme slow test',rubric:{version:1,problem:'Acme file dominates',reproduction:'npm test',acceptance:'complete successor suite inside frozen bound',change:'split independent Acme cases',prerequisites:[],ownerBlockers:[]},remeasureCommand:'plates improve --json'},baseline:{windowStart:'2026-10-01T00:00:00Z',windowEnd:'2026-10-08T00:00:00Z',value:2000,unit:'ms',runIds:['acme-run'],revisionShas:[base]},threshold:{contractVersion:1,rule:'critical_file',parameters:{share:0.8}},coverage:{retained:3,eligible:3,omitted:0,dates:['2026-10-07','2026-10-08'],sampled:true,gaps:[]},at});
  await writeHealthReport({root,path,generated:'# Acme health\n\n## Proposal\n\n'+formatTimeProposal(proposal)});
  let issue=null,posts=0,failRead=false,dropLabels=false;
+ // GitHub's API paths ignore the repository's casing; robot-issue asks in lowercase (plates#100).
  const github=async r=>{
+   const at=`/repos/${repo}`;if(r.path.toLowerCase().startsWith(at.toLowerCase())&&!r.path.startsWith(at))r={...r,path:at+r.path.slice(at.length)};
    if(r.method==='GET'&&r.path===`/repos/${repo}`)return {status:200,data:{id:7,full_name:repo}};
    if(r.method==='GET'&&r.path===`/repos/${repo}/labels?per_page=100&page=1`)return {status:200,data:[{id:11,name:'keel:agent'}]};
    assert.ok(r.path.startsWith(`/repos/${repo}/`));
@@ -74,6 +76,34 @@ test('time remeasurement verifies fresh merge local ancestry and reviewed full t
  pr.head.sha='f'.repeat(40);result=await remeasureTimeProposal({root:f.root,proposal:reviewed.proposal,at:'2026-10-14T00:00:00Z',github,evaluate});assert.equal(result.state,'unavailable');assert.equal(calls,1);
  pr.head.sha=merge;git(f.root,'checkout','-q','--force','--detach',f.base);result=await remeasureTimeProposal({root:f.root,proposal:accepted.proposal,at:'2026-10-14T00:00:00Z',github,evaluate});assert.equal(result.state,'unavailable');assert.equal(calls,1);
 });
+test('plates#100 item 1: remeasurement keeps the repository\'s own casing, so delivery verifies for an owner with capitals',async t=>{
+ const R='Acme-Forge/Anvils';
+ const f=await fixture(t,false,R);const accepted=await decideTimeProposal({root:f.root,path,expectedInstance:f.proposal.instanceId,decision:'accept',at,github:f.github});
+ await writeFile(join(f.root,'acme.txt'),'Acme fixed');git(f.root,'add','.');git(f.root,'commit','-qm','Acme merge');const merge=git(f.root,'rev-parse','HEAD');
+ const pr={number:8,html_url:`https://github.com/${R}/pull/8`,state:'closed',merged_at:'2026-10-11T00:00:00Z',merge_commit_sha:merge,user:{type:'Bot',login:'github-actions[bot]'},head:{sha:merge,ref:'keel/robot-7',repo:{full_name:R}},base:{sha:f.base,ref:'main',repo:{full_name:R}},body:robotAssociation({repo:R,issueNumber:7,instanceId:f.proposal.instanceId,author:'claude',headSha:merge,cursor:0})};
+ const github=async r=>r.path.includes('/pulls?')?{status:200,data:[{number:8}]}:r.path.endsWith('/pulls/8')?{status:200,data:pr}:f.github(r);
+ const id={file:'tests/acme.test.mjs',hierarchy:['Acme case'],occurrence:1};
+ const transition={instanceId:f.proposal.instanceId,pr:{repo:R,number:8,headSha:merge,mergeSha:merge},fromIdentity:f.proposal.identity,toIdentity:{...f.proposal.identity,target:'tests/acme-successor.test.mjs'},testMapping:[{from:id,to:[{...id,file:'tests/acme-successor.test.mjs'}]}],executionSettings:{before:{concurrency:1},after:{concurrency:2}}};
+ await assert.rejects(decideTimeProposal({root:f.root,path,expectedInstance:f.proposal.instanceId,decision:'map',transition:{...transition,testMapping:[{from:{file:id.file},to:[{file:'successor'}]}]},at,github}),/full file/);
+ const reviewed=await decideTimeProposal({root:f.root,path,expectedInstance:f.proposal.instanceId,decision:'map',transition,at,github});assert.equal(reviewed.decision,'transition-reviewed');assert.deepEqual(reviewed.proposal.baseline,f.proposal.baseline);
+ await mkdir(join(f.root,'.plates/test-runs'),{recursive:true});
+ for(const [name,commit] of [['before',f.base],['after',merge]])await writeFile(join(f.root,'.plates/test-runs',name+'.json'),JSON.stringify({date:'2026-10-12T00:00:00Z',commit,tests:[]}));
+ let calls=0;const evaluate=async input=>{calls++;assert.deepEqual(new Set(input.runs.map(r=>r.commit)),new Set([f.base,merge]));assert.deepEqual(input.comparison.eligibleRevisionShas,[merge]);assert.equal(input.comparison.mergeSha,merge);assert.equal(input.comparison.instanceId,f.proposal.instanceId);assert.deepEqual(input.comparison.baseline,f.proposal.baseline);return {state:'inside',value:0,coverage:{eligible:3},reasons:[]};};
+ let result=await remeasureTimeProposal({root:f.root,proposal:reviewed.proposal,at:'2026-10-14T00:00:00Z',github,evaluate});assert.equal(result.state,'inside');assert.equal(calls,1);
+ // Names compare case-insensitively, and only names: a binding in other casing is the same repository, another is not.
+ const { checkedTimeTransition } = await import('../practices/night/files/scripts/plates/time-proposal-remeasurement.mjs');
+ const delivery = result.delivery, id2 = { ...transition, pr: { ...transition.pr, repo: R.toLowerCase() } };
+ assert.equal(checkedTimeTransition(id2, reviewed.proposal, R, delivery, at).pr.repo, R.toLowerCase());
+ for (const pr of [{ repo: 'Acme-Forge/Other' }, { number: 9 }, { headSha: 'e'.repeat(40) }, { mergeSha: 'd'.repeat(40) }]) {
+   assert.throws(() => checkedTimeTransition({ ...transition, pr: { ...transition.pr, ...pr } }, reviewed.proposal, R, delivery, at), /mapping must bind/, JSON.stringify(pr));
+ }
+ assert.throws(() => checkedTimeTransition({ ...transition, instanceId: 'c'.repeat(64) }, reviewed.proposal, R, delivery, at), /mapping must bind/);
+ // An issue recorded for another repository is never this one's delivery.
+ const foreign = { ...reviewed.proposal, lifecycle: { ...reviewed.proposal.lifecycle, issue: { ...reviewed.proposal.lifecycle.issue, repo: 'Acme-Forge/Other' } } };
+ const away = await remeasureTimeProposal({ root: f.root, proposal: foreign, at: '2026-10-14T00:00:00Z', github, evaluate });
+ assert.deepEqual([away.state, away.reasons], ['unavailable', ['proposal issue does not belong to the local repository']]);
+});
+
 
 test('issue #91: remeasurement counts only runs on the merge and in this checkout, never an unrelated branch after it',async t=>{
  const f=await fixture(t);const accepted=await decideTimeProposal({root:f.root,path,expectedInstance:f.proposal.instanceId,decision:'accept',at,github:f.github});
