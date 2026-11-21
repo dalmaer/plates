@@ -1,11 +1,10 @@
 ---
-status: partial
-owes: walk
-since: 2026-11-03
+status: built
+since: 2026-11-21
 goal: G7
 spec: 2
 depends: [174, 152]
-note: "Built and proven by test: the docket orders blockers, quick decisions, then walks in one model for both forms; estimates and their total; a quick-ones session; what each answer sets moving; and a once-a-day push that opens /review outside quiet hours. Needs quietHours configured and the owner's walk on the phone."
+note: "Built and proven by test: the docket orders blockers, quick decisions, then walks in one model for both forms; estimates and their total; a quick-ones session; what each answer sets moving; and a once-a-day push that opens /review outside quiet hours. Needs quietHours configured and the owner's walk on the phone; the walk was removed (phase 204)."
 evidence: ["evidence/2026-11-03-docket-order-and-notify.md"]
 ---
 
@@ -41,17 +40,6 @@ The docket is ordered by what the owner's answer sets moving, each item says abo
 - [x] Every item has an estimate, and the Start panel's total is their sum: `tests/work-items.test.mjs: "every item says how long it takes"`
 - [x] The quick-ones session holds only items of 2 minutes or less: `tests/web-review.test.mjs: "a quick session holds only quick items"`
 - [x] A notification for new items is sent at most once a day, never in quiet hours, and opens `/review`: `tests/push.test.mjs: "new docket items notify once and open the session"`
-- [ ] ⚑ by hand: the owner gets the notification on the phone and lands in the session.
-
-## Your part
-
-- **Ask:** When the "new for you" notification arrives on your phone, tap it and do the quick ones.
-- **Why:** This settles whether a nudge gets you in and out fast enough to keep the agents moving.
-- **Look at:** The first card after tapping the notification.
-- **Choices:** Fast enough | Too many nudges | Too slow to get in
-- **Takes:** About 5 minutes.
-- **Then:** Fast enough: built. Either other choice changes the rule here.
-- **Ready when:** phase 174 is built and push notifications (phase 152) work on the owner's phone.
 
 ## Real surfaces
 

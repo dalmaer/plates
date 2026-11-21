@@ -1,12 +1,10 @@
 ---
-status: partial
-owes: walk
-waits: owner
-since: 2026-10-14
+status: built
+since: 2026-11-21
 goal: G4
 spec: 2
 depends: [73, 50]
-note: "Built 2026-10-14: plates morning (the brief; --send as the assigned Good morning issue; --card as the live card night-plan), the plates-morning workflow (sends once the night is over; only its send job writes issues) and its final data-only PR (plates#137). Owes the owner one real morning's email."
+note: "Built 2026-10-14: plates morning (the brief; --send as the assigned Good morning issue; --card as the live card night-plan), the plates-morning workflow (sends once the night is over; only its send job writes issues) and its final data-only PR (plates#137). Owes the owner one real morning's email; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-14-morning.md"]
 issue: 135
 ---
@@ -33,17 +31,6 @@ The design is [Nightwatch: a night with a plan you can shape](../research/2026-1
 - [x] `plates morning` renders the brief in order with every link, from a fixture plan and health page. `tests/morning.test.mjs`
 - [x] `--send` opens one assigned, labelled issue and closes the previous one, on a stubbed gh; with no assignee it refuses, naming the key. `tests/morning.test.mjs`
 - [x] The brief is sent only when every build item is terminal, or at `readyBy` with unfinished items marked "not finished by"; it includes each item's terminal outcome (the PR, or the reason it failed or was skipped); one brief per night; a failed send fails the workflow. `tests/morning.test.mjs`, `tests/workflows.test.mjs`
-- [ ] ⚑ by hand: the owner gets the email one morning and opens the canvas from it.
-
-## Your part
-
-- **Ask:** One morning, open the "Good morning" email from GitHub and follow its link to the canvas.
-- **Why:** It is the whole point: waking up to one message that says what the night did and where to look.
-- **Look at:** your email from GitHub, subject "Good morning, <date>".
-- **Choices:** It told me what I needed | I had to go digging
-- **Takes:** 5 minutes.
-- **Then:** Digging: what was missing goes into the brief.
-- **Ready when:** this phase and phase 73 have shipped, and the owner has set `morning.assignee`.
 
 ## Real surfaces
 

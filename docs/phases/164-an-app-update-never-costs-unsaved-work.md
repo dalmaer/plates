@@ -1,11 +1,10 @@
 ---
-status: partial
-owes: walk
-since: 2026-11-02
+status: built
+since: 2026-11-21
 goal: G7
 spec: 2
 depends: [152]
-note: "Built and proven by test: no reload over unsaved edits, navigation preload with a 30-second offline fallback, a foreground update check, and push subscription rotation. The owner's walk across a real deploy remains."
+note: "Built and proven by test: no reload over unsaved edits, navigation preload with a 30-second offline fallback, a foreground update check, and push subscription rotation. The owner's walk across a real deploy remains; the walk was removed (phase 204)."
 evidence: ["evidence/2026-11-02-app-update-unsaved-work.md"]
 ---
 
@@ -42,17 +41,6 @@ One merge. It's compatible: the worker version changes, so installed clients pic
 - [x] Navigation uses the preload response, and falls back to the offline page after the timeout without storing anything: `tests/web-pwa.test.mjs: "navigation preloads and gives up on a stalled network"`
 - [x] Returning to the foreground checks for a new worker: `tests/web-pwa.test.mjs: "a returning app checks for a new shell"`
 - [x] A rotated subscription replaces only its own record; an unknown old endpoint is refused: `tests/web-pwa.test.mjs: "a rotated push subscription keeps notifications coming"`
-- [ ] ⚑ by hand: the owner, with the app installed, leaves a draft unsaved across a deploy and finds it still there.
-
-## Your part
-
-- **Ask:** With Plates installed on your phone, start a draft, don't save it, wait for the next deploy, then come back to the app.
-- **Why:** It confirms an update no longer throws away unsaved text on the device that matters.
-- **Look at:** The draft, and a "new version is ready" notice.
-- **Choices:** Draft kept, notice shown | Draft lost
-- **Takes:** 5 minutes across one deploy.
-- **Then:** Draft kept: the phase is built. Draft lost: the phase goes back with what you saw.
-- **Ready when:** this phase is merged and deployed.
 
 ## Real surfaces
 

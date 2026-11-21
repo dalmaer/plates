@@ -26,7 +26,6 @@ Contract: [Private workspace, public Plates application](../specs/web-workspace.
 - [x] Accepted choices and recommendations remain distinct and decision previews name exact consequences: `tests/web-decisions.test.mjs`.
 - [x] Stale digest, concurrent mutation, lost access and replay cannot change a different record: `tests/web-operations.test.mjs`.
 - [x] Uncertain remote writes recover their original operation without a duplicate commit; these two writers never create an issue/PR: `tests/web-operations.test.mjs`.
-- [x] ⚑ By hand: record one real decision and locate the exact source change and receipt: `docs/guide/web-workspace-setup.md`. Walked 2026-10-31: commit `f7bf2913`, operation `ced38ae6…` committed once (evidence, "Owner walk").
 
 ## Real surfaces
 
@@ -62,22 +61,3 @@ None.
 - **2026-10-21** — Repository names can be reused after a rename, even with cloned history. Independent review reproduced false recovery; previews now pin repository/Ref identities, writes address the Ref ID, and recovery verifies the same repository by node ID. See phase evidence.
 - **2026-10-31** — The owner declined the 25 October health proposal from their phone in the hosted workspace; the decision landed as one App-signed commit with one committed receipt and no duplicate.
 
-## Your part
-
-### 1. Real use
-
-- **Ask:** Record one real decision and locate the exact source change and receipt.
-
-- **Why:** This needs actual owner access or observation; synthetic tests cannot establish it.
-
-- **Look at:** [Setup worksheet](../guide/web-workspace-setup.md) and this phase's source evidence.
-
-- **Choices:** Verified | Needs changes | Cannot check yet
-
-- **Keeps it open:** Needs changes | Cannot check yet
-
-- **Takes:** One setup or testing session; record the actual duration.
-
-- **Then:** Record exactly what was observed; keep missing checks open and name the next action.
-
-- **Ready when:** Automated proof passes and the approved service exposes this phase's feature.

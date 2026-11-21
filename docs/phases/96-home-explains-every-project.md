@@ -26,7 +26,6 @@ Contract: [Private workspace, public Plates application](../specs/web-workspace.
 - [x] Local phases, projects-shaped plans and milestones retain their authority and source gaps: `tests/web-projects.test.mjs`.
 - [x] Home prioritizes decisions, ready walks and changes; refresh never mutates project records: `tests/web-home.test.mjs`.
 - [x] Incremental updates preserve active cards and report cursor gaps, denied access and partial coverage: `tests/web-events.test.mjs`.
-- [x] ⚑ By hand: desktop/mobile keyboard walkthrough identifies the next human action and an unavailable source on actual projects: `docs/guide/web-workspace-setup.md`.
 
 ## Real surfaces
 
@@ -59,22 +58,3 @@ None. Lived-in evidence requires repeated owner use across real projects.
 - **2026-10-21** — Unchanged source revisions still require calendar-based reclassification, and secondary provider limits require a durable pause distinct from observed quota. Regressions and migration 003 establish both.
 - **2026-10-21** — Vercel traced shared planning filesystem paths into development fixtures. Explicit bundle exclusions and literal browser assets were verified through actual deployment; fixture tests alone had not exposed this boundary.
 
-## Your part
-
-### 1. Real use
-
-- **Ask:** Desktop/mobile keyboard walkthrough identifies the next human action and an unavailable source on actual projects.
-
-- **Why:** This needs actual owner access or observation; synthetic tests cannot establish it.
-
-- **Look at:** [Setup worksheet](../guide/web-workspace-setup.md) and this phase's source evidence.
-
-- **Choices:** Verified | Needs changes | Cannot check yet
-
-- **Keeps it open:** Needs changes | Cannot check yet
-
-- **Takes:** One setup or testing session; record the actual duration.
-
-- **Then:** Record exactly what was observed; keep missing checks open and name the next action.
-
-- **Ready when:** Automated proof passes and the approved service exposes this phase's feature.

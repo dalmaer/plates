@@ -242,3 +242,28 @@ test('the phases guide says a known limitation goes under Deliberately open', as
   const text = (await readFile(join(GUIDES, 'plan-with-phases-and-goals.md'), 'utf8')).replace(/\s+/g, ' ');
   assert.match(text, /\*Deliberately open\*[^*]*known limitation that could make the phase's output wrong[^*]*goes there too, with its effect and when it is settled, never only in the design's prose/);
 });
+
+// Plates phase 204: each phase PR carries a Try it, and a missing one is never a refusal.
+test('phase PRs carry a Try it', async () => {
+  const read = path => readFile(join(CLI_ROOT, path), 'utf8');
+  const spin = await read('practices/conduct/files/.agents/skills/spin/SKILL.md');
+  // The skill shows the section's shape: what changed, where, three to five steps, working and broken, and what the agent saw.
+  assert.match(spin, /\*\*Every phase PR carries a Try it\.\*\*/);
+  assert.match(spin, / {2}```markdown\n {2}## Try it\n\n {2}What changed: <one line>\.\n {2}Where: <a preview URL, the deployed site, or how to build it>\.\n {2}1\. <step>\n {2}2\. <step>\n {2}3\. <step> {2}\(three to five steps\)\n {2}Works: <what you see when it works>\. Broken: <what you see when it does not>\.\n {2}I tried it: /);
+  assert.doesNotMatch(spin, /^## Try it/m, 'the example is indented, so it never reads as one of the skill\'s own sections');
+  assert.match(spin, /Try the steps yourself first where you can/);
+  assert.match(spin, /never a reason to refuse or hold the merge/);
+  assert.doesNotMatch(spin, /A phase with a walk isn't built until the walk is walked/);
+  assert.doesNotMatch(spin, /whose rest is a walk gets `owes: walk`/);
+  // The conduct alias forwards to spin and keeps its Try it.
+  assert.match(await read('practices/conduct/files/.agents/skills/conduct/SKILL.md'), /the same Try it on each phase PR/);
+  // AGENTS.md (the practice's block and this repo's render of it) and the agent guide say it too.
+  for (const path of ['practices/conduct/files/AGENTS.block.md', 'AGENTS.md', 'lib/agent-guide.md']) {
+    const text = (await read(path)).replace(/\s+/g, ' ');
+    assert.match(text, /`## Try it` section/, path);
+    assert.match(text, /what changed \(one line\), where to try it \(a preview URL, the deployed site, or a build\), three to five steps, and what working and broken look like/, path);
+    assert.match(text, /a missing Try it is a note, never a refusal/i, path);
+  }
+  // The rendered skill is the practice's, byte for byte.
+  assert.equal(await read('.agents/skills/spin/SKILL.md'), spin.replaceAll('{{guide}}', 'AGENTS.md').replaceAll('{{lessons}}', 'docs/lessons.md').replaceAll('{{check}}', 'npm run check'));
+});

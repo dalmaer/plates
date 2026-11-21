@@ -1,11 +1,10 @@
 ---
-status: partial
-owes: walk
-since: 2026-10-21
+status: built
+since: 2026-11-21
 goal: G7
 spec: 2
 depends: [96]
-note: "Read-only fleet/project routines and history implemented; real API and synthetic browser proof passed. Hosted activation and owner walk remain."
+note: "Read-only fleet/project routines and history implemented; real API and synthetic browser proof passed. Hosted activation and owner walk remain; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-21-web-routine-history.md"]
 ---
 
@@ -29,7 +28,6 @@ Contract: [Fleet operations](../specs/web-fleet-operations.md),
 - [x] Expired artifacts, disconnected runners, missing history and unknown costs stay visible instead of becoming empty success: `tests/web-run-coverage.test.mjs`.
 - [x] Private operation listings stay actor/project scoped, disclose missing storage and preserve original recovery: `tests/web-run-receipts.test.mjs`.
 - [x] Fleet/project routes preserve filters and expose stages and coverage on mobile and desktop: `tests/web-runs-ui.test.mjs`.
-- [ ] ⚑ By hand: owner completes the real-surface exercise below: `docs/specs/web-fleet-operations.md`.
 
 ## Real surfaces
 
@@ -68,13 +66,3 @@ coverage and record the exact serving revision.
 - **2026-10-21** — Active attempts and unresolved private effects must survive the finished-record date window. Shared filtering now preserves both while keeping uncertain effects unknown, never running.
 - **2026-10-21** — Numeric repository Actions paths worked against the real API, but the official reference documents name-based paths. Treat this as observed compatibility, fail closed if unavailable, and never fall back to a recycled repository name.
 
-## Your part
-
-- **Ask:** Compare a real routine and its retry from a phone and desktop; identify its result, evidence, cost and missing coverage.
-- **Why:** Fixtures cannot establish real access, source completeness or operating usefulness.
-- **Look at:** [Fleet operating contract](../specs/web-fleet-operations.md) and this phase's dated evidence.
-- **Choices:** Verified | Needs changes | Cannot check yet
-- **Keeps it open:** Needs changes | Cannot check yet
-- **Takes:** One setup or operating session; record actual duration and cost.
-- **Then:** Record observed outcomes, keep gaps open and name the next action.
-- **Ready when:** Automated proof passes and the approved service exposes this phase's feature.

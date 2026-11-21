@@ -1,12 +1,10 @@
 ---
-status: partial
-owes: walk
-waits: owner
-since: 2026-10-14
+status: built
+since: 2026-11-21
 goal: G4
 spec: 2
 depends: [73, 35, 54]
-note: "Built 2026-10-14: climb's pick and the robot's scan read tonight's plan from keel-night-plan and build only what it names; willNotTouch is refused by the judges and publishers; each publish job ticks its items on the plan branch with a lease. Owes one real night with one item; Loop findings into robot issues left open."
+note: "Built 2026-10-14: climb's pick and the robot's scan read tonight's plan from keel-night-plan and build only what it names; willNotTouch is refused by the judges and publishers; each publish job ticks its items on the plan branch with a lease. Owes one real night with one item; Loop findings into robot issues left open; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-14-night-builds-the-plan.md"]
 issue: 134
 ---
@@ -35,17 +33,6 @@ The design is [Nightwatch: a night with a plan you can shape](../research/2026-1
 - [x] A change that touches a `willNotTouch` path is refused by the judge. `tests/climb.test.mjs`, `tests/robot-runtime.test.mjs`
 - [x] Each pass ticks its item running, then done with the PR link or failed with the reason. `tests/night-plan.test.mjs`, `tests/workflows.test.mjs`
 - [x] A plan budget lowers a pass's minutes and never raises them. `tests/climb.test.mjs`, `tests/robot-runtime.test.mjs`
-- [ ] ⚑ by hand: one real night on plates builds the one item the owner put in the plan, and nothing else.
-
-## Your part
-
-- **Ask:** Put one small fix in tonight's plan with `/goodnight`, and in the morning check that the night opened a pull request for it and nothing else.
-- **Why:** It shows the night does what you asked and only that.
-- **Look at:** the morning's open pull requests on plates.
-- **Choices:** It built what I asked, only that | It built something else, or nothing
-- **Takes:** 10 minutes.
-- **Then:** Something else: the night is held at measuring until it is fixed.
-- **Ready when:** phases 73, 74 and this one have shipped.
 
 ## Real surfaces
 

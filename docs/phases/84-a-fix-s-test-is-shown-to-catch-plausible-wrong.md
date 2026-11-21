@@ -1,10 +1,10 @@
 ---
-status: partial
-since: 2026-10-16
+status: built
+since: 2026-11-21
 goal: G0
 spec: 2
 depends: [62]
-note: "Partial 2026-10-17: plates prove --mutate runs the named test against five mechanical mutations of the fix's changed lines, each in a scratch copy, after a passing baseline, and reports caught/total with each survivor. The owner's read of one real fix's survivors waits."
+note: "Partial 2026-10-17: plates prove --mutate runs the named test against five mechanical mutations of the fix's changed lines, each in a scratch copy, after a passing baseline, and reports caught/total with each survivor. The owner's read of one real fix's survivors waits; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-17-mutation-proofs.md"]
 issue: 169
 ---
@@ -33,17 +33,6 @@ Not in scope: mutating code outside the fix, or failing a commit for survivors (
 - [x] A failing baseline stops the run; a mutant that breaks parsing, an import, or times out is reported as invalid or inconclusive and never inflates the caught count. `tests/prove-mutate.test.mjs`
 - [x] Only the fix's changed lines are mutated, at most 40, and each run is time-limited. `tests/prove-mutate.test.mjs`
 - [x] `--trailer` records `Mutants: caught/total`. `tests/prove-mutate.test.mjs`
-- [ ] ⚑ by hand: the owner reads the survivors from one real fix and says whether they showed a real gap.
-
-## Your part
-
-- **Ask:** Plates checked a real fix's test by making small wrong changes to the fix. These wrong changes still passed the test. Are they real holes in the test, or harmless?
-- **Why:** If the holes are real, this check earns its place in every fix; if they are noise, the check is narrowed. The conductor marks which ones it thinks are real.
-- **Look at:** The list of wrong changes the test missed, in the fix's PR and in this phase's evidence.
-- **Choices:** Real holes | Harmless
-- **Takes:** 5 minutes.
-- **Then:** Real holes: the phase is built, and the fix's test is strengthened. Harmless: the mutation set is narrowed so these stop appearing.
-- **Ready when:** the conductor has run `plates prove --mutate` on a real fix and posted what survived.
 
 ## Real surfaces
 

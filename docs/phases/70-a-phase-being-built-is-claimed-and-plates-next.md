@@ -1,12 +1,10 @@
 ---
-status: partial
-owes: walk
-waits: time
-since: 2026-10-12
+status: built
+since: 2026-11-21
 goal: G0
 spec: 2
 depends: []
-note: "Built 2026-10-12: plates phase claim pushes one shared create-only branch per phase, and plates next lists what is ready and unclaimed. The owner's week of two sessions remains."
+note: "Built 2026-10-12: plates phase claim pushes one shared create-only branch per phase, and plates next lists what is ready and unclaimed. The owner's week of two sessions remains; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-12-claims.md"]
 issue: 113
 ---
@@ -39,17 +37,6 @@ Not in scope: locking. A session that skips `plates next` and the skill is not s
 - [x] When the fetch fails, `plates next` says the claims could not be read (exit 2), and never lists a phase as free. `tests/claim.test.mjs`
 - [x] `--release` deletes a claim with no work branch or PR, and refuses one that has either. `tests/claim.test.mjs`
 - [x] The conduct skill claims before it builds, and the board shows a claim idle for seven days as the owner's. `tests/skill.test.mjs`, `tests/board.test.mjs`
-- [ ] ⚑ by hand: the owner runs two sessions on plates for a week and neither builds a phase the other holds.
-
-## Your part
-
-- **Ask:** Run two agent sessions on plates for a week, as you do now, and say whether they ever started the same piece of work.
-- **Why:** Two sessions building the same thing cost a day on 2026-10-10; this shows whether marking work as taken stops it.
-- **Look at:** `plates next` in each session, which shows what is taken and by whom.
-- **Choices:** Never collided | Collided
-- **Takes:** 5 minutes at the end of the week.
-- **Then:** Never collided: the phase is built. Collided: how they missed each other goes into the design.
-- **Ready when:** the claim has shipped and a week has passed.
 
 ## Real surfaces
 

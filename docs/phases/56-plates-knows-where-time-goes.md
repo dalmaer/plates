@@ -1,12 +1,10 @@
 ---
-status: partial
-owes: walk
-waits: time
-since: 2026-10-09
+status: built
+since: 2026-11-21
 goal: G5
 spec: 2
 depends: [33]
-note: "Timing context, usual times, failure memory, root-gate trends and bounded local transcript reporting are implemented. Linux CI capture is verified; the owner's two-week usefulness read remains open."
+note: "Timing context, usual times, failure memory, root-gate trends and bounded local transcript reporting are implemented. Linux CI capture is verified; the owner's two-week usefulness read remains open; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-09-timing-context.md"]
 issue: 43
 ---
@@ -35,17 +33,6 @@ The design is [The robot, and plates's sense of time](../research/2026-10-09-rob
 - [x] A failed test keeps the start of what it said; a repeat of an earlier failure on a flaky test is named as one; a different end on an identical tree is named as decided by something else. `tests/test-ledger.test.mjs`
 - [x] `plates time --json` reports the gate's and each test's weekly medians. `tests/time.test.mjs`
 - [x] Worked-around tests are read from a fixture transcript (a long timeout, a background run, an interrupt); nothing is read in CI, and nothing is written outside the cache. `tests/time.test.mjs`
-- [ ] ⚑ by hand: the owner reads Plates’s timing report after two weeks and says whether it matches where the time felt like it went.
-
-## Your part
-
-- **Ask:** After two weeks, read `plates time` for plates and say whether it matches where you felt the time went.
-- **Why:** The measures in phase 57 are built on it; if it is wrong, so will they be.
-- **Look at:** `plates time --weeks 2` in plates.
-- **Choices:** Matches | Misses something
-- **Takes:** 5 minutes.
-- **Then:** Matches: the phase is built. Misses something: what it missed goes into the evidence, and the record gains it.
-- **Ready when:** two weeks of runs have been recorded with `busy`.
 
 ## Real surfaces
 

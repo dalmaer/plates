@@ -1,11 +1,10 @@
 ---
-status: partial
-owes: walk
-since: 2026-11-04
+status: built
+since: 2026-11-21
 goal: G7
 spec: 2
 depends: [151, 156]
-note: "Built: Home has four sections, the same in plates home and the hosted home (Needs you, Since you last looked, What should happen next?, Your plates). Migration 018 applied on the hosted store 2026-11-04; waits on deploy, then owes the owner's look on the phone."
+note: "Built: Home has four sections, the same in plates home and the hosted home (Needs you, Since you last looked, What should happen next?, Your plates). Migration 018 applied on the hosted store 2026-11-04; waits on deploy, then owes the owner's look on the phone; the walk was removed (phase 204)."
 evidence: ["evidence/2026-11-04-home-four-sections.md"]
 ---
 
@@ -49,17 +48,6 @@ The hosted home and `plates home` show the same four sections, in this order, wi
 - [x] "Needs you" ranks fix, decide and try items, and holds no item waiting on time or agents: `tests/work-items.test.mjs: "needs you holds only the owner's turn"`
 - [x] "Since you last looked" lists only what happened after the stored visit: `tests/web-home.test.mjs: "since you last looked starts at the last visit"`
 - [x] The ask box previews both paths and writes nothing without the reviewed digest: `tests/web-home.test.mjs: "an ask is queued only after its preview is approved"`
-- [ ] ⚑ by hand: the owner opens home on the phone and says whether it is clear what to do next.
-
-## Your part
-
-- **Ask:** Open the workspace on your phone and say whether it is obvious what needs you, what happened and how to ask for something.
-- **Why:** Clarity is the whole point of this phase, and only you can judge it.
-- **Look at:** The top of the home page, before scrolling.
-- **Choices:** Clear | Still confusing (say where)
-- **Takes:** 5 minutes.
-- **Then:** Clear: the phase is built. Still confusing: the named spot is fixed in this phase.
-- **Ready when:** phases 156 and 163 are built, and this phase is deployed.
 
 ## Real surfaces
 

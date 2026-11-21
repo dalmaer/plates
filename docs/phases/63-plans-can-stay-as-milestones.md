@@ -1,11 +1,10 @@
 ---
-status: partial
-since: 2026-10-10
-owes: walk
+status: built
+since: 2026-11-21
 goal: G2
 spec: 2
 depends: [51]
-note: "Read-only milestone plans now feed next, status, the board and the installed night through shared cache/quota controls. Automated and live empty-source transport proofs passed; one real release and its owner read remain owed."
+note: "Read-only milestone plans now feed next, status, the board and the installed night through shared cache/quota controls. Automated and live empty-source transport proofs passed; one real release and its owner read remain owed; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-11-phase-review-corrections.md", "evidence/2026-10-10-milestone-plans.md"]
 issue: 50
 ---
@@ -30,17 +29,6 @@ The design is [Adopting projects that already have a practice](../research/2026-
 - [x] Milestones with descriptions and issues map to phases: Done when, boxes, walks, `due` and status, as above. `tests/milestones.test.mjs`
 - [x] `plates next`, the board and the night use them on a project with `source: milestones`, through the cache and the quota floor; nothing is written to GitHub. `tests/board.test.mjs`
 - [x] Adopt proposes `source: milestones` for a project with described milestones. `tests/adopt.test.mjs`, `tests/milestone-integration.test.mjs`
-- [ ] ⚑ by hand: one project's release seen on the board as phases, read by its owner.
-
-## Your part
-
-- **Ask:** Look at one project's milestones shown as plates phases on the board, and say whether they read as the plan you have.
-- **Why:** It decides whether plates can plan with a project as it is, without converting its plans.
-- **Look at:** The board, filtered to that project.
-- **Choices:** Reads right | Something is lost
-- **Takes:** 10 minutes.
-- **Then:** Reads right: the phase is built. Something lost: the mapping changes, and the loss goes into the evidence.
-- **Ready when:** a project that plans with milestones has adopted plates.
 
 ## Real surfaces
 

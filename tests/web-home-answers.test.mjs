@@ -262,3 +262,27 @@ test('a Done whose step changed since its preview writes nothing', async () => {
   const bad = await ask();
   assert.equal(bad.status, 409); assert.equal((await bad.json()).error, 'invalid_marks_file');
 });
+
+// Phase 204: a Try it's answer carries the digest of the box its card was drawn with; the server never substitutes its own.
+test('a Try it answered on the web with a card drawn before its box changed is refused', async () => {
+  const { renderGlance } = await import('../lib/web/views.mjs');
+  const files = { ...WALK_FILES, 'docs/phases/02-walk.md': WALK_FILES['docs/phases/02-walk.md'].replace('⚑ by hand: test the Acme preview.', '⚑ try: the owner: tests the Acme preview.') };
+  const h = walkWeb(files), web = createWebService(h.config, { fetcher: h.fetcher, now: () => h.state.now }), signed = await h.login();
+  const home = await (await web(h.request('/api/home', { cookie: signed.cookie }))).json();
+  const card = home.tryIt.find(t => t.key === 'studio:walk:2');
+  assert.match(card.boxDigest, /^[0-9a-f]{12}$/);
+  // The card carries its digest on its answer buttons; the browser sends it back.
+  assert.match(renderGlance(home), new RegExp(`data-answer="works"[^>]*data-writer="try it" data-digest="${card.boxDigest}"`));
+  const post = body => web(postJson(h, '/api/home/answer', { key: card.key, answer: 'works', csrf: signed.session.csrf, ...body }, signed.cookie));
+  assert.equal((await post({})).status, 400, 'no digest: the page is out of date');
+  // The preview names the box it answers.
+  const ok = await (await post({ digest: card.boxDigest })).json();
+  assert.deepEqual(ok.preview.box, { n: 1, text: '⚑ try: the owner: tests the Acme preview.' });
+  // Someone edits the box after the card was drawn: the old digest is refused, and nothing is written.
+  h.source.files['docs/phases/02-walk.md'] = h.source.files['docs/phases/02-walk.md'].replace('tests the Acme preview.', 'tests the Acme preview on a tablet.');
+  h.source.head = 'e'.repeat(40);
+  const stale = await post({ digest: card.boxDigest });
+  assert.equal(stale.status, 409);
+  assert.equal((await stale.json()).error, 'box_changed');
+  assert.equal(h.source.writes.filter(Boolean).length, 0);
+});

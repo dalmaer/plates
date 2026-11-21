@@ -1,11 +1,10 @@
 ---
-status: partial
-since: 2026-11-17
+status: built
+since: 2026-11-21
 goal: G7
 spec: 2
 depends: [149]
-owes: walk
-note: "Increments 1–3 are built; migration 025 is applied with its hosted proof. Box 7 waits on the live round trip (an owner line on the deployed site reaching a session's plates channel inbox), which the owner's walk proves with box 8."
+note: "Increments 1–3 are built; migration 025 is applied with its hosted proof. Box 7 waits on the live round trip (an owner line on the deployed site reaching a session's plates channel inbox), which the owner's walk proves with box 8; the walk was removed (phase 204)."
 evidence: ["evidence/2026-11-15-channel-feed.md", "evidence/2026-11-16-channel-say-hosted.md", "evidence/2026-11-16-channel-owner-lines.md"]
 ---
 
@@ -117,19 +116,6 @@ reused; Discord becomes an optional one-way mirror (increment 4).
 - [x] Bursts of joined/left fold into one line and the feed stops at its window: `tests/channel.test.mjs: "routine lines fold and the window holds"`.
 - [x] `plates say` posts one sealed line with session, provider and phase; over-long, too-frequent, key-shaped or keyless posts are refused naming why; the hosted proof shows the table holds ciphertext, digests and times only: `tests/channel-say.test.mjs`.
 - [x] The owner's line naming a phase reaches that session's `plates channel inbox` once, an agent's line naming another agent reaches no inbox, and a checkpoint shows answered after that session's next line: `tests/channel-inbox.test.mjs`.
-- [ ] ⚑ By hand: on the deployed site, the owner's line naming a phase reaches that session's channel inbox once and shows answered after the session's next line (the live round trip).
-- [ ] ⚑ By hand: the owner opens the channel for plates on the site and sees today's agents, their lines and Here now match what is running.
-
-## Your part
-
-- **Ask:** Open the Channel page for plates after increment 1 deploys and say whether it shows what is going on.
-- **Why:** It decides whether agents should start posting (increment 2) or the feed needs to change first.
-- **Look at:** `/channel` on your Plates site.
-- **Choices:** Agents should post | Change the feed first
-- **Takes:** About 5 minutes.
-- **Then:** Agents should post: increment 2 asks for migration 024. Change the feed first: the conductor adjusts it.
-- **Recommend:** Agents should post
-- **Ready when:** increment 1 is deployed.
 
 ## Real surfaces
 

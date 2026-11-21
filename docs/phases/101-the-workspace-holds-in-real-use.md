@@ -29,7 +29,6 @@ Contract: [Private workspace, public Plates application](../specs/web-workspace.
 
 - [x] Deployment health names the serving revision and denies access after revocation: `tests/web-deployment.test.mjs`.
 - [x] Restore expires sessions and reconciles uncertain operations without replaying them blindly: `tests/web-restore.test.mjs`.
-- [ ] ⚑ By hand: owner completes decisions, failed/successful walks and visual discovery across selected real projects: `docs/guide/web-recovery.md`.
 - [ ] ⚑ By hand: restore actual private workspace backup and inspect source/receipt/artifact coverage over a named observation window: `docs/guide/web-recovery.md`.
 
 ## Real surfaces
@@ -67,24 +66,6 @@ features disabled until their separate current restore proofs hold.
 - **2026-10-21** — Created from the owner's request for a hosted UI with private workspace data, project-owned records, decisions, guided testing and visible recent additions.
 
 ## Your part
-
-### 1. Real use
-
-- **Ask:** Owner completes decisions, failed/successful walks and visual discovery across selected real projects.
-
-- **Why:** This needs actual owner access or observation; synthetic tests cannot establish it.
-
-- **Look at:** [Private trial worksheet](../guide/web-recovery.md) and this phase's source evidence.
-
-- **Choices:** Verified | Needs changes | Cannot check yet
-
-- **Keeps it open:** Needs changes | Cannot check yet
-
-- **Takes:** One setup or testing session; record the actual duration.
-
-- **Then:** Record exactly what was observed; keep missing checks open and name the next action.
-
-- **Ready when:** Automated proof passes and the approved service exposes this phase's feature.
 
 ### 2. Real use
 

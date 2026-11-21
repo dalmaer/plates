@@ -149,7 +149,9 @@ test('home declares the doors of every writer its answers reach', async () => {
   const { WRITERS } = await import('../lib/work-items.mjs');
   // Each writer home runs, and the operations it performs: the verb whose writer it is, or its own act.
   const reaches = {
-    'walk done': VERB_OPERATIONS.walk, 'walk decide': VERB_OPERATIONS.walk, 'learn decide': VERB_OPERATIONS.learn,
+    'walk done': VERB_OPERATIONS.walk, 'walk decide': VERB_OPERATIONS.walk,
+    // Phase 204: a Try it records through walk done; Something's off opens a follow-up issue.
+    'try it': ['local edit', 'issue'], 'learn decide': VERB_OPERATIONS.learn,
     'loose-ends mark': VERB_OPERATIONS['loose-ends'], 'lessons send': VERB_OPERATIONS.lessons, 'agent issue': VERB_OPERATIONS.issue,
     // A stale claim's release deletes its branch and records who and why in the phase's Trajectory.
     'claim release': ['delete', 'local edit'],

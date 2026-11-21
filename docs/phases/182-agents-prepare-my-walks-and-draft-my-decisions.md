@@ -31,17 +31,6 @@ Walk prep leaves a checked environment, the tested revision and screenshots on a
 - [x] An assist never writes an answer, acceptance or lived-in: `tests/backlog-assist.test.mjs: "assists never decide"`
 - [x] A recommendation links its evidence and is withdrawn when its source revision moves: `tests/backlog-assist.test.mjs: "a stale recommendation is withdrawn"`
 - [ ] A walk prep's revision must equal the tested revision, or it says so: `tests/backlog-assist.test.mjs: "prep names the revision it checked"`
-- [ ] ⚑ by hand: the owner.
-
-## Your part
-
-- **Ask:** Do three walks an agent prepared.
-- **Why:** It settles whether preparation saves your time or adds noise.
-- **Look at:** What the agent already checked, at the top of each walk.
-- **Choices:** Prep saved time | No difference | Prep was wrong (say how)
-- **Takes:** About 20 minutes.
-- **Then:** Saved time: built. Otherwise prep changes here.
-- **Ready when:** phase 181 is built and private capture storage is active.
 
 ## Real surfaces
 

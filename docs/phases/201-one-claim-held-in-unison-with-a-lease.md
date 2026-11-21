@@ -50,17 +50,6 @@ the next holder.
 - [ ] A branch claim lapses after its lease unless renewed, and a lapsed claim shows its holder's branch and last commit: `tests/claim-lease.test.mjs: "a claim lapses unless its holder works"`.
 - [ ] A worker whose claim number is not the current one cannot integrate or merge: `tests/claim-lease.test.mjs: "a lapsed holder cannot land"`.
 - [ ] Claiming in plates and starting in Unison are one claim; a second claimer is refused either way; an unreadable Unison refuses every claim: `tests/unison-claim.test.mjs: "one claim, wherever it is made"`.
-- [ ] ⚑ by hand: owner. Two agents asked for the same phase, one in plates and one in Unison: one holds it, and both Unison and Home name the same holder.
-
-## Your part
-
-- **Ask:** Ask two agents to start the same phase, one through plates and one in Unison, and check that only one gets it and both places name the same one.
-- **Why:** It proves the claim is one claim against the real Unison.
-- **Look at:** The phase's item in Unison, and Home.
-- **Choices:** One holder | Both started
-- **Takes:** About 10 minutes.
-- **Then:** One holder: the phase is built. Both started: the conductor reads both logs.
-- **Ready when:** increment 3 is merged and installed on the Mac.
 
 ## Real surfaces
 

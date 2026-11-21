@@ -1,12 +1,10 @@
 ---
-status: partial
-owes: walk
-waits: time
-since: 2026-10-06
+status: built
+since: 2026-11-21
 goal: G4
 spec: 2
 depends: [33, 35]
-note: "Built: the hygiene job (picked first when a test is flaky; prove-steady N runs on one clean tree; timeout- or retry-only fixes refused; an issue when nothing is proven), the build-time job (output hashed, each change needs a harmless reason), a build_time night measure, and retirement after three closed PRs. Waits on a real hygiene night on plates and a build-time night on ledger."
+note: "Built: the hygiene job (picked first when a test is flaky; prove-steady N runs on one clean tree; timeout- or retry-only fixes refused; an issue when nothing is proven), the build-time job (output hashed, each change needs a harmless reason), a build_time night measure, and retirement after three closed PRs. Waits on a real hygiene night on plates and a build-time night on ledger; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-06-climb-hygiene-build.md"]
 issue: 14
 ---
@@ -38,17 +36,6 @@ The design is [Climb nights](../research/2026-10-06-climb-nights.md).
 - [x] `pick` chooses hygiene when the ledger names a flaky test, ahead of every other job. `tests/climb.test.mjs: "pick"`
 - [x] The hygiene guard refuses a candidate whose diff only raises a timeout or adds a retry around the flaky test; mutation: removing that refusal fails the test. `tests/climb.test.mjs: "hygiene guard"`
 - [x] `build-time`'s guard fails when the build output changes and the report names no reason. `tests/climb.test.mjs: "build guard"`
-- [ ] ⚑ by hand: one real hygiene night on plates, the flaky test it targets named by the ledger, and its PR or issue read by the owner.
-
-## Your part
-
-- **Ask:** When plates's test record names a flaky test, read the pull request (or the issue) the overnight agent opens about it, and merge or close it.
-- **Why:** It proves a flaky test gets fixed by the same overnight routine, and that a fix which only adds a timeout or a retry is refused.
-- **Look at:** The `keel-climb/hygiene/…` pull request or issue, and the test it names.
-- **Choices:** Merged the fix | Closed it | The issue it filed is right
-- **Takes:** 10 minutes
-- **Then:** Merged the fix: recorded, and this is done. Closed it: recorded; say why in the note, and the conductor looks again. The issue it filed is right: recorded, and this is done; the issue stays open as work.
-- **Ready when:** plates's test record names a flaky test and a climb night has worked on it (none named so far).
 
 ## Real surfaces
 

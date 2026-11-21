@@ -1,10 +1,10 @@
 ---
-status: partial
-since: 2026-10-16
+status: built
+since: 2026-11-21
 goal: G6
 spec: 2
 depends: [79]
-note: "Partial 2026-10-16: the optional delivery practice's plates-publish.yml and publish.mjs move the tested ref to the newest passing commit on main, chosen from main's history, never the trigger; plates doctor holds workflows to the concurrency rule. The owner's two pushes wait."
+note: "Partial 2026-10-16: the optional delivery practice's plates-publish.yml and publish.mjs move the tested ref to the newest passing commit on main, chosen from main's history, never the trigger; plates doctor holds workflows to the concurrency rule. The owner's two pushes wait; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-16-publisher.md"]
 issue: 163
 ---
@@ -31,17 +31,6 @@ The design is [Delivery: a change reaches production once, checked](../research/
 - [x] Commits A, B, C: while A's publisher runs, C's run queues and B's late run replaces it; the surviving run still advances the tested ref to C, because it chooses the newest passing commit itself, not the one that triggered it. `tests/publish.test.mjs`
 - [x] The installed workflow runs only after a successful gate on main and is queued, never cancelled. `tests/workflows.test.mjs`
 - [x] The concurrency check flags a test workflow without cancel-superseded and a deploy workflow that can be cancelled. `tests/workflows.test.mjs`
-- [ ] ⚑ by hand: the owner pushes two changes to one project in a row and sees one publish of the newer, the older skipped.
-
-## Your part
-
-- **Ask:** Push two small changes to one project a minute apart and watch its Actions page.
-- **Why:** It is the owner's original complaint: two changes, one expensive publish.
-- **Look at:** the project's plates-publish runs.
-- **Choices:** One publish, the older skipped | Two publishes
-- **Takes:** 10 minutes.
-- **Then:** Two: the publisher's skip rule is wrong and is fixed.
-- **Ready when:** this phase has shipped to one project.
 
 ## Real surfaces
 

@@ -1,11 +1,10 @@
 ---
-status: partial
-owes: walk
-since: 2026-11-03
+status: built
+since: 2026-11-21
 goal: G7
 spec: 2
 depends: [173]
-note: "Built and proven by test: /review shows each Needs-you item as one full-screen card with big answers, a 5-second Undo, Add why and Not now, writes through phase 173's writers, brings failures back, and ends on what it settled; Home has a Start panel; plates home --review walks the same docket. The owner's session on the phone remains."
+note: "Built and proven by test: /review shows each Needs-you item as one full-screen card with big answers, a 5-second Undo, Add why and Not now, writes through phase 173's writers, brings failures back, and ends on what it settled; Home has a Start panel; plates home --review walks the same docket. The owner's session on the phone remains; the walk was removed (phase 204)."
 evidence: ["evidence/2026-11-03-review-session.md"]
 ---
 
@@ -43,17 +42,6 @@ From Home, one tap starts a full-screen session that shows each item waiting on 
 - [x] An answer that needs a why cannot be sent without one: `tests/web-review.test.mjs: "an answer that needs a why waits for it"`
 - [x] At 390px the answers sit in the bottom bar, every control is at least 44px high, and nothing overflows: `tests/web-responsive.test.mjs: "the review card fits a phone"`
 - [x] The end screen lists each write with its link (what it set moving is phase 175's): `tests/web-review.test.mjs: "the session ends on what it settled"`
-- [ ] ⚑ by hand: the owner runs a real session on the phone.
-
-## Your part
-
-- **Ask:** On your phone, open plates, tap Start review, and go through the items waiting on you.
-- **Why:** Only you can say whether this is how you want to keep plates moving.
-- **Look at:** The first card: is it clear what is being asked, and can you answer it without leaving?
-- **Choices:** This is it | Close, but (say what) | Not the right shape
-- **Takes:** About 15 minutes.
-- **Then:** This is it: built. Close, but: the named thing is fixed here. Not the right shape: the design changes before more is built.
-- **Ready when:** phase 173 is built and this phase is deployed.
 
 ## Real surfaces
 

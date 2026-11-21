@@ -41,7 +41,6 @@ Plates work: deciding, walking, reading what changed and what ran.
 
 - [x] The activation plan lists every remaining hosted step with its rollback, and a step whose prerequisite phase is not built is refused: `tests/web-activation-plan.test.mjs: "the activation plan is complete and ordered"`.
 - [ ] Every activated feature has a hosted proof recorded (request, response status, the migration's applied version), and none relies on local proof alone: ⚑ by hand: the conductor, with the owner signed in.
-- [ ] A week of real use from the workspace, and the walks it settles recorded from it: ⚑ by hand: the owner.
 
 ## Your part
 

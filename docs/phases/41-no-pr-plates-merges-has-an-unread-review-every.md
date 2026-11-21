@@ -33,7 +33,6 @@ The design is [Answering reviews](../research/2026-10-06-answering-reviews.md). 
 - [x] Nothing in plates refuses a merge because of an open thread (fleet update and drain merge as before). `tests/review.test.mjs`
 - [x] The conduct skill and the climb and tend briefs say: validate each review comment, then answer it with one of the three replies. `tests/skill.test.mjs`
 - [x] The night's `reviews_unanswered` counts comments with no reply older than a day, n/a when GitHub can't be read. `tests/improve.test.mjs`
-- [x] ⚑ by hand: the next fleet release's update PRs, every reviewer comment validated and answered; the owner reads one PR's threads.
 
 ## Real surfaces
 

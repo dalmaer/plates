@@ -1,11 +1,10 @@
 ---
-status: partial
-owes: walk
-since: 2026-10-31
+status: built
+since: 2026-11-21
 goal: G7
 spec: 2
 depends: [97, 151]
-note: "Plain block, freshness, safe markdown, small reports and a too-large message are built and tested; the owner's walk waits for the hosted build to move forward."
+note: "Plain block, freshness, safe markdown, small reports and a too-large message are built and tested; the owner's walk waits for the hosted build to move forward; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-31-plain-decisions.md"]
 ---
 
@@ -48,17 +47,6 @@ and every current health report is small enough for the workspace to open.
 - [x] The workspace decision page shows the plain block first and renders the proposal's markdown with no raw `**` or backticks and no unescaped HTML: `tests/plain-decisions.test.mjs: "the decision page leads with the plain question"`.
 - [x] A health report built from a fleet's worth of reconciliation observations stays under 128 KiB, and its readers (the canvas snapshot, the decision reader) still find the full set: `tests/plain-decisions.test.mjs: "a health report stays small enough to open"`.
 - [x] A source file over the workspace's per-file limit is answered as too large, naming the limit, not as a connection failure: `tests/plain-decisions.test.mjs: "a file too large to open says so"`.
-- [ ] The owner opens a current proposal in the hosted workspace and can say what is being decided without help: ⚑ by hand: the owner, after the hosted build moves forward (phase 151).
-
-## Your part
-
-- **Ask:** Open the newest health proposal in the workspace and say whether you can tell, without help, what you are being asked to decide.
-- **Why:** It settles whether decisions are clear enough to make from your phone.
-- **Look at:** The decision page for the newest health report.
-- **Choices:** Clear enough | Still confusing
-- **Takes:** About 5 minutes.
-- **Then:** Clear enough closes the phase; still confusing records what confused you and the wording is reworked.
-- **Ready when:** the hosted workspace runs a build that includes this phase.
 
 ## Real surfaces
 

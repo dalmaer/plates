@@ -1,12 +1,10 @@
 ---
-status: partial
-owes: walk
-waits: owner
-since: 2026-10-12
+status: built
+since: 2026-11-21
 goal: G0
 spec: 2
 depends: [48]
-note: "Built 2026-10-12: plates review counts rounds, exits 3 at the limit with findings sorted by the merge rule, and --class sorts a finding without answering it. The owner's read of the first real PR past three rounds remains."
+note: "Built 2026-10-12: plates review counts rounds, exits 3 at the limit with findings sorted by the merge rule, and --class sorts a finding without answering it. The owner's read of the first real PR past three rounds remains; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-12-review-rounds.md"]
 issue: 114
 ---
@@ -37,17 +35,6 @@ Not in scope: plates merging anything, or judging a finding's class.
 - [x] `--class` alone records the class and leaves the finding unanswered: `--gate` still fails on it. With `--close` it is recorded with the answer. `tests/review-rounds.test.mjs`
 - [x] A finding that arrives in the round that reaches the limit, classed and unanswered, is listed under "fix first" or "track"; an open finding with no class is listed as unsorted, never as "track". `tests/review-rounds.test.mjs`
 - [x] The board shows a PR past its limit as the owner's, and the conduct skill names the rule. `tests/board.test.mjs`, `tests/skill.test.mjs`
-- [ ] ⚑ by hand: the next plates PR to pass three rounds reaches the owner with a sorted list, and the owner says whether the list was enough to decide.
-
-## Your part
-
-- **Ask:** The next time a plates change is still drawing review comments after three rounds, read the list plates gives you and pick one: merge with the rest tracked, split it, or close it.
-- **Why:** On 2026-10-10 one change went ten rounds before anyone decided; this puts the decision in front of you at three.
-- **Look at:** `plates review <the PR>`, which prints the choice and the sorted findings.
-- **Choices:** The list was enough to decide | I had to read the threads myself
-- **Takes:** 10 minutes.
-- **Then:** Enough: the phase is built. Not enough: what was missing goes into the list.
-- **Ready when:** a plates PR has passed three review rounds after this ships.
 
 ## Real surfaces
 

@@ -1,11 +1,10 @@
 ---
-status: partial
-owes: walk
-since: 2026-10-17
+status: built
+since: 2026-11-21
 goal: G0
 spec: 2
 depends: [70, 73]
-note: "Built 2026-10-17: tests/helpers/property.mjs (seeded, shrinking, zero-dependency) drives properties over the plan validator, ticks and the morning's merge, claims and front matter in the gate, each also run against planted bugs. They found two real bugs on their first run (a readyBy on an impossible day accepted; an impossible since thrown as a bare RangeError), fixed apart. Owes the owner one read of a shrunk failure."
+note: "Built 2026-10-17: tests/helpers/property.mjs (seeded, shrinking, zero-dependency) drives properties over the plan validator, ticks and the morning's merge, claims and front matter in the gate, each also run against planted bugs. They found two real bugs on their first run (a readyBy on an impossible day accepted; an impossible since thrown as a bare RangeError), fixed apart. Owes the owner one read of a shrunk failure; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-17-properties.md"]
 issue: 170
 ---
@@ -33,17 +32,6 @@ The design is [Verification: tests that tell right from plausibly wrong](../rese
 - [x] The plan, tick and front-matter properties pass, and each fails on a planted bug of its kind (an impossible date accepted, an order-dependent merge). `tests/properties.test.mjs`
 - [x] The claim race property holds for N racers. `tests/properties.test.mjs`
 - [x] Properties run in `npm run check` within the test budget. `tests/properties.test.mjs`
-- [ ] ⚑ by hand: none beyond the gate; the owner reads one shrunk failure if one appears in review.
-
-## Your part
-
-- **Ask:** If a property fails in review or the night, read its shrunk case.
-- **Why:** It shows whether the smallest case makes the bug obvious.
-- **Look at:** the failing test's output.
-- **Choices:** Obvious | Still hard to read
-- **Takes:** 10 minutes.
-- **Then:** Hard: the shrinker or the report is improved.
-- **Ready when:** a property has failed for real. Ready: two did on their first run (the evidence's "Real bugs found", seed 283816414).
 
 ## Real surfaces
 

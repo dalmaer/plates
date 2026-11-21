@@ -28,7 +28,7 @@ The design is [Adopting projects that already have a practice](../research/2026-
 
 - [x] Contracts render into the guide, doctor notes a missing doc or an unmatched pattern, and the hook prints the doc for a matching path and stays silent otherwise. `tests/contracts.test.mjs`
 - [x] The platform-guard lint fails a test file calling `hdiutil` without a darwin skip, and passes one with it; a project's added tool is checked too. `tests/doctor.test.mjs`
-- [ ] ⚑ by hand: one adopted project's contracts set, and an agent's edit near one shown the doc first.
+- [ ] ⚑ try: the owner: one adopted project's contracts set, and an agent's edit near one shown the doc first.
 
 ## Your part
 

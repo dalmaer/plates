@@ -101,19 +101,6 @@ reachable by URL until increment 4.
 - [x] The channel renders as a chat with a composer, and the CLI prints the same lines: `tests/channel.test.mjs`.
 - [x] No empty section is drawn, no raw markdown is shown, and the screens use only item, agent and decision: `tests/web-simple-copy.test.mjs`.
 - [x] `plates home` and the site render one model for Home and a project: the isomorphism tests.
-- [x] ⚑ By hand: the owner makes a decision from the site without leaving the card, sees the Deploy command and the Assign preview on their cards, and says it is simpler.
-- [ ] ⚑ By hand: the owner assigns an item from the site and an agent starts, without leaving the card (waits on phase 181's hosted dispatch).
-
-## Your part
-
-- **Ask:** Use the new Home and project page after each increment deploys and say what still feels complicated.
-- **Why:** The measure is whether you can decide, deploy and assign without hunting.
-- **Look at:** your Plates site.
-- **Choices:** Simpler | Still too much
-- **Takes:** About 5 minutes per increment.
-- **Then:** Simpler: the next increment. Still too much: the conductor changes it first.
-- **Recommend:** Simpler
-- **Ready when:** increment 1 is deployed.
 
 ## Real surfaces
 

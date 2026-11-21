@@ -41,7 +41,6 @@ The design is [The PR a person reads](../research/2026-10-06-pr-and-retro.md).
 - [x] `pr-body.mjs` writes the three sections in order from structured input; a missing evidence row is written as "none recorded", never dropped; mutation: dropping Merge danger fails the test. `tests/pr-body.test.mjs`
 - [x] A fleet update whose migrations rewrite project files is marked one-way, a re-render only two-way. `tests/update.test.mjs`
 - [x] The night's data PR body comes from `pr-body.mjs`, and its inline script passes `bash -n` and `node --check`. `tests/workflows.test.mjs`
-- [x] ⚑ by hand: one real fleet update PR, in an adopted project, read by the owner in that form.
 - [x] On GitHub, the next plates night's data PR has the three sections. `gh pr view <n> -R dalmaer/plates --json body`
 
 ## Real surfaces

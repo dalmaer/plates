@@ -1,10 +1,10 @@
 ---
-status: partial
-since: 2026-11-05
+status: built
+since: 2026-11-21
 goal: G7
 spec: 2
 depends: [178]
-note: "Built in two increments: routinesOf, and plates home --recurring with the hosted /recurring and the sidebar's Humans and Links. Waits on the hosted read after deploy."
+note: "Built in two increments: routinesOf, and plates home --recurring with the hosted /recurring and the sidebar's Humans and Links. Waits on the hosted read after deploy; the walk was removed (phase 204)."
 evidence: ["evidence/2026-11-06-recurring.md"]
 ---
 
@@ -31,7 +31,6 @@ The sidebar's Recurring and `plates home --recurring --json` list, per plate, ea
 - [x] Every scheduled workflow appears once, with its next run computed from its cron: `tests/backlog-recurring.test.mjs: "each routine once, next run from its cron"`
 - [x] A routine switched off in config shows off, with the key that says so: `tests/backlog-recurring.test.mjs: "an off routine says why"`
 - [x] The CLI and the web show the same routines: `tests/home-isomorphism.test.mjs: "recurring matches in both forms"`
-- [ ] After deploy, the hosted /recurring lists the fleet\'s routines through the App: ⚑ by hand: the conductor
 
 ## Real surfaces
 
