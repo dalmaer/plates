@@ -213,6 +213,61 @@ acceptable.
 Steps 2 and 3 are where the real design work is. Steps 1 and 4 are plumbing plates
 already has.
 
+## Migrating a project, then turning plates off
+
+Each project moves in four stages. Plates stays installed until the last one, so every
+stage before it can be undone.
+
+**Stage 0: connected (done 2026-11-21 for the whole fleet).** Each project has a
+workspace found by its GitHub repo, its open phases are items, and the mapping is in
+`.plates/plates.json` (phase 200).
+
+**Stage 1: drive from Unison, with plates underneath.** You add, order and discuss work in
+Unison. Plates keeps the phase files, runs the checks and the night shift, and deploys.
+It needs:
+- phase changes reaching Unison on their own (phase 200, step 3);
+- one claim (201);
+- questions and answers in Unison (202);
+- walks becoming optional Try its (204).
+
+**Stage 2: the plan moves into Unison.** This needs Unison's planned items.
+1. A one-time **import** (phase 205) writes each open phase into its item's fields:
+   - Done when goes to Done when;
+   - each acceptance box becomes a check (a named test is `test:`, anything else `link:`);
+   - `depends:` becomes Needs.
+2. The phase files are then **frozen** as history, each saying where its plan now lives.
+   Projects that want the plan in git keep Unison's export instead.
+3. New work starts with "Plan this".
+
+**Stage 3: proof moves to CI.**
+1. The repo gains the proof-report Action.
+2. One item is proven end to end: a PR merges, its `test:` check ticks itself, and the
+   item closes.
+3. Evidence files stay as history.
+
+**Stage 4: turn plates off.**
+1. **`plates eject`** (phase 206) makes every file plates manages the project's own. Plates
+   already supports this per file through `.plates/plates.json` `"ejected"`. Eject removes
+   each file's plates markers and removes `.plates/`.
+2. For each plates job, eject either keeps it as a plain workflow the project owns (the CI
+   gate, cross-review, deploy) or drops it (night-shift climbs, lessons, health). Any
+   night-shift job worth keeping becomes a Unison Recurring item.
+3. The project leaves plates's fleet. Its workspace and history stay.
+
+**Before turning plates off, check that:**
+- every open phase is a planned item with checks;
+- the proof Action has ticked at least one check;
+- claims happen in Unison;
+- no workflow calls a plates script;
+- Recurring holds the jobs kept.
+
+**Across the fleet:**
+1. One small project goes first: study, rehearsed in
+   docs/research/2026-11-21-migration-rehearsal.md.
+2. The rest follow in batches. Projects with their own phase layouts (local variants, the
+   projects shape) go the same way, since sync already reads them.
+3. plates itself goes last, keeping export on so its plan stays in git.
+
 ## Open questions
 
 - **Is the plan in Unison enough of a record?** Unison keeps edit history in its

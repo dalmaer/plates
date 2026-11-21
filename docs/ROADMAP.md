@@ -3,7 +3,7 @@
 
 Keep your projects moving: shared practices, bounded automation, and a clear view of what needs you. [Working rules](../AGENTS.md) · [Design](design.md) · [Lessons](lessons.md)
 
-**76 of 198 phases built; 76 owe a walk.** Built means implemented and checked; planned is not available.
+**76 of 200 phases built; 76 owe a walk.** Built means implemented and checked; planned is not available.
 
 **Next focus:** [50. A project's isocan canvas shows what Plates improves](phases/50-project-life-on-isocan.md). The approved reporting workspace already uses the fixed `loop-across-projects` key and live mode (configured 14 October). Do not repeat that setup. The 19 October publication preflight stopped because the owner-only adapter rejects the owner's explicitly approved named Editor grant. Specify and review exact approved-grant matching before implementing that support; preserve the grant, writer, binding, historical cards and receipts. Do not remove access or bypass preflight. Once supported, verify one real create, a later conditional edit and a refusal after a human edit. These deployed walks remain unverified. Dedicated GitHub writer/restart proof and seven scheduled nights remain separate work. Do not ask again for the approved destination, writer or retained dashboards.
 
@@ -473,7 +473,7 @@ Plates provides one management experience from project sets to each plate, its w
 
 Plates stays small where it is distinctive (practice, evidence and proof, lessons, health and the policy for risk, doors and capacity) and adopts mature open parts for telemetry, host permissions, session execution and live monitoring, behind boundaries an agent can extend without breaking.
 
-4/13 built; 3 owe a walk.
+4/15 built; 3 owe a walk.
 
 | Phase | Status | Since | Depends on | Why it stands here |
 | --- | --- | --- | --- | --- |
@@ -490,6 +490,8 @@ Plates stays small where it is distinctive (practice, evidence and proof, lesson
 | [201. One claim, held in Unison, with a lease](phases/201-one-claim-held-in-unison-with-a-lease.md) | planned | 2026-11-20 | [200](phases/200-each-plate-s-work-is-its-unison-backlog.md) | Filed: for a plate with a Unison workspace, a phase's claim is its item's assignee and lease, renewed by working and fenced so a lapsed holder cannot land. |
 | [202. Agents and I talk in Unison](phases/202-agents-and-i-talk-in-unison.md) | planned | 2026-11-20 | [200](phases/200-each-plate-s-work-is-its-unison-backlog.md), [201](phases/201-one-claim-held-in-unison-with-a-lease.md) | Filed: an agent's ask is a Unison action on its phase's item; the owner's reply reaches the agent through unison wait; Home lists the asks and links to their threads. |
 | [203. Plates links to Unison for backlog, chat, recurring and agents](phases/203-plates-links-to-unison-for-backlog-chat-and.md) | planned | 2026-11-20 | [200](phases/200-each-plate-s-work-is-its-unison-backlog.md), [201](phases/201-one-claim-held-in-unison-with-a-lease.md), [202](phases/202-agents-and-i-talk-in-unison.md) | Filed: plates's backlog, chat and channel, Recurring view and agents sidebar are removed from the CLI and the site; each becomes a link to the plate's Unison workspace. |
+| [205. A project's open phases move into Unison as planned items](phases/205-a-project-s-open-phases-move-into-unison-as.md) | planned | 2026-11-21 | [200](phases/200-each-plate-s-work-is-its-unison-backlog.md) | Filed: a one-time import writes each open phase into its Unison item's planned fields, by box class, and freezes the phase file; waits on Unison's planned items. |
+| [206. plates eject hands a project everything plates manages](phases/206-plates-eject-hands-a-project-everything-plates.md) | planned | 2026-11-21 | [200](phases/200-each-plate-s-work-is-its-unison-backlog.md) | Filed: plates eject makes every managed file the project's own, rewrites or reports references to plates scripts, removes .plates/, and proves the project's own check still passes. |
 
 - **142 done when:** `docs/design.md` names what Plates owns, what it adopts and what it watches, and the gate fails when a verb or flag is added without that boundary saying the new surface belongs to Plates.
 - **143 done when:** Agent runs that Plates starts in a project (robot, cross-review, night, climb) export the agent CLI's own OpenTelemetry metrics and traces, tagged with project, phase, job and experiment, to the backend the owner chose, and a run without a configured backend still runs and says telemetry is off.
@@ -504,6 +506,8 @@ Plates stays small where it is distinctive (practice, evidence and proof, lesson
 - **201 done when:** For a plate with a Unison workspace, claiming a phase in plates and starting its item in Unison are one act with one holder, shown live in Unison and on Home; the claim lapses after a lease unless its holder keeps working; and a holder whose lease lapsed cannot integrate or merge over the next holder.
 - **202 done when:** For a plate with a Unison workspace, an agent that needs the owner (`plates ask`, or a walk in a phase's Your part) raises it as a Unison action message on the phase's item; the owner's reply in that thread reaches the agent through `unison wait` without plates typing into a pane; and Home lists each open ask with a link to its thread and whether it was answered.
 - **203 done when:** Plates has no backlog, chat or channel, Recurring view or agents sidebar of its own, in the CLI or on the site; where each was, a plate with a workspace shows a link to the same place in its Unison workspace, and a plate without one shows Home's offer to make one; and Home, phases, `plates next`, reviews, deploys and the night shift work as before.
+- **205 done when:** `plates unison import` on a connected project writes each open phase into its Unison item's planned-item fields: the Done when, one check per acceptance box (by class), and Needs from `depends:`. It then marks each phase file frozen, saying where its plan now lives. An item that would be left with no check is flagged rather than created bare. The import changes nothing until its plan has been shown and confirmed, and running it twice changes nothing.
+- **206 done when:** `plates eject` on a project shows its plan first, then opens one PR. The PR: - makes every file plates manages either the project's own (plates markers removed) or removed, by practice; - rewrites every reference to `scripts/plates/` in files the project owns, or reports it; - removes `.plates/`; - takes the project out of plates's fleet. The project's own `npm run check` passes on that PR in a clean clone. No workflow is left calling a script that no longer exists. Before that PR, nothing changes.
 
 ## Updating this roadmap
 
