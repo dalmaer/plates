@@ -8,8 +8,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PGlite } from '@electric-sql/pglite';
 import { parseSession, QUESTION_CHARS as LOOSE_QUESTION_CHARS } from '../lib/looseends.mjs';
-import { homePlateOf, validSnapshot, waitingRows, runmeRows, scriptPlate, QUESTION_CHARS } from '../lib/waiting-sessions.mjs';
-import { scanWaitingSessions, scanRunme } from '../lib/waiting-scan.mjs';
+import { homePlateOf, validSnapshot, waitingRows, runmeRows, scriptPlate, labelPlate, paneLabel, QUESTION_CHARS } from '../lib/waiting-sessions.mjs';
+import { scanWaitingSessions, scanRunme, scanRexPanes } from '../lib/waiting-scan.mjs';
 import { createHash } from 'node:crypto';
 import { createWaitingStore } from '../lib/web/waiting-store.mjs';
 import { push } from '../lib/sessions.mjs';
@@ -195,7 +195,8 @@ test('the push route takes a device key and nothing else; the CLI pushes this ma
   const wide = n => '漢'.repeat(n);
   const largest = { schema: 1, machine: 'Acme Mac', scannedAt: at(29),
     sessions: Array.from({ length: 50 }, (_, i) => ({ id: `s${i}`, plate: 'studio', title: `🏠 [studio] ${wide(108)}`, question: wide(500), since: at(1) })),
-    scripts: Array.from({ length: 50 }, (_, i) => ({ name: `20261115-0900-acme-${i}`, why: wide(300), checked: true, since: at(1) })) };
+    scripts: Array.from({ length: 50 }, (_, i) => ({ name: `20261115-0900-acme-${i}`, why: wide(300), checked: true, since: at(1) })),
+    panes: Array.from({ length: 50 }, (_, i) => ({ block: `block:${String(i).padStart(100, 'a')}`, sid: `session:${String(i).padStart(100, 'b')}`, session: 's'.repeat(128), tab: 't'.repeat(64), app: 'a'.repeat(40), kind: 'permission', since: at(1) })) };
   assert.ok(validSnapshot(largest), 'the bound case is a valid snapshot');
   assert.ok(Buffer.byteLength(JSON.stringify(largest)) > 65536, 'and larger than the old limit');
   assert.equal((await call(`Bearer ${key}`, JSON.stringify(largest))).status, 200);
@@ -279,4 +280,112 @@ test('a single plate\'s hosted Home lists only that plate\'s waiting sessions an
   const one = await createHomeReader(h.config, { fetcher, now: () => h.state.now })(access, 'fake-user-access-token-for-tests', { projectId: 'studio' });
   const keys = one.docket.map(e => e.key).filter(k => /:(session|runme):/.test(k));
   assert.deepEqual(keys, ['studio:session:s1'], 'only Studio\'s own; the Forge session and script stay off Studio\'s page');
+});
+
+// Phase 199: Rex panes whose program reports (OSC 7501) that it is blocked on the owner.
+/** A stub `rex` on PATH that answers ls, block ls and program_status from a fixture, and logs each call. */
+async function stubRex(t, { sessions, blocks, statuses, fail = null }) {
+  const dir = await mkdtemp(join(tmpdir(), 'plates-rex-panes-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  await writeFile(join(dir, 'fixture.json'), JSON.stringify({ sessions, blocks, statuses, fail }));
+  await writeFile(join(dir, 'rex.mjs'), `
+import { readFileSync, appendFileSync } from 'node:fs';
+const f = JSON.parse(readFileSync(${JSON.stringify(join(dir, 'fixture.json'))}, 'utf8'));
+const a = process.argv.slice(2);
+appendFileSync(${JSON.stringify(join(dir, 'calls.log'))}, JSON.stringify(a) + '\\n');
+if (f.fail && a.join(' ').includes(f.fail)) { process.stderr.write('refused'); process.exit(3); }
+if (a[0] === 'ls') console.log(JSON.stringify({ sessions: f.sessions }));
+else if (a[0] === 'block') console.log(JSON.stringify({ blocks: a[3] in f.blocks ? f.blocks[a[3]] : [] }));
+else if (a[0] === 'api') console.log(JSON.stringify(f.statuses[JSON.parse(a[5]).block_id] ?? { records: [] }));
+`);
+  await writeFile(join(dir, 'rex'), `#!/bin/sh\nexec "${process.execPath}" "${join(dir, 'rex.mjs')}" "$@"\n`);
+  await chmod(join(dir, 'rex'), 0o755);
+  return { env: { PATH: dir, HOME: dir }, calls: async () => (await readFile(join(dir, 'calls.log'), 'utf8')).trim().split('\n').map(l => JSON.parse(l)) };
+}
+const term = (id, label) => ({ block_id: `block:${id}`, label, flavor: 'com.superlogical.terminal.shell' });
+const record = (state, extra = {}) => ({ records: [{ state, app: 'codex', updated_at: at(5), title: 'Acme secret title', msg: 'Acme secret message', ...extra }] });
+
+test('a blocked Rex pane is kept with only its place and kind', async t => {
+  const rex = await stubRex(t, {
+    sessions: [{ session_id: 'session:a1', label: 'anvils-codex' }],
+    blocks: { 'session:a1': [term('b1', 'phase-7'), term('b2', 'shell')] },
+    statuses: { 'block:b1': record('blocked', { kind: 'permission' }) },
+  });
+  const panes = await scanRexPanes({ env: rex.env });
+  assert.deepEqual(panes, [{ block: 'block:b1', sid: 'session:a1', session: 'anvils-codex', tab: 'phase-7', app: 'codex', kind: 'permission', since: at(5) }]);
+  assert.doesNotMatch(JSON.stringify(panes), /secret/, 'a record\'s title and message are never kept');
+  assert.ok((await rex.calls()).every(c => c[0] === 'ls' || (c[0] === 'block' && c[1] === 'ls') || (c[0] === 'api' && JSON.parse(c[5]).method === 'program_status')), 'only reads: no write, send or capture');
+  const snap = validSnapshot({ schema: 1, machine: 'Acme Mac', scannedAt: at(9), sessions: [], scripts: [], panes });
+  const row = waitingRows([snap], { plates: ['anvils'], now: Date.parse(at(10)) });
+  assert.deepEqual(row.items.map(i => [i.kind, i.plate, i.title, i.why, i.read]), [['pane', 'anvils', 'phase-7 in anvils-codex is waiting on you', 'codex is asking for permission.', 'rex focus -s session:a1 block:b1']]);
+});
+
+test('only blocked panes on known plates are listed', async t => {
+  const rex = await stubRex(t, {
+    sessions: [{ session_id: 'session:a1', label: 'anvils-claude' }, { session_id: 'session:z9', label: 'zinc-codex' }],
+    blocks: { 'session:a1': ['working', 'idle', 'done', 'error', 'child', 'blocked'].map(s => term(s, `tab-${s}`)), 'session:z9': [term('z', 'phase-1')] },
+    statuses: { 'block:working': record('working'), 'block:idle': record('idle'), 'block:done': record('done'), 'block:error': record('error'),
+      'block:child': { records: [{ id: 'build/test', state: 'blocked', kind: 'question' }, { state: 'working' }] },
+      'block:blocked': record('blocked', { kind: 'mystery' }), 'block:z': record('blocked', { kind: 'auth' }) },
+  });
+  const panes = await scanRexPanes({ env: rex.env });
+  assert.deepEqual(panes.map(p => [p.block, p.kind]), [['block:blocked', null], ['block:z', 'auth']], 'a child record is a program\'s detail; an unknown kind is left out');
+  const row = waitingRows([validSnapshot({ schema: 1, machine: 'Acme Mac', scannedAt: at(9), sessions: [], scripts: [], panes })], { plates: ['anvils'], now: Date.parse(at(10)) });
+  assert.deepEqual(row.items.map(i => [i.plate, i.why]), [['anvils', 'codex says it is blocked on you.']]);
+  assert.match(row.why, /1 for plates not shown here/);
+  assert.equal(labelPlate('anvils-forge-codex', ['anvils', 'anvils-forge']), 'anvils-forge', 'the longest plate wins');
+  assert.equal(labelPlate('anvilsx', ['anvils']), null);
+});
+
+test('no Rex is not read, never none', async t => {
+  assert.equal(await scanRexPanes({ env: { PATH: '/nonexistent' } }), null, 'no rex on PATH');
+  const refused = await stubRex(t, { sessions: [{ session_id: 'session:a1', label: 'anvils-codex' }], blocks: { 'session:a1': [term('b1', 'phase-7')] }, statuses: {}, fail: 'program_status' });
+  assert.equal(await scanRexPanes({ env: refused.env }), null, 'one refused call is the whole read unread');
+  for (const [name, fixture] of [['sessions', { sessions: null, blocks: {}, statuses: {} }],
+    ['blocks', { sessions: [{ session_id: 'session:a1', label: 'anvils-codex' }], blocks: { 'session:a1': null }, statuses: {} }],
+    ['records', { sessions: [{ session_id: 'session:a1', label: 'anvils-codex' }], blocks: { 'session:a1': [term('b1', 'phase-7')] }, statuses: { 'block:b1': { other: [] } } }]]) {
+    const odd = await stubRex(t, fixture);
+    assert.equal(await scanRexPanes({ env: odd.env }), null, `an answer without ${name} is unread, never none`);
+  }
+  const snap = validSnapshot({ schema: 1, machine: 'Acme Mac', scannedAt: at(9), sessions: [], scripts: [] });
+  assert.equal('panes' in snap, false);
+  assert.match(waitingRows([snap], { plates: ['anvils'], now: Date.parse(at(10)) }).why, /Rex panes not read on Acme Mac/);
+  const read = validSnapshot({ ...snap, panes: [] });
+  assert.doesNotMatch(waitingRows([read], { plates: ['anvils'], now: Date.parse(at(10)) }).why, /Rex panes not read/, 'read and none is not unread');
+});
+
+test('a pane field the snapshot does not hold is refused', () => {
+  const pane = { block: 'block:b1', sid: 'session:a1', session: 'anvils-codex', tab: 'phase-7', app: 'codex', kind: 'question', since: at(5) };
+  const snap = { schema: 1, machine: 'Acme Mac', scannedAt: at(9), sessions: [], scripts: [], panes: [pane] };
+  assert.deepEqual(validSnapshot(snap), snap);
+  for (const bad of [{ ...pane, msg: 'x' }, { ...pane, block: 'b1' }, { ...pane, kind: 'mystery' }, { ...pane, session: 'a/b' }, { ...pane, app: 'a b' }, { ...pane, since: 'soon' }, { ...pane, session: ['anvils-codex'] }, { ...pane, block: ['block:b1'] }, { ...pane, app: ['codex'] }, { ...pane, sid: 'anvils-codex' }, { ...pane, sid: undefined }])
+    assert.equal(validSnapshot({ ...snap, panes: [bad] }), null, JSON.stringify(bad));
+  assert.equal(validSnapshot({ ...snap, panes: Array(51).fill(pane) }), null, 'at most 50');
+  assert.equal(paneLabel('🏠 [anvils] codex'), 'anvils- codex', 'other characters become hyphens, trimmed at the ends');
+  assert.equal(paneLabel('🏠'), null, 'nothing left is no label');
+});
+
+test('plates sessions waiting shows blocked panes, and says when Rex was not read', async t => {
+  const { waiting } = await import('../lib/sessions.mjs');
+  const rex = await stubRex(t, { sessions: [{ session_id: 'session:a1', label: 'anvils-codex' }], blocks: { 'session:a1': [term('b1', 'phase-7')] },
+    statuses: { 'block:b1': record('blocked', { kind: 'question' }) } });
+  const env = { ...rex.env, PLATES_CLAUDE_DIR: join(rex.env.HOME, 'none'), RUNME_DIR: join(rex.env.HOME, 'no-queue') };
+  const shown = await waiting({ env, machine: 'Acme Mac', now: Date.parse(at(10)) });
+  assert.match(shown.text, /Rex panes waiting on you \(1\)\n  phase-7 in anvils-codex: codex asking you a question \(since [^)]+\)\n    rex focus -s session:a1 block:b1/);
+  const none = await waiting({ env: { ...env, PATH: '/nonexistent' }, machine: 'Acme Mac', now: Date.parse(at(10)) });
+  assert.match(none.text, /Rex panes waiting on you\n  not read/);
+});
+
+test('a pane card is answered in its pane or put off, never from Home, and matches plates as attach labels them', async () => {
+  const { KINDS, answersFor } = await import('../lib/work-items.mjs');
+  assert.equal(KINDS.pane.label, 'Rex pane');
+  const item = { plate: 'anvils', kind: 'pane', ref: 'here:block:b1', machine: 'Acme Mac', read: 'rex focus -s session:a1 block:b1', waits: 'owner' };
+  const answers = answersFor(item, { form: 'web' });
+  assert.deepEqual(answers.map(a => a.id), ['answer', 'not-now']);
+  assert.equal(answers[0].unavailable.command, 'rex focus -s session:a1 block:b1', 'its own focus command, never run from Home');
+  assert.equal(labelPlate('acme-tools-codex', ['acme--tools']), 'acme--tools', 'rexLabel collapses repeated hyphens; the plate id is kept');
+  const long = 'a'.repeat(64), session = paneLabel(`${long}-codex`, 128);
+  assert.equal(labelPlate(session, [long]), long, 'a 64-character plate survives into its session label');
+  assert.ok(validSnapshot({ schema: 1, machine: 'Acme Mac', scannedAt: at(9), sessions: [], scripts: [], panes: [{ block: 'block:b1', sid: 'session:a1', session, tab: 'phase-7', app: null, kind: null, since: null }] }));
+  assert.ok(paneLabel('x'.repeat(80)).length <= 64, 'a tab label is still clipped to 64');
 });

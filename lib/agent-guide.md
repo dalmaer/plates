@@ -1815,8 +1815,14 @@ snapshot (each session's id, plate, title, since, and its question, at most
 500 characters) to the owner's workspace with this device's key, read from
 `PLATES_DEVICE_KEY` or the keychain item `plates-device-key`, never printed.
 It also lists, and sends, the `runme` queue's scripts (name, `# why:`, checked;
-never contents): Home's Scripts waiting for you to run. Keys are made and
-revoked on the workspace's Devices page (SQL022).
+never contents): Home's Scripts waiting for you to run. With `rex` on PATH it
+also lists, and sends, each Rex pane whose program reported (OSC 7501) that it
+is blocked on the owner: the block and session ids, the session's and tab's labels, the app,
+the kind (`permission`, `question`, `auth`) and when (never a pane's contents or
+a program's own words). A pane is on the plate its session label names
+(`plates-codex` → plates) and its command is `rex focus -s <session id> <block id>`.
+No Rex, or a Rex that fails, sends no `panes`, and Home says Rex panes were not
+read. Keys are made and revoked on the workspace's Devices page (SQL022).
 
 `--json` → `{projects: [{repo, dir, checkout, github, notes, items: [{id,
 kind, fingerprint, title, detail, phase, at, age, move, commands, state,
