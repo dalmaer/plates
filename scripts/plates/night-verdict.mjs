@@ -125,16 +125,24 @@ export const FATAL_HISTORY = Object.freeze(['recovery-unavailable']);
 /**
  * flaky_tests made unreadable when the history it reads could not be recovered:
  * a fatal gap, or (in Actions, where the gather step always writes one) no
- * status at all. A found flaky test stays a finding. Pure.
+ * status at all. A ledger archive that was found but could not be read
+ * (archive-rejected) is unknown too when the records left are too few to answer
+ * (flaky_tests says n/a); when they still answer, the rejected archive is said
+ * but the answer stands. A found flaky test stays a finding. Pure.
  */
 export function withHistory(results, status, { actions = false } = {}) {
   const gaps = Array.isArray(status?.gaps) ? status.gaps : [];
   const fatal = gaps.filter(g => FATAL_HISTORY.includes(g?.code));
   const absent = actions && gaps.some(g => g?.code === 'unavailable');
-  if (!fatal.length && !absent) return results;
-  const why = fatal.length ? fatal.map(g => `${g.code}: ${g.detail}`).join('; ') : 'no test history recovery status (the gather step did not record one)';
-  return results.map(r => r.id === 'flaky_tests' && r.state !== 'outside' && r.state !== 'broken'
-    ? { ...r, state: 'broken', value: null, detail: `the test history could not be recovered, so flakiness is unknown (${why})` } : r);
+  const rejected = gaps.filter(g => g?.code === 'archive-rejected');
+  if (!fatal.length && !absent && !rejected.length) return results;
+  const said = list => list.map(g => `${g.code}: ${g.detail}`).join('; ');
+  return results.map(r => {
+    if (r.id !== 'flaky_tests' || r.state === 'outside' || r.state === 'broken') return r;
+    if (fatal.length || absent) return { ...r, state: 'broken', value: null, detail: `the test history could not be recovered, so flakiness is unknown (${fatal.length ? said(fatal) : 'no test history recovery status (the gather step did not record one)'})` };
+    if (r.state === 'n/a') return { ...r, state: 'broken', value: null, detail: `ledger archives could not be read and the records left are too few to answer, so flakiness is unknown (${said(rejected)})` };
+    return r;
+  });
 }
 
 /** Run the three measures through improve.mjs's own instruments; nothing is written. */

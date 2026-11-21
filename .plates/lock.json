@@ -275,7 +275,7 @@
     },
     "scripts/plates/night-verdict.mjs": {
       "practice": "night",
-      "sha256": "b33e2f0f3b4d691aa62a95ec097672720dc1214bb4702abe226f052bf9054808"
+      "sha256": "ed800accbc721cf12daf16631ef494774be95f7468f8032c1729843a45126d1a"
     },
     "scripts/plates/persona.mjs": {
       "practice": "personas",

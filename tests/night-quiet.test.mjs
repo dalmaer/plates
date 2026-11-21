@@ -150,6 +150,13 @@ test('the night fails only on a red main, a flaky test or a gate with no tests',
     assert.equal(verdict(withHistory([gate(), warm, red()], status(gaps), { actions: true })).exitCode, 0, JSON.stringify(gaps));
   }
   assert.deepEqual(verdict(withHistory(NIGHTS.flaky, status([{ code: 'recovery-unavailable', detail: 'x' }]))).causes.map(c => c.cause), ['flaky']);
+  // Archives found but unreadable: unknown when too few records are left to answer, said but not red when they still answer.
+  const rejected = status([{ code: 'archive-rejected', detail: 'download failed: 502', artifactId: 7 }]);
+  const unread = verdict(withHistory([gate(), warm, red()], rejected, { actions: true }));
+  assert.equal(unread.exitCode, 1);
+  assert.ok(unread.lines.some(l => l.startsWith(`::error title=${CAUSES.unchecked}::`) && l.includes('archive-rejected: download failed: 502')), JSON.stringify(unread.lines));
+  const answered = flaky({ state: 'ok', value: 0, detail: 'no flaky test in 5 runs' });
+  assert.equal(verdict(withHistory([gate(), answered, red()], rejected, { actions: true })).exitCode, 0, 'enough records still answer');
   // Nor does the morning open the "as it finished" PR any longer.
   const morning = await readFile(MORNING_YML, 'utf8');
   assert.doesNotMatch(morning, /pull-requests: write|contents: write|\bgh pr\b|\bgit push\b|morning\.mjs finalize/);
