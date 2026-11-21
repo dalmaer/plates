@@ -101,7 +101,7 @@ None.
 
 test('a built phase with an open walk lists it as a Try it, and each answer writes its record', async () => {
   // The read: built with an open by-hand walk, a Try it; a buildable box elsewhere is the agent's, never a Try it.
-  const raw = phaseFile({ acceptance: '- [x] Publishes: `tests/a.test.mjs`.\n- [ ] On a phone: ⚑ by hand: the owner.' });
+  const raw = phaseFile({ acceptance: '- [x] Publishes: `tests/a.test.mjs`.\n- [ ] On a phone: ⚑ try: the owner: publishes and sees it land.' });
   const data = { source: 'files', config: { repo: 'acme/studio' }, goals: [{ id: 'G0', title: 'Start', outcome: 'It starts.' }], phases: [parsePhase('05-acme.md', raw)], coverage: { complete: true, gaps: [] } };
   const board = await roadmapItems('/nowhere', { read: async () => data, readPhase: async () => raw, today: '2026-11-21' });
   assert.deepEqual(board.items.map(i => [i.kind, i.waits, i.ready]), [['walk', 'owner', true]]);
@@ -111,7 +111,7 @@ test('a built phase with an open walk lists it as a Try it, and each answer writ
   // The writes: Works checks the box; Skip takes it away; Something's off checks it and names its follow-up.
   const ev = '# Evidence\n';
   const works = tryItWritePlan({ file: '05-acme.md', raw, evidenceText: ev, today: '2026-11-21', tried: 'works' });
-  assert.match(works.writes[0][1], /- \[x\] On a phone: ⚑ by hand: the owner\./);
+  assert.match(works.writes[0][1], /- \[x\] On a phone: ⚑ try: the owner: publishes and sees it land\./);
   assert.match(works.writes[1][1], /Tried it: works\./);
   assert.equal(works.data.status, 'built');
   const skip = tryItWritePlan({ file: '05-acme.md', raw, evidenceText: ev, today: '2026-11-21', tried: 'skip' });
@@ -129,7 +129,7 @@ test('a built phase with an open walk lists it as a Try it, and each answer writ
   const moved = tryItWritePlan({ file: '05-acme.md', raw: owed, evidenceText: ev, today: '2026-11-21', tried: 'works' });
   assert.deepEqual([parsePhase('05-acme.md', moved.writes[0][1]).status, /owes:/.test(moved.writes[0][1])], ['built', false]);
   // A box that is not a by-hand walk is never a Try it.
-  assert.throws(() => tryItWritePlan({ file: '05-acme.md', raw: phaseFile({ status: 'partial', acceptance: '- [ ] Runs: `npm test`.' }), evidenceText: ev, today: '2026-11-21', tried: 'works' }), /no open "⚑ by hand" walk/);
+  assert.throws(() => tryItWritePlan({ file: '05-acme.md', raw: phaseFile({ status: 'partial', acceptance: '- [ ] Runs: `npm test`.' }), evidenceText: ev, today: '2026-11-21', tried: 'works' }), /no open walk to try/);
 
   // The follow-up issue names the phase and carries the note.
   const issue = followUpIssueFor({ phase: 5, title: 'Acme publishes', note: 'The button is grey.', link: 'https://github.com/acme/studio/blob/main/docs/phases/05-acme.md' });

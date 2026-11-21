@@ -1,10 +1,11 @@
 ---
-status: built
-since: 2026-11-21
+status: partial
+owes: walk
+since: 2026-10-31
 goal: G9
 spec: 2
 depends: [142]
-note: "Claude steps render the OTLP export from secrets when a project configures telemetry; Codex export, traces and the real run in a backend remain; the walk was removed (phase 204)."
+note: "Claude steps render the OTLP export from secrets when a project configures telemetry; Codex export, traces and the real run in a backend remain."
 evidence: ["evidence/2026-10-31-agent-telemetry.md"]
 ---
 
@@ -35,6 +36,7 @@ a run without a configured backend still runs and says telemetry is off.
 
 - [x] With an endpoint configured, the rendered workflow passes the export settings and attributes; without one it passes none and logs "telemetry off": `tests/telemetry-render.test.mjs: "telemetry only where configured"`.
 - [x] No rendered setting carries prompt text or the endpoint key in plain text: `tests/telemetry-render.test.mjs: "no prompts or keys leak"`.
+- [ ] A real robot run in one fleet project appears in the chosen backend with its attributes: ⚑ by hand: the conductor, then the owner opens the backend.
 
 ## Your part
 

@@ -308,8 +308,9 @@ focused tests; the whole check stays yours, once, in §3.
 - Each acceptance box claimed by this increment: its named check exists and
   asserts the box, and the command runs. Future increments' boxes remain unchecked.
 - **Try it**, not a walk. (why: Walks made the owner the bottleneck: phases waited on a person's time, not on proof.) Trying the work by hand is an
-  invitation, never a gate: an open `⚑ by hand` box never holds a phase back
-  from built, and new phases write none. Instead, try the change yourself where
+  invitation, never a gate: an open walk (`⚑ try: <who>: …`) never holds a
+  phase back from built, and new phases write none. A `⚑ by hand` step (a
+  decision, an approval, a setup) is not a walk: it is done before built. Instead, try the change yourself where
   you can (a real browser, a simulator, a screenshot, a real `gh` call) and
   write what you saw into the Try it (§4).
 - Open each new test and ask two things. Could it fail? Does it exercise the
@@ -378,8 +379,9 @@ proof holds:
 - **Next action** for the phase: the next step if it isn't built; once it
   is built, `None.` (or what lived-in needs, when the project counts it:
   `"phases": {"livedIn": true}` with plates's roadmap). A phase whose only
-  open boxes are `⚑ by hand` walks is built: never mark it `owes: walk`
-  (older records may carry it; moving them to built is all they need). A
+  open boxes are `⚑ try:` walks is built: never mark it `owes: walk`
+  (older records may carry it; a `⚑ by hand` box that is a walk is rewritten
+  `⚑ try:`, and one that is a decision, approval or setup stays and is done). A
   project that keeps its own phases (`"local"` names `phases`) follows its
   own roadmap's rules: when that roadmap still refuses built with an open
   walk, leave the phase partial with the walk in its Next action, and keep

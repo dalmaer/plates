@@ -225,7 +225,7 @@ export function boxes(acceptance = '') {
 /** Whether a box names its check: a tests/ path, a command in backticks (a program and its arguments), or ⚑ by hand. */
 export function namesCheck(text) {
   if (text.match(TEST_PATH)) return true;
-  if (/⚑\s*by hand/i.test(text)) return true;
+  if (/⚑\s*(by hand|try:)/i.test(text)) return true;
   return [...text.matchAll(/`([^`]+)`/g)].some(m => /^[\w.\/-]+\s+\S/.test(m[1].trim()));
 }
 
@@ -241,17 +241,19 @@ export function isWalk(text) {
   // A command beside a hand step is still work to build (Codex on cajones#54, #55): "`npm run build`, then ⚑ by hand".
   // Any command but the real-surface `gh …` check counts, recognised or not.
   if (spans.some(s => COMMAND.test(s) && !/^gh\s/.test(s))) return false;
-  if (/⚑\s*by hand/i.test(text)) return true;
+  if (/⚑\s*(by hand|try:)/i.test(text)) return true;
   return spans.some(s => /^gh\s+\S/.test(s));
 }
 
 /**
- * Whether a box is a by-hand walk: a walk that says
- * "⚑ by hand". Trying the work by hand is an invitation, never a gate: an
- * open one never holds a phase back from built. A `gh …` check is a walk an
- * agent can run, so it still counts, as does every other unchecked box.
+ * Whether a box is a walk to try: "⚑ try: <who>: …", trying the work and
+ * seeing it, with no test or build command beside it. Trying the work by hand
+ * is an invitation, never a gate: an open one never holds a phase back from
+ * built. The check never guesses from prose, so a "⚑ by hand" box (it may be a
+ * decision, an approval or a setup step) still counts, as does a `gh …`
+ * check an agent can run and every other unchecked box.
  */
-export const isHandWalk = text => isWalk(text) && /⚑\s*by hand/i.test(text);
+export const isTryWalk = text => isWalk(text) && /⚑\s*try:/i.test(text);
 
 /**
  * A command in backticks, read conservatively (when unsure, it is work to
@@ -462,9 +464,9 @@ export function parsePhase(file, raw) {
     sections[section] = match[1].trim();
   }
   if (!/^- \[[ x]\] /m.test(sections.Acceptance)) fail(`${file}: Acceptance needs checkboxes`);
-  // A by-hand walk left open never holds a phase back from built; every other box must be checked.
-  const holding = boxes(sections.Acceptance).filter(b => !b.checked && !isHandWalk(b.text));
-  if (DONE.includes(meta.status) && holding.length) fail(`${file}: ${meta.status} with unchecked acceptance ("${holding[0].text.slice(0, 60)}${holding[0].text.length > 60 ? '…' : ''}"); only a "⚑ by hand" walk may stay open`);
+  // A walk to try ("⚑ try:") left open never holds a phase back from built; every other box must be checked.
+  const holding = boxes(sections.Acceptance).filter(b => !b.checked && !isTryWalk(b.text));
+  if (DONE.includes(meta.status) && holding.length) fail(`${file}: ${meta.status} with unchecked acceptance ("${holding[0].text.slice(0, 60)}${holding[0].text.length > 60 ? '…' : ''}"); only a walk to try ("⚑ try: <who>: …") may stay open`);
   if (meta.owes === 'walk') {
     const open = boxes(sections.Acceptance).filter(b => !b.checked);
     // A walk owed names the walk: with no unchecked walk box, nothing is owed and the phase would vanish from the queue (Codex on cajones#54).

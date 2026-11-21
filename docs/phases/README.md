@@ -21,7 +21,7 @@ new phase statuses. Consult the project philosophy named by its working guide.
 | planned | Outcome and proof plan exist; design or implementation is still open. |
 | designed | The slice and its contracts are specified well enough to build. |
 | partial | Some of it exists; the note names the gap. |
-| built | Every acceptance box is checked but a by-hand walk (below), with an evidence file; real use is not yet claimed. |
+| built | Every acceptance box is checked but a walk to try (`⚑ try:`, below), with an evidence file; real use is not yet claimed. |
 | lived-in | Repeated real use supports the outcome. The evidence says what made you sure. (When the project opts in: `"phases": {"livedIn": true}` in `.plates/plates.json`.) |
 | superseded | Retired or replaced; the note says why and points at the replacement. |
 
@@ -58,16 +58,21 @@ reviewed the head commit. The phase's issue labelled `keel:wait-for-review`
 does the same. Without it nothing waits: review comments are still validated
 and answered, but never block a merge.
 
-**Trying the work by hand is an invitation, never a gate.** A walk is an Acceptance box that says `⚑ by hand: <who>` and runs no command
-but a real-surface `gh …` check, citing no `tests/` path. Walks are optional:
-`built` needs every other box checked, and an open walk
-box never holds a phase back. New phases do not write walks. Instead each PR
-an agent opens for a phase carries a `## Try it` section: what changed (one
-line), where to try it (a preview URL, the deployed site, or a build), three
-to five steps, and what working and broken look like; the agent tries the
-steps itself first where it can, and says what it saw. Home lists an open walk
-as an optional Try it (Works, Something's off, Skip), never as work waiting
-on the owner. A missing Try it is a note, never a refusal.
+**Trying the work by hand is an invitation, never a gate.** A walk is
+trying the work and seeing it (signing in and seeing today's cards, an update
+seen landing on a phone). Walks are optional: new phases write none in
+Acceptance. Instead each PR an agent opens for a phase carries a `## Try it`
+section: what changed (one line), where to try it (a preview URL, the
+deployed site, or a build), three to five steps, and what working and broken
+look like; the agent tries the steps itself first where it can, and says what
+it saw. A missing Try it is a note, never a refusal. A phase that does list a
+walk writes it `⚑ try: <who>: <what they try and see>`: an open one never
+holds the phase back from built, and Home lists it as an optional Try it
+(Works, Something's off, Skip), never as work waiting on the owner.
+
+The check never guesses from prose: a `⚑ by hand: <who>` box may be a
+decision, an approval or a setup step, so it must be checked before built,
+as before. Only `⚑ try:` marks a walk.
 
 A ⚑ step that needs money, a cloud resource, a login or a named person's
 decision is not a walk: it is an ask on the Proof's ⚑ line, with a Your part
@@ -176,8 +181,9 @@ reads it as a spec:
   phase to two more rules:
   - Each Acceptance box names its check: a cited test,
     `tests/<file>: "<test name>"`; a command in backticks (a program and its
-    arguments, like `` `npm run check` ``); or `⚑ by hand: <who>`, which
-    the check still reads, though new phases write no walks (above).
+    arguments, like `` `npm run check` ``); `⚑ by hand: <who>` for a step only
+    a person can do (a decision, an approval, a setup step); or `⚑ try:
+    <who>: …` for a walk (above).
   - A **Real surfaces** section lists where the change runs for real, one
     `- <surface>: <its proof>` line each, from a closed list: published
     package, workflow shell, adopted project, owner's machine, GitHub API,

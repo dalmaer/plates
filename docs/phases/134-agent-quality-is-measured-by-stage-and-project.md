@@ -1,11 +1,11 @@
 ---
-status: built
-since: 2026-11-21
+status: partial
+since: 2026-10-30
 goal: G5
 spec: 2
 depends: [117]
 review: wait
-note: "Passive foundation merged in PR #323; current source proof and private observations verified on 18 November. Human adjudication and mature follow-up remain incomplete; one live observer receipt pair is verified; execution and scheduling remain deferred; the walk was removed (phase 204)."
+note: "Passive foundation merged in PR #323; current source proof and private observations verified on 18 November. Human adjudication and mature follow-up remain incomplete; one live observer receipt pair is verified; execution and scheduling remain deferred."
 evidence: ["evidence/2026-10-30-agent-quality.md", "evidence/2026-11-12-agent-quality-refresh.md", "evidence/2026-11-18-agent-quality-followthrough.md"]
 ---
 
@@ -29,6 +29,7 @@ Implement the [agent quality contract](../specs/agent-quality.md), derived from 
 - [x] Local execution activation remains deferred; retained prototype and private review adapter fixtures preserve real stage boundaries and exact checkpoint identities, including failures and explicit unknown provenance: `node --test tests/agent-quality-execution.test.mjs`.
 - [x] Pending annotations and adjudication keep human judgments separate from model declarations and never backdate difficulty: `node --test tests/agent-quality-lifecycle.test.mjs tests/agent-quality-report.test.mjs`.
 - [x] Weekly exact-approved collection ingests local observations and retains an immutable private report without scheduling or model spend: `node --test tests/agent-quality.test.mjs`.
+- [ ] ⚑ by hand: reviewed code is merged and installed, existing reporting observes real episodes, and human adjudication is reconciled before comparative recommendations.
 
 ## Real surfaces
 

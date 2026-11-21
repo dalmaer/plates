@@ -40,16 +40,6 @@ a native app is still needed.
 - [x] Ready walks and red nights reach the notifier when the workspace reads its source fresh, once per item, never failing Home: `tests/web-pwa.test.mjs: "waiting-on-owner events reach the notifier"`.
 - [ ] Decision checks coming due and irreversible-door approvals reach the notifier; the hosted workspace does not learn of either yet (checks are read only by the local board, and there is no hosted approval queue): `tests/web-pwa.test.mjs: "checks and door approvals reach the notifier"`.
 
-## Your part
-
-- **Ask:** Install Plates on your phone from the workspace and use it for two weeks, then say whether you still want a native app.
-- **Why:** It decides whether the web app is enough or a native app is worth building.
-- **Look at:** the workspace on your phone, "Add to Home Screen".
-- **Choices:** The web app is enough | Build a native app
-- **Takes:** 2 minutes to install; two weeks of use.
-- **Then:** Build a native app: a later phase wraps the same workspace (no second UI) for push and widgets the web can't do.
-- **Ready when:** phase 151 is built and the two tests pass.
-
 ## Real surfaces
 
 - owner's machine: the installed app and a real notification on the owner's phone.

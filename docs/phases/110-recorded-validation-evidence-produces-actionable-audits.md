@@ -28,6 +28,7 @@ Only source and existing manifest-managed consumers. No deployment or schedule.
 - [x] `tests/check-focused.test.mjs` proves mandatory convention selection and failure propagation; /spin invokes preflight before integration.
 - [x] Required integrated checks pass: `npm run check`; `npm run typecheck`.
 - [x] Exact-head review is recorded: `node bin/plates.mjs review dalmaer/plates#<PR> --gate --json` plus inspection of pinned complete review inputs.
+- [x] ⚑ by hand: parent reviews evidence before broader rollout. Parent subsequently authorized the ordered source PR merges; consumer adoption and deployment remain separate boundaries.
 
 ## Your part
 

@@ -1,10 +1,11 @@
 ---
-status: built
-since: 2026-11-21
+status: partial
+owes: walk
+since: 2026-10-09
 goal: G0
 spec: 2
 depends: [33]
-note: "Built: plates test <file> --stalls (scripts/plates/stalls.mjs, shipped by the night practice); files pinned in tests.stalls run with stalls through the test ledger in every gate; keel:inconclusive is recorded as neither pass nor fail; plates's three climb compare tests run on the suite's own clock (PLATES_CLIMB_CLOCK), and its six suite-timing files are pinned. Owes the owner's read of what moved and the gate's time before and after; the walk was removed (phase 204)."
+note: "Built: plates test <file> --stalls (scripts/plates/stalls.mjs, shipped by the night practice); files pinned in tests.stalls run with stalls through the test ledger in every gate; keel:inconclusive is recorded as neither pass nor fail; plates's three climb compare tests run on the suite's own clock (PLATES_CLIMB_CLOCK), and its six suite-timing files are pinned. Owes the owner's read of what moved and the gate's time before and after."
 evidence: ["evidence/2026-10-09-stalls.md", "evidence/2026-10-11-coffee-audit.md"]
 issue: 42
 ---
@@ -32,6 +33,7 @@ The design is [The robot, and plates's sense of time](../research/2026-10-09-rob
 - [x] A file pinned in `"tests": { "stalls": [...] }` runs with stalls in the gate and a failure prints its seed. `tests/stalls.test.mjs`
 - [x] An inconclusive diagnostic is recorded as inconclusive, never pass or fail. `tests/test-ledger.test.mjs`
 - [x] plates's own suite has no test `--stalls` names, and its timing tests are pinned to stalls. `tests/timing-hygiene.test.mjs`
+- [ ] ⚑ by hand: the owner reads the list of tests that moved and the gate's time before and after.
 
 ## Your part
 

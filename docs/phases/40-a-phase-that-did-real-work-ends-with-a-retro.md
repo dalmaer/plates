@@ -41,6 +41,7 @@ The design is [The retro after real work](../research/2026-10-06-pr-and-retro.md
 - [x] The worksheet counts each signal from a synthetic transcript (Acme) and writes no transcript text to any file; mutation: copying a message into the worksheet fails the test. `tests/retro.test.mjs`
 - [x] A docs-only commit is not real work (the retro says so and stops); a commit touching `lib/` or `practices/` is. `tests/retro.test.mjs`
 - [x] The conduct skill's step 5 names the worksheet, the seven areas, the candidate types and "the owner picks". `tests/skill.test.mjs`
+- [x] ⚑ by hand: two phases' retros in their reports; the owner's picks recorded; one picked check shipped.
 
 ## Real surfaces
 

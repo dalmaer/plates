@@ -52,6 +52,7 @@ run a paid or externally mutating overnight trial.
 - [x] Resume/uncertain outcomes inspect original receipts without repeating external effects; chosen, blocked, completed, failed and uncertain states cannot be conflated. Check: `tests/night-decisions.test.mjs: "resume inspects the original uncertain operation without redispatch"`.
 - [ ] The morning separates issue-linked completed work from decisions worth revisiting, ranks impact/uncertainty/reversal cost, exposes missing coverage and compares expected with measured consequences, including interacting choices. Check: proposed `tests/morning.test.mjs: "ranked calls remain separate from completed work"` and `tests/night-decisions.test.mjs: "interacting choices keep predictions separate from measured consequences"`.
 - [ ] Keep/adjust/revert feedback preserves the original decision, revalidates source/authority, records the next safe increment and checks its outcome; irreversible effects are not falsely presented as undone. Check: proposed `tests/decision-loop.test.mjs: "morning correction binds the original decision and current authority"` plus the existing irreversible-outcome guard.
+- [ ] One already-authorized night demonstrates a bounded choice, a parked dependent action, independent progress and a useful morning correction through the configured real report path. Check: ⚑ by hand: owner reviews the recorded night and one correction, with no new spend or channel inferred from this phase.
 
 ## Your part
 

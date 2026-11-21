@@ -51,3 +51,13 @@ The owner approved continued PR216 fix-and-review cycles until migration checks 
 
 - **2026-10-21** — The owner explicitly approved renaming the app, GitHub repository, READMEs and configuration files throughout the collection, followed by deployment. Inventory found five managed repositories plus private workspace and inbox references; shared source provenance remains historical.
 
+## Your part
+
+- **Ask:** GitHub verification is complete; the remaining production walkthrough follows the checked deployment.
+- **Why:** Local tests cannot establish the production sign-in experience.
+- **Look at:** The existing GitHub App settings page and the exact deployment URL recorded in the release evidence.
+- **Choices:** Verified | Needs changes | Cannot check yet
+- **Keeps it open:** Needs changes | Cannot check yet
+- **Takes:** One authentication and browser review session.
+- **Then:** Record the observed result and keep any unverified acceptance open.
+- **Ready when:** The tested revision is deployed; account verification already succeeded. A new provider challenge, if offered, must be completed through its official flow.

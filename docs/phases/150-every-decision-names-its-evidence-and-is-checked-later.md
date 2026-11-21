@@ -1,10 +1,10 @@
 ---
-status: built
-since: 2026-11-21
+status: partial
+since: 2026-10-31
 goal: G9
 spec: 2
 depends: [143, 146, 148]
-note: "Decisions carry evidence, an expectation and a check date; due checks reach the board, the morning brief (plates morning) and health. A month of real checks remains; the walk was removed (phase 204)."
+note: "Decisions carry evidence, an expectation and a check date; due checks reach the board, the morning brief (plates morning) and health. A month of real checks remains."
 evidence: ["evidence/2026-10-31-decision-loop.md"]
 ---
 
@@ -54,6 +54,7 @@ outcome is itself evidence for the next decision.
 - [x] An outcome without a cited observation is refused, and reversing an irreversible decision is refused with what can still be done: `tests/decision-loop.test.mjs: "an outcome needs evidence"`.
 - [x] Health reports decisions checked on time and decisions that held, by month: `tests/decision-loop.test.mjs: "health measures the decisions"`.
 - [x] The morning brief raises each due check with a link to it: `tests/decision-loop.test.mjs: "the morning brief raises due checks"`.
+- [ ] A month in which at least three real decisions on Plates were checked and their outcomes recorded: ⚑ by hand: the owner and the conductor.
 
 ## Your part
 

@@ -1,10 +1,11 @@
 ---
-status: built
-since: 2026-11-21
+status: partial
+owes: walk
+since: 2026-10-24
 goal: G2
 spec: 2
 depends: [125, 126, 127]
-note: "Source merged in PR 264 at 419756f after full local and CI checks and exact-head review. Owner activation remains; phase 129 records the real preview/rehearsal blockers discovered before rollout; the walk was removed (phase 204)."
+note: "Source merged in PR 264 at 419756f after full local and CI checks and exact-head review. Owner activation remains; phase 129 records the real preview/rehearsal blockers discovered before rollout."
 evidence: ["evidence/2026-10-24-names-command.md"]
 issue: 244
 ---
@@ -55,6 +56,7 @@ real dispatched walk. No source test grants activation authority.
 - [x] With `--yes`, labels are renamed in place, an issue keeps its label under the new name, and both names existing at once is refused. `tests/names-cli.test.mjs`: "labels are renamed, never recreated"
 - [x] Variables are copied, never deleted. Secrets are listed with a command and no value, and no `gh secret` read is ever made. `tests/names-cli.test.mjs`: "secrets are never read"
 - [x] `--machine` moves the night-card job and its launchd label in a scratch home, and the job then runs from `~/.plates`. `tests/names-machine.test.mjs`: "the night card moves and still runs"
+- [ ] The owner approves and runs the exact names plan on plates and sets the listed secrets. The next listing separates verified retained aliases from active legacy dependencies and unknown coverage; old variables retained for phase 130 are not falsely reported as absent. ⚑ by hand: the owner
 
 - [x] Run-attempt observation artifacts extend actual producer outputs and prove the positive night → morning → board/history → verifier path, without creating acceptance or mutation authority. `tests/names-observation.test.mjs` and `tests/names-verify.test.mjs`.
 - [x] Read-only `--verify` names each failed or unknown phase-129 check and distinguishes fresh writes from required legacy continuation. `tests/names-verify.test.mjs`

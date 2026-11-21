@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parsePhase, validateGraph, nextPhase, focus, render, run, specProblems, specNotes, nothingNext, uncheckedBoxes, sectionsOf, isWalk, isHandWalk, livedInOf, PLACEHOLDERS, PLACEHOLDER_TITLE, SURFACES, yourPartOf, yourPartReady, thenFor } from '../scripts/roadmap.mjs';
+import { parsePhase, validateGraph, nextPhase, focus, render, run, specProblems, specNotes, nothingNext, uncheckedBoxes, sectionsOf, isWalk, isTryWalk, livedInOf, PLACEHOLDERS, PLACEHOLDER_TITLE, SURFACES, yourPartOf, yourPartReady, thenFor } from '../scripts/roadmap.mjs';
 
 const phase = ({ status = 'planned', since = '2026-10-02', goal = 'G0', depends = '[]', evidence = '[]', acceptance = '- [ ] Something observable.', extra = '' } = {}) => `---
 status: ${status}
@@ -238,16 +238,20 @@ test('rejects what would let the roadmap lie', () => {
 
 test('a by-hand walk never holds a phase back from built', () => {
   const built = acceptance => phase({ status: 'built', evidence: '["evidence/x.md"]', acceptance });
-  // Open walks only: built, whether one or several, checked beside them or not.
-  assert.equal(parsePhase('04-x.md', built('- [x] Works: `tests/a.test.mjs`.\n- [ ] On a phone: ⚑ by hand: the owner.')).status, 'built');
-  assert.equal(parsePhase('04-x.md', built('- [x] Works: `tests/a.test.mjs`.\n- [ ] ⚑ by hand: the owner.\n- [ ] ⚑ By hand: a named reviewer.')).status, 'built');
-  // A buildable box still holds it back: a test, a command, a hand step beside a build command, an agent's `gh …` check, or no check at all.
-  for (const open of ['Works: `tests/a.test.mjs`.', 'Builds: `npm run build`.', 'Build with `npm run build`, then ⚑ by hand: the owner reads it.', 'Runs: `gh pr checks 7`', 'Something observable.']) {
-    assert.throws(() => parsePhase('04-x.md', built(`- [ ] On a phone: ⚑ by hand: the owner.\n- [ ] ${open}`)), /built with unchecked acceptance .*only a "⚑ by hand" walk may stay open/, open);
+  // Open walks to try ("⚑ try: <who>: …") only: built, whether one or several, checked beside them or not.
+  assert.equal(parsePhase('04-x.md', built('- [x] Works: `tests/a.test.mjs`.\n- [ ] ⚑ try: the owner: publishes from a phone and sees it land.')).status, 'built');
+  assert.equal(parsePhase('04-x.md', built('- [x] Works: `tests/a.test.mjs`.\n- [ ] ⚑ try: the owner: opens Home.\n- [ ] ⚑ Try: a reviewer: reads the page.')).status, 'built');
+  // Everything else still holds it back: a test, a command, a try beside a build command, an agent's `gh …` check, a box with
+  // no check, and a "⚑ by hand" box, which may be a decision, an approval or a setup step (the check never guesses from prose).
+  for (const open of ['Works: `tests/a.test.mjs`.', 'Builds: `npm run build`.', 'Build with `npm run build`, then ⚑ try: the owner: reads it.', 'Runs: `gh pr checks 7`', 'Something observable.',
+    '⚑ by hand: the owner picks the scheduler.', '⚑ by hand: the owner merges the Acme PR (a production deploy).', '⚑ by hand: the owner says yes to the key and the domain.']) {
+    assert.throws(() => parsePhase('04-x.md', built(`- [ ] ⚑ try: the owner: opens it on a phone.\n- [ ] ${open}`)), /built with unchecked acceptance .*only a walk to try/, open);
   }
-  assert.equal(isHandWalk('⚑ by hand: the owner.'), true);
-  assert.equal(isHandWalk('Runs: `gh pr checks 7`'), false, 'a gh check is a walk an agent runs, so it still counts');
-  assert.equal(isHandWalk('Passes: `tests/a.test.mjs`, then ⚑ by hand: the owner.'), false);
+  assert.equal(isTryWalk('⚑ try: the owner: opens it.'), true);
+  assert.equal(isTryWalk('⚑ by hand: the owner.'), false, 'a legacy by-hand box is not assumed to be a walk');
+  assert.equal(isTryWalk('Runs: `gh pr checks 7`'), false, 'a gh check is a walk an agent runs, so it still counts');
+  assert.equal(isTryWalk('Passes: `tests/a.test.mjs`, then ⚑ try: the owner.'), false);
+  assert.equal(isWalk('⚑ try: the owner: opens it.'), true, 'a walk to try is a walk, for owes: walk');
   // owes: walk still reads on a partial phase, for projects whose records carry it.
   assert.equal(parsePhase('04-x.md', phase({ status: 'partial', acceptance: '- [x] Built.\n- [ ] ⚑ by hand: the owner.', extra: 'owes: walk\n' })).owes, 'walk');
 });

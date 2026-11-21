@@ -26,7 +26,6 @@ Contract: [Private workspace, public Plates application](../specs/web-workspace.
 ## Acceptance
 
 - [x] ⚑ By hand: owner approves exact repository, hosting target, price and GitHub App permission matrix: `docs/guide/web-workspace-setup.md`.
-- [x] ⚑ By hand: verify workspace repository privacy and selected installation repositories with fresh GitHub API facts: `docs/guide/web-workspace-setup.md`.
 - [ ] ⚑ By hand: verify configured Node version, HTTPS callback origin, external durable storage, secret injection and backup destination on the selected host: `docs/guide/web-workspace-setup.md`.
 
 ## Real surfaces
@@ -79,24 +78,6 @@ the [activation guide](../guide/web-activation.md).
 ### 1. Connection and approval
 
 - **Ask:** Owner approves exact repository, hosting target, price and GitHub App permission matrix.
-
-- **Why:** This needs actual owner access or observation; synthetic tests cannot establish it.
-
-- **Look at:** [Setup worksheet](../guide/web-workspace-setup.md) and this phase's source evidence.
-
-- **Choices:** Verified | Needs changes | Cannot check yet
-
-- **Keeps it open:** Needs changes | Cannot check yet
-
-- **Takes:** One setup or testing session; record the actual duration.
-
-- **Then:** Record exactly what was observed; keep missing checks open and name the next action.
-
-- **Ready when:** The owner has selected accounts and reviewed the concrete deployment recipe and price.
-
-### 2. Connection and approval
-
-- **Ask:** Verify workspace repository privacy and selected installation repositories with fresh GitHub API facts.
 
 - **Why:** This needs actual owner access or observation; synthetic tests cannot establish it.
 

@@ -1,10 +1,11 @@
 ---
-status: built
-since: 2026-11-21
+status: partial
+since: 2026-10-16
+owes: walk
 goal: G6
 spec: 2
 depends: [81]
-note: "Partial 2026-10-17: plates promote (the delivery practice's promote.mjs) moves delivery.promote only to a commit on the tested ref with phase 79's gate result, previews first, moves with --yes under a lease, and verifies production after; --back passes only on exactly the commit. No workflow runs it. The owner's one real promotion of isocan waits; the walk was removed (phase 204)."
+note: "Partial 2026-10-17: plates promote (the delivery practice's promote.mjs) moves delivery.promote only to a commit on the tested ref with phase 79's gate result, previews first, moves with --yes under a lease, and verifies production after; --back passes only on exactly the commit. No workflow runs it. The owner's one real promotion of isocan waits."
 evidence: ["evidence/2026-10-17-promote.md"]
 issue: 165
 ---
@@ -32,6 +33,17 @@ The design is [Delivery: a change reaches production once, checked](../research/
 - [x] After moving, it verifies production and reports; a failure suggests `--back` and moves nothing. `tests/promote.test.mjs`
 - [x] `--back <commit>` moves the ref to an earlier tested commit with the same checks, and passes only when production reports exactly that commit: production still serving the newer commit after the ref moved is a failure, never a success. `tests/promote.test.mjs`
 - [x] No installed workflow runs `plates promote`. `tests/workflows.test.mjs`
+- [ ] ⚑ by hand: the owner promotes isocan once with plates promote instead of moving the tag by hand.
+
+## Your part
+
+- **Ask:** The next time you promote isocan, use plates promote instead of moving the tag yourself.
+- **Why:** It replaces an unguarded gesture with one that checks the commit was tested and that production serves it after.
+- **Look at:** what plates promote shows before --yes.
+- **Choices:** It was enough | I needed more before promoting
+- **Takes:** 10 minutes.
+- **Then:** More: what was missing goes into the preview.
+- **Ready when:** this phase has shipped to isocan.
 
 ## Real surfaces
 

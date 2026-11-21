@@ -28,6 +28,7 @@ The design is [Adopting projects that already have a practice](../research/2026-
 - [x] Every rule in plates's shipped blocks has a cause; the lint notes one without. `tests/lessons.test.mjs`, `tests/practices.test.mjs`
 - [x] `roadmap --check` notes a measured figure with no date nearby, and stays quiet for a dated one. `tests/roadmap.test.mjs`
 - [x] `plates evidence rederive` reruns recorded commands and prints old and new values. `tests/evidence.test.mjs`
+- [x] ⚑ by hand: the owner reads plates's AGENTS blocks with their causes and says whether any rule now reads as obsolete.
 
 ## Your part
 

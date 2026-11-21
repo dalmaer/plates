@@ -1,11 +1,11 @@
 ---
-status: built
-since: 2026-11-21
+status: partial
+since: 2026-11-18
 goal: G2
 spec: 2
 depends: [45, 46]
 review: wait
-note: "Owner requested an automated AGY fallback after Claude/Codex unavailability. Initial source merged; first API test stopped before generation on catalog diagnostics. Narrow correction underway; model entitlement and hosted acceptance remain unverified; the walk was removed (phase 204)."
+note: "Owner requested an automated AGY fallback after Claude/Codex unavailability. Initial source merged; first API test stopped before generation on catalog diagnostics. Narrow correction underway; model entitlement and hosted acceptance remain unverified."
 evidence: ["evidence/2026-11-18-agy-review-fallback.md"]
 ---
 
@@ -43,6 +43,7 @@ cached login. No permission bypass flag or enlarged allowance.
 - [x] The runner uses no tools or repository settings, preserves attempt receipts and refuses ambiguous results: `tests/agy-review-runner.test.mjs`.
 - [x] Workflow rendering, separate publication and opt-out compatibility remain checked: `tests/workflows.test.mjs`.
 - [x] Integrated source proof passes: `npm run check` and `npm run typecheck`.
+- [ ] ⚑ by hand: the owner provisions dedicated CI authentication and authorizes a bounded hosted verification; a real run retains primary failures and publishes the AGY review for its exact head.
 
 ## Real surfaces
 

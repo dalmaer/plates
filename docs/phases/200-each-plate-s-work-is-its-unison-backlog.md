@@ -93,16 +93,6 @@ Out of scope: claims (phase 201), chat and asks (phase 202), and removing plates
 - [x] `plates unison connect` finds the workspace that lists the plate's repo, creates one only when none does, refuses two, and when not signed in leaves a sign-in card and creates nothing: `tests/unison-connect.test.mjs: "the repo finds the workspace, or connect makes one"`.
 - [ ] Home shows "Unison not read", the close suggestion and the sign-in card in both forms (increment 3): `tests/unison-home.test.mjs: "Unison's states are said on Home in both forms"`.
 
-## Your part
-
-- **Ask:** Sign in to Unison on your Mac when plates asks, let it make a workspace for one plate, check the plate's open phases are in its backlog with links back, and check a phase marked built closes its item.
-- **Why:** It proves plates can make and fill a workspace against the real Unison, which the tests stub.
-- **Look at:** The plate's backlog in Unison.
-- **Choices:** It works | Something is off
-- **Takes:** About 10 minutes.
-- **Then:** It works: the phase is built. Something is off: the conductor reads the sync log.
-- **Ready when:** increment 3 is merged, deployed and installed, and its Home checks pass.
-
 ## Real surfaces
 
 - Owner's machine: `plates unison connect` makes a real workspace, and `plates unison status` lists the plan for it.

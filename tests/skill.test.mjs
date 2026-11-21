@@ -270,7 +270,7 @@ test('the spin skill treats owes: walk as done for /spin <N>, and leaves a local
   assert.match(skill, /\*\*Its dependencies are built\.\*\*[^\n]*a partial one marked `owes: walk` counts as built here/, 'the §0 gate too (Codex on duo#81)');
   assert.match(skill, /keeps its own phases \(`"local"`\s+names `phases`\) follows its\s+own roadmap's rules/);
   // Phase 204: a phase whose only open boxes are by-hand walks is built; owes: walk is read, never suggested.
-  assert.match(skill, /A phase whose only\s+open boxes are `⚑ by hand` walks is built: never mark it `owes: walk`/);
+  assert.match(skill, /A phase whose only\s+open boxes are `⚑ try:` walks is built: never mark it `owes: walk`/);
 });
 
 // Phase 70: two sessions built phase 54 at once. The claim comes before the build.

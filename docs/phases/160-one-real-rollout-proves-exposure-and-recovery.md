@@ -43,10 +43,12 @@ outstanding real-surface walks.
 
 ## Acceptance
 
+- [ ] One real component has separately evidenced merge, installation/deployment, enablement and verification facts, with a bounded ramp and demonstrated recovery. Check: ⚑ by hand: owner-authorized pilot on the named real target with retained artifact/cohort/observation receipts.
 - [ ] The delivery inventory identifies actual CLI install/release and hosted serving paths and proposes the smallest scoped config reconciliation without assuming existing activation Check: `git diff --check` plus read-only target/config inspection.
 - [ ] Flag owner/default/scope/telemetry/kill switch/removal condition are explicit; disabled behavior preserves startup, schema, contracts and supported old/new versions Check: `npm run check` with pilot-specific enabled/disabled/compatibility tests.
 - [ ] Plate/job assignment is stable through retries/resumes; shadow execution cannot mutate external state and enabling a flag cannot grant permission or budget Check: `npm run check` with denied-write, changed-config and retry negative cases.
 - [ ] Rollout thresholds include meaningful-operation count, observation window, denominators and missing-telemetry stop rules; low traffic cannot count as success Check: `npm run check` with pilot-specific ramp-decision cases plus retained real observations.
+- [ ] Kill-switch and in-flight recovery preserve original receipts; effects/migrations have a separate compatible compensation or forward repair plan Check: ⚑ by hand: scoped pilot disable/recovery exercise with read-back and documented effect boundaries.
 
 ## Your part
 

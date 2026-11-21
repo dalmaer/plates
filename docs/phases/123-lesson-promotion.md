@@ -1,11 +1,11 @@
 ---
-status: built
-since: 2026-11-21
+status: partial
+since: 2026-10-24
 goal: G3
 spec: 2
 depends: [122]
 review: wait
-note: "Review packages and dormant source verification implemented; real readiness still needs live screening, verified delivery and approved policy; the walk was removed (phase 204)."
+note: "Review packages and dormant source verification implemented; real readiness still needs live screening, verified delivery and approved policy."
 evidence: ["evidence/2026-10-24-lesson-promotion.md"]
 ---
 
@@ -30,6 +30,7 @@ introduce a second scheduler, evidence authority or automatic production default
 - [x] Ready-for-review requires supporting evidence; changed merged bytes, uncertain publication and recurrence preserve original records and require reconciliation: `tests/lesson-promotion.test.mjs`.
 - [x] CLI JSON/help, compatibility, bounds and failure paths are covered: `npm run check:focused -- tests/lesson-promotion.test.mjs`.
 - [x] Integrated gates and selected contracts pass: `npm run check`; `npm run typecheck`.
+- [ ] A real supported screening produces an eligible package and independently observed reviewed promotion; missing interfaces remain explicit. ⚑ by hand: owner approves the exact allowance and approver policy only after the missing interfaces are implemented; conductor observes the actual review package and merge.
 
 ## Real surfaces
 

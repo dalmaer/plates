@@ -102,9 +102,10 @@ integrated candidate — a green subset hides a red suite, and checking at every
 what changed (one line), where to try it (a preview URL, the deployed site,
 or a build), three to five steps, and what working and broken look like. The
 agent tries the steps itself first where it can, and says what it saw.
-Trying the work by hand is an invitation, never a gate: an open `⚑ by hand`
-walk never holds a phase back from built, and a missing Try it is a note,
-never a refusal.
+Trying the work by hand is an invitation, never a gate: an open walk
+(`⚑ try: <who>: …`) never holds a phase back from built, a `⚑ by hand` step
+(a decision, an approval, a setup) still does, and a missing Try it is a
+note, never a refusal.
 (why: Walks made the owner the bottleneck; a Try it lets them try the work in a minute, or skip it.)
 
 **A fix is proven by its test failing without it.** A `fix:` commit

@@ -197,8 +197,8 @@ plates goal retire G1 --reason "Nobody exports" --phases supersede --yes
   (`goal-without-phase`) until a phase names it.
 - `goal show`'s `next` is the goal's first phase left to build whose dependencies,
   in any goal, are satisfied: built, lived-in, or partial with `owes: walk`
-  (older records; a phase whose only open boxes are by-hand walks is built now,
-  phase 204). Like `plates next`, it skips phases owing only a walk and
+  (older records; a phase whose only open boxes are `⚑ try:` walks is built
+  now, phase 204). Like `plates next`, it skips phases owing only a walk and
   superseded phases.
 - `goal retire` needs `--reason`, and writes `"retired": "<date>: <reason>"`;
   the goal moves to the roadmap's Retired section, still counted, never next
@@ -2210,8 +2210,9 @@ inspection before replay. No Rex or indexed journals means no delivery work.
 <!-- topic: walk | settle the owner's turn: walk done and walk decide -->
 
 **Trying the work by hand is an invitation, never a gate (phase 204).** An
-open `⚑ by hand` walk never holds a phase back from built, and new phases
-write none. Every phase PR an agent opens carries a `## Try it` section
+open walk, written `⚑ try: <who>: …`, never holds a phase back from built,
+and new phases write none; a `⚑ by hand` step (a decision, an approval, a
+setup) still must be done, since the check never guesses from prose. Every phase PR an agent opens carries a `## Try it` section
 instead: what changed (one line), where to try it (a preview URL, the
 deployed site, or a build), three to five steps, and what working and broken
 look like. Try the steps yourself first where you can (a browser, a

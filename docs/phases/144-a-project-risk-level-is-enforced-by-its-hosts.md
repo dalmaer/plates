@@ -1,10 +1,11 @@
 ---
-status: built
-since: 2026-11-21
+status: partial
+owes: walk
+since: 2026-10-31
 goal: G9
 spec: 2
 depends: [132, 142]
-note: "Each level renders Claude, Codex and ruleset controls and doctor reports drift; applying a ruleset on one project is the walk; the walk was removed (phase 204)."
+note: "Each level renders Claude, Codex and ruleset controls and doctor reports drift; applying a ruleset on one project is the walk."
 evidence: ["evidence/2026-10-31-autonomy-hosts.md"]
 ---
 
@@ -34,6 +35,7 @@ reports any drift between the level and what the host actually allows.
 
 - [x] Each level renders the expected Claude, Codex and ruleset settings, and Low never grants push or merge: `tests/autonomy-hosts.test.mjs: "each level renders its host controls"`.
 - [x] A workflow or ruleset that allows more than the level is reported by doctor with the scope it exceeds: `tests/autonomy-hosts.test.mjs: "drift from the level is reported"`.
+- [ ] On one fleet project at Medium, the previewed ruleset is applied and a robot push to main is refused by GitHub: ⚑ by hand: the conductor, after the owner's yes.
 
 ## Your part
 

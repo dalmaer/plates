@@ -30,6 +30,21 @@ aggregation follows the per-project walk; no additional tracking authority.
 - [x] Retro capture is explicit, reviewed and redacted; owner choices remain authoritative and unsupported providers remain unknown: `tests/canvas-retro.test.mjs`.
 - [ ] The existing night publishes its measured snapshot without repeating the gate or invoking a model: `tests/canvas-night.test.mjs` exercises the workflow shell and a live journal's export and restore; the deployed credential and restart walk remains, in either mode.
 - [x] CLI help, optional practice installation/migration and the packed CLI agree: `npm run check`.
+- [ ] ⚑ by hand: owner approves home, space, audience and writer access; conductor performs the real isocan walk in spec slice 5, including concurrent-edit protection and restart recovery, and records evidence.
+
+## Your part
+
+The owner approved the private destination and Plates writer on 2026-10-08;
+that decision is settled and must not be asked again. Canvas
+`prj_9CgFY5l-na`, private space `spc_JA2u7KSKSI`, writer `usr_FkZbi3ZGqT`.
+The weekly local report task is approved and active (Monday 08:00 Denver).
+GitHub night credentials and scheduled access are a separate, unprovisioned
+surface; prepare its concrete setup before requesting any new credential.
+
+Moving that approved canvas from immutable to live mode was a new decision
+and the owner's. The owner approved it on 2026-10-13, for one "Loop across
+projects" card updated in place each week. Nothing moves the binding until
+the owner runs `plates canvas live --card <key> --yes` there.
 
 ## Real surfaces
 

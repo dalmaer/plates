@@ -1,10 +1,11 @@
 ---
-status: built
-since: 2026-11-21
+status: partial
+owes: walk
+since: 2026-10-31
 goal: G9
 spec: 2
 depends: [142, 145]
-note: "lib/chat holds the envelope, outbox, seam and Discord payload mapping, proven on a fake transport; the bot in the owner's server is the walk; the walk was removed (phase 204)."
+note: "lib/chat holds the envelope, outbox, seam and Discord payload mapping, proven on a fake transport; the bot in the owner's server is the walk."
 evidence: ["evidence/2026-10-31-chat-seam.md"]
 ---
 
@@ -38,6 +39,7 @@ the project's autonomy level and door classes allow.
 - [x] A message whose text claims to be the owner, or a message from a bot, triggers nothing; only the authenticated owner's slash command does: `tests/chat-seam.test.mjs: "identity comes from the origin, never the text"`.
 - [x] A reconnect replays observations and never repeats an effect; an uncertain post stays uncertain: `tests/chat-seam.test.mjs: "reconnect never repeats an effect"`.
 - [x] A `/plates stop` from the owner stops a running fixture agent, and a request beyond the project's level is refused in chat with the reason: `tests/chat-seam.test.mjs: "chat cannot exceed the level"`.
+- [ ] In the owner's server, the plates status slash command for one project answers, and an agent's hand-off to another agent appears in the channel: ⚑ by hand: the owner.
 
 ## Your part
 

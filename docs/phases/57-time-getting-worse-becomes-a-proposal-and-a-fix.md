@@ -1,10 +1,12 @@
 ---
-status: built
-since: 2026-11-21
+status: partial
+owes: walk
+waits: owner
+since: 2026-10-10
 goal: G4
 spec: 2
 depends: [54, 56]
-note: "Implemented bounded timing evidence, resumable fix proposals and installed-night remeasurement. Independent proof and real artifact recovery verified; two owner-approved robot fixes and measured outcomes remain owed; the walk was removed (phase 204)."
+note: "Implemented bounded timing evidence, resumable fix proposals and installed-night remeasurement. Independent proof and real artifact recovery verified; two owner-approved robot fixes and measured outcomes remain owed."
 evidence: ["evidence/2026-10-10-time-proposals.md"]
 issue: 44
 ---
@@ -37,6 +39,7 @@ The design is [The robot, and plates's sense of time](../research/2026-10-09-rob
 - [x] A measure outside its bound carries its fix, its command and the measure that will show it mended; the night's proposal uses it. `tests/time-measures.test.mjs`
 - [x] Accepting a time proposal files a `keel:agent` issue with every rubric field (without the label when the robot is off) and links it from the health page. `tests/board.test.mjs`
 - [x] After the fix merges, the next health page says whether the measure came back inside its bound. `tests/time-proposal-actions.test.mjs`
+- [ ] ⚑ by hand: two time proposals accepted, built by the robot, merged by the owner, and seen back inside their bounds.
 
 ## Your part
 

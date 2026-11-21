@@ -27,6 +27,7 @@ smallest change that would move it.
 
 - [x] `--selftest`: a deliberately unhealthy fixture fails every measure (isocan's lesson: a grader that reports zeros when broken is believed).
 - [x] An instrument that cannot run exits non-zero rather than reporting zero.
+- [x] ⚑ by hand: run on plates itself, the page is committed, and the owner turns its proposal into a phase or declines it.
 
 ## Proof
 

@@ -1,10 +1,11 @@
 ---
-status: built
-since: 2026-11-21
+status: partial
+owes: walk
+since: 2026-10-22
 goal: G7
 spec: 2
 depends: [101, 107]
-note: "Fleet restore/reconnect matrix and fresh feature assertions locally proven; real fleet operation and owner-selected window remain; the walk was removed (phase 204)."
+note: "Fleet restore/reconnect matrix and fresh feature assertions locally proven; real fleet operation and owner-selected window remain."
 evidence: ["evidence/2026-10-22-web-fleet-recovery.md"]
 ---
 
@@ -25,6 +26,7 @@ and [fleet recovery](../specs/web-fleet-recovery.md).
 ## Acceptance
 
 - [x] Restore and reconnect reconcile pending runs, reservations and update intents without replaying external effects: `tests/web-fleet-recovery.test.mjs`.
+- [ ] ⚑ By hand: owner completes the real-surface exercise below: `docs/guide/web-fleet-trial.md`.
 
 ## Real surfaces
 
@@ -58,3 +60,13 @@ receipts, source coverage, costs, failure recovery and every terminal detour.
 
 - **2026-10-21** — Owner expanded G7 from the first private decision workspace to operating all authorized projects through the web on mobile and desktop.
 
+## Your part
+
+- **Ask:** Choose the fleet and trial window, then operate it on mobile and desktop and review the recorded gaps, recovery results and actual costs.
+- **Why:** Fixtures cannot establish real access, source completeness or operating usefulness.
+- **Look at:** [Private operating worksheet](../guide/web-fleet-trial.md) and this phase's dated evidence.
+- **Choices:** Verified | Needs changes | Cannot check yet
+- **Keeps it open:** Needs changes | Cannot check yet
+- **Takes:** One setup or operating session; record actual duration and cost.
+- **Then:** Record observed outcomes, keep gaps open and name the next action.
+- **Ready when:** Automated proof passes and the approved service exposes this phase's feature.

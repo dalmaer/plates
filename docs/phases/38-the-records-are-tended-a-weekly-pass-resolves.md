@@ -1,10 +1,12 @@
 ---
-status: built
-since: 2026-11-21
+status: partial
+owes: walk
+waits: time
+since: 2026-10-06
 goal: G4
 spec: 2
 depends: [26, 32, 33, 35, 39]
-note: "Built and on for plates and ledger (weekly, 30 minutes; ledger#92, opened by Codex, the first PR Claude cross-reviewed). plates's first pass (plates#22) was read and closed with a reason. Ledger #130 merged on 21 October; still owes the post-merge record comparison and owner assessment; the walk was removed (phase 204)."
+note: "Built and on for plates and ledger (weekly, 30 minutes; ledger#92, opened by Codex, the first PR Claude cross-reviewed). plates's first pass (plates#22) was read and closed with a reason. Ledger #130 merged on 21 October; still owes the post-merge record comparison and owner assessment."
 evidence: ["evidence/2026-10-06-tend.md", "evidence/2026-10-23-roadmap-followthrough.md"]
 issue: 16
 ---
@@ -43,6 +45,18 @@ The design is [The tend pass](../research/2026-10-06-tend-pass.md).
 - [x] A tend PR that adds or edits an evidence file, or changes a phase's status to built, lived-in or accepted, is refused by the guard; mutation: removing the refusal fails the test. `tests/climb.test.mjs: "tend guard"`
 - [x] The tend workflow has the climb workflow's rights only (its prefix, no merge, no delete), checked by the workflows test, and its shell passes `bash -n` and `node --check`. `tests/workflows.test.mjs`
 - [x] With no `tend` key, nothing runs; with no secret, it ends green with a notice. `tests/climb.test.mjs: "tend off"`
+- [ ] ⚑ by hand: one tend PR on plates and one on an adopted project, each read and merged (or closed with a reason) by the owner, and the next night's record findings checked against it.
+
+## Your part
+
+- **Ask:** Read ledger's first weekly tidy-up pull request, merge it or close it with a reason, and check that the next morning's report lists fewer open findings.
+- **Why:** It proves the weekly pass fixes what the nightly checks find, with a person merging every change (plates's own first pass was read on 7 October).
+- **Look at:** ledger's `keel-tend/…` pull request, then the next morning's health page.
+- **Choices:** Merged, and findings fell | Merged, but findings did not fall | Closed it
+- **Keeps it open:** Merged, but findings did not fall
+- **Takes:** 10 minutes
+- **Then:** Merged, and findings fell: recorded, and this is done. Merged, but findings did not fall: recorded, and the walk stays open; the conductor finds why and asks again after the next pass. Closed it: recorded with your reason; the conductor reads it before the next pass.
+- **Ready when:** ledger's first weekly tend pass has run (Monday 12 October, 10:18 UTC) and opened its pull request.
 
 ## Real surfaces
 

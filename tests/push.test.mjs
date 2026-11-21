@@ -82,8 +82,11 @@ test('new docket items notify once and open the session', async t => {
 
   const ledger = async () => (await data.db.query('SELECT count(*)::int n FROM plates_push.ledger')).rows[0].n;
   // Not subscribed: nothing is sent, and nothing is claimed for the day (phase 152's per-item claim for the ready walk is its own).
+  // Phase 204: the ready walk is an optional Try it, never in the docket, so a second ⚑ step makes the fixture's two items.
+  addStep(8);
   const first = await home(), items = await ledger();
-  assert.equal(first.docket.length, 2, 'the fixture docket: a step and a ready walk');
+  assert.equal(first.docket.length, 2, 'the fixture docket: two steps');
+  assert.ok(first.tryIt.some(t => t.key === 'studio:walk:2') && !first.docket.some(e => e.kind === 'walk'), 'the walk is a Try it, not counted');
   assert.equal(delivered.length, 0);
   p.state.now += 61000; await home();
   assert.equal(await ledger(), items, 'no day claimed without a device');

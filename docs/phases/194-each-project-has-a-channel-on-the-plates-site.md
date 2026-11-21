@@ -117,17 +117,6 @@ reused; Discord becomes an optional one-way mirror (increment 4).
 - [x] `plates say` posts one sealed line with session, provider and phase; over-long, too-frequent, key-shaped or keyless posts are refused naming why; the hosted proof shows the table holds ciphertext, digests and times only: `tests/channel-say.test.mjs`.
 - [x] The owner's line naming a phase reaches that session's `plates channel inbox` once, an agent's line naming another agent reaches no inbox, and a checkpoint shows answered after that session's next line: `tests/channel-inbox.test.mjs`.
 
-## Your part
-
-- **Ask:** Open the Channel page for plates after increment 1 deploys and say whether it shows what is going on.
-- **Why:** It decides whether agents should start posting (increment 2) or the feed needs to change first.
-- **Look at:** `/channel` on your Plates site.
-- **Choices:** Agents should post | Change the feed first
-- **Takes:** About 5 minutes.
-- **Then:** Agents should post: increment 2 asks for migration 024. Change the feed first: the conductor adjusts it.
-- **Recommend:** Agents should post
-- **Ready when:** increment 1 is deployed.
-
 ## Real surfaces
 
 - adopted project: the hosted workspace shows `/channel` and a plate page's Channel section, read from the live claims, GitHub and deploy records.

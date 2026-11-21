@@ -1,10 +1,11 @@
 ---
-status: built
-since: 2026-11-21
+status: partial
+owes: walk
+since: 2026-10-11
 goal: G4
 spec: 2
 depends: [56]
-note: "Bounded hygiene measures and recoverable split proposals verified; owner one-fix-each walk and robot budget approval remain; the walk was removed (phase 204)."
+note: "Bounded hygiene measures and recoverable split proposals verified; owner one-fix-each walk and robot budget approval remain."
 evidence: ["evidence/2026-10-11-phase-review-corrections.md", "evidence/2026-10-11-hygiene-audits.md"]
 issue: 53
 ---
@@ -29,6 +30,18 @@ The design is [Adopting projects that already have a practice](../research/2026-
 - [x] `drafts_waiting` counts draft PRs past the bound through the cache and quota floor. `tests/improve-measures.test.mjs`
 - [x] `long_files` names files over the bound, skips generated and vendored ones, and its fix names split points. `tests/improve-measures.test.mjs`
 - [x] Accepted long-file proposals validate fresh local/default-branch source and approved policy, preserve decisions on report regeneration, and recover uncertain issue writes without duplicates. `tests/hygiene-proposals.test.mjs`
+- [ ] ⚑ by hand: one proposal from each measure accepted and carried out.
+
+## Your part
+
+- **Ask:** Review the individual health proposals, then confirm this phase only after one worktree cleanup, one waiting draft resolution and one file split have actually been carried out.
+- **Why:** These are the sinks a project found only by auditing itself by hand; this makes the audit nightly.
+- **Look at:** [The selective hygiene report](../health/2026-10-11.md), then later health proposals for any category still missing.
+- **Choices:** All three carried out | Still outstanding
+- **Keeps it open:** Still outstanding
+- **Takes:** 5 minutes each.
+- **Then:** All three carried out: record their evidence and mark the phase built. Still outstanding: record what remains and keep the phase open. Individual proposal acceptance or decline does not complete this walk.
+- **Ready when:** an actionable proposal exists for each category and a robot budget is approved for a selected split.
 
 ## Real surfaces
 

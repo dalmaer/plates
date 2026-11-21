@@ -1,10 +1,11 @@
 ---
-status: built
-since: 2026-11-21
+status: partial
+since: 2026-10-21
+owes: walk
 goal: G7
 spec: 2
 depends: [100, 104]
-note: "Local code, SQL and desktop/mobile journeys are verified; real container/workflow, hosted concurrency and approved adopted-project rollout remain; the walk was removed (phase 204)."
+note: "Local code, SQL and desktop/mobile journeys are verified; real container/workflow, hosted concurrency and approved adopted-project rollout remain."
 evidence: ["evidence/2026-10-21-web-fleet-updates.md"]
 ---
 
@@ -26,6 +27,7 @@ Contract: [Update and lesson propagation](../specs/web-fleet-updates.md),
 
 - [x] Stale refs, custom files and partial rollout preserve source ownership and recover existing update PRs without duplicate creation: `tests/web-fleet-updates.test.mjs`.
 - [x] Lesson decisions, release and observed adoption remain distinct and private content cannot enter public export implicitly: `tests/web-lesson-rollout.test.mjs`.
+- [ ] ⚑ By hand: owner completes the real-surface exercise below: `docs/specs/web-fleet-operations.md`.
 
 ## Real surfaces
 
@@ -65,3 +67,13 @@ by the local implementation. Keel itself cannot substitute for an adopted projec
 
 - **2026-10-21** — Publication advances one external effect per request to fit the host deadline. Foreground progress reuses the exact approval; uncertainty stops it for readback. Browser review also moved technical identities behind disclosures and made each step replace the previous screen. See the desktop/mobile evidence.
 
+## Your part
+
+- **Ask:** Review a fleet lesson and preview an update; launch an approved selected-project rollout and verify its PR and subsequently observed version.
+- **Why:** Fixtures cannot establish real access, source completeness or operating usefulness.
+- **Look at:** [Fleet operating contract](../specs/web-fleet-operations.md) and this phase's dated evidence.
+- **Choices:** Verified | Needs changes | Cannot check yet
+- **Keeps it open:** Needs changes | Cannot check yet
+- **Takes:** One setup or operating session; record actual duration and cost.
+- **Then:** Record observed outcomes, keep gaps open and name the next action.
+- **Ready when:** Automated proof passes and the approved service exposes this phase's feature.
