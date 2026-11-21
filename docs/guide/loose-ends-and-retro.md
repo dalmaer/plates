@@ -96,6 +96,11 @@ plates sessions waiting                 # your home sessions waiting on an answe
 plates sessions push --site https://your-plates-site   # send them to your workspace with this device's key
 ```
 
+- A Rex pane is listed too when the program in it (Codex, Claude Code) tells
+  Rex it is blocked on you: a permission prompt, a question or a sign-in. It
+  shows under the plate its Rex session is named for (`plates-codex` is
+  plates), with `rex focus` to go there. Only what Rex was told (blocked, and
+  on what) is read; never what the pane shows.
 - A home session is one titled `🏠 [project] …`, the long-lived session you
   steer from your phone. It is waiting when its last turn asks you something
   you have not answered. `plates home` lists it under Sessions waiting on
