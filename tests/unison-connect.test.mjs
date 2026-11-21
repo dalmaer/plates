@@ -271,3 +271,22 @@ test('an add that timed out but landed is not added again: the next sync waits, 
   assert.deepEqual([map.entries['phase:acme/tools:2'].item, map.pendingCreates], [1, undefined]);
   assert.equal((await w.state()).items.length, 1);
 });
+
+test('the writer lock: eight contenders over a dead holder make exactly one owner, and only the owner releases', async t => {
+  const w = await world(t, {});
+  const { createMapStore } = await import('../lib/unison.mjs');
+  const store = await createMapStore({ root: w.plate, env: w.env });
+  await store.write({ schema: 1, workspace: null, repo: 'acme/tools', entries: {} });
+  const lock = join(w.plate, '.plates/unison/writer.lock');
+  const dead = run(process.execPath, ['-e', 'process.stdout.write(String(process.pid))']).stdout;
+  await writeFile(lock, `${dead}:${Date.now()}:acmedead`, { mode: 0o600 });
+  let inside = 0, most = 0;
+  const work = async () => { inside++; most = Math.max(most, inside); await new Promise(done => setTimeout(done, 400)); inside--; return 'acme'; };
+  const results = await Promise.all(Array.from({ length: 8 }, async () => (await createMapStore({ root: w.plate, env: w.env })).withLock(work, { waitMs: 150 })));
+  assert.equal(results.filter(r => r.ran).length, 1);
+  assert.equal(most, 1);
+  // A release by someone who is no longer the owner leaves the new owner's lock in place.
+  const other = `${process.pid}:${Date.now()}:acmeother`;
+  await store.withLock(async () => { await writeFile(lock, other); });
+  assert.equal(await readFile(lock, 'utf8'), other);
+});
