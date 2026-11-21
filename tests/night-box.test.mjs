@@ -5,10 +5,10 @@
 // read: the morning's brief and the plan card.
 //
 //   the evening   the owner shapes tonight's plan (plates goodnight, --yes pushes it)
-//   the night     plates-night.yml's own steps: Plan the night, Measure, Prepare/Open the night's pull request
+//   the night     plates-night.yml's own steps: Ask the three questions, Verdict (phase 207: it writes nothing)
 //   the card      plates-morning.yml after each pass: decide, then the card (the fake isocan home)
 //   climb         plates-climb.yml's own steps: Read tonight's plan, Pick tonight's job, Tick tonight's plan
-//   the morning   plates-morning.yml at 17:07 UTC: decide, finalize, send, the card; and once more after
+//   the morning   plates-morning.yml at 17:07 UTC: decide, send, the card; and once more after
 //
 // Each workflow step is the shipped YAML's own shell (runBlocks), run in a
 // fresh clone of a bare origin with a frozen clock and no network
@@ -47,32 +47,26 @@ const NIGHT_YML = 'practices/night/files/.github/workflows/plates-night.yml';
 const MORNING_YML = 'practices/night/files/.github/workflows/plates-morning.yml';
 const CLIMB_YML = 'practices/climb/files/.github/workflows/plates-climb.yml';
 
-// The box simulates ordinary mornings; manual observation has a separate,
-// explicit already-sent read path. Hold the exact shipped condition and its
-// truth table so adding that path cannot loosen ordinary ready/unsent/assignee gates.
-const SEND_CONDITION = "needs.decide.outputs.ready == 'true' && (needs.decide.outputs.sent != 'true' || (github.event_name == 'workflow_dispatch' && inputs.names_evidence == true)) && needs.decide.outputs.assignee == 'set'";
+// The box simulates the morning's send job: hold the exact shipped condition and its truth table,
+// so the ordinary ready/unsent/assignee gates cannot loosen.
+const SEND_CONDITION = "needs.decide.outputs.ready == 'true' && needs.decide.outputs.sent != 'true' && needs.decide.outputs.assignee == 'set'";
 const RUNS_PAST = "${{ !cancelled() && needs.decide.result == 'success' && (";
 function sendCondition(text) {
   const condition = /^  send:\n    needs: decide\n    if: ([^\n]+)\n/m.exec(text)?.[1];
-  // decide runs past the dispatch-only names-origin, so send must too (24 Oct): the gates sit inside the wrapper.
   assert.equal(condition, `${RUNS_PAST}${SEND_CONDITION}) }}`, 'the box models the actual send job condition');
   return SEND_CONDITION;
 }
 
-test('morning send condition preserves ordinary gates and bounds the manual observation exception', async () => {
-  const condition = sendCondition(await readFile(join(PLATES, MORNING_YML), 'utf8'));
+test('morning send condition keeps the ordinary gates, and the morning has no finalize job', async () => {
+  const text = await readFile(join(PLATES, MORNING_YML), 'utf8');
+  const condition = sendCondition(text);
   for (const event of ['schedule', 'workflow_run', 'workflow_dispatch']) {
-    for (const evidence of [undefined, false, true]) for (const ready of [false, true]) {
-      for (const sent of [false, true]) for (const assigned of [false, true]) {
-        const actual = runInNewContext(condition, {
-          needs: { decide: { outputs: { ready: String(ready), sent: String(sent), assignee: assigned ? 'set' : 'unset' } } },
-          github: { event_name: event }, inputs: { names_evidence: evidence },
-        });
-        assert.equal(actual, ready && assigned && (!sent || (event === 'workflow_dispatch' && evidence === true)),
-          JSON.stringify({ event, evidence, ready, sent, assigned }));
-      }
+    for (const ready of [false, true]) for (const sent of [false, true]) for (const assigned of [false, true]) {
+      const actual = runInNewContext(condition, { needs: { decide: { outputs: { ready: String(ready), sent: String(sent), assignee: assigned ? 'set' : 'unset' } } }, github: { event_name: event } });
+      assert.equal(actual, ready && assigned && !sent, JSON.stringify({ event, ready, sent, assigned }));
     }
   }
+  assert.doesNotMatch(text, /^  finalize:$/m, 'phase 207: the morning opens no final pull request');
 });
 
 // The frozen clock: one night, UTC.
@@ -133,13 +127,12 @@ const LAST_PAGE = `# Acme Anvils health — 2026-10-04
 
 /**
  * Breaking one stage, as a shipped script could break it: the fixture's
- * copy of a managed script, patched before the night (the plan, the tick,
- * finalize, send), or the card's write never reaching the canvas.
+ * copy of a managed script, patched before the night (the night's answers,
+ * the tick, send), or the card's write never reaching the canvas.
  */
 const BREAKS = Object.freeze({
-  plan: { file: 'scripts/plates/night-plan.mjs', from: '        await writePlan(root, shaped);\n', to: '' },
+  night: { file: 'scripts/plates/night-verdict.mjs', from: 'await writeFile(opts.out, ', to: 'void (opts.out, ' },
   tick: { file: 'scripts/plates/night-plan.mjs', from: 'if (prUrl && isLink(prUrl)) ticks.push(', to: 'if (false) ticks.push(' },
-  finalize: { file: 'scripts/plates/morning.mjs', from: 'written.push(await writeRecord(root, found.plan));', to: 'written.push(recordOf(night));' },
   send: { file: 'scripts/plates/morning.mjs', from: 'const same = issues.find(i => i.title === title);', to: 'const same = issues.find(i => i.title !== title);' },
   card: null,
 });
@@ -199,14 +192,14 @@ async function box(t, { broken = null } = {}) {
   git(root, 'remote', 'add', 'origin', origin);
   git(root, 'push', '-q', 'origin', 'main');
 
-  // GitHub: yesterday's brief open, nothing else; the next PR is #20 (the night's), then #21 (climb's).
+  // GitHub: yesterday's brief open, nothing else; the next PR is #20 (climb's; the night opens none).
   const state = join(base, 'gh-state.json'), log = join(base, 'gh.log');
   await writeFile(state, JSON.stringify({ issues: [{ number: 30, title: titleOf('2026-10-04'), state: 'OPEN', label: LABEL, assignee: OWNER }], prs: [], nextIssue: 31, nextPr: 20 }));
   await writeFile(log, '');
   const bin = join(base, 'bin');
   await mkdir(bin);
   await writeFile(join(bin, 'gh'), `#!/bin/sh\nexec "${process.execPath}" "${GH}" "$@"\n`);
-  // plates-night's Plan the night dates the night with `date -u +%F`: the frozen day.
+  // A step that dates the night with `date -u +%F` reads the frozen day.
   await writeFile(join(bin, 'date'), '#!/bin/sh\nif [ "$1 $2" = "-u +%F" ]; then echo "$PLATES_BOX_DAY"; exit 0; fi\nexec /bin/date "$@"\n');
   await chmod(join(bin, 'gh'), 0o755);
   await chmod(join(bin, 'date'), 0o755);
@@ -241,39 +234,20 @@ async function box(t, { broken = null } = {}) {
     const preceding = texts[yml].split('\n').slice(0, blocks[0].line - 1);
     const start = preceding.findLastIndex(line => line.trim() === `- name: ${name}`);
     if (preceding.slice(start).some(line => line.trim() === 'GH_TOKEN: ${{ github.token }}')) stepEnv.GH_TOKEN = 'acme-step-token';
-    if (yml === NIGHT_YML && name === 'Measure') {
-      const recovery = /^\s+PLATES_NIGHT_RECOVERY: "([^"]+)"$/m.exec(preceding.slice(start).join('\n'))?.[1];
-      assert.equal(recovery, '1', 'the shipped Measure step enables actual prior-branch recovery');
-      stepEnv.PLATES_NIGHT_RECOVERY = recovery;
-    }
     const output = join(j.temp, `output-${Math.random().toString(36).slice(2)}`);
     await writeFile(output, '');
     const r = run('bash', ['-e', '-c', blocks[0].script], { cwd: j.dir, env: { ...world(now), GITHUB_SHA: j.sha, RUNNER_TEMP: j.temp, GITHUB_OUTPUT: output, GITHUB_ENV: join(j.temp, 'env'), ...stepEnv, ...env } });
     const outputs = Object.fromEntries((await readFile(output, 'utf8')).split('\n').filter(l => /^\w+=/.test(l)).map(l => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]));
     return { status: r.status, out: r.stdout + r.stderr, outputs };
   };
-  const publishNight = async (j, now, env) => {
-    const prepared = await step(NIGHT_YML, "Prepare the night's pull request", j, now, env);
-    assert.equal(prepared.status, 0, prepared.out);
-    assert.match(prepared.outputs.head, /^[a-f0-9]{40}$/, 'the night prepared a commit');
-    const kept = await step(NIGHT_YML, 'Keep publication data', j, now);
-    assert.equal(kept.status, 0, kept.out);
-    assert.equal(kept.outputs.ready, 'true');
-    assert.match(texts[NIGHT_YML], /publish:\n    needs: night\n    if: always\(\) && needs.night.outputs.transfer == 'true'/);
-    const publisher = await job('night-publish');
-    await cp(join(j.temp, 'publication'), join(publisher.temp, 'publication'), { recursive: true });
-    const restored = await step(NIGHT_YML, 'Restore publication data', publisher, now);
-    assert.equal(restored.status, 0, restored.out);
-    const opened = await step(NIGHT_YML, "Open the night's pull request", publisher, now, { ...env, HEAD: prepared.outputs.head });
-    assert.equal(git(publisher.dir, 'rev-parse', 'HEAD'), publisher.sha, 'the publisher never checks out the prepared commit');
-    return opened;
-  };
   const ghState = async () => JSON.parse(await readFile(state, 'utf8'));
   const ghCalls = async () => (await readFile(log, 'utf8')).split('\n').filter(Boolean).map(l => JSON.parse(l).a);
   /** A file on a branch of the origin, or null. */
   const onOrigin = (branch, path) => { const r = run('git', ['--git-dir', origin, 'show', `refs/heads/${branch}:${path}`]); return r.status === 0 ? r.stdout : null; };
   const planOn = branch => JSON.parse(onOrigin(branch, branch === PLAN_BRANCH ? REMOTE_PLAN : `docs/night/${NIGHT}.json`) ?? 'null');
-  return { base, root, origin, f, versions, broken, world, job, step, publishNight, ghState, ghCalls, onOrigin, planOn, texts };
+  /** The origin's branches. */
+  const branches = () => run('git', ['--git-dir', origin, 'for-each-ref', '--format=%(refname:short)', 'refs/heads/']).stdout.trim().split('\n').sort();
+  return { base, root, origin, f, versions, broken, world, job, step, ghState, ghCalls, onOrigin, planOn, branches, texts };
 }
 
 // ---- the night ----------------------------------------------------------------
@@ -291,7 +265,7 @@ const row = (source, id) => { const l = source.split('\n').find(x => x.startsWit
  * on the owner's checkout (the one the fake isocan home's manifest lives in).
  */
 async function morning(b, now, label) {
-  // decide, send and the card's gate only read their checkout, so they share one; finalize, which commits, has its own.
+  // decide, send and the card's gate only read their checkout, so they share one.
   const reads = await b.job(`${label}-decide`);
   const decide = await b.step(MORNING_YML, 'Is the night over?', reads, now);
   assert.equal(decide.status, 0, `decide: ${decide.out}`);
@@ -299,14 +273,11 @@ async function morning(b, now, label) {
   const text = b.texts[MORNING_YML];
   // The scheduling this simulates is the workflow's own: each condition is asserted to be what the YAML says.
   sendCondition(text);
-  for (const cond of [`if: ${RUNS_PAST}needs.decide.outputs.ready == 'true') }}\n`, `if: ${RUNS_PAST}needs.decide.outputs.plan == 'found' && (github.event_name != 'workflow_run' || github.event.workflow_run.head_branch == github.event.repository.default_branch)) }}\n`]) {
+  for (const cond of [`if: ${RUNS_PAST}needs.decide.outputs.plan == 'found' && (github.event_name != 'workflow_run' || github.event.workflow_run.head_branch == github.event.repository.default_branch)) }}\n`]) {
     assert.ok(text.includes(cond), `plates-morning.yml still says ${cond.trim()}`);
   }
   const did = { decide: o };
-  if (o.ready === 'true') {
-    did.finalize = await b.step(MORNING_YML, 'Open the night\'s final pull request', await b.job(`${label}-finalize`), now, { DAY: o.day, BASE: 'main' });
-    if (o.sent !== 'true' && o.assignee === 'set') did.send = await b.step(MORNING_YML, 'Send the brief', reads, now, { DAY: o.day });
-  }
+  if (o.ready === 'true' && o.sent !== 'true' && o.assignee === 'set') did.send = await b.step(MORNING_YML, 'Send the brief', reads, now, { DAY: o.day });
   if (o.plan === 'found') {
     const gate = await b.step(MORNING_YML, 'Is the card set up?', reads, now);
     assert.equal(gate.status, 0, gate.out);
@@ -350,44 +321,32 @@ async function night(t, options) {
     const shaped = b.planOn(PLAN_BRANCH);
     assert.deepEqual([shaped.date, shaped.shapedBy], [NIGHT, 'owner'], 'the owner\'s plan is on the plan branch');
 
-    const j = await b.job('night');
-    b.night = j;
-    const planned = await b.step(NIGHT_YML, 'Plan the night', j, AT.night);
-    assert.equal(planned.status, 0, planned.out);
-    assert.deepEqual([planned.outputs.code, planned.outputs.day], ['0', NIGHT], planned.out);
-    assert.match(planned.out, /Tonight's plan \(2026-10-05\) is the selected branch plan, shaped by owner\./);
-    assert.ok(existsSync(join(j.dir, PLAN)), `the night wrote tonight's plan to ${PLAN} before anything ran`);
-    const written = JSON.parse(await readFile(join(j.dir, PLAN), 'utf8'));
-    assert.deepEqual(written, shaped, 'the night runs the owner\'s plan, as it was said');
-    assert.deepEqual(statusOf(written), { measures: 'planned', 'climb-test-time': 'planned', 'climb-build-time': 'planned', 'robot-12': 'planned' });
   });
 
-  // The night measures (the build is broken: an instrument that breaks fails the measure item) and opens its data-only PR.
-  await stage('measure', async () => {
-    const measured = await b.step(NIGHT_YML, 'Measure', b.night, AT.night);
-    assert.equal(measured.outputs.day, NIGHT, measured.out);
-    const measurement = JSON.parse(await readFile(join(b.night.temp, 'improve.json'), 'utf8'));
-    assert.deepEqual(measurement.nightRecovery, { branch: `plates-night/${NIGHT}`, head: '', attempts: 0 }, 'the real reader observed no prior branch in the bare origin');
-    const pr = await b.publishNight(b.night, AT.night, { DAY: measured.outputs.day, PLAN_DAY: NIGHT, BASE: 'main', HEALTH: 'docs/health' });
-    assert.equal(pr.status, 0, pr.out);
-    assert.match(pr.out, /the default plan is not written to plates-night-plan: tonight's plan is the owner's/);
-    const record = b.planOn(`plates-night/${NIGHT}`);
-    assert.ok(record, `the night's PR branch carries docs/night/${NIGHT}.json`);
-    assert.equal(item(record, 'measures').status, 'failed', 'a broken instrument fails the measure item');
-    assert.match(item(record, 'measures').result.note, /broken \(.*build_time.*\)/, 'and says which one');
-    const retained = parseVerifications(b.onOrigin(`plates-night/${NIGHT}`, `docs/health/${NIGHT}.md`));
-    assert.equal(retained.length, 1);
-    assert.equal(retained[0].attempt, measurement.verification.attempt, 'the leased publication retains the measured receipt');
-    assert.deepEqual((await b.ghState()).prs.map(p => [p.number, p.headRefName]), [[20, `plates-night/${NIGHT}`]], 'one night PR');
+  // The quiet night (phase 207): three questions, a green verdict, and nothing written: no branch, no PR, the owner's plan untouched.
+  await stage('night', async () => {
+    const plan = b.onOrigin(PLAN_BRANCH, REMOTE_PLAN), branches = b.branches();
+    const j = await b.job('night');
+    const asked = await b.step(NIGHT_YML, 'Ask the three questions', j, AT.night);
+    assert.equal(asked.status, 0, asked.out);
+    const summary = join(j.temp, 'summary.md');
+    const said = await b.step(NIGHT_YML, 'Verdict', j, AT.night, { GITHUB_STEP_SUMMARY: summary });
+    assert.equal(said.status, 0, said.out);
+    assert.match(await readFile(summary, 'utf8'), /^The night on 2026-10-05: main is green, no test is flaky, and the gate ran tests\./);
+    assert.deepEqual((await b.ghState()).prs, [], 'the night opens no pull request');
+    assert.deepEqual(b.branches(), branches, 'the night pushes no branch');
+    assert.equal(b.onOrigin(PLAN_BRANCH, REMOTE_PLAN), plan, 'the owner\'s plan is as the owner said it');
+    const touched = run('git', ['-C', j.dir, 'status', '--porcelain', '--', '.', ':!.plates/test-runs']).stdout;
+    assert.equal(touched, '', 'and its checkout holds no health page, plan record or proposal');
   });
 
   // plates-morning after the night: not over, so nothing is sent; the card is made from the plan as it stands.
   await stage('card', async () => {
     const did = await morning(b, AT.afterNight, 'after-night');
-    assert.deepEqual([did.decide.ready, did.decide.plan, did.finalize, did.send], ['false', 'found', undefined, undefined], 'the night is not over');
+    assert.deepEqual([did.decide.ready, did.decide.plan, did.send], ['false', 'found', undefined], 'the night is not over');
     assert.equal(did.card.exitCode ?? 0, 0, JSON.stringify(did.card.data));
     const { source } = await lastCard(b);
-    assert.equal(row(source, 'measures')?.status, 'failed', 'the card shows the night\'s measure item failed');
+    assert.equal(row(source, 'measures')?.status, 'planned', 'the night no longer ticks a measure item');
     assert.equal(row(source, 'climb-test-time')?.status, 'planned');
   });
 
@@ -428,16 +387,11 @@ async function night(t, options) {
     assert.deepEqual(row(source, 'climb-test-time'), { status: 'done', outcome: `${CLIMB_LINE} — ${CLIMB_PR}` }, 'the card shows climb\'s item done, with its PR');
   });
 
-  // The morning, at 17:07 UTC: readyBy has passed, so the night is over; finalize, send and the card.
-  const at17 = await stage('finalize', async () => {
+  // The morning, at 17:07 UTC: readyBy has passed, so the night is over; send and the card.
+  const at17 = await stage('send', async () => {
     const did = await morning(b, AT.morning, 'morning');
     assert.deepEqual([did.decide.day, did.decide.ready, did.decide.sent, did.decide.assignee], [NIGHT, 'true', 'false', 'set'], 'over at readyBy, not yet sent');
-    assert.equal(did.finalize.status, 0, did.finalize.out);
-    const final = b.planOn(`plates-night/${NIGHT}-final`);
-    assert.ok(final, `finalize pushed plates-night/${NIGHT}-final with the night's record: ${did.finalize.out}`);
-    assert.deepEqual(statusOf(final), { measures: 'failed', 'climb-test-time': 'done', 'climb-build-time': 'skipped', 'robot-12': 'planned' }, 'the record holds each item\'s final outcome');
-    assert.match(b.onOrigin(`plates-night/${NIGHT}-final`, `docs/health/${NIGHT}.md`), /^\| climb-test-time: .* \| done \| .*pull\/21 \|$/m, 'and so does the health page\'s Tonight\'s plan');
-    assert.ok((await b.ghState()).prs.some(p => p.headRefName === `plates-night/${NIGHT}-final` && p.state === 'OPEN'), 'as one data-only PR in the night\'s queue');
+    assert.equal(did.finalize, undefined, 'nothing is finalized as a pull request');
     return did;
   });
 
@@ -455,16 +409,13 @@ async function night(t, options) {
     assert.equal(at17.card.data.state, 'unchanged', `nothing ticked since climb: no new version (${JSON.stringify(at17.card.data)})`);
   });
 
-  // plates-morning once more: the brief is sent, so nothing is sent again; finalize finds nothing new.
+  // plates-morning once more: the brief is sent, so nothing is sent again.
   await stage('send', async () => {
     const creates = (await b.ghCalls()).filter(a => a[0] === 'issue' && a[1] === 'create').length;
     const did = await morning(b, AT.again, 'again');
     assert.deepEqual([did.decide.ready, did.decide.sent], ['true', 'true'], 'decide reads the brief as sent');
     assert.equal(did.send, undefined, 'the send job does not run');
-    assert.equal(did.finalize.status, 0, did.finalize.out);
-    // Its branch is pushed and the PR unmerged: nothing is committed, and the one PR is kept, never a second.
-    assert.match(did.finalize.out, new RegExp(`Nothing changed since plates-night/${NIGHT}-final was pushed; making sure its PR is open\\.`));
-    assert.equal((await b.ghState()).prs.filter(p => p.headRefName === `plates-night/${NIGHT}-final`).length, 1, 'one final PR');
+    assert.deepEqual((await b.ghState()).prs.map(p => p.headRefName), [`keel-climb/test-time/${NIGHT}`], 'climb\'s PR, and no night or final PR');
     assert.equal(did.card.data.state, 'unchanged');
     // The 17:07 run's send job re-run by hand (GitHub keeps that run's decide, which said unsent): send's own check holds.
     const rerun = await b.step(MORNING_YML, 'Send the brief', await b.job('rerun-send'), AT.again, { DAY: NIGHT });
@@ -475,7 +426,7 @@ async function night(t, options) {
 
   const seconds = (Date.now() - started) / 1000;
   const issues = (await b.ghState()).issues;
-  return { b, seconds, brief: issues.find(i => i.title === titleOf(NIGHT))?.body ?? null, issues, final: b.planOn(`plates-night/${NIGHT}-final`), card: await lastCard(b) };
+  return { b, seconds, brief: issues.find(i => i.title === titleOf(NIGHT))?.body ?? null, issues, final: b.planOn(PLAN_BRANCH), card: await lastCard(b) };
 }
 
 // ---- what the owner sees --------------------------------------------------------
@@ -502,34 +453,33 @@ test('a whole night: the brief says what was done, what failed and why, and what
   assert.ok(brief, 'the brief was sent');
   const s = sections(brief);
   assert.equal(brief.split('\n')[0], `# ${titleOf(NIGHT)}`);
-  assert.match(brief, new RegExp(`^The night of ${NIGHT} \\(UTC\\), shaped by the owner: 1 done, 0 tried, 1 failed, 1 left alone, 1 not finished by ${READY_BY}\\.$`, 'm'));
-  // Its links: the canvas, and the night's health page on GitHub where the night's record was read
-  // (its PRs are unmerged, so the page is on the morning's own final branch).
-  assert.match(brief, new RegExp(`^Canvas: https://acme\\.test/p/prj_acme · Health page: https://github\\.com/${REPO}/blob/plates-night/${NIGHT}-final/docs/health/${NIGHT}\\.md$`, 'm'));
-  assert.deepEqual(Object.keys(s), ['Retained verification', 'Done', 'Tried', 'Failed, and why', 'Left alone', `Not finished by ${READY_BY}`, 'Your next'], 'isocan\'s order');
-  assert.match(s['Retained verification'], /current remote coverage was not read here/, 'the brief keeps retained verification separate from fresh remote evidence');
+  assert.match(brief, new RegExp(`^The night of ${NIGHT} \\(UTC\\), shaped by the owner: 1 done, 0 tried, 0 failed, 1 left alone, 2 not finished by ${READY_BY}\\.$`, 'm'));
+  // Its link: the canvas. The night commits no record or health page since phase 207, so there is no page to link.
+  assert.match(brief, /^Canvas: https:\/\/acme\.test\/p\/prj_acme$/m);
+  assert.deepEqual(Object.keys(s), ['Done', 'Tried', 'Failed, and why', 'Left alone', `Not finished by ${READY_BY}`, 'Your next'], 'isocan\'s order');
   // Done: climb's item, with its note and its PR.
-  assert.deepEqual(s.Done.split('\n'), [`- **${item(final, 'climb-test-time').title}** (\`climb-test-time\`) — \`slow_tests\` ≤ 0 (not measured on a health page) — ${CLIMB_LINE} — ${CLIMB_PR}`]);
+  assert.deepEqual(s.Done.split('\n'), [`- **${item(final, 'climb-test-time').title}** (\`climb-test-time\`) — \`slow_tests\` ≤ 0: 2 before → not measured yet (the next night measures it) after — ${CLIMB_LINE} — ${CLIMB_PR}`]);
   assert.equal(s.Tried, 'Nothing.');
-  // Failed, with its reason: the measure item, and the instrument that broke.
-  assert.equal(s['Failed, and why'].split('\n').length, 1);
-  assert.match(s['Failed, and why'], new RegExp(`^- \\*\\*Measure the practice: .*\\*\\* \\(\`measures\`\\) — \\d+ ok, \\d+ outside, \\d+ n/a, 1 broken \\(build_time\\) — docs/health/${NIGHT}\\.md$`));
+  // Nothing failed: the quiet night ticks no measure item.
+  assert.equal(s['Failed, and why'], 'Nothing.');
   // Left alone: climb's other item, saying why.
-  assert.deepEqual(s['Left alone'].split('\n'), ['- **Builds back under a minute** (`climb-build-time`) — `build_time` ≤ 60000 (not measured on a health page) — climb runs one job a night, and tonight\'s plan named climb-test-time first — skipped']);
-  // Not finished by readyBy: the robot's item, never done.
-  assert.deepEqual(s[`Not finished by ${READY_BY}`].split('\n'), [`- **Robot: #12 faster anvil search** (\`robot-12\`) — \`slow_tests\` ≤ 0 (not measured on a health page) — not finished by ${READY_BY} (still planned)`]);
+  assert.deepEqual(s['Left alone'].split('\n'), ['- **Builds back under a minute** (`climb-build-time`) — `build_time` ≤ 60000: 52000 before → not measured yet (the next night measures it) after — climb runs one job a night, and tonight\'s plan named climb-test-time first — skipped']);
+  // Not finished by readyBy: the robot's item, never done, and the plan's measure item, which no pass ticks any more.
+  assert.deepEqual(s[`Not finished by ${READY_BY}`].split('\n'), [
+    `- **${item(final, 'measures').title}** (\`measures\`) — not finished by ${READY_BY} (still planned)`,
+    `- **Robot: #12 faster anvil search** (\`robot-12\`) — \`slow_tests\` ≤ 0: 2 before → not measured yet (the next night measures it) after — not finished by ${READY_BY} (still planned)`,
+  ]);
   assert.deepEqual(s['Your next'].split('\n'), [
     `- Review and merge ${CLIMB_PR} (\`climb-test-time\`): a person merges.`,
-    `- Look at why \`measures\` failed: ${item(final, 'measures').result.note}.`,
     `- \`robot-12\` was not finished by ${READY_BY}: its pass may still finish it, or tomorrow's plan takes it up.`,
-    ...final.leftOpen.map(l => `- Left open: ${l}`),
+    ...(final.leftOpen ?? []).map(l => `- Left open: ${l}`),
   ]);
   // Exactly one morning issue for the night.
   assert.equal(n.issues.filter(i => i.label === LABEL && i.title === titleOf(NIGHT)).length, 1);
   assert.deepEqual(n.issues.filter(i => i.label === LABEL && i.state === 'OPEN').map(i => i.title), [titleOf(NIGHT)], 'one brief open at a time');
   // The card's last version: the plan as it finished, every item's final status, and nothing else.
   assert.equal(card.source, planCard(final).source, 'the card is the final plan');
-  assert.deepEqual(Object.fromEntries(final.items.map(i => [i.id, row(card.source, i.id)?.status])), { measures: 'failed', 'climb-test-time': 'done', 'climb-build-time': 'skipped', 'robot-12': 'planned' });
+  assert.deepEqual(Object.fromEntries(final.items.map(i => [i.id, row(card.source, i.id)?.status])), { measures: 'planned', 'climb-test-time': 'done', 'climb-build-time': 'skipped', 'robot-12': 'planned' });
   assert.equal(card.card.versions.length, 2, 'two versions: the night, then climb\'s tick (the morning changed nothing)');
   // No network: every node the night started refused the network (the preload), and the box's own probe is refused too.
   const probe = run(process.execPath, ['-e', 'require("node:net").connect(443, "github.com")'], { env: n.b.world(AT.night) });
@@ -543,7 +493,7 @@ test('a whole night: the brief says what was done, what failed and why, and what
   assert.ok(seconds / load < 30, `the night runs in under 30 seconds at the quiet pace (took ${seconds.toFixed(1)} s at ×${load.toFixed(1)})`);
 });
 
-test('breaking any one stage (the plan write, the tick, finalize, send, the card) fails the night, naming the stage', async t => {
+test('breaking any one stage (the night\'s answers, the tick, send, the card) fails the night, naming the stage', async t => {
   for (const broken of Object.keys(BREAKS)) {
     await assert.rejects(night(t, { broken }), e => {
       assert.match(e.message, new RegExp(`^\\[${broken}\\] `), `breaking ${broken} is named ${broken}, not: ${e.message.slice(0, 300)}`);
@@ -553,32 +503,21 @@ test('breaking any one stage (the plan write, the tick, finalize, send, the card
   }
 });
 
-test("a night started under keel's names finishes under them, and drains with plates's", async t => {
+test("a plan under keel's names: the quiet night leaves it alone, and the morning still reads it", async t => {
   const b=await box(t), seed=await b.job('Acme-legacy-seed');
-  const {defaultPlan,planSection,record}=await import('../lib/night-plan.mjs');
+  const {defaultPlan}=await import('../lib/night-plan.mjs');
   const owner={...defaultPlan({date:NIGHT,candidates:[{id:'acme-followup',title:'Acme follow-up',kind:'triage',source:'default',lane:'night'}]}),shapedBy:'owner'};
   const git=(...args)=>{const r=run('git',args,{cwd:seed.dir,env:b.world(AT.evening)});assert.equal(r.status,0,r.stderr);return r.stdout.trim();};
   git('checkout','-qb','keel-night-plan');await mkdir(join(seed.dir,'.keel/night'),{recursive:true});
   await writeFile(join(seed.dir,'.keel/night/plan.json'),JSON.stringify(owner));git('add','-f','.keel/night/plan.json');git('commit','-qm','Acme legacy plan');git('push','-q','origin','keel-night-plan');
-  git('checkout','-q','main');git('checkout','-qb',`keel-night/${NIGHT}`);
-  await mkdir(join(seed.dir,'docs/health'),{recursive:true});await mkdir(join(seed.dir,'docs/night'),{recursive:true});
-  await writeFile(join(seed.dir,`docs/night/${NIGHT}.json`),JSON.stringify(owner));
-  await writeFile(join(seed.dir,`docs/health/${NIGHT}.md`),'# Acme\n\n'+planSection(owner).join('\n'));
-  git('add','-f',`docs/night/${NIGHT}.json`,`docs/health/${NIGHT}.md`);git('commit','-qm','Acme existing night');git('push','-q','origin',`keel-night/${NIGHT}`);
-  const legacyPlan=b.onOrigin('keel-night-plan','.keel/night/plan.json');
+  const legacyPlan=b.onOrigin('keel-night-plan','.keel/night/plan.json'), branches=b.branches();
   const nightJob=await b.job('Acme-upgraded-night');
-  const selected=await b.step(NIGHT_YML,'Plan the night',nightJob,AT.night);assert.equal(selected.status,0,selected.out);assert.match(selected.out,/"branch":"keel-night-plan"/);
-  assert.deepEqual(JSON.parse(await readFile(join(nightJob.dir,PLAN),'utf8')),owner);
-  const measured=await b.step(NIGHT_YML,'Measure',nightJob,AT.night);assert.equal(measured.outputs.day,NIGHT,measured.out);
-  const opened=await b.publishNight(nightJob,AT.night,{DAY:NIGHT,PLAN_DAY:NIGHT,BASE:'main',HEALTH:'docs/health'});assert.equal(opened.status,0,opened.out);
-  assert.ok(b.planOn(`keel-night/${NIGHT}`));assert.equal(b.planOn(`plates-night/${NIGHT}`),null);
-  const finalJob=await b.job('Acme-upgraded-final');
-  const ticked=await record({root:finalJob.dir,date:NIGHT,ticks:[{id:'acme-followup',status:'done',note:'Acme reviewed'}],env:b.world(AT.morning)});assert.equal(ticked.recorded,true,JSON.stringify(ticked));
-  const final=await b.step(MORNING_YML,"Open the night's final pull request",finalJob,AT.morning,{DAY:NIGHT,BASE:'main'});assert.equal(final.status,0,final.out);
-  assert.ok(b.planOn(`keel-night/${NIGHT}-final`),final.out);assert.equal(b.planOn(`plates-night/${NIGHT}-final`),null);
+  const asked=await b.step(NIGHT_YML,'Ask the three questions',nightJob,AT.night);assert.equal(asked.status,0,asked.out);
+  const said=await b.step(NIGHT_YML,'Verdict',nightJob,AT.night,{GITHUB_STEP_SUMMARY:join(nightJob.temp,'summary.md')});assert.equal(said.status,0,said.out);
+  assert.deepEqual(b.branches(),branches,'no branch is pushed');assert.deepEqual((await b.ghState()).prs,[]);
   assert.equal(b.onOrigin('keel-night-plan','.keel/night/plan.json'),legacyPlan,'historical plan bytes are retained');
-  const {plan:drain}=await import('../practices/night/files/scripts/plates/drain.mjs');
-  const prs=(await b.ghState()).prs.filter(p=>p.state==='OPEN').map(p=>({...p,mergeable:'MERGEABLE',files:[{path:`docs/night/${NIGHT}.json`}]}));
-  prs.push({number:99,headRefName:'plates-night/2026-10-06',createdAt:'2099-01-01T00:00:00Z',isCrossRepository:false,mergeable:'MERGEABLE',files:[{path:'docs/night/2026-10-06.json'}]});
-  const queue=drain(prs,'plates-night/',{gatePassed:true});assert.equal(queue.newest,99);assert.equal(queue.queue.length,3);assert.ok(queue.actions.every(a=>a.action==='merge'));
+  const reads=await b.job('Acme-morning');
+  const decided=await b.step(MORNING_YML,'Is the night over?',reads,AT.afterNight);assert.equal(decided.status,0,decided.out);
+  assert.deepEqual([decided.outputs.day,decided.outputs.plan],[NIGHT,'found'],decided.out);
+
 });

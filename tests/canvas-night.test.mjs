@@ -9,7 +9,9 @@ import { run } from './helpers/run.mjs';
 
 const binding = { provider: 'isocan', projectKey: 'acme', home: 'https://acme.test', canvasId: 'canvas_acme', actorId: 'actor_acme', audience: 'owner-only', privacy: 'summary', mode: 'immutable', spaceId: null };
 const initialManifest = () => ({ schema: 1, projectKey: binding.projectKey, home: binding.home, canvasId: binding.canvasId, items: {}, groups: {}, receipts: [], pending: null });
-const template = resolve('practices/night/files/.github/workflows/plates-night.yml');
+// Since phase 207 the night writes no canvas; plates-morning's card step is the one writer, and the recovery's caller.
+const template = resolve('practices/night/files/.github/workflows/plates-morning.yml');
+const nightTemplate = resolve('practices/night/files/.github/workflows/plates-night.yml');
 const report = { date: '2026-10-08', measures: [
   { id: 'gate', value: 0, state: 'ok', detail: 'fake-secret-private-command' },
   { id: 'ci', value: 0, state: 'n/a', detail: 'offline' },
@@ -87,7 +89,7 @@ test('missing or invalid report fails instead of rerunning measurements', async 
 });
 
 function shell(yaml) {
-  const block = yaml.split('      - name: Project the night onto its canvas\n')[1].split('\n      - name:')[0];
+  const block = yaml.split('      - name: Publish the plan card\n')[1].split('\n      - name:')[0];
   return block.split('        run: |\n')[1].split('\n').map(l => l.startsWith('          ') ? l.slice(10) : l).join('\n');
 }
 async function workflow(t, { enabled = true, creds = true, missing = false, mismatch = false, fail = false, runs = [], artifacts = [], bundle, local = true, disabledShas = [], attempt = 1, priorAttempt, event = 'schedule', neverRan = {}, jobs = {}, repositories = {}, omitArtifact = null, provisioning = null, workflowText } = {}) {
@@ -107,7 +109,7 @@ async function workflow(t, { enabled = true, creds = true, missing = false, mism
   for (const tool of ['plates', 'isocan']) {
     if (missing && tool === 'isocan') continue;
     const file = join(bin, tool);
-    await writeFile(file, `#!${process.execPath}\nconst fs=require('node:fs'); const a=process.argv.slice(2); fs.appendFileSync(${JSON.stringify(log)},JSON.stringify([${JSON.stringify(tool)},...a])+'\\n'); if(a[0]==='--version') console.log('acme-pinned'); else {if(a[0]!=='canvas'||a[1]!=='night') process.exit(90); const r=JSON.parse(fs.readFileSync(a[a.indexOf('--report')+1])); if(r.date!=='2026-10-08') process.exit(91); process.exit(${fail ? 1 : 0});}`);
+    await writeFile(file, `#!${process.execPath}\nconst fs=require('node:fs'); const a=process.argv.slice(2); fs.appendFileSync(${JSON.stringify(log)},JSON.stringify([${JSON.stringify(tool)},...a])+'\\n'); if(a[0]==='--version') console.log('acme-pinned'); else {if(a[0]!=='morning'||a[1]!=='--card'||!a.includes('--yes')) process.exit(90); if(a[a.indexOf('--date')+1]!=='2026-10-08') process.exit(91); process.exit(${fail ? 1 : 0});}`);
     await chmod(file, 0o755);
   }
   const ghlog = join(root, 'gh.jsonl');
@@ -137,7 +139,7 @@ if(a[0]==='api') {
   await writeFile(join(root, 'improve.json'), JSON.stringify(report));
   const home = join(root, 'identity'); await mkdir(home);
   const env = { ...process.env, PATH: bin, RUNNER_TEMP: root, GITHUB_OUTPUT: join(root, 'outputs'),
-    REPO: 'Acme/app', BASE: 'main', GITHUB_REPOSITORY: 'Acme/app', GITHUB_REF_NAME: 'main', GITHUB_RUN_ID: '200', GITHUB_RUN_ATTEMPT: String(attempt), GITHUB_EVENT_NAME: event, GITHUB_SHA: 'b'.repeat(40),
+    REPO: 'Acme/app', BASE: 'main', GITHUB_REPOSITORY: 'Acme/app', GITHUB_REF_NAME: 'main', GITHUB_RUN_ID: '200', GITHUB_RUN_ATTEMPT: String(attempt), GITHUB_EVENT_NAME: event, GITHUB_SHA: 'b'.repeat(40), DAY: '2026-10-08', PLATES_GH: gh,
     PLATES_CANVAS_PLATES_VERSION: mismatch ? 'wrong-pin' : 'acme-pinned', PLATES_CANVAS_ISOCAN_VERSION: 'acme-pinned', PLATES_CANVAS_ISOCAN_HOME: creds ? home : '' };
   if (provisioning) provisioning(env);
   const yaml = workflowText ?? await readFile(template, 'utf8');
@@ -146,31 +148,22 @@ if(a[0]==='api') {
   let ghCalls = []; try { ghCalls = (await readFile(ghlog, 'utf8')).trim().split('\n').map(JSON.parse); } catch {}
   return { ...out, calls, ghCalls, yaml, root };
 }
-test('actual workflow shell: off has no CLI calls; on consumes report exactly once', async t => {
-  const source = await readFile(template, 'utf8'), path = '.github/workflows/plates-night.yml';
+test('the quiet night writes no canvas; the card step publishes once through its pinned tools', async t => {
+  const night = await readFile(nightTemplate, 'utf8');
+  assert.doesNotMatch(night, /canvas night|canvas-recovery|PLATES_CANVAS|Project the night onto its canvas/, 'phase 207: the night has no canvas step');
+  const source = await readFile(template, 'utf8'), path = '.github/workflows/plates-morning.yml';
   const selfConfig = JSON.parse(await readFile(resolve('.plates/plates.json'), 'utf8'));
   assert.equal(fill(source, selfConfig, path), await readFile(resolve(path), 'utf8'), 'self matches its configured render');
-  for (const reconciliation of [false, true]) await t.test(`reconciliation ${reconciliation}`, async t => {
-    const config = { name: 'Acme', repo: 'acme/app', practices: ['night', 'reconciliation'], ...(reconciliation ? { reconciliation: { githubAccess: { enabled: true, repositories: ['acme/app'] } } } : {}) };
-    const workflowText = fill(source, config, path);
-    assert.equal(workflowText.includes('  reconciliation:\n'), reconciliation);
-    const off = await workflow(t, { enabled: false, workflowText }); assert.equal(off.status, 0); assert.deepEqual(off.calls, []);
-    const on = await workflow(t, { workflowText }); assert.equal(on.status, 0, on.stderr);
-    assert.deepEqual(on.calls.map(a => a.slice(0, 3)), [['plates', '--version'], ['isocan', '--version'], ['plates', 'canvas', 'night']]);
-    assert.ok(on.calls[2].includes('--yes'));
-    const prepare = on.yaml.indexOf("- name: Prepare the night's pull request");
-    assert.ok(prepare >= 0 && prepare < on.yaml.indexOf('- name: Project the night'), 'canvas follows the local data commit');
-    assert.match(on.yaml, /canvas: \$\{\{ steps.canvas.outcome \}\}/);
-    assert.match(on.yaml, /CANVAS_OUTCOME.*needs.night.outputs.canvas/);
-    assert.match(on.yaml, /retention-days: 90/);
-    assert.equal(on.yaml, workflowText, 'the shell ran the full rendered variant');
-  });
+  const on = await workflow(t); assert.equal(on.status, 0, on.stderr);
+  assert.deepEqual(on.calls.map(a => a.slice(0, 3)), [['plates', '--version'], ['isocan', '--version'], ['plates', 'morning', '--card']]);
+  assert.ok(on.calls[2].includes('--yes'));
+  assert.match(on.yaml, /retention-days: 90/);
 });
 test('actual workflow shell fails visibly for missing tools, pins, credentials and sync failure', async t => {
   for (const options of [{ missing: true }, { mismatch: true }, { creds: false }, { fail: true }]) {
     const out = await workflow(t, options);
     assert.notEqual(out.status, 0, JSON.stringify(options));
-    if (!options.fail) { assert.match(out.stdout, /::error::/); assert.ok(!out.calls.some(c => c[1] === 'canvas')); }
+    if (!options.fail) { assert.match(out.stdout, /::error::/); assert.ok(!out.calls.some(c => c[1] === 'morning')); }
   }
 });
 
@@ -201,22 +194,12 @@ test('real collector: original measured report publishes after data commit, arbi
   assert.equal(unrelated.exitCode, 1, JSON.stringify(unrelated)); assert.equal(writes, 1);
 });
 
-test('actual verdict shell makes a continued canvas failure visible after healthy measurements', async () => {
-  const source = await readFile(template, 'utf8');
-  for (const reconciliation of [false, true]) {
-    const config = { name: 'Acme', repo: 'acme/app', practices: ['night', 'reconciliation'], ...(reconciliation ? { reconciliation: { githubAccess: { enabled: true, repositories: ['acme/app'] } } } : {}) };
-    const yaml = fill(source, config, '.github/workflows/plates-night.yml');
-    const verdict = yaml.split('      - name: Verdict\n')[1].split('        run: |\n')[1]
-      .split('\n').map(l => l.startsWith('          ') ? l.slice(10) : l).join('\n');
-    const out = run('/bin/bash', ['-e', '-c', verdict], { env: { ...process.env, CANVAS_OUTCOME: 'failure', CODE: '0', GATE: 'ok' } });
-    assert.equal(out.status, 1, `reconciliation ${reconciliation}`);
-    assert.match(out.stdout, /::error::Canvas projection failed/);
-  }
-});
-
 const trustedRun = (extra = {}) => ({ id: 100, run_attempt: 1, head_sha: 'a'.repeat(40), head_repository: { full_name: 'Acme/app' }, repository: { full_name: 'Acme/app' }, head_branch: 'main', path: '.github/workflows/plates-night.yml', event: 'schedule', pull_requests: [], status: 'completed', conclusion: 'success', ...extra });
 const artifactFor = r => ({ name: `keel-canvas-night-${r.run_attempt}`, expired: false, size_in_bytes: 500, workflow_run: { id: r.id, head_sha: r.head_sha } });
 const provenanceFor = r => ({ repo: 'Acme/app', workflow: r.path, runId: String(r.id), attempt: r.run_attempt, headSha: r.head_sha });
+// Phase 78: plates-morning's plan card writes the same canvas, so the night and the card keep one journal.
+const cardRun = (extra = {}) => trustedRun({ path: '.github/workflows/plates-morning.yml', event: 'workflow_run', ...extra });
+const cardArtifact = r => ({ ...artifactFor(r), name: `keel-canvas-card-${r.run_attempt}` });
 
 test('workflow recovery selects the latest trusted enabled attempt, including failure, never a PR artifact', async t => {
   const latest = trustedRun({ id: 150, conclusion: 'failure', run_attempt: 2 });
@@ -234,22 +217,27 @@ test('workflow refuses missing latest artifact, mismatched provenance, live atte
   for (const options of [
     { runs: [latest, trustedRun()], artifacts: [artifactFor(trustedRun())] },
     { runs: [latest], artifacts: [artifactFor(latest)], bundle: { provenance: provenanceFor(trustedRun()) } },
-    { runs: [trustedRun({ status: 'in_progress' })] },
     { event: 'pull_request' },
     { local: false },
   ]) {
     const out = await workflow(t, options);
     assert.notEqual(out.status, 0, JSON.stringify(options));
-    assert.ok(!out.calls.some(a => a[1] === 'canvas'));
+    assert.ok(!out.calls.some(a => a[1] === 'morning'));
   }
+});
+test('a running canvas writer makes the card wait: green, a notice, the canvas untouched', async t => {
+  const out = await workflow(t, { runs: [trustedRun({ status: 'in_progress' })] });
+  assert.equal(out.status, 0, out.stderr);
+  assert.match(out.stdout, /the plan card waits for the next pass/);
+  assert.ok(!out.calls.some(a => a[1] === 'morning'));
 });
 test('workflow skips a committed disabled night and restores the previous attempt on a rerun', async t => {
   const disabled = trustedRun({ id: 150, head_sha: 'd'.repeat(40) }), previous = trustedRun();
   const off = await workflow(t, { runs: [disabled, previous], disabledShas: [disabled.head_sha], artifacts: [artifactFor(previous)], bundle: { provenance: provenanceFor(previous) } });
   assert.equal(off.status, 0, off.stderr);
   assert.equal(off.ghCalls.find(a => a[0] === 'run')[2], '100');
-  const first = trustedRun({ id: 200, conclusion: 'failure' });
-  const rerun = await workflow(t, { runs: [trustedRun({ id: 200, run_attempt: 2, status: 'in_progress' })], attempt: 2, priorAttempt: first, artifacts: [artifactFor(first)], bundle: { provenance: provenanceFor(first) } });
+  const first = cardRun({ id: 200, conclusion: 'failure' });
+  const rerun = await workflow(t, { runs: [cardRun({ id: 200, run_attempt: 2, status: 'in_progress' })], attempt: 2, priorAttempt: first, artifacts: [cardArtifact(first)], bundle: { provenance: provenanceFor(first) } });
   assert.equal(rerun.status, 0, rerun.stderr);
   assert.ok(rerun.ghCalls.some(a => a[1]?.endsWith('/attempts/1')));
 });
@@ -264,22 +252,22 @@ test('a night queued behind this one is never the one recovered from (duo#90)', 
 test('a preflight failure leaves a never-ran receipt, and the next night recovers from the attempt before it (duo#90)', async t => {
   const failed = await workflow(t, { creds: false });
   assert.notEqual(failed.status, 0);
-  const receipt = JSON.parse(await readFile(join(failed.root, 'plates-canvas-night/never-ran.json'), 'utf8'));
-  assert.deepEqual(receipt, { neverRan: true, provenance: { repo: 'Acme/app', workflow: '.github/workflows/plates-night.yml', runId: '200', attempt: 1, headSha: 'b'.repeat(40) } });
+  const receipt = JSON.parse(await readFile(join(failed.root, 'plates-canvas-card/never-ran.json'), 'utf8'));
+  assert.deepEqual(receipt, { neverRan: true, provenance: { repo: 'Acme/app', workflow: '.github/workflows/plates-morning.yml', runId: '200', attempt: 1, headSha: 'b'.repeat(40) } });
   const broken = trustedRun({ id: 150, conclusion: 'failure', head_sha: 'c'.repeat(40) }), previous = trustedRun();
   const out = await workflow(t, { runs: [broken, previous], artifacts: [artifactFor(broken), artifactFor(previous)], neverRan: { '150-1': provenanceFor(broken) }, bundle: { provenance: provenanceFor(previous) } });
   assert.equal(out.status, 0, out.stderr);
   assert.deepEqual(out.ghCalls.filter(a => a[0] === 'run').map(a => a[2]), ['150', '100']);
-  assert.ok(out.calls.some(a => a[1] === 'canvas'));
+  assert.ok(out.calls.some(a => a[1] === 'morning'));
   // A never-ran receipt for another attempt is refused, never skipped.
   const forged = await workflow(t, { runs: [broken, previous], artifacts: [artifactFor(broken), artifactFor(previous)], neverRan: { '150-1': provenanceFor(previous) }, bundle: { provenance: provenanceFor(previous) } });
   assert.notEqual(forged.status, 0);
-  assert.ok(!forged.calls.some(a => a[1] === 'canvas'));
+  assert.ok(!forged.calls.some(a => a[1] === 'morning'));
 });
 test('a rerun asks for its own earlier attempt only, never a newer run\'s (duo#91, cajones#63)', async t => {
   const queued = trustedRun({ id: 250, status: 'queued', conclusion: null });
-  const first = trustedRun({ id: 200, conclusion: 'failure' });
-  const out = await workflow(t, { runs: [queued, trustedRun({ id: 200, run_attempt: 2, status: 'in_progress' })], attempt: 2, priorAttempt: first, artifacts: [artifactFor(first)], bundle: { provenance: provenanceFor(first) } });
+  const first = cardRun({ id: 200, conclusion: 'failure' });
+  const out = await workflow(t, { runs: [queued, cardRun({ id: 200, run_attempt: 2, status: 'in_progress' })], attempt: 2, priorAttempt: first, artifacts: [cardArtifact(first)], bundle: { provenance: provenanceFor(first) } });
   assert.equal(out.status, 0, out.stderr);
   assert.ok(!out.ghCalls.some(a => a[1]?.includes('/runs/250/')), 'the queued run is never read');
   assert.equal(out.ghCalls.find(a => a[0] === 'run')[2], '200');
@@ -293,8 +281,8 @@ test('a rerun whose preflight failed falls back to that run\'s earlier attempt b
 });
 test('recovery follows when each attempt ran, not run ids: an old night rerun later is the newest state (duo#92)', async t => {
   // This run (200) is an old night rerun after night 250 ran: 250 is the state to recover.
-  const later = trustedRun({ id: 250, run_started_at: '2026-10-08T03:00:00Z' }), first = trustedRun({ id: 200, run_started_at: '2026-10-01T03:00:00Z' });
-  const rerun = await workflow(t, { runs: [later, trustedRun({ id: 200, run_attempt: 2, status: 'in_progress' })], attempt: 2, priorAttempt: first, artifacts: [artifactFor(later), artifactFor(first)], bundle: { provenance: provenanceFor(later) } });
+  const later = trustedRun({ id: 250, run_started_at: '2026-10-08T03:00:00Z' }), first = cardRun({ id: 200, run_started_at: '2026-10-01T03:00:00Z' });
+  const rerun = await workflow(t, { runs: [later, cardRun({ id: 200, run_attempt: 2, status: 'in_progress' })], attempt: 2, priorAttempt: first, artifacts: [artifactFor(later), cardArtifact(first)], bundle: { provenance: provenanceFor(later) } });
   assert.equal(rerun.status, 0, rerun.stderr);
   assert.equal(rerun.ghCalls.find(a => a[0] === 'run')[2], '250');
   // The next night: the rerun (attempt 2 of 150, ran 10-09) is newer than night 180 (ran 10-08), whatever their ids.
@@ -306,8 +294,8 @@ test('recovery follows when each attempt ran, not run ids: an old night rerun la
 test('a recovery that stops before the canvas leaves a never-ran receipt too (cajones#64)', async t => {
   const out = await workflow(t, { runs: [trustedRun({ id: 150, conclusion: 'cancelled' })], artifacts: [] });
   assert.notEqual(out.status, 0);
-  assert.ok(!out.calls.some(a => a[1] === 'canvas'));
-  const receipt = JSON.parse(await readFile(join(out.root, 'plates-canvas-night/never-ran.json'), 'utf8'));
+  assert.ok(!out.calls.some(a => a[1] === 'morning'));
+  const receipt = JSON.parse(await readFile(join(out.root, 'plates-canvas-card/never-ran.json'), 'utf8'));
   assert.equal(receipt.provenance.runId, '200');
 });
 test('a failed rerun of an old night falls back in time order: a night that ran after its first attempt comes first (duo#93)', async t => {
@@ -319,9 +307,6 @@ test('a failed rerun of an old night falls back in time order: a night that ran 
   assert.equal(out.status, 0, out.stderr);
   assert.deepEqual(out.ghCalls.filter(a => a[0] === 'run').map(a => [a[2], a[a.indexOf('--name') + 1]]), [['150', 'keel-canvas-night-2'], ['180', 'keel-canvas-night-1']]);
 });
-// Phase 78: plates-morning's plan card writes the same canvas, so the night and the card keep one journal.
-const cardRun = (extra = {}) => trustedRun({ path: '.github/workflows/plates-morning.yml', event: 'workflow_run', ...extra });
-const cardArtifact = r => ({ ...artifactFor(r), name: `keel-canvas-card-${r.run_attempt}` });
 /** plates-morning's jobs as one attempt ran them: its card job, with its publish step's conclusion (null: the job itself was skipped). */
 const cardJobs = (attempt, publish) => [
   { name: 'decide', status: 'completed', conclusion: 'success', run_attempt: attempt },
@@ -342,10 +327,31 @@ test('the night restores the newest canvas writer, the plan card\'s attempt when
   // Its provenance must still name the attempt it came from.
   const forged = await workflow(t, { runs: [card, night], artifacts: [cardArtifact(card), artifactFor(night)], bundle: { provenance: provenanceFor(night) } });
   assert.notEqual(forged.status, 0);
-  assert.ok(!forged.calls.some(a => a[1] === 'canvas'));
-  // A night whose canvas artifact is missing is still refused: only plates-morning may have skipped its card.
+  assert.ok(!forged.calls.some(a => a[1] === 'morning'));
+  // A night whose canvas artifact is missing is still refused, unless its own job list shows it had no canvas step.
   const missing = await workflow(t, { runs: [card, night], artifacts: [], jobs: { '160-1': cardJobs(1, null) }, bundle: { provenance: provenanceFor(night) } });
   assert.notEqual(missing.status, 0);
+});
+
+/** A night attempt's jobs: the quiet night's (no canvas step), or an older night's with its canvas step's conclusion. */
+const nightJobs = (attempt, canvas) => [{ name: 'night', status: 'completed', conclusion: 'success', run_attempt: attempt,
+  steps: [{ name: 'Install', status: 'completed', conclusion: 'success' }, ...(canvas === undefined ? [] : [{ name: 'Project the night onto its canvas', status: 'completed', conclusion: canvas }]), { name: 'Verdict', status: 'completed', conclusion: 'success' }] }];
+test('phase 207: a quiet night (no canvas step in its job list) is skipped for the journal before it; an older night that may have written is refused', async t => {
+  const card = cardRun({ id: 160, run_started_at: '2026-10-08T10:40:00Z' });
+  const quiet = trustedRun({ id: 180, run_started_at: '2026-10-09T07:23:00Z' });
+  const out = await workflow(t, { runs: [quiet, card], artifacts: [cardArtifact(card)], jobs: { '180-1': nightJobs(1) }, bundle: { provenance: provenanceFor(card) } });
+  assert.equal(out.status, 0, out.stderr);
+  assert.deepEqual(out.ghCalls.filter(a => a[0] === 'run').map(a => [a[2], a[a.indexOf('--name') + 1]]), [['160', 'keel-canvas-card-1']], 'the card\'s journal, past the quiet night');
+  const skippedStep = await workflow(t, { runs: [quiet, card], artifacts: [cardArtifact(card)], jobs: { '180-1': nightJobs(1, 'skipped') }, bundle: { provenance: provenanceFor(card) } });
+  assert.equal(skippedStep.status, 0, skippedStep.stderr);
+  for (const [why, jobs] of [['its canvas step ran', nightJobs(1, 'success')], ['its canvas step failed', nightJobs(1, 'failure')], ['no night job listed', []], ['the night job has no steps', [{ name: 'night', status: 'completed', conclusion: 'success', run_attempt: 1, steps: [] }]]]) {
+    const refused = await workflow(t, { runs: [quiet, card], artifacts: [cardArtifact(card)], jobs: { '180-1': jobs }, bundle: { provenance: provenanceFor(card) } });
+    assert.notEqual(refused.status, 0, why);
+    assert.deepEqual(refused.ghCalls.filter(a => a[0] === 'run'), [], `${why}: no older journal is restored`);
+    assert.ok(!refused.calls.some(a => a[1] === 'morning'), `${why}: the canvas is untouched`);
+  }
+  const { NIGHT_JOB } = await import('../practices/night/files/scripts/plates/canvas-recovery.mjs');
+  assert.ok((await readFile(nightTemplate, 'utf8')).includes(`\njobs:\n  ${NIGHT_JOB}:\n`), 'the night job is named as recovery reads it');
 });
 
 // Review of #151: attempt 1 published the card, its send failed, the owner reran the failed jobs, and
@@ -377,7 +383,7 @@ test('a plates-morning attempt with no card journal is skipped only when its job
     assert.notEqual(out.status, 0, why);
     assert.match(out.stdout + out.stderr, /it may have published the card/, why);
     assert.deepEqual(out.ghCalls.filter(a => a[0] === 'run'), [], `${why}: no older journal is restored`);
-    assert.ok(!out.calls.some(a => a[1] === 'canvas'), `${why}: the canvas is untouched`);
+    assert.ok(!out.calls.some(a => a[1] === 'morning'), `${why}: the canvas is untouched`);
   }
   // Positive evidence it never ran: the card job skipped, its publish step skipped, or no card job in the attempt.
   for (const [why, jobs] of [['card job skipped', cardJobs(1, null)], ['publish step skipped', cardJobs(1, 'skipped')], ['no card job', cardJobs(1, null).slice(0, 1)]]) {
@@ -395,9 +401,11 @@ test('a plates-morning attempt with no card journal is skipped only when its job
 test('the card waits (exit 3, the canvas untouched) while another canvas writer runs; the night still refuses to race', async t => {
   const running = trustedRun({ id: 150, status: 'in_progress', conclusion: null });
   const setup = await workflow(t, { runs: [running] });
-  assert.notEqual(setup.status, 0, 'the night refuses an unfinished canvas writer, as before');
+  assert.equal(setup.status, 0, 'the card step waits, green, on an unfinished canvas writer');
   const script = join(setup.root, 'scripts/plates/canvas-recovery.mjs');
   const env = { ...process.env, PATH: join(setup.root, 'bin'), RUNNER_TEMP: setup.root, REPO: 'Acme/app', BASE: 'main', GITHUB_REF_NAME: 'main', GITHUB_RUN_ID: '200', GITHUB_RUN_ATTEMPT: '1' };
+  const asNight = run(join(setup.root, 'bin/node'), [script, '--workflow', 'plates-night.yml'], { cwd: setup.root, env: { ...env, GITHUB_EVENT_NAME: 'schedule' } });
+  assert.equal(asNight.status, 1, 'recovery as the night still refuses to race');
   const card = run(join(setup.root, 'bin/node'), [script, '--workflow', 'plates-morning.yml'], { cwd: setup.root, env: { ...env, GITHUB_EVENT_NAME: 'workflow_run' } });
   assert.equal(card.status, 3, card.stderr);
   assert.match(card.stderr, /Another canvas writer \(plates-night\.yml run 150\) is still running; the plan card waits for the next pass/);
@@ -674,12 +682,12 @@ for (const [legacy, current] of [
       const value = env[current]; delete env[current]; delete env[legacy]; env[selected] = value;
     } });
     assert.equal(result.status, 0, result.stderr);
-    assert.equal(result.calls.filter(args => args[1] === 'canvas' && args[2] === 'night').length, 1);
+    assert.equal(result.calls.filter(args => args[1] === 'morning' && args[2] === '--card').length, 1);
   });
   test(`phase128 canvas provisioning invalid ${current} never falls back`, async t => {
     const result = await workflow(t, { provisioning(env) { env[legacy] = env[current]; env[current] = ''; } });
     assert.notEqual(result.status, 0);
-    assert.equal(result.calls.filter(args => args[1] === 'canvas').length, 0);
+    assert.equal(result.calls.filter(args => args[1] === 'morning').length, 0);
   });
 }
 

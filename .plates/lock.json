@@ -87,11 +87,11 @@
     },
     ".github/workflows/plates-morning.yml": {
       "practice": "night",
-      "sha256": "ccb0eb53ef889a933060a705741e6fab7db13f394d371bf91a57f5d09be1edb0"
+      "sha256": "e3c94e8c3c0f73ee6f3bb2f85ec8bfbff4bff51b71030b5030df0216fdbea8f8"
     },
     ".github/workflows/plates-night.yml": {
       "practice": "night",
-      "sha256": "d1fa6a62c95df38ea82d1d1aa86972bd252e095e07344042d8f25a082ef33db0"
+      "sha256": "4230f2aa7d71f8ba77945bc2a3c65b42eec270a1cbafdbe8b1b958cf18aa183e"
     },
     ".github/workflows/plates-publish.yml": {
       "practice": "delivery",
@@ -183,7 +183,7 @@
     },
     "scripts/plates/canvas-recovery.mjs": {
       "practice": "night",
-      "sha256": "f210f789c7fb79659eda6dabad9ab8f840a6fd83a4a28b468ecfc989fe11df58"
+      "sha256": "69565f5ad001176f100aa6a98ce91f78450849935758e984be87edc79cae601c"
     },
     "scripts/plates/ci.mjs": {
       "practice": "night",
@@ -272,6 +272,10 @@
     "scripts/plates/night-plan.mjs": {
       "practice": "night",
       "sha256": "c2c6e9e0ffa5f5b5dd14c522e484a1a0b890e7c1bbe75e64b9ad5d7432ea88b3"
+    },
+    "scripts/plates/night-verdict.mjs": {
+      "practice": "night",
+      "sha256": "61becad11be259c7f76f0c89db32e2a2d7c9094cdde89394acd9b3d85dce2730"
     },
     "scripts/plates/persona.mjs": {
       "practice": "personas",

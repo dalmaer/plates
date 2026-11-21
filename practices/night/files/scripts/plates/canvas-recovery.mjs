@@ -24,7 +24,9 @@ import { writeName, selectArtifacts, artifactNames } from './names.mjs';
 // config had canvas nightly publishing off is skipped; a never-ran receipt
 // sends recovery to the attempt before it; the artifact's provenance must
 // name exactly the attempt it came from. A night attempt with canvas on must
-// have left its artifact. A plates-morning attempt with none is skipped only
+// have left its artifact, unless its own job results show it had no canvas
+// step to run (the quiet night, phase 207, writes no canvas: since then the
+// card job is the only writer, and older nights' journals are still read). A plates-morning attempt with none is skipped only
 // when its own job results show its card step never ran (canvas not set for
 // the card, or no plan; #152), and its run's earlier attempt, which may have,
 // is read in its place (#151); without that evidence it is refused.
@@ -44,6 +46,8 @@ export const WRITERS = Object.freeze({
 
 /** plates-morning.yml's card job and the one step of it that writes the canvas. */
 export const CARD_JOB = 'card', CARD_STEP = 'Publish the plan card';
+/** The step of plates-night.yml's night job that wrote the canvas, until phase 207's quiet night dropped it. */
+export const NIGHT_JOB = 'night', NIGHT_CANVAS_STEP = 'Project the night onto its canvas';
 
 class Refusal extends Error { constructor(message, code = 1) { super(message); this.code = code; } }
 const fail = (message, code = 1) => { throw new Refusal(message, code); };
@@ -115,6 +119,16 @@ export function chooseRecovery({ self, env = process.env, gh = 'gh' }) {
     const steps = (Array.isArray(cards[0].steps) ? cards[0].steps : []).filter(s => s?.name === CARD_STEP);
     return steps.length === 1 && steps[0].status === 'completed' && steps[0].conclusion === 'skipped';
   };
+  // The same evidence for a night attempt (phase 207): the quiet night has no canvas step at all, so a
+  // night job whose complete step list holds none, or holds it skipped, never wrote the canvas.
+  const nightNeverWrote = run => {
+    const listed = api(`repos/${repo}/actions/runs/${run.id}/attempts/${run.run_attempt}/jobs?per_page=100`);
+    if (!Array.isArray(listed?.jobs) || listed.total_count !== listed.jobs.length) return false;
+    const nights = listed.jobs.filter(j => j?.name === NIGHT_JOB && (j.run_attempt === undefined || j.run_attempt === run.run_attempt));
+    if (nights.length !== 1 || nights[0].status !== 'completed' || !Array.isArray(nights[0].steps) || !nights[0].steps.length) return false;
+    const steps = nights[0].steps.filter(s => s?.name === NIGHT_CANVAS_STEP);
+    return steps.length === 0 || (steps.length === 1 && steps[0].status === 'completed' && steps[0].conclusion === 'skipped');
+  };
   const queue = [...eligible];
   while (queue.length) {
     const run = queue.shift();
@@ -138,6 +152,10 @@ export function chooseRecovery({ self, env = process.env, gh = 'gh' }) {
     // place in time order, as after a never-ran receipt.
     if (!w.required && found.length === 0 && !list.some(a => artifactNames(w.artifactId, `-${run.run_attempt}`).includes(a.name))) {
       if (!cardNeverRan(run)) fail('A plates-morning attempt left no card journal, and its job results do not show that its card step never ran: it may have published the card. Manual recovery required; refusing older state.');
+      if (run.run_attempt > 1) { queue.push({ ...api(`repos/${repo}/actions/runs/${run.id}/attempts/${run.run_attempt - 1}`), writer: run.writer }); queue.sort(newestFirst); }
+      continue;
+    }
+    if (w.required && found.length === 0 && !list.some(a => artifactNames(w.artifactId, `-${run.run_attempt}`).includes(a.name)) && nightNeverWrote(run)) {
       if (run.run_attempt > 1) { queue.push({ ...api(`repos/${repo}/actions/runs/${run.id}/attempts/${run.run_attempt - 1}`), writer: run.writer }); queue.sort(newestFirst); }
       continue;
     }

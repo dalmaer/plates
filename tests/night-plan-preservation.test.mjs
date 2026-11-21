@@ -73,16 +73,11 @@ async function runtime(f) {
   await mkdir(join(f.root, '.plates'), { recursive: true });
   await writeFile(join(f.root, '.plates/plates.json'), JSON.stringify({ repo: 'acme/project', check: 'true' }));
 }
-test('real night workflow carries legacy refusal through branch-unread and red verdict output', async t => {
-  const f = await fixture(t); await runtime(f);
-  await f.publish('keel-night-plan', '.keel/night/plan.json', invalids.invalid);
+// Phase 207: the quiet night reads no plan branch, so a legacy plan it might refuse never reaches it;
+// climb and the robot (below) still read and refuse one.
+test('the quiet night reads no plan branch, legacy or current', async () => {
   const source = await readFile(resolve('practices/night/files/.github/workflows/plates-night.yml'), 'utf8');
-  const block = runBlocks(source).find(b => b.step === 'Plan the night'); assert.ok(block);
-  const output = join(f.dir, 'output'); await writeFile(output, '');
-  const result = run('bash', ['-e', '-c', block.script], { cwd: f.root, env: { ...process.env, RUNNER_TEMP: f.dir, GITHUB_OUTPUT: output } });
-  assert.equal(result.status, 0, result.stderr);
-  assert.match(await readFile(output, 'utf8'), /code=2/);
-  assert.match(result.stdout + result.stderr, /keel-night-plan.*readyBy/);
+  assert.ok(!runBlocks(source).some(b => /night-plan\.mjs|readRemoteNightPlan|night-plan/.test(b.script)));
 });
 for (const name of ['climb', 'robot']) test(`${name} API workflow refuses invalid source before admitting work`, async t => {
   const f = await fixture(t); await runtime(f);
