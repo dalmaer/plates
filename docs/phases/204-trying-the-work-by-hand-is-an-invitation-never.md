@@ -1,10 +1,10 @@
 ---
-status: partial
+status: built
 since: 2026-11-21
 goal: G0
 spec: 2
 depends: [44]
-note: "Built and merged: walks are ⚑ try: and never hold a phase back; decisions, approvals and setup steps kept; PRs carry a Try it; Home shows ready Try its as optional. Owed: Home at main showing phase 65 as a Try it once its Ready: yes is merged."
+note: "Built: walks are ⚑ try: and never hold a phase back; decisions, approvals and setup steps kept; PRs carry a Try it; Home at main (83f65c47) lists phase 65 as an optional Try it outside the docket, with 59 and 193 waiting on their reasons."
 evidence: ["evidence/2026-11-21-try-it-not-a-gate.md"]
 ---
 
@@ -70,7 +70,7 @@ for Unison sections), and removing `plates walk` (it still records answers).
 - [x] Home lists an open walk as an optional Try it in both forms, answerable Works, Something's off or Skip, outside the docket count and push notifications; a ⚑ setup step or decision still waits on the owner: `tests/home-try-it.test.mjs: "a walk is an optional Try it on Home, never waiting on the owner"`.
 - [x] The conduct and spin skills, AGENTS.md and the agent guide ask for a Try it on each phase PR: `tests/guides.test.mjs: "phase PRs carry a Try it"`.
 
-- [ ] On the owner's machine, after merge, Home lists a ready Try it (phase 65) with its three answers and leaves it out of the docket, and keeps not-ready ones (59: its Ready when; 193: waits on 192) waiting with their reason: `plates home --project plates --json`.
+- [x] On the owner's machine, after merge, Home lists a ready Try it (phase 65) with its three answers and leaves it out of the docket, and keeps not-ready ones (59: its Ready when; 193: waits on 192) waiting with their reason: `plates home --project plates --json`.
 
 ## Real surfaces
 
@@ -91,7 +91,7 @@ By hand: none required; the owner may try Home on their phone.
 
 ## Next action
 
-After this merges: run `plates home --project plates --json` at main on the owner's machine; when phase 65 is a Try it outside the docket, check the box and move this phase to built. Moving adopted projects' walk records waits on the owner.
+None for this phase. Moving adopted projects' walk records waits on the owner. Installed runtimes older than this phase (0.9.1) report `⚑ try:` phase files as unreadable until the next release is installed.
 
 ## Trajectory
 
@@ -99,3 +99,4 @@ After this merges: run `plates home --project plates --json` at main on the owne
 
 - **2026-11-21** — Not every `⚑ by hand` box is a walk: a fleet rehearsal found decisions, approvals and setup steps written the same way, so only boxes now written `⚑ try:` are optional, and the check never guesses from prose. 61 kept and unsure boxes stay; the blanket removal was reworked.
 - **2026-11-21** — Home builds an owner's walk card only for a phase marked `owes: walk`, so phases whose remaining owner boxes are decisions keep `owes: walk` until the walk machinery is simplified.
+- **2026-11-21** — The installed plates 0.9.1 predates this phase, so its Home skipped phases 59 and 65 as "could not be read or validated" while main's own CLI read them. A record format change reaches the owner's Home only with a release; walk such boxes with the checkout's CLI until then.

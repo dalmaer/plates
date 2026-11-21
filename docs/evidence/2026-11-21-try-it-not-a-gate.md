@@ -31,7 +31,9 @@ Built by a builder subagent and verified by the conductor. The work went back tw
 | --- | --- | --- | --- |
 | `plates home --project plates --json` on the owner's Mac, at main | the three `⚑ try:` phases out of the docket, with ready ones shown as Try its | none in the docket; 59 waiting ("Ready when: two projects, one per runner, have a week of records"), 193 blocked ("Waits on 192"), and 65 waiting on "Ready when: this is built", which can't be met now that the walk is optional | readiness and docket exclusion on real records; it showed that 65's Ready when was stale |
 | The same, against a local clone of this follow-up with 65's Your part set to Ready: yes | phase 65 listed as a Try it with three answers, not in the docket | "Try it (1 optional; nothing waits on these)"; phase 65 with Works / Something's off / Skip and `plates home --answer plates:walk:65 …`; the docket's 28 items exclude it | the Try it section end to end on a real phase |
+| `node bin/plates.mjs home --project plates --json` on the owner's Mac, at main 83f65c47 (after #567) | phase 65 a Try it outside the docket; 59 and 193 waiting with their reasons | `tryIt`: `plates:walk:65`, `optional: true`, Works / Something's off / Skip; the docket's 6 items exclude it; 59 waiting ("Ready when: two projects, one per runner, have a week of records"); 193 waiting ("Ready when: phase 192 first") | the last acceptance box, on the default branch |
+| The same with the installed `plates` 0.9.1 (1b4893b8) | — | "2 of 201 phase files could not be read or validated: …59…, …65…", no Try it | the installed runtime predates the `⚑ try:` format; the owner's Home shows Try its after the next release |
 
 ## Gaps and decision
 
-Not yet shown: Home listing phases 59, 65 and 193 as Try its, which needs this on the default branch (walked right after merge). Fleet projects keep their records until the owner asks to move them.
+Shown at main (above). The owner's installed plates needs the next release to read `⚑ try:` files. Fleet projects keep their records until the owner asks to move them.
