@@ -657,15 +657,19 @@ export function tendCheck(root, base, head, { findings = null } = {}) {
   const refused = [];
   const changes = changesOf(root, base, head);
   const guide = guideAt(root, base);
-  for (const { status, path } of changes) {
-    if (status.startsWith('D')) { refused.push(`${path}: deleted; tend never deletes a tracked file (a branch, a PR or data alike): propose it for the owner instead`); continue; }
-    if (path.startsWith('docs/evidence/')) { refused.push(`${path}:${firstAdded(root, base, head, path)}: ${status.startsWith('A') ? 'adds' : 'edits'} evidence; tend never writes evidence (what was checked is a person's or the conductor's record)`); continue; }
-    if (!tendSurface(path, guide)) { refused.push(`${path}: outside tend's surfaces (${TEND_SURFACES.join(', ')}); tend changes records and agent-facing text only, cited or not`); continue; }
-    if (path === guide && !['100644', '100755'].includes(entryOf(root, head, path).split(' ')[0])) { refused.push(`${path}: configured guide must remain a regular file`); continue; }
-    const before = showAt(root, base, path), after = showAt(root, head, path);
-    const a = frontStatus(after), b = frontStatus(before);
-    if (a && NEVER_STATUS.includes(a.status) && a.status !== b?.status) refused.push(`${path}:${a.line}: status ${b?.status ?? '(none)'} → ${a.status}; tend never marks a phase built, lived-in or accepted (it may only propose a step back to partial)`);
-    for (const x of added(ticked(before), ticked(after), x => x.text)) refused.push(`${path}:${x.line}: ticks an acceptance box ("${x.text.slice(0, 80)}"); tend never accepts a phase`);
+  refused.push(...tendFileRefusals(root, base, head, changes, guide));
+  // Each commit too (plates#87): a status flipped to built in one commit and back in a later one is not in base..head,
+  // yet any merge but a squash carries that commit into main's history. A merge's own changes are the default branch's,
+  // which sandboxProblems holds to the base; a path the whole range already refuses is named once.
+  const named = new Set(refused.map(r => r.split(':')[0]));
+  for (const c of commitsOn(root, base, head)) {
+    // Deleting a file the branch itself added earlier takes nothing tracked away.
+    const own = changesOf(root, `${c}^`, c).filter(x => !(x.status.startsWith('D') && showAt(root, base, x.path) === null));
+    for (const r of tendFileRefusals(root, `${c}^`, c, own, guide)) {
+      if (named.has(r.split(':')[0])) continue;
+      named.add(r.split(':')[0]);
+      refused.push(`${r} (in ${c.slice(0, 7)}, undone later; the branch's history would still carry it)`);
+    }
   }
   const known = findings ? new Set(findings.map(f => f.id)) : null;
   for (const c of git(root, ['log', '--format=%H%x00%B%x01', `${base}..${head}`]).split('\x01').map(s => s.trim()).filter(Boolean)) {
@@ -676,6 +680,27 @@ export function tendCheck(root, base, head, { findings = null } = {}) {
     else if (known) for (const f of cited.filter(f => !known.has(f))) refused.push(`${id.slice(0, 7)} "${subject}": cites ${f}, which is not on the worksheet`);
   }
   return { refused, files: changes.map(c => c.path) };
+}
+
+/** The branch's own commits from base to head, oldest first, merges aside: [sha]. */
+export function commitsOn(root, base, head) {
+  return git(root, ['rev-list', '--reverse', '--no-merges', `${base}..${head}`]).split('\n').filter(Boolean);
+}
+
+/** tendCheck's file rules over one range: [refusal], each starting with its path. */
+function tendFileRefusals(root, base, head, changes, guide) {
+  const refused = [];
+  for (const { status, path } of changes) {
+    if (status.startsWith('D')) { refused.push(`${path}: deleted; tend never deletes a tracked file (a branch, a PR or data alike): propose it for the owner instead`); continue; }
+    if (path.startsWith('docs/evidence/')) { refused.push(`${path}:${firstAdded(root, base, head, path)}: ${status.startsWith('A') ? 'adds' : 'edits'} evidence; tend never writes evidence (what was checked is a person's or the conductor's record)`); continue; }
+    if (!tendSurface(path, guide)) { refused.push(`${path}: outside tend's surfaces (${TEND_SURFACES.join(', ')}); tend changes records and agent-facing text only, cited or not`); continue; }
+    if (path === guide && !['100644', '100755'].includes(entryOf(root, head, path).split(' ')[0])) { refused.push(`${path}: configured guide must remain a regular file`); continue; }
+    const before = showAt(root, base, path), after = showAt(root, head, path);
+    const a = frontStatus(after), b = frontStatus(before);
+    if (a && NEVER_STATUS.includes(a.status) && a.status !== b?.status) refused.push(`${path}:${a.line}: status ${b?.status ?? '(none)'} → ${a.status}; tend never marks a phase built, lived-in or accepted (it may only propose a step back to partial)`);
+    for (const x of added(ticked(before), ticked(after), x => x.text)) refused.push(`${path}:${x.line}: ticks an acceptance box ("${x.text.slice(0, 80)}"); tend never accepts a phase`);
+  }
+  return refused;
 }
 
 /** guard --job tend: the tend guard, then the project's gate. { ok, problems, line? }. */

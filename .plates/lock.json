@@ -195,7 +195,7 @@
     },
     "scripts/plates/climb.mjs": {
       "practice": "climb",
-      "sha256": "b4313c639c34bb8d64f25ca9bc1650c940205bbe0dcfc32df7ebe07f081154b9"
+      "sha256": "4d5feb14dfe47f8677658eb5bbe8935dbd7df1a003afda8edfb46b0294593e62"
     },
     "scripts/plates/cross-review.mjs": {
       "practice": "cross-review",
@@ -351,7 +351,7 @@
     },
     "scripts/plates/tend.mjs": {
       "practice": "climb",
-      "sha256": "7b326e288df4bccbacdd35e45c24cb1ac52f924c8408d5dc6e622be65e02aa95"
+      "sha256": "faef727bd016cf75389aff1b8bd94f0294bfa12f5f1d90a1093cbae74c745a98"
     },
     "scripts/plates/test-history.mjs": {
       "practice": "night",

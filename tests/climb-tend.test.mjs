@@ -284,6 +284,23 @@ test('lessons: a distill pass over the project\'s own table writes proposals, on
   await refuse({ 'docs/lessons.md': before.replace('| an hour | to write |', '| an hour | a test that renames a widget under a warm cache |') }, /^docs\/lessons\.md changed \(lesson 2\): a lessons night proposes, and only the owner changes the table/);
   await refuse({ [rew.file]: 'edited\n' }, /changed: a lessons night adds proposals and never edits one/);
   await refuse({ 'lib/acme.mjs': 'export {};\n' }, /^lib\/acme\.mjs is outside \.plates\/climb\/lessons\/: a lessons night only adds proposals$/);
+
+  // plates#87: each commit is held too. A row changed in one commit and changed back in the next is refused, naming the
+  // commit; a proposal the night added and then edited itself is its own.
+  const climbModule = await import(pathToFileURL(join(dir, 'scripts/plates/climb.mjs')).href);
+  const config = JSON.parse(await readFile(join(dir, '.plates/plates.json'), 'utf8'));
+  const from = git(dir, ['rev-parse', 'HEAD']);
+  await commit(dir, { 'docs/lessons.md': before.replace('| an hour | to write |', '| an hour | a test that renames a widget under a warm cache |') }, 'acme: tonight');
+  const flipped = git(dir, ['rev-parse', 'HEAD']);
+  await commit(dir, { 'docs/lessons.md': before }, 'acme: tonight');
+  const undone = await climbModule.proposalsProblems({ root: dir, config, job: 'lessons', base: from, head: git(dir, ['rev-parse', 'HEAD']) });
+  assert.equal(undone.length, 1, JSON.stringify(undone));
+  assert.match(undone[0], new RegExp(`^docs/lessons\\.md changed \\(lesson 2\\): a lessons night proposes.* \\(in ${flipped.slice(0, 7)}, undone later; the branch's history would still carry it\\)$`));
+  git(dir, ['reset', '-q', '--hard', from]);
+  await commit(dir, { '.plates/climb/lessons/acme-own.md': '# Acme own proposal\n' }, 'acme: tonight');
+  await commit(dir, { '.plates/climb/lessons/acme-own.md': '# Acme own proposal, reworded\n' }, 'acme: tonight');
+  assert.deepEqual(await climbModule.proposalsProblems({ root: dir, config, job: 'lessons', base: from, head: git(dir, ['rev-parse', 'HEAD']) }), []);
+  git(dir, ['reset', '-q', '--hard', from]);
 });
 
 test('loop: pulls, proposes a rank for every untriaged finding and decides none; Loop unreachable is a notice, not red; the guard refuses a decided finding', async t => {
@@ -403,4 +420,27 @@ test('a loop night and plates-loop.yml never both pull: where plates-loop.yml is
   const night = JSON.parse(await readFile(join(dir, '.plates/climb/night.json'), 'utf8'));
   assert.deepEqual([night.loop.pulled, night.loop.elsewhere], [false, true]);
   assert.match(json(climb(dir, ['report', '--json'])).line, /; Loop pulled by plates-loop\.yml, not this night: proposed for the findings already here; \d+ min$/);
+});
+
+test('plates#87: a status flipped to built in one tend commit and back in a later one is refused, as is one ticked box taken back', async t => {
+  const dir = await tendAcme(t);
+  const env = { PLATES_CLI: join(dir, 'no-such-plates') };
+  assert.equal(climb(dir, ['tend-input', '--record'], env).status, 0);
+  const base = git(dir, ['rev-parse', 'HEAD']);
+  const m = await import(pathToFileURL(join(dir, 'scripts/plates/tend.mjs')).href);
+  const findings = JSON.parse(await readFile(join(dir, '.plates/tend/pass.json'), 'utf8')).worksheet.findings;
+  const phase = 'docs/phases/02-acme-ships.md', text = await readFile(join(dir, phase), 'utf8');
+  const step = async (body, message = 'acme: tend\n\nTend: proofs_hold:1') => { await writeFile(join(dir, phase), body); git(dir, ['add', '-A']); git(dir, ['commit', '-q', '--allow-empty', '-m', message]); };
+  git(dir, ['checkout', '-q', '-f', '-B', 'try-flip', base]);
+  await step(text.replace('status: partial', 'status: built'));
+  const flipped = git(dir, ['rev-parse', 'HEAD']);
+  await step(text);
+  const refused = m.tendCheck(dir, base, git(dir, ['rev-parse', 'HEAD']), { findings }).refused;
+  assert.equal(refused.length, 1, JSON.stringify(refused));
+  assert.match(refused[0], new RegExp(`^docs/phases/02-acme-ships\\.md:2: status partial → built; tend never marks a phase built.* \\(in ${flipped.slice(0, 7)}, undone later; the branch's history would still carry it\\)$`));
+  // A file the branch added and removed itself takes nothing tracked away; base..head is clean, and so is each commit.
+  git(dir, ['checkout', '-q', '-f', '-B', 'try-own', base]);
+  await writeFile(join(dir, 'docs/phases/acme-draft.md'), '# Acme draft\n'); git(dir, ['add', '-A']); git(dir, ['commit', '-q', '-m', 'acme: tend\n\nTend: proofs_hold:1']);
+  git(dir, ['rm', '-q', 'docs/phases/acme-draft.md']); git(dir, ['commit', '-q', '-m', 'acme: tend\n\nTend: proofs_hold:1']);
+  assert.deepEqual(m.tendCheck(dir, base, git(dir, ['rev-parse', 'HEAD']), { findings }).refused, []);
 });
