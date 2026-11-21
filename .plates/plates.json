@@ -151,5 +151,9 @@
       "session",
       "local-host"
     ]
+  },
+  "unison": {
+    "workspace": "ws_89270151",
+    "url": "https://unison.cloud.run/w/ws_89270151"
   }
 }
