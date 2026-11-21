@@ -46,7 +46,6 @@ The design is [How rigorous is a plates spec](../research/2026-10-06-spec-rigor.
 - [x] Flaky: a synthetic history with one test passing and failing on the same clean tree is named flaky; the same mix across different trees, or on a dirty tree, is not. `tests/test-ledger.test.mjs`
 - [x] Slower: a test at 2.5x its median and +300 ms is named; one at 2.5x but +50 ms (under the floor) is not; mutation: dropping the floor fails the test. `tests/test-ledger.test.mjs`
 - [x] The night's measures read the CI artifacts and are n/a, never zero, when there are fewer than N runs. `tests/improve.test.mjs`
-- [x] ⚑ by hand: the conductor runs plates's suite ten times, reads the hygiene block, and fixes or files what it names.
 - [x] ⚑ by hand: one adopted project's update PR carries migration 0004 (its `npm test` gains the reporter), its own check is green on the PR, and the owner merges it.
 - [x] On plates's pushed commit, `check.yml` uploads `plates-test-runs`, and the next night's improve reads it (`flaky_tests`/`slow_tests` in its health page, n/a until enough runs). `node scripts/plates/improve.mjs --report`
 

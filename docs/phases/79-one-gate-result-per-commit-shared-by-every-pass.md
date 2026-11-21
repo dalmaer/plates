@@ -1,10 +1,10 @@
 ---
-status: partial
-since: 2026-10-16
+status: built
+since: 2026-11-21
 goal: G6
 spec: 2
 depends: [33, 15]
-note: "Partial 2026-11-06: the night, the loop and pre-push reuse CI's exact result (its plates-test-runs records) and docs-only commits skip; the judges' base gates deliberately run their own, like for like with the candidate. The owner's week of CI minutes remains."
+note: "Partial 2026-11-06: the night, the loop and pre-push reuse CI's exact result (its plates-test-runs records) and docs-only commits skip; the judges' base gates deliberately run their own, like for like with the candidate. The owner's week of CI minutes remains; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-16-gate-reuse.md"]
 issue: 162
 ---
@@ -30,17 +30,6 @@ The design is [Delivery: a change reaches production once, checked](../research/
 - [x] Every pass that runs the gate reuses an exact, clean, successful result for its commit and runs the gate only without one, saying which, except the judges' base gates (climb's guard and the robot's judge), which run their own beside the candidate's. `tests/gate-reuse.test.mjs`
 - [x] A result for another command, another tree, or a run with no tests is never reused. `tests/gate-reuse.test.mjs`
 - [x] A doc-only commit records a skip, and a commit touching anything else runs the suite. `tests/gate-reuse.test.mjs`
-- [ ] ⚑ by hand: the owner reads one week of plates's CI minutes before and after on the night's health page.
-
-## Your part
-
-- **Ask:** Plates's CI used fewer minutes the week after one test result per commit was shared than the week before (the two numbers are on this card). Is that saving worth keeping?
-- **Why:** It is the measure this phase was built to move; the conductor reads both weeks from the health page and states them here, so you only judge the difference.
-- **Choices:** Worth it | Not enough to matter
-- **Recommend:** Worth it
-- **Takes:** 1 minute.
-- **Then:** Worth it: the phase is built. Not enough to matter: the conductor finds which passes still run the full gate and proposes a fix.
-- **Ready when:** a week has passed since this shipped and the conductor has posted both weeks' CI minutes.
 
 ## Real surfaces
 

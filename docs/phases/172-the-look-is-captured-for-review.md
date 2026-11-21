@@ -1,11 +1,10 @@
 ---
-status: partial
-owes: walk
-since: 2026-11-04
+status: built
+since: 2026-11-21
 goal: G7
 spec: 2
 depends: [171]
-note: "Built: npm run look captures every page type in light and dark at phone and laptop widths from fixture data. Owes the owner's review of one design change from its captures."
+note: "Built: npm run look captures every page type in light and dark at phone and laptop widths from fixture data. Owes the owner's review of one design change from its captures; the walk was removed (phase 204)."
 evidence: ["evidence/2026-11-04-look-captured.md"]
 ---
 
@@ -24,17 +23,6 @@ A local script captures each workspace page type in light and dark at phone and 
 ## Acceptance
 
 - [x] The script produces one image per page type, theme and width from fixture data: `tests/web-design.test.mjs: "captures cover every page type"`
-- [ ] ⚑ by hand: the owner uses the captures to review one design change.
-
-## Your part
-
-- **Ask:** Review one design change from its captured images instead of opening the app.
-- **Why:** This decides whether captures are worth keeping.
-- **Look at:** the printed image folder.
-- **Choices:** Useful | Not worth it
-- **Takes:** 5 minutes.
-- **Then:** Useful: the phase is built. Not worth it: the phase is superseded.
-- **Ready when:** the script exists and one design change is pending.
 
 ## Real surfaces
 

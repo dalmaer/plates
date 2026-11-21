@@ -25,7 +25,6 @@ Only source and existing manifest-managed consumers. No deployment or schedule.
 - [x] Focused negative controls prove the phase contract: `node --test cli/ci-workflows.test.ts` in Ledger.
 - [x] Required consumer validation evidence is complete: `npm run check:all` plus separate `npm run test:later` in Ledger; the complete hosted `scope`/`test`/`later`/`web` union must also pass.
 - [x] Exact-head review is recorded: `node bin/plates.mjs review dalmaer/ledger#<PR> --gate --json` plus inspection of pinned complete review inputs.
-- [x] ⚑ by hand: parent reviews evidence before broader rollout.
 
 ## Your part
 

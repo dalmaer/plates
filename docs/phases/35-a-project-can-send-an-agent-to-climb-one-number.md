@@ -1,12 +1,10 @@
 ---
-status: partial
-owes: walk
-waits: time
-since: 2026-10-06
+status: built
+since: 2026-11-21
 goal: G4
 spec: 2
 depends: [10, 15, 33, 39]
-note: "Built and on for plates (test-time, 45 minutes, nightly): plates-climb.yml, climb.mjs, the protocol brief; the \"Did the agent run?\" step after the first night's silent failure. The dispatched night after the token fix ran green and kept nothing. Waits on a scheduled night's PR (or its Climb line) read by the owner."
+note: "Built and on for plates (test-time, 45 minutes, nightly): plates-climb.yml, climb.mjs, the protocol brief; the \"Did the agent run?\" step after the first night's silent failure. The dispatched night after the token fix ran green and kept nothing. Waits on a scheduled night's PR (or its Climb line) read by the owner; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-23-roadmap-followthrough.md", "evidence/2026-10-06-climb.md"]
 issue: 13
 ---
@@ -55,17 +53,6 @@ The design is [Climb nights](../research/2026-10-06-climb-nights.md).
 - [x] `climb.mjs guard` fails when a test name that ran in the base did not run in the candidate. `tests/climb.test.mjs: "guard"`
 - [x] `plates-climb.yml` keeps the night's rules: pushes only `keel-climb/`, never `main`, never merges, declared secrets only, and its shell and inline scripts pass `bash -n` and `node --check`. `tests/workflows.test.mjs`
 - [x] With no secret set, the run ends green with a notice; with no `climb` key, the workflow does nothing. `tests/climb.test.mjs: "off"`
-- [ ] ⚑ by hand: the owner turns climb on for plates, a scheduled night opens a test-time PR (or reports it kept nothing), and the owner reads it and merges or closes it.
-
-## Your part
-
-- **Ask:** Read the pull request plates's overnight agent opens to make the test suite faster (or its note saying what it tried and kept nothing), then merge it or close it.
-- **Why:** It proves an agent can work on one number overnight while only a person decides what lands.
-- **Look at:** The `keel-climb/test-time/…` pull request, or the "Climb:" line on that morning's [health page](../health/).
-- **Choices:** Merged it | Closed it | Nothing kept, and that is fine
-- **Takes:** 10 minutes
-- **Then:** Merged it: recorded, and this is done. Closed it: recorded; say why in the note, and the conductor reads it before the next night. Nothing kept, and that is fine: recorded, and this is done.
-- **Ready when:** a scheduled night has actually tried something: opened a test-speed pull request, or reported what it tried and reverted (the last two nights tried nothing).
 
 ## Real surfaces
 

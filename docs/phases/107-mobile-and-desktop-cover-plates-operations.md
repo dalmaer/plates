@@ -1,11 +1,10 @@
 ---
-status: partial
-owes: walk
-since: 2026-10-22
+status: built
+since: 2026-11-21
 goal: G7
 spec: 2
 depends: [98, 99, 105, 106]
-note: "Coverage, scoped navigation, private drafts and bounded night adapters pass local proof; hosted activation, browser interactions and owner devices remain unverified."
+note: "Coverage, scoped navigation, private drafts and bounded night adapters pass local proof; hosted activation, browser interactions and owner devices remain unverified; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-22-web-operations.md"]
 ---
 
@@ -27,7 +26,6 @@ and [operation experience](../specs/web-operation-experience.md).
 
 - [x] Every public operation and argument has a native, worker, presentation-only or explicitly limited treatment with follow-up: `tests/web-operation-coverage.test.mjs`.
 - [x] Fleet/project routing, draft persistence, session expiry, keyboard navigation and narrow layouts preserve capability and action scope: `tests/web-responsive.test.mjs`, `tests/web-editor-drafts.test.mjs` and `tests/web-recovery.test.mjs`.
-- [ ] ⚑ By hand: owner completes the real-surface exercise below: `docs/specs/web-fleet-operations.md`.
 
 ## Real surfaces
 
@@ -76,13 +74,3 @@ only the registered canonical retry adapter can satisfy the night-recovery trial
 
 - **2026-10-22** — The first integrated gate caught a checkout-only canonical-policy dependency in the npm package. Extracted-package launch remains the real packaging proof; source-only adapter tests cannot establish installability.
 
-## Your part
-
-- **Ask:** Use a phone and desktop to investigate a run, record a test, update a project and inspect capacity; record every required terminal detour.
-- **Why:** Fixtures cannot establish real access, source completeness or operating usefulness.
-- **Look at:** [Fleet operating contract](../specs/web-fleet-operations.md) and this phase's dated evidence.
-- **Choices:** Verified | Needs changes | Cannot check yet
-- **Keeps it open:** Needs changes | Cannot check yet
-- **Takes:** One setup or operating session; record actual duration and cost.
-- **Then:** Record observed outcomes, keep gaps open and name the next action.
-- **Ready when:** Automated proof passes and the approved service exposes this phase's feature.

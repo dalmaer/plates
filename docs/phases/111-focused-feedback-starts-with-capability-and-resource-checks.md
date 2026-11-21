@@ -29,7 +29,6 @@ Only source and existing manifest-managed consumers. No deployment or schedule.
 - [x] Focused negative controls prove the phase contract: `node --import ./tests/helpers/hermetic.mjs --test tests/validation-plan.test.mjs tests/validation-budget.test.mjs`.
 - [x] Required integrated checks pass: `npm run check`; `npm run typecheck`.
 - [x] Exact-head review is recorded: `node bin/plates.mjs review dalmaer/plates#<PR> --gate --json` plus inspection of pinned complete review inputs.
-- [x] ⚑ by hand: parent reviewed exact head 35f3926 and authorized the source merge. Consumer adoption remains separately reviewed.
 
 ## Your part
 

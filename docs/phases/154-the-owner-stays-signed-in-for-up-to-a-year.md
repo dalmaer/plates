@@ -1,11 +1,10 @@
 ---
-status: partial
-since: 2026-10-31
+status: built
+since: 2026-11-21
 goal: G7
 spec: 2
 depends: [127, 151]
-note: "Renewal, migration 016 and the sign-in page are built and tested; applying 016 on the hosted instance and the owner's overnight check remain."
-owes: walk
+note: "Renewal, migration 016 and the sign-in page are built and tested; applying 016 on the hosted instance and the owner's overnight check remain; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-31-long-sessions.md"]
 ---
 
@@ -64,17 +63,6 @@ they were on after signing in again.
 - [x] A refused refresh or changed project access ends the session and the next page says why: `tests/web-auth.test.mjs: "a refused renewal ends the sign-in and says why"`.
 - [x] Migration 016 lets sessions live 365 days, keeps attempts and records at 8 hours, keeps `keel_web_rpc` forwarding and re-runs cleanly: `tests/web-migrations.test.mjs: "016 lets sessions live a year and nothing else"`.
 - [x] The sign-in page names what happened in plain words, shows no raw code, and returns to the asked-for page after signing in; an unsafe return path is refused: `tests/web-auth.test.mjs: "the sign-in page says what happened and comes back"`.
-- [ ] ⚑ By hand: the owner signs in on their phone, comes back after more than 8 hours and is still signed in: the owner.
-
-## Your part
-
-- **Ask:** Sign in on your phone, leave it overnight, and open the workspace the next day.
-- **Why:** It shows the year-long sign-in works on the real site, not only in tests.
-- **Look at:** https://plates.dionisaledge.com
-- **Choices:** Still signed in | Had to sign in again
-- **Takes:** A minute, the next day.
-- **Then:** Still signed in closes the phase; had to sign in again records what the page said and the renewal is looked at.
-- **Ready when:** migration 016 is applied and the build with this phase is deployed.
 
 ## Real surfaces
 

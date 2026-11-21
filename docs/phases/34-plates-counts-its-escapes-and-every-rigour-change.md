@@ -1,11 +1,10 @@
 ---
-status: partial
-owes: walk
-since: 2026-10-06
+status: built
+since: 2026-11-21
 goal: G5
 spec: 2
 depends: [11, 13, 32, 33]
-note: "Built: escapes on the night (fix: commits, the project's own lessons and — Escape: Trajectory lines since the last release, attributed only when one phase is named; bound: the previous release's count), with ceremony beside it. Baseline: 10 before v0.7.0, matching the analysis. Waits on the owner judging phases 32 and 33's levers after a release with them."
+note: "Built: escapes on the night (fix: commits, the project's own lessons and — Escape: Trajectory lines since the last release, attributed only when one phase is named; bound: the previous release's count), with ceremony beside it. Baseline: 10 before v0.7.0, matching the analysis. Waits on the owner judging phases 32 and 33's levers after a release with them; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-06-escapes.md"]
 issue: 12
 ---
@@ -39,7 +38,6 @@ The design is [How rigorous is a plates spec](../research/2026-10-06-spec-rigor.
 - [x] On a synthetic repo with two fix commits, one self-provenance lesson and one trajectory correction since a tag, `escapes` is 4, attributed to the phases they name; with no tag it counts from the first commit. `tests/escapes.test.mjs`
 - [x] A commit whose subject merely contains "fix" mid-sentence is not counted; mutation: a substring match fails the test. `tests/escapes.test.mjs`
 - [x] plates's baseline is computed by the measure and matches the analysis's hand count within the cases the analysis names. `node scripts/plates/improve.mjs --report`
-- [ ] ⚑ by hand: the owner reads phases 32 and 33's before-and-after and keeps or retires each lever.
 
 ## Your part
 

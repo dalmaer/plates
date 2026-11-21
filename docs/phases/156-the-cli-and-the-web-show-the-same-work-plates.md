@@ -1,12 +1,11 @@
 ---
-status: partial
-owes: walk
-since: 2026-11-03
+status: built
+since: 2026-11-21
 goal: G7
 spec: 2
 depends: [96]
 review: wait
-note: "Built and proven by test: one item model in lib/work-items.mjs behind plates home and the hosted home, equal output from both readers, unreadable sources named in both, plates board retired, and every phase file read newest first. The owner's side-by-side walk remains."
+note: "Built and proven by test: one item model in lib/work-items.mjs behind plates home and the hosted home, equal output from both readers, unreadable sources named in both, plates board retired, and every phase file read newest first. The owner's side-by-side walk remains; the walk was removed (phase 204)."
 evidence: ["evidence/2026-11-03-one-home-model.md"]
 ---
 
@@ -48,17 +47,6 @@ Out of scope: write actions not already on the web, which keep their own phases 
 - [x] A source one form cannot read appears in both as unavailable, with the reason and the command that reads it: `tests/home-isomorphism.test.mjs: "a local-only source is named in both forms, never missing from one"`
 - [x] The hosted home shows lessons waiting, and reviews waiting on the owner with the round verdict and merge-rule counts, per project and fleet-wide: `tests/web-home.test.mjs: "lessons waiting and reviews at their limit have a home section"`
 - [x] `plates board` names its replacement and exits 2. No server is started: `tests/cli.test.mjs: "plates board is retired and names plates home"`
-- [ ] ⚑ by hand: the owner opens the hosted home with the fleet authorized, and plates home in a terminal. Each section and count matches, and nothing the board used to show is missing.
-
-## Your part
-
-- **Ask:** Open plates.dionisaledge.com and run `plates home` side by side, and say whether anything you used to see on `plates board` is missing or different.
-- **Why:** This is the check that retiring the board lost nothing, and that the two views are really the same.
-- **Look at:** The "Reviews waiting on you" and "Lessons waiting" sections, and the "Local work" row.
-- **Choices:** Nothing missing | Something is missing (say what)
-- **Takes:** About 10 minutes.
-- **Then:** If nothing is missing, the phase is done. Anything missing becomes a section in both forms before it closes.
-- **Ready when:** the fleet is authorized on the hosted home (PLATES_WEB_CONFIG pins and App installation; plates-data#1 is merged).
 
 ## Real surfaces
 

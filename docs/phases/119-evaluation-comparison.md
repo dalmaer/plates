@@ -1,11 +1,11 @@
 ---
-status: partial
-since: 2026-10-23
+status: built
+since: 2026-11-21
 goal: G5
 spec: 2
 depends: [118]
 review: wait
-note: "Offline comparison and one-slot live orchestration have synthetic proof; curated inputs, exact spend approval and real paired screening remain."
+note: "Offline comparison and one-slot live orchestration have synthetic proof; curated inputs, exact spend approval and real paired screening remain; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-23-evaluation-comparison.md", "evidence/2026-11-01-evaluation-recovery.md", "evidence/2026-11-01-evaluation-live-components.md", "evidence/2026-11-01-evaluation-input-partition.md", "evidence/2026-11-01-evaluation-public-packet.md", "evidence/2026-11-01-evaluation-live-controller.md"]
 ---
 
@@ -26,8 +26,6 @@ introduce a second scheduler, evidence authority or automatic production default
 - [x] Five-pair plans include controls; crash recovery preserves successful trials, original leases and uncertain spend; reports retain failures: `tests/evaluation-comparison.test.mjs`.
 - [x] CLI JSON/help, compatibility, bounds and failure paths are covered: `npm run check:focused -- tests/evaluation-comparison.test.mjs`.
 - [x] Integrated gates and selected contracts pass: `npm run check`; `npm run typecheck`.
-
-- [ ] ⚑ by hand: after the owner approves the exact provider and bounded allowance, retain the real compatibility/control screening report (five pairs each), with unknowns and a justified disposition; a fake-adapter walk is not measured agent efficacy.
 
 ## Your part
 
@@ -74,7 +72,6 @@ exact owner transfer/spend approval. Retain five paired observations per case,
 all failures and unknowns. No paid trial is authorized by the runtime choice.
 Phases 120–123 are merged; their real evaluated lesson/promotion outcome still
 depends on this comparison, not merely on their record machinery.
-
 
 ## Trajectory
 

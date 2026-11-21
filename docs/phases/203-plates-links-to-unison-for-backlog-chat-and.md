@@ -48,17 +48,6 @@ production.
 - [ ] Each removed command says where its thing now lives, with the plate's workspace link or the offer to make one: `tests/unison-retire.test.mjs: "a removed command points at Unison"`.
 - [ ] The site has no backlog, channel, Recurring or agents routes, and Home links to the workspace in both forms: `tests/unison-retire.test.mjs: "the site links to Unison instead"`.
 - [ ] Home, `plates next`, reviews, deploys and routines are unchanged: `npm run check`.
-- [ ] ⚑ by hand: owner. The deployed site shows Home and links to Unison, and nothing it used to show is missing from Unison.
-
-## Your part
-
-- **Ask:** Open the Plates site on your phone and check each old page now links to Unison, and that what it used to show is there.
-- **Why:** It proves nothing was lost in the move.
-- **Look at:** Home on the Plates site.
-- **Choices:** Nothing missing | Something missing
-- **Takes:** About 10 minutes.
-- **Then:** Nothing missing: the phase is built. Something missing: it becomes a fix before the removal stands.
-- **Ready when:** increment 3 is merged and deployed.
 
 ## Real surfaces
 

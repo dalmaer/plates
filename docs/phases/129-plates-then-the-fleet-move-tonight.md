@@ -51,7 +51,6 @@ The design is [Name transition](../specs/name-transition.md), "The rule". The ow
 ## Acceptance
 
 - [x] `plates names --verify` checks one project's last dispatched night against the checklist and names each failure. `tests/names-verify.test.mjs`: "verify names each failed check without converting historical continuation into fresh-write failure". This is source verification, not the real dispatched walk.
-- [ ] Plates passes the checklist on its dispatched night. ⚑ by hand: the owner <!-- acceptance: plates-dispatched-rollout -->
 - [ ] Ledger, duo, cajones, isocan and dtv each pass it, in order, the same evening. <!-- acceptance: fleet-dispatched-rollout --> The evidence holds each one's run links and `plates names` before and after. ⚑ by hand: the owner
 
 ## Your part
@@ -103,7 +102,7 @@ observation in the existing evidence record.
 ## Reconciliation
 
 ```plates-reconciliation
-{"version":1,"prs":["dalmaer/plates#265","dalmaer/plates#267","dalmaer/plates#270","dalmaer/ledger#169"],"decisions":[],"implementation":[],"production":[],"use":[],"next":{"kind":"acceptance","ref":"plates-dispatched-rollout"}}
+{"version":1,"prs":["dalmaer/plates#265","dalmaer/plates#267","dalmaer/plates#270","dalmaer/ledger#169"],"decisions":[],"implementation":[],"production":[],"use":[],"next":{"kind":"acceptance","ref":"fleet-dispatched-rollout"}}
 ```
 
 The current acceptance blocker is the Plates dispatched rollout. Release and

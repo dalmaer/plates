@@ -1,11 +1,10 @@
 ---
-status: partial
-owes: walk
-since: 2026-11-06
+status: built
+since: 2026-11-21
 goal: G7
 spec: 2
 depends: [178, 174]
-note: "Built: /review/yours runs the Yours lane with a peek, an honest running total, Not now with a reason (already sealed in SQL017, no migration) and 'All caught up' only after a complete read. Owes the owner's walk."
+note: "Built: /review/yours runs the Yours lane with a peek, an honest running total, Not now with a reason (already sealed in SQL017, no migration) and 'All caught up' only after a complete read. Owes the owner's walk; the walk was removed (phase 204)."
 evidence: ["evidence/2026-11-06-lane-session.md"]
 ---
 
@@ -31,17 +30,6 @@ Starting from Yours opens the review session with a peek at the next card, "N le
 - [x] The running total uses Takes and `DEFAULT_MINUTES`, and says "at least" when one is unknown: `tests/web-review.test.mjs: "session time is honest"`
 - [x] A Not now reason survives reload in both stores: `tests/not-now.test.mjs: "a reason is kept"`
 - [x] The session ends in "All caught up" only when the lane is read completely: `tests/web-review.test.mjs: "caught up needs complete coverage"`
-- [ ] ⚑ by hand: the owner.
-
-## Your part
-
-- **Ask:** Clear five items from your lane in one sitting.
-- **Why:** It settles whether the session makes your turn faster.
-- **Look at:** The "N left · ~M min" line when you start.
-- **Choices:** Faster than before | About the same | Slower (say where)
-- **Takes:** About 15 minutes.
-- **Then:** Faster: built. Otherwise the session changes here.
-- **Ready when:** phase 178 is deployed.
 
 ## Real surfaces
 

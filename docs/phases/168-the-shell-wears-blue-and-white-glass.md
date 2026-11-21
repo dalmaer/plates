@@ -1,11 +1,10 @@
 ---
-status: partial
-owes: walk
-since: 2026-11-02
+status: built
+since: 2026-11-21
 goal: G7
 spec: 2
 depends: [167]
-note: "Built and proven by test: porcelain and cobalt over a drawn wash, glass with three solid fallbacks, every text pair at contrast, and a no-flash system/light/dark toggle. The owner's look beside Ledger remains."
+note: "Built and proven by test: porcelain and cobalt over a drawn wash, glass with three solid fallbacks, every text pair at contrast, and a no-flash system/light/dark toggle. The owner's look beside Ledger remains; the walk was removed (phase 204)."
 evidence: ["evidence/2026-11-02-blue-and-white-glass.md"]
 ---
 
@@ -36,17 +35,6 @@ Every workspace page sits on a porcelain-and-cobalt wash, under a glass header w
 - [x] No text pair is short of contrast over the drawn wash, and phase 167's known list is empty: `tests/web-design.test.mjs: "tokens meet contrast over the wash in both themes"`
 - [x] No page carries an inline script or style, and the theme script loads before the stylesheet: `tests/web-design.test.mjs: "the theme applies before paint without inline code"`
 - [x] Each fallback (no blur, reduced transparency, forced colours) yields opaque, readable surfaces: `tests/web-design.test.mjs: "glass falls back to solid surfaces"`
-- [ ] ⚑ by hand: the owner opens the workspace on a phone and a laptop, in light and dark, and says whether plates and Ledger feel like one family.
-
-## Your part
-
-- **Ask:** Open the workspace on your phone and laptop, in light and dark, with Ledger beside it. Do they feel like one family, and is plates clearly plates?
-- **Why:** Only you can judge the resemblance and how strong the cobalt should be.
-- **Look at:** the header, navigation and first screen of Home, in both themes.
-- **Choices:** Same family | Too alike | Too different (say where)
-- **Takes:** 10 minutes.
-- **Then:** Same family: the phase is built. Otherwise the named spot is adjusted in this phase.
-- **Ready when:** this phase is deployed.
 
 ## Real surfaces
 

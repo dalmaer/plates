@@ -39,7 +39,6 @@ a native app is still needed.
 - [x] Each waiting-on-owner event sends one notification with a deep link and no private text, and a repeated event sends none: `tests/web-pwa.test.mjs: "one push per item, no private text"`.
 - [x] Ready walks and red nights reach the notifier when the workspace reads its source fresh, once per item, never failing Home: `tests/web-pwa.test.mjs: "waiting-on-owner events reach the notifier"`.
 - [ ] Decision checks coming due and irreversible-door approvals reach the notifier; the hosted workspace does not learn of either yet (checks are read only by the local board, and there is no hosted approval queue): `tests/web-pwa.test.mjs: "checks and door approvals reach the notifier"`.
-- [ ] Installed on the owner's phone, a real notification opens the right item and the owner acts on it: ⚑ by hand: the owner.
 
 ## Your part
 

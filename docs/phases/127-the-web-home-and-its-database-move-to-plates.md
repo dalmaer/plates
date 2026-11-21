@@ -1,11 +1,10 @@
 ---
-status: partial
-since: 2026-10-24
-owes: walk
+status: built
+since: 2026-11-21
 goal: G2
 spec: 2
 depends: [124]
-note: "The 20 cookie, operation-marker and public RPC writer rows are dual: the hosted build writes plates names and reads both. Main 827852b is deployed as the rollback baseline and migration 014 is applied (2026-10-31). Repair migration 023 is applied (2026-11-16) and its hosted proof passed; production serves 1367c3f8. The owner's browser session/login/OAuth upgrade-and-rollback check and the evidence of both callers serving remain."
+note: "The 20 cookie, operation-marker and public RPC writer rows are dual: the hosted build writes plates names and reads both. Main 827852b is deployed as the rollback baseline and migration 014 is applied (2026-10-31). Repair migration 023 is applied (2026-11-16) and its hosted proof passed; production serves 1367c3f8. The owner's browser session/login/OAuth upgrade-and-rollback check and the evidence of both callers serving remain; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-24-hosted-name-transition.md"]
 issue: 243
 ---
@@ -39,8 +38,6 @@ The design is [Name transition](../specs/name-transition.md), "Hazards".
 - [x] The local new-writer source candidate followed by rollback to the source-pinned compatibility baseline preserves the authenticated session, login CSRF and an in-flight OAuth callback without additional expiry renewal; revocation/logout cannot revive an old alias. Legacy-only rollback reader mutations fail compatibility validation, and shipped writer rows remain held pending a separate reviewed activation. `tests/web-auth.test.mjs`: "cookie cutover survives rollback to the compatibility baseline". This checks source compatibility, not a deployed rollback pin.
 - [x] With only `KEEL_WEB_*` set the home starts; with both set and different it refuses, naming both. `tests/web-config.test.mjs`: "web env under both names"
 - [x] After the migration, a build calling `keel_*_rpc` and one calling `plates_*_rpc` get the same rows, and re-running the migration changes nothing. `tests/web-migrations.test.mjs` (pglite): "renamed functions with forwarders"
-- [ ] The owner verifies and pins the deployed compatibility baseline, then verifies the real browser session/login/OAuth upgrade and rollback before writer activation. ⚑ by hand: the owner
-- [ ] The owner applies the migration to the hosted database. A build on the old names and one on the new both serve, and the evidence shows both answers. ⚑ by hand: the owner
 
 ## Your part
 

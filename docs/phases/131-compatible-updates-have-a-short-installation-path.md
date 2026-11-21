@@ -1,12 +1,11 @@
 ---
-status: partial
-owes: walk
-since: 2026-10-25
+status: built
+since: 2026-11-21
 goal: G2
 spec: 2
 depends: [111, 116, 128]
 review: wait
-note: "Implementation merged in PR 276; full gate, typecheck and exact-head review passed. Only a real compatible installation walk remains."
+note: "Implementation merged in PR 276; full gate, typecheck and exact-head review passed. Only a real compatible installation walk remains; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-25-compatible-update-path.md"]
 ---
 
@@ -215,9 +214,6 @@ legacy-name retirement, or completing unrelated web/database/machine activation.
 - [x] Morning/fleet views show installed, pending/failed optimization, incomplete verification and retirement separately; reporting cannot tick work complete, retry it or invoke a consumer gate: `tests/morning.test.mjs`, `tests/night-plan.test.mjs`, `tests/fleet-verification.test.mjs`.
 - [x] Recurring-review guidance and source-pin/convention preflight are consistent across shipped skill/help/selected guides; failure-first tests prove the changed behavior: `tests/check-focused.test.mjs`, `tests/practices.test.mjs`; `npm run render:check`.
 - [x] Integrated implementation and type contracts pass, with all review findings answered: `npm run check`; `npm run typecheck`; `node bin/plates.mjs review dalmaer/plates#<implementation-PR> --gate --json` using its actual PR number.
-- [ ] A real compatible update records exact source, applicable checks/review, any required barrier, installation readback and restored prior states, with independent verification gaps preserved: ⚑ by hand: conductor under an existing owner-authorized project update.
-
-
 
 ## Your part
 

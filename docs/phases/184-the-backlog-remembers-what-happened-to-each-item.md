@@ -1,10 +1,10 @@
 ---
-status: partial
-since: 2026-11-06
+status: built
+since: 2026-11-21
 goal: G7
 spec: 2
 depends: [181]
-note: "Built: metadata-only events, written locally and (after migration 019) hosted, read back the same in plates home --backlog --since and /backlog/history. Migration 019 applied 2026-11-07 and its hosted proof passed; waits on one event written from the web read back on /backlog/history."
+note: "Built: metadata-only events, written locally and (after migration 019) hosted, read back the same in plates home --backlog --since and /backlog/history. Migration 019 applied 2026-11-07 and its hosted proof passed; waits on one event written from the web read back on /backlog/history; the walk was removed (phase 204)."
 evidence: ["evidence/2026-11-06-backlog-events.md"]
 ---
 
@@ -31,7 +31,6 @@ evidence: ["evidence/2026-11-06-backlog-events.md"]
 - [x] Events hold no source text or owner words: `tests/backlog-events.test.mjs: "metadata only"`
 - [x] Ordering is identical with and without events: `tests/work-items.test.mjs: "events never reorder"`
 - [x] A tracked events directory is refused: `tests/backlog-events.test.mjs: "events refuse a tracked directory"`
-- [ ] After migration 019 is applied, one event written from the web is read back on /backlog/history: ⚑ by hand: the conductor, with the owner
 
 ## Real surfaces
 

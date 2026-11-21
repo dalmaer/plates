@@ -42,7 +42,8 @@ test('the activation plan is complete and ordered', async t => {
     assert.deepEqual(check(plan), []);
     // Every G7 phase that owes a walk or names a hosted gap is in the plan.
     const owing = phasesNeedingSteps(phases, 'G7', 151);
-    assert.deepEqual(owing, [94, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 152, 153, 154, 156, 163, 164, 165, 166, 168, 169, 172, 173, 174, 175, 176, 178, 180, 181, 183, 186, 194, 196]);
+    // Phase 204 removed plates's walks, so only an owed walk left untouched or a hosted gap in the note asks for a step now.
+    assert.deepEqual(owing, [94, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 152, 154, 176, 181, 196]);
     for (const id of owing) assert.ok(plan.steps.some(s => s.phase === id), `phase ${id}`);
     // Every migration not yet applied in the hosted database has its step.
     assert.deepEqual(plan.applied.map(a => a.migration), [
@@ -135,7 +136,7 @@ test('the activation plan is complete and ordered', async t => {
 
   await t.test('a phase or migration left out is incomplete', () => {
     assert.deepEqual(check(without(plan, s => s.phase === 99)), ['migration 006-private-media.sql: neither applied nor planned', 'phase 99: owes a walk or names a hosted gap, but has no step']);
-    assert.deepEqual(check(without(plan, s => s.phase === 108)), ['phase 108: owes a walk or names a hosted gap, but has no step']);
+    assert.deepEqual(check(without(plan, s => s.phase === 100)), ['phase 100: owes a walk or names a hosted gap, but has no step']);
     assert.deepEqual(check(without(plan, s => s.id === 'migration-011')), ['migration 011-model-routing.sql: neither applied nor planned']);
     assert.deepEqual(check(plan, { phases, migrations: [...migrations, '015-acme-later.sql'] }), ['migration 015-acme-later.sql: neither applied nor planned']);
     assert.deepEqual(check(edited(plan, 'migration-011', { migration: '011-acme.sql' })),

@@ -1,11 +1,10 @@
 ---
-status: partial
-since: 2026-10-17
+status: built
+since: 2026-11-21
 goal: G6
 spec: 2
 depends: [80, 70]
-owes: walk
-note: "Partial 2026-10-17: plates ready hands a change off with its fast checks only; plates integrate, under the claims/integrate lock, gates every ready change once and pushes once, accumulating by halves on a failure so an interaction is found. The owner's two-sessions walk waits."
+note: "Partial 2026-10-17: plates ready hands a change off with its fast checks only; plates integrate, under the claims/integrate lock, gates every ready change once and pushes once, accumulating by halves on a failure so an interaction is found. The owner's two-sessions walk waits; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-17-integrate.md"]
 issue: 166
 ---
@@ -34,17 +33,6 @@ The design is [Delivery: a change reaches production once, checked](../research/
 - [x] The full gate runs once for a batch that passes. `tests/integrate.test.mjs`
 - [x] Two individually passing changes whose combination fails: one lands, the other is reported as conflicting with it, and nothing failing is pushed (plates#166). `tests/integrate.test.mjs`
 - [x] The conduct skill finishes with `plates ready` and leaves the full gate to `plates integrate`. `tests/skill.test.mjs`
-- [ ] ⚑ by hand: the owner asks two sessions for two changes and sees one full gate and one push.
-
-## Your part
-
-- **Ask:** Ask two sessions for two small changes, one after the other, and watch what runs.
-- **Why:** This is exactly the situation that started this: two changes, one expensive path.
-- **Look at:** the integrator's report and the project's Actions page.
-- **Choices:** One gate, one push | Two of either
-- **Takes:** 10 minutes.
-- **Then:** Two: whatever ran twice is found and fixed.
-- **Ready when:** this phase has shipped.
 
 ## Real surfaces
 

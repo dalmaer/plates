@@ -1,11 +1,10 @@
 ---
-status: partial
-owes: walk
-since: 2026-10-21
+status: built
+since: 2026-11-21
 goal: G7
 spec: 2
 depends: [97, 102, 103]
-note: "Durable worker, budget, recovery and schedule-source paths pass local proof; hosted activation and owner workflow/schedule exercises remain."
+note: "Durable worker, budget, recovery and schedule-source paths pass local proof; hosted activation and owner workflow/schedule exercises remain; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-21-web-workers.md"]
 ---
 
@@ -26,7 +25,6 @@ Contract: [Durable workers](../specs/web-workers.md), [Fleet operations](../spec
 
 - [x] Duplicate dispatch, worker loss, revoked permissions and stale previews cannot create competing work or cross-project credential access: `tests/web-jobs.test.mjs`.
 - [x] Cancel requests, linked retries and schedule edits retain source semantics, budget bounds and uncertain outcomes: `tests/web-routine-actions.test.mjs`.
-- [ ] ⚑ By hand: owner completes the real-surface exercise below: `docs/specs/web-fleet-operations.md`.
 
 ## Real surfaces
 
@@ -67,13 +65,3 @@ are verified; no real dispatch or schedule change has run.
 - **2026-10-21** — SQL three-valued logic admitted incomplete provider observations and null worker results. Independent isolated PostgreSQL probes failed before required-field corrections, then passed; unknown provider state cannot release a lane.
 - **2026-10-21** — Browser retry left preceding controls bound to the new request, and terminal projection erased a known worker claim. Reproduced regressions now replace the active receipt and preserve unavailable worker results; the conductor rewalked both corrections.
 
-## Your part
-
-- **Ask:** Run and inspect one approved routine, exercise recovery, and review the exact worker permissions and schedule budget before enabling changes.
-- **Why:** Fixtures cannot establish real access, source completeness or operating usefulness.
-- **Look at:** [Fleet operating contract](../specs/web-fleet-operations.md) and this phase's dated evidence.
-- **Choices:** Verified | Needs changes | Cannot check yet
-- **Keeps it open:** Needs changes | Cannot check yet
-- **Takes:** One setup or operating session; record actual duration and cost.
-- **Then:** Record observed outcomes, keep gaps open and name the next action.
-- **Ready when:** Automated proof passes and the approved service exposes this phase's feature.

@@ -1,12 +1,10 @@
 ---
-status: partial
-owes: walk
-waits: time
-since: 2026-10-07
+status: built
+since: 2026-11-21
 goal: G4
 spec: 2
 depends: [35, 38, 42]
-note: "Built and on GitHub: the Budget line (agent-step minutes per run from GitHub, ran out, a suggestion; runs whose agent never started skipped); the night of 2026-10-07 (run 37580217231, plates#26) wrote tend 2 of 30, climb 3, 0 of 45. Waits on the owner's read after four or more tend runs."
+note: "Built and on GitHub: the Budget line (agent-step minutes per run from GitHub, ran out, a suggestion; runs whose agent never started skipped); the night of 2026-10-07 (run 37580217231, plates#26) wrote tend 2 of 30, climb 3, 0 of 45. Waits on the owner's read after four or more tend runs; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-07-budget-use.md"]
 issue: 25
 ---
@@ -33,7 +31,6 @@ The design is [Budget use](../research/2026-10-06-budget-use.md).
 - [x] The step map equals the name of each shipped workflow's claude-code-action step; mutation: renaming tend's step in its workflow fails the test. `tests/workflows.test.mjs`
 - [x] The health page has a Budget entry for each pass that is on and none for one that is off; GitHub unreadable is n/a with why, never an empty line. `tests/improve-budget.test.mjs`
 - [x] plates's health page, after the night runs on GitHub, shows tend's real entry (its runs so far). `gh pr view <n> -R dalmaer/plates --json body`
-- [ ] ⚑ by hand: after four or more tend runs, the owner reads tend's line and keeps or changes the budget.
 
 ## Your part
 

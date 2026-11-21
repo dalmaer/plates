@@ -32,7 +32,6 @@ The design is [The board](../research/2026-10-08-whose-turn-board.md).
 - [x] `plates walk done` checks the walk's box, appends the note to the evidence, and moves a phase with nothing else open to built (dropping `owes`); a phase with a buildable box left stays partial; a non-walk box is refused, writing nothing. `tests/board.test.mjs`
 - [x] The server binds 127.0.0.1 only, refuses an action without the launch token, and runs actions through the same verbs; its page renders every column from `--json`. `tests/board.test.mjs`
 - [x] plates's own phases carry `after:` (13) and `waits:` where a walk waits on time or an external thing, and `plates next` no longer names phase 13 before 2026-11-01. `node scripts/roadmap.mjs --next`
-- [x] ⚑ by hand: the owner opens the board, and settles a week of walks and decisions from it rather than in chat.
 
 ## Your part
 

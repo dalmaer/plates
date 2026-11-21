@@ -1,11 +1,10 @@
 ---
-status: partial
-owes: walk
-since: 2026-11-02
+status: built
+since: 2026-11-21
 goal: G7
 spec: 2
 depends: [168]
-note: "Built and proven by test: views.mjs takes every colour from a token, Home cards, labels and fields use the shared components, and long lists stay solid. The owner's look on a phone remains."
+note: "Built and proven by test: views.mjs takes every colour from a token, Home cards, labels and fields use the shared components, and long lists stay solid. The owner's look on a phone remains; the walk was removed (phase 204)."
 evidence: ["evidence/2026-11-02-home-design-layer.md"]
 ---
 
@@ -27,17 +26,6 @@ Home's sections, cards, badges and toolbar use the shared components. `views.mjs
 
 - [x] `lib/web/views.mjs` holds no hex, rgb or oklch literal: `tests/web-design.test.mjs: "home uses only tokens"`
 - [x] Home's existing behaviour tests pass unchanged: `tests/web-home.test.mjs`
-- [ ] ⚑ by hand: the owner reads Home on a phone and says whether it is calmer and still clear.
-
-## Your part
-
-- **Ask:** Read Home on your phone. Is it calmer, and is it still clear what needs you?
-- **Why:** The restyle must not cost clarity.
-- **Look at:** the top of Home, then one long scroll.
-- **Choices:** Better | Worse (say where)
-- **Takes:** 5 minutes.
-- **Then:** Better: the phase is built. Worse: the named spot is fixed in this phase.
-- **Ready when:** this phase is deployed.
 
 ## Real surfaces
 

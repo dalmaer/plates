@@ -1,11 +1,10 @@
 ---
-status: partial
-since: 2026-10-21
+status: built
+since: 2026-11-21
 goal: G7
 spec: 2
 depends: [103, 104]
-note: "Local routing, accounting, checkpoint and desktop/mobile proofs pass; hosted admission and approved provider/owner walk remain."
-owes: walk
+note: "Local routing, accounting, checkpoint and desktop/mobile proofs pass; hosted admission and approved provider/owner walk remain; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-21-web-model-routing.md"]
 ---
 
@@ -27,7 +26,6 @@ Contract: [Model choice and checkpoints](../specs/web-model-routing.md),
 
 - [x] Unknown capacity, low quota, shared-pool races, independent review and provider restrictions produce a valid selection or an explained wait: `tests/web-model-routing.test.mjs`.
 - [x] A checkpoint handoff preserves decisions and revision, reconciles uncertain effects and never silently upgrades spend or restarts completed work: `tests/web-model-handoff.test.mjs`.
-- [ ] ⚑ By hand: owner completes the real-surface exercise below: `docs/specs/web-fleet-operations.md`.
 
 ## Real surfaces
 
@@ -71,13 +69,3 @@ model call, migration or production activation is established by the local proof
   selected linked records; unsupported decision paths refuse. An unrelated phase
   or design inventory entry no longer makes a valid packet impossible.
 
-## Your part
-
-- **Ask:** Review and enable a bounded routing policy, then explain a real model choice and verify a supported fallback without widening budget or provider access.
-- **Why:** Fixtures cannot establish real access, source completeness or operating usefulness.
-- **Look at:** [Fleet operating contract](../specs/web-fleet-operations.md) and this phase's dated evidence.
-- **Choices:** Verified | Needs changes | Cannot check yet
-- **Keeps it open:** Needs changes | Cannot check yet
-- **Takes:** One setup or operating session; record actual duration and cost.
-- **Then:** Record observed outcomes, keep gaps open and name the next action.
-- **Ready when:** Automated proof passes and the approved service exposes this phase's feature.

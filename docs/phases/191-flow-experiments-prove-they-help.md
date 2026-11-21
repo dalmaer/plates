@@ -33,7 +33,6 @@ Read [the flow improvement design](../specs/delivery-flow.md) and the
 
 - [ ] An experiment links baseline, intervention, actual exposure, comparison window and outcome rather than inferring success from merges. Check: `npm run check:focused -- tests/agent-quality-report.test.mjs` with experiment provenance cases.
 - [ ] Synthetic missing-cost, unknown-human-time and changed-workload cases cannot produce a confident improvement claim. Check: `npm run check:focused -- tests/agent-quality-report.test.mjs` with the named missing-data cases.
-- [ ] A dated pilot decision records keep/adjust/remove, countermetrics, uncertainty and the smallest next experiment. Check: ⚑ by hand: owner reviews the dated experiment decision.
 
 ## Your part
 

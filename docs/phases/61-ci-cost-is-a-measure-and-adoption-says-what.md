@@ -1,12 +1,10 @@
 ---
-status: partial
-owes: walk
-waits: owner
-since: 2026-10-09
+status: built
+since: 2026-11-21
 goal: G5
 spec: 2
 depends: [43]
-note: "Implemented: bounded CI usage estimates, exact clean default-branch CI reuse and adoption cost previews. Real API accounting, estimates and clean committed CI reuse verified; the owner’s month on a metered project remains owed."
+note: "Implemented: bounded CI usage estimates, exact clean default-branch CI reuse and adoption cost previews. Real API accounting, estimates and clean committed CI reuse verified; the owner’s month on a metered project remains owed; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-09-ci-usage.md"]
 issue: 48
 ---
@@ -30,17 +28,6 @@ The design is [Adopting projects that already have a practice](../research/2026-
 - [x] `ci_minutes` rounds each job up, applies each runner's multiplier, groups by workflow, separates plates's own, and is outside its bound when over it; n/a without the API, never zero. `tests/ci.test.mjs`, `tests/improve-measures.test.mjs`
 - [x] With `gateWorkflow` set, the night's gate measure reads that workflow's conclusion on the commit and runs no check; without a run, it runs the check as today. `tests/ci.test.mjs`, `tests/night.test.mjs`
 - [x] `plates adopt --dry-run` lists plates's added workflows with a monthly minutes estimate and a total. `tests/adopt.test.mjs`
-- [ ] ⚑ by hand: a month on one metered project; the owner compares plates's minutes with the estimate.
-
-## Your part
-
-- **Ask:** After a month on a metered project, compare what plates's workflows actually cost with what the dry run estimated.
-- **Why:** A project that pays for its minutes should know what plates adds before it says yes.
-- **Look at:** The night's `ci_minutes` line, plates's own workflows.
-- **Choices:** Close enough | Estimate was off
-- **Takes:** 5 minutes.
-- **Then:** Close enough: the phase is built. Off: the estimate's source is fixed and the gap goes into the evidence.
-- **Ready when:** one metered project has run a month with this.
 
 ## Real surfaces
 

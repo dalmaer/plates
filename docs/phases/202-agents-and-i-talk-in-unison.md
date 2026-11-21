@@ -38,17 +38,6 @@ Out of scope: plates without a workspace, which keep Home's waiting list and Rex
 
 - [ ] `plates ask` posts one action on the phase's item mentioning the owner, and a Unison that cannot be written is said, never dropped: `tests/unison-ask.test.mjs: "an ask is an action on its item"`.
 - [ ] Home lists open asks in both forms with their thread links, and an answered ask leaves the list: `tests/unison-ask.test.mjs: "Home lists open asks and links to them"`.
-- [ ] ⚑ by hand: owner. An agent's ask shows on Unison and on Home; replying in Unison unblocks the agent.
-
-## Your part
-
-- **Ask:** When an agent asks you something, reply to it in Unison and check the agent carries on.
-- **Why:** It proves an answer reaches the agent through Unison without anyone typing into its tab.
-- **Look at:** Your action list in Unison.
-- **Choices:** It carried on | It did not
-- **Takes:** About 5 minutes.
-- **Then:** It carried on: the phase is built. It did not: the conductor reads the agent's log.
-- **Ready when:** increment 2 is merged, deployed and installed.
 
 ## Real surfaces
 

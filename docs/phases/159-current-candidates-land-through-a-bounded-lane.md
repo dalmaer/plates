@@ -45,7 +45,6 @@ outstanding real-surface walks.
 - [ ] Moving main, changed heads/configuration, stale proof and two changes that pass alone but fail together cannot publish an unchecked combination Check: `npm run check` with adversarial candidate/invalidation cases.
 - [ ] Queue saturation, lock contention, interruption and uncertain push outcomes retain ownership and recover the original operation without starvation or blind retry Check: `npm run check` with bounded-time synthetic contention cases.
 - [ ] PR and integrator paths retain required reviews, typecheck/full-gate policy and narrowly scoped validated reuse; no existing required coverage is lost Check: `npm run check` and `npm run typecheck` plus workflow diff inspection.
-- [ ] The existing phase 83 two-session walk has retained evidence for the new lane, including a rejected interaction and recovery Check: ⚑ by hand: owner-authorized two-session integration rehearsal on a disposable repository.
 
 ## Your part
 

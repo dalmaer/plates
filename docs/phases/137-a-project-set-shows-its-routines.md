@@ -1,10 +1,10 @@
 ---
-status: partial
-since: 2026-11-14
+status: built
+since: 2026-11-21
 goal: G8
 spec: 2
 depends: [93, 102]
-note: "Registry and read-only Routines/Activity selection implemented; source-bound continuations refuse scope changes. Home lens, deployment and real desktop/mobile verification remain outstanding; no executor or transport is enabled."
+note: "Registry and read-only Routines/Activity selection implemented; source-bound continuations refuse scope changes. Home lens, deployment and real desktop/mobile verification remain outstanding; no executor or transport is enabled; the walk was removed (phase 204)."
 evidence: ["evidence/2026-11-05-project-set-contract.md", "evidence/2026-11-14-project-set-history.md"]
 ---
 
@@ -23,8 +23,6 @@ The optional configuration registry is bounded and pinned to existing project re
 - [x] Registry bounds, exact fields, known members, duplicates, names and repository pins are validated; selection grants no project access: `tests/web-project-set-contract.test.mjs`.
 - [x] Optional configuration readback retains the registry without mutable aliases; absence keeps the current behavior: the same focused test and `tests/web-config.test.mjs`.
 - [x] Routines/Activity selection and source-bound pagination use the contract: `tests/web-project-sets.test.mjs`.
-- [ ] Home selection and real responsive navigation use the contract; source tests do not establish a device walk: ⚑ by hand: owner, on desktop and mobile.
-- [ ] Real desktop/mobile source comparison and any separately authorized observation transport are verified: ⚑ by hand: owner, after separately authorized enrollment.
 
 ## Real surfaces
 

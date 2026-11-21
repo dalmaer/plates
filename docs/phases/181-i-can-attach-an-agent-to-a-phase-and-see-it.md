@@ -43,17 +43,6 @@ Attach on an agent-ready phase previews, claims and starts the `session` or `ton
 - [x] Dormant internal flow requires acknowledged journal grants before provider effects, recovers original observations without redispatch, and distinguishes prewrite refusal from postwrite uncertainty: `tests/web-attach-operations.test.mjs` plus migration 021 proof. Local synthetic provider evidence only; hosted authorization and activation remain unavailable.
 - [x] Authenticated preparation persists the exact private preview with current source and access checks; original receipt inspection survives preview expiry without granting recovery or execution: `tests/web-attach-controller.test.mjs`. HTTP/PGlite source proof only; hosted owner proof remains.
 - [ ] A generated robot rubric carries the phase's unresolved ⚑ as owner blockers: `tests/backlog-attach.test.mjs: "rubric keeps owner blockers"`
-- [ ] ⚑ by hand: the owner.
-
-## Your part
-
-- **Ask:** From your phone, attach an agent to one phase that is ready, then watch its card move.
-- **Why:** It settles whether you trust starting agent work from the backlog.
-- **Look at:** The preview before you confirm: which phase, which agent, what it costs.
-- **Choices:** It moved and I trusted it | It moved but was unclear (say what) | Didn't trust it
-- **Takes:** About 10 minutes, plus the agent's time.
-- **Then:** Trusted: built. Otherwise the preview or presence changes here.
-- **Ready when:** phase 178 is deployed and decision writes are enabled.
 
 ## Real surfaces
 

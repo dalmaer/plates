@@ -92,7 +92,6 @@ Out of scope: claims (phase 201), chat and asks (phase 202), and removing plates
 - [x] A `unison` that is missing, fails or answers without its array leaves the plan unread, never empty: `tests/unison-link.test.mjs: "Unison not read is never an empty backlog"`.
 - [x] `plates unison connect` finds the workspace that lists the plate's repo, creates one only when none does, refuses two, and when not signed in leaves a sign-in card and creates nothing: `tests/unison-connect.test.mjs: "the repo finds the workspace, or connect makes one"`.
 - [ ] Home shows "Unison not read", the close suggestion and the sign-in card in both forms (increment 3): `tests/unison-home.test.mjs: "Unison's states are said on Home in both forms"`.
-- [ ] ⚑ by hand: owner. A plate connected by plates shows its open phases in Unison with working links back, and a phase built closes its item.
 
 ## Your part
 

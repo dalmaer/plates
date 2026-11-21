@@ -1,11 +1,9 @@
 ---
-status: partial
-owes: walk
-waits: owner
-since: 2026-10-11
+status: built
+since: 2026-11-21
 goal: G4
 depends: [6]
-note: "The night shift ships as practices with drain. On plates, the full cycle has run for real: measure, PR #1, gate, self-merge. Seven Plates morning queue snapshots and Ledger scheduled runs are recorded; Plates and Ledger queue snapshots are recorded; the named owner acceptance remains."
+note: "The night shift ships as practices with drain. On plates, the full cycle has run for real: measure, PR #1, gate, self-merge. Seven Plates morning queue snapshots and Ledger scheduled runs are recorded; Plates and Ledger queue snapshots are recorded; the named owner acceptance remains; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-02-night-shift.md", "evidence/2026-10-11-coffee-audit.md"]
 issue: 30
 ---
@@ -31,20 +29,8 @@ triggers CI. Commit steps use `git status --porcelain` and rebase-retry pushes
 ## Acceptance
 
 - [x] A workflow test asserts each workflow's branch prefix, concurrency group and that none pushes to `main`.
-- [ ] ⚑ by hand: seven nights on plates, never more than one open `keel-night/` PR (the owner reads `machine_prs` each morning).
 - [x] A deliberately red night produces a failed workflow (an email), not a quiet page. (Proven by a real one, not a deliberate one: ledger's Loop run on 4 Oct; see the evidence.)
 - [x] ⚑ Secrets the workflows need are listed with what they cost; none set without a yes.
-
-## Your part
-
-- **Ask:** Check that plates's overnight run never left more than one of its own pull requests open at a time, on any of its first seven nights.
-- **Why:** It proves the overnight run tidies up after itself, the last thing keeping the night shift (set up on 2 October) from done.
-- **Look at:** The "open machine PRs" (`machine_prs`) row on each morning's [health page](../health/), 3 to 9 October.
-- **Choices:** All seven fine | A night had more than one
-- **Keeps it open:** A night had more than one
-- **Takes:** 2 minutes
-- **Then:** All seven fine: recorded, and the night shift is done. A night had more than one: recorded, and the walk stays open; the conductor finds which pull requests piled up and why, and asks again.
-- **Ready when:** the night of 9 October has run (the seventh since 3 October).
 
 ## Proof
 

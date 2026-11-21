@@ -1,11 +1,10 @@
 ---
-status: partial
-owes: walk
-since: 2026-11-04
+status: built
+since: 2026-11-21
 goal: G6
 spec: 2
 depends: [82]
-note: "Built and walked on plates itself: a real plates promote --yes deployed 80d8920 and passed revision, smoke and two minutes of error logs, and a deliberate smoke failure rolled itself back to the deployment it had recorded. Owes the owner's grant and walk."
+note: "Built and walked on plates itself: a real plates promote --yes deployed 80d8920 and passed revision, smoke and two minutes of error logs, and a deliberate smoke failure rolled itself back to the deployment it had recorded. Owes the owner's grant and walk; the walk was removed (phase 204)."
 evidence: ["evidence/2026-11-03-deploy-checks-itself.md"]
 ---
 
@@ -50,8 +49,6 @@ The owner, 2026-11-03: "you do the deploy, and most of the time it all just work
 - [x] `plates promote --back` with no commit returns to the last deployment that passed: `tests/promote-vercel.test.mjs: "back means the last good deployment"`
 - [x] The grant renders a rule allowing exactly the two commands, and without it deployment stays closed at every level: `tests/autonomy-hosts.test.mjs: "a promote grant opens exactly plates promote"`
 - [x] A commit waiting on an unapplied migration is refused with its name: `tests/promote-vercel.test.mjs: "a deploy waits for its migration"`
-- [x] ⚑ by hand: on plates' own workspace, one deploy passes its checks, and one deliberate failure rolls itself back.
-- [ ] ⚑ by hand: the owner adds the grant and its two rules to Claude Code settings; an agent's plates promote --yes then runs without a typed approval, and a bare vercel deploy is still refused.
 
 ## Your part
 

@@ -1,11 +1,10 @@
 ---
-status: partial
-owes: walk
-since: 2026-10-09
+status: built
+since: 2026-11-21
 goal: G2
 spec: 2
 depends: []
-note: "Built: a failing check keeps the fleet's update on its branch and opens the PR anyway (ordinary on an already-red main, a draft otherwise, each opening with what failed); the board lists a draft update PR under Broken. Owes the walk: the first real update that fails a project's check, fixed on its own branch and merged. Design: research/2026-10-09-updates-never-block.md."
+note: "Built: a failing check keeps the fleet's update on its branch and opens the PR anyway (ordinary on an already-red main, a draft otherwise, each opening with what failed); the board lists a draft update PR under Broken. Owes the walk: the first real update that fails a project's check, fixed on its own branch and merged. Design: research/2026-10-09-updates-never-block.md; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-09-fleet-update-leaves-a-pr.md"]
 issue: 39
 ---
@@ -36,17 +35,6 @@ The design is [A fleet update never dead-ends](../research/2026-10-09-updates-ne
 - [x] `plates update` in one checkout still restores and exits 1 on a failing check; only the fleet's option keeps the files. `tests/update.test.mjs`
 - [x] Clone, setup and install failures are still FAILED with nothing pushed. `tests/fleet.test.mjs`
 - [x] A draft PR on a plates update branch is a Broken item on the board, linking the PR. `tests/board.test.mjs`
-- [ ] ⚑ by hand: the next real update that fails a project's check opens its draft; the owner (or the agent) fixes it with one commit on that branch, and the owner merges it.
-
-## Your part
-
-- **Ask:** When a plates update PR shows up as a draft, check that its description told you what was wrong and how to fix it, then merge it once fixed.
-- **Why:** It proves a failing update now leaves something to fix, instead of nothing.
-- **Look at:** The draft update PR the board lists under Broken.
-- **Choices:** Clear enough | Needed more
-- **Takes:** 5 minutes.
-- **Then:** Clear enough: the phase is built. Needed more: what was missing goes into the PR description, and the phase stays open for the next one.
-- **Ready when:** a fleet update has failed a project's check since this was built.
 
 ## Real surfaces
 

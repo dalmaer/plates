@@ -25,7 +25,6 @@ Only source and existing manifest-managed consumers. No deployment or schedule.
 - [ ] Focused negative controls prove the phase contract: `node --test scripts/install-watchdog.test.mjs` in isocan.
 - [ ] Required consumer validation evidence is complete: isocan’s configured gate (`npm test && npm run typecheck && node --test tests/loop.test.mjs`), pre-push `npm run test:deep` plus `npm run typecheck`, and the complete strict hosted shard/check union.
 - [ ] Exact-head review is recorded: `node bin/plates.mjs review dglazkov/isocan#<PR> --gate --json` plus inspection of pinned complete review inputs.
-- [ ] ⚑ by hand: parent reviews evidence before broader rollout.
 
 ## Your part
 

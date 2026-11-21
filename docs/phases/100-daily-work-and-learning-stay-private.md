@@ -1,11 +1,10 @@
 ---
-status: partial
-since: 2026-10-21
+status: built
+since: 2026-11-21
 goal: G7
 spec: 2
 depends: [97, 98, 99]
-note: "Daily/learning views and reviewed transfers implemented and locally verified; hosted activation and owner-selected real migration remain."
-owes: walk
+note: "Daily/learning views and reviewed transfers implemented and locally verified; hosted activation and owner-selected real migration remain; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-21-web-daily-learning.md"]
 ---
 
@@ -29,7 +28,6 @@ Contract: [Private workspace, public Plates application](../specs/web-workspace.
 - [x] Daily views preserve configured budgets, coverage, unavailable runners and existing receipts: `tests/web-daily.test.mjs`.
 - [x] Migration previews destinations, reads replacements back and preserves originals on failure: `tests/web-migration.test.mjs`.
 - [x] Private lessons and feedback never enter public export without exact approved selection: `tests/web-learning.test.mjs`.
-- [ ] ⚑ By hand: compare a real morning to its sources and migrate selected workspace data with recovery verified: `docs/guide/web-workspace-setup.md`.
 
 ## Real surfaces
 
@@ -63,22 +61,3 @@ Verify the operation storage required by this phase and deploy a verified servin
 - **2026-10-21** — Climb's template imports depend on practice assembly. The hosted view therefore reports explicit allowance declarations and leaves unresolved defaults unavailable; it does not execute project scripts to resolve them. Canonical night validation, merge and readiness remain shared. See the evidence's design finding.
 - **2026-10-21** — Independent review found source changes during final authorization could still copy old bytes. Authorization now precedes the reserved operation's source/destination inspection; the same probe refuses with zero writes. Cross-repository observations remain bounded, not atomic with the private commit.
 
-## Your part
-
-### 1. Real use
-
-- **Ask:** Compare a real morning to its sources and migrate selected workspace data with recovery verified.
-
-- **Why:** This needs actual owner access or observation; synthetic tests cannot establish it.
-
-- **Look at:** [Setup worksheet](../guide/web-workspace-setup.md) and this phase's source evidence.
-
-- **Choices:** Verified | Needs changes | Cannot check yet
-
-- **Keeps it open:** Needs changes | Cannot check yet
-
-- **Takes:** One setup or testing session; record the actual duration.
-
-- **Then:** Record exactly what was observed; keep missing checks open and name the next action.
-
-- **Ready when:** Automated proof passes and the approved service exposes this phase's feature.

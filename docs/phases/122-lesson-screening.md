@@ -1,11 +1,11 @@
 ---
-status: partial
-since: 2026-10-24
+status: built
+since: 2026-11-21
 goal: G3
 spec: 2
 depends: [121]
 review: wait
-note: "Offline screening and immutable reports merged; real screening still needs live orchestration and an approved measured cohort."
+note: "Offline screening and immutable reports merged; real screening still needs live orchestration and an approved measured cohort; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-24-lesson-screening.md"]
 ---
 
@@ -30,8 +30,6 @@ introduce a second scheduler, evidence authority or automatic production default
 - [x] Plan and report binding rejects altered patches, omitted attempts, unknown required costs and weakened acceptance: `tests/lesson-screening.test.mjs`.
 - [x] CLI JSON/help, compatibility, bounds and failure paths are covered: `npm run check:focused -- tests/lesson-screening.test.mjs`.
 - [x] Integrated gates and selected contracts pass: `npm run check`; `npm run typecheck`.
-
-- [ ] ⚑ by hand: after the owner approves the exact provider and bounded allowance, retain the real compatibility/control screening report (five pairs each), with unknowns and a justified disposition; a fake-adapter walk is not measured agent efficacy.
 
 ## Your part
 

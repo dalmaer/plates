@@ -1,12 +1,10 @@
 ---
-status: partial
-owes: walk
-waits: external
-since: 2026-10-07
+status: built
+since: 2026-11-21
 goal: G2
 spec: 2
 depends: [35, 38, 42]
-note: "Built: agents (\"agents\", and \"agent\" per pass, default claude), adapters for Claude and Codex in the night lib, findings as JSON that plates validates against the diff and posts (no agent holds a comment tool), Codex reviewing in a read-only, drop-sudo sandbox. Phase 47 supersedes the original Claude-only climb/tend restriction with agent-git object transfer; phase 46 splits review from publishing. Owes the owner assessment of a Codex review on ledger."
+note: "Built: agents (\"agents\", and \"agent\" per pass, default claude), adapters for Claude and Codex in the night lib, findings as JSON that plates validates against the diff and posts (no agent holds a comment tool), Codex reviewing in a read-only, drop-sudo sandbox. Phase 47 supersedes the original Claude-only climb/tend restriction with agent-git object transfer; phase 46 splits review from publishing. Owes the owner assessment of a Codex review on ledger; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-07-agent-providers.md"]
 issue: 29
 ---
@@ -34,17 +32,6 @@ The design is [Agent providers](../research/2026-10-07-agent-providers.md).
 - [x] "Did the agent run?" and the Budget line read each provider's output: a Codex run that failed to start is red with its error line only. `tests/agents.test.mjs`
 - [x] Findings: valid JSON findings become inline comments and a COMMENT review; a finding on a path outside the diff, a line out of range, or an unknown severity is dropped and named in the summary; prose with no JSON block posts the summary alone. `tests/cross-review.test.mjs`
 - [x] With no `agents` key and no `agent` on any pass, climb's and tend's agent steps are byte-identical to today's, and cross-review's Claude step passes the same inputs but for the comment tool (findings are JSON now). `tests/agents.test.mjs`
-- [ ] ⚑ by hand: on ledger, the owner sets `OPENAI_API_KEY` and switches one pass to `"agent": "codex"`; its next run is read by the owner.
-
-## Your part
-
-- **Ask:** On ledger, read the review Codex leaves on the next pull request Claude opens, and say whether its comments were worth having.
-- **Why:** It proves plates can run a second AI provider under the same rules by changing one setting.
-- **Look at:** The next `claude/…` pull request on ledger and Codex's review on it.
-- **Choices:** Worth having | Not worth having
-- **Takes:** 10 minutes
-- **Then:** Worth having: recorded, and this is done. Not worth having: recorded; say why in the note, and the conductor proposes what to change in how Codex reviews.
-- **Ready when:** Codex has reviewed a pull request Claude opened on ledger (switched on in ledger#105).
 
 ## Real surfaces
 

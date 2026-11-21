@@ -110,7 +110,6 @@ the clipboard, before the CLI's headless mode.)
 - [x] The optional practice installs the runner and the seeded lenses, renders clean, and runs in an adopted project: `tests/practices.test.mjs: "the optional audits practice installs the runner and its lenses, renders clean, and the runner runs in the project"`.
 - [x] `plates audit run <lens>` previews without `--yes` and makes nothing; with it, runs the owner's configured local host once in a detached checkout of HEAD outside the project, with the brief on stdin and the basic environment only, and keeps a receipt; no room, no host, an unnamed provider or a failing host is refused and the host is never run twice: `tests/audit-run.test.mjs`.
 - [ ] ⚑ By hand: the owner configures a local agent host and runs one real audit of plates with `plates audit run`.
-- [ ] ⚑ By hand: the owner reads one real audit page of plates and decides at least one finding.
 
 ## Your part
 

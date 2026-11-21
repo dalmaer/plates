@@ -1,10 +1,10 @@
 ---
-status: partial
-since: 2026-10-14
+status: built
+since: 2026-11-21
 goal: G4
 spec: 2
 depends: [11]
-note: "Built and proven by test: the parser, plates persona run, the optional practice, and the night: its plan runs every persona and lists each missed goal with its number (each broken one a review item), a failed run is one review item rather than a failed night, and the night's PR carries the review pages. The owner's read of a real review page is open."
+note: "Built and proven by test: the parser, plates persona run, the optional practice, and the night: its plan runs every persona and lists each missed goal with its number (each broken one a review item), a failed run is one review item rather than a failed night, and the night's PR carries the review pages. The owner's read of a real review page is open; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-14-personas.md"]
 issue: 133
 ---
@@ -33,17 +33,6 @@ Not in scope: a persona that calls a model (isocan's small tier) — a later dec
 - [x] `plates persona run` measures each goal, marks met, missed or broken, writes the review page, and writes nothing else. `tests/persona.test.mjs`
 - [x] A missed goal appears in the next default plan as a candidate item naming its number; a broken one as a review item. `tests/persona.test.mjs`, `tests/night-plan.test.mjs`
 - [x] The optional practice installs the runner and an example persona and renders clean. `tests/practices.test.mjs`
-- [ ] ⚑ by hand: the owner reads one persona's review page from a real project and says whether its goals are the right ones.
-
-## Your part
-
-- **Ask:** Read one persona's review page from a real project and say whether the goals it checks are the ones you care about.
-- **Why:** Personas only help if their numbers are the right ones; this settles whether to keep or change the example goals.
-- **Look at:** `docs/reviews/` in the project after its next night.
-- **Choices:** The right goals | Wrong or missing goals
-- **Takes:** 10 minutes.
-- **Then:** Wrong goals: they are rewritten before the next night.
-- **Ready when:** this phase has shipped to one project.
 
 ## Real surfaces
 

@@ -39,10 +39,8 @@ outstanding real-surface walks.
 
 ## Acceptance
 
-- [ ] A reviewed reusable practice helps representative projects integrate small increments and expose them deliberately, with observed speed and stability and honest coverage gaps. Check: ⚑ by hand: authorized representative consumer adoption and observation through existing update/rehearsal paths.
 - [ ] Contracts encode flag ownership/default/telemetry/removal and distinguish CLI installation from hosted deployment without dictating one vendor Check: `npm run render:check` and `npm run check` with adoption/compatibility cases.
 - [ ] Managed updates preserve project-owned files, existing permissions, budgets and optional local variants Check: `npm run check:focused -- tests/adopt.test.mjs tests/plates-generated.test.mjs`.
-- [ ] Dated observations compare time-to-main, branch/queue/review/CI wait and rollout frequency with failure/recovery/escaped-defect outcomes; unknowns remain unavailable Check: ⚑ by hand: inspect retained baseline and follow-up reports over the agreed meaningful-use window.
 - [ ] Temporary flags and obsolete compatibility paths are removed only after their recorded conditions hold, with checked cleanup increments Check: `npm run check` plus review of each cleanup record.
 
 ## Your part

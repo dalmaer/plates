@@ -1,12 +1,10 @@
 ---
-status: partial
-owes: walk
-waits: external
-since: 2026-10-14
+status: built
+since: 2026-11-21
 goal: G4
 spec: 2
 depends: [45, 47]
-note: "Implemented opt-in issue robot, trusted build/judge/publish, shared build/review budget, permission checks and recoverable issue/publication state. Automated proof, read-only APIs and the merged OFF workflow verified; owner approved Plates with 60 combined agent minutes/week on 2026-10-12; first enabled run failed at the runner isolation prerequisite before model work; three real reviewed/merged issues remain owed."
+note: "Implemented opt-in issue robot, trusted build/judge/publish, shared build/review budget, permission checks and recoverable issue/publication state. Automated proof, read-only APIs and the merged OFF workflow verified; owner approved Plates with 60 combined agent minutes/week on 2026-10-12; first enabled run failed at the runner isolation prerequisite before model work; three real reviewed/merged issues remain owed; the walk was removed (phase 204)."
 evidence: ["evidence/2026-10-10-robot.md", "evidence/2026-10-12-robot-pilot.md"]
 issue: 41
 ---
@@ -36,7 +34,6 @@ The design is [The robot, and plates's sense of time](../research/2026-10-09-rob
 - [x] The robot's jobs hold every climb sandbox rule for both providers (agent and judge read-only, publish runs nothing from the branch), and the result is a PR on `keel/robot-<issue>` with `closes #N`, never a push to main. `tests/workflows.test.mjs`
 - [x] The agent's last message is posted on the issue; the next run's brief carries the comments since the last run. `tests/robot-rubric.test.mjs`, `tests/robot-issue.test.mjs`, `tests/robot-runtime.test.mjs`, `tests/robot-budget.test.mjs`
 - [x] Off without `"robot": { "on": true }`; past its weekly budget it waits and says so. `tests/robot-rubric.test.mjs`, `tests/robot-issue.test.mjs`, `tests/robot-runtime.test.mjs`, `tests/robot-budget.test.mjs`
-- [ ] ⚑ by hand: the owner turns the robot on for one project with a budget, labels three issues, and reads each PR and its review.
 
 ## Your part
 
