@@ -70,6 +70,8 @@ for Unison sections), and removing `plates walk` (it still records answers).
 - [x] Home lists an open walk as an optional Try it in both forms, answerable Works, Something's off or Skip, outside the docket count and push notifications; a ⚑ setup step or decision still waits on the owner: `tests/home-try-it.test.mjs: "a walk is an optional Try it on Home, never waiting on the owner"`.
 - [x] The conduct and spin skills, AGENTS.md and the agent guide ask for a Try it on each phase PR: `tests/guides.test.mjs: "phase PRs carry a Try it"`.
 
+- [ ] On the owner's machine, after merge, Home lists phases 59, 65 and 193 as Try its and not in the docket: `plates home --project plates --json`.
+
 ## Real surfaces
 
 - Owner's machine: `plates home` on this Mac lists the former walks as optional Try its, and the docket count drops by them.
