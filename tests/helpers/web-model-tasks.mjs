@@ -10,7 +10,7 @@ export const routingPolicy=()=>({version:1,enabled:true,taskClass:'planning',ada
 export const modelEvidence=()=>({model:'acme-model-2026-10-21',contextTokens:32000,maxOutputTokens:4096,inputMicroUsdPerMillion:1000000,outputMicroUsdPerMillion:2000000,evidenceUrl:'https://developers.openai.com/api/docs/models/acme-fixture',observedAt:'2026-10-20T00:00:00.000Z',expiresAt:'2026-11-21T00:00:00.000Z',immutable:true,background:true,text:true,count:true});
 export const sourceInput=()=>({phase:'1',paths:['docs/phases/1-acme.md','docs/evidence/acme.md'],instructions:'Keep the owner decision to retain exact matches.',taskId:null});
 export async function modelHarness(){
- const h=connectionsHarness();await h.seedPolicy();
+ const h=connectionsHarness();h.state.now=Date.parse('2026-11-01T00:00:00.000Z');await h.seedPolicy();
  h.source.files['docs/phases/1-acme.md']='---\nstatus: built\nsince: 2026-10-21\n---\n# Acme phase\n\n## Done when\n\nAcme can show exact matches.\n';
  h.source.files['docs/evidence/acme.md']='# Acme evidence\n\nA synthetic source record; no live acceptance claim.\n';
  h.workspace.files['routing/workspace.json']=JSON.stringify(routingPolicy(),null,2)+'\n';
