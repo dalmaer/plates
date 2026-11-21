@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { normalizeRepo, parseLink, escapeCopied, writeBody, planSync, phaseSources, issueSources, readMap, mapAfter, phaseUrl, issueUrl } from '../lib/unison-link.mjs';
+import { normalizeRepo, headingAnchor, parseLink, escapeCopied, writeBody, planSync, phaseSources, issueSources, readMap, mapAfter, phaseUrl, issueUrl } from '../lib/unison-link.mjs';
 import { unisonCommand, callUnison, findWorkspace } from '../lib/unison.mjs';
 import { collect } from '../practices/phases/files/scripts/roadmap.mjs';
 import { world, workspace } from './helpers/unison-stub.mjs';
@@ -261,4 +261,34 @@ test('an uncertain create holds the re-add for 15 minutes, then is planned again
   assert.deepEqual([plan.actions, plan.waiting], [[], [{ key: 'phase:acme/tools:2', since: '2026-11-20T10:00:00.000Z' }]]);
   plan = planSync({ items: [], sources, map, repos: REPOS, repo: 'acme/tools', now: Date.parse('2026-11-20T10:16:00.000Z') });
   assert.deepEqual([plan.actions.map(a => a.op), plan.expired], [['create'], ['phase:acme/tools:2']]);
+});
+
+test('two phases with one number get one key each, and the existing item keeps its own', () => {
+  const phases5 = [{ project: 'modules', id: '5', anchor: 'phase-5--sandboxes', title: 'sandboxes', status: 'partial' },
+    { project: 'modules', id: '5', anchor: 'phase-5--sandboxes-the-agent-side-half-', title: 'sandboxes, the agent-side half', status: 'built' }];
+  const sources = phaseSources(phases5, 'acme/tools');
+  assert.deepEqual(sources.map(x => x.key), ['phase:acme/tools:modules/5#phase-5--sandboxes', 'phase:acme/tools:modules/5#phase-5--sandboxes-the-agent-side-half-']);
+  // The item made before the split links the open heading, under the old plain key.
+  const open = { id: 552, title: 'Phase modules/5: sandboxes', body: 'Phase: https://github.com/acme/tools/blob/HEAD/docs/projects/modules/phases.md#phase-5--sandboxes', status: 'open' };
+  const map = readMap({ schema: 1, repo: 'acme/tools', entries: { 'phase:acme/tools:modules/5': { item: 552, closedBySync: false } } });
+  const plan = planSync({ items: [open], sources, map, repos: REPOS, repo: 'acme/tools' });
+  assert.deepEqual(plan.rekey, [{ from: 'phase:acme/tools:modules/5', to: 'phase:acme/tools:modules/5#phase-5--sandboxes' }]);
+  assert.deepEqual([plan.actions, plan.unlinked], [[], []]); // no close of #552, no item for the closed heading
+  // Files can repeat a number too.
+  assert.deepEqual(phaseSources([{ id: 5, file: '5-a.md', title: 'A', status: 'planned' }, { id: 5, file: '5-b.md', title: 'B', status: 'planned' }], 'acme/tools').map(x => x.key), ['phase:acme/tools:5#5-a', 'phase:acme/tools:5#5-b']);
+  // And if two sources ever share a key, the plan never acts on it.
+  const twice = [...phaseSources([{ id: 6, file: '6-a.md', title: 'A', status: 'built' }], 'acme/tools'), ...phaseSources([{ id: 6, file: '6-a.md', title: 'A', status: 'planned' }], 'acme/tools')];
+  const guarded = planSync({ items: [], sources: twice, map: readMap(null), repos: REPOS, repo: 'acme/tools' });
+  assert.deepEqual([guarded.actions, guarded.suggestions.map(x => x.kind)], [[], ['ambiguous-source']]);
+});
+
+test('a heading anchor keeps Unicode letters, and the percent-encoded link matches', () => {
+  assert.equal(headingAnchor('Phase 2 — Café'), 'phase-2--café');
+  const sources = phaseSources([{ project: 'cafe', id: '2', anchor: headingAnchor('Phase 2 — Café'), title: 'Café', status: 'planned' }], 'acme/tools');
+  assert.equal(sources[0].url, 'https://github.com/acme/tools/blob/HEAD/docs/projects/cafe/phases.md#phase-2--café');
+  const encoded = 'Phase: https://github.com/acme/tools/blob/HEAD/docs/projects/cafe/phases.md#phase-2--caf%C3%A9';
+  assert.equal(parseLink(encoded, REPOS).anchor, 'phase-2--café');
+  const item = { id: 3, title: 'Phase cafe/2: Café', body: encoded, status: 'open' };
+  const plan = planSync({ items: [item], sources, map: readMap(null), repos: REPOS, repo: 'acme/tools' });
+  assert.deepEqual([plan.adopt, plan.actions], [[{ key: 'phase:acme/tools:cafe/2', item: 3 }], []]);
 });

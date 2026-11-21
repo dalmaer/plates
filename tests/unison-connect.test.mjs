@@ -445,3 +445,15 @@ test('phases are read in every shape plates next reads: local variant, projects 
   r = cli(w, ['status']);
   assert.deepEqual([r.code, r.data.read, r.data.open, r.data.plan.counts.create], [0, true, 0, 0]);
 });
+
+test('a session file that is a symlink is refused, and nothing is written through it', async t => {
+  const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')] });
+  const dir = join(w.root, '.config/plates/unison/127.0.0.1_4600');
+  await mkdir(dir, { recursive: true, mode: 0o700 });
+  await symlink(join(w.plate, 'leaked-session.json'), join(dir, 'ws_acme1.json'));
+  const r = cli(w, ['connect']);
+  assert.equal(r.code, 1);
+  assert.match(r.data.why, /not a plain file/);
+  assert.equal((await w.calls()).filter(c => c.argv[0] === 'join').length, 0);
+  await assert.rejects(stat(join(w.plate, 'leaked-session.json')));
+});
