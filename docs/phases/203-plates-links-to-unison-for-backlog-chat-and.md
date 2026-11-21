@@ -30,14 +30,18 @@ Removed, with their commands, routes, views, stores and tests:
 - the agents sidebar (phase 186; lib/web/agents-model.mjs).
 
 Each removed phase moves to `superseded`, its note naming this phase. Phase 196's workspace
-becomes Home plus links. Stored hosted rows for removed features are left in place and named for
-a later, separately approved migration; nothing is dropped here.
+becomes Home plus links. The removal is for every plate, with or without a workspace: the owner
+approved deleting it all on 2026-11-20. The hosted rows of removed features are dropped by a
+migration in increment 4; its exact tables are shown to the owner before it runs against
+production.
 
 ## Integration increments
 
 1. **Links in place**: each surface shows a link to the workspace beside it. Nothing removed yet.
 2. **The CLI surfaces go**, with their tests; the commands say where the thing now lives.
 3. **The site surfaces go**, with their routes and views, and the removed phases are superseded.
+4. **The hosted rows go**: one migration drops the removed features' tables, shown to the owner
+   before it runs against production. Recovery: the pre-migration backup.
 
 ## Acceptance
 
@@ -64,13 +68,13 @@ a later, separately approved migration; nothing is dropped here.
 
 Automated: `npm run check:focused -- tests/unison-retire.test.mjs`, then `npm run check`.
 By hand: the owner's walk above.
-⚑ Dropping hosted rows of removed features is a later migration that needs the owner's yes.
+⚑ The migration that drops the removed features' hosted tables runs against production only
+after the owner sees its table list.
 
 ## Deliberately open
 
-- Fleet projects that use plates's backlog or channel and have no workspace lose them until they
-  connect one. The offer to make one on Home is the path; whether any project needs more is open
-  until the walk.
+- Fleet projects that used plates's backlog or channel lose them until they connect a workspace;
+  the owner accepted this on 2026-11-20. Home's offer to make a workspace is the path.
 
 ## Next action
 
