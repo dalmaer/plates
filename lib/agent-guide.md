@@ -2718,6 +2718,9 @@ A plate's Unison workspace is the one that lists the plate's GitHub repo
 - `plates unison connect` finds the workspace by repo, or creates one
   (`unison workspace create <name> --repo https://github.com/<repo>`) when none
   lists it. Not signed in: exit 3 with `signIn` (`unison login`), nothing created.
+  It then joins the workspace once as the signed-in account (writes need a
+  participant); the session is kept outside the checkout, in
+  `~/.config/plates/unison/<host>/<workspace>.json` (or `$XDG_CONFIG_HOME`), 0600.
 - `plates unison sync` (after connect) applies the plan with the `unison` CLI
   and keeps the map. It never moves, assigns or starts an item.
 

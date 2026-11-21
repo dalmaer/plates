@@ -15,7 +15,7 @@ const fs = require('node:fs');
 const file = process.env.ACME_UNISON_STATE;
 const state = JSON.parse(fs.readFileSync(file, 'utf8'));
 const argv = process.argv.slice(2).filter(a => a !== '--json');
-fs.appendFileSync(process.env.ACME_UNISON_CALLS, JSON.stringify({ argv, server: process.env.UNISON_SERVER, cwd: process.cwd() }) + '\\n');
+fs.appendFileSync(process.env.ACME_UNISON_CALLS, JSON.stringify({ argv, server: process.env.UNISON_SERVER, cwd: process.cwd(), config: process.env.UNISON_CONFIG }) + '\\n');
 const opt = flag => { const i = argv.indexOf(flag); return i < 0 ? undefined : argv[i + 1]; };
 const save = () => fs.writeFileSync(file, JSON.stringify(state));
 const out = v => { process.stdout.write(JSON.stringify(v)); process.exit(0); };
@@ -30,11 +30,23 @@ if (a === 'workspace' && b === 'list' && state.laterWs?.length) {
 }
 if (a === 'workspace' && b === 'list') out(state.mode === 'no-array' ? { workspaces: state.workspaces } : state.workspaces);
 if (a === 'workspace' && b === 'create') {
+  if (state.failCreate) { process.stderr.write('unison: workspace name taken\\n'); process.exit(1); }
   const id = 'ws_acme' + (state.workspaces.length + (state.laterWs?.length ?? 0) + 1);
   const ws = { id, name: argv[2], repo_url: opt('--repo'), repos: [{ id: 1, url: opt('--repo'), workspace_id: id }] };
   // delayedWorkspace: the create commits, the caller hears a timeout, and it lists only after hiddenWsLists more lists.
   if (state.delayedWorkspace) { state.delayedWorkspace = false; (state.laterWs ??= []).push(ws); save(); process.stderr.write('unison: request timed out\\n'); process.exit(1); }
   state.workspaces.push(ws); save(); out(ws);
+}
+if (a === 'whoami' && argv.includes('--user')) out({ id: 1, display_name: state.displayName ?? 'Acme Owner', identities: [] });
+if (a === 'join') {
+  // Joining as the account: one participant per workspace; the session (with its token) goes to UNISON_CONFIG.
+  const id = String(argv[1] ?? '').split('/w/')[1];
+  if (!state.workspaces.some(w => w.id === id)) { process.stderr.write('unison: workspace not found\\n'); process.exit(1); }
+  state.participants ??= {};
+  const p = state.participants[id] ??= { id: Object.keys(state.participants).length + 1, name: opt('--name') ?? 'Ada', token: 'acmetok_' + id + '_' + Date.now(), joins: 0 };
+  p.joins++;
+  fs.writeFileSync(process.env.UNISON_CONFIG, JSON.stringify({ server: process.env.UNISON_SERVER, workspace: id, token: p.token, participant_id: p.id, name: p.name, cursor: 0 }), { mode: 0o600 });
+  save(); out({ participant: { id: p.id, name: p.name, workspace_id: id }, token: p.token });
 }
 const ws = opt('--workspace');
 if (!state.workspaces.some(w => w.id === ws)) { process.stderr.write('unison: workspace not found\\n'); process.exit(1); }
@@ -43,9 +55,18 @@ if (a === 'backlog' && (b === undefined || b === '--workspace' || b === '--statu
   save();
 }
 if (a === 'backlog' && b === undefined || (a === 'backlog' && b === '--workspace') || (a === 'backlog' && b === '--status')) out(['no-array', 'backlog-no-array'].includes(state.mode) ? { items: state.items } : state.items.filter(i => i.workspace_id === ws));
+if (a === 'backlog' && ['add', 'edit', 'close', 'reopen'].includes(b)) {
+  // Writes need the participant's session for this workspace; reads work with the account.
+  let session = null;
+  try { session = JSON.parse(fs.readFileSync(process.env.UNISON_CONFIG, 'utf8')); } catch {}
+  const p = state.participants?.[ws];
+  if (!p || session?.workspace !== ws || session?.token !== p.token) { process.stderr.write('unison: you have not joined this workspace: run \`unison join <workspace-url> --pass <pass>\` (agents) or \`--account\` (humans)\\n'); process.exit(1); }
+}
 const item = id => { const it = state.items.find(i => i.id === Number(id) && i.workspace_id === ws); if (!it) { process.stderr.write('unison: no item\\n'); process.exit(1); } return it; };
 if (a === 'backlog' && b === 'add') {
-  if (state.failAdd) { process.stderr.write('unison: refused\\n'); process.exit(1); }
+  if (state.failAdd) { process.stderr.write('unison: invalid title (400)\\n'); process.exit(1); }
+  // serverErrorAdd: the add commits, then the server answers 500.
+  if (state.serverErrorAdd) { state.serverErrorAdd = false; state.items.push({ id: state.next++, title: argv[2], body: opt('--body') ?? '', status: 'open', workspace_id: ws }); save(); process.stderr.write('unison: server error (500)\\n'); process.exit(1); }
   const it = { id: state.next++, title: argv[2], body: opt('--body') ?? '', status: 'open', workspace_id: ws };
   // delayedCommit: the add commits server-side but the caller hears a timeout, and the item shows only after hiddenLists more lists.
   if (state.delayedCommit) { state.delayedCommit = false; (state.later ??= []).push(it); save(); process.stderr.write('unison: request timed out\\n'); process.exit(1); }
@@ -56,7 +77,7 @@ if (a === 'backlog' && b === 'add') {
 }
 if (a === 'backlog' && b === 'edit') { const it = item(argv[2]); if (opt('--title') !== undefined) it.title = opt('--title'); if (opt('--body') !== undefined) it.body = opt('--body'); save(); out(it); }
 // dieOnClose: Unison closes the item, but the caller never hears back (it died, or the line dropped).
-if (a === 'backlog' && b === 'close') { const it = item(argv[2]); it.status = 'done'; it.close_note = opt('--note'); if (state.dieOnClose) { state.dieOnClose = false; save(); process.exit(1); } save(); out(it); }
+if (a === 'backlog' && b === 'close') { const it = item(argv[2]); it.status = 'done'; it.close_note = opt('--note'); if (state.dieOnClose) { state.dieOnClose = false; save(); process.stderr.write('unison: connection reset by peer\\n'); process.exit(1); } save(); out(it); }
 if (a === 'backlog' && b === 'reopen') { const it = item(argv[2]); it.status = 'open'; save(); out(it); }
 process.stderr.write('unison: stub does not know ' + argv.join(' ') + '\\n'); process.exit(1);
 `;

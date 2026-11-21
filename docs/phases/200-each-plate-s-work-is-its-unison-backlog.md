@@ -4,7 +4,7 @@ since: 2026-11-21
 goal: G9
 spec: 2
 depends: [178]
-note: "Increments 1 and 2 built: plates unison status, connect and sync. Real connect and sync, increment 3 (events, Home states) and 4 (typed links) remain."
+note: "Increments 1 and 2 built and run for real: every fleet plate is connected, with the owner joined; today is synced. The fleet sync, plates's own workspace, increment 3 (events, Home states) and 4 (typed links) remain."
 evidence: ["evidence/2026-11-21-unison-status-connect-sync.md"]
 ---
 
@@ -128,9 +128,12 @@ By hand: the owner's walk above.
 
 ## Next action
 
-Run `plates unison connect` and `sync` for real on a fleet plate; decide with the owner what happens to the 104 imported items in plates's own workspace before syncing plates; then increment 3.
+Sync the fleet; close the 68 open imported items in plates's own workspace (the owner chose this) and sync plates; then increment 3.
 
 ## Trajectory
+
+- **2026-11-21** — A workspace's creator cannot write to it until they join it as a participant (`unison join --account`); reads work without. connect now joins once and keeps the session outside every checkout.
+- **2026-11-21** — Most fleet plates keep phases in shapes other than plates's own (local variants, the projects shape, none); sync reads them with the readers `plates next` already uses rather than refusing them.
 
 - **2026-11-21** — Plates's own workspace already held 104 items imported from its GitHub issues, with Markdown phase links to the old keel URLs that the link line rightly ignores; a first sync there would duplicate them in substance, so adopting or retiring imported items is a decision before syncing an existing workspace.
 - **2026-11-21** — The agent guide's cold start reached its 3,200-character cap with this verb; the next verb needs a trim or a raised cap.

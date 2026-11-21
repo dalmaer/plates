@@ -1,9 +1,9 @@
 // Plates phase 200: plates unison connect and sync, through the CLI, against a stub `unison`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { run } from './helpers/run.mjs';
 import { unisonCommand } from '../lib/unison.mjs';
 import { collect } from '../practices/phases/files/scripts/roadmap.mjs';
@@ -311,4 +311,211 @@ test('a workspace create whose answer was lost is waited for, not made twice', a
   await (await createMapStore({ root: v.plate, env: v.env })).write({ schema: 1, workspace: null, repo: 'acme/tools', entries: {}, pendingWorkspace: { repo: 'acme/tools', name: 'Acme Tools', at: new Date(Date.now() - 16 * 60_000).toISOString() } });
   r = cli(v, ['connect']);
   assert.deepEqual([r.code, r.data.created], [0, true]);
+});
+
+test('connect joins the workspace once as the account, and the session stays outside the checkout', async t => {
+  const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], displayName: 'Wile E. Coyote' });
+  let r = cli(w, ['connect']);
+  assert.deepEqual([r.code, r.data.joined], [0, true], JSON.stringify(r.data));
+  const file = join(w.root, '.config/plates/unison/127.0.0.1_4600/ws_acme1.json');
+  assert.equal(r.data.sessionDir, dirname(file));
+  assert.equal((await stat(file)).mode & 0o777, 0o600);
+  assert.equal((await stat(dirname(file))).mode & 0o777, 0o700);
+  assert.ok(!file.startsWith(w.plate));
+  const joins = (await w.calls()).filter(c => c.argv[0] === 'join');
+  assert.deepEqual(joins.map(c => c.argv.slice(1, 5)), [['http://127.0.0.1:4600/w/ws_acme1', '--account', '--name', 'Wile']]);
+  // No token in what plates prints, and nothing of the session inside the checkout.
+  assert.doesNotMatch(JSON.stringify(r.data), /acmetok_/);
+  assert.doesNotMatch(execFileSync('git', ['status', '--porcelain', '-uall', '--ignored'], { cwd: w.plate, encoding: 'utf8' }), /ws_acme1\.json/);
+  // Again: the session is reused, no second join.
+  r = cli(w, ['connect']);
+  assert.deepEqual([r.code, r.data.joined], [0, false]);
+  assert.equal((await w.calls()).filter(c => c.argv[0] === 'join').length, 1);
+  // Honours XDG_CONFIG_HOME.
+  const v = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')] });
+  cli(v, ['connect'], { XDG_CONFIG_HOME: join(v.root, 'xdg') });
+  assert.equal((await stat(join(v.root, 'xdg/plates/unison/127.0.0.1_4600/ws_acme1.json'))).mode & 0o777, 0o600);
+});
+
+test('writes carry the participant session; without it nothing is written and connect is the hint', async t => {
+  const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], items: [], next: 1 }, { phases: { '2-acme-counts-anvils.md': { status: 'planned', title: 'Acme counts anvils' } } });
+  cli(w, ['connect']);
+  const file = join(w.root, '.config/plates/unison/127.0.0.1_4600/ws_acme1.json');
+  let r = cli(w, ['sync']);
+  assert.deepEqual(r.data.applied.map(a => a.op), ['create']);
+  const add = (await w.calls()).find(c => c.argv[1] === 'add');
+  assert.equal(add.config, file);
+  // Reads and account calls do not pass it.
+  assert.ok((await w.calls()).filter(c => c.argv[0] === 'workspace').every(c => c.config === undefined));
+  // The session gone: refused before any write, nothing pending.
+  await rm(file);
+  await writeFile(join(w.plate, 'docs/phases/3-acme-ships.md'), (await readFile(join(w.plate, 'docs/phases/2-acme-counts-anvils.md'), 'utf8')).replace('# Acme counts anvils', '# Acme ships'));
+  const before = (await w.calls()).length;
+  r = cli(w, ['sync']);
+  assert.deepEqual([r.code, r.data.hint], [1, 'plates unison connect']);
+  assert.equal((await w.calls()).slice(before).filter(c => c.argv[1] === 'add').length, 0);
+  // A session the server no longer knows (not joined): exit 1, the hint, and no pendingCreate holding.
+  await writeFile(file, JSON.stringify({ server: 'http://127.0.0.1:4600', workspace: 'ws_acme1', token: 'acmetok_stale' }), { mode: 0o600 });
+  r = cli(w, ['sync']);
+  assert.deepEqual([r.code, r.data.hint], [1, 'plates unison connect']);
+  assert.equal((await mapOf(w)).pendingCreates, undefined);
+  // The refused session is removed, so connect joins again rather than reusing it, and the next sync writes.
+  await assert.rejects(stat(file));
+  r = cli(w, ['connect']);
+  assert.deepEqual([r.code, r.data.joined], [0, true]);
+  assert.deepEqual(cli(w, ['sync']).data.applied.map(a => a.op), ['create']);
+});
+
+test('the participant session never lands inside a checkout, even through a symlink', async t => {
+  const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')] });
+  for (const xdg of [join(w.plate, 'config'), join(w.root, 'linked-config')]) {
+    if (xdg.endsWith('linked-config')) { await mkdir(join(w.plate, 'real-config'), { recursive: true }); await symlink(join(w.plate, 'real-config'), xdg); }
+    const r = cli(w, ['connect'], { XDG_CONFIG_HOME: xdg });
+    assert.equal(r.code, 1, xdg);
+    assert.match(r.data.why, /inside the Git checkout/);
+    assert.equal((await w.calls()).filter(c => c.argv[0] === 'join').length, 0);
+  }
+  await assert.rejects(stat(join(w.plate, 'config/plates')));
+  await assert.rejects(stat(join(w.plate, 'real-config/plates')));
+});
+
+test('a 500 after the add keeps its pending create: only a recognized refusal clears it', async t => {
+  const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], items: [], next: 1 }, { phases: { '2-acme-counts-anvils.md': { status: 'planned', title: 'Acme counts anvils' } } });
+  cli(w, ['connect']);
+  await w.setState({ serverErrorAdd: true });
+  assert.equal(cli(w, ['sync']).code, 1);
+  assert.equal((await mapOf(w)).pendingCreates['phase:acme/tools:2'].title, 'Phase 2: Acme counts anvils');
+  // The item it made is adopted by its line on the next sync, never added twice.
+  assert.deepEqual(cli(w, ['sync']).data.adopted, [{ key: 'phase:acme/tools:2', item: 1 }]);
+  assert.equal((await w.state()).items.length, 1);
+});
+
+test('a definite refusal clears the pending create or workspace; only an uncertain failure holds', async t => {
+  const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], items: [], next: 1 }, { phases: { '2-acme-counts-anvils.md': { status: 'planned', title: 'Acme counts anvils' } } });
+  cli(w, ['connect']);
+  await w.setState({ failAdd: true });
+  assert.equal(cli(w, ['sync']).code, 1);
+  assert.equal((await mapOf(w)).pendingCreates, undefined);
+  // The next sync adds at once, no 15-minute wait.
+  await w.setState({ failAdd: false });
+  assert.deepEqual(cli(w, ['sync']).data.applied.map(a => a.op), ['create']);
+  // A refused workspace create clears pendingWorkspace too.
+  const v = await world(t, { workspaces: [], failCreate: true });
+  assert.equal(cli(v, ['connect']).code, 1);
+  await assert.rejects(mapOf(v).then(m => { if (!m.pendingWorkspace) throw new Error('none'); }));
+  await v.setState({ failCreate: false });
+  assert.deepEqual([cli(v, ['connect']).data.created], [true]);
+});
+
+test('phases are read in every shape plates next reads: local variant, projects shape, none', async t => {
+  const make = async (state, config) => { const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], items: [], next: 1, ...state }, { config, phases: {} }); cli(w, ['connect']); return w; };
+  // A local variant: files plates's parser refuses (no goal, no goals.json), read loosely.
+  let w = await make({}, { local: { phases: 'Acme keeps its own roadmap' } });
+  await writeFile(join(w.plate, 'docs/phases/0-acme-emulator.md'), '---\nstatus: built\nsince: 2026-09-30\nnote: "Acme"\n---\n\n# The Acme emulator\n');
+  await writeFile(join(w.plate, 'docs/phases/1-acme-catalog.md'), '---\nstatus: planned\nnote: "Acme"\n---\n\n# The Acme catalog\n');
+  let r = cli(w, ['sync']);
+  assert.equal(r.code, 0, JSON.stringify(r.data));
+  assert.deepEqual((await w.state()).items.map(i => [i.title, i.body.split('\n').at(-1)]), [['Phase 1: The Acme catalog', 'Phase: https://github.com/acme/tools/blob/HEAD/docs/phases/1-acme-catalog.md']]);
+  // A file even the loose reader cannot place: not read, nothing written.
+  await writeFile(join(w.plate, 'docs/phases/2-acme-nothing.md'), '# No front matter\n');
+  r = cli(w, ['status']);
+  assert.deepEqual([r.code, r.data.read, r.data.plan], [1, false, null]);
+
+  // The projects shape: each phase at its heading, keyed by project, open while its Status is not CLOSED.
+  w = await make({}, { phases: { shape: 'projects' } });
+  await rm(join(w.plate, 'docs/phases'), { recursive: true });
+  await mkdir(join(w.plate, 'docs/projects/anvils'), { recursive: true });
+  await writeFile(join(w.plate, 'docs/projects/README.md'), '# Acme projects\n');
+  await writeFile(join(w.plate, 'docs/projects/anvils/phases.md'), '# Anvils\n\n## 1. Counting anvils\n\n**Status: CLOSED.**\n\n## Phase 2 — Ordering anvils\n\n**Status: NOT STARTED.**\n');
+  r = cli(w, ['sync']);
+  assert.equal(r.code, 0, JSON.stringify(r.data));
+  assert.deepEqual(r.data.applied.map(a => a.key), ['phase:acme/tools:anvils/2']);
+  const item = (await w.state()).items[0];
+  assert.deepEqual([item.title, item.body], ['Phase anvils/2: Ordering anvils', 'Phase: https://github.com/acme/tools/blob/HEAD/docs/projects/anvils/phases.md#phase-2--ordering-anvils']);
+  // The heading renamed: still the same item (by its number), and only the link line follows.
+  await writeFile(join(w.plate, 'docs/projects/anvils/phases.md'), '# Anvils\n\n## 1. Counting anvils\n\n**Status: CLOSED.**\n\n## Phase 2 — Ordering anvils by size\n\n**Status: NOT STARTED.**\n');
+  r = cli(w, ['sync']);
+  assert.deepEqual(r.data.applied.map(a => a.op), ['retitle']);
+  assert.equal((await w.state()).items.length, 1);
+  assert.match((await w.state()).items[0].body, /#phase-2--ordering-anvils-by-size$/);
+
+  // No phases practice and no docs/phases: zero phases, read.
+  w = await make({}, { practices: [] });
+  await rm(join(w.plate, 'docs/phases'), { recursive: true });
+  r = cli(w, ['status']);
+  assert.deepEqual([r.code, r.data.read, r.data.open, r.data.plan.counts.create], [0, true, 0, 0]);
+});
+
+test('a session file that is a symlink is refused, and nothing is written through it', async t => {
+  const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')] });
+  const dir = join(w.root, '.config/plates/unison/127.0.0.1_4600');
+  await mkdir(dir, { recursive: true, mode: 0o700 });
+  await symlink(join(w.plate, 'leaked-session.json'), join(dir, 'ws_acme1.json'));
+  const r = cli(w, ['connect']);
+  assert.equal(r.code, 1);
+  assert.match(r.data.why, /not a plain file/);
+  assert.equal((await w.calls()).filter(c => c.argv[0] === 'join').length, 0);
+  await assert.rejects(stat(join(w.plate, 'leaked-session.json')));
+});
+
+test('a loose phase file with a Unicode name links back, and its item closes when it is built', async t => {
+  const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], items: [], next: 1 }, { config: { local: { phases: 'Acme roadmap' } }, phases: {} });
+  const file = join(w.plate, 'docs/phases/2-café.md');
+  await writeFile(file, '---\nstatus: planned\nnote: "Acme"\n---\n\n# The Acme café\n');
+  cli(w, ['connect']);
+  assert.deepEqual(cli(w, ['sync']).data.applied.map(a => a.op), ['create']);
+  await writeFile(file, '---\nstatus: built\nnote: "Acme"\n---\n\n# The Acme café\n');
+  const r = cli(w, ['sync']);
+  assert.deepEqual([r.data.applied.map(a => [a.op, a.item]), r.data.unlinked], [[['close', 1]], []]);
+  assert.equal((await w.state()).items[0].status, 'done');
+});
+
+test('keys from names with spaces or Unicode are encoded, so the map they make reads back', async t => {
+  // Two loose files sharing a number, one with a space: suffixed keys the map must accept.
+  let w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], items: [], next: 1 }, { config: { local: { phases: 'Acme roadmap' } }, phases: {} });
+  await writeFile(join(w.plate, 'docs/phases/5-a b.md'), '---\nstatus: planned\n---\n\n# Acme A\n');
+  await writeFile(join(w.plate, 'docs/phases/5-c.md'), '---\nstatus: planned\n---\n\n# Acme C\n');
+  cli(w, ['connect']);
+  let r = cli(w, ['sync']);
+  assert.equal(r.code, 0, JSON.stringify(r.data));
+  assert.deepEqual(r.data.applied.map(a => a.key), ['phase:acme/tools:5#5-a%20b', 'phase:acme/tools:5#5-c']);
+  assert.equal(cli(w, ['status']).code, 0);
+  assert.deepEqual([cli(w, ['sync']).code, (await w.state()).items.length], [0, 2]);
+
+  // A projects-shape directory with a space and Unicode: synced, not silently dropped.
+  w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], items: [], next: 1 }, { config: { phases: { shape: 'projects' } }, phases: {} });
+  await rm(join(w.plate, 'docs/phases'), { recursive: true });
+  await mkdir(join(w.plate, 'docs/projects/acme tools é'), { recursive: true });
+  await writeFile(join(w.plate, 'docs/projects/README.md'), '# Acme projects\n');
+  await writeFile(join(w.plate, 'docs/projects/acme tools é/phases.md'), '# Acme tools\n\n## Phase 1 — Counting\n\n**Status: NOT STARTED.**\n');
+  cli(w, ['connect']);
+  r = cli(w, ['status']);
+  assert.deepEqual([r.code, r.data.open, r.data.plan.counts.create], [0, 1, 1]);
+  r = cli(w, ['sync']);
+  assert.deepEqual(r.data.applied.map(a => a.key), ['phase:acme/tools:acme%20tools%20%C3%A9/1']);
+  assert.match((await w.state()).items[0].body, /docs\/projects\/acme%20tools%20%C3%A9\/phases\.md#phase-1--counting$/);
+  assert.deepEqual([cli(w, ['sync']).data.applied, cli(w, ['status']).code], [[], 0]);
+});
+
+test('a pending create survives a collision appearing, and sync reports sources it could not represent', async t => {
+  let w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], items: [], next: 1 }, { config: { local: { phases: 'Acme roadmap' } }, phases: {} });
+  await writeFile(join(w.plate, 'docs/phases/5-a.md'), '---\nstatus: planned\n---\n\n# Acme A\n');
+  cli(w, ['connect']);
+  await w.setState({ delayedCommit: true, hiddenLists: 5 });
+  assert.equal(cli(w, ['sync']).code, 1);
+  await writeFile(join(w.plate, 'docs/phases/5-b.md'), '---\nstatus: planned\n---\n\n# Acme B\n');
+  const r = cli(w, ['sync']);
+  assert.deepEqual([r.data.applied, r.data.waiting[0].holds], [[], ['phase:acme/tools:5#5-a', 'phase:acme/tools:5#5-b']]);
+  assert.equal((await w.calls()).filter(c => c.argv[1] === 'add').length, 1);
+
+  // A projects-shape phase numbered beyond what a key holds: sync is partial, says so, and exits 1.
+  w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], items: [], next: 1 }, { config: { phases: { shape: 'projects' } }, phases: {} });
+  await rm(join(w.plate, 'docs/phases'), { recursive: true });
+  await mkdir(join(w.plate, 'docs/projects/anvils'), { recursive: true });
+  await writeFile(join(w.plate, 'docs/projects/README.md'), '# Acme projects\n');
+  await writeFile(join(w.plate, 'docs/projects/anvils/phases.md'), '# Anvils\n\n## Phase 100000 — Too far\n\n**Status: NOT STARTED.**\n');
+  cli(w, ['connect']);
+  const s = cli(w, ['sync']);
+  assert.deepEqual([s.code, s.data.partial, s.data.gaps], [1, true, [{ kind: 'unsupported-source', what: 'docs/projects/anvils/phases.md phase 100000' }]]);
+  assert.match(run(process.execPath, [BIN, 'unison', 'sync'], { cwd: w.plate, env: w.env }).stdout, /partial: 1 source could not be synced[\s\S]*gap +docs\/projects\/anvils\/phases\.md phase 100000/);
 });

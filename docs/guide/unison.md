@@ -25,6 +25,19 @@ plates unison                # the local map only; reads nothing remote
 https://github.com/<owner>/<repo>`) only when none lists the repo. Not signed in,
 it says so (exit 3, a sign-in card under `--json`) and creates nothing.
 
+Writing to a workspace needs a participant, not just the account. After finding
+or making the workspace, `connect` joins it once as the signed-in account
+(`unison join … --account --name <your first name>`), and keeps that session
+outside every checkout: `~/.config/plates/unison/<server host>/<workspace>.json`
+(or under `$XDG_CONFIG_HOME`), the directory 0700 and the file 0600. A later
+connect reuses it. `sync` sends every write with it; without one, or when Unison
+says the plate has not joined, sync writes nothing and says to run
+`plates unison connect`.
+
+A write Unison refuses outright clears its pending create (or pending
+workspace) and reports the error; only an uncertain failure (a timeout, a
+dropped connection) holds the 15-minute wait.
+
 `unison` is found on PATH and talks to `UNISON_SERVER`, else the plate's
 `"unison": { "server": … }`, else https://unison.cloud.run. Plates never prints a
 token.
@@ -43,6 +56,21 @@ token.
 Only a link line at the start of a line, naming one of the workspace's repos,
 links an item; any other URL is prose. Copied text that would read as a link
 line is escaped (`\Phase:`), so it cannot name a different link.
+
+## Phases in every shape
+
+Sync reads phases as `plates next` and `plates status` do. The phases practice
+reads `docs/phases/` strictly; a local variant (or a plate without the practice)
+reads it loosely (front matter `status` and the first heading), and a plate
+with no `docs/phases/` has zero phases. The projects shape links each phase to
+`docs/projects/<project>/phases.md#<heading anchor>`, keyed by project and
+number, and it is open while its **Status:** is not CLOSED or RETIRED.
+
+The participant session is refused if its directory is inside a Git checkout
+(through symlinks too). A write Unison refuses for the session removes that
+session, so the next connect joins again. Only a recognized refusal (a 4xx, or
+words such as "not found") clears a pending record; a 500 or anything
+unclassified keeps it.
 
 ## The map
 

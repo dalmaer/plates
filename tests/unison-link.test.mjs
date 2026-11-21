@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { normalizeRepo, parseLink, escapeCopied, writeBody, planSync, phaseSources, issueSources, readMap, mapAfter, phaseUrl, issueUrl } from '../lib/unison-link.mjs';
+import { normalizeRepo, headingAnchor, parseLink, escapeCopied, writeBody, planSync, phaseSources, issueSources, readMap, mapAfter, phaseUrl, issueUrl } from '../lib/unison-link.mjs';
 import { unisonCommand, callUnison, findWorkspace } from '../lib/unison.mjs';
 import { collect } from '../practices/phases/files/scripts/roadmap.mjs';
 import { world, workspace } from './helpers/unison-stub.mjs';
@@ -261,4 +261,86 @@ test('an uncertain create holds the re-add for 15 minutes, then is planned again
   assert.deepEqual([plan.actions, plan.waiting], [[], [{ key: 'phase:acme/tools:2', since: '2026-11-20T10:00:00.000Z' }]]);
   plan = planSync({ items: [], sources, map, repos: REPOS, repo: 'acme/tools', now: Date.parse('2026-11-20T10:16:00.000Z') });
   assert.deepEqual([plan.actions.map(a => a.op), plan.expired], [['create'], ['phase:acme/tools:2']]);
+});
+
+test('two phases with one number get one key each, and the existing item keeps its own', () => {
+  const phases5 = [{ project: 'modules', id: '5', anchor: 'phase-5--sandboxes', title: 'sandboxes', status: 'partial' },
+    { project: 'modules', id: '5', anchor: 'phase-5--sandboxes-the-agent-side-half-', title: 'sandboxes, the agent-side half', status: 'built' }];
+  const sources = phaseSources(phases5, 'acme/tools');
+  assert.deepEqual(sources.map(x => x.key), ['phase:acme/tools:modules/5#phase-5--sandboxes', 'phase:acme/tools:modules/5#phase-5--sandboxes-the-agent-side-half-']);
+  // The item made before the split links the open heading, under the old plain key.
+  const open = { id: 552, title: 'Phase modules/5: sandboxes', body: 'Phase: https://github.com/acme/tools/blob/HEAD/docs/projects/modules/phases.md#phase-5--sandboxes', status: 'open' };
+  const map = readMap({ schema: 1, repo: 'acme/tools', entries: { 'phase:acme/tools:modules/5': { item: 552, closedBySync: false } } });
+  const plan = planSync({ items: [open], sources, map, repos: REPOS, repo: 'acme/tools' });
+  assert.deepEqual(plan.rekey, [{ from: 'phase:acme/tools:modules/5', to: 'phase:acme/tools:modules/5#phase-5--sandboxes' }]);
+  assert.deepEqual([plan.actions, plan.unlinked], [[], []]); // no close of #552, no item for the closed heading
+  // Files can repeat a number too.
+  assert.deepEqual(phaseSources([{ id: 5, file: '5-a.md', title: 'A', status: 'planned' }, { id: 5, file: '5-b.md', title: 'B', status: 'planned' }], 'acme/tools').map(x => x.key), ['phase:acme/tools:5#5-a', 'phase:acme/tools:5#5-b']);
+  // And if two sources ever share a key, the plan never acts on it.
+  const twice = [...phaseSources([{ id: 6, file: '6-a.md', title: 'A', status: 'built' }], 'acme/tools'), ...phaseSources([{ id: 6, file: '6-a.md', title: 'A', status: 'planned' }], 'acme/tools')];
+  const guarded = planSync({ items: [], sources: twice, map: readMap(null), repos: REPOS, repo: 'acme/tools' });
+  assert.deepEqual([guarded.actions, guarded.suggestions.map(x => x.kind)], [[], ['ambiguous-source']]);
+});
+
+test('a heading anchor keeps Unicode letters, and the percent-encoded link matches', () => {
+  assert.equal(headingAnchor('Phase 2 — Café'), 'phase-2--café');
+  const sources = phaseSources([{ project: 'cafe', id: '2', anchor: headingAnchor('Phase 2 — Café'), title: 'Café', status: 'planned' }], 'acme/tools');
+  assert.equal(sources[0].url, 'https://github.com/acme/tools/blob/HEAD/docs/projects/cafe/phases.md#phase-2--café');
+  const encoded = 'Phase: https://github.com/acme/tools/blob/HEAD/docs/projects/cafe/phases.md#phase-2--caf%C3%A9';
+  assert.equal(parseLink(encoded, REPOS).anchor, 'phase-2--café');
+  const item = { id: 3, title: 'Phase cafe/2: Café', body: encoded, status: 'open' };
+  const plan = planSync({ items: [item], sources, map: readMap(null), repos: REPOS, repo: 'acme/tools' });
+  assert.deepEqual([plan.adopt, plan.actions], [[{ key: 'phase:acme/tools:cafe/2', item: 3 }], []]);
+});
+
+test('a key that changes when a collision comes or goes is reconciled by the item\'s line, never duplicated', () => {
+  const at = file => ({ id: 1, title: 'Phase 5: A', body: `Phase: ${phaseUrl('acme/tools', file)}`, status: 'open' });
+  const one = phaseSources([{ id: 5, file: '5-a.md', title: 'A', status: 'planned' }], 'acme/tools');
+  const two = phaseSources([{ id: 5, file: '5-a.md', title: 'A', status: 'planned' }, { id: 5, file: '5-b.md', title: 'B', status: 'built' }], 'acme/tools');
+  const mapOf = key => readMap({ schema: 1, repo: 'acme/tools', entries: { [key]: { item: 1, closedBySync: false } } });
+  // The collision goes away: 5#5-a → 5.
+  let plan = planSync({ items: [at('5-a.md')], sources: one, map: mapOf('phase:acme/tools:5#5-a'), repos: REPOS, repo: 'acme/tools' });
+  assert.deepEqual([plan.rekey, plan.actions, plan.unlinked], [[{ from: 'phase:acme/tools:5#5-a', to: 'phase:acme/tools:5' }], [], []]);
+  // It comes: 5 → 5#5-a (on a ref other than HEAD too).
+  plan = planSync({ items: [{ ...at('5-a.md'), body: 'Phase: https://github.com/acme/tools/blob/main/docs/phases/5-a.md' }], sources: two, map: mapOf('phase:acme/tools:5'), repos: REPOS, repo: 'acme/tools' });
+  assert.deepEqual([plan.rekey, plan.actions], [[{ from: 'phase:acme/tools:5', to: 'phase:acme/tools:5#5-a' }], []]);
+  // A suffix that changed: the line still names 5-a.md, so the entry follows it.
+  plan = planSync({ items: [at('5-a.md')], sources: two, map: mapOf('phase:acme/tools:5#5-old'), repos: REPOS, repo: 'acme/tools' });
+  assert.deepEqual([plan.rekey, plan.actions], [[{ from: 'phase:acme/tools:5#5-old', to: 'phase:acme/tools:5#5-a' }], []]);
+});
+
+test('every phase file name a reader accepts round-trips through its link line', () => {
+  const names = ['2-café.md', '3-a b.md', '4-x#y.md', '6-naïve-phase.md', '7-plain.md'];
+  const sources = phaseSources(names.map(file => ({ id: Number(file.split('-')[0]), file, title: file, status: 'planned' })), 'acme/tools');
+  for (const x of sources) assert.equal(parseLink(writeBody('', x), REPOS)?.file, x.file, x.file);
+  const plan = planSync({ items: [], sources, map: readMap(null), repos: REPOS, repo: 'acme/tools' });
+  assert.deepEqual([plan.actions.length, plan.suggestions], [names.length, []]);
+});
+
+test('a source plates cannot represent is a reported gap, and older unencoded keys still read', () => {
+  const plan = planSync({ items: [], sources: phaseSources([{ project: 'bad/name', id: '1', anchor: 'x', title: 'X', status: 'planned' }], 'acme/tools'), map: readMap(null), repos: REPOS, repo: 'acme/tools' });
+  assert.deepEqual([plan.actions, plan.gaps], [[], [{ kind: 'unsupported-source', what: 'docs/projects/bad/name/phases.md phase 1' }]]);
+  const map = readMap({ schema: 1, repo: 'acme/tools', entries: { 'phase:acme/tools:cafe/2#phase-2--café': { item: 1, closedBySync: false } } });
+  assert.deepEqual(Object.keys(map.entries), ['phase:acme/tools:cafe/2#phase-2--caf%C3%A9']);
+});
+
+test('a removed collision member never takes its survivor\'s key: exact links claim first', () => {
+  const link = file => `Phase: ${phaseUrl('acme/tools', file)}`;
+  const items = [{ id: 1, title: 'Phase 5: A', body: link('5-a.md'), status: 'open' }, { id: 2, title: 'Phase 5: B', body: link('5-b.md'), status: 'open' }];
+  // A was mapped first; then A's file is removed and B is built.
+  const map = readMap({ schema: 1, repo: 'acme/tools', entries: { 'phase:acme/tools:5#5-a': { item: 1, closedBySync: false }, 'phase:acme/tools:5#5-b': { item: 2, closedBySync: false } } });
+  const sources = phaseSources([{ id: 5, file: '5-b.md', title: 'B', status: 'built' }], 'acme/tools');
+  const plan = planSync({ items, sources, map, repos: REPOS, repo: 'acme/tools' });
+  assert.deepEqual(plan.rekey, [{ from: 'phase:acme/tools:5#5-b', to: 'phase:acme/tools:5' }]);
+  assert.deepEqual(plan.actions.map(a => [a.op, a.item]), [['close', 2]]);
+  assert.deepEqual([plan.unlinked, plan.suggestions], [[], [{ kind: 'source-gone', key: 'phase:acme/tools:5#5-a', item: 1 }]]);
+});
+
+test('a pending create is held through a key change: every candidate waits out the window', () => {
+  const at = '2026-11-20T10:00:00.000Z', now = Date.parse('2026-11-20T10:05:00.000Z');
+  const map = readMap({ schema: 1, repo: 'acme/tools', entries: {}, pendingCreates: { 'phase:acme/tools:5': { title: 'Phase 5: A', at } } });
+  const sources = phaseSources([{ id: 5, file: '5-a.md', title: 'A', status: 'planned' }, { id: 5, file: '5-b.md', title: 'B', status: 'planned' }], 'acme/tools');
+  const plan = planSync({ items: [], sources, map, repos: REPOS, repo: 'acme/tools', now });
+  assert.deepEqual(plan.actions, []);
+  assert.deepEqual(plan.waiting, [{ key: 'phase:acme/tools:5', since: at, holds: ['phase:acme/tools:5#5-a', 'phase:acme/tools:5#5-b'] }]);
 });
