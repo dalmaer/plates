@@ -1,10 +1,10 @@
 ---
-status: built
+status: superseded
 since: 2026-11-21
 goal: G4
 spec: 2
 depends: [45, 46]
-note: "Built (Path A): Codex runs climb and tend with workspace-write and drop-sudo, TMPDIR pinned to /tmp/plates-codex, commits to .plates/agent-git; plates takes only objects from that git dir (no git command reads it) into a fresh repo, then the judge and publish jobs as before. Owes one real Codex night of each pass, read by the owner; the walk was removed (phase 204)."
+note: "Superseded 2026-11-21 (phase 207): climb and tend are off for plates. In 37 nights the climb kept 3 small changes, all in tests/improve.test.mjs, while about 113 commits went into the climb itself; tend fixed 1 of about 116 findings. The code stays, but nothing new is built on it."
 evidence: ["evidence/2026-10-08-codex-climb-tend.md"]
 issue: 33
 ---
@@ -56,3 +56,4 @@ The design is [Review hardening](../research/2026-10-07-review-hardening.md), §
 - **2026-10-08** — A git dir the agent can write can hold config and hooks the agent wrote (core.hooksPath, core.fsmonitor, aliases): keel's steps after the agent must run git with those neutralised, and the judge reads only objects from the bundle.
 - **2026-10-08** — Built on Path A. keel never runs a git command against the agent's git dir: the take copies regular object files and reads the branch's ref as a file into a fresh repo, so hooks, fsmonitor, aliases or include.path Codex could plant there never run. TMPDIR is pinned on every Codex step, so its writable /tmp root can never be the runner's command-file folder.
 - **2026-10-08** — On a Codex night compare's worktrees go to the OS temp (the checkout's parent is outside Codex's writable roots), so a gate reading a sibling folder (ledger's ../ledger-data) fails there: a Codex night suits a project whose gate is self-contained.
+- **2026-11-21** — Superseded 2026-11-21 (phase 207): climb and tend are off for plates. In 37 nights the climb kept 3 small changes, all in tests/improve.test.mjs, while about 113 commits went into the climb itself; tend fixed 1 of about 116 findings. The code stays, but nothing new is built on it.

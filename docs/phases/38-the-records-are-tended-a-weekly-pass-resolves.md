@@ -1,12 +1,10 @@
 ---
-status: partial
-owes: walk
-waits: time
-since: 2026-10-06
+status: superseded
+since: 2026-11-21
 goal: G4
 spec: 2
 depends: [26, 32, 33, 35, 39]
-note: "Built and on for plates and ledger (weekly, 30 minutes; ledger#92, opened by Codex, the first PR Claude cross-reviewed). plates's first pass (plates#22) was read and closed with a reason. Ledger #130 merged on 21 October; still owes the post-merge record comparison and owner assessment."
+note: "Superseded 2026-11-21 (phase 207): climb and tend are off for plates. In 37 nights the climb kept 3 small changes, all in tests/improve.test.mjs, while about 113 commits went into the climb itself; tend fixed 1 of about 116 findings. The code stays, but nothing new is built on it."
 evidence: ["evidence/2026-10-06-tend.md", "evidence/2026-10-23-roadmap-followthrough.md"]
 issue: 16
 ---
@@ -96,3 +94,4 @@ partial status until that remaining walk is recorded; do not ask to merge #130.
 - **2026-10-07** — Escape: Claude's cross-review of ledger#92 found the tend (and climb) agent could edit a script it may run (package.json, climb.mjs, roadmap.mjs) and push with the job's token, git's persisted credentials, or the GitHub App token the action exchanges OIDC for. Fixed in 10c59b5: three jobs, the agent's and the judge's tokens read-only, the publish job running nothing from the branch. keel's tend run 37641282288 on the new shape: all three jobs green, the agent 35 s, nothing to resolve (six owner steps), so no PR; the push path is proven by tests, not yet on GitHub.
 
 - **2026-10-23** — Fresh GitHub merge facts replace the obsolete first-PR merge request. Kept the next-night comparison and owner walk outstanding. [Evidence](../evidence/2026-10-23-roadmap-followthrough.md).
+- **2026-11-21** — Superseded 2026-11-21 (phase 207): climb and tend are off for plates. In 37 nights the climb kept 3 small changes, all in tests/improve.test.mjs, while about 113 commits went into the climb itself; tend fixed 1 of about 116 findings. The code stays, but nothing new is built on it.

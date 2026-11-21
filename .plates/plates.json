@@ -41,18 +41,6 @@
       "codex/"
     ]
   },
-  "climb": {
-    "jobs": [
-      "test-time"
-    ],
-    "budget": {
-      "minutes": 45
-    },
-    "schedule": "nightly",
-    "testCommand": "node --import ./tests/helpers/hermetic.mjs --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/plates/test-ledger.mjs --test-reporter-destination=stdout tests/claim.test.mjs",
-    "testTarget": "slowest-fit",
-    "testTemplate": "node --import ./tests/helpers/hermetic.mjs --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/plates/test-ledger.mjs --test-reporter-destination=stdout {file}"
-  },
   "tests": {
     "stalls": [
       "tests/climb.test.mjs",
@@ -62,12 +50,6 @@
       "tests/climb-execution-regression.test.mjs",
       "tests/evidence.test.mjs"
     ]
-  },
-  "tend": {
-    "schedule": "weekly",
-    "budget": {
-      "minutes": 30
-    }
   },
   "ci": {
     "gateWorkflow": "check.yml",

@@ -1,10 +1,10 @@
 ---
-status: built
+status: superseded
 since: 2026-11-21
 goal: G4
 spec: 2
 depends: [33, 35]
-note: "Built: the hygiene job (picked first when a test is flaky; prove-steady N runs on one clean tree; timeout- or retry-only fixes refused; an issue when nothing is proven), the build-time job (output hashed, each change needs a harmless reason), a build_time night measure, and retirement after three closed PRs. Waits on a real hygiene night on plates and a build-time night on ledger; the walk was removed (phase 204)."
+note: "Superseded 2026-11-21 (phase 207): climb and tend are off for plates. In 37 nights the climb kept 3 small changes, all in tests/improve.test.mjs, while about 113 commits went into the climb itself; tend fixed 1 of about 116 findings. The code stays, but nothing new is built on it."
 evidence: ["evidence/2026-10-06-climb-hygiene-build.md"]
 issue: 14
 ---
@@ -62,3 +62,4 @@ With climb on for plates, the first night the ledger names a flaky test runs hyg
 - **2026-10-06** — The hygiene check judges an in-place edit by what changed in the line: its first version passed `() =>` becoming `{ timeout: 9000 }, () =>`, because the removed line counted as a real change.
 - **2026-10-06** — Hygiene is never picked by rotation, only when `flaky_tests` is outside, and then ahead of everything, even a broken measure.
 - **2026-10-06** — A builder's regex with nested quantifiers over `\n` (`(?:\s+.+\n)*\s+`) backtracked catastrophically over a workflow's text and hung a test file at 100% CPU with no child process; caught and rewritten before landing.
+- **2026-11-21** — Superseded 2026-11-21 (phase 207): climb and tend are off for plates. In 37 nights the climb kept 3 small changes, all in tests/improve.test.mjs, while about 113 commits went into the climb itself; tend fixed 1 of about 116 findings. The code stays, but nothing new is built on it.
