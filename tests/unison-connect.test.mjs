@@ -14,7 +14,9 @@ const BIN = resolve('bin/plates.mjs');
 const cli = (w, args, env = {}) => {
   const r = run(process.execPath, [BIN, 'unison', ...args, '--json'], { cwd: w.plate, env: { ...w.env, ...env } });
   assert.equal(r.stderr, '', r.stderr);
-  return { code: r.status, data: JSON.parse(r.stdout) };
+  let data;
+  try { data = JSON.parse(r.stdout); } catch { assert.fail(`plates unison ${args.join(' ')} printed no JSON (status ${r.status}): ${JSON.stringify(r.stdout.slice(0, 300))}`); }
+  return { code: r.status, data };
 };
 const mapOf = async w => JSON.parse(await readFile(join(w.plate, '.plates/unison/map.json'), 'utf8'));
 const mutating = calls => calls.filter(c => ['create', 'add', 'edit', 'close', 'reopen', 'move', 'assign', 'start', 'claim'].includes(c.argv[1]));
@@ -164,18 +166,17 @@ test('a .gitignore negation cannot leave the map visible, and npm pack never shi
 test('two overlapping syncs make one item: the second is not run', async t => {
   const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], items: [], next: 1 }, { phases: { '2-acme-counts-anvils.md': { status: 'planned', title: 'Acme counts anvils' } } });
   cli(w, ['connect']);
-  await w.setState({ addDelayMs: 1500 });
-  // The first sync runs in this process (it waits on the stub's slow answer while holding the lock); the second is the CLI.
-  const first = unisonCommand({ args: ['sync'], root: w.plate, config: JSON.parse(await readFile(join(w.plate, '.plates/plates.json'), 'utf8')), env: w.env, readPhases: async () => (await collect(w.plate)).phases });
-  // Wait until the first sync's add has landed, then start the second while it still holds the lock.
-  for (let i = 0; i < 100 && !(await w.state()).items.length; i++) await new Promise(done => setTimeout(done, 50));
-  const second = cli(w, ['sync']);
-  assert.equal(second.code, 1);
-  assert.match(second.data.why, /another sync is running/);
-  assert.equal((await first).exitCode ?? 0, 0);
+  // This process holds the writer lock, as a sync in progress would, so the overlap does not depend on timing.
+  const { withCursorLock } = await import('../lib/channel-owner.mjs');
+  await withCursorLock(join(w.plate, '.plates/unison', 'writer'), async () => {
+    const second = cli(w, ['sync']);
+    assert.equal(second.code, 1);
+    assert.match(second.data.why, /another sync is running/);
+    assert.equal((await w.state()).items.length, 0);
+  }, { waitMs: 2_000, staleMs: 7 * 86_400_000, partialStaleMs: 10_000 });
+  // The lock is released: a sync makes the one item, and the next changes nothing.
+  assert.equal(cli(w, ['sync']).code, 0);
   assert.equal((await w.state()).items.length, 1);
-  // The lock is released: a third sync runs and changes nothing.
-  await w.setState({ addDelayMs: 0 });
   assert.deepEqual(cli(w, ['sync']).data.applied, []);
 });
 
