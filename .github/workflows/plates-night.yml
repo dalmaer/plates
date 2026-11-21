@@ -14,8 +14,10 @@
 #
 # Any yes fails the run in its last step (exit 1), naming each cause with
 # ::error:: and in the run's summary, and GitHub emails: a guard fires into a
-# room someone is in. Otherwise the run is green, with one summary line. A
-# measure that cannot answer (n/a, or broken) is said in the summary, never red.
+# room someone is in. A measure that is broken (it could not read CI, the
+# ledger or the gate) is red too, as "The night could not check": an unread
+# source is unknown, never fine. Otherwise the run is green, with one summary
+# line; a measure that does not apply (n/a) is said in the summary.
 #
 # It writes nothing: no branch, no pull request, no inbox proposal, no plan;
 # the job's token only reads. Its one keepsake is the test ledger, carried
@@ -164,6 +166,7 @@ jobs:
           retention-days: 56
 
       # The last step, and the night's only red: CI on main is red, a test is
-      # flaky, or the gate ran no tests. Each cause is named.
+      # flaky, the gate ran no tests, or the night could not check one of
+      # them. Each cause is named.
       - name: Verdict
         run: node scripts/plates/night-verdict.mjs verdict --in "$RUNNER_TEMP/night.json" --summary "$GITHUB_STEP_SUMMARY"

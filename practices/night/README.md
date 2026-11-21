@@ -42,9 +42,10 @@ credential. `plates-night.yml` runs every night at 07:23 UTC (and by hand):
 5. The verdict, the last step (`night-verdict.mjs verdict`): each cause that
    holds is one `::error::` line and one line in the run's summary, and the
    run fails (exit 1). With none, one summary line, and green. A measure that
-   cannot answer (n/a: too few recorded runs, no gh; or broken) is said in the
-   summary, a broken one with a `::warning::`, and is never red: only the
-   three causes are.
+   is broken (it could not read CI, the ledger or the gate) or never ran is red
+   too, as "The night could not check", naming the measure and why: an unread
+   source is unknown, never fine. One that does not apply (n/a: too few
+   recorded runs, no repo) is said in the summary and stays green.
 
 The morning (phase 77): `plates-morning.yml` runs when plates-night,
 plates-climb or plates-robot finish (the last two only where the climb

@@ -78,10 +78,9 @@ test('the night fails only on a red main, a flaky test or a gate with no tests',
   assert.deepEqual(all.causes.map(c => c.cause), ['main', 'flaky', 'empty']);
   assert.equal(all.exitCode, 1);
 
-  // Nothing else is red: a measure outside on no cause, one that cannot answer, or one broken.
+  // Nothing else is red: a measure outside on no cause, or one that does not apply (n/a, said in the summary).
   for (const results of [
     [gate(), flaky({ state: 'n/a', value: null, detail: '3 recorded runs, fewer than the window of 5' }), red({ state: 'n/a', value: null, detail: 'no repo in .plates/plates.json' })],
-    [gate(), flaky({ state: 'broken', value: null, detail: 'ledger unreadable' }), red()],
     [gate(), flaky(), red(), { id: 'slow_tests', state: 'outside', value: 4, detail: 'four slower' }],
   ]) {
     const v = verdict(results);
@@ -89,9 +88,24 @@ test('the night fails only on a red main, a flaky test or a gate with no tests',
     assert.deepEqual(nightCauses(results), []);
     assert.ok(!v.lines.some(l => l.startsWith('::error')));
   }
-  const broken = verdict([gate(), flaky({ state: 'broken', value: null, detail: 'ledger unreadable' }), red()]);
-  assert.ok(broken.lines.some(l => l.startsWith('::warning') && l.includes('flaky_tests')), 'a broken check is a warning, said');
-  assert.match(broken.summary, /flaky_tests could not answer tonight \(broken\): ledger unreadable/);
+  assert.match(verdict(NIGHTS.quiet.map(r => r.id === 'flaky_tests' ? flaky({ state: 'n/a', value: null, detail: '3 recorded runs' }) : r)).summary, /flaky_tests does not apply tonight \(n\/a\): 3 recorded runs/);
+
+  // A source the night could not read is unknown, never fine: a broken or missing measure is red, under its own title.
+  for (const [results, id, detail] of [
+    [[gate(), flaky({ state: 'broken', value: null, detail: 'ledger unreadable' }), red()], 'flaky_tests', 'ledger unreadable'],
+    [[gate(), flaky(), red({ state: 'broken', value: null, detail: 'gh run list exited 1' })], 'ci_red_streak', 'gh run list exited 1'],
+    [[gate({ state: 'broken', value: null, detail: 'gate was killed (SIGTERM) before it finished', facts: {} }), flaky(), red()], 'gate', 'gate was killed'],
+    [[gate(), flaky()], 'ci_red_streak', 'not run'],
+  ]) {
+    const v = verdict(results);
+    assert.equal(v.exitCode, 1, id);
+    assert.deepEqual(v.causes.map(c => c.cause), ['unchecked'], id);
+    assert.ok(v.lines.some(l => l.startsWith(`::error title=${CAUSES.unchecked}::${CAUSES.unchecked}: ${id}: `) && l.includes(detail)), `${id}: ${JSON.stringify(v.lines)}`);
+    assert.ok(v.summary.includes(`**${CAUSES.unchecked}**: ${id}: `), id);
+    assert.ok(!v.lines.some(l => l.startsWith('::warning')), 'never only a warning');
+  }
+  // It is a fourth cause beside the three, never instead of one.
+  assert.deepEqual(verdict([NIGHTS.flaky[0], NIGHTS.flaky[1], red({ state: 'broken', value: null, detail: 'gh unavailable' })]).causes.map(c => c.cause), ['flaky', 'unchecked']);
 
   // ask runs exactly improve's three measures, the gate first, and nothing else.
   const seen = [];

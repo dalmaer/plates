@@ -1,6 +1,6 @@
 // The quiet night's verdict (plates practice `night`; managed: plates render
 // rewrites it). plates phase 207: the night speaks up only when something is
-// wrong, and three things are:
+// wrong: three things, and a fourth that means it cannot tell:
 //
 //   main    CI on main is red: ci_red_streak (the gate workflow's newest
 //           verdicts on the default branch) counts a failed run, or the gate
@@ -11,11 +11,15 @@
 //   empty   the gate ran no tests: the gate measure passed having run none
 //           (lesson 14), or the test ledger's own no-tests rule failed it
 //           (its "no tests ran" line in the gate's retained output)
+//   unchecked  the night could not check: one of the three measures is
+//           broken (it could not read CI, the ledger or the gate) or never
+//           ran. An unread source is unknown, never fine, so it is red too,
+//           one line per measure, naming it and why.
 //
 // Each is one of improve.mjs's own measures, run here alone: no health page,
 // no bounds, no plan, no proposal, nothing written but the --out file. A
-// measure that cannot answer (n/a, or broken) is said in the summary, never
-// red: only the three causes are.
+// measure that does not apply here (n/a: too few recorded runs, no repo) is
+// said in the summary and stays green.
 //
 //   node scripts/plates/night-verdict.mjs ask --out <file>
 //   node scripts/plates/night-verdict.mjs verdict --in <file> [--summary <file>]
@@ -36,6 +40,7 @@ export const CAUSES = Object.freeze({
   main: 'CI on main is red',
   flaky: 'A test is flaky',
   empty: 'The gate ran no tests',
+  unchecked: 'The night could not check',
 });
 
 export class VerdictError extends Error {
@@ -61,20 +66,24 @@ export function nightCauses(results) {
   if (main.length) causes.push({ cause: 'main', title: CAUSES.main, detail: main.join('; ') });
   if (flaky && flaky.state !== 'broken' && flaky.state !== 'n/a' && Number(flaky.value) > 0) causes.push({ cause: 'flaky', title: CAUSES.flaky, detail: flaky.detail });
   if (empty) causes.push({ cause: 'empty', title: CAUSES.empty, detail: ledgerEmpty ? `the test ledger failed the gate: no tests ran; ${gate.detail}` : gate.detail });
+  for (const id of NIGHT_MEASURES) {
+    const r = by[id];
+    if (!r) causes.push({ cause: 'unchecked', title: CAUSES.unchecked, id, detail: `${id}: not run` });
+    else if (r.state === 'broken') causes.push({ cause: 'unchecked', title: CAUSES.unchecked, id, detail: `${id}: ${r.detail}` });
+  }
   return causes;
 }
 
-/** The measures that could not answer tonight: said, never red. */
+/** The measures that do not apply tonight (n/a): said, never red. A broken or missing one is a cause (nightCauses). */
 export function unanswered(results) {
   const by = Object.fromEntries((results ?? []).map(r => [r?.id, r]));
-  return NIGHT_MEASURES.map(id => by[id] ? by[id] : { id, state: 'missing', detail: 'not run' })
-    .filter(r => r.state === 'broken' || r.state === 'n/a' || r.state === 'missing')
+  return NIGHT_MEASURES.map(id => by[id]).filter(r => r?.state === 'n/a')
     .map(r => ({ id: r.id, state: r.state, detail: r.detail }));
 }
 
 /**
- * The verdict as the run shows it: `lines` for stdout (GitHub's ::error:: and
- * ::warning:: commands), `summary` for $GITHUB_STEP_SUMMARY, and the exit code.
+ * The verdict as the run shows it: `lines` for stdout (GitHub's ::error::
+ * commands), `summary` for $GITHUB_STEP_SUMMARY, and the exit code.
  */
 export function verdict(results, { date } = {}) {
   const causes = nightCauses(results), gaps = unanswered(results);
@@ -90,8 +99,7 @@ export function verdict(results, { date } = {}) {
     summary.push(`The night${on}: main is green, no test is flaky, and the gate ran tests.`);
   }
   for (const g of gaps) {
-    const said = `${g.id} could not answer tonight (${g.state}): ${g.detail}`;
-    if (g.state === 'broken') lines.push(`::warning title=${g.id}::${said}`);
+    const said = `${g.id} does not apply tonight (${g.state}): ${g.detail}`;
     summary.push(`${causes.length ? '- ' : ''}${said}`);
   }
   if (!causes.length && !gaps.length) lines.push(summary[0]);
