@@ -267,3 +267,20 @@ test('phase PRs carry a Try it', async () => {
   // The rendered skill is the practice's, byte for byte.
   assert.equal(await read('.agents/skills/spin/SKILL.md'), spin.replaceAll('{{guide}}', 'AGENTS.md').replaceAll('{{lessons}}', 'docs/lessons.md').replaceAll('{{check}}', 'npm run check'));
 });
+
+// Plates phase 207: retros stay, and a lesson comes only from a real failure in the phase.
+test('a lesson candidate names the failure it came from', async () => {
+  const read = path => readFile(join(CLI_ROOT, path), 'utf8');
+  const spin = (await read('practices/conduct/files/.agents/skills/spin/SKILL.md')).replace(/\s+/g, ' ');
+  assert.match(spin, /\*\*lesson\*\*: a failure shape, through `plates learn`, and only from a real failure in this phase\. Name where it happened: the red check, the reverted commit, the bug that escaped\./);
+  assert.match(spin, /with no real failure, there is no lesson candidate/);
+  assert.match(spin, /when the phase did real work \(its commit changed more than `docs\/`\)/, 'the retro still runs for a phase that changed more than docs');
+  for (const path of ['practices/conduct/files/AGENTS.block.md', 'AGENTS.md']) {
+    const text = (await read(path)).replace(/\s+/g, ' ');
+    assert.match(text, /Run a retro when the phase changed more than docs/, path);
+    assert.match(text, /A lesson comes only from a real failure in the phase \(a red check, a reverted change, a bug that escaped\), never from a risk that did not happen\./, path);
+  }
+  // The CLI's retro help and the standalone retro guide carry the same rule.
+  assert.match((await read('lib/agent-guide.md')).replace(/\s+/g, ' '), /a \*\*lesson\*\* \(`plates learn`, only from a real failure in the phase\)/);
+  assert.match((await read('docs/guide/loose-ends-and-retro.md')).replace(/\s+/g, ' '), /a \*\*lesson\*\* for a failure shape, only from a real failure in the phase \(a red check, a reverted change, a bug that escaped\), never a risk that did not happen\./);
+});

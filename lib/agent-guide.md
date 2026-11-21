@@ -2323,7 +2323,7 @@ a worksheet, not a gate.
   standards, AGENTS.md health (the selected guide), tool economy, no-op instructions, information
   gaps. Then at most five candidates in the phase report, most serious
   first, each a **check**, an **AGENTS/skill line** or a **lesson** (`plates
-  learn`). The owner picks; nothing is applied unpicked. Never from the
+  learn`, only from a real failure in the phase). The owner picks; nothing is applied unpicked. Never from the
   night or a climb.
 
 `--json` → `{realWork, range, changed, outsideDocs, since, sinceAt, session,
