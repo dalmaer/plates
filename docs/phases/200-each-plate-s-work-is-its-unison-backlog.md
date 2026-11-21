@@ -14,7 +14,7 @@ evidence: ["evidence/2026-11-21-unison-status-connect-sync.md"]
 
 A plate has a Unison workspace that plates made for it (or that the owner named), and the
 workspace's backlog holds one item for each open phase of the plate, and, when the plate turns on
-issues, one for each open GitHub issue of its repos. Each item links back to its phase or issue;
+issues, one for each open GitHub issue of its repo. Each item links back to its phase or issue;
 a phase built or an issue closed closes its item; a rename or a hand-edited item never makes a
 second item; and a Unison that cannot be read shows on Home as "Unison not read", never as an
 empty backlog.
@@ -39,7 +39,9 @@ Recurring view and agents sidebar in favour of links to the workspace.
   never a silent skip. Plates caches the workspace id in the plate's private state; the repo stays
   the truth.
 - **Sources.** Each plate's config chooses `unison.sources`: `phases` (the default) and, where
-  wanted, `issues`. A phase is open while its status is not built or superseded.
+  wanted, `issues`. Both come from the plate's own repo only: one repo has one workspace, so a
+  link naming another repo listed in the workspace is never this plate's to adopt, close or
+  retitle. A phase is open while its status is not built or superseded.
 - **The link line.** `Phase: <url of the phase file>` or `Issue: https://github.com/<owner>/<repo>/issues/<n>`
   at the start of a line in the item's body; the first such line counts. Plates writes it as the
   body's last line, and escapes any line of copied text that would read as one (`\Issue:`,
