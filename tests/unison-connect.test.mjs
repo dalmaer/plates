@@ -496,3 +496,54 @@ test('keys from names with spaces or Unicode are encoded, so the map they make r
   assert.match((await w.state()).items[0].body, /docs\/projects\/acme%20tools%20%C3%A9\/phases\.md#phase-1--counting$/);
   assert.deepEqual([cli(w, ['sync']).data.applied, cli(w, ['status']).code], [[], 0]);
 });
+
+test('connect writes the workspace to .plates/plates.json, and corrects it to the one listing the repo', async t => {
+  const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools'), workspace('ws_other', 'https://github.com/acme/anvils')] }, { config: { unison: { sources: ['phases'] } } });
+  const cfg = async () => JSON.parse(await readFile(join(w.plate, '.plates/plates.json'), 'utf8')).unison;
+  let r = cli(w, ['connect']);
+  assert.equal(r.code, 0, JSON.stringify(r.data));
+  assert.deepEqual(await cfg(), { sources: ['phases'], workspace: 'ws_acme1', url: 'http://127.0.0.1:4600/w/ws_acme1' });
+  assert.deepEqual([r.data.url, r.data.committed.changed], ['http://127.0.0.1:4600/w/ws_acme1', true]);
+  assert.equal(cli(w, ['connect']).data.committed.changed, false);
+  // Status names the URL, and trusts the committed id only after checking it lists the repo.
+  r = cli(w, ['status']);
+  assert.deepEqual([r.code, r.data.url], [0, 'http://127.0.0.1:4600/w/ws_acme1']);
+  // A committed id for another repo: status is not read; connect corrects it and says so.
+  const file = join(w.plate, '.plates/plates.json');
+  const config = JSON.parse(await readFile(file, 'utf8'));
+  await writeFile(file, JSON.stringify({ ...config, unison: { sources: ['phases'], workspace: 'ws_other', url: 'http://127.0.0.1:4600/w/ws_other' } }));
+  r = cli(w, ['status']);
+  assert.deepEqual([r.code, r.data.read], [1, false]);
+  assert.match(r.data.why, /committed workspace ws_other does not list acme\/tools; run plates unison connect/);
+  const said = run(process.execPath, [BIN, 'unison', 'connect'], { cwd: w.plate, env: w.env }).stdout;
+  assert.match(said, /The committed workspace was ws_other, which is not the one listing acme\/tools; corrected to ws_acme1\. Commit \.plates\/plates\.json\./);
+  assert.equal((await cfg()).workspace, 'ws_acme1');
+});
+
+test('plates unison open prints the URL under --json, and runs the opener otherwise', async t => {
+  const w = await world(t, { workspaces: [workspace('ws_acme1', 'https://github.com/acme/tools')], items: [], next: 7 }, { phases: { '2-acme-counts-anvils.md': { status: 'planned', title: 'Acme counts anvils' } } });
+  cli(w, ['connect']);
+  cli(w, ['sync']);
+  let r = cli(w, ['open']);
+  assert.deepEqual([r.code, r.data.url, r.data.opened], [0, 'http://127.0.0.1:4600/w/ws_acme1', false]);
+  r = cli(w, ['open', '--item', '2']);
+  assert.deepEqual([r.data.url, r.data.item], ['http://127.0.0.1:4600/w/ws_acme1?item=7', 7]);
+  assert.equal(cli(w, ['open', '--item', '9']).code, 1);
+  // Without --json the opener runs (a stub here: open on macOS, xdg-open elsewhere).
+  const opened = join(w.root, 'opened.txt');
+  for (const name of ['open', 'xdg-open']) await writeFile(join(w.bin, name), `#!/bin/sh\nprintf '%s\\n' "$1" >> ${JSON.stringify(opened)}\n`, { mode: 0o755 });
+  const out = run(process.execPath, [BIN, 'unison', 'open', '--item', '2'], { cwd: w.plate, env: { ...w.env, DISPLAY: ':0' } });
+  assert.equal(out.status, 0, out.stderr);
+  assert.equal(await readFile(opened, 'utf8'), 'http://127.0.0.1:4600/w/ws_acme1?item=7\n');
+});
+
+test('the committed unison mapping is validated', async () => {
+  const { unisonSettings } = await import('../lib/unison.mjs');
+  const env = { UNISON_SERVER: 'https://unison.example' };
+  const at = unison => () => unisonSettings({ repo: 'acme/tools', unison }, env);
+  assert.equal(at({ workspace: 'ws_acme1', url: 'https://unison.example/w/ws_acme1', sources: ['phases'] })().workspace, 'ws_acme1');
+  assert.equal(at({ workspace: 'ws_acme1' })().workspace, 'ws_acme1');
+  for (const bad of [{ workspace: 'acme1' }, { workspace: 'ws_acme-1' }, { workspace: 7 }, { workspace: 'ws_acme1', url: 'https://unison.example/w/ws_acme2' },
+    { url: 'https://unison.example/w/ws_acme1' }, { workspace: 'ws_acme1', url: 'https://other.example/w/ws_acme1' }]) assert.throws(at(bad), /unison\.(workspace|url)/, JSON.stringify(bad));
+  assert.throws(() => unisonSettings({ repo: 'acme/tools', unison: { workspace: 'ws_acme1', url: 'http://unison.example/w/ws_acme1' } }, { UNISON_SERVER: 'http://unison.example' }), /https/);
+});
