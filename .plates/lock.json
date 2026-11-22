@@ -147,7 +147,7 @@
     },
     "docs/reconciliation.md": {
       "practice": "reconciliation",
-      "sha256": "e9eb119013c03921bea56bac40c0b6e2bfe1bafb5fdc08a3ff7dcc709ad2014c"
+      "sha256": "7b8d8ea363005dea306d699d93b5a679c68febb955d38f42917239bd7f4b776f"
     },
     "docs/templates/evidence.md": {
       "practice": "evidence",
@@ -156,10 +156,6 @@
     "docs/templates/phase.md": {
       "practice": "phases",
       "sha256": "04f6e88459d02bbcae9997e44b320b9ae0bad2a71a7af247daa105c25572bd39"
-    },
-    "renovate.json": {
-      "practice": "renovate",
-      "sha256": "8c5849b485d7fd9ec7291c0f306015f299e0f05200a62380403fdc9996bd3926"
     },
     "scripts/plates/agy-review-contract.mjs": {
       "practice": "cross-review",

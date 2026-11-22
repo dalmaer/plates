@@ -160,7 +160,7 @@ test('standalone Loop planning validator matches the shared validator exactly', 
 
 test('normal seeded gate with optional Loop survives a milestone source switch', async t => {
   const dir = await temporary(t);
-  const cfg = { name: 'Acme', tagline: 'Acme ships anvils.', repo: 'acme/anvils', practices: ['base', 'agents-md', 'phases', 'evidence', 'lessons', 'conduct', 'ci', 'night', 'renovate'] };
+  const cfg = { name: 'Acme', tagline: 'Acme ships anvils.', repo: 'acme/anvils', practices: ['base', 'agents-md', 'phases', 'evidence', 'lessons', 'conduct', 'ci', 'night'] };
   await config(dir, cfg);
   await installPractices(dir);
   cfg.practices.push('loop');

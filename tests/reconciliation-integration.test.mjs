@@ -138,7 +138,7 @@ test('init --with reconciliation installs a standalone runtime; annotations are 
   assert.equal(doctor.status, 1, doctor.stdout + doctor.stderr);
   assert.ok(JSON.parse(doctor.stdout).lint?.some(f => f.rule === 'acceptance-id'), doctor.stdout + doctor.stderr);
 });
-test('generated Loop and dependency bodies satisfy impact gate only for their declared data', async t => {
+test('generated Loop body satisfies impact gate only for its declared data', async t => {
   const { dir, env } = await fixture(t);
   const { checkImpact } = await import('../practices/reconciliation/files/scripts/plates/reconcile.mjs');
   const yml = await readFile(join(root, 'practices/loop/files/.github/workflows/plates-loop.yml'), 'utf8');
@@ -149,10 +149,7 @@ test('generated Loop and dependency bodies satisfy impact gate only for their de
   assert.equal(generated.status, 0, generated.stderr);
   assert.match(yml, /--body-file "\$RUNNER_TEMP\/loop-body.md"/);
   const loop = await readFile(join(dir, 'loop-body.md'), 'utf8');
-  const renovate = JSON.parse(await readFile(join(root, 'practices/renovate/files/renovate.json'), 'utf8'));
-  assert.ok(renovate.prBodyNotes?.length);
-  for (const lane of [...renovate.packageRules, renovate.lockFileMaintenance, renovate.vulnerabilityAlerts]) assert.equal(lane.prBodyNotes, undefined, 'every lane inherits the impact declaration');
-  for (const [body, changedFiles] of [[loop, ['docs/loop/acme.md', 'docs/LOOP.md', 'docs/ROADMAP.md']], [renovate.prBodyNotes.join('\n\n'), ['package.json', 'package-lock.json', '.nvmrc']]]) {
+  for (const [body, changedFiles] of [[loop, ['docs/loop/acme.md', 'docs/LOOP.md', 'docs/ROADMAP.md']]]) {
     assert.deepEqual((await checkImpact({ root: dir, body, changedFiles })).findings, []);
     assert.ok((await checkImpact({ root: dir, body, changedFiles: [...changedFiles, 'docs/phases/01-store.md'] })).findings.length);
     assert.ok((await checkImpact({ root: dir, body, changedFiles: [...changedFiles, 'docs/decisions/acme.md'] })).findings.length);

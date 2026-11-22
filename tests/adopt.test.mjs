@@ -92,13 +92,13 @@ test('a dry run changes nothing, for either fixture', async () => {
 
 test('acme-groove: milestones make phases local; its gate is check:all; its workflow keeps ci local', async () => {
   const { data } = await adopt({ dir: join(FIXTURES, 'acme-groove'), dryRun: true }, { version: VERSION });
-  assert.deepEqual(states(data), pinsEvery({ base: 'on', 'agents-md': 'on', phases: 'local', evidence: 'on', lessons: 'on', conduct: 'on', ci: 'local', night: 'on', claude: 'off', renovate: 'on', loop: 'off', reconciliation: 'off', shaping: 'off', personas: 'off', audits: 'off', climb: 'off', 'cross-review': 'off', delivery: 'off' }, 'tests/adopt.test.mjs: acme-groove'));
+  assert.deepEqual(states(data), pinsEvery({ base: 'on', 'agents-md': 'on', phases: 'local', evidence: 'on', lessons: 'on', conduct: 'on', ci: 'local', night: 'on', claude: 'off', loop: 'off', reconciliation: 'off', shaping: 'off', personas: 'off', audits: 'off', climb: 'off', 'cross-review': 'off', delivery: 'off' }, 'tests/adopt.test.mjs: acme-groove'));
   assert.equal(data.config.check, 'npm run check:all');
   assert.equal(data.config.name, 'acme-groove');
   assert.equal(data.config.tagline, 'A static practice room for Acme\'s hand drum.');
   assert.match(data.config.local.phases, /migrate milestone→goal \(phase 6 migration\)/);
   assert.match(data.config.local.ci, /pages\.yml already runs `npm run check:all`/);
-  assert.deepEqual(data.config.practices, ['base', 'agents-md', 'evidence', 'lessons', 'conduct', 'night', 'renovate']);
+  assert.deepEqual(data.config.practices, ['base', 'agents-md', 'evidence', 'lessons', 'conduct', 'night']);
   assert.equal(data.practices.find(p => p.name === 'claude').why, 'optional; --with claude to add it');
   assert.equal(status(data, 'scripts/roadmap.mjs'), 'keep-local');
   assert.equal(status(data, 'tests/roadmap.test.js'), 'keep-local');
@@ -136,7 +136,7 @@ test('a project\'s own CI that keeps no gate result gets the test ledger\'s uplo
 
 test('acme-fold: phases without goal or evidence stay local; its TS roadmap is its own', async () => {
   const { data } = await adopt({ dir: join(FIXTURES, 'acme-fold'), dryRun: true }, { version: VERSION });
-  assert.deepEqual(states(data), pinsEvery({ base: 'on', 'agents-md': 'on', phases: 'local', evidence: 'local', lessons: 'on', conduct: 'on', ci: 'local', night: 'on', claude: 'local', renovate: 'on', loop: 'off', reconciliation: 'off', shaping: 'off', personas: 'off', audits: 'off', climb: 'off', 'cross-review': 'off', delivery: 'off' }, 'tests/adopt.test.mjs: acme-fold'));
+  assert.deepEqual(states(data), pinsEvery({ base: 'on', 'agents-md': 'on', phases: 'local', evidence: 'local', lessons: 'on', conduct: 'on', ci: 'local', night: 'on', claude: 'local', loop: 'off', reconciliation: 'off', shaping: 'off', personas: 'off', audits: 'off', climb: 'off', 'cross-review': 'off', delivery: 'off' }, 'tests/adopt.test.mjs: acme-fold'));
   assert.match(data.config.local.claude, /\.github\/workflows\/claude\.yml is the project's own/, 'its own claude.yml stays');
   assert.equal(data.config.check, 'npm run check');
   assert.equal(data.config.tagline, 'What an app can do on the Acme Fold, in every pose.');
@@ -211,7 +211,7 @@ test('adopting acme-fold writes no phase, evidence, check or claude file and kee
   const { data } = await adopt({ dir: join(FIXTURES, 'acme-fold'), dryRun: true }, { version: VERSION });
   const expected = shippedFiles(await load(), states(data), before);
   assert.deepEqual(added, expected, 'adopt writes exactly the switched-on practices\' files it lacked, and plates\'s own');
-  assert.ok(expected.includes('.github/workflows/plates-night.yml') && expected.includes('renovate.json'), 'the night shift and Renovate beside its own workflows');
+  assert.ok(expected.includes('.github/workflows/plates-night.yml'), 'the night shift beside its own workflows');
   for (const own of ['.github/workflows/claude.yml', '.github/workflows/check.yml']) assert.ok(!expected.includes(own), `never a second ${own}`);
   // Mutation, both ways: one file more, or one fewer, than the practices say fails.
   assert.notDeepEqual([...added, 'scripts/plates/acme.mjs'].sort(), expected, 'an extra file would pass');
@@ -241,7 +241,7 @@ test('a bare project: phases off, so is what needs them; ci on and runs its gate
   const dir = await scratch(t);
   await writeFile(join(dir, 'package.json'), JSON.stringify({ name: 'acme-bare', scripts: { check: 'node -e 0' } }));
   const { data } = await adopt({ dir, dryRun: true }, { version: VERSION });
-  assert.deepEqual(states(data), pinsEvery({ base: 'on', 'agents-md': 'on', phases: 'off', evidence: 'off', lessons: 'on', conduct: 'off', ci: 'on', night: 'on', claude: 'off', renovate: 'on', loop: 'off', reconciliation: 'off', shaping: 'off', personas: 'off', audits: 'off', climb: 'off', 'cross-review': 'off', delivery: 'off' }, 'tests/adopt.test.mjs: a bare project'));
+  assert.deepEqual(states(data), pinsEvery({ base: 'on', 'agents-md': 'on', phases: 'off', evidence: 'off', lessons: 'on', conduct: 'off', ci: 'on', night: 'on', claude: 'off', loop: 'off', reconciliation: 'off', shaping: 'off', personas: 'off', audits: 'off', climb: 'off', 'cross-review': 'off', delivery: 'off' }, 'tests/adopt.test.mjs: a bare project'));
   const asked = await adopt({ dir, dryRun: true, with: ['claude'] }, { version: VERSION });
   assert.equal(states(asked.data).claude, 'on', '--with claude switches it on');
   assert.equal(status(asked.data, '.github/workflows/claude.yml'), 'create');
@@ -272,12 +272,9 @@ test('the night shift\'s practices go local where the project already does the j
   await writeFile(join(dir, 'package.json'), JSON.stringify({ name: 'acme-bot', scripts: { check: 'node -e 0' } }));
   await mkdir(join(dir, '.github', 'workflows'), { recursive: true });
   await writeFile(join(dir, '.github/workflows/assistant.yml'), 'name: assistant\non:\n  issue_comment:\n    types: [created]\njobs:\n  a:\n    steps:\n      - uses: anthropics/claude-code-action@v1\n');
-  await writeFile(join(dir, '.github/dependabot.yml'), 'version: 2\n');
   const { data } = await adopt({ dir }, { version: VERSION });
   assert.equal(states(data).claude, 'local');
   assert.match(data.config.local.claude, /assistant\.yml already runs anthropics\/claude-code-action on issue_comment/);
-  assert.equal(states(data).renovate, 'local');
-  assert.match(data.config.local.renovate, /\.github\/dependabot\.yml/);
   assert.equal(states(data).night, 'on');
   assert.deepEqual(data.secrets.map(s => s.name), [], 'the night needs no secret: it runs from the project\'s own scripts');
   const again = await adopt({ dir }, { version: VERSION });

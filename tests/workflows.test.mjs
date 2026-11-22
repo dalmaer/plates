@@ -4036,18 +4036,6 @@ test('Stitch installs use the recorded exact version with lifecycle scripts disa
   }
 });
 
-test('Renovate keeps four lanes behind a strict three-day release cooldown', async () => {
-  for (const file of ['practices/renovate/files/renovate.json', 'renovate.json']) {
-    const config = JSON.parse(await readFile(join(PLATES, file), 'utf8'));
-    assert.equal(config.minimumReleaseAge, '3 days', file);
-    assert.equal(config.internalChecksFilter, 'strict', file);
-    assert.equal(config.lockFileMaintenance.automerge, true);
-    assert.deepEqual([...new Set(config.packageRules.map(r => r.groupSlug).filter(Boolean))].sort(), ['node', 'patch-minor', 'weekly']);
-    assert.ok(config.packageRules.filter(r => r.groupSlug !== 'patch-minor').every(r => r.automerge === false));
-  }
-});
-
-
 test('night and loop: publication refuses a substituted commit or source revision before pushing', async t => {
   const night = await readFile(join(PLATES, 'practices/night/files/.github/workflows/plates-night.yml'), 'utf8');
   const { writePlan, defaultPlan } = await import('../lib/night-plan.mjs');
