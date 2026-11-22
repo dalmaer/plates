@@ -116,7 +116,7 @@ test('init into an empty directory passes the new project\'s own npm run check',
   assert.match(agents, /<!-- plates:begin phases -->\n\*\*Status lives/);
   for (const f of ['CLAUDE.md', '.nvmrc', '.gitignore', 'docs/lessons.md', 'docs/ROADMAP.md',
     '.github/workflows/check.yml', '.github/workflows/plates-night.yml', 'scripts/plates/improve.mjs', 'scripts/plates/drain.mjs',
-    'renovate.json', '.agents/skills/conduct/SKILL.md', '.claude/skills/conduct/SKILL.md']) {
+    '.agents/skills/conduct/SKILL.md', '.claude/skills/conduct/SKILL.md']) {
     await readFile(join(dir, f), 'utf8');
   }
 
@@ -284,7 +284,7 @@ test('--with takes only optional practices, and switches each on', async t => {
   const r = plates(['init', 'y', '--description', DESCRIPTION, '--with', 'claude,loop', '--json'], root);
   assert.equal(r.code, 0, r.err || r.out);
   const out = JSON.parse(r.out);
-  assert.deepEqual(out.config.practices.slice(-3), ['claude', 'renovate', 'loop']);
+  assert.deepEqual(out.config.practices.slice(-2), ['claude', 'loop']);
   assert.deepEqual([...new Set(out.secrets.map(s => s.practice))], ['claude', 'loop']);
 });
 
