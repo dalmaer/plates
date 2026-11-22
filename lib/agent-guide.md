@@ -260,11 +260,6 @@ A practice is a module under plates's `practices/<name>/`. The project's
 - **block** regions (`<!-- plates:begin id -->` … `<!-- plates:end id -->`) sit
   in a file the project owns; only the inside is rewritten.
 - **seeded** files are written once, when absent, and never compared again.
-- `renovate.json` is shaped by the project: a first rule disables its own
-  workspace packages (package.json `workspaces`, each one's `name`, and the
-  root's; one shared scope as `@scope/**`), and `timezone` in `.plates/plates.json` (an IANA name) sets Renovate's.
-  Neither present: the template as shipped. A new workspace package is a
-  render away.
 
 `plates render --check --json` is safe at any time: it writes nothing and lists
 what differs. `--into <dir>` renders onto another project. A render that finds block markers missing refuses to write.

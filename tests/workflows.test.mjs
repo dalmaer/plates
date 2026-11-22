@@ -3427,18 +3427,6 @@ test('Stitch installs use the recorded exact version with lifecycle scripts disa
   }
 });
 
-test('Renovate keeps four lanes behind a strict three-day release cooldown', async () => {
-  for (const file of ['practices/renovate/files/renovate.json', 'renovate.json']) {
-    const config = JSON.parse(await readFile(join(PLATES, file), 'utf8'));
-    assert.equal(config.minimumReleaseAge, '3 days', file);
-    assert.equal(config.internalChecksFilter, 'strict', file);
-    assert.equal(config.lockFileMaintenance.automerge, true);
-    assert.deepEqual([...new Set(config.packageRules.map(r => r.groupSlug).filter(Boolean))].sort(), ['node', 'patch-minor', 'weekly']);
-    assert.ok(config.packageRules.filter(r => r.groupSlug !== 'patch-minor').every(r => r.automerge === false));
-  }
-});
-
-
 test('loop gate: gate.mjs gets a read token for its CI lookup, a project check never does', async t => {
   const template = await readFile(new URL('../practices/loop/files/.github/workflows/plates-loop.yml', import.meta.url), 'utf8');
   const step = template.split('      - name: Gate\n')[1].split('\n      - ')[0];

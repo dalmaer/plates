@@ -26,7 +26,7 @@ async function archive(root) {
 
 test('normal seeded project full gate stays active after milestone switch and leaves archive and package untouched', async t => {
   const root = await scratch(t);
-  const config = { name: 'Acme', tagline: 'Acme ships anvils.', repo: 'acme/anvils', practices: ['base', 'agents-md', 'phases', 'evidence', 'lessons', 'conduct', 'ci', 'night', 'renovate'] };
+  const config = { name: 'Acme', tagline: 'Acme ships anvils.', repo: 'acme/anvils', practices: ['base', 'agents-md', 'phases', 'evidence', 'lessons', 'conduct', 'ci', 'night'] };
   await writeFile(join(root, '.plates/plates.json'), JSON.stringify(config));
   await render(root);
   // Match init's normal test-ledger wiring before capturing project-owned bytes.

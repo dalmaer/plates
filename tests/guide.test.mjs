@@ -341,7 +341,7 @@ test('late review: guide collision checks follow filesystem case semantics', asy
   // Existing and not-yet-created targets, including ancestor collisions.
   const { validateGuideTargets, load } = await import('../lib/practices.mjs');
   const practices = await load();
-  for (const guide of ['Package.json', 'Scripts/ROADMAP.mjs', 'Scripts/ROADMAP.mjs/child', 'RENOVATE.JSON']) {
+  for (const guide of ['Package.json', 'Scripts/ROADMAP.mjs', 'Scripts/ROADMAP.mjs/child', 'Docs/Templates/EVIDENCE.MD']) {
     if (insensitive) {
       assert.throws(() => validateGuideTargets({ guide }, practices, dir), /guide:.*collides/);
       await assert.rejects(adoptAt(dir, { guide }), /guide:.*collides/);

@@ -50,11 +50,10 @@ Health reports can pass through the existing data queue; phase, decision,
 research, design and evidence corrections require human review.
 
 Generated night, Loop, and practice-update PR bodies include explicit no-impact
-reasons for their data/infrastructure changes. Managed Renovate configuration
-adds the same contract through `prBodyNotes` for dependency updates. If a
+reasons for their data/infrastructure changes. If a
 migration, custom Loop step, or dependency change edits actual records, replace
 that declaration with the affected references and review the reconciliation;
-the diff check grants no exemption for bots. Existing open PRs and local bot
+the diff check grants no exemption for bots. Existing open PRs and bot
 configurations are not rewritten: add the declaration to their bodies/configs.
 
 ## Decision context for a builder

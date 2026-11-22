@@ -505,3 +505,22 @@ for (const consumer of ['loop', 'reconciliation']) for (const ownership of ['loc
     assert.equal(await readFile(join(root, path), 'utf8'), original);
   });
 }
+
+test('a retired practice still named in .plates/plates.json is skipped, never an error, and its file stays the project\'s', async () => {
+  const { RETIRED, activePractices } = await import('../lib/practices.mjs');
+  const all = await load();
+  assert.ok(RETIRED.has('renovate') && !all.has('renovate'), 'renovate is retired and no longer carried');
+  const withRetired = { ...ACME, practices: [...ACME.practices, 'renovate'] };
+  assert.deepEqual(activePractices(withRetired), ACME.practices);
+  assert.deepEqual(targets(withRetired, all).map(f => f.path), targets(ACME, all).map(f => f.path));
+  assert.ok(!targets(withRetired, all).some(f => f.path === 'renovate.json'), 'plates no longer manages renovate.json');
+  assert.throws(() => targets({ ...ACME, practices: [...ACME.practices, 'no-such-practice'] }, all), /unknown practice no-such-practice/);
+  const dir = await temp('retired');
+  try {
+    await mkdir(join(dir, '.plates'), { recursive: true });
+    await writeFile(join(dir, '.plates/plates.json'), JSON.stringify(withRetired, null, 2) + '\n');
+    await writeFile(join(dir, 'renovate.json'), '{"extends":["github>dalmaer/renovate-config"]}\n');
+    const entries = await plan(dir, withRetired, all);
+    assert.ok(!entries.some(e => e.path === 'renovate.json'), 'the render plan neither writes nor removes the project\'s renovate.json');
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
