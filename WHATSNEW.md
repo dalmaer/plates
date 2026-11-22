@@ -5,6 +5,24 @@ practice version: what changes in your repo, and anything you need to do.
 Newest first. `plates release` writes them; `plates update` puts the entries
 between your version and the new one into its pull request.
 
+## v0.9.2 — practice 0.9.2 (2026-11-22)
+
+Two days of fixes since 0.9.1. The renovate practice is retired, and the night runs quieter.
+
+**Renovate config moves to a shared preset.** Plates no longer writes `renovate.json`. Each repo's file now just extends `github>dalmaer/renovate-config`, which keeps the same four lanes. A project that still lists `renovate` in `.plates/plates.json` keeps working: plates skips it, `plates doctor` notes that it can be removed, and `renovate.json` stays as the project's own file. Plates never deletes it.
+
+**The night is steadier.** Test history finds the gate workflow by its `.yml` name and looks past the first 100 workflows. Inside a gate, a JUnit run with no `--start` is judged but not recorded. The test ledger's own git never runs a planted fsmonitor or hook. Time proposals keep the repository's own casing. Timing is restored before climb plans.
+
+**Workflows and guards.** Reading a workflow's shell keeps a `$(…)` command substitution whole, and a heredoc ends only at its own delimiter. Climb's tend and proposal guards now check each commit, not just the range. Robot artifact uploads overwrite, so rerunning a failed job gets past them. Action pins stay in sync with the registry. The Loop pull runs weekly.
+
+**Lessons and trying it by hand.** A lesson is recorded only from a real failure. Trying the work by hand is offered as an invitation, never a gate.
+
+**Unison (opt in).** `plates unison status`, `connect`, `sync` and `open`. The workspace mapping lives in `.plates/plates.json`.
+
+**What to do:** update the Plates CLI and run `plates update`. Once the update lands, you can remove `renovate` from `.plates/plates.json` if it's still listed. Nothing else needs doing.
+
+Released without the review gate (25 practice commits unchecked): post-merge fixes reviewed by cross-review; comments not formally answered; the head of each PR was not re-reviewed after merge
+
 ## v0.9.1 — practice 0.9.1 (2026-11-20)
 
 A day of fixes and two additions since 0.9.0.
