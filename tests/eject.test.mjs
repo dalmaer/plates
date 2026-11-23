@@ -8,7 +8,7 @@ import { join, dirname, resolve } from 'node:path';
 import { run as exec } from './helpers/run.mjs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { planEject, workflowSteps, scheduledJob, movedTo, resourcesOf } from '../lib/eject.mjs';
+import { planEject, workflowSteps, scheduledJob, movedTo, resourcesOf, dedentTo } from '../lib/eject.mjs';
 
 const BIN = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'plates.mjs');
 
@@ -170,7 +170,7 @@ test('the plan finds every managed file and every reference to plates', async t 
   assert.equal(fate(plan, 'package.json').fate, 'rewrite');
   const refs = (path, kind) => plan.references.filter(r => r.path === path && (!kind || r.kind === kind));
   assert.match(refs('.github/workflows/check.yml', 'call')[0].rewrite, /scripts\/plates\/workflows\.mjs → scripts\/workflows\.mjs/);
-  assert.match(refs('.github/workflows/check.yml', 'guarded-call')[0].rewrite, /plain branch, line for line:\n {6}npm run check$/);
+  assert.match(refs('.github/workflows/check.yml', 'guarded-call')[0].rewrite, /plain branch, byte for byte:\n {10}npm run check$/);
   const steps = refs('.github/workflows/check.yml', 'step').map(r => r.rewrite);
   assert.ok(steps.some(s => /^drop the step: it keeps \.plates\/test-runs\//.test(s)), steps.join('\n'));
   assert.ok(steps.some(s => /^drop the step: it runs only with the reconciliation practice/.test(s)), steps.join('\n'));
@@ -465,7 +465,7 @@ test('a plain fallback keeps its lines: a comment never swallows the command', a
   t.after(() => rm(root, { recursive: true, force: true }));
   const plan = await planEject({ root });
   const gate = plan.references.find(r => r.kind === 'guarded-call');
-  assert.match(gate.rewrite, /line for line:\n {6}# Run the project gate\n {6}printf acme-checked$/);
+  assert.match(gate.rewrite, /byte for byte:\n {10}# Run the project gate\n {10}printf acme-checked$/);
   assert.doesNotMatch(gate.rewrite, /gate; printf/);
 });
 
@@ -591,4 +591,27 @@ test('a moved module reading a sibling resource keeps it, moves it alongside, an
   assert.equal(fate(plan, 'scripts/plates/defaults.json').to, 'scripts/defaults.json');
   assert.deepEqual(plan.references.filter(r => r.kind === 'location').map(r => r.path), ['scripts/plates/lib.mjs']);
   assert.deepEqual(resourcesOf("const a = join(__dirname, 'data', 'x.json');\nconst b = new URL('https://acme.invalid/', import.meta.url);\n"), ['data/x.json']);
+});
+
+// A fallback whose output depends on its indentation: a heredoc with a nested, indented line and a blank one.
+const HEREDOC = ["cat <<'ACME'", 'def check():', '    return "anvils"', '', 'ACME'];
+
+test('a plain fallback keeps its relative indentation and blank lines byte for byte', async t => {
+  const root = await acme({ extra: { '.github/workflows/check.yml': gateWith(HEREDOC) } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const gate = plan.references.find(r => r.kind === 'guarded-call');
+  assert.deepEqual(gate.lines, ["          cat <<'ACME'", '          def check():', '              return "anvils"', '            ', '          ACME'], 'a blank line stays as it was');
+  assert.deepEqual(dedentTo(['\t\tx', '\t\t\ty'], '  '), ['  x', '  \ty']);
+});
+
+test('a plain fallback that cannot be dedented safely needs a person', async t => {
+  assert.equal(dedentTo(['  x', '\ty'], ''), null, 'tabs and spaces mixed');
+  const root = await acme({ extra: { '.github/workflows/check.yml': gateWith(['printf one', '\tprintf two']) } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const gate = plan.references.find(r => r.kind === 'guarded-call');
+  assert.equal(gate.rewrite, null);
+  assert.match(gate.needsPerson, /mixes tabs and spaces/);
+  assert.deepEqual(plan.refusals, []);
 });
