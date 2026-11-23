@@ -592,3 +592,39 @@ test('a kept step or check script left with nothing to run is refused, never dro
   assert.ok(second.refusals.some(r => /"check" would be left empty/.test(r.detail)));
   assert.ok(second.refusals.some(r => /"test" only runs scripts\/roadmap\.mjs/.test(r.detail)));
 });
+
+test('a kept line naming several managed files keeps every one', async t => {
+  const flow = 'name: docs\non:\n  push:\njobs:\n  d:\n    runs-on: ubuntu-latest\n    steps:\n      - run: node scripts/roadmap.mjs --check && cat docs/templates/phase.md\n      - run: node scripts/plates/drain.mjs && node scripts/roadmap.mjs\n';
+  const root = await acme({ extra: { '.github/workflows/docs.yml': flow } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  for (const path of ['scripts/roadmap.mjs', 'docs/templates/phase.md', 'scripts/plates/drain.mjs']) assert.equal(fate(plan, path).fate, 'keep', path);
+  assert.match(fate(plan, 'docs/templates/phase.md').reason, /needed by \.github\/workflows\/docs\.yml/);
+  assert.match(fate(plan, 'scripts/roadmap.mjs').reason, /needed by \.github\/workflows\/docs\.yml/);
+  // Kept, so its npm scripts stay too.
+  assert.deepEqual(plan.references.filter(r => r.path === 'package.json' && r.kind === 'npm-script'), []);
+});
+
+test('a moved file that finds paths from its own location needs a person', async t => {
+  const lib = "import { fileURLToPath } from 'node:url';\nexport { name } from './names.mjs';\nexport const root = fileURLToPath(new URL('../..', import.meta.url));\nexport const main = () => {};\n";
+  const root = await acme({ extra: { 'scripts/plates/lib.mjs': lib } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  assert.equal(fate(plan, 'scripts/plates/lib.mjs').to, 'scripts/lib.mjs', 'the move stays planned');
+  const flagged = plan.references.filter(r => r.kind === 'location');
+  assert.deepEqual(flagged.map(r => r.path), ['scripts/plates/lib.mjs']);
+  assert.match(flagged[0].needsPerson, /moving it to scripts\/lib\.mjs changes them/);
+});
+
+test('a kept symlink to a managed file keeps its target, and never dangles', async t => {
+  const root = await acme({
+    extra: { 'scripts/lint.mjs': '', 'tools/roadmap.mjs': '' },
+    links: { 'scripts/lint.mjs': 'plates/workflows.mjs', 'tools/roadmap.mjs': '../scripts/roadmap.mjs' },
+  });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  assert.equal(fate(plan, 'scripts/roadmap.mjs').fate, 'keep');
+  assert.match(plan.references.find(r => r.kind === 'link' && r.path === 'tools/roadmap.mjs').needsPerson, /a symlink to scripts\/roadmap\.mjs/);
+  // A link whose target would move is refused: the link would dangle.
+  assert.deepEqual(plan.refusals.map(r => `${r.code} ${r.path}`), ['link-to-moved scripts/lint.mjs']);
+});
