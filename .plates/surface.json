@@ -1,6 +1,6 @@
 {
-  "verbs": 59,
-  "flags": 249,
+  "verbs": 60,
+  "flags": 251,
   "counted": "verbs: every key of `verbs` in lib/cli.mjs, including retired stubs (\"goal add\" is one verb). flags: each distinct --flag a verb's usage string names counts once for that verb, so --dry-run on two verbs counts twice; the shared flags --json and --yes count once for the whole CLI, and only when some usage string names them; --help and -h are top-level help aliases, not shared verb flags or additional counted options; each top-level flag in FLAGS (--agent-help, --version) counts once.",
   "surface": {
     "shared": ["--json", "--yes"],
@@ -57,6 +57,7 @@
       "walk": ["--accept", "--box", "--choice", "--decline", "--instance", "--map", "--note", "--new-follow-up", "--proposal", "--tried"],
       "canvas": ["--artifact", "--audience", "--canvas", "--card", "--create", "--dry-run", "--github", "--history", "--home", "--keep", "--no-keep", "--off", "--onto", "--output", "--report", "--snapshot", "--space", "--title", "--window-days"],
       "unison": ["--item"],
+      "eject": ["--drop-night", "--dry-run"],
       "retro": ["--bundle", "--case", "--credential-fd", "--destination", "--digest", "--execution", "--experiment", "--limit", "--manifest", "--pr-metadata", "--previous", "--record", "--reference-mix", "--repository", "--session", "--since", "--state", "--worksheet"],
       "workspace": ["--manifest", "--state"],
       "shape": ["--digest", "--output"],
