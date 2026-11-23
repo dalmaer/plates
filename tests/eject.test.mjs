@@ -880,7 +880,7 @@ const managedCi = extra => ({
   lock: { '.github/workflows/check.yml': { practice: 'ci', sha256: 'x' } },
 });
 
-test("the ci practice's check.yml stays as the project's only pull-request CI, rewritten to install and npm run check", async t => {
+test("the ci practice's check.yml is always kept as the project's pull-request CI, rewritten to install and npm run check", async t => {
   const root = await acme(managedCi());
   t.after(() => rm(root, { recursive: true, force: true }));
   const plan = await planEject({ root });
@@ -889,14 +889,27 @@ test("the ci practice's check.yml stays as the project's only pull-request CI, r
   assert.deepEqual(refs.filter(r => r.rewrite).map(r => r.kind).sort(), ['guarded-call', 'install']);
   assert.deepEqual(refs.find(r => r.kind === 'install').lines, ['          npm ci']);
   assert.ok(!refs.some(r => r.needsPerson), refs.filter(r => r.needsPerson).map(r => r.needsPerson).join('\n'));
-  // Another kept workflow running the check on pull requests: check.yml drops with its practice.
+  // Even beside another workflow that runs the check on pull requests, check.yml is kept: two PR checks are harmless.
   const other = await acme(managedCi({ '.github/workflows/test.yml': 'name: test\non:\n  pull_request:\njobs:\n  t:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm run check\n' }));
   t.after(() => rm(other, { recursive: true, force: true }));
-  assert.equal(fate(await planEject({ root: other }), '.github/workflows/check.yml').fate, 'drop');
+  assert.equal(fate(await planEject({ root: other }), '.github/workflows/check.yml').fate, 'rewrite');
   // Applied: install, then the project's own check, and nothing of plates.
   const applied = plannedTexts(root, plan).get('.github/workflows/check.yml');
   assert.match(applied, /- name: Install source test tooling\n {8}run: \|\n {10}npm ci\n {6}- name: Run the configured gate\n {8}run: \|\n {10}npm run check\n$/);
   assert.doesNotMatch(applied, /plates/);
+});
+
+test('a require of a package directory needs a person, and keeps everything in it', async t => {
+  const root = await acme({
+    extra: { 'scripts/check.cjs': "const kit = require('./plates/kit');\n", 'scripts/plates/kit/package.json': '{"main":"main.js"}\n', 'scripts/plates/kit/main.js': 'module.exports = 1;\n', 'scripts/plates/kit/index.js': 'module.exports = 2;\n' },
+    lock: Object.fromEntries(['scripts/plates/kit/package.json', 'scripts/plates/kit/main.js', 'scripts/plates/kit/index.js'].map(p => [p, { practice: 'night', sha256: 'x' }])),
+  });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  for (const p of ['scripts/plates/kit/package.json', 'scripts/plates/kit/main.js', 'scripts/plates/kit/index.js']) assert.notEqual(fate(plan, p).fate, 'drop', p);
+  const refs = plan.references.filter(r => r.path === 'scripts/check.cjs');
+  assert.deepEqual(refs.map(r => [r.kind, r.rewrite]), [['import', null]]);
+  assert.match(refs[0].needsPerson, /package directory scripts\/plates\/kit/);
 });
 
 test('the self-install step becomes npm ci only when it is nothing but the install conditional', async t => {
