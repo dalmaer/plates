@@ -348,3 +348,67 @@ test('a guide under docs/ is swept like a root AGENTS.md', async t => {
   assert.equal(refs[0].line, 4);
   assert.deepEqual(refs[0].targets, ['.plates/']);
 });
+
+const withScripts = scripts => { const pkg = JSON.parse(PACKAGE); Object.assign(pkg.scripts, scripts); return JSON.stringify(pkg, null, 2) + '\n'; };
+
+test('what a test script calls beside the plates reporter is still a dependency', async t => {
+  const root = await acme({ extra: {
+    'package.json': withScripts({ test: 'node --test --test-reporter=./scripts/plates/test-ledger.mjs tests/*.test.mjs && node scripts/plates/drain.mjs' }),
+  } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const refs = plan.references.filter(r => r.path === 'package.json' && r.text.startsWith('"test"'));
+  assert.match(refs.find(r => r.kind === 'reporter').rewrite, /^"test": "node --test tests\/\*\.test\.mjs && node scripts\/plates\/drain\.mjs"/);
+  assert.match(refs.find(r => r.kind === 'call').rewrite, /scripts\/plates\/drain\.mjs → scripts\/drain\.mjs/);
+  assert.equal(fate(plan, 'scripts/plates/drain.mjs').fate, 'keep');
+  assert.equal(fate(plan, 'scripts/plates/lib.mjs').fate, 'keep', 'and what it imports');
+});
+
+test('a removed npm run takes its -- arguments with it, or is a person\'s call', async t => {
+  const root = await acme({ extra: { 'package.json': withScripts({
+    check: 'node src/anvil.mjs && npm run roadmap -- --check',
+    verify: 'npm run roadmap -- --check || echo stale',
+  }) } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const refs = plan.references.filter(r => r.path === 'package.json' && r.kind === 'npm-script');
+  assert.equal(refs.find(r => r.text.startsWith('"check"')).rewrite, '"check": "node src/anvil.mjs"');
+  const verify = refs.find(r => r.text.startsWith('"verify"'));
+  assert.equal(verify.rewrite, null);
+  assert.match(verify.needsPerson, /cannot be cut out safely/);
+});
+
+test('a bare plates call in a workflow or an npm script needs a person', async t => {
+  const doctor = 'name: doctor\non:\n  push:\njobs:\n  d:\n    runs-on: ubuntu-latest\n    steps:\n      - name: Doctor\n        run: plates doctor --json\n      - name: plates-free\n        run: echo plates-are-round\n';
+  const root = await acme({ extra: { '.github/workflows/doctor.yml': doctor, 'package.json': withScripts({ status: 'npm test && plates status' }) } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const cli = plan.references.filter(r => r.kind === 'cli').map(r => [r.path, r.line, r.targets[0]]);
+  assert.deepEqual(cli.sort(), [['.github/workflows/doctor.yml', 9, 'plates doctor'], ['package.json', 10, 'plates status']]);
+});
+
+test('a relative .plates/ path in kept code needs a person', async t => {
+  const root = await acme({ extra: { 'src/config.mjs': "export const url = new URL('../.plates/plates.json', import.meta.url);\n" } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const refs = plan.references.filter(r => r.path === 'src/config.mjs');
+  assert.deepEqual(refs.map(r => [r.kind, r.targets[0], Boolean(r.needsPerson)]), [['config', '.plates/', true]]);
+});
+
+test('workflow_run sources are read inline, as a block list, and after other keys', () => {
+  assert.deepEqual(scheduledJob('m.yml', 'name: m\non:\n  workflow_run:\n    types: [completed]\n    workflows:\n      - acme-night\n      - "acme-climb"\n    branches: [main]\n').after, ['acme-night', 'acme-climb']);
+  assert.deepEqual(scheduledJob('m.yml', 'name: m\non:\n  workflow_run:\n    types: [completed]\n    workflows: [acme-night, acme-tend]\n').after, ['acme-night', 'acme-tend']);
+  assert.deepEqual(scheduledJob('m.yml', 'name: m\non:\n  workflow_run:\n    workflows: acme-night\n').after, ['acme-night']);
+});
+
+test('a kept file naming a removed npm script: a lone fenced command line goes, prose needs a person', async t => {
+  const readme = '# Acme\n\nRun `npm run roadmap` to see the plan.\n\n```bash\nnpm run roadmap   # the plan\nnpm test\n```\n';
+  const root = await acme({ extra: { 'README.md': readme } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const refs = plan.references.filter(r => r.path === 'README.md').map(r => [r.line, r.kind, r.rewrite, Boolean(r.needsPerson)]);
+  assert.deepEqual(refs, [
+    [3, 'npm-run', null, true],
+    [6, 'npm-run', 'delete the line: eject removes npm run roadmap', false],
+  ]);
+});
