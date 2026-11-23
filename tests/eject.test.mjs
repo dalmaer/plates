@@ -1,0 +1,270 @@
+// plates eject --dry-run (phase 206, increment 1): the plan, on a synthetic
+// project ("Acme"), and the proof that it writes nothing.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, mkdir, writeFile, readFile, readdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, dirname, resolve } from 'node:path';
+import { run as exec } from './helpers/run.mjs';
+import { createHash } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+import { planEject, workflowSteps, scheduledJob, movedTo } from '../lib/eject.mjs';
+
+const BIN = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'plates.mjs');
+
+const CHECK = `name: check
+on:
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # The workflow lint the project chose to keep.
+      - name: Lint workflows
+        run: node scripts/plates/workflows.mjs --check
+      # The configured gate: scripts/plates/gate.mjs --ci, else npm run check.
+      - name: Run the configured gate
+        run: |
+          if [ -f scripts/plates/gate.mjs ]; then
+            node scripts/plates/gate.mjs --ci
+          elif [ -f scripts/plates/test-ledger.mjs ]; then
+            node scripts/plates/test-ledger.mjs --gate
+          else
+            npm run check
+          fi
+      # The test ledger's record (scripts/plates/test-ledger.mjs).
+      - name: Keep the test ledger
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: plates-test-runs
+          path: .plates/test-runs/
+          if-no-files-found: ignore
+      - name: Reconcile records (optional)
+        run: |
+          if node -e 'const c=JSON.parse(require("fs").readFileSync(".plates/plates.json","utf8"));process.exit(c.practices.includes("reconciliation")?0:1)'; then
+            node scripts/plates/reconcile.mjs --json
+          fi
+`;
+
+const NIGHT = `# The night shift (plates practice \`night\`; managed).
+#
+# Each night: measure the practice (scripts/plates/improve.mjs), and drain the queue. More.
+name: plates-night
+on:
+  schedule:
+    - cron: "23 7 * * *"
+jobs:
+  night:
+    runs-on: ubuntu-latest
+    steps:
+      - run: node scripts/plates/drain.mjs
+`;
+
+const PACKAGE = JSON.stringify({
+  name: 'acme', private: true, type: 'module',
+  scripts: {
+    test: 'node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/plates/test-ledger.mjs --test-reporter-destination=stdout tests/*.test.mjs',
+    roadmap: 'node scripts/roadmap.mjs',
+    'roadmap:check': 'node scripts/roadmap.mjs --check',
+    check: 'npm test && npm run roadmap:check',
+  },
+}, null, 2) + '\n';
+
+const AGENTS = `# Acme
+
+Acme sells anvils. Run \`npm run check\` before a PR.
+
+<!-- plates:begin agents-md -->
+plates's files are listed in \`.plates/lock.json\`.
+<!-- plates:end agents-md -->
+
+<!-- plates:begin night -->
+The night shift runs scripts/plates/drain.mjs.
+<!-- plates:end night -->
+`;
+
+const MANAGED = {
+  'CLAUDE.md': ['agents-md', 'Read AGENTS.md.\n'],
+  '.agents/skills/plates/SKILL.md': ['agents-md', '# plates\n'],
+  'AGENTS.md#agents-md': ['agents-md'],
+  'AGENTS.md#night': ['night'],
+  '.github/workflows/plates-night.yml': ['night', NIGHT],
+  'scripts/plates/workflows.mjs': ['ci', "import { main } from './lib.mjs';\nmain();\n"],
+  'tests/plates-workflows.test.mjs': ['ci', "import '../scripts/plates/workflows.mjs';\n"],
+  'scripts/plates/lib.mjs': ['night', "export { name } from './names.mjs';\nexport const main = () => {};\n"],
+  'scripts/plates/names.mjs': ['night', "export const name = 'acme';\n"],
+  'scripts/plates/names.d.mts': ['night', 'export const name: string;\n'],
+  'scripts/plates/drain.mjs': ['night', "import { main } from './lib.mjs';\nmain();\n"],
+  'scripts/plates/gate.mjs': ['night', "import './test-ledger.mjs';\n"],
+  'scripts/plates/test-ledger.mjs': ['night', 'export default async function* () {}\n'],
+  'scripts/plates/improve.mjs': ['night', "export const improve = () => '.plates/health';\n"],
+  'scripts/roadmap.mjs': ['phases', 'console.log("roadmap");\n'],
+  'docs/templates/phase.md': ['phases', '# Phase\n'],
+};
+
+async function acme({ extra = {}, lock: lockExtra = {} } = {}) {
+  const root = await mkdtemp(join(tmpdir(), 'plates-eject-'));
+  const files = {
+    '.plates/plates.json': JSON.stringify({ name: 'acme', repo: 'acme/anvils', practice: '0.9.0', practices: ['base', 'agents-md', 'phases', 'ci', 'night'], ejected: ['.github/workflows/check.yml'] }, null, 2),
+    '.github/workflows/check.yml': CHECK,
+    'package.json': PACKAGE,
+    'AGENTS.md': AGENTS,
+    'src/anvil.mjs': 'export const weight = 100;\n',
+    ...Object.fromEntries(Object.entries(MANAGED).filter(([k, [, body]]) => !k.includes('#') && body !== undefined).map(([k, [, body]]) => [k, body])),
+    ...extra,
+  };
+  const lock = { practice: '0.9.0', files: { ...Object.fromEntries(Object.entries(MANAGED).map(([k, [practice]]) => [k, { practice, sha256: 'x' }])), ...lockExtra } };
+  files['.plates/lock.json'] = JSON.stringify(lock, null, 2);
+  for (const [path, body] of Object.entries(files)) {
+    await mkdir(dirname(join(root, path)), { recursive: true });
+    await writeFile(join(root, path), body);
+  }
+  const g = (...args) => { const r = exec('git', args, { cwd: root }); if (r.status !== 0) throw new Error(r.stderr); };
+  g('init', '-q'); g('config', 'user.email', 'acme@example.invalid'); g('config', 'user.name', 'Acme'); g('config', 'commit.gpgsign', 'false');
+  g('add', '-A'); g('commit', '-q', '-m', 'acme');
+  return root;
+}
+
+async function treeHash(root, dir = '') {
+  const h = createHash('sha256');
+  const walk = async rel => {
+    for (const e of (await readdir(join(root, rel), { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
+      const p = rel ? `${rel}/${e.name}` : e.name;
+      h.update(`${p}\0`);
+      if (e.isDirectory()) await walk(p);
+      else h.update(await readFile(join(root, p)));
+    }
+  };
+  await walk(dir);
+  return h.digest('hex');
+}
+
+const fate = (plan, key) => plan.files.find(r => (r.block ? `${r.path}#${r.block}` : r.path) === key);
+const run = (cwd, ...args) => exec(process.execPath, [BIN, ...args], { cwd });
+
+test('the plan finds every managed file and every reference to plates', async t => {
+  const root = await acme();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  assert.equal(plan.wrote, false);
+  for (const key of Object.keys(MANAGED)) {
+    const row = fate(plan, key);
+    assert.ok(row, `${key} has no row`);
+    assert.ok(['keep', 'drop', 'rewrite', 'person'].includes(row.fate), `${key}: ${row.fate}`);
+  }
+  // By practice: night, phases and ci drop; agents-md stays; the plates skill drops.
+  assert.equal(fate(plan, 'scripts/plates/drain.mjs').fate, 'drop');
+  assert.equal(fate(plan, 'scripts/plates/improve.mjs').fate, 'drop');
+  assert.equal(fate(plan, 'scripts/roadmap.mjs').fate, 'drop');
+  assert.equal(fate(plan, 'tests/plates-workflows.test.mjs').fate, 'drop');
+  assert.equal(fate(plan, 'AGENTS.md#night').fate, 'drop');
+  assert.equal(fate(plan, 'AGENTS.md#agents-md').fate, 'keep');
+  assert.equal(fate(plan, 'CLAUDE.md').fate, 'keep');
+  assert.equal(fate(plan, '.agents/skills/plates/SKILL.md').fate, 'drop');
+  assert.equal(fate(plan, '.plates/').fate, 'drop');
+  // The ejected workflow and package.json are kept, with their references rewritten.
+  assert.equal(fate(plan, '.github/workflows/check.yml').fate, 'rewrite');
+  assert.equal(fate(plan, 'package.json').fate, 'rewrite');
+  const refs = (path, kind) => plan.references.filter(r => r.path === path && (!kind || r.kind === kind));
+  assert.match(refs('.github/workflows/check.yml', 'call')[0].rewrite, /scripts\/plates\/workflows\.mjs → scripts\/workflows\.mjs/);
+  assert.match(refs('.github/workflows/check.yml', 'guarded-call')[0].rewrite, /plain branch: npm run check$/);
+  const steps = refs('.github/workflows/check.yml', 'step').map(r => r.rewrite);
+  assert.ok(steps.some(s => /^drop the step: it keeps \.plates\/test-runs\//.test(s)), steps.join('\n'));
+  assert.ok(steps.some(s => /^drop the step: it runs only with the reconciliation practice/.test(s)), steps.join('\n'));
+  assert.match(refs('package.json', 'reporter')[0].rewrite, /^"test": "node --test --test-reporter=spec --test-reporter-destination=stdout tests\/\*\.test\.mjs"/);
+  assert.deepEqual(refs('package.json', 'npm-script').map(r => r.rewrite), [
+    'remove "roadmap": it runs scripts/roadmap.mjs, which eject drops (phases)',
+    'remove "roadmap:check": it runs scripts/roadmap.mjs, which eject drops (phases)',
+    '"check": "npm test"',
+  ]);
+  // A comment naming a plates script, and the kept AGENTS.md section naming .plates/, need a person.
+  assert.ok(refs('.github/workflows/check.yml', 'prose').some(r => r.needsPerson));
+  assert.ok(refs('AGENTS.md').some(r => /\.plates\//.test(r.needsPerson ?? '')));
+  // The dropped night section is not swept: its scripts/plates/drain.mjs is not a dependency.
+  assert.ok(!refs('AGENTS.md').some(r => r.targets.includes('scripts/plates/drain.mjs')));
+  // The night shift's jobs, with what each does.
+  assert.deepEqual(plan.jobs.map(j => [j.name, j.cron, j.fate]), [['plates-night', ['23 7 * * *'], 'drop']]);
+  assert.equal(plan.jobs[0].summary, 'The night shift: Each night: measure the practice, and drain the queue.');
+  assert.deepEqual(plan.refusals, []);
+});
+
+test("a kept workflow's plates script and its imports are kept, and moved out of scripts/plates/", async t => {
+  const root = await acme();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  for (const path of ['scripts/plates/workflows.mjs', 'scripts/plates/lib.mjs', 'scripts/plates/names.mjs']) {
+    const row = fate(plan, path);
+    assert.notEqual(row.fate, 'drop', `${path} is needed, yet dropped`);
+    assert.equal(row.to, movedTo(path));
+  }
+  assert.deepEqual(fate(plan, 'scripts/plates/workflows.mjs').neededBy, ['.github/workflows/check.yml']);
+  assert.match(fate(plan, 'scripts/plates/names.mjs').reason, /needed by scripts\/plates\/lib\.mjs/);
+  assert.equal(fate(plan, 'scripts/plates/names.d.mts').fate, 'keep', 'the types of a kept module stay with it');
+  // Guarded with a plain fallback: not a dependency.
+  assert.equal(fate(plan, 'scripts/plates/gate.mjs').fate, 'drop');
+  assert.equal(fate(plan, 'scripts/plates/test-ledger.mjs').fate, 'drop');
+});
+
+test('the dry run writes nothing', async t => {
+  const root = await acme();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const before = await treeHash(root);
+  const r = run(root, 'eject', '--dry-run', '--json');
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  const plan = JSON.parse(r.stdout);
+  assert.equal(plan.dryRun, true);
+  assert.ok(plan.files.length > Object.keys(MANAGED).length);
+  const text = run(root, 'eject', '--dry-run');
+  assert.equal(text.status, 0);
+  assert.match(text.stdout, /Nothing was written\./);
+  assert.match(text.stdout, /Night-shift jobs \(1\)/);
+  assert.equal(await treeHash(root), before, 'the tree (and .git) changed');
+  // Without --dry-run there is nothing to apply yet.
+  const apply = run(root, 'eject');
+  assert.equal(apply.status, 2);
+  assert.equal(await treeHash(root), before);
+});
+
+test('a dirty tree is refused', async t => {
+  const root = await acme();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(join(root, 'src/anvil.mjs'), 'export const weight = 200;\n');
+  const r = run(root, 'eject', '--dry-run', '--json');
+  assert.equal(r.status, 1);
+  const plan = JSON.parse(r.stdout);
+  assert.deepEqual(plan.refusals.map(x => x.code), ['uncommitted']);
+  assert.match(plan.refusals[0].detail, /src\/anvil\.mjs/);
+});
+
+test('an unknown managed file and a missing plates script are refused', async t => {
+  const extra = {
+    'scripts/plates/stray.mjs': 'export {};\n',
+    '.github/workflows/deploy.yml': 'name: deploy\non:\n  push:\njobs:\n  d:\n    runs-on: ubuntu-latest\n    steps:\n      - run: node scripts/plates/promote.mjs\n',
+  };
+  const root = await acme({ extra });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const codes = plan.refusals.map(r => `${r.code} ${r.path}`).sort();
+  assert.deepEqual(codes, ['missing-script scripts/plates/promote.mjs', 'unknown-managed scripts/plates/stray.mjs']);
+  assert.equal(fate(plan, 'scripts/plates/stray.mjs').fate, 'person');
+});
+
+test('a lock entry of a practice plates does not know is refused', async t => {
+  const root = await acme({ extra: { 'tools/odd.mjs': 'export {};\n' }, lock: { 'tools/odd.mjs': { practice: 'mystery', sha256: 'x' } } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  assert.deepEqual(plan.refusals.map(r => r.code), ['unknown-managed']);
+  assert.equal(fate(plan, 'tools/odd.mjs').fate, 'person');
+});
+
+test('workflow steps carry their leading comments; scheduled jobs are found', () => {
+  const steps = workflowSteps(CHECK);
+  assert.equal(steps.length, 5);
+  assert.match(steps[1].lines[0], /# The workflow lint/);
+  assert.match(steps[3].lines[0], /# The test ledger's record/);
+  assert.equal(scheduledJob('check.yml', CHECK), null);
+  const morning = 'name: plates-morning\non:\n  workflow_run:\n    workflows: [plates-night]\n    types: [completed]\n';
+  assert.deepEqual(scheduledJob('m.yml', morning).after, ['plates-night']);
+});

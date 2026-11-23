@@ -106,3 +106,30 @@ neither `npm pack` nor a `.gitignore` negation can expose it.
 
 Unison or GitHub that cannot be read is "Unison not read" (exit 1, `plan: null`),
 never an empty backlog.
+
+## Leaving plates: the eject plan
+
+When a plate's work lives in Unison, the plate can leave plates (phase 206).
+The first step only reads:
+
+```
+plates eject --dry-run          # the plan; writes nothing
+plates eject --dry-run --json   # the same, as data
+```
+
+The plan gives every file plates manages a fate: keep (the project's own),
+rewrite (kept, its references to plates rewritten), drop (plates-only
+machinery: the night shift, phases, conduct, evidence, lessons and ci
+practices, and the plates skill), or a person's call. It lists every
+reference to plates in a file the project keeps (a workflow `run:` line
+calling `scripts/plates/…`, plates's test reporter in `package.json`, a line
+naming `.plates/`) with its rewrite, or "needs a person". It lists the
+scheduled workflows, so you can choose which become Unison Recurring tasks.
+And it lists what stops eject: uncommitted changes, a plates-looking file the
+lock does not name, a kept file that needs a plates script that is missing.
+
+A kept file that calls a plates script keeps that script and everything it
+imports, moved out of `scripts/plates/`. A call with a plain fallback (an
+`if [ -f scripts/plates/… ]` chain whose `else` is `npm run check`) becomes
+the fallback instead. Applying the plan (a branch, the project's own check in
+a clean clone, then one PR) is the next increment.

@@ -40,9 +40,9 @@ Verbs (`--json` for data):
 - `plates channel|say` — agents' lines
 - `plates promote [<commit>]` — tested commit to prod; `--back`
 - `plates walk done|decide` — settle walk or proposal
-- `plates canvas` — snapshot, render, sync, live
-- `plates unison` — status, connect, sync, open
-- `plates retro` — worksheet, capture, session trials
+- `plates canvas` — snapshot, render, sync
+- `plates unison|eject` — Unison sync; leave plates
+- `plates retro` — worksheet, capture, trials
 - `plates workspace inspect|init` — external state
 - `plates shape check|render|plan` — reviewed drafts
 - `plates feedback` — capture, list, propose, resolve
@@ -65,7 +65,7 @@ Rules:
 
 Exits: 0 ok; 1 failure; 2 usage; 3 needs owner's yes. JSON errors on stdout.
 
-Topics: `autonomy` `names` `json` `goals` `render` `init` `adopt` `doctor` `update` `lessons` `learn` `improve` `persona` `audit` `time` `test` `drain` `night` `loop` `climb` `fleet` `pause` `loose-ends` `issue` `review` `home` `walk` `retro` `canvas` `unison` `install` `coming` `reconciliation` `prove` `evidence` `production` `decision` `shape` `workspace` `feedback` `findings`.
+Topics: `autonomy` `names` `json` `goals` `render` `init` `adopt` `doctor` `update` `lessons` `learn` `improve` `persona` `audit` `time` `test` `drain` `night` `loop` `climb` `fleet` `pause` `loose-ends` `issue` `review` `home` `walk` `retro` `canvas` `unison` `eject` `install` `coming` `reconciliation` `prove` `evidence` `production` `decision` `shape` `workspace` `feedback` `findings`.
 
 <!-- topic: json | the output contract every verb keeps -->
 
@@ -2752,6 +2752,34 @@ closed by a person while its work is open is a suggestion, and lines are taken
 into the map only while every mapped item still carries its line.
 `unison` is found on PATH and talks to `UNISON_SERVER`, else the plate's
 `unison.server`, else https://unison.cloud.run.
+
+<!-- topic: eject | leave plates: every managed file becomes the project's own or goes -->
+
+`plates eject --dry-run [--json]` prints the plan and writes nothing (no
+branch, no PR; applying it is phase 206 increment 2). The plan lists:
+
+- every managed target (`.plates/lock.json`), every ejected and seeded file,
+  and `.plates/`, each with a fate: keep, rewrite, drop, or a person's call.
+  Practices set the default (night, phases, conduct, evidence, lessons, ci
+  drop; agents-md and renovate stay; cross-review and delivery are a person's
+  call; the plates skill drops).
+- every reference to plates in a file the project keeps (`scripts/plates/…`,
+  `.plates/…`, `npx plates`, `node_modules/plates`, a dropped managed file),
+  with its rewrite or "needs a person". `docs/` is history and is not swept.
+- every scheduled workflow, so the owner can choose which become Unison
+  Recurring tasks.
+- the refusals: uncommitted changes, a plates-looking file the lock does not
+  name, a kept file that needs a plates script that is not there.
+
+Fates follow what the code depends on. A kept file that calls a managed file
+keeps it and every managed file it imports, moved out of `scripts/plates/`.
+A call that is not a dependency is rewritten: an `if [ -f scripts/plates/x ]
+… else … fi` chain becomes its plain else; a block guarded by a practice the
+project lacks goes; an upload of `.plates/` output that ignores no files goes;
+plates's test reporter leaves `package.json`'s test; an npm script that runs a
+dropped file goes, with its `npm run` in other scripts.
+
+Exits 1 when there is a refusal, 0 when the plan could be applied.
 
 <!-- topic: install | how plates is installed, and how to tell which plates you have -->
 

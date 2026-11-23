@@ -157,7 +157,7 @@ test('--json parses for every verb and flag; human text never mixes in', async t
       review: ['acme/app#1', '--reviewer', 'acme-reviewer'], 'goal show': ['G0'], 'goal add': ['Acme works', '--outcome', 'Acme works.'],
       'goal retire': [added, '--reason', 'Acme test'], 'phase new': ['Acme phase', '--goal', 'G0'], 'phase claim': ['0'],
       prove: ['tests/add.test.mjs', '--fix', 'lib/add.mjs'], 'evidence rederive': ['1'], 'persona run': ['--all'],
-      'audit due': ['--quota', 'acme-quota.json'], 'audit brief': ['security'], 'audit record': ['security', '--from', 'acme-findings.json'], 'audit run': ['security', '--quota', 'acme-quota.json'],
+      'audit due': ['--quota', 'acme-quota.json'], 'audit brief': ['security'], 'audit record': ['security', '--from', 'acme-findings.json'], 'audit run': ['security', '--quota', 'acme-quota.json'], eject: ['--dry-run'],
       // night tick runs after night plan (the registry's order), which wrote the copy's plan (tests/night-plan.test.mjs covers both).
       'night tick': ['measures', '--status', 'running'],
       // morning reads that plan's night, which night plan dated (tests/morning.test.mjs covers the verb).
@@ -212,9 +212,10 @@ Measure the count.
       // tests/promote-vercel.test.mjs cover the verb).
       // sessions push names no workspace here (--site or PLATES_SITE): exit 2, as JSON (tests/waiting-sessions.test.mjs pushes).
       // say names no workspace here either (or no session): refused before anything is sent, exit 2, as JSON (tests/channel-say.test.mjs posts).
+      // eject plans from Git (tracked files, a clean tree), and this copy has no history: exit 2, as JSON (tests/eject.test.mjs covers the plan).
       // board is retired: it names plates home and exits 2, as JSON. audit brief names the commit it reads and audit record checks
       // findings against one: with no git history, brief and run exit 2 and record refuses (exit 1), as JSON (tests/audit.test.mjs and tests/audit-run.test.mjs cover them).
-      assert.equal(r.code, ['names', 'promote', 'audit record'].includes(name) ? 1 : name === 'issue' ? 3 : ['migrate', 'phase claim', 'ready', 'integrate', 'decision', 'shape', 'workspace', 'feedback', 'board', 'audit brief', 'audit run', 'sessions push', 'say'].includes(name) ? 2 : 0, `${name}: ${r.err}${r.out}`);
+      assert.equal(r.code, ['names', 'promote', 'audit record'].includes(name) ? 1 : name === 'issue' ? 3 : ['migrate', 'phase claim', 'ready', 'integrate', 'decision', 'shape', 'workspace', 'feedback', 'board', 'audit brief', 'audit run', 'sessions push', 'say', 'eject'].includes(name) ? 2 : 0, `${name}: ${r.err}${r.out}`);
       assert.doesNotThrow(() => JSON.parse(r.out), `${name} --json did not parse: ${r.out}`);
       assert.equal(r.err, '', `${name} wrote to stderr`);
       if (name === 'names') { const data = JSON.parse(r.out); assert.equal(data.mode, 'preview'); assert.ok(data.projects.some(project => project.state === 'unavailable')); assert.equal(data.readOnly, true); }
