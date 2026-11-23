@@ -268,3 +268,71 @@ test('workflow steps carry their leading comments; scheduled jobs are found', ()
   const morning = 'name: plates-morning\non:\n  workflow_run:\n    workflows: [plates-night]\n    types: [completed]\n';
   assert.deepEqual(scheduledJob('m.yml', morning).after, ['plates-night']);
 });
+
+const ledgerStep = paths => `name: ledger
+on:
+  pull_request:
+jobs:
+  keep:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Keep runs
+        uses: actions/upload-artifact@v7
+        with:
+          name: runs
+          path: |
+${paths.map(p => `            ${p}`).join('\n')}
+          if-no-files-found: ignore
+`;
+
+test('an upload with .plates/ and other paths is a person\'s call; a block list of only .plates/ paths is dropped', async t => {
+  const root = await acme({ extra: {
+    '.github/workflows/mixed.yml': ledgerStep(['.plates/test-runs/', 'coverage/']),
+    '.github/workflows/ours.yml': ledgerStep(['.plates/test-runs/', '.plates/climb/']),
+  } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const mixed = plan.references.filter(r => r.path === '.github/workflows/mixed.yml');
+  assert.equal(mixed.length, 1);
+  assert.equal(mixed[0].rewrite, null);
+  assert.match(mixed[0].needsPerson, /beside coverage\//);
+  const ours = plan.references.filter(r => r.path === '.github/workflows/ours.yml');
+  assert.deepEqual(ours.map(r => r.kind), ['step']);
+  assert.match(ours[0].rewrite, /^drop the step: it keeps \.plates\/test-runs\/, \.plates\/climb\/ only/);
+});
+
+test('a negated practice guard is not dead code', async t => {
+  const negated = CHECK.replace('process.exit(c.practices.includes("reconciliation")?0:1)', 'process.exit(!c.practices.includes("reconciliation")?0:1)');
+  const root = await acme({ extra: { '.github/workflows/check.yml': negated } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const refs = plan.references.filter(r => r.path === '.github/workflows/check.yml');
+  assert.ok(!refs.some(r => r.kind === 'step' && /reconciliation/.test(r.rewrite ?? '')));
+  assert.ok(!refs.some(r => r.kind === 'dead-block'));
+  assert.ok(plan.refusals.some(r => r.code === 'missing-script' && r.path === 'scripts/plates/reconcile.mjs'));
+});
+
+test('a compound npm script calling a dropped file is a person\'s call, never removed whole', async t => {
+  const pkg = JSON.parse(PACKAGE);
+  pkg.scripts['roadmap:check'] = 'node scripts/roadmap.mjs --check && npm run lint';
+  pkg.scripts.lint = 'echo lint';
+  const root = await acme({ extra: { 'package.json': JSON.stringify(pkg, null, 2) + '\n' } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const refs = plan.references.filter(r => r.path === 'package.json' && r.kind === 'npm-script');
+  const compound = refs.find(r => r.text.startsWith('"roadmap:check"'));
+  assert.equal(compound.rewrite, null);
+  assert.match(compound.needsPerson, /compound command/);
+  assert.ok(!refs.some(r => r.text.startsWith('"check"')), 'check keeps its npm run roadmap:check');
+});
+
+test('the dry run never refreshes the Git index', async t => {
+  const root = await acme();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const later = new Date(Date.now() + 60_000);
+  const { utimes } = await import('node:fs/promises');
+  await utimes(join(root, 'src/anvil.mjs'), later, later);
+  const before = await readFile(join(root, '.git/index'));
+  await planEject({ root });
+  assert.ok(before.equals(await readFile(join(root, '.git/index'))), '.git/index was rewritten');
+});
