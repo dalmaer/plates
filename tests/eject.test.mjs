@@ -2,7 +2,7 @@
 // project ("Acme"), and the proof that it writes nothing.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { run as exec } from './helpers/run.mjs';
@@ -104,7 +104,7 @@ const MANAGED = {
   'docs/templates/phase.md': ['phases', '# Phase\n'],
 };
 
-async function acme({ extra = {}, lock: lockExtra = {} } = {}) {
+async function acme({ extra = {}, lock: lockExtra = {}, links = {} } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'plates-eject-'));
   const files = {
     '.plates/plates.json': JSON.stringify({ name: 'acme', repo: 'acme/anvils', practice: '0.9.0', practices: ['base', 'agents-md', 'phases', 'ci', 'night'], ejected: ['.github/workflows/check.yml'] }, null, 2),
@@ -119,7 +119,8 @@ async function acme({ extra = {}, lock: lockExtra = {} } = {}) {
   files['.plates/lock.json'] = JSON.stringify(lock, null, 2);
   for (const [path, body] of Object.entries(files)) {
     await mkdir(dirname(join(root, path)), { recursive: true });
-    await writeFile(join(root, path), body);
+    if (links[path]) await symlink(links[path], join(root, path));
+    else await writeFile(join(root, path), body);
   }
   const g = (...args) => { const r = exec('git', args, { cwd: root }); if (r.status !== 0) throw new Error(r.stderr); };
   g('init', '-q'); g('config', 'user.email', 'acme@example.invalid'); g('config', 'user.name', 'Acme'); g('config', 'commit.gpgsign', 'false');
@@ -411,4 +412,27 @@ test('a kept file naming a removed npm script: a lone fenced command line goes, 
     [3, 'npm-run', null, true],
     [6, 'npm-run', 'delete the line: eject removes npm run roadmap', false],
   ]);
+});
+
+test('a kept module importing a moved plates file gets its specifier rewritten', async t => {
+  const root = await acme({ extra: { 'scripts/check.mjs': "import { main } from './plates/lib.mjs';\nmain();\n" } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  assert.equal(fate(plan, 'scripts/plates/lib.mjs').to, 'scripts/lib.mjs');
+  const refs = plan.references.filter(r => r.path === 'scripts/check.mjs');
+  assert.deepEqual(refs.map(r => [r.kind, r.line, r.rewrite]), [['import', 1, "import './plates/lib.mjs' → './lib.mjs' (scripts/plates/lib.mjs → scripts/lib.mjs)"]]);
+  // Siblings that move together keep their specifiers.
+  assert.ok(!plan.references.some(r => r.kind === 'import' && r.path.startsWith('scripts/plates/')));
+});
+
+test('a guide reached through an AGENTS.md alias is swept at its destination', async t => {
+  const root = await acme({ extra: { 'docs/team.md': AGENTS, 'AGENTS.md': '' }, links: { 'AGENTS.md': 'docs/team.md' } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  assert.equal(fate(plan, 'docs/team.md#night').fate, 'drop');
+  assert.equal(fate(plan, 'docs/team.md#agents-md').alias, 'AGENTS.md');
+  const refs = plan.references.filter(r => r.path === 'docs/team.md');
+  assert.equal(refs.length, 1);
+  assert.deepEqual(refs[0].targets, ['.plates/']);
+  assert.ok(!refs.some(r => r.targets.includes('scripts/plates/drain.mjs')), 'the dropped section is not swept');
 });
