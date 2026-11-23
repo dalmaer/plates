@@ -699,3 +699,41 @@ test('the plates reporter goes only beside its own destination; any other order 
   assert.deepEqual(refs.map(r => [r.kind, r.rewrite]), [['reporter', null]]);
   assert.match(refs[0].needsPerson, /not followed by its own --test-reporter-destination/);
 });
+
+test('a path in both the lock and "ejected" is one row, the ejected one', async t => {
+  const root = await acme({ lock: { '.github/workflows/check.yml': { practice: 'ci', sha256: 'x' } } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const rows = plan.files.filter(r => r.path === '.github/workflows/check.yml');
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].kind, 'ejected');
+  assert.equal(rows[0].fate, 'rewrite');
+});
+
+test('a dynamic import() is never a hard dependency: no keep, no refusal, a person checks the guard', async t => {
+  const root = await acme({ extra: { 'scripts/run.mjs': "if (process.env.ACME) await import('./plates/drain.mjs');\nif (process.env.CLIMB) await import('./plates/climb.mjs');\n" } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  assert.equal(fate(plan, 'scripts/plates/drain.mjs').fate, 'drop');
+  assert.deepEqual(plan.refusals, []);
+  const refs = plan.references.filter(r => r.path === 'scripts/run.mjs');
+  assert.deepEqual(refs.map(r => r.text).sort(), ['./plates/climb.mjs', './plates/drain.mjs']);
+  assert.ok(refs.every(r => /on demand \(import\(\)\)/.test(r.needsPerson)));
+});
+
+test('--drop-night drops every plates workflow, whatever names it, and what only it reaches', async t => {
+  const flow = 'name: audit\non:\n  push:\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - run: grep -c cron .github/workflows/plates-night.yml\n';
+  const root = await acme({ extra: { '.github/workflows/audit.yml': flow } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const kept = await planEject({ root });
+  assert.notEqual(fate(kept, '.github/workflows/plates-night.yml').fate, 'drop', 'without the flag, a kept file that names it keeps it');
+  assert.notEqual(fate(kept, 'scripts/plates/drain.mjs').fate, 'drop', 'and what it calls');
+  const plan = await planEject({ root, dropNight: true });
+  assert.equal(plan.dropNight, true);
+  assert.equal(fate(plan, '.github/workflows/plates-night.yml').fate, 'drop');
+  assert.equal(fate(plan, 'scripts/plates/drain.mjs').fate, 'drop');
+  const night = plan.references.find(r => r.kind === 'night');
+  assert.equal(night.path, '.github/workflows/audit.yml');
+  assert.match(night.needsPerson, /--drop-night drops/);
+  assert.deepEqual(plan.refusals, []);
+});

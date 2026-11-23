@@ -2755,8 +2755,12 @@ into the map only while every mapped item still carries its line.
 
 <!-- topic: eject | leave plates: every managed file becomes the project's own or goes -->
 
-`plates eject --dry-run [--json]` prints the plan and writes nothing (no
-branch, no PR; applying it is phase 206 increment 2). The plan lists:
+`plates eject --dry-run [--drop-night] [--json]` prints the plan and writes
+nothing (no branch, no PR; applying it is phase 206 increment 2). With
+`--drop-night`, every `plates-*.yml` workflow drops, whatever names it, and so
+does everything only it reaches. A dynamic `import()` is never a hard
+dependency: a dropped or missing target is a person's call, not a refusal.
+The plan lists:
 
 - every managed target (`.plates/lock.json`), every ejected and seeded file,
   and `.plates/`, each with a fate: keep, rewrite, drop, or a person's call.
