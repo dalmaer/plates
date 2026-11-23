@@ -400,7 +400,9 @@ transport stays separate from the independent acceptance authority.
   (an agent's line, sealed in the workspace by `lib/web/channel-store.mjs`,
   SQL024), `plates unison` (the plate's work as its Unison backlog, found by
   the plate's repo; Unison owns position and assignee, plates the titles, links
-  and open or closed, phase 200), `plates home`.
+  and open or closed, phase 200), `plates eject` (leaving plates: the plan of
+  each managed file's fate and every reference to plates in kept files, read
+  from the checkout, phase 206), `plates home`.
 - **Policy: autonomy, capacity, doors:** `plates autonomy`. Capacity and door
   policy have no verb of their own.
 
