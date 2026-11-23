@@ -1,10 +1,10 @@
 ---
-status: planned
-since: 2026-11-21
+status: partial
+since: 2026-11-23
 goal: G9
 spec: 2
 depends: [200]
-note: "Filed: plates eject makes every managed file the project's own, rewrites or reports references to plates scripts, removes .plates/, and proves the project's own check still passes."
+note: "Increment 1 built: plates eject --dry-run plans every managed file's fate and every plates reference, read-only; rehearsed on study. Next: apply it and open the eject PR."
 evidence: []
 ---
 
@@ -57,7 +57,7 @@ Evidence and phase files stay.
 
 ## Acceptance
 
-- [ ] The dry run gives every managed file a fate by practice and finds each reference to plates in owned files, including a workflow and a `package.json` test reporter: `tests/eject.test.mjs: "the plan finds every managed file and every reference to plates"`.
+- [x] The dry run gives every managed file a fate by practice and finds each reference to plates in owned files, including a workflow and a `package.json` test reporter: `tests/eject.test.mjs: "the plan finds every managed file and every reference to plates"`.
 - [ ] After eject, no file references `scripts/plates/` or `.plates/`, and the project's own check passes in a clean clone: `tests/eject.test.mjs: "an ejected project's own check passes without plates"`.
 - [ ] Eject refuses while a phase is open and not imported, unless told to keep the phases: `tests/eject.test.mjs: "eject refuses to strand open phases"`.
 
@@ -78,4 +78,8 @@ By hand: none.
 
 ## Next action
 
-Increment 1: the read-only plan, rehearsed on study.
+Increment 2: apply the plan on a branch, run the project's own `npm run check` in a clean clone, and open the eject PR only if it passes; build the open-phase refusal with `--keep-phases` (box 3). First on study, with `--keep-phases`.
+
+## Trajectory
+- **2026-11-23** The owner chose to eject study before Unison has planned items with proof (spec M4/M5): its open phases stay as Unison backlog items and the phase files stay as history, so study ejects with `--keep-phases`. Weekly Recurring tasks (dependency and health, performance, test and build time) replace the night's agent work there.
+- **2026-11-23** A real dependency outranks the practice's default fate, but a plates call with a plain fallback is not a dependency: study keeps no plates script, because keeping `gate.mjs` would have kept about eight scripts that read the `.plates/` eject removes.
