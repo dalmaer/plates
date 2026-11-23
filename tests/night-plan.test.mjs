@@ -812,10 +812,12 @@ test('new plan writers use Plates and workflow readers share explicit compatibil
   assert.equal(REMOTE_PLAN, '.plates/night/plan.json');
   assert.equal(PLAN_BRANCH, 'plates-night-plan');
   assert.deepEqual(planLocations(), [{branch:'plates-night-plan',path:'.plates/night/plan.json'},{branch:'keel-night-plan',path:'.keel/night/plan.json'}]);
-  for (const name of ['night','climb','robot']) {
-    const text = await readFile(join(PLATES, 'practices', name === 'night' ? 'night' : 'climb', 'files/.github/workflows', `plates-${name}.yml`), 'utf8');
-    assert(text.includes(name === 'night' ? 'readRemoteNightPlan' : 'readApiNightPlan'));
+  for (const name of ['climb','robot']) {
+    const text = await readFile(join(PLATES, 'practices/climb/files/.github/workflows', `plates-${name}.yml`), 'utf8');
+    assert(text.includes('readApiNightPlan'));
   }
+  // Phase 207: the night reads no plan at all.
+  assert(!(await readFile(join(PLATES, 'practices/night/files/.github/workflows/plates-night.yml'), 'utf8')).includes('NightPlan'));
 });
 
 test('climb plan distinguishes a judged no-improvement from blocked and no-candidate runs', async t => {

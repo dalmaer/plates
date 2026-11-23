@@ -1286,9 +1286,8 @@ prefix is touched.
   (`PLATES_DRAIN_WAIT_MS`, default 5000), then counts as not mergeable.
 
 The `night` practice ships it into each project as `scripts/plates/drain.mjs`
-(the same module): `plates-night.yml` runs `node scripts/plates/drain.mjs
-plates-night/` after the night's PR is opened, and `plates-loop.yml` drains
-`plates-loop/`. Run from plates, `plates drain plates/update-v` closes older update
+(the same module): `plates-loop.yml` drains `plates-loop/`. Since phase 207
+the night opens no pull request, so it drains nothing. Run from plates, `plates drain plates/update-v` closes older update
 PRs (never merges one: they are not data).
 
 <!-- topic: night | tonight's plan: written before the night runs, ticked as it goes -->
@@ -1298,10 +1297,13 @@ It does not send an issue, publish a card, finalize a plan or complete pending w
 `--send` and `--card` are incompatible. Ordinary final readiness is unchanged.
 
 
-Every night has one plan, `.plates/night/plan.json` (schema 1; a working file
-that ignores itself), written before anything runs. The night commits it as it
-ended as `docs/night/<date>.json` in its data-only PR, and the health page shows
-it under "Tonight's plan". The design is
+Every night may have one plan, `.plates/night/plan.json` (schema 1; a working
+file that ignores itself). Since phase 207 the night itself makes, ticks and
+commits none: a plan is the owner's, on the plan branch `plates-night-plan`
+(`plates goodnight`), which climb, the robot and the morning read. `plates
+improve --report` still ticks the measure items of a working plan dated
+today, writes `docs/night/<date>.json` and shows it under "Tonight's plan" on
+the health page it writes. The design is
 `docs/research/2026-10-14-nightwatch.md`, "One plan per night".
 
 - `plates night plan [--date <YYYY-MM-DD>]` writes plates's default plan: the
@@ -1392,15 +1394,11 @@ that item).
 
 In a project, `node scripts/plates/night-plan.mjs` is the same module
 (`plan`, `tick`, `check`, `record`, `publish`, and `tonight`, the night's
-step). `plates-night.yml` reads the plan branch `plates-night-plan` in its plan
-step: a valid plan dated for the run's UTC date is used; none, another night's
-or a refused one means the default plan, and the step says which and why.
-improve `--report` ticks the measure items and writes the record. A default
-night then writes its plan to the branch from its PR step (`publish --date d`,
-phase 78), so the passes tick it: only when the branch holds no plan for
-tonight or a later night (an earlier night's stays as the parent commit; one
-it cannot read is left alone), with a lease; a failed write is red at the
-verdict.
+step). `plates-night.yml` does not read or write the plan branch (phase 207):
+it asks only whether CI on main is red, a test is flaky, or the gate ran no
+tests (`scripts/plates/night-verdict.mjs`), fails red naming each, and writes
+nothing. `night-plan.mjs tonight` and `publish` remain for a person's or a
+pass's use.
 
 **The morning** (phase 77). `plates morning [--date <YYYY-MM-DD>]` renders the
 brief for the night that last started (or `--date`), from its plan as it

@@ -4,7 +4,7 @@ since: 2026-11-21
 goal: G4
 spec: 2
 depends: []
-note: "Filed: climb and tend off for plates, phases 35, 36 and 47 superseded; the night stops opening a daily pull request and fails red only on a red main, a flaky test or a gate that ran no tests; lessons only from real failures; the Loop pull goes weekly. Fleet update PRs follow after a few nights on plates."
+note: "Increments 2-4 built: the night opens no pull request or proposal and is red only on a red main, a flaky test, a gate with no tests, or a check it could not read; lessons only from real failures (#575); the Loop pull is weekly (#574). Waits on: three quiet nights on plates, then the fleet update PRs for the owner."
 evidence: []
 ---
 
@@ -42,7 +42,9 @@ So the night is cut back to what earns its keep:
   - a test is flaky;
   - the gate ran no tests.
 
-  Each failure names its cause in the run's summary. The other measures stay available
+  A check the night could not read is red too ("The night could not check"): an unread
+  source is unknown, never fine. A check that does not apply stays green. Each failure
+  names its cause in the run's summary. The other measures stay available
   on the health page, written on demand (`plates improve`), never nightly.
 - **Lessons.** Retros stay at the end of each phase that changed more than docs. A lesson
   candidate needs a real failure in that phase (a red check, a reverted change, a bug
@@ -74,9 +76,9 @@ them), and changes to the CI gate itself.
 ## Acceptance
 
 - [ ] With no `climb` or `tend` key, each workflow's config check reports off, and no agent, branch or pull request work runs (checkout and the runner-clock step may still run); phases 35, 36 and 47 are superseded with a dated note: `tests/climb-pick.test.mjs: "off: with no climb key the workflow does nothing"`, `tests/climb-tend.test.mjs: "tend off: with no tend key nothing runs"`, and `node scripts/roadmap.mjs --check`.
-- [ ] The night opens no pull request and files no proposal, and fails red with a named cause when main's CI is red, a test is flaky, or the gate ran no tests, and is green otherwise: `tests/night-quiet.test.mjs: "the night fails only on a red main, a flaky test or a gate with no tests"`.
-- [ ] The conduct practice proposes a lesson only from a real failure in the phase: `tests/guides.test.mjs: "a lesson candidate names the failure it came from"`.
-- [ ] The Loop workflow runs weekly: `tests/loop.test.mjs: "the Loop pull is weekly"`.
+- [x] The night opens no pull request and files no proposal, and fails red with a named cause when main's CI is red, a test is flaky, or the gate ran no tests (and when it could not check one of these), and is green otherwise: `tests/night-quiet.test.mjs: "the night fails only on a red main, a flaky test or a gate with no tests"`.
+- [x] The conduct practice proposes a lesson only from a real failure in the phase: `tests/guides.test.mjs: "a lesson candidate names the failure it came from"`.
+- [x] The Loop workflow runs weekly: `tests/loop.test.mjs: "the Loop pull is weekly"`.
 - [ ] After three or more quiet nights on plates, a fleet update pull request is open for each other project, Ledger included, carrying the night and loop changes, for the owner to review: `gh pr list --search "plates update" --state open` in each project, and `plates fleet --json`.
 
 ## Real surfaces
@@ -91,10 +93,10 @@ By hand: none.
 
 ## Deliberately open
 
-- What the morning workflow keeps, once there is no night pull request to report on.
-  Settled in increment 2: whatever Home reads keeps working, or says it is no longer
-  collected.
+- What the morning workflow keeps: settled in increment 2. It keeps decide, send and the
+  card, because an owner's plan still drives the robot and the brief. Its finalize job (the
+  "as it finished" pull request) and its names evidence are gone.
 
 ## Next action
 
-Increment 2: the quiet night (being built). Increment 1 (climb and tend off) landed with this file; still to observe: the next scheduled `plates-climb` and `plates-tend` runs on plates report off and skip their agent and publication steps (the first box stays open until then).
+Watch plates's next three nights: no night pull request, and green unless one of the causes holds. Also confirm the next scheduled `plates-climb` and `plates-tend` runs report off (the first box). Then tell the owner and open the fleet update pull requests (increment 5) for their review.

@@ -1,0 +1,203 @@
+// The quiet night's verdict (plates practice `night`; managed: plates render
+// rewrites it). plates phase 207: the night speaks up only when something is
+// wrong: three things, and a fourth that means it cannot tell:
+//
+//   main    CI on main is red: ci_red_streak (the gate workflow's newest
+//           verdicts on the default branch) counts a failed run, or the gate
+//           measure fails on main's tree (CI's result for the exact commit,
+//           reused, or the local check when there is none)
+//   flaky   a test is flaky: flaky_tests (a test that both passed and failed
+//           on one clean tree, in the newest window of the test ledger)
+//   empty   the gate ran no tests: the gate measure passed having run none
+//           (lesson 14), or the test ledger's own no-tests rule failed it
+//           (its "no tests ran" line in the gate's retained output)
+//   unchecked  the night could not check: one of the three measures is
+//           broken (it could not read CI, the ledger or the gate) or never
+//           ran. An unread source is unknown, never fine, so it is red too,
+//           one line per measure, naming it and why.
+//
+// Each is one of improve.mjs's own measures, run here alone: no health page,
+// no bounds, no plan, no proposal, nothing written but the --out file. A
+// measure that does not apply here (n/a: too few recorded runs, no repo) is
+// said in the summary and stays green.
+//
+// flaky_tests reads the history the night's "Gather the test ledger" step
+// recovers (scripts/plates/test-history.mjs, its status in
+// .plates/test-runs/recovery/status.json). When that recovery failed outright
+// (recovery-unavailable), or in Actions left no status at all, too few records
+// is not warm-up: flaky_tests is unreadable, so the night could not check.
+// Ordinary gaps (sampling bounds, an empty archive) and a short history are
+// not fatal: warm-up stays n/a and green.
+//
+// The night checks out the default branch, whatever ref started it, so "main"
+// is what it measures. A Verdict with no answers file (ask did not finish) is
+// red as "The night could not check", never a skipped step.
+//
+//   node scripts/plates/night-verdict.mjs ask --out <file>
+//   node scripts/plates/night-verdict.mjs verdict --in <file> [--summary <file>]
+//
+// ask runs the three measures and writes their results (exit 0, or 2 when it
+// cannot run at all). verdict reads them, writes one `::error::` line per
+// cause to stdout and the same to --summary (the run's $GITHUB_STEP_SUMMARY),
+// and exits 1 when any cause holds; otherwise one quiet summary line, exit 0.
+import { readFile, writeFile, appendFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
+import { isMain, rootOf } from './lib.mjs';
+import { LABEL } from './test-ledger.mjs';
+import { readTestHistory } from './test-history.mjs';
+
+/** The measures the night runs, in improve's order (the gate first, so its run is in the ledger flaky reads). */
+export const NIGHT_MEASURES = Object.freeze(['gate', 'flaky_tests', 'ci_red_streak']);
+/** The causes, in the order the summary names them. */
+export const CAUSES = Object.freeze({
+  main: 'CI on main is red',
+  flaky: 'A test is flaky',
+  empty: 'The gate ran no tests',
+  unchecked: 'The night could not check',
+});
+
+export class VerdictError extends Error {
+  constructor(message, exitCode = 2) { super(message); this.exitCode = exitCode; }
+}
+
+/**
+ * The causes that hold, from the three measures' results (improve.mjs
+ * measure()'s shape: { id, state, value, detail, facts }). Each is
+ * { cause, title, detail }. Pure.
+ */
+export function nightCauses(results) {
+  const by = Object.fromEntries((results ?? []).map(r => [r?.id, r]));
+  const causes = [];
+  const gate = by.gate, red = by.ci_red_streak, flaky = by.flaky_tests;
+  const gateRan = gate && gate.state !== 'broken' && gate.state !== 'n/a';
+  const said = [gate?.facts?.diagnostics?.stdout?.text, gate?.facts?.diagnostics?.stderr?.text];
+  const ledgerEmpty = gateRan && Number(gate.value) > 0 && said.some(t => typeof t === 'string' && t.includes(`${LABEL}: no tests ran.`));
+  const empty = gateRan && (gate.facts?.empty === true || ledgerEmpty);
+  const main = [];
+  if (red && red.state !== 'broken' && red.state !== 'n/a' && Number(red.value) > 0) main.push(red.detail);
+  if (gateRan && Number(gate.value) > 0 && !empty) main.push(`the gate fails on main's tree: ${gate.detail}`);
+  if (main.length) causes.push({ cause: 'main', title: CAUSES.main, detail: main.join('; ') });
+  if (flaky && flaky.state !== 'broken' && flaky.state !== 'n/a' && Number(flaky.value) > 0) causes.push({ cause: 'flaky', title: CAUSES.flaky, detail: flaky.detail });
+  if (empty) causes.push({ cause: 'empty', title: CAUSES.empty, detail: ledgerEmpty ? `the test ledger failed the gate: no tests ran; ${gate.detail}` : gate.detail });
+  for (const id of NIGHT_MEASURES) {
+    const r = by[id];
+    if (!r) causes.push({ cause: 'unchecked', title: CAUSES.unchecked, id, detail: `${id}: not run` });
+    else if (r.state === 'broken') causes.push({ cause: 'unchecked', title: CAUSES.unchecked, id, detail: `${id}: ${r.detail}` });
+  }
+  return causes;
+}
+
+/** The measures that do not apply tonight (n/a): said, never red. A broken or missing one is a cause (nightCauses). */
+export function unanswered(results) {
+  const by = Object.fromEntries((results ?? []).map(r => [r?.id, r]));
+  return NIGHT_MEASURES.map(id => by[id]).filter(r => r?.state === 'n/a')
+    .map(r => ({ id: r.id, state: r.state, detail: r.detail }));
+}
+
+/**
+ * The verdict as the run shows it: `lines` for stdout (GitHub's ::error::
+ * commands), `summary` for $GITHUB_STEP_SUMMARY, and the exit code.
+ */
+export function verdict(results, { date } = {}) {
+  const causes = nightCauses(results), gaps = unanswered(results);
+  const on = date ? ` on ${date}` : '';
+  const lines = [], summary = [];
+  if (causes.length) {
+    summary.push(`## The night${on}: ${causes.length === 1 ? 'one thing is' : `${causes.length} things are`} wrong`, '');
+    for (const c of causes) {
+      lines.push(`::error title=${c.title}::${c.title}: ${c.detail}`);
+      summary.push(`- **${c.title}**: ${c.detail}`);
+    }
+  } else {
+    summary.push(`The night${on}: main is green, no test is flaky, and the gate ran tests.`);
+  }
+  for (const g of gaps) {
+    const said = `${g.id} does not apply tonight (${g.state}): ${g.detail}`;
+    summary.push(`${causes.length ? '- ' : ''}${said}`);
+  }
+  if (!causes.length && !gaps.length) lines.push(summary[0]);
+  return { causes, gaps, lines, summary: `${summary.join('\n')}\n`, exitCode: causes.length ? 1 : 0 };
+}
+
+/** Gaps in the recovery status that mean the history could not be read at all. */
+export const FATAL_HISTORY = Object.freeze(['recovery-unavailable']);
+
+/**
+ * flaky_tests made unreadable when the history it reads could not be recovered:
+ * a fatal gap, or (in Actions, where the gather step always writes one) no
+ * status at all. A ledger archive that was found but could not be read
+ * (archive-rejected) is unknown too when the records left are too few to answer
+ * (flaky_tests says n/a); when they still answer, the rejected archive is said
+ * but the answer stands. A found flaky test stays a finding. Pure.
+ */
+export function withHistory(results, status, { actions = false } = {}) {
+  const gaps = Array.isArray(status?.gaps) ? status.gaps : [];
+  const fatal = gaps.filter(g => FATAL_HISTORY.includes(g?.code));
+  const absent = actions && gaps.some(g => g?.code === 'unavailable');
+  const rejected = gaps.filter(g => g?.code === 'archive-rejected');
+  if (!fatal.length && !absent && !rejected.length) return results;
+  const said = list => list.map(g => `${g.code}: ${g.detail}`).join('; ');
+  return results.map(r => {
+    if (r.id !== 'flaky_tests' || r.state === 'outside' || r.state === 'broken') return r;
+    if (fatal.length || absent) return { ...r, state: 'broken', value: null, detail: `the test history could not be recovered, so flakiness is unknown (${fatal.length ? said(fatal) : 'no test history recovery status (the gather step did not record one)'})` };
+    if (r.state === 'n/a') return { ...r, state: 'broken', value: null, detail: `ledger archives could not be read and the records left are too few to answer, so flakiness is unknown (${said(rejected)})` };
+    return r;
+  });
+}
+
+/** Run the three measures through improve.mjs's own instruments; nothing is written. */
+export async function ask({ root, env = process.env, date, measure, measures } = {}) {
+  const improve = (measure && measures) ? null : await import('./improve.mjs');
+  const run = measure ?? improve.measure, all = measures ?? improve.MEASURES;
+  const chosen = NIGHT_MEASURES.map(id => all.find(m => m.id === id)).filter(Boolean);
+  if (chosen.length !== NIGHT_MEASURES.length) throw new VerdictError(`improve.mjs lacks a night measure: ${NIGHT_MEASURES.filter(id => !all.some(m => m.id === id)).join(', ')}`);
+  let config;
+  try { config = JSON.parse(await readFile(join(root, '.plates', 'plates.json'), 'utf8')); }
+  catch (e) { throw new VerdictError(`.plates/plates.json could not be read: ${e.message}`); }
+  const results = await run({ root, config, env, ...(date ? { date } : {}), measures: chosen });
+  const status = await readTestHistory(root);
+  return withHistory(results.map(({ timeCandidates, ...r }) => r), status, { actions: env.GITHUB_ACTIONS === 'true' });
+}
+
+export function parseArgs(argv) {
+  const [verb, ...rest] = argv;
+  if (!['ask', 'verdict'].includes(verb)) throw new VerdictError('usage: night-verdict.mjs ask --out <file> | verdict --in <file> [--summary <file>]');
+  const out = { verb };
+  const valued = { '--out': 'out', '--in': 'in', '--summary': 'summary', '--date': 'date' };
+  for (let i = 0; i < rest.length; i++) {
+    const key = valued[rest[i]];
+    if (!key || rest[i + 1] === undefined || rest[i + 1].startsWith('--')) throw new VerdictError(`unexpected argument: ${rest[i]}`);
+    out[key] = key === 'date' ? rest[++i] : resolve(rest[++i]);
+  }
+  if (verb === 'ask' && !out.out) throw new VerdictError('ask needs --out <file>');
+  if (verb === 'verdict' && !out.in) throw new VerdictError('verdict needs --in <file>');
+  return out;
+}
+
+export async function cli(argv, { root, env = process.env, write = s => process.stdout.write(s) } = {}) {
+  const opts = parseArgs(argv);
+  if (opts.verb === 'ask') {
+    const date = opts.date ?? new Date().toISOString().slice(0, 10);
+    const results = await ask({ root, env, date });
+    await writeFile(opts.out, `${JSON.stringify({ date, results }, null, 2)}\n`);
+    for (const r of results) write(`${r.id.padEnd(14)} ${String(r.value ?? '-').padStart(4)}  ${r.state.padEnd(8)} ${r.detail}\n`);
+    return 0;
+  }
+  let data;
+  try { data = JSON.parse(await readFile(opts.in, 'utf8')); if (!Array.isArray(data?.results)) throw new Error('no results'); }
+  catch (e) {
+    const detail = `the night's answers could not be read (${String(e?.message ?? e).split('\n')[0]}): the ask step did not finish, so main, flakiness and the gate are unknown`;
+    write(`::error title=${CAUSES.unchecked}::${CAUSES.unchecked}: ${detail}\n`);
+    if (opts.summary) await appendFile(opts.summary, `## The night: one thing is wrong\n\n- **${CAUSES.unchecked}**: ${detail}\n`);
+    return 1;
+  }
+  const v = verdict(data.results, { date: data.date });
+  for (const line of v.lines) write(`${line}\n`);
+  if (opts.summary) await appendFile(opts.summary, v.summary);
+  return v.exitCode;
+}
+
+if (isMain(import.meta)) {
+  try { process.exitCode = await cli(process.argv.slice(2), { root: rootOf(import.meta) }); }
+  catch (e) { process.stderr.write(`::error::${String(e?.message ?? e).split('\n')[0]}\n`); process.exitCode = e?.exitCode ?? 2; }
+}
