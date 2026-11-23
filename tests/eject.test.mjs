@@ -336,3 +336,15 @@ test('the dry run never refreshes the Git index', async t => {
   await planEject({ root });
   assert.ok(before.equals(await readFile(join(root, '.git/index'))), '.git/index was rewritten');
 });
+
+test('a guide under docs/ is swept like a root AGENTS.md', async t => {
+  const config = { name: 'acme', repo: 'acme/anvils', practice: '0.9.0', guide: 'docs/team.md', practices: ['base', 'agents-md', 'phases', 'ci', 'night'], ejected: ['.github/workflows/check.yml'] };
+  const team = "# Acme team\n\n<!-- plates:begin agents-md -->\nplates's files are listed in `.plates/lock.json`.\n<!-- plates:end agents-md -->\n";
+  const root = await acme({ extra: { '.plates/plates.json': JSON.stringify(config, null, 2), 'docs/team.md': team }, lock: { 'docs/team.md#agents-md': { practice: 'agents-md', sha256: 'x' } } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const refs = plan.references.filter(r => r.path === 'docs/team.md');
+  assert.equal(refs.length, 1);
+  assert.equal(refs[0].line, 4);
+  assert.deepEqual(refs[0].targets, ['.plates/']);
+});
