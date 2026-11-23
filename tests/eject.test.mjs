@@ -77,7 +77,8 @@ const AGENTS = `# Acme
 Acme sells anvils. Run \`npm run check\` before a PR.
 
 <!-- plates:begin agents-md -->
-plates's files are listed in \`.plates/lock.json\`.
+plates's files are listed in \`.plates/lock.json\`; \`plates doctor\` says if you
+changed one. Everything else is yours.
 <!-- plates:end agents-md -->
 
 <!-- plates:begin night -->
@@ -986,7 +987,7 @@ test("an ejected section's paragraphs are never deleted; their plates references
   const refs = plan.references.filter(r => r.path === 'AGENTS.md');
   assert.ok(!refs.some(r => r.kind === 'plates-text'), 'no paragraph deletion in an ejected section');
   assert.ok(refs.some(r => r.line === 6 && /\.plates\//.test(r.needsPerson ?? '')));
-  assert.match(plannedTexts(root, plan).get('AGENTS.md'), /plates's files are listed in `\.plates\/lock\.json`\./);
+  assert.match(plannedTexts(root, plan).get('AGENTS.md'), /plates's files are listed in `\.plates\/lock\.json`; `plates doctor` says if you\nchanged one\./);
 });
 
 test('same-line rewrites apply once, by span, never to each other\'s results', () => {
@@ -1045,4 +1046,20 @@ test('a failed apply from a detached HEAD goes back to that detached commit', as
   assert.equal(exec('git', ['rev-parse', 'HEAD'], { cwd: root }).stdout.trim(), base);
   assert.equal(exec('git', ['branch', '--list', 'plates-eject'], { cwd: root }).stdout.trim(), '');
   assert.equal(exec('git', ['status', '--porcelain'], { cwd: root }).stdout, '');
+});
+
+test('a kept section loses only paragraphs exactly as the practice ships them; a customised one stays, flagged', async t => {
+  const policy = 'Acme policy: production releases require owner approval; run `plates doctor` before requesting approval.';
+  const custom = AGENTS.replace('<!-- plates:end agents-md -->', `\n${policy}\n<!-- plates:end agents-md -->`);
+  assert.notEqual(custom, AGENTS);
+  const root = await acme({ extra: { 'AGENTS.md': custom } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const refs = plan.references.filter(r => r.path === 'AGENTS.md');
+  // The shipped paragraph goes; Acme's own policy stays and needs a person.
+  assert.deepEqual(refs.filter(r => r.kind === 'plates-text').map(r => r.line), [6]);
+  assert.ok(refs.some(r => r.line === 9 && r.needsPerson), refs.map(r => `${r.line} ${r.kind}`).join('\n'));
+  const text = plannedTexts(root, plan).get('AGENTS.md');
+  assert.ok(text.includes(policy), 'the customised paragraph stays');
+  assert.doesNotMatch(text, /plates's files are listed/);
 });
