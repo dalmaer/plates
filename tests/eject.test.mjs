@@ -528,3 +528,56 @@ test('a kept symlink to a managed file keeps its target, and never dangles', asy
   // A link whose target would move is refused: the link would dangle.
   assert.deepEqual(plan.refusals.map(r => `${r.code} ${r.path}`), ['link-to-moved scripts/lint.mjs']);
 });
+
+test('a plain fallback is swept like any kept line: what it calls is kept, what it names is reported', async t => {
+  const root = await acme({ extra: { '.github/workflows/check.yml': gateWith(['npm run roadmap', 'cat docs/templates/phase.md']) } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  assert.equal(fate(plan, 'docs/templates/phase.md').fate, 'keep');
+  const roadmap = plan.references.find(r => r.path === '.github/workflows/check.yml' && r.targets.includes('npm run roadmap'));
+  assert.ok(roadmap?.needsPerson, 'npm run roadmap in the fallback needs a person');
+});
+
+test('the recheck reads every planned result against the final fates', async t => {
+  const root = await acme({ extra: { 'package.json': withScripts({
+    test: 'node --test --test-reporter=./scripts/plates/test-ledger.mjs tests/*.test.mjs && cat docs/templates/phase.md && npm run roadmap',
+  }) } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  // The reporter's rewrite still calls a dropped file: kept. It still runs a removed script: a person's call.
+  assert.equal(fate(plan, 'docs/templates/phase.md').fate, 'keep');
+  assert.match(fate(plan, 'docs/templates/phase.md').reason, /a planned rewrite calls it/);
+  const again = plan.references.filter(r => r.kind === 'recheck');
+  assert.deepEqual(again.map(r => [r.path, r.targets[0]]), [['package.json', 'npm run roadmap']]);
+  // Read once: no second rewrite of "test" fights the reporter's.
+  assert.equal(plan.references.filter(r => r.path === 'package.json' && r.text.startsWith('"test"') && r.rewrite).length, 1);
+});
+
+test('extensionless and directory requires resolve as Node resolves them', async t => {
+  const root = await acme({
+    extra: {
+      'scripts/check.cjs': "const helper = require('./plates/helper');\nconst kit = require('./plates/kit');\nconst gone = require('./plates/missing');\n",
+      'scripts/plates/helper.js': 'module.exports = () => {};\n',
+      'scripts/plates/kit/index.js': 'module.exports = {};\n',
+    },
+    lock: { 'scripts/plates/helper.js': { practice: 'night', sha256: 'x' }, 'scripts/plates/kit/index.js': { practice: 'night', sha256: 'x' } },
+  });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  assert.equal(fate(plan, 'scripts/plates/helper.js').to, 'scripts/helper.js');
+  assert.equal(fate(plan, 'scripts/plates/kit/index.js').to, 'scripts/kit/index.js');
+  const refs = plan.references.filter(r => r.path === 'scripts/check.cjs');
+  assert.deepEqual(refs.filter(r => r.rewrite).map(r => r.rewrite).sort(), [
+    "import './plates/helper' → './helper' (scripts/plates/helper.js → scripts/helper.js)",
+    "import './plates/kit' → './kit' (scripts/plates/kit/index.js → scripts/kit/index.js)",
+  ]);
+  assert.match(refs.find(r => r.text === './plates/missing').needsPerson, /does not resolve/);
+});
+
+test('removing the test reporter leaves every other byte of the script as it was', async t => {
+  const root = await acme({ extra: { 'package.json': withScripts({ test: 'node --test --test-name-pattern="Acme  anvils" --test-reporter=./scripts/plates/test-ledger.mjs --test-reporter-destination=stdout tests/*.test.mjs' }) } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const reporter = plan.references.find(r => r.kind === 'reporter');
+  assert.equal(reporter.results[0].text, 'node --test --test-name-pattern="Acme  anvils" tests/*.test.mjs');
+});
