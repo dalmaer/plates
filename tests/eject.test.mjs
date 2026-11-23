@@ -660,3 +660,42 @@ test('an npm run inside quotes or $( ) is never cut out', async t => {
     assert.match(ref.needsPerson, /quotes or \$\(/);
   }
 });
+
+test('a reader that stays while the resource it reads moves needs a person on that line', async t => {
+  const root = await acme({
+    extra: { 'scripts/read.mjs': "export const defaults = new URL('./plates/defaults.json', import.meta.url);\n", 'scripts/plates/defaults.json': '{}\n' },
+    lock: { 'scripts/plates/defaults.json': { practice: 'night', sha256: 'x' } },
+  });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  assert.equal(fate(plan, 'scripts/plates/defaults.json').to, 'scripts/defaults.json');
+  const refs = plan.references.filter(r => r.path === 'scripts/read.mjs' && r.kind === 'resource');
+  assert.deepEqual(refs.map(r => r.line), [1]);
+  assert.match(refs[0].needsPerson, /after eject it is at scripts\/defaults\.json/);
+});
+
+test('requires resolve in Node\'s own order; two candidates, or an extension Node would not add, need a person', async t => {
+  const root = await acme({
+    extra: {
+      'scripts/check.cjs': "const conf = require('./plates/conf');\nconst only = require('./plates/only');\n",
+      'scripts/plates/conf.js': 'module.exports = 1;\n', 'scripts/plates/conf.json': '{}\n', 'scripts/plates/only.cjs': 'module.exports = 2;\n',
+    },
+    lock: Object.fromEntries(['scripts/plates/conf.js', 'scripts/plates/conf.json', 'scripts/plates/only.cjs'].map(p => [p, { practice: 'night', sha256: 'x' }])),
+  });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const refs = plan.references.filter(r => r.path === 'scripts/check.cjs');
+  assert.ok(refs.every(r => r.rewrite === null), 'nothing is rewritten');
+  assert.match(refs.find(r => r.text === './plates/conf').needsPerson, /could be scripts\/plates\/conf\.js or scripts\/plates\/conf\.json/);
+  assert.match(refs.find(r => r.text === './plates/only').needsPerson, /does not resolve/);
+});
+
+test('the plates reporter goes only beside its own destination; any other order is a person\'s', async t => {
+  const grouped = 'node --test --test-reporter=spec --test-reporter=./scripts/plates/test-ledger.mjs --test-reporter-destination=stdout --test-reporter-destination=stdout tests/*.test.mjs';
+  const root = await acme({ extra: { 'package.json': withScripts({ test: grouped }) } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const refs = plan.references.filter(r => r.path === 'package.json' && r.text.startsWith('"test"'));
+  assert.deepEqual(refs.map(r => [r.kind, r.rewrite]), [['reporter', null]]);
+  assert.match(refs[0].needsPerson, /not followed by its own --test-reporter-destination/);
+});
