@@ -783,6 +783,18 @@ test("the ci practice's check.yml stays as the project's only pull-request CI, r
   assert.equal(fate(await planEject({ root: other }), '.github/workflows/check.yml').fate, 'drop');
 });
 
+test('the self-install step becomes npm ci only when it is nothing but the install conditional', async t => {
+  const more = CI_CHECK.replace('            npm ci --ignore-scripts\n          fi\n', '            npm ci --ignore-scripts\n          fi\n          node src/generate.mjs\n');
+  assert.match(more, /fi\n {10}node src\/generate\.mjs\n/);
+  const root = await acme(managedCi({ '.github/workflows/check.yml': more }));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const install = plan.references.find(r => r.path === '.github/workflows/check.yml' && r.kind === 'install');
+  assert.equal(install.rewrite, null);
+  assert.match(install.needsPerson, /other commands in the step/);
+  assert.equal(install.lines, undefined, 'the body is left as it is');
+});
+
 test('a kept workflow calling the test ledger --gate runs npm run check instead', async t => {
   const pages = 'name: pages\non:\n  push:\njobs:\n  p:\n    runs-on: ubuntu-latest\n    steps:\n      - name: Gate\n        run: node scripts/plates/test-ledger.mjs --gate\n';
   const root = await acme({ extra: { '.github/workflows/pages.yml': pages } });
