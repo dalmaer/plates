@@ -737,3 +737,59 @@ test('--drop-night drops every plates workflow, whatever names it, and what only
   assert.match(night.needsPerson, /--drop-night drops/);
   assert.deepEqual(plan.refusals, []);
 });
+
+// The ci practice's check.yml as plates renders it: plates's self-install, the guarded gate, the ledger.
+const CI_CHECK = `name: check
+on:
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install source test tooling
+        run: |
+          SELF=$(node -e 'const c=JSON.parse(require("fs").readFileSync(".plates/plates.json","utf8"));console.log(c.plates === "self" ? "true" : "false")')
+          if [ "$SELF" = true ]; then
+            npm ci --ignore-scripts
+          fi
+      - name: Run the configured gate
+        run: |
+          if [ -f scripts/plates/gate.mjs ]; then
+            node scripts/plates/gate.mjs --ci
+          elif [ -f scripts/plates/test-ledger.mjs ]; then
+            node scripts/plates/test-ledger.mjs --gate
+          else
+            npm run check
+          fi
+`;
+const managedCi = extra => ({
+  extra: { '.plates/plates.json': JSON.stringify({ name: 'acme', repo: 'acme/anvils', practice: '0.9.0', practices: ['base', 'agents-md', 'phases', 'ci', 'night'] }, null, 2), '.github/workflows/check.yml': CI_CHECK, 'package-lock.json': '{}\n', ...extra },
+  lock: { '.github/workflows/check.yml': { practice: 'ci', sha256: 'x' } },
+});
+
+test("the ci practice's check.yml stays as the project's only pull-request CI, rewritten to install and npm run check", async t => {
+  const root = await acme(managedCi());
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  assert.equal(fate(plan, '.github/workflows/check.yml').fate, 'rewrite');
+  const refs = plan.references.filter(r => r.path === '.github/workflows/check.yml');
+  assert.deepEqual(refs.filter(r => r.rewrite).map(r => r.kind).sort(), ['guarded-call', 'install']);
+  assert.deepEqual(refs.find(r => r.kind === 'install').lines, ['          npm ci']);
+  assert.ok(!refs.some(r => r.needsPerson), refs.filter(r => r.needsPerson).map(r => r.needsPerson).join('\n'));
+  // Another kept workflow running the check on pull requests: check.yml drops with its practice.
+  const other = await acme(managedCi({ '.github/workflows/test.yml': 'name: test\non:\n  pull_request:\njobs:\n  t:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm run check\n' }));
+  t.after(() => rm(other, { recursive: true, force: true }));
+  assert.equal(fate(await planEject({ root: other }), '.github/workflows/check.yml').fate, 'drop');
+});
+
+test('a kept workflow calling the test ledger --gate runs npm run check instead', async t => {
+  const pages = 'name: pages\non:\n  push:\njobs:\n  p:\n    runs-on: ubuntu-latest\n    steps:\n      - name: Gate\n        run: node scripts/plates/test-ledger.mjs --gate\n';
+  const root = await acme({ extra: { '.github/workflows/pages.yml': pages } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const gate = plan.references.find(r => r.path === '.github/workflows/pages.yml' && r.kind === 'gate');
+  assert.deepEqual(gate.lines, ['        run: npm run check']);
+  assert.equal(fate(plan, 'scripts/plates/test-ledger.mjs').fate, 'drop');
+  assert.deepEqual(plan.refusals, []);
+});
