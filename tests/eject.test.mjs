@@ -179,9 +179,9 @@ test('the plan finds every managed file and every reference to plates', async t 
     'remove "roadmap:check": it runs scripts/roadmap.mjs, which eject drops (phases)',
     '"check": "npm test"',
   ]);
-  // A comment naming a plates script, and the kept AGENTS.md section naming .plates/, need a person.
+  // A comment naming a plates script needs a person; plates's own paragraph in the kept section goes with plates.
   assert.ok(refs('.github/workflows/check.yml', 'prose').some(r => r.needsPerson));
-  assert.ok(refs('AGENTS.md').some(r => /\.plates\//.test(r.needsPerson ?? '')));
+  assert.deepEqual(refs('AGENTS.md').map(r => [r.kind, r.rewrite]), [['plates-text', "drop plates's own paragraph from the kept agents-md section"]]);
   // The dropped night section is not swept: its scripts/plates/drain.mjs is not a dependency.
   assert.ok(!refs('AGENTS.md').some(r => r.targets.includes('scripts/plates/drain.mjs')));
   // The night shift's jobs, with what each does.
