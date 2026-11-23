@@ -727,3 +727,21 @@ test('a plain fallback that cannot be dedented safely needs a person', async t =
   assert.match(gate.needsPerson, /mixes tabs and spaces/);
   assert.deepEqual(plan.refusals, []);
 });
+
+test('a block whose if/else/fi line also runs a command is a person\'s, never deleted or rewritten', async t => {
+  const deadWithTail = CHECK.replace(/^( *)fi\n$/m, '$1fi; printf acme-required\n');
+  const fallbackWithTail = gateWith(['npm run check']).replace('          fi\n      # The test ledger', '          fi && printf acme-gated\n      # The test ledger');
+  assert.notEqual(deadWithTail, CHECK);
+  assert.match(fallbackWithTail, /fi && printf acme-gated/);
+  for (const [file, kind] of [[deadWithTail, 'dead-block'], [fallbackWithTail, 'guarded-call']]) {
+    const root = await acme({ extra: { '.github/workflows/check.yml': file } });
+    t.after(() => rm(root, { recursive: true, force: true }));
+    const plan = await planEject({ root });
+    const refs = plan.references.filter(r => r.path === '.github/workflows/check.yml' && r.kind === kind);
+    assert.equal(refs.length, 1, kind);
+    assert.equal(refs[0].rewrite, null);
+    assert.match(refs[0].needsPerson, /a command shares a line with if\/elif\/else\/fi/);
+    if (kind === 'dead-block') assert.ok(!plan.references.some(r => r.kind === 'step' && /reconciliation/.test(r.rewrite ?? '')), 'the step is not dropped');
+    assert.deepEqual(plan.refusals, []);
+  }
+});
