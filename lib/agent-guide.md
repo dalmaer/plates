@@ -2755,8 +2755,11 @@ into the map only while every mapped item still carries its line.
 
 <!-- topic: eject | leave plates: every managed file becomes the project's own or goes -->
 
-`plates eject --dry-run [--keep-phases] [--json]` prints the plan and writes
-nothing. The plan lists:
+`plates eject --dry-run [--keep-phases] [--drop-night] [--json]` prints the
+plan and writes nothing. With `--drop-night`, every `plates-*.yml` workflow
+drops, whatever names it, and so does everything only it reaches. A dynamic
+`import()` is never a hard dependency: a dropped or missing target is a
+person's call, not a refusal. The plan lists:
 
 - every managed target (`.plates/lock.json`), every ejected and seeded file,
   and `.plates/`, each with a fate: keep, rewrite, drop, or a person's call.
@@ -2784,14 +2787,17 @@ in a kept section (one naming `.plates/` or the plates CLI) goes with it.
 
 The dry run exits 1 when there is a refusal, 0 when the plan could be applied.
 
-`plates eject --apply [--keep-phases] [--branch <name>] [--json]` applies the
+`plates eject --apply [--keep-phases] [--drop-night] [--branch <name>] [--check-cmd "<cmd>"] [--json]` applies the
 plan in this checkout on a new branch (default `plates-eject`; an existing
 branch is refused): it moves kept files, makes every rewrite, deletes dropped
 files and `.plates/`, and commits once. "Needs a person" lines are not edited;
 the commit body and the output list them. Any refusal: exit 1, nothing
 changed. Then it clones the branch into a temporary directory and runs
 `npm ci` and `npm run check` there: exit 0 when they pass, 1 when they fail
-(the branch stays for inspection). It never pushes or opens a PR.
+(the branch stays for inspection). `--check-cmd "<cmd>"` runs that command in the
+clone instead. With no root `package-lock.json` the default check is skipped,
+said as "clean check skipped: no root lockfile; run with --check-cmd", never a
+failure. It never pushes or opens a PR.
 
 <!-- topic: install | how plates is installed, and how to tell which plates you have -->
 

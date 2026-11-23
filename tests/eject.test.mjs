@@ -772,3 +772,173 @@ test('an npm run inside quotes or $( ) is never cut out', async t => {
     assert.match(ref.needsPerson, /quotes or \$\(/);
   }
 });
+
+test('a reader that stays while the resource it reads moves needs a person on that line', async t => {
+  const root = await acme({
+    extra: { 'scripts/read.mjs': "export const defaults = new URL('./plates/defaults.json', import.meta.url);\n", 'scripts/plates/defaults.json': '{}\n' },
+    lock: { 'scripts/plates/defaults.json': { practice: 'night', sha256: 'x' } },
+  });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  assert.equal(fate(plan, 'scripts/plates/defaults.json').to, 'scripts/defaults.json');
+  const refs = plan.references.filter(r => r.path === 'scripts/read.mjs' && r.kind === 'resource');
+  assert.deepEqual(refs.map(r => r.line), [1]);
+  assert.match(refs[0].needsPerson, /after eject it is at scripts\/defaults\.json/);
+});
+
+test('requires resolve in Node\'s own order; two candidates, or an extension Node would not add, need a person', async t => {
+  const root = await acme({
+    extra: {
+      'scripts/check.cjs': "const conf = require('./plates/conf');\nconst only = require('./plates/only');\n",
+      'scripts/plates/conf.js': 'module.exports = 1;\n', 'scripts/plates/conf.json': '{}\n', 'scripts/plates/only.cjs': 'module.exports = 2;\n',
+    },
+    lock: Object.fromEntries(['scripts/plates/conf.js', 'scripts/plates/conf.json', 'scripts/plates/only.cjs'].map(p => [p, { practice: 'night', sha256: 'x' }])),
+  });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const refs = plan.references.filter(r => r.path === 'scripts/check.cjs');
+  assert.ok(refs.every(r => r.rewrite === null), 'nothing is rewritten');
+  assert.match(refs.find(r => r.text === './plates/conf').needsPerson, /could be scripts\/plates\/conf\.js or scripts\/plates\/conf\.json/);
+  assert.match(refs.find(r => r.text === './plates/only').needsPerson, /does not resolve/);
+});
+
+test('the plates reporter goes only beside its own destination; any other order is a person\'s', async t => {
+  const grouped = 'node --test --test-reporter=spec --test-reporter=./scripts/plates/test-ledger.mjs --test-reporter-destination=stdout --test-reporter-destination=stdout tests/*.test.mjs';
+  const root = await acme({ extra: { 'package.json': withScripts({ test: grouped }) } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const refs = plan.references.filter(r => r.path === 'package.json' && r.text.startsWith('"test"'));
+  assert.deepEqual(refs.map(r => [r.kind, r.rewrite]), [['reporter', null]]);
+  assert.match(refs[0].needsPerson, /not followed by its own --test-reporter-destination/);
+});
+
+test('a path in both the lock and "ejected" is one row, the ejected one', async t => {
+  const root = await acme({ lock: { '.github/workflows/check.yml': { practice: 'ci', sha256: 'x' } } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const rows = plan.files.filter(r => r.path === '.github/workflows/check.yml');
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].kind, 'ejected');
+  assert.equal(rows[0].fate, 'rewrite');
+});
+
+test('a dynamic import() is never a hard dependency: no keep, no refusal, a person checks the guard', async t => {
+  const root = await acme({ extra: { 'scripts/run.mjs': "if (process.env.ACME) await import('./plates/drain.mjs');\nif (process.env.CLIMB) await import('./plates/climb.mjs');\n" } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  assert.equal(fate(plan, 'scripts/plates/drain.mjs').fate, 'drop');
+  assert.deepEqual(plan.refusals, []);
+  const refs = plan.references.filter(r => r.path === 'scripts/run.mjs');
+  assert.deepEqual(refs.map(r => r.text).sort(), ['./plates/climb.mjs', './plates/drain.mjs']);
+  assert.ok(refs.every(r => /on demand \(import\(\)\)/.test(r.needsPerson)));
+});
+
+test('--drop-night drops every plates workflow, whatever names it, and what only it reaches', async t => {
+  const flow = 'name: audit\non:\n  push:\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - run: grep -c cron .github/workflows/plates-night.yml\n';
+  const root = await acme({ extra: { '.github/workflows/audit.yml': flow } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const kept = await planEject({ root });
+  assert.notEqual(fate(kept, '.github/workflows/plates-night.yml').fate, 'drop', 'without the flag, a kept file that names it keeps it');
+  assert.notEqual(fate(kept, 'scripts/plates/drain.mjs').fate, 'drop', 'and what it calls');
+  const plan = await planEject({ root, dropNight: true });
+  assert.equal(plan.dropNight, true);
+  assert.equal(fate(plan, '.github/workflows/plates-night.yml').fate, 'drop');
+  assert.equal(fate(plan, 'scripts/plates/drain.mjs').fate, 'drop');
+  const night = plan.references.find(r => r.kind === 'night');
+  assert.equal(night.path, '.github/workflows/audit.yml');
+  assert.match(night.needsPerson, /--drop-night drops/);
+  assert.deepEqual(plan.refusals, []);
+});
+
+// The ci practice's check.yml as plates renders it: plates's self-install, the guarded gate, the ledger.
+const CI_CHECK = `name: check
+on:
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install source test tooling
+        run: |
+          SELF=$(node -e 'const c=JSON.parse(require("fs").readFileSync(".plates/plates.json","utf8"));console.log(c.plates === "self" ? "true" : "false")')
+          if [ "$SELF" = true ]; then
+            npm ci --ignore-scripts
+          fi
+      - name: Run the configured gate
+        run: |
+          if [ -f scripts/plates/gate.mjs ]; then
+            node scripts/plates/gate.mjs --ci
+          elif [ -f scripts/plates/test-ledger.mjs ]; then
+            node scripts/plates/test-ledger.mjs --gate
+          else
+            npm run check
+          fi
+`;
+const managedCi = extra => ({
+  extra: { '.plates/plates.json': JSON.stringify({ name: 'acme', repo: 'acme/anvils', practice: '0.9.0', practices: ['base', 'agents-md', 'phases', 'ci', 'night'] }, null, 2), '.github/workflows/check.yml': CI_CHECK, 'package-lock.json': '{}\n', ...extra },
+  lock: { '.github/workflows/check.yml': { practice: 'ci', sha256: 'x' } },
+});
+
+test("the ci practice's check.yml stays as the project's only pull-request CI, rewritten to install and npm run check", async t => {
+  const root = await acme(managedCi());
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  assert.equal(fate(plan, '.github/workflows/check.yml').fate, 'rewrite');
+  const refs = plan.references.filter(r => r.path === '.github/workflows/check.yml');
+  assert.deepEqual(refs.filter(r => r.rewrite).map(r => r.kind).sort(), ['guarded-call', 'install']);
+  assert.deepEqual(refs.find(r => r.kind === 'install').lines, ['          npm ci']);
+  assert.ok(!refs.some(r => r.needsPerson), refs.filter(r => r.needsPerson).map(r => r.needsPerson).join('\n'));
+  // Another kept workflow running the check on pull requests: check.yml drops with its practice.
+  const other = await acme(managedCi({ '.github/workflows/test.yml': 'name: test\non:\n  pull_request:\njobs:\n  t:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm run check\n' }));
+  t.after(() => rm(other, { recursive: true, force: true }));
+  assert.equal(fate(await planEject({ root: other }), '.github/workflows/check.yml').fate, 'drop');
+  // Applied: install, then the project's own check, and nothing of plates.
+  const applied = plannedTexts(root, plan).get('.github/workflows/check.yml');
+  assert.match(applied, /- name: Install source test tooling\n {8}run: \|\n {10}npm ci\n {6}- name: Run the configured gate\n {8}run: \|\n {10}npm run check\n$/);
+  assert.doesNotMatch(applied, /plates/);
+});
+
+test('a kept workflow calling the test ledger --gate runs npm run check instead', async t => {
+  const pages = 'name: pages\non:\n  push:\njobs:\n  p:\n    runs-on: ubuntu-latest\n    steps:\n      - name: Gate\n        run: node scripts/plates/test-ledger.mjs --gate\n';
+  const root = await acme({ extra: { '.github/workflows/pages.yml': pages } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const gate = plan.references.find(r => r.path === '.github/workflows/pages.yml' && r.kind === 'gate');
+  assert.deepEqual(gate.lines, ['        run: npm run check']);
+  assert.equal(fate(plan, 'scripts/plates/test-ledger.mjs').fate, 'drop');
+  assert.deepEqual(plan.refusals, []);
+  assert.match(plannedTexts(root, plan).get('.github/workflows/pages.yml'), /- name: Gate\n {8}run: npm run check\n$/);
+});
+
+test('a path in both the lock and "ejected" applies cleanly', async t => {
+  const root = await acme({ extra: ownCheck(), lock: { '.github/workflows/check.yml': { practice: 'ci', sha256: 'x' } } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const r = run(root, 'eject', '--apply', '--json');
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const out = JSON.parse(r.stdout);
+  assert.deepEqual(out.check, { ran: true, passed: true });
+  assert.ok(tracked(root).includes('.github/workflows/check.yml'));
+});
+
+test('no root lockfile: the clean check is skipped and said so; --check-cmd runs the owner\'s command; --drop-night applies', async t => {
+  const root = await acme({ extra: { 'tests/anvil.test.mjs': "import { test } from 'node:test';\ntest('an anvil', () => {});\n" } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const skipped = run(root, 'eject', '--apply', '--json');
+  assert.equal(skipped.status, 0, skipped.stdout + skipped.stderr);
+  assert.deepEqual(JSON.parse(skipped.stdout).check, { ran: false, skipped: 'clean check skipped: no root lockfile; run with --check-cmd' });
+  const other = await acme();
+  t.after(() => rm(other, { recursive: true, force: true }));
+  const owned = run(other, 'eject', '--apply', '--drop-night', '--branch', 'leave', '--check-cmd', 'test -f package.json && test ! -e .plates', '--json');
+  assert.equal(owned.status, 0, owned.stdout + owned.stderr);
+  const out = JSON.parse(owned.stdout);
+  assert.equal(out.check.passed, true);
+  assert.equal(out.check.checkCmd, 'test -f package.json && test ! -e .plates');
+  assert.ok(!tracked(other).includes('.github/workflows/plates-night.yml'));
+  const failing = await acme();
+  t.after(() => rm(failing, { recursive: true, force: true }));
+  const bad = run(failing, 'eject', '--apply', '--check-cmd', 'exit 3', '--json');
+  assert.equal(bad.status, 1);
+  assert.equal(JSON.parse(bad.stdout).check.step, '--check-cmd exit 3');
+  assert.equal(run(failing, 'eject', '--dry-run', '--check-cmd', 'true').status, 2, '--check-cmd goes with --apply');
+});

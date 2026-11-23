@@ -140,5 +140,8 @@ Unison; `--keep-phases` keeps the phase files in `docs/phases/` as history.
 `plates-eject`), never on an existing one, and leaves "needs a person" lines
 for you, listed in the commit body. It then clones the branch into a temporary
 directory and runs `npm ci` and `npm run check` there; a failure keeps the
-branch for inspection. It never pushes; push the branch and open the PR
-yourself.
+branch for inspection. With no root `package-lock.json` the clean check is
+skipped and says so; `--check-cmd "<cmd>"` runs your own setup and check in the
+clone instead. `--drop-night` drops every `plates-*.yml` workflow, and what only
+it reaches, even when a kept file names it. It never pushes; push the branch
+and open the PR yourself.
