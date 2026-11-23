@@ -170,7 +170,7 @@ test('the plan finds every managed file and every reference to plates', async t 
   assert.equal(fate(plan, 'package.json').fate, 'rewrite');
   const refs = (path, kind) => plan.references.filter(r => r.path === path && (!kind || r.kind === kind));
   assert.match(refs('.github/workflows/check.yml', 'call')[0].rewrite, /scripts\/plates\/workflows\.mjs → scripts\/workflows\.mjs/);
-  assert.match(refs('.github/workflows/check.yml', 'guarded-call')[0].rewrite, /plain branch: npm run check$/);
+  assert.match(refs('.github/workflows/check.yml', 'guarded-call')[0].rewrite, /plain branch, line for line:\n {6}npm run check$/);
   const steps = refs('.github/workflows/check.yml', 'step').map(r => r.rewrite);
   assert.ok(steps.some(s => /^drop the step: it keeps \.plates\/test-runs\//.test(s)), steps.join('\n'));
   assert.ok(steps.some(s => /^drop the step: it runs only with the reconciliation practice/.test(s)), steps.join('\n'));
@@ -435,4 +435,60 @@ test('a guide reached through an AGENTS.md alias is swept at its destination', a
   assert.equal(refs.length, 1);
   assert.deepEqual(refs[0].targets, ['.plates/']);
   assert.ok(!refs.some(r => r.targets.includes('scripts/plates/drain.mjs')), 'the dropped section is not swept');
+});
+
+test('a relative require() in a kept CommonJS module keeps, moves and rewrites the plates file', async t => {
+  const root = await acme({
+    extra: { 'scripts/check.cjs': "const helper = require('./plates/helper.cjs');\nhelper();\n", 'scripts/plates/helper.cjs': 'module.exports = () => {};\n' },
+    lock: { 'scripts/plates/helper.cjs': { practice: 'night', sha256: 'x' } },
+  });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  assert.equal(fate(plan, 'scripts/plates/helper.cjs').fate, 'keep');
+  assert.equal(fate(plan, 'scripts/plates/helper.cjs').to, 'scripts/helper.cjs');
+  assert.deepEqual(plan.references.filter(r => r.path === 'scripts/check.cjs').map(r => r.rewrite), ["import './plates/helper.cjs' → './helper.cjs' (scripts/plates/helper.cjs → scripts/helper.cjs)"]);
+});
+
+test('npm scripts are removed only for files that stay dropped after the dependency closure', async t => {
+  const root = await acme({ extra: { 'scripts/use.mjs': "import '../scripts/roadmap.mjs';\n" } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  assert.equal(fate(plan, 'scripts/roadmap.mjs').fate, 'keep');
+  assert.deepEqual(plan.references.filter(r => r.path === 'package.json' && r.kind === 'npm-script'), []);
+  assert.deepEqual(plan.refusals, []);
+});
+
+const gateWith = (fallback, extra = '') => CHECK.replace('          else\n            npm run check\n          fi\n', `          else\n${fallback.map(l => `            ${l}`).join('\n')}\n          fi\n${extra}`);
+
+test('a plain fallback keeps its lines: a comment never swallows the command', async t => {
+  const root = await acme({ extra: { '.github/workflows/check.yml': gateWith(['# Run the project gate', 'printf acme-checked']) } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const gate = plan.references.find(r => r.kind === 'guarded-call');
+  assert.match(gate.rewrite, /line for line:\n {6}# Run the project gate\n {6}printf acme-checked$/);
+  assert.doesNotMatch(gate.rewrite, /gate; printf/);
+});
+
+test('a step with a live fallback and a dead block is kept, not dropped', async t => {
+  const dead = `          if node -e 'const c=JSON.parse(require("fs").readFileSync(".plates/plates.json","utf8"));process.exit(c.practices.includes("reconciliation")?0:1)'; then\n            node scripts/plates/reconcile.mjs --json\n          fi\n`;
+  const root = await acme({ extra: { '.github/workflows/check.yml': gateWith(['npm run check'], dead) } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const refs = plan.references.filter(r => r.path === '.github/workflows/check.yml' && r.text === 'Run the configured gate');
+  assert.deepEqual(refs.map(r => r.kind).sort(), ['dead-block', 'guarded-call']);
+  assert.deepEqual(plan.refusals, []);
+});
+
+test('a kept step or check script left with nothing to run is refused, never dropped silently', async t => {
+  const root = await acme({ extra: { '.github/workflows/check.yml': gateWith(['# nothing else to do']) } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  assert.deepEqual(plan.refusals.map(r => r.code), ['empty-step']);
+  assert.match(plan.refusals[0].detail, /step "Run the configured gate" would be left with no command/);
+  const scripts = await acme({ extra: { 'package.json': withScripts({ check: 'npm run roadmap:check', test: 'node scripts/roadmap.mjs' }) } });
+  t.after(() => rm(scripts, { recursive: true, force: true }));
+  const second = await planEject({ root: scripts });
+  assert.deepEqual(second.refusals.map(r => r.code).sort(), ['empty-script', 'empty-script']);
+  assert.ok(second.refusals.some(r => /"check" would be left empty/.test(r.detail)));
+  assert.ok(second.refusals.some(r => /"test" only runs scripts\/roadmap\.mjs/.test(r.detail)));
 });
