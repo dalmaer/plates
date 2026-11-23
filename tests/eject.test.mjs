@@ -348,3 +348,87 @@ test('a guide under docs/ is swept like a root AGENTS.md', async t => {
   assert.equal(refs[0].line, 4);
   assert.deepEqual(refs[0].targets, ['.plates/']);
 });
+
+// An Acme whose own check is real: a test, and a lint that runs a plates script the project keeps.
+function ownCheck() {
+  const pkg = JSON.parse(PACKAGE);
+  pkg.scripts.lint = 'node scripts/plates/workflows.mjs --check';
+  pkg.scripts.check = 'npm test && npm run lint && npm run roadmap:check';
+  return {
+    'package.json': JSON.stringify(pkg, null, 2) + '\n',
+    'package-lock.json': JSON.stringify({ name: 'acme', lockfileVersion: 3, requires: true, packages: { '': { name: 'acme' } } }, null, 2) + '\n',
+    'tests/anvil.test.mjs': "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { weight } from '../src/anvil.mjs';\ntest('an anvil is heavy', () => assert.equal(weight, 100));\n",
+    // The ejected gate, without a comment that only a person can reword.
+    '.github/workflows/check.yml': CHECK.replace(/^ *# The configured gate.*\n/m, ''),
+  };
+}
+const tracked = root => { const r = exec('git', ['ls-files', '-z'], { cwd: root }); return r.stdout.split('\0').filter(Boolean); };
+const head = root => exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: root }).stdout.trim();
+
+test("an ejected project's own check passes without plates", async t => {
+  const root = await acme({ extra: ownCheck() });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const r = run(root, 'eject', '--apply', '--json');
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const out = JSON.parse(r.stdout);
+  assert.equal(out.applied, true);
+  assert.equal(out.branch, 'plates-eject');
+  assert.deepEqual(out.check, { ran: true, passed: true });
+  assert.deepEqual(out.needsPerson, []);
+  assert.equal(head(root), 'plates-eject');
+  assert.equal(exec('git', ['status', '--porcelain'], { cwd: root }).stdout, '', 'eject commits everything it changes');
+  assert.equal(exec('git', ['rev-list', '--count', 'HEAD^..HEAD'], { cwd: root }).stdout.trim(), '1');
+  for (const path of tracked(root)) {
+    const text = await readFile(join(root, path), 'utf8');
+    assert.ok(!/scripts\/plates\/|(^|[^\w/.-])\.plates\//m.test(text), `${path} still names plates:\n${text}`);
+  }
+  const files = tracked(root);
+  for (const path of ['scripts/workflows.mjs', 'scripts/lib.mjs', 'scripts/names.mjs', 'scripts/names.d.mts', '.github/workflows/check.yml', 'AGENTS.md', 'CLAUDE.md']) assert.ok(files.includes(path), `${path} is gone`);
+  for (const path of ['.plates/plates.json', '.plates/lock.json', 'scripts/plates/drain.mjs', 'scripts/roadmap.mjs', '.github/workflows/plates-night.yml', '.agents/skills/plates/SKILL.md']) assert.ok(!files.includes(path), `${path} stayed`);
+  const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
+  assert.equal(pkg.scripts.check, 'npm test && npm run lint');
+  assert.equal(pkg.scripts.lint, 'node scripts/workflows.mjs --check');
+  const check = await readFile(join(root, '.github/workflows/check.yml'), 'utf8');
+  assert.match(check, /\n {10}npm run check\n/);
+  assert.doesNotMatch(check, /Keep the test ledger|Reconcile records/);
+  const agents = await readFile(join(root, 'AGENTS.md'), 'utf8');
+  assert.equal(agents, '# Acme\n\nAcme sells anvils. Run `npm run check` before a PR.\n\n');
+});
+
+test('apply refuses on any refusal, and on an existing branch, changing nothing', async t => {
+  const root = await acme({ extra: { 'scripts/plates/stray.mjs': 'export {};\n' } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const before = await treeHash(root);
+  const r = run(root, 'eject', '--apply', '--json');
+  assert.equal(r.status, 1);
+  assert.equal(JSON.parse(r.stdout).applied, false);
+  assert.equal(await treeHash(root), before);
+  const clean = await acme();
+  t.after(() => rm(clean, { recursive: true, force: true }));
+  exec('git', ['branch', 'plates-eject'], { cwd: clean });
+  const again = await treeHash(clean);
+  const b = run(clean, 'eject', '--apply', '--json');
+  assert.equal(b.status, 1);
+  assert.match(JSON.parse(b.stdout).why, /plates-eject exists/);
+  assert.equal(await treeHash(clean), again);
+});
+
+test('eject refuses to strand open phases', async t => {
+  const phase = '---\nstatus: planned\n---\n# Anvils ship\n';
+  const done = '---\nstatus: built\n---\n# Anvils exist\n';
+  const root = await acme({ extra: { ...ownCheck(), 'docs/phases/1-anvils-ship.md': phase, 'docs/phases/0-anvils-exist.md': done } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  assert.deepEqual(plan.refusals.map(r => r.code), ['open-phases']);
+  assert.match(plan.refusals[0].detail, /docs\/phases\/1-anvils-ship\.md planned/);
+  assert.doesNotMatch(plan.refusals[0].detail, /0-anvils-exist/);
+  const before = await treeHash(root);
+  assert.equal(run(root, 'eject', '--apply').status, 1);
+  assert.equal(await treeHash(root), before, 'a refused apply changed something');
+  assert.deepEqual((await planEject({ root, keepPhases: true })).refusals, []);
+  const r = run(root, 'eject', '--apply', '--keep-phases', '--branch', 'leave-plates', '--json');
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.equal(JSON.parse(r.stdout).branch, 'leave-plates');
+  assert.ok(tracked(root).includes('docs/phases/1-anvils-ship.md'), 'the open phase stays as history');
+  assert.match(exec('git', ['log', '-1', '--format=%B'], { cwd: root }).stdout, /Open phases stay in docs\/phases as history \(--keep-phases\): docs\/phases\/1-anvils-ship\.md/);
+});

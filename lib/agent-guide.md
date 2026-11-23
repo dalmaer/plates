@@ -2755,8 +2755,8 @@ into the map only while every mapped item still carries its line.
 
 <!-- topic: eject | leave plates: every managed file becomes the project's own or goes -->
 
-`plates eject --dry-run [--json]` prints the plan and writes nothing (no
-branch, no PR; applying it is phase 206 increment 2). The plan lists:
+`plates eject --dry-run [--keep-phases] [--json]` prints the plan and writes
+nothing. The plan lists:
 
 - every managed target (`.plates/lock.json`), every ejected and seeded file,
   and `.plates/`, each with a fate: keep, rewrite, drop, or a person's call.
@@ -2769,7 +2769,9 @@ branch, no PR; applying it is phase 206 increment 2). The plan lists:
 - every scheduled workflow, so the owner can choose which become Unison
   Recurring tasks.
 - the refusals: uncommitted changes, a plates-looking file the lock does not
-  name, a kept file that needs a plates script that is not there.
+  name, a kept file that needs a plates script that is not there, and an open
+  phase (status not built, lived-in or superseded) unless `--keep-phases`,
+  which keeps the phase files as history.
 
 Fates follow what the code depends on. A kept file that calls a managed file
 keeps it and every managed file it imports, moved out of `scripts/plates/`.
@@ -2777,9 +2779,19 @@ A call that is not a dependency is rewritten: an `if [ -f scripts/plates/x ]
 … else … fi` chain becomes its plain else; a block guarded by a practice the
 project lacks goes; an upload of `.plates/` output that ignores no files goes;
 plates's test reporter leaves `package.json`'s test; an npm script that runs a
-dropped file goes, with its `npm run` in other scripts.
+dropped file goes, with its `npm run` in other scripts. plates's own paragraph
+in a kept section (one naming `.plates/` or the plates CLI) goes with it.
 
-Exits 1 when there is a refusal, 0 when the plan could be applied.
+The dry run exits 1 when there is a refusal, 0 when the plan could be applied.
+
+`plates eject --apply [--keep-phases] [--branch <name>] [--json]` applies the
+plan in this checkout on a new branch (default `plates-eject`; an existing
+branch is refused): it moves kept files, makes every rewrite, deletes dropped
+files and `.plates/`, and commits once. "Needs a person" lines are not edited;
+the commit body and the output list them. Any refusal: exit 1, nothing
+changed. Then it clones the branch into a temporary directory and runs
+`npm ci` and `npm run check` there: exit 0 when they pass, 1 when they fail
+(the branch stays for inspection). It never pushes or opens a PR.
 
 <!-- topic: install | how plates is installed, and how to tell which plates you have -->
 
