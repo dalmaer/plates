@@ -633,3 +633,30 @@ test('a block whose if/else/fi line also runs a command is a person\'s, never de
     assert.deepEqual(plan.refusals, []);
   }
 });
+
+test('an else/elif/then/fi line in a block that is not the bare keyword makes the block a person\'s', async t => {
+  // `else printf …` is not a branch to the parser, so the dead block would swallow it: it must not be deleted.
+  const withElse = CHECK.replace(/^( *)node scripts\/plates\/reconcile\.mjs --json\n/m, '$1node scripts/plates/reconcile.mjs --json\n$1else printf acme-required\n');
+  assert.match(withElse, /else printf acme-required/);
+  const root = await acme({ extra: { '.github/workflows/check.yml': withElse } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const dead = plan.references.filter(r => r.path === '.github/workflows/check.yml' && r.kind === 'dead-block');
+  assert.equal(dead.length, 1);
+  assert.equal(dead[0].rewrite, null);
+  assert.ok(!plan.references.some(r => r.kind === 'step' && /reconciliation/.test(r.rewrite ?? '')), 'the step is not dropped');
+});
+
+test('an npm run inside quotes or $( ) is never cut out', async t => {
+  const root = await acme({ extra: { 'package.json': withScripts({
+    check: 'npm test && node -e \'console.log("acme && npm run roadmap && anvils")\' && npm run roadmap',
+    verify: 'npm test && echo $(npm run roadmap)',
+  }) } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  for (const name of ['check', 'verify']) {
+    const ref = plan.references.find(r => r.path === 'package.json' && r.kind === 'npm-script' && r.text.startsWith(`"${name}"`));
+    assert.equal(ref.rewrite, null, name);
+    assert.match(ref.needsPerson, /quotes or \$\(/);
+  }
+});
