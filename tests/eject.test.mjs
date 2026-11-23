@@ -8,7 +8,7 @@ import { join, dirname, resolve } from 'node:path';
 import { run as exec } from './helpers/run.mjs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { planEject, workflowSteps, scheduledJob, movedTo, plannedTexts, resourcesOf, dedentTo } from '../lib/eject.mjs';
+import { planEject, workflowSteps, scheduledJob, movedTo, plannedTexts, resourcesOf, dedentTo, substituteOnce } from '../lib/eject.mjs';
 
 const BIN = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'plates.mjs');
 
@@ -966,4 +966,83 @@ test('no root lockfile: the clean check is skipped and said so; --check-cmd runs
   assert.equal(bad.status, 1);
   assert.equal(JSON.parse(bad.stdout).check.step, '--check-cmd exit 3');
   assert.equal(run(failing, 'eject', '--dry-run', '--check-cmd', 'true').status, 2, '--check-cmd goes with --apply');
+});
+
+const configWith = more => JSON.stringify({ name: 'acme', repo: 'acme/anvils', practice: '0.9.0', practices: ['base', 'agents-md', 'phases', 'ci', 'night'], ejected: ['.github/workflows/check.yml'], ...more }, null, 2);
+
+test('an ejected section on a guide alias is one row at the destination, and its text stays', async t => {
+  const root = await acme({ extra: { 'docs/team.md': AGENTS, 'AGENTS.md': '', '.plates/plates.json': configWith({ ejected: ['.github/workflows/check.yml', 'AGENTS.md#night'] }) }, links: { 'AGENTS.md': 'docs/team.md' } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const rows = plan.files.filter(r => r.block === 'night');
+  assert.deepEqual(rows.map(r => [r.path, r.kind, r.fate]), [['docs/team.md', 'ejected', 'keep']]);
+  assert.match(plannedTexts(root, plan).get('docs/team.md'), /The night shift runs scripts\/plates\/drain\.mjs\./);
+});
+
+test("an ejected section's paragraphs are never deleted; their plates references need a person", async t => {
+  const root = await acme({ extra: { '.plates/plates.json': configWith({ ejected: ['.github/workflows/check.yml', 'AGENTS.md#agents-md'] }) } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const refs = plan.references.filter(r => r.path === 'AGENTS.md');
+  assert.ok(!refs.some(r => r.kind === 'plates-text'), 'no paragraph deletion in an ejected section');
+  assert.ok(refs.some(r => r.line === 6 && /\.plates\//.test(r.needsPerson ?? '')));
+  assert.match(plannedTexts(root, plan).get('AGENTS.md'), /plates's files are listed in `\.plates\/lock\.json`\./);
+});
+
+test('same-line rewrites apply once, by span, never to each other\'s results', () => {
+  const line = "import a from './plates/a.mjs'; import b from './a.mjs';";
+  assert.equal(substituteOnce(line, [["'./plates/a.mjs'", "'./a.mjs'"], ["'./a.mjs'", "'../a.mjs'"]]), "import a from './a.mjs'; import b from '../a.mjs';");
+});
+
+test('open phases are found with CRLF front matter and in the projects shape', async t => {
+  const crlf = await acme({ extra: { 'docs/phases/1-anvils.md': '---\r\nstatus: planned\r\n---\r\n# Anvils\r\n' } });
+  t.after(() => rm(crlf, { recursive: true, force: true }));
+  assert.deepEqual((await planEject({ root: crlf })).refusals.map(r => r.code), ['open-phases']);
+  const projects = await acme({ extra: {
+    '.plates/plates.json': configWith({ phases: { shape: 'projects' } }),
+    'docs/projects/forge/phases.md': '# Forge\n\n## 1. Anvils ship\n\n**Status: NOT STARTED**\n\n## 2. Anvils exist\n\n**Status: CLOSED**\n',
+  } });
+  t.after(() => rm(projects, { recursive: true, force: true }));
+  const plan = await planEject({ root: projects });
+  assert.deepEqual(plan.openPhases, [{ file: 'docs/projects/forge/phases.md#1', status: 'planned' }]);
+  assert.deepEqual(plan.refusals.map(r => r.code), ['open-phases']);
+});
+
+test('a step whose only commands are two dead blocks is one deletion of the whole step', async t => {
+  const guard = p => `          if node -e 'const c=JSON.parse(require("fs").readFileSync(".plates/plates.json","utf8"));process.exit(c.practices.includes("${p}")?0:1)'; then\n            node scripts/plates/${p}.mjs\n          fi\n`;
+  const flow = `name: extras\non:\n  push:\njobs:\n  e:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n      - name: Optional records\n        run: |\n${guard('reconciliation')}${guard('climb')}      - run: npm run check\n`;
+  const root = await acme({ extra: { '.github/workflows/extras.yml': flow } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const refs = plan.references.filter(r => r.path === '.github/workflows/extras.yml' && r.edit);
+  assert.deepEqual(refs.map(r => r.kind), ['step']);
+  const text = plannedTexts(root, plan).get('.github/workflows/extras.yml');
+  assert.doesNotMatch(text, /Optional records|scripts\/plates/);
+  assert.match(text, /- run: npm run check\n$/);
+});
+
+test('a kept file moves onto a path the plan drops', async t => {
+  const root = await acme({ extra: { ...ownCheck(), 'scripts/lib.mjs': 'export const old = 1;\n' }, lock: { 'scripts/lib.mjs': { practice: 'night', sha256: 'x' } } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  assert.equal(fate(plan, 'scripts/plates/lib.mjs').to, 'scripts/lib.mjs');
+  const r = run(root, 'eject', '--apply', '--json');
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(await readFile(join(root, 'scripts/lib.mjs'), 'utf8'), /export const main/);
+});
+
+test('a failed apply from a detached HEAD goes back to that detached commit', async t => {
+  const root = await acme();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const base = exec('git', ['rev-parse', 'HEAD'], { cwd: root }).stdout.trim();
+  exec('git', ['switch', '-q', '--detach', base], { cwd: root });
+  // A commit hook that refuses makes the apply fail after it has changed files.
+  await writeFile(join(root, '.git/hooks/pre-commit'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+  const r = run(root, 'eject', '--apply', '--json');
+  assert.equal(r.status, 1);
+  assert.match(JSON.parse(r.stdout).error, /eject stopped and undid itself/);
+  assert.equal(head(root), 'HEAD', 'still detached');
+  assert.equal(exec('git', ['rev-parse', 'HEAD'], { cwd: root }).stdout.trim(), base);
+  assert.equal(exec('git', ['branch', '--list', 'plates-eject'], { cwd: root }).stdout.trim(), '');
+  assert.equal(exec('git', ['status', '--porcelain'], { cwd: root }).stdout, '');
 });
