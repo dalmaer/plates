@@ -8,7 +8,7 @@ import { join, dirname, resolve } from 'node:path';
 import { run as exec } from './helpers/run.mjs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { planEject, workflowSteps, scheduledJob, movedTo } from '../lib/eject.mjs';
+import { planEject, workflowSteps, scheduledJob, movedTo, resourcesOf } from '../lib/eject.mjs';
 
 const BIN = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'plates.mjs');
 
@@ -513,7 +513,7 @@ test('a moved file that finds paths from its own location needs a person', async
   assert.equal(fate(plan, 'scripts/plates/lib.mjs').to, 'scripts/lib.mjs', 'the move stays planned');
   const flagged = plan.references.filter(r => r.kind === 'location');
   assert.deepEqual(flagged.map(r => r.path), ['scripts/plates/lib.mjs']);
-  assert.match(flagged[0].needsPerson, /moving it to scripts\/lib\.mjs changes them/);
+  assert.match(flagged[0].needsPerson, /moving it to scripts\/lib\.mjs may change them/);
 });
 
 test('a kept symlink to a managed file keeps its target, and never dangles', async t => {
@@ -580,4 +580,15 @@ test('removing the test reporter leaves every other byte of the script as it was
   const plan = await planEject({ root });
   const reporter = plan.references.find(r => r.kind === 'reporter');
   assert.equal(reporter.results[0].text, 'node --test --test-name-pattern="Acme  anvils" tests/*.test.mjs');
+});
+
+test('a moved module reading a sibling resource keeps it, moves it alongside, and is flagged', async t => {
+  const lib = "export { name } from './names.mjs';\nexport const defaults = new URL('./defaults.json', import.meta.url);\nexport const main = () => {};\n";
+  const root = await acme({ extra: { 'scripts/plates/lib.mjs': lib, 'scripts/plates/defaults.json': '{}\n' }, lock: { 'scripts/plates/defaults.json': { practice: 'night', sha256: 'x' } } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  assert.equal(fate(plan, 'scripts/plates/defaults.json').fate, 'keep');
+  assert.equal(fate(plan, 'scripts/plates/defaults.json').to, 'scripts/defaults.json');
+  assert.deepEqual(plan.references.filter(r => r.kind === 'location').map(r => r.path), ['scripts/plates/lib.mjs']);
+  assert.deepEqual(resourcesOf("const a = join(__dirname, 'data', 'x.json');\nconst b = new URL('https://acme.invalid/', import.meta.url);\n"), ['data/x.json']);
 });
