@@ -8,7 +8,7 @@ import { join, dirname, resolve } from 'node:path';
 import { run as exec } from './helpers/run.mjs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { planEject, workflowSteps, scheduledJob, movedTo, plannedTexts, resourcesOf, dedentTo, substituteOnce } from '../lib/eject.mjs';
+import { planEject, workflowSteps, scheduledJob, movedTo, plannedTexts, resourcesOf, dedentTo, substituteOnce, specifierSpans } from '../lib/eject.mjs';
 
 const BIN = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'plates.mjs');
 
@@ -1062,4 +1062,36 @@ test('a kept section loses only paragraphs exactly as the practice ships them; a
   const text = plannedTexts(root, plan).get('AGENTS.md');
   assert.ok(text.includes(policy), 'the customised paragraph stays');
   assert.doesNotMatch(text, /plates's files are listed/);
+});
+
+test('only module specifiers are rewritten, never a string that reads the same', async t => {
+  const check = "import { main } from './plates/lib.mjs';\nconst value = { './plates/lib.mjs': 1 };\nconsole.log(value['./plates/lib.mjs'], await import('./plates/lib.mjs'));\n";
+  const root = await acme({ extra: { 'scripts/check.mjs': check } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  assert.equal(plannedTexts(root, plan).get('scripts/check.mjs'),
+    "import { main } from './lib.mjs';\nconst value = { './plates/lib.mjs': 1 };\nconsole.log(value['./plates/lib.mjs'], await import('./lib.mjs'));\n");
+  assert.deepEqual(specifierSpans("x = require('./a.cjs'); y['./a.cjs']").map(s => s.spec), ['./a.cjs']);
+});
+
+test('a managed file whose fate is a person\'s call is listed as needing a person on apply', async t => {
+  const root = await acme({
+    extra: { '.plates/plates.json': configWith({ practices: ['base', 'agents-md', 'phases', 'ci', 'night', 'cross-review'] }), '.agents/cross-review/REVIEW.md': '# Review\n' },
+    lock: { '.agents/cross-review/REVIEW.md': { practice: 'cross-review', sha256: 'x' } },
+  });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  assert.equal(fate(await planEject({ root }), '.agents/cross-review/REVIEW.md').fate, 'person');
+  const r = run(root, 'eject', '--apply', '--check-cmd', 'true', '--json');
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const person = JSON.parse(r.stdout).needsPerson.find(n => n.path === '.agents/cross-review/REVIEW.md');
+  assert.match(person.why, /cross-review survives eject or not/);
+  assert.match(exec('git', ['log', '-1', '--format=%B'], { cwd: root }).stdout, /- \.agents\/cross-review\/REVIEW\.md: cross-review survives eject or not/);
+  const again = await acme({
+    extra: { '.plates/plates.json': configWith({ practices: ['base', 'agents-md', 'phases', 'ci', 'night', 'cross-review'] }), '.agents/cross-review/REVIEW.md': '# Review\n' },
+    lock: { '.agents/cross-review/REVIEW.md': { practice: 'cross-review', sha256: 'x' } },
+  });
+  t.after(() => rm(again, { recursive: true, force: true }));
+  const text = run(again, 'eject', '--apply', '--check-cmd', 'true');
+  assert.doesNotMatch(text.stdout, /Nothing needs a person/);
+  assert.match(text.stdout, /\.agents\/cross-review\/REVIEW\.md: cross-review survives eject or not/);
 });
