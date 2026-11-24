@@ -402,7 +402,9 @@ transport stays separate from the independent acceptance authority.
   the plate's repo; Unison owns position and assignee, plates the titles, links
   and open or closed, phase 200), `plates eject` (leaving plates: the plan of
   each managed file's fate and every reference to plates in kept files, read
-  from the checkout, phase 206), `plates home`.
+  from the checkout; --apply makes it one local commit on a new branch and
+  runs the project's own check in a clean clone, never pushing, phase 206),
+  `plates home`.
 - **Policy: autonomy, capacity, doors:** `plates autonomy`. Capacity and door
   policy have no verb of their own.
 

@@ -8,7 +8,7 @@ import { join, dirname, resolve } from 'node:path';
 import { run as exec } from './helpers/run.mjs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { planEject, workflowSteps, scheduledJob, movedTo, resourcesOf, dedentTo } from '../lib/eject.mjs';
+import { planEject, workflowSteps, scheduledJob, movedTo, plannedTexts, resourcesOf, dedentTo, substituteOnce, specifierSpans, lineCol } from '../lib/eject.mjs';
 
 const BIN = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'plates.mjs');
 
@@ -77,7 +77,8 @@ const AGENTS = `# Acme
 Acme sells anvils. Run \`npm run check\` before a PR.
 
 <!-- plates:begin agents-md -->
-plates's files are listed in \`.plates/lock.json\`.
+plates's files are listed in \`.plates/lock.json\`; \`plates doctor\` says if you
+changed one. Everything else is yours.
 <!-- plates:end agents-md -->
 
 <!-- plates:begin night -->
@@ -180,9 +181,9 @@ test('the plan finds every managed file and every reference to plates', async t 
     'remove "roadmap:check": it runs scripts/roadmap.mjs, which eject drops (phases)',
     '"check": "npm test"',
   ]);
-  // A comment naming a plates script, and the kept AGENTS.md section naming .plates/, need a person.
+  // A comment naming a plates script needs a person; plates's own paragraph in the kept section goes with plates.
   assert.ok(refs('.github/workflows/check.yml', 'prose').some(r => r.needsPerson));
-  assert.ok(refs('AGENTS.md').some(r => /\.plates\//.test(r.needsPerson ?? '')));
+  assert.deepEqual(refs('AGENTS.md').map(r => [r.kind, r.rewrite]), [['plates-text', "drop plates's own paragraph from the kept agents-md section"]]);
   // The dropped night section is not swept: its scripts/plates/drain.mjs is not a dependency.
   assert.ok(!refs('AGENTS.md').some(r => r.targets.includes('scripts/plates/drain.mjs')));
   // The night shift's jobs, with what each does.
@@ -350,6 +351,90 @@ test('a guide under docs/ is swept like a root AGENTS.md', async t => {
   assert.deepEqual(refs[0].targets, ['.plates/']);
 });
 
+// An Acme whose own check is real: a test, and a lint that runs a plates script the project keeps.
+function ownCheck() {
+  const pkg = JSON.parse(PACKAGE);
+  pkg.scripts.lint = 'node scripts/plates/workflows.mjs --check';
+  pkg.scripts.check = 'npm test && npm run lint && npm run roadmap:check';
+  return {
+    'package.json': JSON.stringify(pkg, null, 2) + '\n',
+    'package-lock.json': JSON.stringify({ name: 'acme', lockfileVersion: 3, requires: true, packages: { '': { name: 'acme' } } }, null, 2) + '\n',
+    'tests/anvil.test.mjs': "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\nimport { weight } from '../src/anvil.mjs';\ntest('an anvil is heavy', () => assert.equal(weight, 100));\n",
+    // The ejected gate, without a comment that only a person can reword.
+    '.github/workflows/check.yml': CHECK.replace(/^ *# The configured gate.*\n/m, ''),
+  };
+}
+const tracked = root => { const r = exec('git', ['ls-files', '-z'], { cwd: root }); return r.stdout.split('\0').filter(Boolean); };
+const head = root => exec('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: root }).stdout.trim();
+
+test("an ejected project's own check passes without plates", async t => {
+  const root = await acme({ extra: ownCheck() });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const r = run(root, 'eject', '--apply', '--json');
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const out = JSON.parse(r.stdout);
+  assert.equal(out.applied, true);
+  assert.equal(out.branch, 'plates-eject');
+  assert.deepEqual(out.check, { ran: true, passed: true });
+  assert.deepEqual(out.needsPerson, []);
+  assert.equal(head(root), 'plates-eject');
+  assert.equal(exec('git', ['status', '--porcelain'], { cwd: root }).stdout, '', 'eject commits everything it changes');
+  assert.equal(exec('git', ['rev-list', '--count', 'HEAD^..HEAD'], { cwd: root }).stdout.trim(), '1');
+  for (const path of tracked(root)) {
+    const text = await readFile(join(root, path), 'utf8');
+    assert.ok(!/scripts\/plates\/|(^|[^\w/.-])\.plates\//m.test(text), `${path} still names plates:\n${text}`);
+  }
+  const files = tracked(root);
+  for (const path of ['scripts/workflows.mjs', 'scripts/lib.mjs', 'scripts/names.mjs', 'scripts/names.d.mts', '.github/workflows/check.yml', 'AGENTS.md', 'CLAUDE.md']) assert.ok(files.includes(path), `${path} is gone`);
+  for (const path of ['.plates/plates.json', '.plates/lock.json', 'scripts/plates/drain.mjs', 'scripts/roadmap.mjs', '.github/workflows/plates-night.yml', '.agents/skills/plates/SKILL.md']) assert.ok(!files.includes(path), `${path} stayed`);
+  const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
+  assert.equal(pkg.scripts.check, 'npm test && npm run lint');
+  assert.equal(pkg.scripts.lint, 'node scripts/workflows.mjs --check');
+  const check = await readFile(join(root, '.github/workflows/check.yml'), 'utf8');
+  assert.match(check, /\n {10}npm run check\n/);
+  assert.doesNotMatch(check, /Keep the test ledger|Reconcile records/);
+  const agents = await readFile(join(root, 'AGENTS.md'), 'utf8');
+  assert.equal(agents, '# Acme\n\nAcme sells anvils. Run `npm run check` before a PR.\n\n');
+});
+
+test('apply refuses on any refusal, and on an existing branch, changing nothing', async t => {
+  const root = await acme({ extra: { 'scripts/plates/stray.mjs': 'export {};\n' } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const before = await treeHash(root);
+  const r = run(root, 'eject', '--apply', '--json');
+  assert.equal(r.status, 1);
+  assert.equal(JSON.parse(r.stdout).applied, false);
+  assert.equal(await treeHash(root), before);
+  const clean = await acme();
+  t.after(() => rm(clean, { recursive: true, force: true }));
+  exec('git', ['branch', 'plates-eject'], { cwd: clean });
+  const again = await treeHash(clean);
+  const b = run(clean, 'eject', '--apply', '--json');
+  assert.equal(b.status, 1);
+  assert.match(JSON.parse(b.stdout).why, /plates-eject exists/);
+  assert.equal(await treeHash(clean), again);
+});
+
+test('eject refuses to strand open phases', async t => {
+  const phase = '---\nstatus: planned\n---\n# Anvils ship\n';
+  const done = '---\nstatus: built\n---\n# Anvils exist\n';
+  const root = await acme({ extra: { ...ownCheck(), 'docs/phases/1-anvils-ship.md': phase, 'docs/phases/0-anvils-exist.md': done } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  assert.deepEqual(plan.refusals.map(r => r.code), ['open-phases']);
+  assert.match(plan.refusals[0].detail, /docs\/phases\/1-anvils-ship\.md planned/);
+  assert.doesNotMatch(plan.refusals[0].detail, /0-anvils-exist/);
+  const before = await treeHash(root);
+  assert.equal(run(root, 'eject', '--apply').status, 1);
+  assert.equal(await treeHash(root), before, 'a refused apply changed something');
+  assert.deepEqual((await planEject({ root, keepPhases: true })).refusals, []);
+  const r = run(root, 'eject', '--apply', '--keep-phases', '--branch', 'leave-plates', '--json');
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.equal(JSON.parse(r.stdout).branch, 'leave-plates');
+  assert.ok(tracked(root).includes('docs/phases/1-anvils-ship.md'), 'the open phase stays as history');
+  assert.match(exec('git', ['log', '-1', '--format=%B'], { cwd: root }).stdout, /Open phases stay in docs\/phases as history \(--keep-phases\): docs\/phases\/1-anvils-ship\.md/);
+});
+
 const withScripts = scripts => { const pkg = JSON.parse(PACKAGE); Object.assign(pkg.scripts, scripts); return JSON.stringify(pkg, null, 2) + '\n'; };
 
 test('what a test script calls beside the plates reporter is still a dependency', async t => {
@@ -363,6 +448,9 @@ test('what a test script calls beside the plates reporter is still a dependency'
   assert.match(refs.find(r => r.kind === 'call').rewrite, /scripts\/plates\/drain\.mjs → scripts\/drain\.mjs/);
   assert.equal(fate(plan, 'scripts/plates/drain.mjs').fate, 'keep');
   assert.equal(fate(plan, 'scripts/plates/lib.mjs').fate, 'keep', 'and what it imports');
+  // Applied, the rewritten script calls the moved file.
+  const pkg = JSON.parse(plannedTexts(root, plan).get('package.json'));
+  assert.equal(pkg.scripts.test, 'node --test tests/*.test.mjs && node scripts/drain.mjs');
 });
 
 test('a removed npm run takes its -- arguments with it, or is a person\'s call', async t => {
@@ -421,6 +509,7 @@ test('a kept module importing a moved plates file gets its specifier rewritten',
   assert.equal(fate(plan, 'scripts/plates/lib.mjs').to, 'scripts/lib.mjs');
   const refs = plan.references.filter(r => r.path === 'scripts/check.mjs');
   assert.deepEqual(refs.map(r => [r.kind, r.line, r.rewrite]), [['import', 1, "import './plates/lib.mjs' → './lib.mjs' (scripts/plates/lib.mjs → scripts/lib.mjs)"]]);
+  assert.equal(plannedTexts(root, plan).get('scripts/check.mjs'), "import { main } from './lib.mjs';\nmain();\n");
   // Siblings that move together keep their specifiers.
   assert.ok(!plan.references.some(r => r.kind === 'import' && r.path.startsWith('scripts/plates/')));
 });
@@ -467,6 +556,15 @@ test('a plain fallback keeps its lines: a comment never swallows the command', a
   const gate = plan.references.find(r => r.kind === 'guarded-call');
   assert.match(gate.rewrite, /byte for byte:\n {10}# Run the project gate\n {10}printf acme-checked$/);
   assert.doesNotMatch(gate.rewrite, /gate; printf/);
+  // Applied, the step's run block still runs the project's command.
+  const text = plannedTexts(root, plan).get('.github/workflows/check.yml');
+  const step = workflowSteps(text).find(s => s.lines.some(l => /name: Run the configured gate/.test(l)));
+  const at = step.lines.findIndex(l => /run: \|/.test(l));
+  const script = step.lines.slice(at + 1).filter(l => l.trim()).map(l => l.trim()).join('\n');
+  assert.equal(script, '# Run the project gate\nprintf acme-checked');
+  const ran = exec('sh', ['-c', script]);
+  assert.equal(ran.status, 0);
+  assert.equal(ran.stdout, 'acme-checked');
 });
 
 test('a step with a live fallback and a dead block is kept, not dropped', async t => {
@@ -477,6 +575,9 @@ test('a step with a live fallback and a dead block is kept, not dropped', async 
   const refs = plan.references.filter(r => r.path === '.github/workflows/check.yml' && r.text === 'Run the configured gate');
   assert.deepEqual(refs.map(r => r.kind).sort(), ['dead-block', 'guarded-call']);
   assert.deepEqual(plan.refusals, []);
+  const text = plannedTexts(root, plan).get('.github/workflows/check.yml');
+  assert.match(text, /- name: Run the configured gate\n {8}run: \|\n {10}npm run check\n/);
+  assert.doesNotMatch(text, /reconcile\.mjs/);
 });
 
 test('a kept step or check script left with nothing to run is refused, never dropped silently', async t => {
@@ -572,6 +673,8 @@ test('extensionless and directory requires resolve as Node resolves them', async
     "import './plates/kit' → './kit' (scripts/plates/kit/index.js → scripts/kit/index.js)",
   ]);
   assert.match(refs.find(r => r.text === './plates/missing').needsPerson, /does not resolve/);
+  // Applied: the resolved requires are rewritten, the unresolved one is left for a person.
+  assert.equal(plannedTexts(root, plan).get('scripts/check.cjs'), "const helper = require('./helper');\nconst kit = require('./kit');\nconst gone = require('./plates/missing');\n");
 });
 
 test('removing the test reporter leaves every other byte of the script as it was', async t => {
@@ -580,6 +683,7 @@ test('removing the test reporter leaves every other byte of the script as it was
   const plan = await planEject({ root });
   const reporter = plan.references.find(r => r.kind === 'reporter');
   assert.equal(reporter.results[0].text, 'node --test --test-name-pattern="Acme  anvils" tests/*.test.mjs');
+  assert.equal(JSON.parse(plannedTexts(root, plan).get('package.json')).scripts.test, 'node --test --test-name-pattern="Acme  anvils" tests/*.test.mjs');
 });
 
 test('a moved module reading a sibling resource keeps it, moves it alongside, and is flagged', async t => {
@@ -603,6 +707,15 @@ test('a plain fallback keeps its relative indentation and blank lines byte for b
   const gate = plan.references.find(r => r.kind === 'guarded-call');
   assert.deepEqual(gate.lines, ["          cat <<'ACME'", '          def check():', '              return "anvils"', '            ', '          ACME'], 'a blank line stays as it was');
   assert.deepEqual(dedentTo(['\t\tx', '\t\t\ty'], '  '), ['  x', '  \ty']);
+  // Applied, the step's run block (read as YAML reads a literal block) prints the heredoc with its indentation.
+  const text = plannedTexts(root, plan).get('.github/workflows/check.yml');
+  const step = workflowSteps(text).find(s => s.lines.some(l => /name: Run the configured gate/.test(l)));
+  const block = step.lines.slice(step.lines.findIndex(l => /run: \|/.test(l)) + 1);
+  const indent = block.find(l => l.trim()).match(/^ */)[0].length;
+  const script = block.map(l => l.trim() ? l.slice(indent) : '').join('\n').replace(/\n+$/, '\n');
+  const ran = exec('sh', ['-c', script]);
+  assert.equal(ran.status, 0, ran.stderr);
+  assert.equal(ran.stdout, 'def check():\n    return "anvils"\n\n');
 });
 
 test('a plain fallback that cannot be dedented safely needs a person', async t => {
@@ -781,6 +894,10 @@ test("the ci practice's check.yml is always kept as the project's pull-request C
   const other = await acme(managedCi({ '.github/workflows/test.yml': 'name: test\non:\n  pull_request:\njobs:\n  t:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm run check\n' }));
   t.after(() => rm(other, { recursive: true, force: true }));
   assert.equal(fate(await planEject({ root: other }), '.github/workflows/check.yml').fate, 'rewrite');
+  // Applied: install, then the project's own check, and nothing of plates.
+  const applied = plannedTexts(root, plan).get('.github/workflows/check.yml');
+  assert.match(applied, /- name: Install source test tooling\n {8}run: \|\n {10}npm ci\n {6}- name: Run the configured gate\n {8}run: \|\n {10}npm run check\n$/);
+  assert.doesNotMatch(applied, /plates/);
 });
 
 test('a require of a package directory needs a person, and keeps everything in it', async t => {
@@ -817,4 +934,177 @@ test('a kept workflow calling the test ledger --gate runs npm run check instead'
   assert.deepEqual(gate.lines, ['        run: npm run check']);
   assert.equal(fate(plan, 'scripts/plates/test-ledger.mjs').fate, 'drop');
   assert.deepEqual(plan.refusals, []);
+  assert.match(plannedTexts(root, plan).get('.github/workflows/pages.yml'), /- name: Gate\n {8}run: npm run check\n$/);
+});
+
+test('a path in both the lock and "ejected" applies cleanly', async t => {
+  const root = await acme({ extra: ownCheck(), lock: { '.github/workflows/check.yml': { practice: 'ci', sha256: 'x' } } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const r = run(root, 'eject', '--apply', '--json');
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const out = JSON.parse(r.stdout);
+  assert.deepEqual(out.check, { ran: true, passed: true });
+  assert.ok(tracked(root).includes('.github/workflows/check.yml'));
+});
+
+test('no root lockfile: the clean check is skipped and said so; --check-cmd runs the owner\'s command; --drop-night applies', async t => {
+  const root = await acme({ extra: { 'tests/anvil.test.mjs': "import { test } from 'node:test';\ntest('an anvil', () => {});\n" } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const skipped = run(root, 'eject', '--apply', '--json');
+  assert.equal(skipped.status, 0, skipped.stdout + skipped.stderr);
+  assert.deepEqual(JSON.parse(skipped.stdout).check, { ran: false, skipped: 'clean check skipped: no root lockfile; run with --check-cmd' });
+  const other = await acme();
+  t.after(() => rm(other, { recursive: true, force: true }));
+  const owned = run(other, 'eject', '--apply', '--drop-night', '--branch', 'leave', '--check-cmd', 'test -f package.json && test ! -e .plates', '--json');
+  assert.equal(owned.status, 0, owned.stdout + owned.stderr);
+  const out = JSON.parse(owned.stdout);
+  assert.equal(out.check.passed, true);
+  assert.equal(out.check.checkCmd, 'test -f package.json && test ! -e .plates');
+  assert.ok(!tracked(other).includes('.github/workflows/plates-night.yml'));
+  const failing = await acme();
+  t.after(() => rm(failing, { recursive: true, force: true }));
+  const bad = run(failing, 'eject', '--apply', '--check-cmd', 'exit 3', '--json');
+  assert.equal(bad.status, 1);
+  assert.equal(JSON.parse(bad.stdout).check.step, '--check-cmd exit 3');
+  assert.equal(run(failing, 'eject', '--dry-run', '--check-cmd', 'true').status, 2, '--check-cmd goes with --apply');
+});
+
+const configWith = more => JSON.stringify({ name: 'acme', repo: 'acme/anvils', practice: '0.9.0', practices: ['base', 'agents-md', 'phases', 'ci', 'night'], ejected: ['.github/workflows/check.yml'], ...more }, null, 2);
+
+test('an ejected section on a guide alias is one row at the destination, and its text stays', async t => {
+  const root = await acme({ extra: { 'docs/team.md': AGENTS, 'AGENTS.md': '', '.plates/plates.json': configWith({ ejected: ['.github/workflows/check.yml', 'AGENTS.md#night'] }) }, links: { 'AGENTS.md': 'docs/team.md' } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const rows = plan.files.filter(r => r.block === 'night');
+  assert.deepEqual(rows.map(r => [r.path, r.kind, r.fate]), [['docs/team.md', 'ejected', 'keep']]);
+  assert.match(plannedTexts(root, plan).get('docs/team.md'), /The night shift runs scripts\/plates\/drain\.mjs\./);
+});
+
+test("an ejected section's paragraphs are never deleted; their plates references need a person", async t => {
+  const root = await acme({ extra: { '.plates/plates.json': configWith({ ejected: ['.github/workflows/check.yml', 'AGENTS.md#agents-md'] }) } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const refs = plan.references.filter(r => r.path === 'AGENTS.md');
+  assert.ok(!refs.some(r => r.kind === 'plates-text'), 'no paragraph deletion in an ejected section');
+  assert.ok(refs.some(r => r.line === 6 && /\.plates\//.test(r.needsPerson ?? '')));
+  assert.match(plannedTexts(root, plan).get('AGENTS.md'), /plates's files are listed in `\.plates\/lock\.json`; `plates doctor` says if you\nchanged one\./);
+});
+
+test('same-line rewrites apply once, by span, never to each other\'s results', () => {
+  const line = "import a from './plates/a.mjs'; import b from './a.mjs';";
+  assert.equal(substituteOnce(line, [["'./plates/a.mjs'", "'./a.mjs'"], ["'./a.mjs'", "'../a.mjs'"]]), "import a from './a.mjs'; import b from '../a.mjs';");
+});
+
+test('open phases are found with CRLF front matter and in the projects shape', async t => {
+  const crlf = await acme({ extra: { 'docs/phases/1-anvils.md': '---\r\nstatus: planned\r\n---\r\n# Anvils\r\n' } });
+  t.after(() => rm(crlf, { recursive: true, force: true }));
+  assert.deepEqual((await planEject({ root: crlf })).refusals.map(r => r.code), ['open-phases']);
+  const projects = await acme({ extra: {
+    '.plates/plates.json': configWith({ phases: { shape: 'projects' } }),
+    'docs/projects/forge/phases.md': '# Forge\n\n## 1. Anvils ship\n\n**Status: NOT STARTED**\n\n## 2. Anvils exist\n\n**Status: CLOSED**\n',
+  } });
+  t.after(() => rm(projects, { recursive: true, force: true }));
+  const plan = await planEject({ root: projects });
+  assert.deepEqual(plan.openPhases, [{ file: 'docs/projects/forge/phases.md#1', status: 'planned' }]);
+  assert.deepEqual(plan.refusals.map(r => r.code), ['open-phases']);
+});
+
+test('a step whose only commands are two dead blocks is one deletion of the whole step', async t => {
+  const guard = p => `          if node -e 'const c=JSON.parse(require("fs").readFileSync(".plates/plates.json","utf8"));process.exit(c.practices.includes("${p}")?0:1)'; then\n            node scripts/plates/${p}.mjs\n          fi\n`;
+  const flow = `name: extras\non:\n  push:\njobs:\n  e:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n      - name: Optional records\n        run: |\n${guard('reconciliation')}${guard('climb')}      - run: npm run check\n`;
+  const root = await acme({ extra: { '.github/workflows/extras.yml': flow } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const refs = plan.references.filter(r => r.path === '.github/workflows/extras.yml' && r.edit);
+  assert.deepEqual(refs.map(r => r.kind), ['step']);
+  const text = plannedTexts(root, plan).get('.github/workflows/extras.yml');
+  assert.doesNotMatch(text, /Optional records|scripts\/plates/);
+  assert.match(text, /- run: npm run check\n$/);
+});
+
+test('a kept file moves onto a path the plan drops', async t => {
+  const root = await acme({ extra: { ...ownCheck(), 'scripts/lib.mjs': 'export const old = 1;\n' }, lock: { 'scripts/lib.mjs': { practice: 'night', sha256: 'x' } } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  assert.equal(fate(plan, 'scripts/plates/lib.mjs').to, 'scripts/lib.mjs');
+  const r = run(root, 'eject', '--apply', '--json');
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(await readFile(join(root, 'scripts/lib.mjs'), 'utf8'), /export const main/);
+});
+
+test('a failed apply from a detached HEAD goes back to that detached commit', async t => {
+  const root = await acme();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const base = exec('git', ['rev-parse', 'HEAD'], { cwd: root }).stdout.trim();
+  exec('git', ['switch', '-q', '--detach', base], { cwd: root });
+  // A commit hook that refuses makes the apply fail after it has changed files.
+  await writeFile(join(root, '.git/hooks/pre-commit'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+  const r = run(root, 'eject', '--apply', '--json');
+  assert.equal(r.status, 1);
+  assert.match(JSON.parse(r.stdout).error, /eject stopped and undid itself/);
+  assert.equal(head(root), 'HEAD', 'still detached');
+  assert.equal(exec('git', ['rev-parse', 'HEAD'], { cwd: root }).stdout.trim(), base);
+  assert.equal(exec('git', ['branch', '--list', 'plates-eject'], { cwd: root }).stdout.trim(), '');
+  assert.equal(exec('git', ['status', '--porcelain'], { cwd: root }).stdout, '');
+});
+
+test('a kept section loses only paragraphs exactly as the practice ships them; a customised one stays, flagged', async t => {
+  const policy = 'Acme policy: production releases require owner approval; run `plates doctor` before requesting approval.';
+  const custom = AGENTS.replace('<!-- plates:end agents-md -->', `\n${policy}\n<!-- plates:end agents-md -->`);
+  assert.notEqual(custom, AGENTS);
+  const root = await acme({ extra: { 'AGENTS.md': custom } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  const refs = plan.references.filter(r => r.path === 'AGENTS.md');
+  // The shipped paragraph goes; Acme's own policy stays and needs a person.
+  assert.deepEqual(refs.filter(r => r.kind === 'plates-text').map(r => r.line), [6]);
+  assert.ok(refs.some(r => r.line === 9 && r.needsPerson), refs.map(r => `${r.line} ${r.kind}`).join('\n'));
+  const text = plannedTexts(root, plan).get('AGENTS.md');
+  assert.ok(text.includes(policy), 'the customised paragraph stays');
+  assert.doesNotMatch(text, /plates's files are listed/);
+});
+
+test('only module specifiers are rewritten, never a string that reads the same', async t => {
+  const check = "import { main } from './plates/lib.mjs';\nconst value = { './plates/lib.mjs': 1 };\nconsole.log(value['./plates/lib.mjs'], await import('./plates/lib.mjs'));\n";
+  const root = await acme({ extra: { 'scripts/check.mjs': check } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  assert.equal(plannedTexts(root, plan).get('scripts/check.mjs'),
+    "import { main } from './lib.mjs';\nconst value = { './plates/lib.mjs': 1 };\nconsole.log(value['./plates/lib.mjs'], await import('./lib.mjs'));\n");
+  assert.deepEqual(specifierSpans("x = require('./a.cjs'); y['./a.cjs']").map(s => s.spec), ['./a.cjs']);
+});
+
+test('a managed file whose fate is a person\'s call is listed as needing a person on apply', async t => {
+  const root = await acme({
+    extra: { '.plates/plates.json': configWith({ practices: ['base', 'agents-md', 'phases', 'ci', 'night', 'cross-review'] }), '.agents/cross-review/REVIEW.md': '# Review\n' },
+    lock: { '.agents/cross-review/REVIEW.md': { practice: 'cross-review', sha256: 'x' } },
+  });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  assert.equal(fate(await planEject({ root }), '.agents/cross-review/REVIEW.md').fate, 'person');
+  const r = run(root, 'eject', '--apply', '--check-cmd', 'true', '--json');
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const person = JSON.parse(r.stdout).needsPerson.find(n => n.path === '.agents/cross-review/REVIEW.md');
+  assert.match(person.why, /cross-review survives eject or not/);
+  assert.match(exec('git', ['log', '-1', '--format=%B'], { cwd: root }).stdout, /- \.agents\/cross-review\/REVIEW\.md: cross-review survives eject or not/);
+  const again = await acme({
+    extra: { '.plates/plates.json': configWith({ practices: ['base', 'agents-md', 'phases', 'ci', 'night', 'cross-review'] }), '.agents/cross-review/REVIEW.md': '# Review\n' },
+    lock: { '.agents/cross-review/REVIEW.md': { practice: 'cross-review', sha256: 'x' } },
+  });
+  t.after(() => rm(again, { recursive: true, force: true }));
+  const text = run(again, 'eject', '--apply', '--check-cmd', 'true');
+  assert.doesNotMatch(text.stdout, /Nothing needs a person/);
+  assert.match(text.stdout, /\.agents\/cross-review\/REVIEW\.md: cross-review survives eject or not/);
+});
+
+test('an import that breaks its line before the specifier is still rewritten', async t => {
+  const lib = "import { weight } from\n  '../../src/anvil.mjs';\nexport { name } from './names.mjs';\nexport const main = () => weight;\n";
+  const root = await acme({ extra: { 'scripts/plates/lib.mjs': lib } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  assert.equal(fate(plan, 'scripts/plates/lib.mjs').to, 'scripts/lib.mjs');
+  const ref = plan.references.find(r => r.path === 'scripts/plates/lib.mjs' && r.kind === 'import');
+  assert.equal(ref.line, 2);
+  assert.equal(ref.rewrite, "import '../../src/anvil.mjs' → '../src/anvil.mjs' (src/anvil.mjs → src/anvil.mjs)");
+  assert.equal(plannedTexts(root, plan).get('scripts/plates/lib.mjs'), lib.replace("'../../src/anvil.mjs'", "'../src/anvil.mjs'"));
+  assert.deepEqual(lineCol('ab\ncd', 4), { line: 1, col: 1 });
 });

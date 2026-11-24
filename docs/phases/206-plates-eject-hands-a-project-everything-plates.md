@@ -4,7 +4,7 @@ since: 2026-11-23
 goal: G9
 spec: 2
 depends: [200]
-note: "Increment 1 built: plates eject --dry-run plans every managed file's fate and every plates reference, read-only; rehearsed on study. Next: apply it and open the eject PR."
+note: "Increments 1 and 2 built: plates eject plans, applies on a branch, refuses to strand open phases unless --keep-phases, and passes the project's own check in a clean clone; rehearsed on a copy of study. Waits on study's eject PR."
 evidence: []
 ---
 
@@ -42,7 +42,7 @@ practice:
 - **Recurring.** For each night job the owner wants to keep, eject proposes a Unison
   Recurring item. It creates none without a yes.
 - **Refusals.** Eject refuses while a phase is open and not imported (phase 205), unless
-  the owner passes `--keep-phases`, which keeps the phases practice as owned files.
+  the owner passes `--keep-phases`, which keeps the open phase files in `docs/phases/` as history (the phases practice's tooling still goes, since `scripts/roadmap.mjs` reads the `.plates/` eject removes).
 
 Out of scope: Unison's Recurring and planned items (Unison work), and deleting history.
 Evidence and phase files stay.
@@ -58,8 +58,8 @@ Evidence and phase files stay.
 ## Acceptance
 
 - [x] The dry run gives every managed file a fate by practice and finds each reference to plates in owned files, including a workflow and a `package.json` test reporter: `tests/eject.test.mjs: "the plan finds every managed file and every reference to plates"`.
-- [ ] After eject, no file references `scripts/plates/` or `.plates/`, and the project's own check passes in a clean clone: `tests/eject.test.mjs: "an ejected project's own check passes without plates"`.
-- [ ] Eject refuses while a phase is open and not imported, unless told to keep the phases: `tests/eject.test.mjs: "eject refuses to strand open phases"`.
+- [x] After eject, no file references `scripts/plates/` or `.plates/`, and the project's own check passes in a clean clone: `tests/eject.test.mjs: "an ejected project's own check passes without plates"`.
+- [x] Eject refuses while a phase is open and not imported, unless told to keep the phases: `tests/eject.test.mjs: "eject refuses to strand open phases"`.
 
 ## Real surfaces
 
@@ -78,8 +78,9 @@ By hand: none.
 
 ## Next action
 
-Increment 2: apply the plan on a branch, run the project's own `npm run check` in a clean clone, and open the eject PR only if it passes; build the open-phase refusal with `--keep-phases` (box 3). First on study, with `--keep-phases`.
+Open study's eject PR (`plates eject --apply --keep-phases` in a fresh clone, then the four comments that need a person) for the owner to review; once merged, study runs on Unison alone for a week (the runbook's step 12).
 
 ## Trajectory
 - **2026-11-23** The owner chose to eject study before Unison has planned items with proof (spec M4/M5): its open phases stay as Unison backlog items and the phase files stay as history, so study ejects with `--keep-phases`. Weekly Recurring tasks (dependency and health, performance, test and build time) replace the night's agent work there.
 - **2026-11-23** A real dependency outranks the practice's default fate, but a plates call with a plain fallback is not a dependency: study keeps no plates script, because keeping `gate.mjs` would have kept about eight scripts that read the `.plates/` eject removes.
+- **2026-11-23** `--keep-phases` keeps the phase files as history but not the phases tooling: `scripts/roadmap.mjs` reads `.plates/plates.json`, so keeping it would break `roadmap:check` once `.plates/` goes. Rehearsed on a copy of study: 57 files changed, the clean-clone `npm ci && npm run check` passed, four comments need a person.

@@ -113,8 +113,9 @@ When a plate's work lives in Unison, the plate can leave plates (phase 206).
 The first step only reads:
 
 ```
-plates eject --dry-run          # the plan; writes nothing
-plates eject --dry-run --json   # the same, as data
+plates eject --dry-run                  # the plan; writes nothing
+plates eject --apply                    # commit it on branch plates-eject, then check a clean clone
+plates eject --apply --keep-phases      # the same, keeping open phase files as history
 ```
 
 The plan gives every file plates manages a fate: keep (the project's own),
@@ -131,5 +132,16 @@ lock does not name, a kept file that needs a plates script that is missing.
 A kept file that calls a plates script keeps that script and everything it
 imports, moved out of `scripts/plates/`. A call with a plain fallback (an
 `if [ -f scripts/plates/… ]` chain whose `else` is `npm run check`) becomes
-the fallback instead. Applying the plan (a branch, the project's own check in
-a clean clone, then one PR) is the next increment.
+the fallback instead.
+
+An open phase (not built, lived-in or superseded) is refused until it is in
+Unison; `--keep-phases` keeps the phase files in `docs/phases/` as history.
+`--apply` makes the plan one commit on a new branch (`--branch <name>`, default
+`plates-eject`), never on an existing one, and leaves "needs a person" lines
+for you, listed in the commit body. It then clones the branch into a temporary
+directory and runs `npm ci` and `npm run check` there; a failure keeps the
+branch for inspection. With no root `package-lock.json` the clean check is
+skipped and says so; `--check-cmd "<cmd>"` runs your own setup and check in the
+clone instead. `--drop-night` drops every `plates-*.yml` workflow, and what only
+it reaches, even when a kept file names it. It never pushes; push the branch
+and open the PR yourself.
