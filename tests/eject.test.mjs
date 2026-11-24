@@ -8,7 +8,7 @@ import { join, dirname, resolve } from 'node:path';
 import { run as exec } from './helpers/run.mjs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { planEject, workflowSteps, scheduledJob, movedTo, plannedTexts, resourcesOf, dedentTo, substituteOnce, specifierSpans } from '../lib/eject.mjs';
+import { planEject, workflowSteps, scheduledJob, movedTo, plannedTexts, resourcesOf, dedentTo, substituteOnce, specifierSpans, lineCol } from '../lib/eject.mjs';
 
 const BIN = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'plates.mjs');
 
@@ -1094,4 +1094,17 @@ test('a managed file whose fate is a person\'s call is listed as needing a perso
   const text = run(again, 'eject', '--apply', '--check-cmd', 'true');
   assert.doesNotMatch(text.stdout, /Nothing needs a person/);
   assert.match(text.stdout, /\.agents\/cross-review\/REVIEW\.md: cross-review survives eject or not/);
+});
+
+test('an import that breaks its line before the specifier is still rewritten', async t => {
+  const lib = "import { weight } from\n  '../../src/anvil.mjs';\nexport { name } from './names.mjs';\nexport const main = () => weight;\n";
+  const root = await acme({ extra: { 'scripts/plates/lib.mjs': lib } });
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const plan = await planEject({ root });
+  assert.equal(fate(plan, 'scripts/plates/lib.mjs').to, 'scripts/lib.mjs');
+  const ref = plan.references.find(r => r.path === 'scripts/plates/lib.mjs' && r.kind === 'import');
+  assert.equal(ref.line, 2);
+  assert.equal(ref.rewrite, "import '../../src/anvil.mjs' → '../src/anvil.mjs' (src/anvil.mjs → src/anvil.mjs)");
+  assert.equal(plannedTexts(root, plan).get('scripts/plates/lib.mjs'), lib.replace("'../../src/anvil.mjs'", "'../src/anvil.mjs'"));
+  assert.deepEqual(lineCol('ab\ncd', 4), { line: 1, col: 1 });
 });
